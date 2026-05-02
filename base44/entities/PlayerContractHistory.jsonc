@@ -1,0 +1,37 @@
+{
+  "name": "PlayerContractHistory",
+  "type": "object",
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "title": "Contract ID",
+      "description": "References PlayerContract.id"
+    },
+    "action_type": {
+      "type": "string",
+      "title": "Action Type",
+      "enum": [
+        "offered",
+        "accepted",
+        "rejected",
+        "renewed",
+        "terminated",
+        "expired",
+        "completed"
+      ]
+    },
+    "action_by": {
+      "type": "string",
+      "title": "Action By (User ID)",
+      "description": "References Player.id of the user who performed the action"
+    },
+    "action_note": {
+      "type": "string",
+      "title": "Action Note"
+    }
+  },
+  "required": [
+    "contract_id",
+    "action_type"
+  ]
+}

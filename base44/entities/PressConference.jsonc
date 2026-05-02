@@ -1,0 +1,90 @@
+{
+  "name": "PressConference",
+  "type": "object",
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "title": "Match/Tournament ID"
+    },
+    "context": {
+      "type": "string",
+      "title": "Context",
+      "enum": [
+        "match",
+        "tournament_winner"
+      ],
+      "default": "match"
+    },
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL"
+    },
+    "player_id": {
+      "type": "string",
+      "title": "Player ID"
+    },
+    "player_name": {
+      "type": "string",
+      "title": "Player Name"
+    },
+    "player_avatar_url": {
+      "type": "string",
+      "title": "Player Avatar URL"
+    },
+    "opponent_name": {
+      "type": "string",
+      "title": "Opponent Name"
+    },
+    "match_name": {
+      "type": "string",
+      "title": "Match Name"
+    },
+    "tournament_name": {
+      "type": "string",
+      "title": "Tournament Name"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "skipped"
+      ],
+      "default": "pending"
+    },
+    "selected_question_ids": {
+      "type": "array",
+      "title": "Selected Question IDs",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "answers": {
+      "type": "array",
+      "title": "Answers",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "match_id",
+    "club_id"
+  ]
+}

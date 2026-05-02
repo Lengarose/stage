@@ -1,0 +1,83 @@
+{
+  "name": "Post",
+  "type": "object",
+  "properties": {
+    "author_email": {
+      "type": "string",
+      "title": "Author Email"
+    },
+    "author_name": {
+      "type": "string",
+      "title": "Author Name"
+    },
+    "author_avatar": {
+      "type": "string",
+      "title": "Author Avatar URL"
+    },
+    "content": {
+      "type": "string",
+      "title": "Post Content"
+    },
+    "media_url": {
+      "type": "string",
+      "title": "Media URL"
+    },
+    "media_cover_url": {
+      "type": "string",
+      "title": "Video Cover URL"
+    },
+    "media_type": {
+      "type": "string",
+      "title": "Media Type",
+      "enum": [
+        "image",
+        "video",
+        "reel",
+        "none"
+      ],
+      "default": "none"
+    },
+    "likes": {
+      "type": "array",
+      "title": "Likes (emails)",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "likes_count": {
+      "type": "number",
+      "title": "Likes Count",
+      "default": 0
+    },
+    "comments_count": {
+      "type": "number",
+      "title": "Comments Count",
+      "default": 0
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID (optional)"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID (optional)"
+    },
+    "tags": {
+      "type": "array",
+      "title": "Tags",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "author_email",
+    "content"
+  ]
+}

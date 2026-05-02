@@ -1,0 +1,255 @@
+{
+  "name": "Tournament",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Tournament Name"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "type": {
+      "type": "string",
+      "title": "Tournament Type",
+      "enum": [
+        "knockout",
+        "league",
+        "group_stage",
+        "double_elimination",
+        "swiss",
+        "swiss_ucl"
+      ]
+    },
+    "participant_type": {
+      "type": "string",
+      "title": "Participant Type",
+      "enum": [
+        "club",
+        "player"
+      ],
+      "default": "club"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": [
+        "PlayStation",
+        "Xbox",
+        "PC",
+        "Cross-Platform"
+      ]
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "enum": [
+        "Europe",
+        "North America",
+        "South America",
+        "Asia",
+        "Oceania",
+        "Africa",
+        "Middle East",
+        "Global"
+      ]
+    },
+    "max_teams": {
+      "type": "number",
+      "title": "Max Teams",
+      "enum": [
+        4,
+        8,
+        16,
+        20,
+        32,
+        36,
+        64
+      ]
+    },
+    "entry_credits": {
+      "type": "number",
+      "title": "Entry Credits Requirement",
+      "default": 50
+    },
+    "entry_fee_stc": {
+      "type": "number",
+      "title": "Entry Fee (STC)",
+      "default": 0,
+      "description": "Minimum 100, maximum 1,000,000"
+    },
+    "prize_description": {
+      "type": "string",
+      "title": "Prize Description"
+    },
+    "prize_pool_stc": {
+      "type": "number",
+      "title": "Total Prize Pool (STC)",
+      "default": 0
+    },
+    "prize_winner_stc": {
+      "type": "number",
+      "title": "Winner Prize (STC)",
+      "default": 0
+    },
+    "prize_runner_up_stc": {
+      "type": "number",
+      "title": "Runner-Up Prize (STC)",
+      "default": 0
+    },
+    "prize_semi_final_stc": {
+      "type": "number",
+      "title": "Semi-Final Prize (STC)",
+      "default": 0
+    },
+    "prize_participation_stc": {
+      "type": "number",
+      "title": "Participation Prize (STC)",
+      "default": 0
+    },
+    "custom_rules": {
+      "type": "string",
+      "title": "Custom Rules"
+    },
+    "rules_file_url": {
+      "type": "string",
+      "title": "Rules File URL"
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country Code"
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date",
+      "format": "date-time"
+    },
+    "organizer_email": {
+      "type": "string",
+      "title": "Organizer Email"
+    },
+    "creator_email": {
+      "type": "string",
+      "title": "Creator Email"
+    },
+    "creator_id": {
+      "type": "string",
+      "title": "Creator Player ID"
+    },
+    "creator_gamertag": {
+      "type": "string",
+      "title": "Creator Gamertag"
+    },
+    "registered_clubs": {
+      "type": "array",
+      "title": "Registered Club IDs",
+      "items": {
+        "type": "string"
+      }
+    },
+    "registered_players": {
+      "type": "array",
+      "title": "Registered Player IDs",
+      "items": {
+        "type": "string"
+      }
+    },
+    "win_credits": {
+      "type": "number",
+      "title": "Win Credits",
+      "default": 150
+    },
+    "win_credits_awarded": {
+      "type": "boolean",
+      "title": "Win Credits Awarded",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "registration",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "archived"
+      ],
+      "default": "registration"
+    },
+    "current_round": {
+      "type": "number",
+      "title": "Current Round",
+      "default": 1
+    },
+    "total_rounds": {
+      "type": "number",
+      "title": "Total Rounds"
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID"
+    },
+    "winner_club_name": {
+      "type": "string",
+      "title": "Winner Club Name"
+    },
+    "banner_url": {
+      "type": "string",
+      "title": "Banner URL"
+    },
+    "banner_color": {
+      "type": "string",
+      "title": "Neutral Banner Color"
+    },
+    "banner_position": {
+      "type": "string",
+      "title": "Banner Position",
+      "default": "50% 50%"
+    },
+    "trophy_url": {
+      "type": "string",
+      "title": "Trophy Image URL (PNG)"
+    },
+    "num_groups": {
+      "type": "number",
+      "title": "Number of Groups",
+      "default": 2
+    },
+    "swiss_rounds": {
+      "type": "number",
+      "title": "Swiss Rounds",
+      "default": 5
+    },
+    "season": {
+      "type": "string",
+      "title": "Season (e.g. Season 1, 2024)"
+    },
+    "ucl_phase": {
+      "type": "string",
+      "title": "UCL Phase",
+      "enum": [
+        "league",
+        "playoff",
+        "r16",
+        "qf",
+        "sf",
+        "final"
+      ],
+      "default": "league"
+    }
+  },
+  "required": [
+    "name",
+    "type",
+    "platform",
+    "max_teams",
+    "start_date",
+    "organizer_email"
+  ]
+}

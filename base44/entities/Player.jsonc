@@ -1,0 +1,339 @@
+{
+  "name": "Player",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "properties": {
+    "gamertag": {
+      "type": "string",
+      "title": "Gamertag"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "position": {
+      "type": "string",
+      "title": "Position",
+      "enum": [
+        "GK",
+        "CB",
+        "LB",
+        "RB",
+        "CDM",
+        "CM",
+        "CAM",
+        "LM",
+        "RM",
+        "LW",
+        "RW",
+        "ST",
+        "CF"
+      ]
+    },
+    "overall_rating": {
+      "type": "number",
+      "title": "Overall Rating",
+      "default": 70
+    },
+    "avatar_url": {
+      "type": "string",
+      "title": "Avatar URL"
+    },
+    "avatar_position": {
+      "type": "string",
+      "title": "Avatar Position",
+      "default": "50% 50%"
+    },
+    "avatar_zoom": {
+      "type": "number",
+      "title": "Avatar Zoom (%)",
+      "default": 150
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": [
+        "PlayStation",
+        "Xbox",
+        "PC"
+      ]
+    },
+    "country": {
+      "type": "string",
+      "title": "Country"
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country Code"
+    },
+    "bio": {
+      "type": "string",
+      "title": "Bio"
+    },
+    "banner_id": {
+      "type": "string",
+      "title": "Active Banner ID",
+      "default": "banner_default"
+    },
+    "banner_position": {
+      "type": "string",
+      "title": "Banner Position",
+      "default": "50% 50%"
+    },
+    "credits": {
+      "type": "number",
+      "title": "STAGE Credits",
+      "default": 500,
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "stc": {
+      "type": "number",
+      "title": "STC (Stage Currency)",
+      "default": 0,
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "subscription": {
+      "type": "string",
+      "title": "Subscription Tier",
+      "enum": [
+        "rookie",
+        "pro",
+        "elite"
+      ],
+      "default": "rookie",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "subscription_expires_at": {
+      "type": "string",
+      "title": "Subscription Expires At",
+      "format": "date-time",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "subscription_billing": {
+      "type": "string",
+      "title": "Subscription Billing Cycle",
+      "enum": [
+        "monthly",
+        "yearly"
+      ],
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "title": "Stripe Subscription ID",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "title": "Stripe Customer ID",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "is_verified": {
+      "type": "boolean",
+      "title": "Verified (Special)",
+      "default": false,
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "goals_player": {
+      "type": "number",
+      "title": "Goals as Player",
+      "default": 0
+    },
+    "goals": {
+      "type": "number",
+      "title": "Goals",
+      "default": 0
+    },
+    "assists": {
+      "type": "number",
+      "title": "Assists",
+      "default": 0
+    },
+    "matches_played": {
+      "type": "number",
+      "title": "Matches Played",
+      "default": 0
+    },
+    "matches_played_club": {
+      "type": "number",
+      "title": "Club Matches Played",
+      "default": 0
+    },
+    "wins_count": {
+      "type": "number",
+      "title": "Wins",
+      "default": 0
+    },
+    "wins_club": {
+      "type": "number",
+      "title": "Club Wins",
+      "default": 0
+    },
+    "losses_count": {
+      "type": "number",
+      "title": "Losses",
+      "default": 0
+    },
+    "losses_club": {
+      "type": "number",
+      "title": "Club Losses",
+      "default": 0
+    },
+    "draws_count": {
+      "type": "number",
+      "title": "Draws",
+      "default": 0
+    },
+    "draws_club": {
+      "type": "number",
+      "title": "Club Draws",
+      "default": 0
+    },
+    "clean_sheets": {
+      "type": "number",
+      "title": "Clean Sheets",
+      "default": 0
+    },
+    "man_of_the_match": {
+      "type": "number",
+      "title": "Man of the Match Awards",
+      "default": 0
+    },
+    "avg_match_rating": {
+      "type": "number",
+      "title": "Avg Match Rating",
+      "default": 6
+    },
+    "club_roles": {
+      "type": "array",
+      "title": "Club Roles",
+      "items": {
+        "type": "string",
+        "enum": [
+          "president",
+          "captain",
+          "vice-captain",
+          "member"
+        ]
+      },
+      "default": [
+        "member"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "title": "Primary Role (legacy)",
+      "enum": [
+        "captain",
+        "vice-captain",
+        "member"
+      ],
+      "default": "member"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive",
+        "free_agent"
+      ],
+      "default": "active"
+    },
+    "dressing_room_seat": {
+      "type": "number",
+      "title": "Dressing Room Seat"
+    },
+    "is_ready": {
+      "type": "boolean",
+      "title": "Is Ready",
+      "default": false
+    },
+    "notification_settings": {
+      "type": "object",
+      "title": "Notification Settings",
+      "description": "Per-type notification preferences. Missing keys default to ON.",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    }
+  },
+  "required": [
+    "gamertag",
+    "email",
+    "position",
+    "platform"
+  ]
+}

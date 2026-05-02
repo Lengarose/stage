@@ -1,0 +1,48 @@
+{
+  "name": "JoinRequest",
+  "type": "object",
+  "properties": {
+    "player_id": {
+      "type": "string",
+      "title": "Player ID"
+    },
+    "player_email": {
+      "type": "string",
+      "title": "Player Email"
+    },
+    "player_gamertag": {
+      "type": "string",
+      "title": "Player Gamertag"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "message": {
+      "type": "string",
+      "title": "Message"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "discuss"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "player_id",
+    "player_email",
+    "player_gamertag",
+    "club_id",
+    "club_name"
+  ]
+}

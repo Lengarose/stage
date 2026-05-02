@@ -1,0 +1,70 @@
+{
+  "name": "ChatMessage",
+  "type": "object",
+  "properties": {
+    "channel": {
+      "type": "string",
+      "title": "Channel",
+      "enum": [
+        "global",
+        "club",
+        "tournament",
+        "match_schedule"
+      ]
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "sender_email": {
+      "type": "string",
+      "title": "Sender Email"
+    },
+    "sender_name": {
+      "type": "string",
+      "title": "Sender Name"
+    },
+    "sender_avatar": {
+      "type": "string",
+      "title": "Sender Avatar URL"
+    },
+    "content": {
+      "type": "string",
+      "title": "Content"
+    }
+  },
+  "required": [
+    "channel",
+    "sender_email",
+    "sender_name",
+    "content"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "sender_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "sender_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

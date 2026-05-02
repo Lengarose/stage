@@ -1,0 +1,90 @@
+{
+  "name": "DirectMessage",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        {
+          "sender_email": "{{user.email}}"
+        },
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "sender_email": "{{user.email}}"
+        },
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "sender_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "title": "Conversation ID (sorted emails)"
+    },
+    "sender_email": {
+      "type": "string",
+      "title": "Sender Email"
+    },
+    "sender_name": {
+      "type": "string",
+      "title": "Sender Name"
+    },
+    "recipient_email": {
+      "type": "string",
+      "title": "Recipient Email"
+    },
+    "recipient_name": {
+      "type": "string",
+      "title": "Recipient Name"
+    },
+    "content": {
+      "type": "string",
+      "title": "Content"
+    },
+    "read": {
+      "type": "boolean",
+      "title": "Read",
+      "default": false
+    },
+    "media_url": {
+      "type": "string",
+      "title": "Media URL"
+    }
+  },
+  "required": [
+    "conversation_id",
+    "sender_email",
+    "recipient_email",
+    "content"
+  ]
+}

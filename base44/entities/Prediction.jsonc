@@ -1,0 +1,98 @@
+{
+  "name": "Prediction",
+  "type": "object",
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "title": "Match ID"
+    },
+    "live_match_id": {
+      "type": "string",
+      "title": "Live Match ID"
+    },
+    "predictor_email": {
+      "type": "string",
+      "title": "Predictor Email"
+    },
+    "predictor_name": {
+      "type": "string",
+      "title": "Predictor Name"
+    },
+    "predicted_home_score": {
+      "type": "number",
+      "title": "Predicted Home Score"
+    },
+    "predicted_away_score": {
+      "type": "number",
+      "title": "Predicted Away Score"
+    },
+    "predicted_scorer_email": {
+      "type": "string",
+      "title": "Predicted Scorer Email"
+    },
+    "predicted_assist_email": {
+      "type": "string",
+      "title": "Predicted Assist Email"
+    },
+    "predicted_motm_email": {
+      "type": "string",
+      "title": "Predicted MOTM Email"
+    },
+    "score_correct": {
+      "type": "boolean",
+      "title": "Score Correct",
+      "default": false
+    },
+    "scorer_correct": {
+      "type": "boolean",
+      "title": "Scorer Correct",
+      "default": false
+    },
+    "assist_correct": {
+      "type": "boolean",
+      "title": "Assist Correct",
+      "default": false
+    },
+    "motm_correct": {
+      "type": "boolean",
+      "title": "MOTM Correct",
+      "default": false
+    },
+    "score_points": {
+      "type": "number",
+      "title": "Score Points",
+      "default": 0
+    },
+    "scorer_points": {
+      "type": "number",
+      "title": "Scorer Points",
+      "default": 0
+    },
+    "assist_motm_points": {
+      "type": "number",
+      "title": "Assist + MOTM Points",
+      "default": 0
+    },
+    "total_points": {
+      "type": "number",
+      "title": "Total Points",
+      "default": 0
+    },
+    "match_status": {
+      "type": "string",
+      "title": "Match Status",
+      "enum": [
+        "pending",
+        "completed",
+        "scored"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "live_match_id",
+    "predictor_email",
+    "predicted_home_score",
+    "predicted_away_score"
+  ]
+}

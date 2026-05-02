@@ -1,0 +1,265 @@
+{
+  "name": "Match",
+  "type": "object",
+  "properties": {
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID"
+    },
+    "home_club_id": {
+      "type": "string",
+      "title": "Home Club ID"
+    },
+    "away_club_id": {
+      "type": "string",
+      "title": "Away Club ID"
+    },
+    "home_club_name": {
+      "type": "string",
+      "title": "Home Club Name"
+    },
+    "away_club_name": {
+      "type": "string",
+      "title": "Away Club Name"
+    },
+    "home_player_id": {
+      "type": "string",
+      "title": "Home Player ID"
+    },
+    "home_player_name": {
+      "type": "string",
+      "title": "Home Player Name"
+    },
+    "away_player_id": {
+      "type": "string",
+      "title": "Away Player ID"
+    },
+    "away_player_name": {
+      "type": "string",
+      "title": "Away Player Name"
+    },
+    "home_score": {
+      "type": "number",
+      "title": "Home Score",
+      "default": 0
+    },
+    "away_score": {
+      "type": "number",
+      "title": "Away Score",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "scheduled",
+        "in_progress",
+        "awaiting_confirmation",
+        "disputed",
+        "completed",
+        "forfeit"
+      ],
+      "default": "scheduled"
+    },
+    "mode": {
+      "type": "string",
+      "title": "Match Mode",
+      "enum": [
+        "club",
+        "solo"
+      ],
+      "default": "club"
+    },
+    "type": {
+      "type": "string",
+      "title": "Match Type (Legacy)",
+      "enum": [
+        "knockout",
+        "league",
+        "group_stage",
+        "double_elimination",
+        "swiss",
+        "swiss_ucl"
+      ],
+      "default": "knockout"
+    },
+    "stats_processed": {
+      "type": "boolean",
+      "title": "Stats Processed (idempotency guard)",
+      "default": false
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID"
+    },
+    "winner_club_name": {
+      "type": "string",
+      "title": "Winner Club Name"
+    },
+    "winner_player_id": {
+      "type": "string",
+      "title": "Winner Player ID"
+    },
+    "winner_player_name": {
+      "type": "string",
+      "title": "Winner Player Name"
+    },
+    "loser_club_id": {
+      "type": "string",
+      "title": "Loser Club ID"
+    },
+    "loser_club_name": {
+      "type": "string",
+      "title": "Loser Club Name"
+    },
+    "loser_player_id": {
+      "type": "string",
+      "title": "Loser Player ID"
+    },
+    "loser_player_name": {
+      "type": "string",
+      "title": "Loser Player Name"
+    },
+    "round": {
+      "type": "number",
+      "title": "Round Number",
+      "default": 1
+    },
+    "group": {
+      "type": "number",
+      "title": "Group Number"
+    },
+    "bracket_side": {
+      "type": "string",
+      "title": "Bracket Side",
+      "enum": [
+        "winners",
+        "losers",
+        "grand_final"
+      ]
+    },
+    "scheduled_date": {
+      "type": "string",
+      "title": "Scheduled Date",
+      "format": "date-time"
+    },
+    "result_home_submitted": {
+      "type": "boolean",
+      "title": "Home Result Submitted",
+      "default": false
+    },
+    "result_away_submitted": {
+      "type": "boolean",
+      "title": "Away Result Submitted",
+      "default": false
+    },
+    "home_submitted_score": {
+      "type": "string",
+      "title": "Home Submitted Score"
+    },
+    "away_submitted_score": {
+      "type": "string",
+      "title": "Away Submitted Score"
+    },
+    "first_submission_at": {
+      "type": "string",
+      "title": "First Submission Timestamp",
+      "format": "date-time"
+    },
+    "first_submitter_club_id": {
+      "type": "string",
+      "title": "First Submitter Club ID"
+    },
+    "video_url": {
+      "type": "string",
+      "title": "Match Video URL"
+    },
+    "proof_url": {
+      "type": "string",
+      "title": "Proof Screenshot/URL"
+    },
+    "stream_url": {
+      "type": "string",
+      "title": "Live Stream URL (Twitch/Kick/YouTube)"
+    },
+    "home_stream_url": {
+      "type": "string",
+      "title": "Home Team Stream URL"
+    },
+    "away_stream_url": {
+      "type": "string",
+      "title": "Away Team Stream URL"
+    },
+    "stream_embed_html": {
+      "type": "string",
+      "title": "Stream Embed HTML (iframe code)"
+    },
+    "forfeit_claimed_by": {
+      "type": "string",
+      "title": "Forfeit Claimed By Club ID"
+    },
+    "forfeit_proof_url": {
+      "type": "string",
+      "title": "Forfeit Proof URL"
+    },
+    "forfeit_status": {
+      "type": "string",
+      "title": "Forfeit Status",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Match Notes"
+    },
+    "wager_stc": {
+      "type": "number",
+      "title": "Wager Amount (STC each side)",
+      "default": 0
+    },
+    "wager_status": {
+      "type": "string",
+      "title": "Wager Status",
+      "enum": [
+        "none",
+        "pending_acceptance",
+        "active",
+        "settled",
+        "refunded",
+        "declined",
+        "cancelled",
+        "settled_club"
+      ],
+      "default": "none"
+    },
+    "wager_home_locked": {
+      "type": "boolean",
+      "title": "Home Wager Locked",
+      "default": false
+    },
+    "wager_away_locked": {
+      "type": "boolean",
+      "title": "Away Wager Locked",
+      "default": false
+    },
+    "wager_home_player_id": {
+      "type": "string",
+      "title": "Wager Home Player ID"
+    },
+    "wager_away_player_id": {
+      "type": "string",
+      "title": "Wager Away Player ID"
+    }
+  },
+  "required": [
+    "tournament_id",
+    "round"
+  ]
+}

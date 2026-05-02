@@ -1,0 +1,277 @@
+{
+  "name": "Club",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "club_captain_or_president": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "club_captain_or_president": "{{user.email}}"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "tag": {
+      "type": "string",
+      "title": "Club Tag",
+      "maxLength": 5
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo URL"
+    },
+    "logo_position": {
+      "type": "string",
+      "title": "Logo Position",
+      "default": "50% 50%"
+    },
+    "banner_id": {
+      "type": "string",
+      "title": "Active Banner ID",
+      "default": "banner_default"
+    },
+    "banner_position": {
+      "type": "string",
+      "title": "Banner Position",
+      "default": "50% 50%"
+    },
+    "logo_frame_id": {
+      "type": "string",
+      "title": "Active Logo Frame ID"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": [
+        "PlayStation",
+        "Xbox",
+        "PC"
+      ]
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "enum": [
+        "Europe",
+        "North America",
+        "South America",
+        "Asia",
+        "Oceania",
+        "Africa",
+        "Middle East"
+      ]
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country Code"
+    },
+    "owner_email": {
+      "type": "string",
+      "title": "Owner Email"
+    },
+    "formation": {
+      "type": "string",
+      "title": "Formation",
+      "default": "4-3-3"
+    },
+    "lineup": {
+      "type": "array",
+      "title": "Starting Lineup",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "wins": {
+      "type": "number",
+      "title": "Wins",
+      "default": 0
+    },
+    "losses": {
+      "type": "number",
+      "title": "Losses",
+      "default": 0
+    },
+    "draws": {
+      "type": "number",
+      "title": "Draws",
+      "default": 0
+    },
+    "goals_scored": {
+      "type": "number",
+      "title": "Goals Scored",
+      "default": 0
+    },
+    "goals_conceded": {
+      "type": "number",
+      "title": "Goals Conceded",
+      "default": 0
+    },
+    "rating": {
+      "type": "number",
+      "title": "Visible Rating (R)",
+      "default": 1500
+    },
+    "peak_rating": {
+      "type": "number",
+      "title": "Peak Rating",
+      "default": 1500
+    },
+    "matches_ranked": {
+      "type": "number",
+      "title": "Ranked Matches Played",
+      "default": 0
+    },
+    "is_provisional": {
+      "type": "boolean",
+      "title": "Provisional (< 10 ranked matches)",
+      "default": true
+    },
+    "tier": {
+      "type": "string",
+      "title": "Tier",
+      "enum": [
+        "Bronze",
+        "Silver",
+        "Gold",
+        "Elite",
+        "World Class"
+      ],
+      "default": "Silver"
+    },
+    "form": {
+      "type": "array",
+      "title": "Last 5 Results",
+      "items": {
+        "type": "string",
+        "enum": [
+          "W",
+          "D",
+          "L"
+        ]
+      },
+      "default": []
+    },
+    "win_streak": {
+      "type": "number",
+      "title": "Current Win Streak",
+      "default": 0
+    },
+    "loss_streak": {
+      "type": "number",
+      "title": "Current Loss Streak",
+      "default": 0
+    },
+    "last_ranked_match_date": {
+      "type": "string",
+      "title": "Last Ranked Match Date",
+      "format": "date-time"
+    },
+    "strength_of_schedule": {
+      "type": "number",
+      "title": "Avg Opponent Rating",
+      "default": 1500
+    },
+    "ranked_opponents_played": {
+      "type": "number",
+      "title": "Total Opponent Rating Sum (for SoS)",
+      "default": 0
+    },
+    "trophies": {
+      "type": "number",
+      "title": "Trophies",
+      "default": 0
+    },
+    "credits": {
+      "type": "number",
+      "title": "Club Credits",
+      "default": 0
+    },
+    "stc": {
+      "type": "number",
+      "title": "Club STC Balance",
+      "default": 10000000
+    },
+    "wage_budget_stc": {
+      "type": "number",
+      "title": "Weekly Wage Budget (STC)",
+      "default": 1000000
+    },
+    "transfer_budget_stc": {
+      "type": "number",
+      "title": "Transfer Budget (STC)",
+      "default": 5000000
+    },
+    "stadium_name": {
+      "type": "string",
+      "title": "Stadium Name"
+    },
+    "stadium_capacity": {
+      "type": "number",
+      "title": "Stadium Capacity",
+      "default": 20000
+    },
+    "stadium_level": {
+      "type": "number",
+      "title": "Stadium Level (0=Pro, 1=Elite, 2=Iconic)",
+      "default": 0
+    },
+    "achievements": {
+      "type": "array",
+      "title": "Achievements",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "inactive",
+        "disbanded"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "tag",
+    "platform",
+    "region",
+    "owner_email"
+  ]
+}

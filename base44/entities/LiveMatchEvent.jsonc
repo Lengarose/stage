@@ -1,0 +1,54 @@
+{
+  "name": "LiveMatchEvent",
+  "type": "object",
+  "properties": {
+    "live_match_id": {
+      "type": "string",
+      "title": "Live Match ID"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "scorer_email": {
+      "type": "string",
+      "title": "Scorer Email"
+    },
+    "scorer_gamertag": {
+      "type": "string",
+      "title": "Scorer Gamertag"
+    },
+    "assist_email": {
+      "type": "string",
+      "title": "Assist Email"
+    },
+    "assist_gamertag": {
+      "type": "string",
+      "title": "Assist Gamertag"
+    },
+    "is_penalty": {
+      "type": "boolean",
+      "title": "Penalty Goal",
+      "default": false
+    },
+    "is_own_goal": {
+      "type": "boolean",
+      "title": "Own Goal",
+      "default": false
+    },
+    "minute": {
+      "type": "number",
+      "title": "Minute"
+    }
+  },
+  "required": [
+    "live_match_id",
+    "club_id",
+    "scorer_email",
+    "minute"
+  ]
+}

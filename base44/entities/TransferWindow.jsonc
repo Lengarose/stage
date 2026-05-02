@@ -1,0 +1,41 @@
+{
+  "name": "TransferWindow",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "title": "Window Status",
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "default": "closed"
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date",
+      "format": "date-time"
+    },
+    "label": {
+      "type": "string",
+      "title": "Label (e.g. Summer 2026, January 2027)"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    },
+    "transfers_executed": {
+      "type": "number",
+      "title": "Transfers Executed on Open",
+      "default": 0
+    }
+  },
+  "required": [
+    "status"
+  ]
+}

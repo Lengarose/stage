@@ -1,0 +1,101 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "recipient_email": {
+      "type": "string",
+      "title": "Recipient Email"
+    },
+    "type": {
+      "type": "string",
+      "title": "Type",
+      "enum": [
+        "contract_offer",
+        "contract_accepted",
+        "contract_rejected",
+        "contract_terminated",
+        "contract_expired",
+        "contract_completed",
+        "match_scheduled",
+        "match_result",
+        "match_reminder",
+        "result_submitted",
+        "result_confirmed",
+        "join_request",
+        "join_approved",
+        "join_rejected",
+        "club_update",
+        "invite",
+        "message",
+        "tournament_start",
+        "tournament_complete",
+        "announcement"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "body": {
+      "type": "string",
+      "title": "Body"
+    },
+    "link": {
+      "type": "string",
+      "title": "Link (URL path)"
+    },
+    "read": {
+      "type": "boolean",
+      "title": "Read",
+      "default": false
+    },
+    "related_id": {
+      "type": "string",
+      "title": "Related Entity ID"
+    }
+  },
+  "required": [
+    "recipient_email",
+    "type",
+    "title"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "name": "TrophyPlacement",
+  "type": "object",
+  "properties": {
+    "owner_id": {
+      "type": "string",
+      "title": "Club or Player ID"
+    },
+    "owner_type": {
+      "type": "string",
+      "title": "Owner Type",
+      "enum": [
+        "club",
+        "player"
+      ]
+    },
+    "trophy_item_id": {
+      "type": "string",
+      "title": "Trophy Item ID (from TrophyItem library)"
+    },
+    "trophy_image_url": {
+      "type": "string",
+      "title": "Trophy Image URL (cached)"
+    },
+    "trophy_name": {
+      "type": "string",
+      "title": "Trophy Name (cached)"
+    },
+    "x_percent": {
+      "type": "number",
+      "title": "X Position (% of cabinet width)",
+      "default": 50
+    },
+    "y_percent": {
+      "type": "number",
+      "title": "Y Position (% of cabinet height)",
+      "default": 50
+    },
+    "scale": {
+      "type": "number",
+      "title": "Scale (1 = default)",
+      "default": 1
+    },
+    "won_tournament_ids": {
+      "type": "array",
+      "title": "Tournament IDs that unlocked this",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "win_count": {
+      "type": "number",
+      "title": "Number of times won",
+      "default": 1
+    }
+  },
+  "required": [
+    "owner_id",
+    "owner_type",
+    "trophy_item_id"
+  ]
+}

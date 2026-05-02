@@ -1,0 +1,151 @@
+{
+  "name": "LiveMatch",
+  "type": "object",
+  "properties": {
+    "home_club_id": {
+      "type": "string",
+      "title": "Home Club ID"
+    },
+    "home_club_name": {
+      "type": "string",
+      "title": "Home Club Name"
+    },
+    "away_club_id": {
+      "type": "string",
+      "title": "Away Club ID"
+    },
+    "away_club_name": {
+      "type": "string",
+      "title": "Away Club Name"
+    },
+    "home_player_id": {
+      "type": "string",
+      "title": "Home Player ID"
+    },
+    "home_player_name": {
+      "type": "string",
+      "title": "Home Player Name"
+    },
+    "away_player_id": {
+      "type": "string",
+      "title": "Away Player ID"
+    },
+    "away_player_name": {
+      "type": "string",
+      "title": "Away Player Name"
+    },
+    "match_type": {
+      "type": "string",
+      "title": "Match Type",
+      "enum": [
+        "friendly",
+        "ranked",
+        "tournament"
+      ],
+      "default": "friendly"
+    },
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID (if applicable)"
+    },
+    "home_score": {
+      "type": "number",
+      "title": "Home Score",
+      "default": 0
+    },
+    "away_score": {
+      "type": "number",
+      "title": "Away Score",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "waiting",
+        "live",
+        "full_time",
+        "confirmed",
+        "disputed"
+      ],
+      "default": "waiting"
+    },
+    "stats_processed": {
+      "type": "boolean",
+      "title": "Stats Processed (idempotency guard)",
+      "default": false
+    },
+    "home_confirmed": {
+      "type": "boolean",
+      "title": "Home Club Confirmed",
+      "default": false
+    },
+    "away_confirmed": {
+      "type": "boolean",
+      "title": "Away Club Confirmed",
+      "default": false
+    },
+    "started_at": {
+      "type": "string",
+      "title": "Started At",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": "string",
+      "title": "Ended At",
+      "format": "date-time"
+    },
+    "home_formation": {
+      "type": "string",
+      "title": "Home Formation"
+    },
+    "away_formation": {
+      "type": "string",
+      "title": "Away Formation"
+    },
+    "home_lineup": {
+      "type": "array",
+      "title": "Home Lineup",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "away_lineup": {
+      "type": "array",
+      "title": "Away Lineup",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "home_ready_players": {
+      "type": "array",
+      "title": "Home Ready Players (Gamertags)",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "away_ready_players": {
+      "type": "array",
+      "title": "Away Ready Players (Gamertags)",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "player_or_clubs": {
+      "type": "string",
+      "title": "Match Category",
+      "enum": [
+        "player",
+        "clubs"
+      ],
+      "default": "clubs"
+    }
+  },
+  "required": [
+    "match_type"
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "name": "LifestyleItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Item Name"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "real_estate",
+        "vehicle",
+        "clothing",
+        "extras",
+        "lifestyle",
+        "event",
+        "charity"
+      ]
+    },
+    "subcategory": {
+      "type": "string",
+      "title": "Subcategory"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "price_stc": {
+      "type": "number",
+      "title": "Buy Price in STC",
+      "default": 0
+    },
+    "rent_price_stc": {
+      "type": "number",
+      "title": "Monthly Rent Price (STC)",
+      "default": 0
+    },
+    "can_rent": {
+      "type": "boolean",
+      "title": "Rentable",
+      "default": false
+    },
+    "passive_income_stc": {
+      "type": "number",
+      "title": "Passive Income per Day (STC)",
+      "default": 0
+    },
+    "passive_income_interval_days": {
+      "type": "number",
+      "title": "Passive Income Interval (days)",
+      "default": 0
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Item Image URL"
+    },
+    "emoji": {
+      "type": "string",
+      "title": "Emoji Icon"
+    },
+    "tier": {
+      "type": "string",
+      "title": "Tier",
+      "enum": [
+        "starter",
+        "mid",
+        "premium",
+        "luxury",
+        "elite"
+      ],
+      "default": "starter"
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Active (visible in store)",
+      "default": true
+    },
+    "sort_order": {
+      "type": "number",
+      "title": "Sort Order",
+      "default": 0
+    },
+    "max_upgrade_level": {
+      "type": "number",
+      "title": "Max Upgrade Level",
+      "default": 5
+    },
+    "upgrade_base_cost_stc": {
+      "type": "number",
+      "title": "Base Upgrade Cost (STC)",
+      "default": 0
+    },
+    "weekly_maintenance_stc": {
+      "type": "number",
+      "title": "Weekly Maintenance Cost (STC)",
+      "default": 0
+    },
+    "allows_multiple": {
+      "type": "boolean",
+      "title": "Allow Multiple Ownership",
+      "default": false
+    },
+    "available_cities": {
+      "type": "array",
+      "title": "Available Cities (for real estate)",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "price_stc"
+  ]
+}

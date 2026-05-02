@@ -1,0 +1,138 @@
+{
+  "name": "LifestylePurchase",
+  "type": "object",
+  "properties": {
+    "player_id": {
+      "type": "string",
+      "title": "Player ID"
+    },
+    "player_email": {
+      "type": "string",
+      "title": "Player Email"
+    },
+    "player_gamertag": {
+      "type": "string",
+      "title": "Player Gamertag"
+    },
+    "item_id": {
+      "type": "string",
+      "title": "Lifestyle Item ID"
+    },
+    "item_name": {
+      "type": "string",
+      "title": "Item Name (cached)"
+    },
+    "item_category": {
+      "type": "string",
+      "title": "Item Category (cached)"
+    },
+    "item_subcategory": {
+      "type": "string",
+      "title": "Item Subcategory (cached)"
+    },
+    "item_emoji": {
+      "type": "string",
+      "title": "Item Emoji (cached)"
+    },
+    "item_tier": {
+      "type": "string",
+      "title": "Item Tier (cached)"
+    },
+    "price_paid_stc": {
+      "type": "number",
+      "title": "Price Paid (STC)"
+    },
+    "purchase_type": {
+      "type": "string",
+      "title": "Purchase Type",
+      "enum": [
+        "buy_live",
+        "invest",
+        "rent",
+        "buy"
+      ],
+      "default": "invest",
+      "description": "buy_live = owned and lived in as residence. invest = owned as investment. rent = rented as residence. buy = legacy alias for invest."
+    },
+    "is_residence": {
+      "type": "boolean",
+      "title": "Is Active Residence",
+      "default": false
+    },
+    "monthly_rent_stc": {
+      "type": "number",
+      "title": "Monthly Rent (STC)",
+      "default": 0
+    },
+    "last_rent_paid_at": {
+      "type": "string",
+      "title": "Last Rent Paid At",
+      "format": "date-time"
+    },
+    "rent_active": {
+      "type": "boolean",
+      "title": "Rent Active",
+      "default": true
+    },
+    "last_passive_collected_at": {
+      "type": "string",
+      "title": "Last Passive Income Collected",
+      "format": "date-time"
+    },
+    "upgrade_level": {
+      "type": "number",
+      "title": "Upgrade Level",
+      "default": 0
+    },
+    "upgrade_slots": {
+      "type": "array",
+      "title": "Applied Upgrades",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "current_value_stc": {
+      "type": "number",
+      "title": "Current Asset Value (STC)",
+      "default": 0
+    },
+    "location_city": {
+      "type": "string",
+      "title": "City / Location"
+    },
+    "location_country": {
+      "type": "string",
+      "title": "Country"
+    },
+    "location_emoji": {
+      "type": "string",
+      "title": "Location Flag Emoji"
+    },
+    "custom_name": {
+      "type": "string",
+      "title": "Custom Name (user-set)"
+    },
+    "weekly_maintenance_stc": {
+      "type": "number",
+      "title": "Weekly Maintenance Cost (STC)",
+      "default": 0
+    },
+    "last_maintenance_paid_at": {
+      "type": "string",
+      "title": "Last Maintenance Paid At",
+      "format": "date-time"
+    },
+    "is_defaulted": {
+      "type": "boolean",
+      "title": "Defaulted (missed maintenance)",
+      "default": false
+    }
+  },
+  "required": [
+    "player_id",
+    "player_email",
+    "item_id",
+    "price_paid_stc"
+  ]
+}

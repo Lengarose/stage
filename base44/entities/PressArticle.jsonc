@@ -1,0 +1,91 @@
+{
+  "name": "PressArticle",
+  "type": "object",
+  "properties": {
+    "press_conference_id": {
+      "type": "string",
+      "title": "Press Conference ID"
+    },
+    "headline": {
+      "type": "string",
+      "title": "Headline"
+    },
+    "player_name": {
+      "type": "string",
+      "title": "Player Name"
+    },
+    "player_avatar_url": {
+      "type": "string",
+      "title": "Player Avatar URL"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL"
+    },
+    "match_name": {
+      "type": "string",
+      "title": "Match Name"
+    },
+    "tournament_name": {
+      "type": "string",
+      "title": "Tournament Name"
+    },
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID"
+    },
+    "photo_url": {
+      "type": "string",
+      "title": "Article Photo URL"
+    },
+    "photo_position": {
+      "type": "string",
+      "title": "Photo Position (CSS background-position)",
+      "default": "50% 50%"
+    },
+    "photo_zoom": {
+      "type": "number",
+      "title": "Photo Zoom %",
+      "default": 120
+    },
+    "quotes": {
+      "type": "array",
+      "title": "Published Quotes",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "published_at": {
+      "type": "string",
+      "title": "Published At",
+      "format": "date-time"
+    },
+    "visibility": {
+      "type": "string",
+      "title": "Visibility",
+      "enum": [
+        "public",
+        "tournament"
+      ],
+      "default": "public"
+    },
+    "registered_clubs": {
+      "type": "array",
+      "title": "Registered Club IDs (for visibility)",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "player_name",
+    "club_name",
+    "match_name"
+  ]
+}

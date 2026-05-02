@@ -1,0 +1,114 @@
+{
+  "name": "Challenge",
+  "type": "object",
+  "properties": {
+    "challenger_id": {
+      "type": "string",
+      "title": "Challenger ID (club or player)"
+    },
+    "challenger_club_id": {
+      "type": "string",
+      "title": "Challenger Club ID"
+    },
+    "challenger_club_name": {
+      "type": "string",
+      "title": "Challenger Club Name"
+    },
+    "opponent_club_id": {
+      "type": "string",
+      "title": "Opponent Club ID"
+    },
+    "opponent_club_name": {
+      "type": "string",
+      "title": "Opponent Club Name"
+    },
+    "opponent_player_id": {
+      "type": "string",
+      "title": "Opponent Player ID"
+    },
+    "opponent_player_name": {
+      "type": "string",
+      "title": "Opponent Player Name"
+    },
+    "type": {
+      "type": "string",
+      "title": "Match Type",
+      "enum": [
+        "friendly",
+        "ranked",
+        "tournament"
+      ],
+      "default": "friendly"
+    },
+    "scheduled_date": {
+      "type": "string",
+      "title": "Scheduled Date",
+      "format": "date-time"
+    },
+    "message": {
+      "type": "string",
+      "title": "Message"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "home_score": {
+      "type": "number",
+      "title": "Home Score"
+    },
+    "away_score": {
+      "type": "number",
+      "title": "Away Score"
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID"
+    },
+    "winner_player_id": {
+      "type": "string",
+      "title": "Winner Player ID"
+    },
+    "wager_credits": {
+      "type": "number",
+      "title": "Wager Credits (each side)",
+      "default": 0
+    },
+    "challenger_wager_paid": {
+      "type": "boolean",
+      "title": "Challenger Wager Paid",
+      "default": false
+    },
+    "opponent_wager_paid": {
+      "type": "boolean",
+      "title": "Opponent Wager Paid",
+      "default": false
+    },
+    "live_match_id": {
+      "type": "string",
+      "title": "Live Match Room ID"
+    }
+  },
+  "required": [
+    "challenger_id",
+    "type"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": true,
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

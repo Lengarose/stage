@@ -1,0 +1,55 @@
+{
+  "name": "STCTransaction",
+  "type": "object",
+  "properties": {
+    "player_id": {
+      "type": "string",
+      "title": "Player ID"
+    },
+    "player_email": {
+      "type": "string",
+      "title": "Player Email"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID (if club transaction)"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Amount (positive = earn, negative = spend)"
+    },
+    "type": {
+      "type": "string",
+      "title": "Transaction Type",
+      "enum": [
+        "match_win",
+        "match_draw",
+        "match_loss",
+        "tournament_win",
+        "tournament_final",
+        "tournament_participation",
+        "achievement",
+        "salary",
+        "transfer_fee",
+        "lifestyle_purchase",
+        "passive_income",
+        "charity_donation",
+        "signing_bonus",
+        "admin_grant",
+        "streak_bonus"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "reference_id": {
+      "type": "string",
+      "title": "Reference ID (match/tournament/item)"
+    }
+  },
+  "required": [
+    "amount",
+    "type"
+  ]
+}

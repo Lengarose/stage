@@ -1,0 +1,47 @@
+{
+  "name": "DressingRoom",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "club_owner": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "title": "Match ID"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "seated_players": {
+      "type": "array",
+      "title": "Seated Player IDs",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "match_id",
+    "club_id"
+  ]
+}

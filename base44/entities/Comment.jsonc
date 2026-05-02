@@ -1,0 +1,59 @@
+{
+  "name": "Comment",
+  "type": "object",
+  "properties": {
+    "post_id": {
+      "type": "string",
+      "title": "Post ID"
+    },
+    "author_email": {
+      "type": "string",
+      "title": "Author Email"
+    },
+    "author_name": {
+      "type": "string",
+      "title": "Author Name"
+    },
+    "author_avatar": {
+      "type": "string",
+      "title": "Author Avatar URL"
+    },
+    "content": {
+      "type": "string",
+      "title": "Content"
+    }
+  },
+  "required": [
+    "post_id",
+    "author_email",
+    "content"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "author_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "author_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

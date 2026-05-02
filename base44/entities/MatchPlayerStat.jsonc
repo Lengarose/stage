@@ -1,0 +1,51 @@
+{
+  "name": "MatchPlayerStat",
+  "type": "object",
+  "properties": {
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID"
+    },
+    "match_id": {
+      "type": "string",
+      "title": "Match ID"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "player_email": {
+      "type": "string",
+      "title": "Player Email"
+    },
+    "player_gamertag": {
+      "type": "string",
+      "title": "Player Gamertag"
+    },
+    "goals": {
+      "type": "number",
+      "title": "Goals",
+      "default": 0
+    },
+    "assists": {
+      "type": "number",
+      "title": "Assists",
+      "default": 0
+    },
+    "own_goals": {
+      "type": "number",
+      "title": "Own Goals",
+      "default": 0
+    },
+    "rating": {
+      "type": "number",
+      "title": "Match Rating",
+      "default": 6.0
+    }
+  },
+  "required": [
+    "tournament_id",
+    "match_id",
+    "player_email"
+  ]
+}

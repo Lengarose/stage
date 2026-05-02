@@ -1,0 +1,64 @@
+{
+  "name": "Follow",
+  "type": "object",
+  "properties": {
+    "follower_email": {
+      "type": "string",
+      "title": "Follower Email"
+    },
+    "follower_player_id": {
+      "type": "string",
+      "title": "Follower Player ID"
+    },
+    "target_id": {
+      "type": "string",
+      "title": "Target ID"
+    },
+    "target_type": {
+      "type": "string",
+      "title": "Target Type",
+      "enum": [
+        "club",
+        "player"
+      ]
+    },
+    "target_name": {
+      "type": "string",
+      "title": "Target Name"
+    }
+  },
+  "required": [
+    "follower_email",
+    "follower_player_id",
+    "target_id",
+    "target_type"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "follower_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "follower_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

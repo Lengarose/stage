@@ -1,0 +1,135 @@
+{
+  "name": "NewsItem",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "title": "News Type",
+      "enum": [
+        "tournament",
+        "achievement",
+        "app_update",
+        "ranking",
+        "press_conference",
+        "announcement",
+        "transfer",
+        "contract",
+        "club_news",
+        "player_news",
+        "market"
+      ],
+      "default": "announcement"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "transfers",
+        "contracts",
+        "club_news",
+        "player_news",
+        "market",
+        "tournament",
+        "press_conference",
+        "general"
+      ],
+      "default": "general"
+    },
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "body": {
+      "type": "string",
+      "title": "Body"
+    },
+    "image_url": {
+      "type": "string",
+      "title": "Image URL"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL"
+    },
+    "player_id": {
+      "type": "string",
+      "title": "Player ID"
+    },
+    "player_name": {
+      "type": "string",
+      "title": "Player Name"
+    },
+    "player_avatar_url": {
+      "type": "string",
+      "title": "Player Avatar URL"
+    },
+    "tournament_id": {
+      "type": "string",
+      "title": "Tournament ID"
+    },
+    "tournament_name": {
+      "type": "string",
+      "title": "Tournament Name"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "title": "Featured",
+      "default": false
+    },
+    "is_global": {
+      "type": "boolean",
+      "title": "Global (visible to all)",
+      "default": false
+    },
+    "published_at": {
+      "type": "string",
+      "title": "Published At",
+      "format": "date-time"
+    },
+    "link": {
+      "type": "string",
+      "title": "Internal Link"
+    },
+    "tags": {
+      "type": "array",
+      "title": "Tags",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "visible_to_club_ids": {
+      "type": "array",
+      "title": "Visible to Club IDs",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "visible_to_player_ids": {
+      "type": "array",
+      "title": "Visible to Player IDs",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "transfer_fee_stc": {
+      "type": "number",
+      "title": "Transfer Fee (STC)",
+      "default": 0
+    }
+  },
+  "required": [
+    "type",
+    "title"
+  ]
+}

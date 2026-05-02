@@ -1,0 +1,62 @@
+{
+  "name": "UserPurchase",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        {
+          "buyer_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "properties": {
+    "buyer_email": {
+      "type": "string",
+      "title": "Buyer Email"
+    },
+    "item_id": {
+      "type": "string",
+      "title": "Item ID"
+    },
+    "item_name": {
+      "type": "string",
+      "title": "Item Name"
+    },
+    "item_type": {
+      "type": "string",
+      "title": "Item Type",
+      "enum": [
+        "banner",
+        "logo_frame",
+        "subscription"
+      ]
+    },
+    "price_paid": {
+      "type": "number",
+      "title": "Price Paid",
+      "default": 0
+    }
+  },
+  "required": [
+    "buyer_email",
+    "item_id",
+    "item_type"
+  ]
+}

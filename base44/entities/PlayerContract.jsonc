@@ -1,0 +1,144 @@
+{
+  "name": "PlayerContract",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "type": "string",
+      "title": "Team ID",
+      "description": "References Club.id"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "User ID",
+      "description": "References Player.id"
+    },
+    "offered_by": {
+      "type": "string",
+      "title": "Offered By (Player ID)"
+    },
+    "contract_type": {
+      "type": "string",
+      "title": "Contract Type",
+      "enum": [
+        "trial",
+        "academy",
+        "squad",
+        "important",
+        "star"
+      ]
+    },
+    "max_games": {
+      "type": "number",
+      "title": "Max Games"
+    },
+    "max_days": {
+      "type": "number",
+      "title": "Max Days"
+    },
+    "games_played": {
+      "type": "number",
+      "title": "Games Played",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "pending_window",
+        "negotiating",
+        "active",
+        "rejected",
+        "expired",
+        "terminated",
+        "completed"
+      ],
+      "default": "pending",
+      "description": "negotiating = player counter-offered, ball back at club"
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date",
+      "format": "date"
+    },
+    "offer_note": {
+      "type": "string",
+      "title": "Offer Note"
+    },
+    "transfer_window_id": {
+      "type": "string",
+      "title": "Transfer Window ID"
+    },
+    "salary_per_game_stc": {
+      "type": "number",
+      "title": "Salary per Game (STC)",
+      "default": 0
+    },
+    "weekly_salary_stc": {
+      "type": "number",
+      "title": "Weekly Salary (STC)",
+      "default": 0
+    },
+    "signing_bonus_stc": {
+      "type": "number",
+      "title": "Signing Bonus (STC)",
+      "default": 0
+    },
+    "transfer_fee_stc": {
+      "type": "number",
+      "title": "Transfer Fee (STC)",
+      "default": 0
+    },
+    "is_loan": {
+      "type": "boolean",
+      "title": "Is Loan",
+      "default": false
+    },
+    "loan_return_date": {
+      "type": "string",
+      "title": "Loan Return Date",
+      "format": "date"
+    },
+    "last_salary_paid_at": {
+      "type": "string",
+      "title": "Last Salary Paid At",
+      "format": "date-time"
+    },
+    "performance_targets": {
+      "type": "array",
+      "title": "Performance Targets",
+      "description": "Array of {stat, type (exact/min/range), value, value_max}",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "negotiation_round": {
+      "type": "number",
+      "title": "Negotiation Round",
+      "default": 0
+    },
+    "last_negotiated_by": {
+      "type": "string",
+      "title": "Last Negotiated By (player_id or club_id)"
+    },
+    "captaincy_offered": {
+      "type": "boolean",
+      "title": "Captaincy Offered",
+      "default": false
+    }
+  },
+  "required": [
+    "team_id",
+    "user_id",
+    "offered_by",
+    "contract_type",
+    "max_games",
+    "max_days"
+  ]
+}

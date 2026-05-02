@@ -1,0 +1,136 @@
+{
+  "name": "RatingHistory",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "properties": {
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name"
+    },
+    "opponent_club_id": {
+      "type": "string",
+      "title": "Opponent Club ID"
+    },
+    "opponent_club_name": {
+      "type": "string",
+      "title": "Opponent Club Name"
+    },
+    "match_id": {
+      "type": "string",
+      "title": "Match ID (tournament or live)"
+    },
+    "match_type": {
+      "type": "string",
+      "title": "Match Type",
+      "enum": [
+        "ranked",
+        "league",
+        "playoff",
+        "final"
+      ],
+      "default": "ranked"
+    },
+    "result": {
+      "type": "string",
+      "title": "Result",
+      "enum": [
+        "W",
+        "D",
+        "L"
+      ]
+    },
+    "home_score": {
+      "type": "number",
+      "title": "Home Score",
+      "default": 0
+    },
+    "away_score": {
+      "type": "number",
+      "title": "Away Score",
+      "default": 0
+    },
+    "rating_before": {
+      "type": "number",
+      "title": "Rating Before",
+      "default": 1500
+    },
+    "rating_after": {
+      "type": "number",
+      "title": "Rating After",
+      "default": 1500
+    },
+    "rating_change": {
+      "type": "number",
+      "title": "Rating Change (\u0394)",
+      "default": 0
+    },
+    "opponent_rating": {
+      "type": "number",
+      "title": "Opponent Rating at Time of Match",
+      "default": 1500
+    },
+    "k_factor": {
+      "type": "number",
+      "title": "K-Factor Used",
+      "default": 20
+    },
+    "match_weight": {
+      "type": "number",
+      "title": "Match Weight (W)",
+      "default": 1.0
+    },
+    "goal_diff_bonus": {
+      "type": "number",
+      "title": "Goal Diff Bonus Applied",
+      "default": 0
+    },
+    "roster_continuity": {
+      "type": "number",
+      "title": "Roster Continuity Factor (C)",
+      "default": 1.0
+    },
+    "was_provisional": {
+      "type": "boolean",
+      "title": "Was Provisional at Time",
+      "default": true
+    },
+    "voided": {
+      "type": "boolean",
+      "title": "Voided by Admin",
+      "default": false
+    },
+    "void_reason": {
+      "type": "string",
+      "title": "Void Reason"
+    },
+    "played_at": {
+      "type": "string",
+      "title": "Played At",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "club_id",
+    "match_id",
+    "result",
+    "rating_before",
+    "rating_after"
+  ]
+}

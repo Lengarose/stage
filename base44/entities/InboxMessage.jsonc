@@ -1,0 +1,128 @@
+{
+  "name": "InboxMessage",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "recipient_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "recipient_email": {
+      "type": "string",
+      "title": "Recipient Email"
+    },
+    "sender_email": {
+      "type": "string",
+      "title": "Sender Email"
+    },
+    "sender_gamertag": {
+      "type": "string",
+      "title": "Sender Gamertag"
+    },
+    "sender_avatar_url": {
+      "type": "string",
+      "title": "Sender Avatar URL"
+    },
+    "sender_club_name": {
+      "type": "string",
+      "title": "Sender Club Name"
+    },
+    "is_system": {
+      "type": "boolean",
+      "title": "Is System Message",
+      "default": false
+    },
+    "subject": {
+      "type": "string",
+      "title": "Subject"
+    },
+    "body": {
+      "type": "string",
+      "title": "Body"
+    },
+    "message_type": {
+      "type": "string",
+      "title": "Message Type",
+      "enum": [
+        "general",
+        "match_invite",
+        "contract_offer",
+        "club_invite",
+        "announcement"
+      ],
+      "default": "general"
+    },
+    "action_type": {
+      "type": "string",
+      "title": "Action Type",
+      "enum": [
+        "none",
+        "accept_decline",
+        "confirm",
+        "accept_decline_date",
+        "contract_negotiation"
+      ],
+      "default": "none"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "confirmed",
+        "date_change_requested",
+        "negotiating"
+      ],
+      "default": "pending"
+    },
+    "is_read": {
+      "type": "boolean",
+      "title": "Read",
+      "default": false
+    },
+    "related_entity_id": {
+      "type": "string",
+      "title": "Related Entity ID"
+    },
+    "related_entity_type": {
+      "type": "string",
+      "title": "Related Entity Type"
+    },
+    "metadata": {
+      "type": "object",
+      "title": "Extra Metadata",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "recipient_email",
+    "subject",
+    "body",
+    "message_type"
+  ]
+}
