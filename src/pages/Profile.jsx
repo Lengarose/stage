@@ -260,7 +260,7 @@ export default function Profile() {
         <div className="w-full h-36 sm:h-48 md:h-56 mt-2" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
 
         {/* Profile header */}
-        <div className="max-w-2xl mx-auto px-4">
+        <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-end justify-between -mt-10 mb-4">
             {/* Avatar */}
             <button
@@ -331,7 +331,7 @@ export default function Profile() {
 
         {/* Full social tabs — Posts first */}
         {player && (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
               <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0 gap-0">
                 {["posts", "stats", "matches", "trophies"].map(tab => (
