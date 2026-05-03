@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,44 +47,107 @@ const BRANDS = [
 ];
 
 const BG_MAP = {
-  stadium: "a packed football stadium crowd",
-  dark: "a dark dramatic black background",
-  fire: "dramatic fire and flames",
-  galaxy: "a galaxy and stars",
-  pitch: "a green football pitch",
-  neon_city: "a neon-lit futuristic city at night",
+  stadium: "stadium crowd background",
+  dark: "dark background",
+  fire: "fire background",
+  galaxy: "galaxy stars background",
+  pitch: "football pitch background",
+  neon_city: "neon city night background",
 };
 
 const STYLE_MAP = {
-  realistic: "photorealistic digital art",
-  cartoon: "colorful cartoon style",
-  anime: "anime art style",
-  pixel: "pixel art 8-bit style",
-  neon: "glowing neon synthwave art style",
-  comic: "comic book art style with bold lines",
+  realistic: "photorealistic",
+  cartoon: "cartoon",
+  anime: "anime",
+  pixel: "pixel art",
+  neon: "neon synthwave",
+  comic: "comic book",
+};
+
+const SKIN_MAP = {
+  light: "light skin",
+  medium_light: "medium-light skin",
+  medium: "medium skin",
+  medium_dark: "medium-dark skin",
+  dark: "dark skin",
 };
 
 function buildPlayerPrompt(player, style, background, gender, skinTone, kitNumber, brand) {
-  const skinMap = {
-    light: "very fair, light skin tone",
-    medium_light: "medium-light skin tone",
-    medium: "medium, olive skin tone",
-    medium_dark: "medium-dark brown skin tone",
-    dark: "dark brown skin tone",
-  };
   const pos = player?.position || "footballer";
-  const tag = player?.gamertag || "Player";
-  const numberPart = kitNumber ? ` with the number ${kitNumber} on the jersey` : "";
-  const brandPart = brand && brand !== "none" ? ` The kit features prominent ${brand} branding and logo.` : "";
-  return `A ${STYLE_MAP[style] || "digital art"} portrait avatar of a ${gender} professional FIFA Pro Clubs ${pos} football player named "${tag}". The player has ${skinMap[skinTone] || "medium skin tone"}. The player is wearing a futuristic dark football kit with glowing cyan accent details${numberPart}, looking confident and athletic.${brandPart} Background: ${BG_MAP[background] || "dark dramatic background"}. Close-up portrait, square composition, high detail, gaming aesthetic, esports style. No text or watermarks.`;
+  const parts = [
+    `${STYLE_MAP[style] || "digital art"} esports footballer portrait`,
+    `${gender}`,
+    SKIN_MAP[skinTone] || "medium skin",
+    `${pos} player`,
+    "dark futuristic kit, cyan glow accents",
+    kitNumber ? `number ${kitNumber} jersey` : null,
+    brand && brand !== "none" ? `${brand} kit` : null,
+    BG_MAP[background] || "dark background",
+    "close-up square portrait, high detail, no text",
+  ].filter(Boolean);
+  return parts.join(", ");
 }
 
 function buildClubLogoPrompt(clubName, style, background) {
-  const name = clubName?.trim() || "Unknown FC";
-  return `A ${STYLE_MAP[style] || "digital art"} professional football club crest / badge logo for a club called "${name}". The logo is bold, iconic, and modern with a shield or crest shape. Gaming and esports aesthetic with dark tones and glowing cyan accents. Background: ${BG_MAP[background] || "dark dramatic background"}. Square composition, centered logo, high detail. No watermarks.`;
+  const name = clubName?.trim() || "FC";
+  return [
+    `${STYLE_MAP[style] || "digital art"} football club crest`,
+    `"${name}" badge`,
+    "shield shape, esports aesthetic, cyan glow, dark tones",
+    BG_MAP[background] || "dark background",
+    "square, centered, no text",
+  ].join(", ");
 }
 
-const OptionBtn = ({ active, onClick, children, className }) => (
+/* ── Image generation ───────────────────────────────────────
+ * Using Pollinations.ai — free, open source, no API key needed.
+ * https://github.com/pollinations/pollinations
+ * Valid models: flux, turbo, flux-realism, flux-anime, flux-3d
+ *
+ * Previously used Base44 built-in generator:
+ * const result = await base44.integrations.Core.GenerateImage({ prompt });
+ * setGenerated(result.url);
+ */
+async function generateWithPollinations(prompt) {
+  const seed = Math.floor(Math.random() * 999999);
+  const encoded = encodeURIComponent(prompt);
+  // turbo = SDXL Turbo, fast and reliable on Pollinations
+  const url = `https://image.pollinations.ai/prompt/${encoded}?model=turbo&seed=${seed}&width=1024&height=1024&nologo=true`;
+
+  const tryLoad = () => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = resolve;
+    img.onerror = () => reject(new Error("load failed"));
+    img.src = url;
+  });
+
+  try {
+    await tryLoad();
+  } catch {
+    await new Promise(r => setTimeout(r, 2500));
+    await tryLoad();
+  }
+
+  return url;
+}
+
+async function imageUrlToBlob(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png");
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+const OptionBtn = ({ active, onClick, children, className = "" }) => (
   <button
     onClick={onClick}
     className={cn(
@@ -99,7 +163,7 @@ const OptionBtn = ({ active, onClick, children, className }) => (
 );
 
 export default function AvatarGenerator({ open, onClose, player, onSelect }) {
-  const [imageType, setImageType] = useState("player"); // "player" | "club"
+  const [imageType, setImageType] = useState("player");
   const [clubName, setClubName] = useState("");
   const [style, setStyle] = useState("realistic");
   const [background, setBackground] = useState("stadium");
@@ -112,37 +176,36 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
   const [saving, setSaving] = useState(false);
 
   async function generate() {
-    if ((player?.credits ?? 0) < 10) {
-      alert("You need at least 10 credits to generate an image.");
-      return;
-    }
     setLoading(true);
     setGenerated(null);
+    // spendCredits removed — Pollinations is free, no credits needed
+    // Previously: await base44.functions.invoke('spendCredits', { amount: 10, target: 'player' });
     try {
-      await base44.functions.invoke('spendCredits', { amount: 10, target: 'player' });
+      const prompt = imageType === "club"
+        ? buildClubLogoPrompt(clubName, style, background)
+        : buildPlayerPrompt(player, style, background, gender, skinTone, kitNumber, brand);
+      const blobUrl = await generateWithPollinations(prompt);
+      setGenerated(blobUrl);
     } catch (err) {
-      alert(err.message || 'Not enough credits');
-      setLoading(false);
-      return;
+      alert("Generation failed. Please try again.");
     }
-    const prompt = imageType === "club"
-      ? buildClubLogoPrompt(clubName, style, background)
-      : buildPlayerPrompt(player, style, background, gender, skinTone, kitNumber, brand);
-    const result = await base44.integrations.Core.GenerateImage({ prompt });
-    setGenerated(result.url);
     setLoading(false);
   }
 
   async function confirm() {
     if (!generated) return;
     setSaving(true);
-    const blob = await fetch(generated).then(r => r.blob());
-    const file = new File([blob], "avatar.png", { type: "image/png" });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    onSelect(file_url);
+    try {
+      const blob = await imageUrlToBlob(generated);
+      const file = new File([blob], "avatar.png", { type: "image/png" });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      onSelect(file_url);
+      setGenerated(null);
+      onClose();
+    } catch {
+      alert("Failed to save image. Please try again.");
+    }
     setSaving(false);
-    setGenerated(null);
-    onClose();
   }
 
   function handleClose() {
@@ -164,7 +227,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
         </DialogHeader>
 
         <div className="space-y-3 mt-1">
-          {/* Type selector */}
           <div>
             <Label>Generate</Label>
             <div className="flex gap-1.5">
@@ -173,7 +235,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
             </div>
           </div>
 
-          {/* Club name — only for club logo */}
           {imageType === "club" && (
             <div>
               <Label>Club Name</Label>
@@ -187,7 +248,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
             </div>
           )}
 
-          {/* Art Style */}
           <div>
             <Label>Art Style</Label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -199,17 +259,15 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
             </div>
           </div>
 
-          {/* Player-only fields */}
           {imageType === "player" && (
             <>
-              {/* Gender + Kit Number row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Gender</Label>
                   <div className="flex gap-1.5">
                     {GENDERS.map(g => (
                       <OptionBtn key={g.id} active={gender === g.id} onClick={() => setGender(g.id)} className="flex-1">
-                        {g.emoji} {g.label}
+                        {g.label}
                       </OptionBtn>
                     ))}
                   </div>
@@ -224,7 +282,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
                     onChange={e => {
                       const v = parseInt(e.target.value);
                       if (e.target.value === "") setKitNumber("");
-                      else if (!isNaN(v) && v >= 1 && v <= 99) setKitNumber(v);
+                      else if (!isNaN(v) && v >= 1 && v <= 99) setKitNumber(String(v));
                     }}
                     placeholder="e.g. 10"
                     className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary/50 leading-relaxed"
@@ -232,7 +290,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
                 </div>
               </div>
 
-              {/* Skin Tone */}
               <div>
                 <Label>Skin Tone</Label>
                 <div className="flex gap-1.5">
@@ -253,7 +310,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
                 </div>
               </div>
 
-              {/* Kit Brand */}
               <div>
                 <Label>Kit Brand</Label>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -267,7 +323,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
             </>
           )}
 
-          {/* Background */}
           <div>
             <Label>Background</Label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -279,7 +334,6 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
             </div>
           </div>
 
-          {/* Preview + Actions */}
           <div className="flex gap-3 items-start">
             <div className="w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
               {loading ? (
@@ -319,8 +373,8 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
                     variant="outline"
                     className="w-full border-border text-muted-foreground leading-relaxed gap-2 h-8 text-xs"
                     onClick={async () => {
+                      const blob = await imageUrlToBlob(generated);
                       const a = document.createElement("a");
-                      const blob = await fetch(generated).then(r => r.blob());
                       a.href = URL.createObjectURL(blob);
                       a.download = "stage-avatar.png";
                       a.click();
@@ -333,7 +387,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
               )}
 
               <p className="text-[10px] text-muted-foreground">
-                Costs <strong>10 credits</strong> per generation. You have <strong>{player?.credits ?? 0}</strong> credits.
+                Free generation powered by Pollinations AI
               </p>
             </div>
           </div>

@@ -232,6 +232,20 @@ html.theme-white #root {
   background: transparent;
 }
 
+/*
+ * Routes inside Layout render under <main>. Full-viewport shells must not paint an
+ * opaque plate over Live Dark / Live White (video layer sits behind main).
+ */
+html.theme-video main .min-h-screen,
+html.theme-white main .min-h-screen {
+  background-color: transparent !important;
+}
+
+html.theme-video main > div.min-h-full,
+html.theme-white main > div.min-h-full {
+  background-color: transparent !important;
+}
+
 /* ========= VIDEO THEME ========= */
 .theme-video {
   --background: 220 70% 5%;
