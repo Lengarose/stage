@@ -215,6 +215,23 @@
   --warning: 40 95% 48%;
 }
 
+/* Live Dark / Live White: theme class is on <html>; transparent shells so fixed video layer shows through */
+html.theme-video,
+html.theme-white {
+  background-color: transparent !important;
+}
+
+html.theme-video body,
+html.theme-white body {
+  background-color: transparent !important;
+}
+
+html.theme-video #root,
+html.theme-white #root {
+  min-height: 100vh;
+  background: transparent;
+}
+
 /* ========= VIDEO THEME ========= */
 .theme-video {
   --background: 220 70% 5%;

@@ -454,7 +454,12 @@ export default function Layout() {
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#060914" }}>
+    <div
+      className={cn(
+        "flex flex-col h-screen overflow-hidden",
+        isVideoTheme ? "bg-transparent" : "bg-[#060914]"
+      )}
+    >
 
       <ProfileCompletionModal
         open={showProfileModal}
@@ -622,8 +627,13 @@ export default function Layout() {
       </header>
 
       {/* ── BODY ─────────────────────────────────────────────── */}
-      <div className={cn("flex flex-1 overflow-hidden relative", isVideoTheme && "bg-transparent")}>
-        <main className="flex-1 overflow-y-auto" style={{ background: "#060914" }}>
+      <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
+        <main
+          className={cn(
+            "relative z-[1] flex-1 overflow-y-auto",
+            isVideoTheme ? "bg-transparent" : "bg-[#060914]"
+          )}
+        >
           <div className="min-h-full pb-8">
             <Outlet />
           </div>
