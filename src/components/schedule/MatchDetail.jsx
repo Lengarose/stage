@@ -138,7 +138,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
 function TeamBlock({ name, avatarUrl, isHome }) {
   return (
     <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-      <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
         {avatarUrl
           ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
           : <Shield className="w-5 h-5 text-muted-foreground" />

@@ -1,8 +1,7 @@
 import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Camera, Wand2 } from "lucide-react";
-import AvatarGenerator from "@/components/AvatarGenerator";
+import { Loader2, Camera } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { COUNTRIES } from "@/lib/countries";
 
@@ -21,7 +20,6 @@ export default function PlayerSetup({ onComplete, user }) {
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [avatarGenOpen, setAvatarGenOpen] = useState(false);
   const avatarInputRef = useRef();
 
   async function uploadAvatar(e) {
@@ -76,12 +74,9 @@ export default function PlayerSetup({ onComplete, user }) {
               <Camera className="w-7 h-7 text-white/30" />
             )}
           </div>
-          <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+          <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-            </button>
-            <button onClick={() => setAvatarGenOpen(true)} className="p-1.5 rounded-lg bg-blue-500/60 hover:bg-blue-500/80 transition-colors" title="AI Generate">
-              <Wand2 className="w-4 h-4 text-white" />
             </button>
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
@@ -147,12 +142,7 @@ export default function PlayerSetup({ onComplete, user }) {
         }}
       />
 
-      <AvatarGenerator
-        open={avatarGenOpen}
-        onClose={() => setAvatarGenOpen(false)}
-        player={{ gamertag, credits: 100 }}
-        onSelect={url => { setPendingAvatar(url); setAvatarGenOpen(false); }}
-      />
+
     </div>
   );
 }

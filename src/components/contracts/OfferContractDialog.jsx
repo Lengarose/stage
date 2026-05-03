@@ -14,12 +14,11 @@ const TARGET_TYPES = [
   { value: "range", label: "Range (between)" },
 ];
 
-export default function OfferContractDialog({ open, onClose, player, existingActiveContract, onOffer, windowOpen, isNegotiation, existingContract, club }) {
+export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], onOffer, windowOpen, isNegotiation, existingContract, club }) {
   const [selectedType, setSelectedType] = useState(existingContract?.contract_type || "squad");
   const [note, setNote] = useState(existingContract?.offer_note || "");
   const [weeklySalary, setWeeklySalary] = useState(existingContract?.weekly_salary_stc?.toString() || "");
   const [signingBonus, setSigningBonus] = useState(existingContract?.signing_bonus_stc?.toString() || "");
-  const [transferFee, setTransferFee] = useState(existingContract?.transfer_fee_stc?.toString() || "");
   const [captaincy, setCaptaincy] = useState(existingContract?.captaincy_offered || false);
   const [targets, setTargets] = useState(existingContract?.performance_targets || []);
   const [showTargets, setShowTargets] = useState(false);
@@ -42,21 +41,24 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   async function handleOffer() {
     setOffering(true);
-    await onOffer({
-      contract_type: selectedType,
-      offer_note: note,
-      weekly_salary_stc: weeklySalary ? parseInt(weeklySalary) : 0,
-      signing_bonus_stc: signingBonus ? parseInt(signingBonus) : 0,
-      transfer_fee_stc: transferFee ? parseInt(transferFee) : 0,
-      captaincy_offered: captaincy,
-      performance_targets: targets,
-    });
-    setNote("");
-    setSelectedType("squad");
-    setWeeklySalary("");
-    setSigningBonus("");
-    setOffering(false);
-    onClose();
+    try {
+      await onOffer({
+        contract_type: selectedType,
+        offer_note: note,
+        weekly_salary_stc: weeklySalary ? parseInt(weeklySalary) : 0,
+        signing_bonus_stc: signingBonus ? parseInt(signingBonus) : 0,
+        transfer_fee_stc: 0,
+        captaincy_offered: captaincy,
+        performance_targets: targets,
+      });
+      setNote("");
+      setSelectedType("squad");
+      setWeeklySalary("");
+      setSigningBonus("");
+      onClose();
+    } finally {
+      setOffering(false);
+    }
   }
 
   return (
@@ -70,11 +72,23 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
           </DialogTitle>
         </DialogHeader>
 
-        {existingActiveContract && !isNegotiation && (
-          <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
-            This player already has an <strong>{existingActiveContract.status}</strong> contract with your club.
-          </div>
-        )}
+        {/* Type-aware conflict warning: only warn when the selected type group is already occupied */}
+        {!isNegotiation && (() => {
+          const isOwnershipOffer = selectedType === "ownership";
+          const conflict = playerContracts.find(c =>
+            isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership"
+          ) || (existingActiveContract || null);
+          return conflict ? (
+            <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
+              This player already has an active <strong>{conflict.contract_type}</strong> contract (<strong>{conflict.status}</strong>).
+              {conflict.contract_type === "ownership" && selectedType === "ownership"
+                ? " You can still offer a player contract alongside it."
+                : conflict.contract_type !== "ownership" && selectedType !== "ownership"
+                ? " You can still offer an ownership contract alongside it."
+                : " This will create a second contract of the same type."}
+            </div>
+          ) : null;
+        })()}
 
         {(!existingActiveContract || isNegotiation) && (
           <div className="space-y-5 mt-2">
@@ -186,20 +200,6 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">Paid on signing</p>
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                    <Coins className="w-3 h-3 text-primary" /> Transfer Fee
-                  </label>
-                  <input
-                    type="number"
-                    value={transferFee}
-                    onChange={e => setTransferFee(e.target.value)}
-                    placeholder="e.g. 20000"
-                    min="0"
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">From previous club</p>
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">Captaincy</label>

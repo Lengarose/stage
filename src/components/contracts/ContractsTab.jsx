@@ -1,6 +1,61 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { notify, postContractNews } from "@/lib/notify";
+
+function buildContractOfferBody({ clubName, playerGamertag, contractType, typeMeta, weeklySalary, signingBonus, transferFee, captaincy, targets, offerNote }) {
+  const fmt = (n) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
+  const typeLabel = contractType === "ownership" ? "Club Ownership" : (contractType || "Squad").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+  let body = `Dear ${playerGamertag},\n\n`;
+  body += `${clubName} is pleased to extend an official contract offer to you. Please review the full terms below carefully before responding.\n\n`;
+  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  body += `📋  CONTRACT DETAILS\n`;
+  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  body += `Type:      ${typeLabel} Contract\n`;
+  body += `Duration:  ${typeMeta.max_games} games  or  ${typeMeta.max_days} days\n`;
+  body += `           (whichever is reached first)\n\n`;
+
+  const hasFinancials = weeklySalary > 0 || signingBonus > 0 || transferFee > 0;
+  if (hasFinancials) {
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    body += `💰  FINANCIAL TERMS\n`;
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    if (weeklySalary > 0) body += `Weekly Salary:    ${fmt(weeklySalary)} STC / week\n`;
+    if (signingBonus > 0) body += `Signing Bonus:    ${fmt(signingBonus)} STC (paid on signing)\n`;
+    if (transferFee > 0)  body += `Transfer Fee:     ${fmt(transferFee)} STC\n`;
+    body += `\n`;
+  }
+
+  if (captaincy) {
+    body += `⭐  CAPTAINCY OFFERED\n`;
+    body += `You are being offered the captain role of ${clubName}.\n\n`;
+  }
+
+  if (targets?.length > 0) {
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    body += `🎯  PERFORMANCE TARGETS\n`;
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    targets.forEach(t => {
+      const typeStr = t.type === "min" ? "at least" : t.type === "exact" ? "exactly" : "between";
+      const valStr = t.type === "range" ? `${t.value}–${t.value_max}` : `${t.value}`;
+      body += `• ${t.stat?.replace(/_/g, " ")}: ${typeStr} ${valStr}\n`;
+    });
+    body += `\n`;
+  }
+
+  if (offerNote) {
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    body += `📝  MESSAGE FROM ${clubName.toUpperCase()}\n`;
+    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    body += `"${offerNote}"\n\n`;
+  }
+
+  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  body += `Please respond using the buttons below. You can accept the offer, send a counter-offer with your preferred terms, or decline if you wish.\n\n`;
+  body += `Best regards,\n${clubName} Management`;
+  return body;
+}
 import ContractCard from "./ContractCard";
 import OfferContractDialog from "./OfferContractDialog";
 import RenewContractDialog from "./RenewContractDialog";
@@ -16,6 +71,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   const [offerDialog, setOfferDialog] = useState(null);   // player object
   const [renewDialog, setRenewDialog] = useState(null);   // contract object
   const [activeTab, setActiveTab] = useState("active");
+  const [contractError, setContractError] = useState(null);
 
   useEffect(() => {
     if (!club?.id) return;
@@ -44,64 +100,289 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function offerContract({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
+    setContractError(null);
     const player = offerDialog;
-    const res = await base44.functions.invoke("contractActions", {
-      action: "offer",
-      team_id: club.id,
-      user_id: player.id,
-      contract_type,
-      offer_note,
-      weekly_salary_stc,
-      signing_bonus_stc,
-      transfer_fee_stc,
-      performance_targets,
-      captaincy_offered,
+
+    // RLS hides email from non-record-owners — fetch fresh to get it
+    let recipientEmail = player.email;
+    if (!recipientEmail) {
+      try {
+        const fresh = await base44.entities.Player.filter({ id: player.id });
+        recipientEmail = fresh[0]?.email || null;
+      } catch (_) { /* non-fatal */ }
+    }
+
+    let newContract;
+    try {
+      const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
+      newContract = await base44.entities.PlayerContract.create({
+        team_id: club.id,
+        user_id: player.id,
+        contract_type,
+        offer_note: offer_note || "",
+        offered_by: myPlayer?.id || "",
+        max_games: typeMeta.max_games,
+        max_days: typeMeta.max_days,
+        weekly_salary_stc:  weekly_salary_stc  || 0,
+        signing_bonus_stc:  signing_bonus_stc  || 0,
+        transfer_fee_stc:   transfer_fee_stc   || 0,
+        performance_targets: performance_targets || [],
+        captaincy_offered:  captaincy_offered  || false,
+        status: "pending",
+      });
+    } catch (err) {
+      setContractError(`Failed to create contract: ${err?.message || "unknown error"}`);
+      throw err;
+    }
+
+    if (recipientEmail) {
+      try {
+        const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
+        const body = buildContractOfferBody({
+          clubName: club.name,
+          playerGamertag: player.gamertag || "Player",
+          contractType: contract_type,
+          typeMeta,
+          weeklySalary: weekly_salary_stc || 0,
+          signingBonus: signing_bonus_stc || 0,
+          transferFee: transfer_fee_stc || 0,
+          captaincy: captaincy_offered || false,
+          targets: performance_targets || [],
+          offerNote: offer_note,
+        });
+        await base44.entities.InboxMessage.create({
+          recipient_email:  recipientEmail,
+          sender_email:     myPlayer?.email || "system@stage.com",
+          sender_gamertag:  club.name,
+          sender_avatar_url: club.logo_url || "",
+          sender_club_name: club.name,
+          subject:          `📄 Contract Offer from ${club.name}`,
+          body,
+          message_type:     "contract_offer",
+          action_type:      "contract_negotiation",
+          related_entity_id: newContract.id,
+          status:   "pending",
+          is_read:  false,
+          metadata: { contract_id: newContract.id, club_id: club.id, club_name: club.name, contract_type },
+        });
+      } catch (_) { /* inbox delivery non-fatal */ }
+    }
+
+    notify(recipientEmail, "contract_offer",
+      `📋 Contract Offer from ${club.name}`,
+      `${club.name} has sent you a ${contract_type} contract offer. Open your inbox to review the terms.`,
+      "/inbox"
+    );
+    postContractNews({
+      title: `📄 ${club.name} offered a contract to ${player.gamertag}`,
+      body: `${club.name} has sent a ${contract_type} contract offer to ${player.gamertag}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: player.gamertag, player_avatar_url: player.avatar_url || "",
+      link: `/clubs/${club.id}`,
     });
-    const newContract = res.data.contract;
+
     setContracts(prev => [...prev, newContract]);
     setPlayerMap(prev => ({ ...prev, [player.id]: player }));
   }
 
   async function negotiateContract(contract, terms) {
-    await base44.functions.invoke("contractActions", {
-      action: "negotiate",
-      contract_id: contract.id,
+    await base44.entities.PlayerContract.update(contract.id, {
       ...terms,
+      status: "negotiating",
+      negotiation_round:    (contract.negotiation_round || 0) + 1,
+      last_negotiated_by:   myPlayer?.id,
+    });
+    const recipient = playerMap[contract.user_id];
+    const recipientEmail = recipient?.email || null;
+    if (recipientEmail) {
+      await base44.entities.InboxMessage.create({
+        recipient_email:  recipientEmail,
+        sender_email:     myPlayer?.email || "system@stage.com",
+        sender_gamertag:  club.name,
+        sender_avatar_url: club.logo_url || "",
+        sender_club_name: club.name,
+        subject:          `📄 Counter-Offer from ${club.name}`,
+        body:             `${club.name} has sent a counter-offer on your contract. Open your inbox to review the updated terms.`,
+        message_type:     "contract_offer",
+        action_type:      "contract_negotiation",
+        related_entity_id: contract.id,
+        status:  "pending",
+        is_read: false,
+        metadata: { contract_id: contract.id, club_id: club.id, club_name: club.name },
+      });
+      notify(recipientEmail, "contract_offer",
+        `🔄 Counter-Offer from ${club.name}`,
+        `${club.name} has responded to your contract negotiation. Round ${(contract.negotiation_round || 0) + 1}.`,
+        "/inbox"
+      );
+    }
+    const nplayer = playerMap[contract.user_id];
+    postContractNews({
+      title: `🔄 ${club.name} sent a counter-offer to ${nplayer?.gamertag || "a player"}`,
+      body: `${club.name} is negotiating a contract — Round ${(contract.negotiation_round || 0) + 1}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: nplayer?.gamertag || "", player_avatar_url: nplayer?.avatar_url || "",
+      link: `/clubs/${club.id}`,
     });
     setContracts(prev => prev.map(c =>
-      c.id === contract.id ? { ...c, status: "negotiating", ...terms } : c
+      c.id === contract.id
+        ? { ...c, ...terms, status: "negotiating", negotiation_round: (c.negotiation_round || 0) + 1 }
+        : c
     ));
   }
 
   async function acceptContract(contract) {
-    await base44.functions.invoke("contractActions", { action: "accept", contract_id: contract.id });
-    const today = new Date().toISOString().split("T")[0];
-    const endDate = new Date(Date.now() + contract.max_days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const today   = new Date().toISOString().split("T")[0];
+    const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
+    await base44.entities.PlayerContract.update(contract.id, {
+      status: "active",
+      start_date: today,
+      end_date:   endDate,
+    });
+
+    const player = playerMap[contract.user_id];
+
+    // Deduct signing bonus from club balance and record in finance
+    if ((contract.signing_bonus_stc || 0) > 0) {
+      try {
+        const freshClub = await base44.entities.Club.filter({ id: club.id });
+        const clubData = freshClub[0];
+        if (clubData) {
+          await base44.entities.Club.update(club.id, {
+            transfer_budget_stc: Math.max(0, (clubData.transfer_budget_stc || 0) - contract.signing_bonus_stc),
+          });
+          await base44.entities.STCTransaction.create({
+            club_id: club.id,
+            amount: -contract.signing_bonus_stc,
+            type: "signing_bonus",
+            description: `Signing bonus — ${player?.gamertag || "Player"} (${contract.contract_type} contract)`,
+            reference_id: contract.id,
+          });
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+    notify(club.owner_email, "contract_accepted",
+      `✅ Contract Accepted`,
+      `${player?.gamertag || "A player"} has accepted your ${contract.contract_type} contract offer.`,
+      `/clubs/${club.id}`
+    );
+    postContractNews({
+      title: `✅ ${player?.gamertag || "A player"} joined ${club.name}`,
+      body: `${player?.gamertag || "A player"} has accepted a ${contract.contract_type} contract with ${club.name}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
+      link: `/clubs/${club.id}`,
+    });
     setContracts(prev => prev.map(c =>
       c.id === contract.id ? { ...c, status: "active", start_date: today, end_date: endDate } : c
     ));
   }
 
   async function rejectContract(contract) {
-    await base44.functions.invoke("contractActions", { action: "reject", contract_id: contract.id });
+    await base44.entities.PlayerContract.update(contract.id, { status: "rejected" });
+    const player = playerMap[contract.user_id];
+    notify(club.owner_email, "contract_rejected",
+      `❌ Contract Rejected`,
+      `${player?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
+      `/clubs/${club.id}`
+    );
+    postContractNews({
+      title: `❌ ${player?.gamertag || "A player"} rejected contract from ${club.name}`,
+      body: `${player?.gamertag || "A player"} has rejected the ${contract.contract_type} contract offer from ${club.name}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
+      link: `/clubs/${club.id}`,
+    });
     setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: "rejected" } : c));
   }
 
   async function terminateContract(contract) {
     if (!confirm("Are you sure you want to terminate this contract?")) return;
-    await base44.functions.invoke("contractActions", { action: "terminate", contract_id: contract.id });
+    await base44.entities.PlayerContract.update(contract.id, { status: "terminated" });
+    const player = playerMap[contract.user_id];
+    notify(player?.email, "contract_terminated",
+      `🚫 Contract Terminated`,
+      `Your ${contract.contract_type} contract with ${club.name} has been terminated.`,
+      "/inbox"
+    );
+    postContractNews({
+      title: `🚫 ${club.name} terminated contract with ${player?.gamertag || "a player"}`,
+      body: `${club.name} has terminated the ${contract.contract_type} contract with ${player?.gamertag || "a player"}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
+      link: `/clubs/${club.id}`,
+    });
     setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: "terminated" } : c));
   }
 
   async function renewContract({ contract_type, offer_note }) {
     const contract = renewDialog;
-    const res = await base44.functions.invoke("contractActions", {
-      action: "renew",
-      contract_id: contract.id,
+    const player   = playerMap[contract.user_id];
+    const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
+    const newContract = await base44.entities.PlayerContract.create({
+      team_id:             contract.team_id,
+      user_id:             contract.user_id,
       contract_type,
-      offer_note,
+      offer_note:          offer_note || "",
+      offered_by:          myPlayer?.id || "",
+      max_games:           typeMeta.max_games,
+      max_days:            typeMeta.max_days,
+      weekly_salary_stc:   contract.weekly_salary_stc  || 0,
+      signing_bonus_stc:   contract.signing_bonus_stc  || 0,
+      performance_targets: contract.performance_targets || [],
+      status: "pending",
     });
-    const newContract = res.data.contract;
+    // RLS email fallback for renewal
+    let renewEmail = player?.email;
+    if (!renewEmail && contract.user_id) {
+      try {
+        const fresh = await base44.entities.Player.filter({ id: contract.user_id });
+        renewEmail = fresh[0]?.email || null;
+      } catch (_) { /* non-fatal */ }
+    }
+    if (renewEmail) {
+      try {
+        const body = buildContractOfferBody({
+          clubName: club.name,
+          playerGamertag: player?.gamertag || "Player",
+          contractType: contract_type,
+          typeMeta,
+          weeklySalary: contract.weekly_salary_stc || 0,
+          signingBonus: contract.signing_bonus_stc || 0,
+          transferFee: 0,
+          captaincy: false,
+          targets: contract.performance_targets || [],
+          offerNote: offer_note,
+        });
+        await base44.entities.InboxMessage.create({
+          recipient_email:  renewEmail,
+          sender_email:     myPlayer?.email || "system@stage.com",
+          sender_gamertag:  club.name,
+          sender_avatar_url: club.logo_url || "",
+          sender_club_name: club.name,
+          subject:          `📄 Contract Renewal from ${club.name}`,
+          body,
+          message_type:     "contract_offer",
+          action_type:      "contract_negotiation",
+          related_entity_id: newContract.id,
+          status:  "pending",
+          is_read: false,
+          metadata: { contract_id: newContract.id, club_id: club.id, club_name: club.name, contract_type },
+        });
+      } catch (_) { /* inbox delivery non-fatal */ }
+    }
+    notify(renewEmail, "contract_offer",
+      `📋 Contract Renewal from ${club.name}`,
+      `${club.name} has offered you a contract renewal (${contract_type}). Open your inbox to review.`,
+      "/inbox"
+    );
+    postContractNews({
+      title: `🔄 ${club.name} offered renewal to ${player?.gamertag || "a player"}`,
+      body: `${club.name} has offered a ${contract_type} contract renewal to ${player?.gamertag || "a player"}.`,
+      club_name: club.name, club_logo_url: club.logo_url || "",
+      player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
+      link: `/clubs/${club.id}`,
+    });
     setContracts(prev => [...prev, newContract]);
     setRenewDialog(null);
   }
@@ -115,10 +396,14 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     history: contracts.filter(c => HISTORY_STATUSES.includes(c.status)),
   };
 
-  // Players without an active/pending/pending_window contract (eligible for offer)
+  // Owners can hold BOTH an ownership contract AND a player contract simultaneously.
+  // A player is eligible for an offer if they're missing at least one contract group.
+  const LIVE = ["active", "pending", "pending_window", "negotiating"];
   const eligiblePlayers = players.filter(p => {
-    const existing = contracts.find(c => c.user_id === p.id && (c.status === "active" || c.status === "pending" || c.status === "pending_window"));
-    return !existing;
+    const live = contracts.filter(c => c.user_id === p.id && LIVE.includes(c.status));
+    const hasOwnership = live.some(c => c.contract_type === "ownership");
+    const hasPlayer    = live.some(c => c.contract_type !== "ownership");
+    return !hasOwnership || !hasPlayer; // eligible if at least one slot is open
   });
 
   // Pending contracts for the current player (to accept/reject/negotiate)
@@ -136,6 +421,12 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   return (
     <div className="space-y-5">
+      {contractError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3">
+          <span>{contractError}</span>
+          <button onClick={() => setContractError(null)} className="text-destructive/60 hover:text-destructive text-xs font-bold">✕</button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -207,21 +498,56 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         <TabsContent value="active" className="space-y-2 mt-3">
           {byStatus.active.length === 0 ? (
             <EmptyContracts label="No active contracts." />
-          ) : (
-            byStatus.active.map(c => (
-              <ContractCard
-                key={c.id}
-                contract={c}
-                player={playerMap[c.user_id]}
-                canManage={canManage}
-                isMyContract={c.user_id === myPlayer?.id}
-                onAccept={acceptContract}
-                onReject={rejectContract}
-                onTerminate={terminateContract}
-                onRenew={canManage ? () => setRenewDialog(c) : null}
-              />
-            ))
-          )}
+          ) : (() => {
+            // Find players with both an ownership AND a player contract active
+            const dualPlayerIds = new Set(
+              byStatus.active
+                .filter(c => c.contract_type === "ownership")
+                .map(c => c.user_id)
+                .filter(uid => byStatus.active.some(c => c.user_id === uid && c.contract_type !== "ownership"))
+            );
+            // Group: dual-contract players first with a banner, then the rest
+            const dualContracts   = byStatus.active.filter(c => dualPlayerIds.has(c.user_id));
+            const singleContracts = byStatus.active.filter(c => !dualPlayerIds.has(c.user_id));
+            return (
+              <>
+                {dualContracts.length > 0 && (
+                  <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
+                      <FileText className="w-3 h-3" /> Dual Contracts — Owner + Player role
+                    </p>
+                    {dualContracts.map(c => (
+                      <ContractCard
+                        key={c.id}
+                        contract={c}
+                        player={playerMap[c.user_id]}
+                        canManage={canManage}
+                        isMyContract={c.user_id === myPlayer?.id}
+                        onAccept={acceptContract}
+                        onReject={rejectContract}
+                        onTerminate={terminateContract}
+                        onRenew={canManage ? () => setRenewDialog(c) : null}
+                        dualContract={true}
+                      />
+                    ))}
+                  </div>
+                )}
+                {singleContracts.map(c => (
+                  <ContractCard
+                    key={c.id}
+                    contract={c}
+                    player={playerMap[c.user_id]}
+                    canManage={canManage}
+                    isMyContract={c.user_id === myPlayer?.id}
+                    onAccept={acceptContract}
+                    onReject={rejectContract}
+                    onTerminate={terminateContract}
+                    onRenew={canManage ? () => setRenewDialog(c) : null}
+                  />
+                ))}
+              </>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="pending" className="space-y-2 mt-3">
@@ -293,11 +619,8 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         open={!!offerDialog}
         onClose={() => setOfferDialog(null)}
         player={offerDialog}
-        existingActiveContract={
-          offerDialog
-            ? contracts.find(c => c.user_id === offerDialog.id && (c.status === "active" || c.status === "pending"))
-            : null
-        }
+        playerContracts={offerDialog ? contracts.filter(c => c.user_id === offerDialog.id && LIVE.includes(c.status)) : []}
+        existingActiveContract={null}
         onOffer={offerContract}
         windowOpen={null}
       />

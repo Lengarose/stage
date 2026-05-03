@@ -181,7 +181,7 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
           {photoUrl && <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full pointer-events-none">Drag to reposition</div>}
         </div>
         <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border/30">
-          {winnerClub.logo_url && <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-6 h-6 rounded object-cover border border-border" />}
+          {winnerClub.logo_url && <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-6 h-6 rounded-full object-cover border border-border" />}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-foreground truncate">{winnerClub.name}</p>
             <p className="text-[10px] text-muted-foreground truncate">🏆 {tournamentName}</p>

@@ -335,7 +335,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
           </div>
 
           <div className="flex gap-3 items-start">
-            <div className="w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-20 h-20 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
               {loading ? (
                 <div className="flex flex-col items-center gap-1">
                   <Loader2 className="w-5 h-5 text-primary animate-spin" />

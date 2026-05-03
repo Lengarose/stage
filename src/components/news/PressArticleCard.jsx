@@ -77,7 +77,7 @@ export default function PressArticleCard({ item, compact = false }) {
             <p className="text-xs text-muted-foreground truncate">{item.club_name}{item.match_name ? ` · ${item.match_name}` : ""}</p>
           </div>
           {item.club_logo_url && (
-            <img src={item.club_logo_url} alt={item.club_name} className="w-7 h-7 rounded-lg object-cover border border-border shrink-0" />
+            <img src={item.club_logo_url} alt={item.club_name} className="w-7 h-7 rounded-full object-cover border border-border shrink-0" />
           )}
           <span className="text-xs text-muted-foreground/60 shrink-0">{timeAgo(item.published_at)}</span>
         </div>

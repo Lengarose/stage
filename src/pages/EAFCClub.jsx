@@ -201,7 +201,7 @@ export default function EAFCClub() {
           {/* Club Info */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <Shield className="w-8 h-8 text-primary" />
               </div>
               <div className="flex-1">

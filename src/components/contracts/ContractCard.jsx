@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { X, CheckCircle, Clock, Gamepad2, RefreshCw, AlertTriangle, MessageSquare, Coins, Target } from "lucide-react";
+import { X, CheckCircle, Clock, Gamepad2, RefreshCw, AlertTriangle, MessageSquare, Coins, Target, Building2 } from "lucide-react";
 
 const STATUS_STYLES = {
   pending:        "bg-warning/20 text-warning border-warning/30",
@@ -14,10 +14,11 @@ const STATUS_STYLES = {
   completed:      "bg-primary/10 text-primary border-primary/20",
 };
 
-export default function ContractCard({ contract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onRenew, onNegotiate }) {
+export default function ContractCard({ contract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onRenew, onNegotiate, dualContract = false }) {
   const meta = CONTRACT_TYPES[contract.contract_type];
   const progress = getContractProgress(contract);
   if (!meta) return null;
+  const isOwnershipContract = contract.contract_type === "ownership";
 
   const isPendingWindow = contract.status === "pending_window";
   const isNegotiating = contract.status === "negotiating";
@@ -71,11 +72,16 @@ export default function ContractCard({ contract, player, canManage, isMyContract
               {player?.gamertag || "Unknown Player"}
             </Link>
             <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", meta.badge)}>
-              {meta.label}
+              {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> Owner</span> : meta.label}
             </span>
             <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", STATUS_STYLES[contract.status] || STATUS_STYLES.pending)}>
               {contract.status}
             </span>
+            {dualContract && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-purple-500/15 text-purple-400 border-purple-500/30 flex items-center gap-1">
+                <Building2 className="w-2.5 h-2.5" /> Dual Contract
+              </span>
+            )}
           </div>
 
           <p className="text-xs text-muted-foreground mt-0.5">

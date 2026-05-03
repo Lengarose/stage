@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
+import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -38,6 +40,11 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       const meta = message.metadata || {};
 
       if (action === "accepted" && message.message_type === "match_invite") {
+        notify(message.sender_email, "match_scheduled",
+          `✅ Match Invitation Accepted`,
+          `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleDateString() : "the proposed date"}.`,
+          "/schedule"
+        );
         // Create the scheduled match from the invitation metadata
         const isClub = meta.invitation_type === "club_vs_club";
         await base44.entities.Match.create({
@@ -72,6 +79,11 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       }
 
       if (action === "declined" && message.sender_email) {
+        notify(message.sender_email, "match_result",
+          `❌ Match Invitation Declined`,
+          `${meta.opponent_name} has declined your match invitation.`,
+          "/inbox"
+        );
         await base44.entities.InboxMessage.create({
           recipient_email: message.sender_email,
           sender_email:    message.recipient_email,
@@ -235,6 +247,18 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           </div>
         )}
 
+        {/* Trial request — club owner response UI */}
+        {message.message_type === "trial_request" && message.action_type === "trial_response" && (
+          <InboxTrialRequest
+            message={message}
+            onActioned={(action) => {
+              if (action === "offer" || action === "decline") {
+                onStatusChanged?.(message.id, action === "offer" ? "accepted" : "declined");
+              }
+            }}
+          />
+        )}
+
         {/* Contract offer — inline negotiation UI */}
         {message.message_type === "contract_offer" && message.action_type === "contract_negotiation" && (
           <InboxContractOffer
@@ -248,8 +272,8 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         )}
       </div>
 
-      {/* Action buttons — only for non-contract messages */}
-      {hasAction && message.message_type !== "contract_offer" && (
+      {/* Action buttons — only for non-contract, non-trial messages */}
+      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "trial_request" && (
         <div className="p-4 border-t border-warning/20 bg-warning/5">
           <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />

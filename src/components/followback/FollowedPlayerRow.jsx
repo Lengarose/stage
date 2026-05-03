@@ -22,7 +22,7 @@ export default function FollowedPlayerRow({ player, matchData, allClubs }) {
         onClick={() => hasMatch && setExpanded(e => !e)}
       >
         {/* Avatar */}
-        <div className="w-11 h-11 rounded-lg overflow-hidden bg-secondary border border-border shrink-0">
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-secondary border border-border shrink-0">
           {player.avatar_url ? (
             <img
               src={player.avatar_url}

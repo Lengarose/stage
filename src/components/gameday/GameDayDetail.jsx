@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { processMatchRevenue } from "@/lib/matchRevenue";
+import { generateMatchShirtSales } from "@/lib/virtualShirtSales";
 import { format, parseISO, isValid, differenceInMinutes } from "date-fns";
 import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,9 +119,10 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     setGame(updated);
     if (onGameUpdate) onGameUpdate(updated);
 
-    // Fire-and-forget: ticket revenue + wager settlement + inbox messages
+    // Fire-and-forget: ticket revenue + wager settlement + inbox messages + shirt sales
     if (newStatus === "completed") {
       processMatchRevenue(updated);
+      generateMatchShirtSales(updated);
     }
   }
 

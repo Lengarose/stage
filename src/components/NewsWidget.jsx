@@ -112,7 +112,7 @@ export default function NewsWidget() {
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-2">
                     {featured.club_logo_url && (
-                      <img src={featured.club_logo_url} alt={featured.club_name} className="w-5 h-5 rounded object-cover border border-border" />
+                      <img src={featured.club_logo_url} alt={featured.club_name} className="w-5 h-5 rounded-full object-cover border border-border" />
                     )}
                     {featured.player_avatar_url && !featured.club_logo_url && (
                       <img src={featured.player_avatar_url} alt={featured.player_name} className="w-5 h-5 rounded-full object-cover border border-border" />

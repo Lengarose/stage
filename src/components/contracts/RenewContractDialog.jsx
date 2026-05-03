@@ -13,11 +13,14 @@ export default function RenewContractDialog({ open, onClose, contract, player, o
 
   async function handleRenew() {
     setLoading(true);
-    await onRenew({ contract_type: selectedType, offer_note: note });
-    setNote("");
-    setSelectedType("squad");
-    setLoading(false);
-    onClose();
+    try {
+      await onRenew({ contract_type: selectedType, offer_note: note });
+      setNote("");
+      setSelectedType("squad");
+      onClose();
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

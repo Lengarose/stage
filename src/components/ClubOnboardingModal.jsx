@@ -212,7 +212,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                 const isRequested = requested.has(c.id);
                 return (
                   <div key={c.id} className="bg-secondary border border-border rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                       {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-5 h-5 text-primary" />}
                     </div>
                     <div className="flex-1 min-w-0">
