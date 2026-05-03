@@ -11,6 +11,7 @@ import {
   CheckCircle, X, MessageSquare, Coins, Target, Clock, ChevronDown, ChevronUp,
   Loader2, Gamepad2, Plus, Trash2
 } from "lucide-react";
+import { notify, postContractNews } from "@/lib/notify";
 import { CONTRACT_TYPE_OPTIONS } from "@/lib/contractTypes";
 import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
@@ -35,6 +36,10 @@ export default function InboxContractOffer({ message, onActioned }) {
   const [counterTargets, setCounterTargets] = useState([]);
   const [showTargets, setShowTargets] = useState(false);
   const [error, setError] = useState(null);
+  const [windowOpen, setWindowOpen] = useState(null); // null=loading, true/false
+  const [clubOwnerEmail, setClubOwnerEmail] = useState(null);
+  const [clubName, setClubName] = useState(null);
+  const [clubLogoUrl, setClubLogoUrl] = useState(null);
 
   const contractId = message?.metadata?.contract_id || message?.related_entity_id;
 
@@ -55,9 +60,22 @@ export default function InboxContractOffer({ message, onActioned }) {
       const player = playerArr[0] || null;
       setMyPlayer(player);
 
-      if (c && player?.club_id && player.club_id === c.team_id) {
+      if (c?.team_id) {
         const clubArr = await base44.entities.Club.filter({ id: c.team_id });
-        setMyClub(clubArr[0] || null);
+        const club = clubArr[0] || null;
+        if (player?.club_id && player.club_id === c.team_id) setMyClub(club);
+        setClubName(club?.name || message?.metadata?.club_name || null);
+        setClubLogoUrl(club?.logo_url || null);
+        // RLS may hide owner_email; try president fallback
+        let ownerEmail = club?.owner_email || null;
+        if (!ownerEmail) {
+          const clubPlayers = await base44.entities.Player.filter({ club_id: c.team_id });
+          const president = clubPlayers.find(p =>
+            p.club_roles?.includes("president") || p.role === "captain"
+          ) || null;
+          ownerEmail = president?.email || null;
+        }
+        setClubOwnerEmail(ownerEmail);
       }
 
       if (c) {
@@ -66,6 +84,15 @@ export default function InboxContractOffer({ message, onActioned }) {
         setCounterFee(c.transfer_fee_stc?.toString() || "");
         setCounterTargets(c.performance_targets || []);
       }
+
+      // Check transfer window status
+      try {
+        const winRes = await base44.functions.invoke("transferWindowActions", { action: "get_current" });
+        setWindowOpen(winRes?.data?.window?.status === "open");
+      } catch (_) {
+        setWindowOpen(false); // default to closed if can't check
+      }
+
       setLoading(false);
     }
     load();
@@ -106,42 +133,118 @@ export default function InboxContractOffer({ message, onActioned }) {
     setActionLoading(action);
     setError(null);
     try {
-      await base44.functions.invoke("contractActions", { action, contract_id: contractId });
-      setContract(prev => ({ ...prev, status: action === "accept" ? "active" : "rejected" }));
+      if (action === "accept") {
+        // Renewal = player already belongs to this club; transfers need an open window
+        const isRenewal = myPlayer?.club_id && myPlayer.club_id === contract.team_id;
+        if (!isRenewal && !windowOpen) {
+          // Queue as pending_window — will execute when admin opens the window
+          await base44.entities.PlayerContract.update(contractId, { status: "pending_window" });
+          setContract(prev => ({ ...prev, status: "pending_window" }));
+          onActioned?.("pending_window");
+          return;
+        }
+        const today = new Date().toISOString().split("T")[0];
+        const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
+        await base44.entities.PlayerContract.update(contractId, {
+          status: "active",
+          start_date: today,
+          end_date: endDate,
+        });
+        setContract(prev => ({ ...prev, status: "active", start_date: today, end_date: endDate }));
+
+        // Deduct signing bonus from club balance and record in finance
+        if ((contract.signing_bonus_stc || 0) > 0) {
+          try {
+            const clubArr = await base44.entities.Club.filter({ id: contract.team_id });
+            const contractClub = clubArr[0];
+            if (contractClub) {
+              await base44.entities.Club.update(contractClub.id, {
+                transfer_budget_stc: Math.max(0, (contractClub.transfer_budget_stc || 0) - contract.signing_bonus_stc),
+              });
+              await base44.entities.STCTransaction.create({
+                club_id: contractClub.id,
+                amount: -contract.signing_bonus_stc,
+                type: "signing_bonus",
+                description: `Signing bonus — ${myPlayer?.gamertag || "Player"} (${contract.contract_type} contract)`,
+                reference_id: contractId,
+              });
+            }
+          } catch (_) { /* non-fatal */ }
+        }
+
+        notify(clubOwnerEmail, "contract_accepted",
+          `✅ Contract Accepted`,
+          `${myPlayer?.gamertag || "A player"} has accepted the ${contract.contract_type} contract offer.`,
+          `/clubs/${contract.team_id}`
+        );
+        postContractNews({
+          title: `✅ ${myPlayer?.gamertag || "A player"} joined ${clubName || "a club"}`,
+          body: `${myPlayer?.gamertag || "A player"} has accepted a ${contract.contract_type} contract.`,
+          club_name: clubName || "", club_logo_url: clubLogoUrl || "",
+          player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
+          link: `/clubs/${contract.team_id}`,
+        });
+      } else {
+        await base44.entities.PlayerContract.update(contractId, { status: "rejected" });
+        setContract(prev => ({ ...prev, status: "rejected" }));
+        notify(clubOwnerEmail, "contract_rejected",
+          `❌ Contract Declined`,
+          `${myPlayer?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
+          `/clubs/${contract.team_id}`
+        );
+        postContractNews({
+          title: `❌ ${myPlayer?.gamertag || "A player"} rejected contract from ${clubName || "a club"}`,
+          body: `${myPlayer?.gamertag || "A player"} has rejected the ${contract.contract_type} contract offer.`,
+          club_name: clubName || "", club_logo_url: clubLogoUrl || "",
+          player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
+          link: `/clubs/${contract.team_id}`,
+        });
+      }
       onActioned?.(action);
     } catch (e) {
       setError(e.message || "Action failed");
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   }
 
   async function doCounter() {
     setActionLoading("counter");
     setError(null);
     try {
-      await base44.functions.invoke("contractActions", {
-        action: "negotiate",
-        contract_id: contractId,
-        offer_note: counterNote,
-        weekly_salary_stc: counterSalary ? parseInt(counterSalary) : undefined,
-        signing_bonus_stc: counterBonus ? parseInt(counterBonus) : undefined,
-        transfer_fee_stc: counterFee ? parseInt(counterFee) : undefined,
-        performance_targets: counterTargets,
-      });
-      setContract(prev => ({
-        ...prev,
+      const updatedFields = {
         status: "negotiating",
-        negotiation_round: (prev.negotiation_round || 0) + 1,
-        weekly_salary_stc: counterSalary ? parseInt(counterSalary) : prev.weekly_salary_stc,
-        signing_bonus_stc: counterBonus ? parseInt(counterBonus) : prev.signing_bonus_stc,
-      }));
+        negotiation_round: (contract.negotiation_round || 0) + 1,
+        last_negotiated_by: myPlayer?.id || "",
+        offer_note: counterNote || contract.offer_note,
+      };
+      if (counterSalary) updatedFields.weekly_salary_stc = parseInt(counterSalary);
+      if (counterBonus)  updatedFields.signing_bonus_stc  = parseInt(counterBonus);
+      if (counterFee)    updatedFields.transfer_fee_stc   = parseInt(counterFee);
+      if (counterTargets.length > 0) updatedFields.performance_targets = counterTargets;
+
+      await base44.entities.PlayerContract.update(contractId, updatedFields);
+      setContract(prev => ({ ...prev, ...updatedFields }));
       setShowCounter(false);
       setCounterNote("");
+      notify(clubOwnerEmail, "contract_offer",
+        `🔄 Counter-Offer from ${myPlayer?.gamertag || "Player"}`,
+        `${myPlayer?.gamertag || "A player"} has sent a counter-offer on your contract. Round ${updatedFields.negotiation_round}.`,
+        `/clubs/${contract.team_id}`
+      );
+      postContractNews({
+        title: `🔄 ${myPlayer?.gamertag || "A player"} sent counter-offer to ${clubName || "a club"}`,
+        body: `${myPlayer?.gamertag || "A player"} has sent a counter-offer (Round ${updatedFields.negotiation_round}).`,
+        club_name: clubName || "", club_logo_url: clubLogoUrl || "",
+        player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
+        link: `/clubs/${contract.team_id}`,
+      });
       onActioned?.("negotiating");
     } catch (e) {
       setError(e.message || "Counter-offer failed");
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   }
 
   function addTarget() {
@@ -254,6 +357,24 @@ export default function InboxContractOffer({ message, onActioned }) {
         </div>
       )}
 
+      {/* Transfer window notice — shown to the player when it's a transfer (not renewal) */}
+      {isPlayer && canAct && myPlayer?.club_id !== contract.team_id && (
+        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold ${
+          windowOpen === true
+            ? "bg-success/10 border-success/20 text-success"
+            : windowOpen === false
+            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+            : "bg-muted/30 border-border text-muted-foreground"
+        }`}>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          {windowOpen === true
+            ? "Transfer window OPEN — accepting will activate this contract immediately."
+            : windowOpen === false
+            ? "Transfer window is currently CLOSED. Accepting will queue the transfer — it executes when the window opens."
+            : "Checking transfer window status..."}
+        </div>
+      )}
+
       {/* Action buttons — only when contract is actionable for this user */}
       {canAct && !showCounter && (
         <div className="flex flex-wrap gap-2">
@@ -266,7 +387,9 @@ export default function InboxContractOffer({ message, onActioned }) {
             {actionLoading === "accept"
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <CheckCircle className="w-3.5 h-3.5" />}
-            Accept Contract
+            {isPlayer && myPlayer?.club_id !== contract.team_id && !windowOpen
+              ? "Accept & Queue Transfer"
+              : "Accept Contract"}
           </Button>
           <Button
             size="sm"

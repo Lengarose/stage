@@ -3,8 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   Shield, Users, Trophy, ArrowLeft,
-  UserPlus, Check, X, Camera, Send, Loader2, Coins, Wand2, ZoomIn, LogOut,
-  Trash2, Settings, Swords, Save, Edit2
+  Check, X, Camera, Send, Loader2, Coins, ZoomIn, LogOut,
+  Trash2, Settings, Swords, Save, Edit2, ClipboardList, Clock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +13,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import AvatarGenerator from "../components/AvatarGenerator";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -28,8 +27,10 @@ import ClubForm from "../components/ClubForm";
 import ClubPlayerStats from "../components/ClubPlayerStats";
 import ContractsTab from "../components/contracts/ContractsTab";
 import ClubFinanceTab from "../components/club/ClubFinanceTab";
+import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
+import { notify } from "@/lib/notify";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 
@@ -46,17 +47,15 @@ export default function ClubDetail() {
   const [followId, setFollowId] = useState(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState([]);
-  const [myJoinRequest, setMyJoinRequest] = useState(null);
-  const [joinMsg, setJoinMsg] = useState("");
-  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [myJoinRequestCount, setMyJoinRequestCount] = useState(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [sendingJoinRequest, setSendingJoinRequest] = useState(false);
+  const [trialRequestSent, setTrialRequestSent] = useState(false);
+  const [sendingTrial, setSendingTrial] = useState(false);
+  const [trialMsg, setTrialMsg] = useState("");
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [myClubData, setMyClubData] = useState(null);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
   const [pendingLogo, setPendingLogo] = useState(null);
-  const [aiLogoOpen, setAiLogoOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [playerFollowMap, setPlayerFollowMap] = useState({});
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
@@ -74,7 +73,8 @@ export default function ClubDetail() {
   const isMember = !!myPlayer?.club_id && myPlayer.club_id === id;
   const isCaptain = isMember && (myPlayer?.role === "captain" || myPlayer?.role === "vice-captain");
   const isAdminTakeover = currentUser?.role === "admin" && localStorage.getItem("admin_takeover_club_id") === id;
-  const isOwner = club?.owner_email === currentUser?.email || isAdminTakeover;
+  const accountMode = localStorage.getItem("stage-account-mode") || "player";
+  const isOwner = (club?.owner_email === currentUser?.email && accountMode === "club") || isAdminTakeover;
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
   const canEdit = isOwner || isCaptain;
 
@@ -159,11 +159,13 @@ export default function ClubDetail() {
         setJoinRequests(reqs);
       }
 
-      const myReqs = await base44.entities.JoinRequest.filter({ player_email: user.email, club_id: id });
-      setMyJoinRequestCount(myReqs.length);
-      if (myReqs.length > 0) {
-        const sorted = [...myReqs].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-        setMyJoinRequest(sorted[0]);
+      // Check if this player already sent a trial request to this club
+      if (myPl.length > 0) {
+        const existingTrials = await base44.entities.InboxMessage.filter(
+          { sender_email: user.email, message_type: "trial_request" }, null, 20
+        ).catch(() => []);
+        const sentToThisClub = existingTrials.some(m => (m.metadata?.club_id === id || m.related_entity_id === id));
+        if (sentToThisClub) setTrialRequestSent(true);
       }
 
       setLoading(false);
@@ -196,23 +198,47 @@ export default function ClubDetail() {
     }
   }
 
-  async function sendJoinRequest() {
-    if (!myPlayer) return;
-    setSendingJoinRequest(true);
-    const req = await base44.entities.JoinRequest.create({
-      player_id: myPlayer.id,
-      player_email: currentUser.email,
-      player_gamertag: myPlayer.gamertag,
-      club_id: id,
-      club_name: club?.name,
-      message: joinMsg,
-      status: "pending",
-    });
-    setMyJoinRequest(req);
-    setMyJoinRequestCount(c => c + 1);
-    setJoinDialogOpen(false);
-    setJoinMsg("");
-    setSendingJoinRequest(false);
+  async function sendTrialRequest() {
+    if (!myPlayer || !club) return;
+    setSendingTrial(true);
+    try {
+      await base44.entities.InboxMessage.create({
+        recipient_email:   club.owner_email,
+        sender_email:      currentUser.email,
+        sender_gamertag:   myPlayer.gamertag,
+        sender_avatar_url: myPlayer.avatar_url || "",
+        subject:           `⚽ Trial Request from ${myPlayer.gamertag}`,
+        body:              `${myPlayer.gamertag} is requesting a trial at ${club.name}.\n\nPosition: ${myPlayer.position || "N/A"} · OVR: ${myPlayer.overall_rating || "N/A"}\n\n${trialMsg ? `Message: "${trialMsg}"\n\n` : ""}You can offer a trial contract directly from your inbox below.`,
+        message_type:      "trial_request",
+        action_type:       "trial_response",
+        related_entity_id: id,
+        status:            "pending",
+        is_read:           false,
+        metadata: {
+          player_id:        myPlayer.id,
+          player_gamertag:  myPlayer.gamertag,
+          player_email:     currentUser.email,
+          player_avatar_url: myPlayer.avatar_url || "",
+          player_position:  myPlayer.position || "",
+          player_overall:   myPlayer.overall_rating || 70,
+          club_id:          id,
+          club_name:        club.name,
+          club_logo_url:    club.logo_url || "",
+        },
+      });
+      await notify(club.owner_email, "club_update",
+        `⚽ Trial Request — ${myPlayer.gamertag}`,
+        `${myPlayer.gamertag} is requesting a trial at ${club.name}. Check your inbox to respond.`,
+        "/inbox"
+      );
+      setTrialRequestSent(true);
+      setTrialDialogOpen(false);
+      setTrialMsg("");
+    } catch (err) {
+      console.error("Failed to send trial request:", err);
+    } finally {
+      setSendingTrial(false);
+    }
   }
 
   async function assignRole(targetPlayer, role) {
@@ -278,11 +304,11 @@ export default function ClubDetail() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full min-h-screen"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
   }
 
   if (!club) {
-    return <div className="p-6 text-center"><p className="text-muted-foreground">Club not found.</p><Link to="/clubs"><Button variant="outline" className="mt-4">Back</Button></Link></div>;
+    return <div className="p-6 text-center"><p className="text-white/50">Club not found.</p><Link to="/clubs"><Button variant="outline" className="mt-4">Back</Button></Link></div>;
   }
 
   const confirmedMatches = matches.filter(m => m.status === "completed");
@@ -309,18 +335,18 @@ export default function ClubDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#06091a] text-white">
       {/* Dialogs */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-card border-border">
+        <AlertDialogContent className="bg-[#0d1225] border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground">Delete Club</AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              Are you sure you want to delete <strong className="text-foreground">{club?.name}</strong>? This cannot be undone.
+            <AlertDialogTitle className="text-white">Delete Club</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              Are you sure you want to delete <strong className="text-white">{club?.name}</strong>? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-border">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-white/20">Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteClub} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
               {deleting ? "Deleting..." : "Delete Club"}
@@ -331,7 +357,7 @@ export default function ClubDetail() {
 
       {/* Back */}
       <div className="px-4 pt-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
         {isAdminTakeover && (
@@ -347,13 +373,14 @@ export default function ClubDetail() {
 
       {/* Banner */}
       <div
-        className="w-full h-40 sm:h-56 mt-2 relative group cursor-pointer"
-        style={getBannerStyle(club?.banner_id, club?.banner_position)}
+        className="relative w-full h-52 sm:h-72 md:h-80 mt-2 overflow-hidden group cursor-pointer"
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
+        <div className="absolute inset-0" style={getBannerStyle(club?.banner_id, club?.banner_position)} />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#06091a] via-[#06091a]/30 to-transparent" />
         {canEdit && (
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/40 px-3 py-1.5 rounded-full">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
               <Camera className="w-4 h-4" /> Change Banner
             </span>
           </div>
@@ -362,11 +389,11 @@ export default function ClubDetail() {
 
       {/* Profile header */}
       <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-end justify-between -mt-10 mb-4">
+        <div className="flex items-end justify-between -mt-20 mb-4 relative z-10">
           {/* Logo */}
           <div className="relative group shrink-0">
             <div
-              className="w-20 h-20 rounded-full bg-primary/10 border-4 border-background flex items-center justify-center overflow-hidden cursor-pointer"
+              className="w-24 h-24 rounded-full border-2 border-white/20 shadow-2xl shadow-blue-500/20 flex items-center justify-center overflow-hidden cursor-pointer"
               onClick={() => club.logo_url && setLogoPreviewOpen(true)}
             >
               {club.logo_url
@@ -383,11 +410,6 @@ export default function ClubDetail() {
                   {uploadingLogo ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
                 </button>
                 <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
-                {myPlayer && (
-                  <button onClick={() => setAiLogoOpen(true)} className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg z-10" title="Generate AI Logo">
-                    <Wand2 className="w-3 h-3 text-primary-foreground" />
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -395,7 +417,7 @@ export default function ClubDetail() {
           {/* Action buttons */}
           <div className="flex items-center gap-2">
             {canEdit && (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditClubOpen(true)}>
+              <Button size="sm" variant="outline" className="gap-1.5 border-white/20 text-white hover:bg-white/10 bg-transparent" onClick={() => setEditClubOpen(true)}>
                 <Edit2 className="w-3.5 h-3.5" /> Edit Club
               </Button>
             )}
@@ -403,7 +425,7 @@ export default function ClubDetail() {
               <Button
                 size="sm"
                 onClick={toggleFollow}
-                className={cn(isFollowing ? "bg-secondary text-foreground border border-border hover:bg-secondary/80" : "bg-primary text-primary-foreground")}
+                className={cn(isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-blue-600 hover:bg-blue-500 text-white")}
               >
                 {isFollowing ? "Unfollow" : "Follow"}
               </Button>
@@ -417,99 +439,68 @@ export default function ClubDetail() {
         </div>
 
         {/* Club name + info */}
-        <div className="space-y-1 mb-4">
+        <div className="space-y-2 mb-5">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-heading text-2xl font-black text-foreground uppercase tracking-tight" style={{ letterSpacing: "-0.02em" }}>
+            <h1 className="font-heading text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-none" style={{ letterSpacing: "-0.02em" }}>
               {club.name}
             </h1>
-            <span className="text-sm px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-mono">[{club.tag}]</span>
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-400 font-bold font-mono border border-blue-500/20">[{club.tag}]</span>
           </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-3 text-xs text-white/50 flex-wrap font-medium uppercase tracking-wider">
             <span>{club.platform}</span>
-            <span>·</span>
+            <span className="text-white/20">·</span>
             <span>{club.region}</span>
-            <span>·</span>
-            <span className="text-foreground font-medium">{club.rating || 1000} Rating</span>
+            <span className="text-white/20">·</span>
+            <span className="text-white/70">{club.rating || 1000} Rating</span>
           </div>
-          {club.description && <p className="text-sm text-foreground/80 mt-1">{club.description}</p>}
+          {club.description && <p className="text-sm text-white/60 leading-relaxed mt-1">{club.description}</p>}
+          <div className="flex items-center gap-3 text-sm">
+            <button onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
+              <span className="font-bold text-white">{followersCount}</span>
+              <span className="text-white/40 ml-1 text-xs">followers</span>
+            </button>
+          </div>
           {/* Form display */}
           <div className="mt-1">
             <ClubForm matches={matches} clubId={id} />
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="flex items-center gap-6 border-y border-border py-3 mb-0 flex-wrap">
-          <div className="text-center">
-            <p className="font-heading text-xl font-black text-foreground">{totalGames}</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Matches</p>
-          </div>
-          <div className="w-px h-8 bg-border" />
-          <button onClick={() => setFollowersModalOpen(true)} className="text-center hover:opacity-70 transition-opacity">
-            <p className="font-heading text-xl font-black text-foreground">{followersCount}</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Followers</p>
-          </button>
-          <div className="w-px h-8 bg-border" />
-          <div className="text-center">
-            <p className="font-heading text-xl font-black text-foreground">{players.length}</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Squad</p>
-          </div>
-          <div className="w-px h-8 bg-border" />
-          <div className="text-center">
-            <p className="font-heading text-xl font-black text-foreground">{club.trophies || 0}</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Trophies</p>
-          </div>
-          {isMember && (
-            <>
-              <div className="w-px h-8 bg-border" />
-              <div className="text-center">
-                <p className="font-heading text-xl font-black text-warning">{(club.credits ?? 0).toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Credits</p>
-              </div>
-              <div className="w-px h-8 bg-border" />
-              <div className="text-center">
-                <p className="font-heading text-xl font-black text-success font-light">{((club.stc ?? 0) / 1_000_000).toFixed(2)}M</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">STC</p>
-              </div>
-            </>
-          )}
-        </div>
 
-        {/* Join request area */}
-        {!isMember && !isOwner && (
-          <div className="pt-3">
-            {!myJoinRequest && (
-              !myPlayer ? (
-                <Button size="sm" variant="outline" disabled className="opacity-50 w-full">
-                  <UserPlus className="w-4 h-4 mr-1.5" /> Create a Player Profile to Join
-                </Button>
-              ) : (
-                <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="bg-primary text-primary-foreground w-full">
-                      <UserPlus className="w-4 h-4 mr-1.5" /> Request to Join
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-border">
-                    <DialogHeader><DialogTitle>Request to Join {club.name}</DialogTitle></DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <Textarea value={joinMsg} onChange={e => setJoinMsg(e.target.value)} className="bg-secondary border-border" placeholder="Why do you want to join? (optional)" />
-                      <Button onClick={sendJoinRequest} disabled={sendingJoinRequest} className="w-full bg-primary text-primary-foreground">
-                        {sendingJoinRequest ? "Sending..." : <><Send className="w-4 h-4 mr-2" /> Send Request</>}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )
-            )}
-            {myJoinRequest && myJoinRequest.status !== "rejected" && (
-              <span className={cn("inline-block text-xs px-3 py-1.5 rounded-full border font-medium",
-                myJoinRequest.status === "pending" ? "border-warning/30 bg-warning/10 text-warning" :
-                myJoinRequest.status === "approved" ? "border-success/30 bg-success/10 text-success" :
-                "border-destructive/30 bg-destructive/10 text-destructive"
-              )}>
-                {myJoinRequest.status === "pending" ? "Request Pending..." : myJoinRequest.status === "approved" ? "Request Approved" : "Request Declined"}
+        {/* Trial request — visible to signed-in players who are not members */}
+        {!isMember && !isOwner && myPlayer && (
+          <div className="pt-2">
+            {trialRequestSent ? (
+              <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning font-medium">
+                <Clock className="w-3 h-3" /> Trial Request Sent
               </span>
+            ) : (
+              <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="border-white/20 text-white/60 hover:text-white hover:border-white/40 text-xs gap-1.5 h-7 px-3">
+                    <ClipboardList className="w-3 h-3" /> Request Trial
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-[#0d1225] border-white/10">
+                  <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> Request Trial at {club.name}</DialogTitle></DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    <p className="text-sm text-white/60 leading-relaxed">
+                      Send a trial request to <span className="text-white font-medium">{club.name}</span>. The club owner will receive your request in their inbox and can respond with a <span className="text-primary font-medium">trial contract</span> (5 games / 14 days).
+                    </p>
+                    <Textarea
+                      value={trialMsg}
+                      onChange={e => setTrialMsg(e.target.value)}
+                      className="bg-white/5 border-white/10 resize-none"
+                      rows={3}
+                      placeholder="Tell the club why you'd be a great fit... (optional)"
+                    />
+                    <Button onClick={sendTrialRequest} disabled={sendingTrial} className="w-full bg-primary text-primary-foreground gap-2">
+                      {sendingTrial ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {sendingTrial ? "Sending..." : "Send Trial Request"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         )}
@@ -518,18 +509,18 @@ export default function ClubDetail() {
       {/* ── Tabs ── */}
       <div className="max-w-5xl mx-auto mt-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0 gap-0 flex-wrap">
+          <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0 flex-wrap">
             {[
               "posts", "stats", "matches", "squad", "formation", "trophies",
-              ...(isOwner ? ["stadium", "contracts", "finance"] : []),
+              ...(isOwner ? ["stadium", "contracts", "finance", "shirts"] : []),
               ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : [])
             ].map(tab => (
               <TabsTrigger
                 key={tab}
                 value={tab}
                 className={cn(
-                  "flex-1 min-w-fit rounded-none border-b-2 border-transparent pb-3 pt-3 text-xs uppercase tracking-widest font-bold text-muted-foreground transition-colors",
-                  "data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent"
+                  "flex-1 min-w-fit rounded-none border-b-2 border-transparent pb-3 pt-3 text-xs uppercase tracking-widest font-bold text-white/40 transition-colors",
+                  "data-[state=active]:border-blue-400 data-[state=active]:text-blue-400 data-[state=active]:bg-transparent"
                 )}
               >
                 {tab === "requests" ? `Requests (${joinRequests.length})` : tab}
@@ -546,35 +537,35 @@ export default function ClubDetail() {
           <TabsContent value="stats" className="px-4 pt-4">
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-success/10 border border-success/20 rounded-xl p-4 text-center">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-success">{wins}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Wins</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Wins</p>
                 </div>
-                <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 text-center">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-warning">{draws}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Draws</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Draws</p>
                 </div>
-                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-center">
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-destructive">{losses}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Losses</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Losses</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-card border border-border rounded-xl p-4 text-center">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-primary">{winRate}%</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Win Rate</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Win Rate</p>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-foreground">{totalGames}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Matches</p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                  <p className="font-heading text-3xl font-black text-white">{totalGames}</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Matches</p>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-foreground">{club.goals_scored || 0}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Goals Scored</p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                  <p className="font-heading text-3xl font-black text-white">{club.goals_scored || 0}</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Goals Scored</p>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-foreground">{club.goals_conceded || 0}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Goals Conceded</p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                  <p className="font-heading text-3xl font-black text-white">{club.goals_conceded || 0}</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Goals Conceded</p>
                 </div>
               </div>
               <ClubPlayerStats players={players} clubId={id} />
@@ -586,7 +577,7 @@ export default function ClubDetail() {
             <div className="space-y-6">
               {tournamentMatches.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-2">Upcoming</p>
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Upcoming</p>
                   <div className="space-y-2">
                     {tournamentMatches.map(m => {
                       const isHome = m.home_club_id === id;
@@ -594,15 +585,15 @@ export default function ClubDetail() {
                       const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
                       const competition = deriveCompetitionLabel(m, tournamentMap);
                       return (
-                        <div key={m.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                             <Trophy className="w-4 h-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">vs {oppName}</p>
-                            <p className="text-xs text-muted-foreground">{competition}</p>
+                            <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
+                            <p className="text-xs text-white/40">{competition}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground shrink-0">{dateStr}</p>
+                          <p className="text-xs text-white/40 shrink-0">{dateStr}</p>
                         </div>
                       );
                     })}
@@ -610,11 +601,11 @@ export default function ClubDetail() {
                 </div>
               )}
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-2">Past Matches</p>
+                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Past Matches</p>
                 {matches.length === 0 ? (
-                  <div className="bg-card border border-border rounded-xl p-8 text-center">
-                    <Swords className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">No matches recorded yet.</p>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                    <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                    <p className="text-sm text-white/40">No matches recorded yet.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -626,13 +617,13 @@ export default function ClubDetail() {
                       const result = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "D";
                       const competition = deriveCompetitionLabel(m, tournamentMap);
                       return (
-                        <div key={m.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
                           <span className={cn("text-xs font-bold px-2 py-0.5 rounded border shrink-0", OUTCOME_STYLE[result])}>{result}</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">vs {oppName}</p>
-                            <p className="text-xs text-muted-foreground">{competition}</p>
+                            <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
+                            <p className="text-xs text-white/40">{competition}</p>
                           </div>
-                          <p className="font-bold text-foreground">{myScore} – {oppScore}</p>
+                          <p className="font-bold text-white">{myScore} – {oppScore}</p>
                         </div>
                       );
                     })}
@@ -645,9 +636,9 @@ export default function ClubDetail() {
           {/* Squad */}
           <TabsContent value="squad" className="px-4 pt-4">
             {players.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-8 text-center">
-                <Users className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No players registered yet.</p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                <Users className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                <p className="text-white/40 text-sm">No players registered yet.</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-3">
@@ -701,11 +692,16 @@ export default function ClubDetail() {
             </TabsContent>
           )}
 
-          {/* Finance — owner only */}
+          {/* Finance + Shirts — owner only */}
           {isOwner && (
-            <TabsContent value="finance" className="px-4 pt-4">
-              <ClubFinanceTab club={club} />
-            </TabsContent>
+            <>
+              <TabsContent value="finance" className="px-4 pt-4">
+                <ClubFinanceTab club={club} />
+              </TabsContent>
+              <TabsContent value="shirts" className="px-4 pt-4 pb-6">
+                <ShirtSalesPanel club={club} players={players} />
+              </TabsContent>
+            </>
           )}
 
           {/* Join Requests */}
@@ -713,11 +709,11 @@ export default function ClubDetail() {
             <TabsContent value="requests" className="px-4 pt-4">
               <div className="space-y-3">
                 {joinRequests.map(req => (
-                  <div key={req.id} className="bg-card border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div key={req.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
-                      <p className="font-bold text-foreground">{req.player_gamertag}</p>
-                      <p className="text-xs text-muted-foreground">{req.player_email}</p>
-                      {req.message && <p className="text-sm text-muted-foreground mt-2 italic">"{req.message}"</p>}
+                      <p className="font-bold text-white">{req.player_gamertag}</p>
+                      <p className="text-xs text-white/40">{req.player_email}</p>
+                      {req.message && <p className="text-sm text-white/40 mt-2 italic">"{req.message}"</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" onClick={() => handleJoinRequest(req.id, "approved")} className="bg-success/20 text-success hover:bg-success/30 border-0">
@@ -752,7 +748,7 @@ export default function ClubDetail() {
       />
 
       <Dialog open={followersModalOpen} onOpenChange={setFollowersModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-[#0d1225] border-white/10 text-white">
           <DialogHeader><DialogTitle>Followers</DialogTitle></DialogHeader>
           <div className="max-h-96 overflow-y-auto">
             <FollowList items={followersList} emptyLabel="No followers yet." onClose={() => setFollowersModalOpen(false)} />
@@ -768,40 +764,34 @@ export default function ClubDetail() {
         onConfirm={(url, position, zoom) => saveLogo(url, position, zoom)}
       />
 
-      <AvatarGenerator
-        open={aiLogoOpen}
-        onClose={() => setAiLogoOpen(false)}
-        player={myPlayer}
-        onSelect={(url) => { setAiLogoOpen(false); setPendingLogo(url); }}
-      />
 
       <Dialog open={logoPreviewOpen} onOpenChange={setLogoPreviewOpen}>
-        <DialogContent className="bg-card border-border max-w-sm">
+        <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm">
           <DialogHeader><DialogTitle>{club.name} Logo</DialogTitle></DialogHeader>
           <div className="flex items-center justify-center p-4">
-            <img src={club.logo_url} alt={club.name} className="w-64 h-64 rounded-2xl object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+            <img src={club.logo_url} alt={club.name} className="w-64 h-64 rounded-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Edit Club Dialog */}
       <Dialog open={editClubOpen} onOpenChange={setEditClubOpen}>
-        <DialogContent className="bg-card border-border max-w-lg">
+        <DialogContent className="bg-[#0d1225] border-white/10 max-w-lg">
           <DialogHeader><DialogTitle className="text-xl font-bold">Edit Club</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Club Name</label>
-                <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border" />
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Club Name</label>
+                <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-white/5 border-white/10" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Tag (max 5)</label>
-                <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-secondary border-border" />
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Tag (max 5)</label>
+                <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-white/5 border-white/10" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Platform</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Platform</label>
                 <Select value={clubForm.platform} onValueChange={v => setClubForm(f => ({ ...f, platform: v }))}>
-                  <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PlayStation">PlayStation</SelectItem>
                     <SelectItem value="Xbox">Xbox</SelectItem>
@@ -810,9 +800,9 @@ export default function ClubDetail() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Region</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Region</label>
                 <Select value={clubForm.region} onValueChange={v => setClubForm(f => ({ ...f, region: v }))}>
-                  <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {["Europe","North America","South America","Asia","Oceania","Middle East"].map(r => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -821,9 +811,9 @@ export default function ClubDetail() {
                 </Select>
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Country</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Country</label>
                 <Select value={clubForm.country_code || ""} onValueChange={v => setClubForm(f => ({ ...f, country_code: v }))}>
-                  <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Select country" /></SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                   </SelectContent>
@@ -831,8 +821,8 @@ export default function ClubDetail() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Bio / Description</label>
-              <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder="Describe your club..." />
+              <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Bio / Description</label>
+              <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-white/5 border-white/10 resize-none" rows={3} placeholder="Describe your club..." />
             </div>
             <Button
               onClick={async () => {
@@ -896,24 +886,24 @@ function PlayerCard({ player, currentUser, myPlayer, isPresident, onAssignRole, 
   }
 
   return (
-    <Link to={`/players/${player.id}`} className="bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-all block">
+    <Link to={`/players/${player.id}`} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-blue-400/30 transition-all block">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
           {player.avatar_url
             ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" />
             : <span className="font-bold text-sm text-primary">{player.position}</span>
           }
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">{player.gamertag}</p>
-          <p className="text-xs text-muted-foreground capitalize">{player.role === 'manager' ? 'member' : (player.role || 'member')}</p>
+          <p className="font-medium text-white truncate">{player.gamertag}</p>
+          <p className="text-xs text-white/40 capitalize">{player.role === 'manager' ? 'member' : (player.role || 'member')}</p>
         </div>
         <div className="text-right">
           <p className="font-bold text-lg text-primary">{player.overall_rating}</p>
-          <p className="text-[10px] text-muted-foreground uppercase">OVR</p>
+          <p className="text-[10px] text-white/40 uppercase">OVR</p>
         </div>
       </div>
-      <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-4 mt-3 text-xs text-white/40">
         <span>{player.goals || 0} goals</span>
         <span>{player.assists || 0} assists</span>
         <span>{player.matches_played || 0} matches</span>
@@ -958,26 +948,26 @@ function FollowList({ items, emptyLabel, onClose }) {
   });
 
   if (items.length === 0) {
-    return <div className="bg-card border border-border rounded-xl p-8 text-center"><p className="text-muted-foreground text-sm">{emptyLabel}</p></div>;
+    return <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center"><p className="text-white/40 text-sm">{emptyLabel}</p></div>;
   }
 
   return (
     <>
       <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
-        className="w-full mb-3 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       <div className="space-y-2">
-        {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No results found.</p>}
+        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">No results found.</p>}
         {filtered.map(item => {
           const name = item.target_name || item._player_name || item.follower_email || "Unknown";
           const imageUrl = item.avatar_url || item.logo_url;
           return (
             <button key={item.id} onClick={() => { onClose?.(); navigate(`/players/${item._player_id || item.target_id}`); }}
-              className="w-full text-left bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 hover:border-primary/30 transition-all">
-              <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              className="w-full text-left bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-blue-400/30 transition-all">
+              <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
                 {imageUrl ? <img src={imageUrl} alt={name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(name[0] || "?").toUpperCase()}</span>}
               </div>
-              <p className="text-sm font-bold text-foreground truncate">{name}</p>
+              <p className="text-sm font-bold text-white truncate">{name}</p>
             </button>
           );
         })}

@@ -55,7 +55,7 @@ export default function NewsFeaturedCard({ item }) {
         {/* Entities + timestamp */}
         <div className="flex items-center gap-3 pt-2 border-t border-white/10 flex-wrap">
           {item.club_logo_url && (
-            <img src={item.club_logo_url} alt={item.club_name} className="w-6 h-6 rounded object-cover border border-border shrink-0" />
+            <img src={item.club_logo_url} alt={item.club_name} className="w-6 h-6 rounded-full object-cover border border-border shrink-0" />
           )}
           {item.player_avatar_url && (
             <img src={item.player_avatar_url} alt={item.player_name} className="w-6 h-6 rounded-full object-cover border border-border shrink-0" />

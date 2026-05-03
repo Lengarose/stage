@@ -152,8 +152,8 @@ export default function BannerPreviewEditor({
             <div className="bg-card rounded-b-xl px-4 pb-3 border border-t-0 border-border">
               <div className="flex items-end gap-3 -mt-7 mb-2">
                 <div className={cn(
-                  "border-4 border-card bg-secondary flex items-center justify-center overflow-hidden shrink-0 shadow-lg",
-                  previewSize === "mobile" ? "w-12 h-12 rounded-xl" : "w-16 h-16 rounded-2xl"
+                  "border-4 border-card bg-secondary flex items-center justify-center overflow-hidden shrink-0 shadow-lg rounded-full",
+                  previewSize === "mobile" ? "w-12 h-12" : "w-16 h-16"
                 )}>
                   {previewData.avatarUrl
                     ? <img src={previewData.avatarUrl} alt="" className="w-full h-full object-cover" />

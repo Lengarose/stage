@@ -39,7 +39,7 @@ export default function NewsArticleCard({ item }) {
       {(item.club_name || item.player_name) && (
         <div className="px-4 pb-4 flex items-center gap-2 pt-2 border-t border-border/40">
           {item.club_logo_url && (
-            <img src={item.club_logo_url} alt={item.club_name} className="w-5 h-5 rounded object-cover shrink-0 border border-border" />
+            <img src={item.club_logo_url} alt={item.club_name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-border" />
           )}
           {item.player_avatar_url && !item.club_logo_url && (
             <img src={item.player_avatar_url} alt={item.player_name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-border" />

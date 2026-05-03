@@ -22,9 +22,9 @@ export default function ClubCard({ club, rank, showChallenge, onChallenge }) {
               {rank}
             </div>
           )}
-          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
             {club.logo_url ? (
-              <img src={club.logo_url} alt={club.name} className="w-8 h-8 rounded object-cover" />
+              <img src={club.logo_url} alt={club.name} className="w-full h-full rounded-full object-cover" />
             ) : (
               <Shield className="w-6 h-6 text-primary" />
             )}

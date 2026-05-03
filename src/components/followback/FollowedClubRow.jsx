@@ -45,7 +45,7 @@ export default function FollowedClubRow({ club, matchData }) {
         onClick={() => hasMatch && setExpanded(e => !e)}
       >
         {/* Logo */}
-        <div className="w-11 h-11 rounded-lg overflow-hidden bg-secondary border border-border shrink-0">
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-secondary border border-border shrink-0">
           {club.logo_url ? (
             <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" />
           ) : (

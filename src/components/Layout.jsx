@@ -38,81 +38,82 @@ const THEMES = [
   { id: "theme-custom", label: "Custom",     icon: Palette },
 ];
 
-const PLAYER_GROUPS = [
-  {
-    label: "Overview",
-    items: [
-      { path: "/",         icon: Home,         label: "Home" },
-      { path: "/profile",  icon: User,         label: "My Profile" },
-      { path: "/inbox",    icon: Inbox,        label: "Inbox" },
-      { path: "/schedule", icon: CalendarDays, label: "Schedule" },
-    ],
-  },
-  {
-    label: "Compete",
-    items: [
-      { path: "/game-day",    icon: Zap,       label: "Game Day" },
-      { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
-      { path: "/rankings",    icon: BarChart3, label: "Rankings" },
-    ],
-  },
-  {
-    label: "Community",
-    items: [
-      { path: "/clubs",        icon: Shield,     label: "Clubs" },
-      { path: "/players-list", icon: UsersRound, label: "Players" },
-      { path: "/social",       icon: Rss,        label: "Feed" },
-      { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
-    ],
-  },
-  {
-    label: "Market",
-    items: [
-      { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
-      { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
-      { path: "/store",           icon: ShoppingBag,    label: "Store" },
-    ],
-  },
-  {
-    label: "Info",
-    items: [
-      { path: "/news", icon: Newspaper, label: "News" },
-    ],
-  },
-];
+function getPlayerGroups(clubPath) {
+  const homeItems = [
+    { path: "/",         icon: Home,         label: "Home" },
+    { path: "/profile",  icon: User,         label: "My Profile" },
+    { path: "/inbox",    icon: Inbox,        label: "Inbox" },
+    { path: "/schedule", icon: CalendarDays, label: "Schedule" },
+  ];
+  return [
+    { label: "Home", items: homeItems },
+    {
+      label: "Compete",
+      items: [
+        { path: "/game-day",    icon: Zap,       label: "Game Day" },
+        { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
+        { path: "/rankings",    icon: BarChart3, label: "Rankings" },
+      ],
+    },
+    {
+      label: "Community",
+      items: [
+        { path: "/clubs",        icon: Shield,     label: "Clubs" },
+        { path: "/players-list", icon: UsersRound, label: "Players" },
+        { path: "/social",       icon: Rss,        label: "Feed" },
+        { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
+      ],
+    },
+    {
+      label: "Market",
+      items: [
+        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
+        { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
+      ],
+    },
+    {
+      label: "Discover",
+      items: [
+        { path: "/news",  icon: Newspaper,   label: "News" },
+        { path: "/store", icon: ShoppingBag, label: "Store" },
+      ],
+    },
+  ];
+}
 
-const OWNER_GROUPS = [
-  {
-    label: "Overview",
-    items: [
-      { path: "/",         icon: Home,         label: "Home" },
-      { path: "/inbox",    icon: Inbox,        label: "Inbox" },
-      { path: "/schedule", icon: CalendarDays, label: "Schedule" },
-    ],
-  },
-  {
-    label: "Squad",
-    items: [
-      { path: "/players-list",    icon: UsersRound,     label: "Players" },
-      { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
-      { path: "/game-day",        icon: Zap,            label: "Game Day" },
-    ],
-  },
-  {
-    label: "Competitions",
-    items: [
-      { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
-      { path: "/rankings",    icon: BarChart3, label: "Rankings" },
-    ],
-  },
-  {
-    label: "Discover",
-    items: [
-      { path: "/news",  icon: Newspaper,   label: "News" },
-      { path: "/store", icon: ShoppingBag, label: "Store" },
-    ],
-  },
-];
+function getOwnerGroups(clubPath) {
+  const homeItems = [
+    { path: "/",         icon: Home,         label: "Home" },
+    { path: "/inbox",    icon: Inbox,        label: "Inbox" },
+    { path: "/schedule", icon: CalendarDays, label: "Schedule" },
+  ];
+  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: "My Club" });
+  return [
+    { label: "Home", items: homeItems },
+    {
+      label: "Squad",
+      items: [
+        { path: "/players-list",    icon: UsersRound,     label: "Players" },
+        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
+        { path: "/game-day",        icon: Zap,            label: "Game Day" },
+      ],
+    },
+    {
+      label: "Competitions",
+      items: [
+        { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
+        { path: "/rankings",    icon: BarChart3, label: "Rankings" },
+      ],
+    },
+    {
+      label: "Discover",
+      items: [
+        { path: "/news",  icon: Newspaper,   label: "News" },
+        { path: "/store", icon: ShoppingBag, label: "Store" },
+      ],
+    },
+  ];
+}
 
 /* ── EAFC26 design tokens ─────────────────────────────────── */
 const TEAL = "#00E5BD";
@@ -452,6 +453,8 @@ export default function Layout() {
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
+  const playerGroups = getPlayerGroups(clubPath);
+  const ownerGroups = getOwnerGroups(clubPath);
 
   return (
     <div
@@ -499,25 +502,24 @@ export default function Layout() {
 
       {/* ── EAFC26 HEADER ─────────────────────────────────────── */}
       <header
-        className="relative z-50 shrink-0"
+        className="relative z-50 shrink-0 overflow-visible"
         style={{
           background: "linear-gradient(180deg, #0b1024 0%, #080d1b 100%)",
-          borderBottom: "1px solid rgba(0,229,189,0.13)",
-          boxShadow: "0 1px 0 rgba(0,229,189,0.06), 0 4px 24px rgba(0,0,0,0.55)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
         }}
       >
         <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: 0.65 }} />
 
         <div className="flex min-h-[3.75rem] h-16 items-stretch">
 
-          <Link to="/" className="flex shrink-0 items-center px-4 sm:px-5 self-stretch" style={{ borderRight: "1px solid rgba(0,229,189,0.1)" }}>
+          <Link to="/" className="flex shrink-0 items-center px-4 sm:px-5 self-stretch">
             <img src={LogoImg} alt="STAGE" className="h-11 w-auto object-contain sm:h-12" />
           </Link>
 
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
             {(myPlayer || myClubId) && (
-              <div className="flex shrink-0 items-center px-3 sm:px-4" style={{ borderRight: "1px solid rgba(0,229,189,0.08)" }}>
+              <div className="flex shrink-0 items-center px-3 sm:px-4">
                 <HeaderIdentityMenu
                   myPlayer={myPlayer}
                   myClub={myClub}
@@ -530,7 +532,7 @@ export default function Layout() {
             )}
 
             {!(myPlayer && myClubId) && (myClubId || myPlayer) && (
-              <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4" style={{ borderRight: "1px solid rgba(0,229,189,0.08)" }}>
+              <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
                 {myClubId && !myPlayer && (
                   <>
                     <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>Owner</span>
@@ -546,30 +548,9 @@ export default function Layout() {
               </div>
             )}
 
-            {accountMode === "club" && clubPath && (
-              <Link
-                to={clubPath}
-                className="flex shrink-0 items-center px-3 sm:px-4 self-stretch"
-                style={{
-                  ...headingFont,
-                  fontWeight: 900,
-                  fontSize: 13,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
-                  transition: "all 0.12s",
-                  background: location.pathname === clubPath ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.025)",
-                  borderBottom: location.pathname === clubPath ? "2px solid #fbbf24" : "2px solid rgba(255,255,255,0.07)",
-                  color: location.pathname === clubPath ? "#fbbf24" : "rgba(255,255,255,0.4)",
-                }}
-              >
-                My Club
-              </Link>
-            )}
-
             <SidebarNavSectionDropdowns
               variant="header"
-              groups={accountMode === "club" ? OWNER_GROUPS : PLAYER_GROUPS}
+              groups={accountMode === "club" ? ownerGroups : playerGroups}
               pathname={location.pathname}
             />
 
@@ -580,7 +561,7 @@ export default function Layout() {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3" style={{ borderLeft: "1px solid rgba(0,229,189,0.1)" }}>
+          <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3">
             <Link
               to="/search"
               className="rounded p-2 transition-all"
@@ -624,6 +605,12 @@ export default function Layout() {
             )}
           </div>
         </div>
+
+        {/* Gradient fade into content */}
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 right-0 translate-y-full h-10 z-50"
+          style={{ background: "linear-gradient(to bottom, #080d1b, transparent)" }}
+        />
       </header>
 
       {/* ── BODY ─────────────────────────────────────────────── */}

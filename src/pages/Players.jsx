@@ -114,7 +114,7 @@ export default function Players() {
                   <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0", getRankColor(globalRank))}>
                     {globalRank}
                   </div>
-                  <Link to={`/players/${player.id}`} className="w-12 h-12 rounded-xl overflow-hidden border border-border shrink-0 bg-secondary">
+                  <Link to={`/players/${player.id}`} className="w-12 h-12 rounded-full overflow-hidden border border-border shrink-0 bg-secondary">
                     {player.avatar_url ? (
                       <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
                     ) : (

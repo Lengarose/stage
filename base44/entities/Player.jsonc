@@ -312,6 +312,12 @@
       ],
       "default": "active"
     },
+    "shirt_number": {
+      "type": "number",
+      "title": "Shirt Number",
+      "minimum": 1,
+      "maximum": 99
+    },
     "dressing_room_seat": {
       "type": "number",
       "title": "Dressing Room Seat"

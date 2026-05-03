@@ -16,12 +16,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import BannerSelector from "../components/BannerSelector";
 import ClubOnboardingModal from "../components/ClubOnboardingModal";
-import AvatarGenerator from "../components/AvatarGenerator";
 import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
 import { getBannerStyle } from "@/lib/storeItems";
-import { Palette, Wand2 } from "lucide-react";
+import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
@@ -41,7 +40,6 @@ export default function Profile() {
   const [savingClub, setSavingClub] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
-  const [avatarGenOpen, setAvatarGenOpen] = useState(false);
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
@@ -51,7 +49,7 @@ export default function Profile() {
 
   const [playerForm, setPlayerForm] = useState({
     gamertag: "", position: "CM", platform: "PlayStation",
-    overall_rating: 70, country: "", country_code: "", bio: "",
+    overall_rating: 70, country: "", country_code: "", bio: "", shirt_number: "",
   });
 
   const [clubForm, setClubForm] = useState({
@@ -84,6 +82,7 @@ export default function Profile() {
           country: p.country || "",
           country_code: p.country_code || "",
           bio: p.bio || "",
+          shirt_number: p.shirt_number ?? "",
         });
         // Load PvP matches in background
         base44.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpHome => {
@@ -132,12 +131,16 @@ export default function Profile() {
 
   async function savePlayer() {
     setSaving(true);
+    const formToSave = {
+      ...playerForm,
+      shirt_number: playerForm.shirt_number !== "" ? Number(playerForm.shirt_number) : null,
+    };
     if (player) {
-      await base44.entities.Player.update(player.id, playerForm);
-      setPlayer(prev => ({ ...prev, ...playerForm }));
+      await base44.entities.Player.update(player.id, formToSave);
+      setPlayer(prev => ({ ...prev, ...formToSave }));
     } else {
       const created = await base44.entities.Player.create({
-        ...playerForm,
+        ...formToSave,
         email: user.email,
         credits: 500,
         stc: 50_000,
@@ -220,7 +223,7 @@ export default function Profile() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full min-h-screen"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -234,52 +237,52 @@ export default function Profile() {
   // ─── Public Player Profile View ───
   if (view === "profile") {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Top nav */}
-        <div className="px-4 pt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-[#06091a] text-white">
+        {/* Banner */}
+        <div className="relative w-full h-48 sm:h-64 overflow-hidden">
+          <div className="w-full h-full" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#06091a] via-[#06091a]/20 to-transparent" />
+          {/* Top-right action icons */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
             {unreadCount > 0 && (
-              <button onClick={() => setView("notifications")} className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
-                <Bell className="w-5 h-5 text-muted-foreground" />
+              <button onClick={() => setView("notifications")} className="relative p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
+                <Bell className="w-5 h-5 text-white" />
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">{unreadCount}</span>
               </button>
             )}
             {joinRequests.length > 0 && (
-              <button onClick={() => setView("requests")} className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
-                <UserCheck className="w-5 h-5 text-muted-foreground" />
+              <button onClick={() => setView("requests")} className="relative p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
+                <UserCheck className="w-5 h-5 text-white" />
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
               </button>
             )}
+            <button onClick={() => base44.auth.logout()} className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
+              <LogOut className="w-5 h-5 text-white/70" />
+            </button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => base44.auth.logout()} className="text-muted-foreground gap-1.5">
-            <LogOut className="w-4 h-4" /> Logout
-          </Button>
         </div>
-
-        {/* Banner */}
-        <div className="w-full h-36 sm:h-48 md:h-56 mt-2" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
 
         {/* Profile header */}
         <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-end justify-between -mt-10 mb-4">
+          <div className="flex items-end justify-between -mt-16 mb-4 relative z-10">
             {/* Avatar */}
             <button
               onClick={() => player?.avatar_url && setAvatarLightboxOpen(true)}
-              className="w-20 h-20 rounded-full bg-secondary border-4 border-background flex items-center justify-center overflow-hidden shrink-0"
+              className="w-24 h-24 rounded-full border-2 border-white/20 shadow-2xl shadow-blue-500/20 flex items-center justify-center overflow-hidden shrink-0 bg-[#0d1225]"
             >
               {player?.avatar_url
                 ? <div className="w-full h-full" style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }} />
-                : <User className="w-9 h-9 text-muted-foreground" />
+                : <User className="w-9 h-9 text-white/40" />
               }
             </button>
 
             {/* Actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Button size="sm" variant="outline" onClick={() => setView("edit_player")} className="gap-1.5 h-9 px-3 text-xs">
+              <Button size="sm" variant="outline" onClick={() => setView("edit_player")} className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
                 <Settings className="w-3.5 h-3.5" /> Edit Profile
               </Button>
               {myClub && (
-                <Button size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs">
+                <Button size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
                   <Shield className="w-3.5 h-3.5" /> My Club
                 </Button>
               )}
@@ -287,60 +290,54 @@ export default function Profile() {
           </div>
 
           {/* Name + meta */}
-          <div className="space-y-1.5 mb-4">
-            <h1 className="font-heading text-xl sm:text-2xl font-black text-foreground uppercase tracking-tight" style={{ letterSpacing: "-0.02em" }}>
-              {player?.gamertag || user?.full_name || "New Player"}
-            </h1>
+          <div className="space-y-1.5 mb-5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-heading text-2xl sm:text-3xl font-black text-white uppercase tracking-tight" style={{ letterSpacing: "-0.02em" }}>
+                {player?.gamertag || user?.full_name || "New Player"}
+              </h1>
+              {player?.shirt_number && (
+                <span className="font-heading text-xl font-black text-white/30 border border-white/15 rounded-lg px-2 py-0.5 shrink-0">
+                  #{player.shirt_number}
+                </span>
+              )}
+            </div>
             {(player?.club_roles?.length > 0 || player?.role) && (
               <div className="flex flex-wrap gap-1">
                 {(player?.club_roles?.length > 0 ? player.club_roles : [player?.role]).filter(r => r !== 'manager').map(r => (
                   <span key={r} className={cn("text-xs px-2 py-0.5 rounded-full font-medium capitalize",
-                    r === "president" ? "bg-accent/10 text-accent border border-accent/20" :
-                    r === "captain" ? "bg-warning/10 text-warning border border-warning/20" :
-                    "bg-secondary text-muted-foreground"
+                    r === "president" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                    r === "captain" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
+                    "bg-white/10 text-white/60 border border-white/10"
                   )}>{r}</span>
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-              {player?.position && <span className="flex items-center gap-1"><Target className="w-3 h-3" />{player.position}</span>}
-              {player?.platform && <span className="flex items-center gap-1"><Gamepad2 className="w-3 h-3" />{player.platform}</span>}
-              {player?.country && <span className="flex items-center gap-1"><Flag className="w-3 h-3" />{player.country}</span>}
+            <div className="flex items-center gap-3 text-[11px] text-white/50 uppercase tracking-wider flex-wrap">
+              {player?.position && <span>{player.position}</span>}
+              {player?.platform && <span>{player.platform}</span>}
+              {player?.country && <span>{player.country}</span>}
               {myClub && (
-                <Link to={`/clubs/${myClub.id}`} className="flex items-center gap-1 text-primary hover:underline">
+                <Link to={`/clubs/${myClub.id}`} className="text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
                   <Shield className="w-3 h-3" />{myClub.name}
                 </Link>
               )}
             </div>
-            {player?.bio && <p className="text-sm text-foreground/80 mt-1 break-words">{player.bio}</p>}
-          </div>
-
-          {/* Stats row */}
-          <div className="flex items-center border-y border-border py-3 mb-0">
-            <div className="flex-1 text-center py-1">
-              <p className="font-heading text-xl font-black text-foreground">{player?.matches_played || 0}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Matches</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="flex-1 text-center py-1">
-              <p className="font-heading text-xl font-black text-foreground">{(player?.credits ?? 0).toLocaleString()}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Credits</p>
-            </div>
+            {player?.bio && <p className="text-sm text-white/70 mt-1 break-words">{player.bio}</p>}
           </div>
         </div>
 
-        {/* Full social tabs — Posts first */}
+        {/* Tabs */}
         {player && (
           <div className="max-w-5xl mx-auto">
             <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
-              <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0 gap-0">
+              <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0">
                 {["posts", "stats", "matches", "trophies"].map(tab => (
                   <TabsTrigger
                     key={tab}
                     value={tab}
                     className={cn(
-                      "flex-1 rounded-none border-b-2 border-transparent pb-3 pt-3 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-muted-foreground transition-colors min-w-0",
-                      "data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent"
+                      "flex-1 rounded-none border-b-2 border-transparent pb-3 pt-3 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/40 transition-colors min-w-0",
+                      "data-[state=active]:border-blue-400 data-[state=active]:text-blue-400 data-[state=active]:bg-transparent"
                     )}
                   >
                     {tab}
@@ -356,14 +353,14 @@ export default function Profile() {
               {/* Stats */}
               <TabsContent value="stats" className="px-3 sm:px-4 pt-4">
                 <div className="space-y-4">
-                  <div className="bg-card border border-border rounded-xl p-3 sm:p-4 flex items-center gap-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center justify-center shrink-0">
-                      <span className="font-heading text-lg sm:text-xl font-black text-primary leading-none">{player.overall_rating || 70}</span>
-                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground mt-0.5">OVR</span>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl bg-blue-500/20 border border-blue-500/30 flex flex-col items-center justify-center shrink-0">
+                      <span className="font-heading text-xl font-black text-blue-400 leading-none">{player.overall_rating || 70}</span>
+                      <span className="text-[8px] uppercase tracking-wider text-white/40 mt-0.5">OVR</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-foreground truncate">{player.gamertag}</p>
-                      <p className="text-xs text-muted-foreground">{player.position} · {player.platform}</p>
+                      <p className="font-bold text-white truncate">{player.gamertag}</p>
+                      <p className="text-xs text-white/50">{player.position} · {player.platform}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -383,9 +380,9 @@ export default function Profile() {
               <TabsContent value="matches" className="px-3 sm:px-4 pt-4">
                 <div className="space-y-2">
                   {pvpMatches.length === 0 && (
-                    <div className="bg-card border border-border rounded-xl p-8 text-center">
-                      <Swords className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground">No PvP matches recorded yet.</p>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                      <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                      <p className="text-sm text-white/40">No PvP matches recorded yet.</p>
                     </div>
                   )}
                   {pvpMatches.slice(0, 30).map(m => {
@@ -399,13 +396,13 @@ export default function Profile() {
                       ? new Date(m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
                       : "—";
                     return (
-                      <div key={m.id} className="bg-card border border-border rounded-xl px-3 py-3 flex items-center gap-2 sm:gap-3">
+                      <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 flex items-center gap-2 sm:gap-3">
                         <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">vs {opponent || "Unknown"}</p>
-                          <p className="text-[10px] text-muted-foreground">{dateStr}</p>
+                          <p className="text-sm font-semibold text-white truncate">vs {opponent || "Unknown"}</p>
+                          <p className="text-[10px] text-white/40">{dateStr}</p>
                         </div>
-                        <span className="text-sm font-bold text-foreground shrink-0">{scoreStr}</span>
+                        <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
                       </div>
                     );
                   })}
@@ -423,14 +420,14 @@ export default function Profile() {
         {/* Dialogs */}
         {player?.avatar_url && (
           <Dialog open={avatarLightboxOpen} onOpenChange={setAvatarLightboxOpen}>
-            <DialogContent className="bg-card border-border max-w-sm p-4">
-              <DialogHeader><DialogTitle>{player?.gamertag}</DialogTitle></DialogHeader>
+            <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm p-4">
+              <DialogHeader><DialogTitle className="text-white">{player?.gamertag}</DialogTitle></DialogHeader>
               <div className="flex flex-col items-center gap-3">
                 <div
-                  className="w-48 h-48 rounded-full overflow-hidden border-4 border-primary/20"
+                  className="w-48 h-48 rounded-full overflow-hidden border-2 border-white/20"
                   style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }}
                 />
-                <Button size="sm" variant="outline" onClick={() => { setAvatarLightboxOpen(false); setAvatarEditorOpen(true); }} className="gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => { setAvatarLightboxOpen(false); setAvatarEditorOpen(true); }} className="gap-1.5 border-white/20 text-white hover:bg-white/10 bg-transparent">
                   <Move className="w-3.5 h-3.5" /> Reposition Photo
                 </Button>
               </div>
@@ -440,26 +437,25 @@ export default function Profile() {
 
         {!player && (
           <div className="max-w-2xl mx-auto px-4 mt-6">
-            <div className="bg-primary/10 border border-primary/30 rounded-2xl p-6 text-center">
-              <h2 className="font-bold text-foreground text-lg mb-2">Welcome to STAGE!</h2>
-              <p className="text-muted-foreground text-sm mb-4">Create your player profile to get started.</p>
-              <Button onClick={() => setView("edit_player")} className="bg-primary text-primary-foreground">Create Profile</Button>
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 text-center">
+              <h2 className="font-bold text-white text-lg mb-2">Welcome to STAGE!</h2>
+              <p className="text-white/50 text-sm mb-4">Create your player profile to get started.</p>
+              <Button onClick={() => setView("edit_player")} className="bg-blue-600 hover:bg-blue-500 text-white">Create Profile</Button>
             </div>
           </div>
         )}
 
-        {/* Club onboarding banner for players without a club */}
         {player && !myClub && (
           <div className="max-w-2xl mx-auto px-4 mt-4">
-            <div className="bg-card border border-primary/20 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Shield className="w-6 h-6 text-primary" />
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6 text-blue-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-foreground text-sm">You're not in a club yet</p>
-                <p className="text-xs text-muted-foreground">Create your own club or join an existing one to compete in tournaments and leagues.</p>
+                <p className="font-bold text-white text-sm">You're not in a club yet</p>
+                <p className="text-xs text-white/50">Create your own club or join an existing one to compete in tournaments and leagues.</p>
               </div>
-              <Button size="sm" onClick={() => setClubOnboardingOpen(true)} className="bg-primary text-primary-foreground shrink-0 gap-1.5">
+              <Button size="sm" onClick={() => setClubOnboardingOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white shrink-0 gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> Get Started
               </Button>
             </div>
@@ -479,7 +475,7 @@ export default function Profile() {
           }}
         />
 
-        {/* Avatar re-position editor (re-edit existing) */}
+        {/* Avatar re-position editor */}
         <ImagePositionEditor
           open={avatarEditorOpen}
           onClose={() => setAvatarEditorOpen(false)}
@@ -522,12 +518,9 @@ export default function Profile() {
                     : <User className="w-9 h-9 text-muted-foreground" />
                   }
                 </div>
-                <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Upload photo">
                     {uploadingAvatar ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-                  </button>
-                  <button onClick={() => setAvatarGenOpen(true)} className="p-1.5 rounded-lg bg-primary/60 hover:bg-primary/80 transition-colors" title="AI Generate">
-                    <Wand2 className="w-4 h-4 text-white" />
                   </button>
                 </div>
                 <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
@@ -594,6 +587,19 @@ export default function Profile() {
               <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
             </div>
             <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Shirt Number</label>
+              <Input
+                type="number" min={1} max={99}
+                value={playerForm.shirt_number}
+                onChange={e => {
+                  const v = e.target.value === "" ? "" : Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
+                  setPlayerForm(f => ({ ...f, shirt_number: v }));
+                }}
+                placeholder="e.g. 10"
+                className="bg-secondary border-border"
+              />
+            </div>
+            <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Account Email</label>
               <Input value={user?.email || ""} disabled className="bg-secondary border-border opacity-50" />
             </div>
@@ -651,15 +657,7 @@ export default function Profile() {
           }}
         />
 
-        <AvatarGenerator
-          open={avatarGenOpen}
-          onClose={() => setAvatarGenOpen(false)}
-          player={player}
-          onSelect={async (url) => {
-            await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: "50% 50%", avatar_zoom: 150 });
-            setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: "50% 50%", avatar_zoom: 150 }));
-          }}
-        />
+
       </div>
     );
   }
@@ -679,7 +677,7 @@ export default function Profile() {
           <div className="space-y-4">
             <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                   {myClub.logo_url
                     ? <img src={myClub.logo_url} alt={myClub.name} className="w-full h-full object-cover" />
                     : <Shield className="w-8 h-8 text-primary" />
@@ -899,16 +897,16 @@ export default function Profile() {
 
 function StatBox({ label, value, accent }) {
   const accentClass = {
-    success: "text-success",
-    destructive: "text-destructive",
-    accent: "text-accent",
-    warning: "text-warning",
-  }[accent] || "text-foreground";
+    success: "text-green-400",
+    destructive: "text-red-400",
+    accent: "text-blue-400",
+    warning: "text-yellow-400",
+  }[accent] || "text-white";
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 text-center">
+    <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 text-center">
       <p className={cn("font-heading text-2xl sm:text-3xl font-black leading-none", accentClass)}>{value}</p>
-      <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+      <p className="text-[10px] sm:text-xs text-white/40 uppercase tracking-wider mt-1">{label}</p>
     </div>
   );
 }

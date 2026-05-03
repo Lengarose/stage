@@ -292,7 +292,7 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
             <p className="text-xs font-bold text-foreground truncate">{playerName}</p>
             <p className="text-[10px] text-muted-foreground truncate">{clubName}{matchName ? ` · ${matchName}` : ""}</p>
           </div>
-          {clubLogoUrl && <img src={clubLogoUrl} alt={clubName} className="w-6 h-6 rounded object-cover border border-border" />}
+          {clubLogoUrl && <img src={clubLogoUrl} alt={clubName} className="w-6 h-6 rounded-full object-cover border border-border" />}
         </div>
       </div>
 
@@ -349,7 +349,7 @@ function StepPublished({ article }) {
           <p className="font-bold text-foreground leading-tight">{article.headline}</p>
           <div className="flex items-center gap-2 pt-1">
             {article.club_logo_url && (
-              <img src={article.club_logo_url} alt={article.club_name} className="w-5 h-5 rounded object-cover" />
+              <img src={article.club_logo_url} alt={article.club_name} className="w-5 h-5 rounded-full object-cover" />
             )}
             <span className="text-xs text-muted-foreground">{article.club_name} · {article.match_name}</span>
           </div>

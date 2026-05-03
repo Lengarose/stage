@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["search", "details", "confirm"];
@@ -113,16 +114,19 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         : "";
 
       await base44.entities.InboxMessage.create({
-        recipient_email:     recipientEmail,
-        sender_email:        myPlayer?.email || "system@stage.com",
-        subject:             `Match Invitation: ${senderName} vs ${opponentName}`,
-        body:                `You have received a match invitation from ${senderName}.\n\nProposed date: ${date} at ${time}${wagerLine}\n\nPlease accept, decline, or request a different date.`,
-        message_type:        "match_invite",
-        action_type:         "accept_decline_date",
-        related_entity_id:   selected.id,
-        related_entity_type: recipientIsClub ? "club" : "player",
-        status:              "pending",
-        is_read:             false,
+        recipient_email:      recipientEmail,
+        sender_email:         myPlayer?.email || "system@stage.com",
+        sender_gamertag:      senderName,
+        sender_avatar_url:    senderIsClub ? (myClub?.logo_url || "") : (myPlayer?.avatar_url || ""),
+        sender_club_name:     senderIsClub ? myClub?.name : null,
+        subject:              `⚽ Match Invitation: ${senderName} vs ${opponentName}`,
+        body:                 `You have received a match invitation from ${senderName}.\n\nProposed date: ${date} at ${time}${wagerLine}\n\nPlease accept, decline, or request a different date.`,
+        message_type:         "match_invite",
+        action_type:          "accept_decline_date",
+        related_entity_id:    selected.id,
+        related_entity_type:  recipientIsClub ? "club" : "player",
+        status:               "pending",
+        is_read:              false,
         metadata: {
           invitation_type:      invitationType,
           scheduled_date:       scheduledDate,
@@ -135,6 +139,12 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           wager_stc:            wagerAmount,
         },
       });
+
+      notify(recipientEmail, "match_scheduled",
+        `⚽ Match Invitation from ${senderName}`,
+        `${senderName} wants to play against you on ${date} at ${time}${wagerAmount ? ` — wager: ${wagerAmount.toLocaleString()} STC` : ""}. Check your inbox to respond.`,
+        "/inbox"
+      );
 
       setSent(true);
       setTimeout(() => { reset(); onSent(); }, 1500);
@@ -218,7 +228,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                     onClick={() => { setSelected(r); setStep("details"); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/60 transition-colors text-left"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {r.logo_url || r.avatar_url
                         ? <img src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
                         : searchType === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
@@ -246,7 +256,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             {/* Selected opponent */}
             <div className="flex items-center gap-3 p-3 bg-secondary/60 rounded-lg border border-border">
-              <div className="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                 {selected?.logo_url || selected?.avatar_url
                   ? <img src={selected.logo_url || selected.avatar_url} alt={selected.name || selected.gamertag} className="w-full h-full object-cover" />
                   : searchType === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}

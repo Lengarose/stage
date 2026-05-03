@@ -418,6 +418,32 @@ export default function Admin() {
     alert("Lifestyle items reseeded with correct pricing!");
   }
 
+  const [migrating, setMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState(null);
+
+  async function migrateClubBalances() {
+    if (!confirm("This will add +20M STC, +5M transfer budget, and +4M wage budget to ALL existing clubs. Continue?")) return;
+    setMigrating(true);
+    setMigrateResult(null);
+    try {
+      const allClubs = await base44.entities.Club.list(null, 500);
+      let updated = 0;
+      for (const club of allClubs) {
+        await base44.entities.Club.update(club.id, {
+          stc: (club.stc || 0) + 20_000_000,
+          transfer_budget_stc: (club.transfer_budget_stc || 0) + 5_000_000,
+          wage_budget_stc: (club.wage_budget_stc || 0) + 4_000_000,
+        });
+        updated++;
+      }
+      setMigrateResult({ success: true, count: updated });
+    } catch (err) {
+      setMigrateResult({ success: false, error: err?.message });
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   if (allowed === null) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!allowed) return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
@@ -555,6 +581,19 @@ export default function Admin() {
 
           {/* Clubs */}
           <TabsContent value="clubs">
+            <div className="mb-3 flex gap-3 flex-wrap items-center">
+              <Button
+                variant="outline" size="sm" onClick={migrateClubBalances} disabled={migrating}
+                className="border-primary/30 text-primary hover:bg-primary/10 text-xs gap-2"
+              >
+                {migrating ? <><span className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin inline-block" /> Migrating...</> : "💰 Migrate All Clubs (+20M STC, +5M Transfer, +4M Wage)"}
+              </Button>
+              {migrateResult && (
+                <span className={cn("text-xs font-medium", migrateResult.success ? "text-success" : "text-destructive")}>
+                  {migrateResult.success ? `✓ Updated ${migrateResult.count} clubs` : `✗ ${migrateResult.error}`}
+                </span>
+              )}
+            </div>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input value={clubSearch} onChange={e => setClubSearch(e.target.value)}
