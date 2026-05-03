@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Menu, X, Search, Rss, ShoppingBag, Video, UsersRound,
+  Search, Rss, ShoppingBag, Video, UsersRound,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import NotificationBell from "./NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -113,48 +114,166 @@ const OWNER_GROUPS = [
   },
 ];
 
-/* ── nav group label ───────────────────────────────────────── */
-function NavGroup({ label, children }) {
+/* ── nav sections as dropdowns (stacked in drawer, horizontal in header) ─ */
+function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "sidebar" }) {
+  const isHeader = variant === "header";
   return (
-    <div className="mb-1">
-      <p className="text-[9px] text-white/20 uppercase tracking-[0.22em] font-semibold px-4 pt-4 pb-1">{label}</p>
-      {children}
-    </div>
+    <nav
+      className={cn(
+        isHeader
+          ? "flex flex-row items-center gap-1 sm:gap-1.5 shrink-0"
+          : "flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2"
+      )}
+    >
+      {groups.map((group) => {
+        const anyActive = group.items.some((i) => pathname === i.path);
+        return (
+          <DropdownMenu key={group.label}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center justify-between gap-1.5 rounded-lg border text-left transition-all",
+                  isHeader
+                    ? "shrink-0 px-2 py-1.5 sm:px-2.5 sm:py-2"
+                    : "w-full px-3 py-2.5",
+                  anyActive
+                    ? "border-blue-500/25 bg-blue-600/14 text-white"
+                    : "border-white/6 bg-white/[0.02] text-white/40 hover:border-white/10 hover:bg-white/[0.06] hover:text-white/80"
+                )}
+              >
+                <span className={cn("uppercase font-semibold tracking-[0.18em]", isHeader ? "text-[8px] sm:text-[9px]" : "text-[9px] tracking-[0.22em]")}>
+                  {group.label}
+                </span>
+                <ChevronDown className={cn("shrink-0 opacity-45", isHeader ? "h-3 w-3" : "h-3.5 w-3.5")} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side={isHeader ? "bottom" : "right"}
+              align="start"
+              sideOffset={isHeader ? 6 : 8}
+              className="min-w-[10.5rem] max-w-[min(calc(100vw-2rem),17rem)] bg-[#0a1224] border border-white/10 p-1 text-white z-[70] shadow-xl"
+            >
+              {group.items.map((item) => {
+                const isActive = pathname === item.path;
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem key={item.path} asChild className="p-0 focus:bg-transparent">
+                    <Link
+                      to={item.path}
+                      onClick={onItemClick}
+                      className={cn(
+                        "relative flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-2 text-xs uppercase tracking-widest font-semibold outline-none",
+                        isActive ? "bg-blue-600/18 text-white" : "text-white/65 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-r-full bg-blue-500" />
+                      )}
+                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-blue-400" : "text-white/45")} />
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      })}
+    </nav>
   );
 }
 
-/* ── nav item ──────────────────────────────────────────────── */
-function NavItem({ item, isActive, onClick }) {
-  return (
-    <Link
-      to={item.path}
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group relative",
-        isActive
-          ? "bg-blue-600/15 text-white"
-          : "text-white/45 hover:text-white/80 hover:bg-white/5"
-      )}
-    >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-blue-500" />
-      )}
-      <item.icon className={cn("w-4 h-4 shrink-0 transition-colors", isActive ? "text-blue-400" : "group-hover:text-white/70")} />
-      <span className={cn(
-        "text-xs uppercase tracking-widest font-semibold transition-colors",
-        isActive ? "text-white" : ""
-      )}>
-        {item.label}
-      </span>
-    </Link>
+/* Profile switcher + identity */
+function SidebarProfileRoleBlock({ myPlayer, myClubId, accountMode, switchMode, subscriptionTier, variant = "sidebar" }) {
+  if (!myPlayer && !myClubId) return null;
+
+  const isHeader = variant === "header";
+
+  const inner = (
+    <div className={cn("flex gap-2.5", isHeader ? "flex-row flex-wrap items-center" : "flex-col")}>
+        {myPlayer && myClubId ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.06] font-bold uppercase tracking-widest text-white outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-500/50",
+                  isHeader ? "px-2 py-1.5 text-[9px] sm:px-2.5 sm:py-2 sm:text-[10px]" : "w-full px-3 py-2.5 text-[10px]",
+                  accountMode === "player" ? "ring-1 ring-blue-500/40" : "ring-1 ring-amber-500/30"
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+                  {accountMode === "player" ? (
+                    <><User className="h-3.5 w-3.5 shrink-0 text-blue-400 sm:h-4 sm:w-4" /><span className="truncate">Player</span></>
+                  ) : (
+                    <><Shield className="h-3.5 w-3.5 shrink-0 text-amber-400 sm:h-4 sm:w-4" /><span className="truncate">Owner</span></>
+                  )}
+                </span>
+                <ChevronDown className="h-3 w-3 shrink-0 text-white/40 sm:h-3.5 sm:w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side={isHeader ? "bottom" : "bottom"} sideOffset={4} className="z-[80] w-44 border border-white/10 bg-[#0a1224] p-1 text-white">
+              <DropdownMenuRadioGroup value={accountMode} onValueChange={(v) => switchMode(v)}>
+                <DropdownMenuRadioItem
+                  value="player"
+                  className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-blue-600/25 focus:text-white cursor-pointer py-2.5"
+                >
+                  <User className="w-4 h-4 text-blue-400" /> Player
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  value="club"
+                  className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-amber-500/20 focus:text-white cursor-pointer py-2.5"
+                >
+                  <Shield className="w-4 h-4 text-amber-400" /> Owner
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : myPlayer ? (
+          <div className={cn("flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] font-bold uppercase tracking-widest text-white/55", isHeader ? "px-2 py-1.5 text-[9px]" : "w-full px-3 py-2.5 text-[10px]")}>
+            <User className="h-3.5 w-3.5 shrink-0 text-blue-400" />
+            Player
+          </div>
+        ) : (
+          <div className={cn("flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] font-bold uppercase tracking-widest text-white/55", isHeader ? "px-2 py-1.5 text-[9px]" : "w-full px-3 py-2.5 text-[10px]")}>
+            <Shield className="h-3.5 w-3.5 shrink-0 text-amber-400/90" />
+            Owner
+          </div>
+        )}
+
+        {myPlayer && (
+          <div className={cn("flex min-w-0 items-center gap-2", isHeader ? "max-w-[140px] sm:max-w-[200px]" : "gap-2.5")}>
+            <div
+              className={cn("shrink-0 rounded-full border border-white/20 bg-white/10", isHeader ? "h-7 w-7 sm:h-8 sm:w-8" : "h-9 w-9")}
+              style={myPlayer.avatar_url ? {
+                backgroundImage: `url(${myPlayer.avatar_url})`,
+                backgroundSize: `${myPlayer.avatar_zoom || 150}%`,
+                backgroundPosition: myPlayer.avatar_position || "50% 50%",
+                backgroundRepeat: "no-repeat",
+              } : {}}
+            />
+            <div className="min-w-0 flex-1">
+              <p className={cn("truncate font-bold uppercase tracking-widest text-white/80", isHeader ? "text-[10px] sm:text-xs" : "text-xs")}>{myPlayer.gamertag}</p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                {BADGE_IMAGES[subscriptionTier] && (
+                  <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="h-3.5 w-3.5 rounded-full border border-white/20 object-cover sm:h-4 sm:w-4" />
+                )}
+                <span className="text-[8px] uppercase tracking-wider text-white/35 sm:text-[9px]">{subscriptionTier}</span>
+              </div>
+            </div>
+          </div>
+        )}
+    </div>
   );
+
+  if (isHeader) return <div className="shrink-0">{inner}</div>;
+  return <div className="shrink-0 border-b border-white/8 px-3 pb-3 pt-4">{inner}</div>;
 }
 
 /* ── layout ────────────────────────────────────────────────── */
 export default function Layout() {
   const location  = useLocation();
-  const [mobileOpen,       setMobileOpen]       = useState(false);
-  const [profileMenuOpen,  setProfileMenuOpen]  = useState(false);
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [myClubId,         setMyClubId]         = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
@@ -228,9 +347,6 @@ export default function Layout() {
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
 
-  /* close mobile menu on route change */
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
-
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#06091a]">
 
@@ -263,254 +379,108 @@ export default function Layout() {
         </div>
       )}
 
-      {/* ── TOP NAV ───────────────────────────────────────────── */}
-      <header className="relative z-50 shrink-0 h-14 flex items-center px-4 md:px-6 gap-4 bg-[#06091a]/95 backdrop-blur-md border-b border-white/8">
-        {/* wordmark */}
-        <Link to="/" className="shrink-0">
-          <img src={LogoImg} alt="STAGE" className="h-20 w-auto object-contain" />
-        </Link>
+      {/* ── HEADER (logo + former sidebar: profile, onboarding, nav, version) ─ */}
+      <header className="relative z-50 shrink-0 border-b border-white/8 bg-[#06091a]/95 backdrop-blur-md">
+        <div className="flex min-h-14 items-stretch gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 md:px-5">
+          <Link to="/" className="flex shrink-0 items-center self-center">
+            <img src={LogoImg} alt="STAGE" className="h-14 w-auto object-contain sm:h-[4.25rem]" />
+          </Link>
 
-        {/* divider */}
-        {(myPlayer || myClubId) && <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />}
-
-        {/* Profile role: dropdown when both Player + Owner exist; otherwise static label */}
-        {(myPlayer || myClubId) && (
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-            {myPlayer && myClubId ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] pl-3 pr-2.5 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-500/50",
-                      accountMode === "player" ? "ring-1 ring-blue-500/40" : "ring-1 ring-amber-500/30"
-                    )}
-                  >
-                    {accountMode === "player" ? (
-                      <><User className="w-3.5 h-3.5 text-blue-400 shrink-0" /><span>Player</span></>
-                    ) : (
-                      <><Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" /><span>Owner</span></>
-                    )}
-                    <ChevronDown className="w-3.5 h-3.5 text-white/40 shrink-0" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-44 bg-[#0a1224] border-white/10 text-white p-1 z-[60]">
-                  <DropdownMenuRadioGroup value={accountMode} onValueChange={(v) => switchMode(v)}>
-                    <DropdownMenuRadioItem
-                      value="player"
-                      className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-blue-600/25 focus:text-white cursor-pointer py-2.5"
-                    >
-                      <User className="w-4 h-4 text-blue-400" /> Player
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      value="club"
-                      className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-amber-500/20 focus:text-white cursor-pointer py-2.5"
-                    >
-                      <Shield className="w-4 h-4 text-amber-400" /> Owner
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : myPlayer ? (
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/55">
-                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                Player
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/55">
-                <Shield className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
-                Owner
-              </div>
+          <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(myPlayer || myClubId) && (
+              <SidebarProfileRoleBlock
+                variant="header"
+                myPlayer={myPlayer}
+                myClubId={myClubId}
+                accountMode={accountMode}
+                switchMode={switchMode}
+                subscriptionTier={subscriptionTier}
+              />
             )}
 
-            {myPlayer && (
-              <div className="hidden sm:flex items-center gap-2 shrink-0 min-w-0">
-                <div
-                  className="w-7 h-7 rounded-full border border-white/20 bg-white/10 shrink-0"
-                  style={myPlayer.avatar_url ? {
-                    backgroundImage:`url(${myPlayer.avatar_url})`,
-                    backgroundSize:`${myPlayer.avatar_zoom || 150}%`,
-                    backgroundPosition: myPlayer.avatar_position || "50% 50%",
-                    backgroundRepeat:"no-repeat",
-                  } : {}}
-                />
-                <span className="text-xs font-bold uppercase tracking-widest text-white/70 truncate max-w-[120px] md:max-w-[200px]">
-                  {myPlayer.gamertag}
-                </span>
-                {BADGE_IMAGES[subscriptionTier] && (
-                  <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="w-5 h-5 rounded-full object-cover border border-white/20 shrink-0" />
+            {!(myPlayer && myClubId) && (myClubId || myPlayer) && (
+              <div className="flex shrink-0 flex-col gap-0.5 border-l border-white/10 pl-2 sm:pl-3">
+                {myClubId && !myPlayer && (
+                  <>
+                    <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest text-amber-400 sm:text-[9px]">
+                      <span className="h-1 w-1 rounded-full bg-amber-400" /> Owner
+                    </span>
+                    <Link to="/profile" className="whitespace-nowrap text-[8px] uppercase tracking-widest text-white/40 hover:text-white/70 sm:text-[9px]">
+                      + Player profile
+                    </Link>
+                  </>
+                )}
+                {myPlayer && !myClubId && (
+                  <>
+                    <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest text-blue-400 sm:text-[9px]">
+                      <span className="h-1 w-1 rounded-full bg-blue-400" /> Player
+                    </span>
+                    <Link to="/clubs" className="whitespace-nowrap text-[8px] uppercase tracking-widest text-white/40 hover:text-white/70 sm:text-[9px]">
+                      + Create club
+                    </Link>
+                  </>
                 )}
               </div>
             )}
+
+            {accountMode === "club" && myClubId && (
+              <Link
+                to={`/clubs/${myClubId}`}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[9px] font-semibold uppercase tracking-widest transition-colors sm:gap-2 sm:px-2.5 sm:py-2 sm:text-[10px]",
+                  location.pathname === `/clubs/${myClubId}`
+                    ? "border-amber-500/35 bg-amber-500/15 text-white"
+                    : "border-white/10 text-white/50 hover:border-white/15 hover:bg-white/[0.06] hover:text-white/85"
+                )}
+              >
+                <Shield className={cn("h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4", location.pathname === `/clubs/${myClubId}` ? "text-amber-400" : "")} />
+                My Club
+              </Link>
+            )}
+
+            <SidebarNavSectionDropdowns
+              variant="header"
+              groups={accountMode === "club" ? OWNER_GROUPS : PLAYER_GROUPS}
+              pathname={location.pathname}
+            />
+
+            <span className="hidden shrink-0 self-center text-[8px] uppercase tracking-[0.2em] text-white/20 sm:inline md:text-[9px]">
+              STAGE v2.0
+            </span>
           </div>
-        )}
 
-        {/* spacer */}
-        <div className="flex-1" />
-
-        {/* right actions */}
-        <div className="flex items-center gap-1">
-          <Link to="/search" className={cn("p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5", location.pathname === "/search" && "text-white bg-white/8")}>
-            <Search className="w-4 h-4" />
-          </Link>
-          <NotificationBell />
-          <Link to="/settings" className={cn("p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5", location.pathname === "/settings" && "text-white bg-white/8")}>
-            <Settings className="w-4 h-4" />
-          </Link>
-
-          {/* theme picker */}
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 ml-1">
-            <Palette className="w-3.5 h-3.5 text-white/35 shrink-0" />
-            <select
-              value={theme}
-              onChange={e => setTheme(e.target.value)}
-              className="bg-transparent text-[11px] uppercase tracking-wider text-white/60 outline-none cursor-pointer"
-            >
-              {THEMES.map(t => <option key={t.id} value={t.id} className="bg-[#06091a] text-white normal-case">{t.label}</option>)}
-            </select>
-          </div>
-
-          {isAdmin && (
-            <Link to="/admin" className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 text-[11px] uppercase tracking-widest transition-colors">
-              <ShieldAlert className="w-3.5 h-3.5" /> Admin
+          <div className="flex shrink-0 items-center gap-0.5 self-center border-l border-white/10 pl-1.5 sm:gap-1 sm:pl-2 md:pl-3">
+            <Link to="/search" className={cn("rounded-lg p-2 transition-colors text-white/40 hover:bg-white/5 hover:text-white", location.pathname === "/search" && "bg-white/8 text-white")}>
+              <Search className="h-4 w-4" />
             </Link>
-          )}
-
-          {/* mobile burger */}
-          <button
-            onClick={() => setMobileOpen(o => !o)}
-            className="lg:hidden p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors ml-1"
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+            <NotificationBell />
+            <Link to="/settings" className={cn("rounded-lg p-2 transition-colors text-white/40 hover:bg-white/5 hover:text-white", location.pathname === "/settings" && "bg-white/8 text-white")}>
+              <Settings className="h-4 w-4" />
+            </Link>
+            <div className="ml-0.5 flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 sm:px-2 sm:py-1.5">
+              <Palette className="h-3 w-3 shrink-0 text-white/35 sm:h-3.5 sm:w-3.5" />
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                className="max-w-[4.5rem] cursor-pointer bg-transparent text-[9px] uppercase tracking-wider text-white/60 outline-none sm:max-w-none sm:text-[10px] md:text-[11px]"
+              >
+                {THEMES.map((t) => (
+                  <option key={t.id} value={t.id} className="bg-[#06091a] text-white normal-case">{t.label}</option>
+                ))}
+              </select>
+            </div>
+            {isAdmin && (
+              <Link to="/admin" className="flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-[9px] uppercase tracking-widest text-red-400 hover:bg-red-500/10 sm:px-2 md:text-[11px]" title="Admin">
+                <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
       {/* ── BODY ──────────────────────────────────────────────── */}
       <div className={cn("flex flex-1 overflow-hidden relative", isVideoTheme && "bg-transparent")}>
-
-        {/* ── SIDEBAR (desktop) ─────────────────────────────── */}
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 bg-[#060c18] border-r border-white/6 overflow-y-auto">
-
-          {/* Mode hint + onboarding (role switch lives in header when both exist) */}
-          <div className="px-3 pt-4 pb-2">
-            {myPlayer && myClubId ? null : myClubId && !myPlayer ? (
-              /* Owner only */
-              <div className="px-1">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span className="text-[10px] text-amber-400 uppercase tracking-widest font-bold">Owner Mode</span>
-                </div>
-                <Link to="/profile" className="flex items-center gap-2 text-[10px] text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors">
-                  + Create Player Profile
-                </Link>
-              </div>
-            ) : myPlayer && !myClubId ? (
-              /* Player only */
-              <div className="px-1">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  <span className="text-[10px] text-blue-400 uppercase tracking-widest font-bold">Player Mode</span>
-                </div>
-                <Link to="/clubs" className="flex items-center gap-2 text-[10px] text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors">
-                  + Create Club
-                </Link>
-              </div>
-            ) : null}
-          </div>
-
-          {/* My Club pinned link (owner mode) */}
-          {accountMode === "club" && myClubId && (
-            <div className="px-3 pb-1">
-              <Link
-                to={`/clubs/${myClubId}`}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all relative",
-                  location.pathname === `/clubs/${myClubId}` ? "bg-amber-500/15 text-white" : "text-white/45 hover:text-white/80 hover:bg-white/5"
-                )}
-              >
-                {location.pathname === `/clubs/${myClubId}` && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-amber-400" />}
-                <Shield className={cn("w-4 h-4 shrink-0", location.pathname === `/clubs/${myClubId}` ? "text-amber-400" : "")} />
-                <span className="text-xs uppercase tracking-widest font-semibold">My Club</span>
-              </Link>
-            </div>
-          )}
-
-          <div className="w-full h-px bg-white/6 mb-1" />
-
-          <nav className="flex-1 px-3 py-1 overflow-y-auto">
-            {(accountMode === "club" ? OWNER_GROUPS : PLAYER_GROUPS).map((group) => (
-              <NavGroup key={group.label} label={group.label}>
-                {group.items.map((item) => (
-                  <NavItem key={item.path} item={item} isActive={location.pathname === item.path} />
-                ))}
-              </NavGroup>
-            ))}
-          </nav>
-
-          <div className="px-3 pb-4 border-t border-white/6 pt-3">
-            <p className="text-[9px] text-white/15 uppercase tracking-[0.25em] text-center">STAGE v2.0</p>
-          </div>
-        </aside>
-
-        {/* ── MOBILE MENU ───────────────────────────────────── */}
-        {mobileOpen && (
-          <div className="lg:hidden absolute inset-0 z-40 flex">
-            <div className="w-64 bg-[#060c18] border-r border-white/8 flex flex-col overflow-y-auto">
-              {myPlayer && (
-                <div className="flex items-center gap-3 px-4 py-4 border-b border-white/8">
-                  <div
-                    className="w-9 h-9 rounded-full border border-white/20 bg-white/10 shrink-0"
-                    style={myPlayer.avatar_url ? {
-                      backgroundImage:`url(${myPlayer.avatar_url})`,
-                      backgroundSize:`${myPlayer.avatar_zoom || 150}%`,
-                      backgroundPosition: myPlayer.avatar_position || "50% 50%",
-                      backgroundRepeat:"no-repeat",
-                    } : {}}
-                  />
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-white">{myPlayer.gamertag}</p>
-                    <p className="text-[10px] text-white/35 uppercase tracking-wider">{subscriptionTier}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* My Club pinned (owner mobile) */}
-              {accountMode === "club" && myClubId && (
-                <div className="px-3 pt-2">
-                  <NavItem item={{ path: `/clubs/${myClubId}`, icon: Shield, label: "My Club" }} isActive={location.pathname === `/clubs/${myClubId}`} />
-                </div>
-              )}
-
-              <nav className="flex-1 px-3 py-1 overflow-y-auto">
-                {(accountMode === "club" ? OWNER_GROUPS : PLAYER_GROUPS).map((group) => (
-                  <NavGroup key={group.label} label={group.label}>
-                    {group.items.map((item) => (
-                      <NavItem key={item.path} item={item} isActive={location.pathname === item.path} />
-                    ))}
-                  </NavGroup>
-                ))}
-              </nav>
-
-              <div className="px-3 pb-4 space-y-2 border-t border-white/8 pt-3">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-                  <Palette className="w-3.5 h-3.5 text-white/30 shrink-0" />
-                  <select value={theme} onChange={e => setTheme(e.target.value)} className="flex-1 bg-transparent text-xs uppercase tracking-wider text-white/50 outline-none">
-                    {THEMES.map(t => <option key={t.id} value={t.id} className="bg-[#06091a] text-white normal-case">{t.label}</option>)}
-                  </select>
-                </div>
-                {isAdmin && (
-                  <Link to="/admin" className="flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 text-xs uppercase tracking-widest">
-                    <ShieldAlert className="w-3.5 h-3.5" /> Admin
-                  </Link>
-                )}
-              </div>
-            </div>
-
-            {/* backdrop */}
-            <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          </div>
-        )}
 
         {/* ── MAIN CONTENT ──────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto bg-[#06091a]">

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:vocal.media)",
+      "WebFetch(domain:www.ea.com)",
+      "WebFetch(domain:fpfrance.com)"
+    ]
+  }
+}
