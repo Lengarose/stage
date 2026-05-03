@@ -367,7 +367,7 @@ export default function ClubDetail() {
       </div>
 
       {/* Profile header */}
-      <div className="max-w-2xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-end justify-between -mt-10 mb-4">
           {/* Logo */}
           <div className="relative group shrink-0">
@@ -522,7 +522,7 @@ export default function ClubDetail() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="max-w-2xl mx-auto mt-0">
+      <div className="max-w-5xl mx-auto mt-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0 gap-0 flex-wrap">
             {[

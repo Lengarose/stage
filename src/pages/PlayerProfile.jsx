@@ -167,7 +167,7 @@ export default function PlayerProfile() {
       <div className="w-full h-36 sm:h-48 md:h-56 mt-2" style={getBannerStyle(player.banner_id, player.banner_position)} />
 
       {/* ── Profile Header ── */}
-      <div className="max-w-2xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-end justify-between -mt-10 mb-4">
           {/* Avatar */}
           <button
