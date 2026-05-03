@@ -63,10 +63,6 @@ export default function BannerPreviewEditor({
   function endDrag() { dragRef.current = null; }
 
   const bannerStyle = {
-    backgroundImage: `url(${imageUrl})`,
-    backgroundSize: bgSize,
-    backgroundPosition: position,
-    backgroundRepeat: "no-repeat",
     backgroundColor: "hsl(var(--secondary))",
   };
 
@@ -133,6 +129,20 @@ export default function BannerPreviewEditor({
               onTouchMove={e => { if (!dragRef.current) return; e.preventDefault(); const t = e.touches[0]; moveDrag(t.clientX, t.clientY, e.currentTarget.getBoundingClientRect()); }}
               onTouchEnd={endDrag}
             >
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt="Banner preview"
+                  draggable={false}
+                  className="absolute inset-0 w-full h-full pointer-events-none select-none"
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: position,
+                    transform: `scale(${zoom / 100})`,
+                    transformOrigin: `${x}% ${y}%`,
+                  }}
+                />
+              )}
               <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full pointer-events-none">
                 Drag to reposition
               </div>

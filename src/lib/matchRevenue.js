@@ -21,7 +21,7 @@ async function createTransaction(clubId, amount, type, description, referenceId)
 
 async function sendOwnerMessage(ownerEmail, subject, body, matchId) {
   try {
-    await base44.functions.invoke('sendInboxMessage', {
+    await base44.entities.InboxMessage.create({
       recipient_email:     ownerEmail,
       sender_email:        'system@stage.com',
       subject,
@@ -29,9 +29,11 @@ async function sendOwnerMessage(ownerEmail, subject, body, matchId) {
       message_type:        'match_revenue',
       related_entity_id:   matchId,
       related_entity_type: 'match_revenue',
+      status:              'pending',
+      is_read:             false,
     });
   } catch (e) {
-    console.warn('[matchRevenue] sendInboxMessage failed:', e);
+    console.warn('[matchRevenue] InboxMessage.create failed:', e);
   }
 }
 

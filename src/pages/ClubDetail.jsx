@@ -57,7 +57,6 @@ export default function ClubDetail() {
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
   const [pendingLogo, setPendingLogo] = useState(null);
   const [aiLogoOpen, setAiLogoOpen] = useState(false);
-  const [aiBannerOpen, setAiBannerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [playerFollowMap, setPlayerFollowMap] = useState({});
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
@@ -353,15 +352,10 @@ export default function ClubDetail() {
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
         {canEdit && (
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-3">
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
             <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/40 px-3 py-1.5 rounded-full">
               <Camera className="w-4 h-4" /> Change Banner
             </span>
-            {myPlayer && (
-              <button onClick={e => { e.stopPropagation(); setAiBannerOpen(true); }} className="flex items-center gap-2 text-white text-sm font-medium bg-primary/60 px-3 py-1.5 rounded-full hover:bg-primary/80 transition-colors">
-                <Wand2 className="w-4 h-4" /> AI Banner
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -779,17 +773,6 @@ export default function ClubDetail() {
         onClose={() => setAiLogoOpen(false)}
         player={myPlayer}
         onSelect={(url) => { setAiLogoOpen(false); setPendingLogo(url); }}
-      />
-
-      <AvatarGenerator
-        open={aiBannerOpen}
-        onClose={() => setAiBannerOpen(false)}
-        player={myPlayer}
-        onSelect={async (url) => {
-          await base44.entities.Club.update(id, { banner_id: url });
-          setClub(prev => ({ ...prev, banner_id: url }));
-          setAiBannerOpen(false);
-        }}
       />
 
       <Dialog open={logoPreviewOpen} onOpenChange={setLogoPreviewOpen}>
