@@ -6,12 +6,19 @@ import {
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon,
 } from "lucide-react";
 import LogoImg from '@/assets/Logo.PNG';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ── constants ─────────────────────────────────────────────── */
 const BADGE_IMAGES = {
@@ -157,10 +164,10 @@ export default function Layout() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
 
-  function switchMode(mode) {
+  const switchMode = useCallback((mode) => {
     localStorage.setItem("stage-account-mode", mode);
     setAccountMode(mode);
-  }
+  }, []);
 
   /* theme sync */
   useEffect(() => {
@@ -211,6 +218,13 @@ export default function Layout() {
     })();
   }, []);
 
+  /* Keep stored mode valid when only one profile exists */
+  useEffect(() => {
+    if (myPlayer && myClubId) return;
+    if (myClubId && !myPlayer && accountMode !== "club") switchMode("club");
+    if (myPlayer && !myClubId && accountMode !== "player") switchMode("player");
+  }, [myPlayer, myClubId, accountMode, switchMode]);
+
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
 
@@ -257,25 +271,76 @@ export default function Layout() {
         </Link>
 
         {/* divider */}
-        <div className="hidden lg:block w-px h-5 bg-white/10" />
+        {(myPlayer || myClubId) && <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />}
 
-        {/* player chip */}
-        {myPlayer && (
-          <div className="hidden lg:flex items-center gap-2 shrink-0">
-            <div
-              className="w-7 h-7 rounded-full border border-white/20 bg-white/10 shrink-0"
-              style={myPlayer.avatar_url ? {
-                backgroundImage:`url(${myPlayer.avatar_url})`,
-                backgroundSize:`${myPlayer.avatar_zoom || 150}%`,
-                backgroundPosition: myPlayer.avatar_position || "50% 50%",
-                backgroundRepeat:"no-repeat",
-              } : {}}
-            />
-            <span className="text-xs font-bold uppercase tracking-widest text-white/70">
-              {myPlayer.gamertag}
-            </span>
-            {BADGE_IMAGES[subscriptionTier] && (
-              <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="w-5 h-5 rounded-full object-cover border border-white/20" />
+        {/* Profile role: dropdown when both Player + Owner exist; otherwise static label */}
+        {(myPlayer || myClubId) && (
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+            {myPlayer && myClubId ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] pl-3 pr-2.5 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-blue-500/50",
+                      accountMode === "player" ? "ring-1 ring-blue-500/40" : "ring-1 ring-amber-500/30"
+                    )}
+                  >
+                    {accountMode === "player" ? (
+                      <><User className="w-3.5 h-3.5 text-blue-400 shrink-0" /><span>Player</span></>
+                    ) : (
+                      <><Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" /><span>Owner</span></>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44 bg-[#0a1224] border-white/10 text-white p-1 z-[60]">
+                  <DropdownMenuRadioGroup value={accountMode} onValueChange={(v) => switchMode(v)}>
+                    <DropdownMenuRadioItem
+                      value="player"
+                      className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-blue-600/25 focus:text-white cursor-pointer py-2.5"
+                    >
+                      <User className="w-4 h-4 text-blue-400" /> Player
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="club"
+                      className="gap-2 text-xs uppercase tracking-widest font-bold text-white/80 focus:bg-amber-500/20 focus:text-white cursor-pointer py-2.5"
+                    >
+                      <Shield className="w-4 h-4 text-amber-400" /> Owner
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : myPlayer ? (
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/55">
+                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                Player
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/55">
+                <Shield className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+                Owner
+              </div>
+            )}
+
+            {myPlayer && (
+              <div className="hidden sm:flex items-center gap-2 shrink-0 min-w-0">
+                <div
+                  className="w-7 h-7 rounded-full border border-white/20 bg-white/10 shrink-0"
+                  style={myPlayer.avatar_url ? {
+                    backgroundImage:`url(${myPlayer.avatar_url})`,
+                    backgroundSize:`${myPlayer.avatar_zoom || 150}%`,
+                    backgroundPosition: myPlayer.avatar_position || "50% 50%",
+                    backgroundRepeat:"no-repeat",
+                  } : {}}
+                />
+                <span className="text-xs font-bold uppercase tracking-widest text-white/70 truncate max-w-[120px] md:max-w-[200px]">
+                  {myPlayer.gamertag}
+                </span>
+                {BADGE_IMAGES[subscriptionTier] && (
+                  <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="w-5 h-5 rounded-full object-cover border border-white/20 shrink-0" />
+                )}
+              </div>
             )}
           </div>
         )}
@@ -327,25 +392,9 @@ export default function Layout() {
         {/* ── SIDEBAR (desktop) ─────────────────────────────── */}
         <aside className="hidden lg:flex flex-col w-52 shrink-0 bg-[#060c18] border-r border-white/6 overflow-y-auto">
 
-          {/* Mode switcher */}
+          {/* Mode hint + onboarding (role switch lives in header when both exist) */}
           <div className="px-3 pt-4 pb-2">
-            {myPlayer && myClubId ? (
-              /* Has both roles — show toggle */
-              <div className="flex rounded-lg overflow-hidden border border-white/10 text-[10px] uppercase tracking-widest font-bold">
-                <button
-                  onClick={() => switchMode("player")}
-                  className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 transition-all", accountMode === "player" ? "bg-blue-600 text-white" : "text-white/35 hover:text-white/60")}
-                >
-                  <User className="w-3 h-3" /> Player
-                </button>
-                <button
-                  onClick={() => { switchMode("club"); }}
-                  className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 transition-all", accountMode === "club" ? "bg-amber-500 text-white" : "text-white/35 hover:text-white/60")}
-                >
-                  <Shield className="w-3 h-3" /> Owner
-                </button>
-              </div>
-            ) : myClubId && !myPlayer ? (
+            {myPlayer && myClubId ? null : myClubId && !myPlayer ? (
               /* Owner only */
               <div className="px-1">
                 <div className="flex items-center gap-1.5 mb-2">
@@ -422,20 +471,6 @@ export default function Layout() {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-white">{myPlayer.gamertag}</p>
                     <p className="text-[10px] text-white/35 uppercase tracking-wider">{subscriptionTier}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Mobile mode switcher */}
-              {myPlayer && myClubId && (
-                <div className="px-3 py-3 border-b border-white/8">
-                  <div className="flex rounded-lg overflow-hidden border border-white/10 text-[10px] uppercase tracking-widest font-bold">
-                    <button onClick={() => switchMode("player")} className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 transition-all", accountMode === "player" ? "bg-blue-600 text-white" : "text-white/35")}>
-                      <User className="w-3 h-3" /> Player
-                    </button>
-                    <button onClick={() => switchMode("club")} className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 transition-all", accountMode === "club" ? "bg-amber-500 text-white" : "text-white/35")}>
-                      <Shield className="w-3 h-3" /> Owner
-                    </button>
                   </div>
                 </div>
               )}
