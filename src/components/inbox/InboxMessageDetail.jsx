@@ -31,13 +31,82 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       return;
     }
     setLoading(action);
-    await base44.functions.invoke("respondInboxMessage", {
-      message_id: message.id,
-      action,
-      new_date: rescheduleDate || undefined,
-      new_time: rescheduleTime || undefined,
-    });
-    onStatusChanged(message.id, action);
+    try {
+      // Update this message's status
+      await base44.entities.InboxMessage.update(message.id, { status: action, is_read: true });
+
+      const meta = message.metadata || {};
+
+      if (action === "accepted" && message.message_type === "match_invite") {
+        // Create the scheduled match from the invitation metadata
+        const isClub = meta.invitation_type === "club_vs_club";
+        await base44.entities.Match.create({
+          status:           "scheduled",
+          mode:             isClub ? "club" : "solo",
+          scheduled_date:   meta.scheduled_date || null,
+          home_club_id:     meta.challenger_club_id   || null,
+          home_club_name:   isClub ? meta.challenger_name : null,
+          away_club_id:     meta.opponent_club_id     || null,
+          away_club_name:   isClub ? meta.opponent_name  : null,
+          home_player_id:   meta.challenger_player_id || null,
+          home_player_name: !isClub ? meta.challenger_name : null,
+          away_player_id:   meta.opponent_player_id   || null,
+          away_player_name: !isClub ? meta.opponent_name  : null,
+          wager_stc:        meta.wager_stc || 0,
+          wager_status:     (meta.wager_stc || 0) > 0 ? "pending_acceptance" : null,
+          wager_home_locked: (meta.wager_stc || 0) > 0,
+        });
+        // Notify the challenger that their invite was accepted
+        if (message.sender_email) {
+          await base44.entities.InboxMessage.create({
+            recipient_email: message.sender_email,
+            sender_email:    message.recipient_email,
+            subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
+            body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleString() : "TBD"}\n\nThe match has been added to your schedule.`,
+            message_type:    "match_invite_response",
+            action_type:     "none",
+            status:          "pending",
+            is_read:         false,
+          });
+        }
+      }
+
+      if (action === "declined" && message.sender_email) {
+        await base44.entities.InboxMessage.create({
+          recipient_email: message.sender_email,
+          sender_email:    message.recipient_email,
+          subject:         `❌ Match Declined: ${meta.challenger_name} vs ${meta.opponent_name}`,
+          body:            `${meta.opponent_name} has declined your match invitation.`,
+          message_type:    "match_invite_response",
+          action_type:     "none",
+          status:          "pending",
+          is_read:         false,
+        });
+      }
+
+      if (action === "date_change_requested" && message.sender_email) {
+        const newDate = rescheduleDate && rescheduleTime
+          ? new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString()
+          : null;
+        await base44.entities.InboxMessage.create({
+          recipient_email: message.sender_email,
+          sender_email:    message.recipient_email,
+          subject:         `📅 Date Change Request: ${meta.challenger_name} vs ${meta.opponent_name}`,
+          body:            `${meta.opponent_name} would like to reschedule your match.\n\nProposed new date: ${rescheduleDate || "—"} at ${rescheduleTime || "—"}\n\nReply to accept or propose another date.`,
+          message_type:    "match_invite",
+          action_type:     "accept_decline_date",
+          related_entity_id:   message.id,
+          related_entity_type: "inbox_message",
+          status:          "pending",
+          is_read:         false,
+          metadata: { ...meta, scheduled_date: newDate || meta.scheduled_date },
+        });
+      }
+
+      onStatusChanged(message.id, action);
+    } catch (err) {
+      console.error("[InboxMessageDetail] action failed:", err);
+    }
     setLoading(null);
     setShowDatePicker(false);
   }

@@ -79,24 +79,29 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const opponentName = recipientIsClub ? `${selected.name} [${selected.tag}]` : selected.gamertag;
       const invitationType = senderIsClub ? "club_vs_club" : "player_vs_player";
 
-      // Resolve recipient ─────────────────────────────────────────
-      // owner_email is often hidden by RLS, so for club matches we
-      // fall back to finding the club president in the Player entity.
-      let recipientEmail    = recipientIsClub ? (selected.owner_email || null) : null;
-      let recipientPlayerId = !recipientIsClub ? selected.id : null;
+      // Resolve recipient email ───────────────────────────────────
+      // For player matches: use the player's own email.
+      // For club matches: owner_email is hidden by RLS for non-owners,
+      // so fall back to the club president/captain's email via Player entity.
+      let recipientEmail = null;
 
-      if (recipientIsClub && !recipientEmail) {
-        const clubPlayers = await base44.entities.Player.filter({ club_id: selected.id });
-        const president = clubPlayers.find(p =>
-          p.club_roles?.includes("president") ||
-          p.club_roles?.includes("captain") ||
-          p.role === "captain"
-        );
-        if (president) recipientPlayerId = president.id;
+      if (!recipientIsClub) {
+        recipientEmail = selected.email || null;
+      } else {
+        recipientEmail = selected.owner_email || null;
+        if (!recipientEmail) {
+          const clubPlayers = await base44.entities.Player.filter({ club_id: selected.id });
+          const president = clubPlayers.find(p =>
+            p.club_roles?.includes("president") ||
+            p.club_roles?.includes("captain") ||
+            p.role === "captain"
+          ) || clubPlayers[0];
+          if (president) recipientEmail = president.email || null;
+        }
       }
 
-      if (!recipientEmail && !recipientPlayerId) {
-        setSendError("Could not reach the club owner. They may not have a player profile yet.");
+      if (!recipientEmail) {
+        setSendError("Could not reach this opponent. They may not have an account yet.");
         return;
       }
 
@@ -107,16 +112,17 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds will be locked from your balance on acceptance.`
         : "";
 
-      await base44.functions.invoke("sendInboxMessage", {
-        recipient_email:     recipientEmail    || undefined,
-        recipient_player_id: recipientPlayerId || undefined,
-        sender_email:        myPlayer?.email   || undefined,
-        subject: `Match Invitation: ${senderName} vs ${opponentName}`,
-        body: `You have received a match invitation from ${senderName}.\n\nProposed date: ${date} at ${time}${wagerLine}\n\nPlease accept, decline, or request a different date.`,
+      await base44.entities.InboxMessage.create({
+        recipient_email:     recipientEmail,
+        sender_email:        myPlayer?.email || "system@stage.com",
+        subject:             `Match Invitation: ${senderName} vs ${opponentName}`,
+        body:                `You have received a match invitation from ${senderName}.\n\nProposed date: ${date} at ${time}${wagerLine}\n\nPlease accept, decline, or request a different date.`,
         message_type:        "match_invite",
         action_type:         "accept_decline_date",
         related_entity_id:   selected.id,
         related_entity_type: recipientIsClub ? "club" : "player",
+        status:              "pending",
+        is_read:             false,
         metadata: {
           invitation_type:      invitationType,
           scheduled_date:       scheduledDate,
@@ -128,7 +134,6 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           opponent_player_id:   !recipientIsClub ? selected.id : null,
           wager_stc:            wagerAmount,
         },
-        send_notification: true,
       });
 
       setSent(true);
@@ -354,6 +359,12 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 : `A club match invitation will be sent to the owner of ${selected?.name}'s inbox.`
               } They can accept, decline, or request a different date.
             </p>
+
+            {sendError && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 text-xs text-destructive font-medium">
+                {sendError}
+              </div>
+            )}
 
             <Button
               onClick={handleSend}
