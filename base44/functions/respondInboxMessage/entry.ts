@@ -199,34 +199,37 @@ Deno.serve(async (req) => {
     // Also always include original sender
     if (message.sender_email) emailsToNotify.add(message.sender_email);
 
-    for (const email of emailsToNotify) {
-      // Inbox message
-      await base44.asServiceRole.entities.InboxMessage.create({
-        recipient_email: email,
-        sender_email: user.email,
-        sender_gamertag: acceptorGamertag,
-        is_system: true,
-        subject: matchSubject,
-        body: matchBody,
-        message_type: "general",
-        action_type: "none",
-        status: "pending",
-        is_read: false,
-        related_entity_id: createdMatch.id,
-        related_entity_type: "match",
-        metadata: { created_match_id: createdMatch.id, scheduled_date: scheduledDate },
-      });
-
-      // Bell notification
-      await base44.asServiceRole.entities.Notification.create({
-        recipient_email: email,
-        type: "match_scheduled",
-        title: matchSubject,
-        body: `📅 ${dateLabel}`,
-        link: "/game-day",
-        related_id: createdMatch.id,
-        read: false,
-      });
+    // Create notifications and inbox messages in parallel batches to prevent timeouts
+    const notificationChunks = Array.from(emailsToNotify);
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < notificationChunks.length; i += BATCH_SIZE) {
+      const chunk = notificationChunks.slice(i, i + BATCH_SIZE);
+      await Promise.all(chunk.flatMap(email => [
+        base44.asServiceRole.entities.InboxMessage.create({
+          recipient_email: email,
+          sender_email: user.email,
+          sender_gamertag: acceptorGamertag,
+          is_system: true,
+          subject: matchSubject,
+          body: matchBody,
+          message_type: "general",
+          action_type: "none",
+          status: "pending",
+          is_read: false,
+          related_entity_id: createdMatch.id,
+          related_entity_type: "match",
+          metadata: { created_match_id: createdMatch.id, scheduled_date: scheduledDate },
+        }),
+        base44.asServiceRole.entities.Notification.create({
+          recipient_email: email,
+          type: "match_scheduled",
+          title: matchSubject,
+          body: `📅 ${dateLabel}`,
+          link: "/game-day",
+          related_id: createdMatch.id,
+          read: false,
+        })
+      ]));
     }
 
     // ── Schedule reminder notifications via a reminder (1 day before + match day) ─
