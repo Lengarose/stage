@@ -64,6 +64,11 @@
       "title": "Banner Position",
       "default": "50% 50%"
     },
+    "banner_zoom": {
+      "type": "number",
+      "title": "Banner Zoom (%)",
+      "default": 150
+    },
     "logo_frame_id": {
       "type": "string",
       "title": "Active Logo Frame ID"

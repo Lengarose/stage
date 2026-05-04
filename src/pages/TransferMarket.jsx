@@ -30,33 +30,37 @@ export default function TransferMarket() {
 
   async function load() {
     setLoading(true);
-    const user = await base44.auth.me();
+    try {
+      const user = await base44.auth.me();
 
-    const [marketRes, playerArr] = await Promise.all([
-      base44.functions.invoke("getTransferMarket", {}),
-      base44.entities.Player.filter({ email: user.email }),
-    ]);
-
-    const player = playerArr[0] || null;
-    setMyPlayer(player);
-    setFreeAgents(marketRes.data.free_agents || []);
-    setExpiringPlayers(marketRes.data.expiring_players || []);
-    setCurrentWindow(marketRes.data.current_window || null);
-
-    if (player?.club_id) {
-      const [clubArr, contractArr] = await Promise.all([
-        base44.entities.Club.filter({ id: player.club_id }),
-        base44.entities.PlayerContract.filter({ team_id: player.club_id }),
+      const [marketRes, playerArr] = await Promise.all([
+        base44.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} })),
+        base44.entities.Player.filter({ email: user.email }),
       ]);
-      const club = clubArr[0] || null;
-      setMyClub(club);
-      setMyContracts(contractArr);
-      const isOwner = club?.owner_email === user.email;
-      const isManagement = player.club_roles?.includes("president") || player.club_roles?.includes("captain");
-      setCanManage(isOwner || isManagement || user.role === "admin");
-    }
 
-    setLoading(false);
+      const player = playerArr[0] || null;
+      setMyPlayer(player);
+      setFreeAgents(marketRes?.data?.free_agents || []);
+      setExpiringPlayers(marketRes?.data?.expiring_players || []);
+      setCurrentWindow(marketRes?.data?.current_window || null);
+
+      if (player?.club_id) {
+        const [clubArr, contractArr] = await Promise.all([
+          base44.entities.Club.filter({ id: player.club_id }),
+          base44.entities.PlayerContract.filter({ team_id: player.club_id }),
+        ]);
+        const club = clubArr[0] || null;
+        setMyClub(club);
+        setMyContracts(contractArr);
+        const isOwner = club?.owner_email === user.email;
+        const isManagement = player.club_roles?.includes("president") || player.club_roles?.includes("captain");
+        setCanManage(isOwner || isManagement || user.role === "admin");
+      }
+    } catch (err) {
+      console.error("[TransferMarket] load failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function hasConflict(playerId) {

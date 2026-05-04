@@ -2,17 +2,17 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
 import { getSubscriptionTier, TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
-import { ShoppingBag, Coins, Check, Crown, Image, Frame, Shield, Plus, Sparkles, User } from "lucide-react";
+import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-const TYPE_LABELS = { credits: "Credits", subscription: "Subscriptions", banner: "Banners", logo_frame: "Logo Frames" };
+const TYPE_LABELS = { credits: "Credits", subscription: "Subscriptions" };
 const SUB_PRICES = {
   pro:   { monthly: 3.99, yearly: 35.99 },
   elite: { monthly: 9.99, yearly: 89.99 },
 };
-const TYPE_ICONS = { credits: Coins, subscription: Crown, banner: Image, logo_frame: Frame };
+const TYPE_ICONS = { credits: Coins, subscription: Crown };
 
 const CREDIT_PACKS = [
   { id: "credits_100",  credits: 100,  price_eur: 0.99, stripe_price_id: "price_1TOayT2fnaWmNMFQby00tHqR", label: null },
@@ -100,7 +100,6 @@ export default function Store() {
   }, []);
 
   function isOwned(itemId) {
-    if (itemId === "banner_default") return true;
     return purchases.some(p => p.item_id === itemId);
   }
 
@@ -149,31 +148,6 @@ export default function Store() {
     setPurchasing(null);
   }
 
-  async function handlePurchase(item) {
-    if (!player) { showNotif("Create a player profile first!", "error"); return; }
-    if (isOwned(item.id)) return;
-    const currentCredits = player.credits || 0;
-    if (currentCredits < item.price) { showNotif("Not enough STAGE Credits!", "error"); return; }
-    setPurchasing(item.id);
-    try {
-      const res = await base44.functions.invoke('spendCredits', {
-        amount: item.price, target: 'player',
-        item_id: item.id, item_name: item.name, item_type: item.type,
-      });
-      setPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
-      setPurchases(prev => [...prev, { item_id: item.id, item_type: item.type }]);
-      showNotif(`${item.name} unlocked!`, "success");
-      await base44.entities.Notification.create({
-        recipient_email: user.email, type: "result_confirmed",
-        title: `🎁 ${item.name} unlocked!`,
-        body: `You spent ${item.price} credits. Equip it from your Profile.`,
-        link: "/profile", read: false,
-      });
-    } catch (err) {
-      showNotif(err.message || 'Purchase failed', 'error');
-    }
-    setPurchasing(null);
-  }
 
   function showNotif(msg, type) {
     setNotification({ msg, type });
@@ -185,7 +159,7 @@ export default function Store() {
   }
 
   const credits = creditTarget === "club" ? (myClub?.credits ?? 0) : (player?.credits ?? 0);
-  const categories = ["credits", "subscription", "banner", "logo_frame"];
+  const categories = ["credits", "subscription"];
   const currentTier = player?.subscription || "rookie";
   const badgeImg = BADGE_IMAGES[`sub_${currentTier}`];
   const tierLabel = TIER_LABELS[currentTier];
@@ -316,24 +290,6 @@ export default function Store() {
             </div>
           </TabsContent>
 
-          <TabsContent value="banner">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {STORE_ITEMS.filter(i => i.type === "banner").map(item => (
-                <StoreCard key={item.id} item={item} owned={isOwned(item.id)} credits={credits}
-                  purchasing={purchasing === item.id} onBuy={() => handlePurchase(item)} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="logo_frame">
-            <div className="grid sm:grid-cols-2 gap-4">
-              {STORE_ITEMS.filter(i => i.type === "logo_frame").map(item => (
-                <FrameCard key={item.id} item={item} owned={isOwned(item.id)} credits={credits}
-                  purchasing={purchasing === item.id} onBuy={() => handlePurchase(item)} />
-              ))}
-            </div>
-          </TabsContent>
-
           <TabsContent value="subscription">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-1 rounded-xl bg-secondary border border-border p-1">
@@ -399,64 +355,6 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
       )}>
         {purchasing ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Buy</>}
       </Button>
-    </div>
-  );
-}
-
-function StoreCard({ item, owned, credits, purchasing, onBuy }) {
-  const rarity = RARITY_STYLES[item.rarity];
-  const canAfford = credits >= item.price;
-  return (
-    <div className={cn("bg-card border rounded-2xl overflow-hidden transition-all", rarity.bg)}>
-      <div className="h-20 sm:h-24 relative" style={{ background: item.style }}>
-        {owned && (
-          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-success/80 text-success-foreground text-[10px] font-bold">
-            <Check className="w-3 h-3" /> OWNED
-          </div>
-        )}
-      </div>
-      <div className="p-3 sm:p-4">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-bold text-foreground text-sm sm:text-base">{item.name}</h3>
-          <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0", rarity.bg, rarity.color)}>{rarity.label}</span>
-        </div>
-        <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
-        {owned ? (
-          <div className="flex items-center gap-1.5 text-success text-xs font-medium"><Check className="w-3.5 h-3.5" /> Unlocked — equip from your Profile</div>
-        ) : (
-          <Button onClick={onBuy} disabled={purchasing || !canAfford} className={cn("w-full text-sm", canAfford ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground")}>
-            {purchasing ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : (
-              item.price === 0 ? "Claim Free" : <><Coins className="w-4 h-4 mr-1.5" />{item.price.toLocaleString()} Credits</>
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FrameCard({ item, owned, credits, purchasing, onBuy }) {
-  const rarity = RARITY_STYLES[item.rarity];
-  const canAfford = credits >= item.price;
-  return (
-    <div className={cn("bg-card border rounded-2xl p-4 sm:p-5 flex gap-4 items-center transition-all", rarity.bg)}>
-      <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-        <span className="font-bold text-primary text-lg">FC</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-bold text-foreground text-sm truncate">{item.name}</h3>
-          <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0", rarity.bg, rarity.color)}>{rarity.label}</span>
-        </div>
-        <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
-        {owned ? (
-          <div className="flex items-center gap-1.5 text-success text-xs font-medium"><Check className="w-3.5 h-3.5" /> Unlocked</div>
-        ) : (
-          <Button size="sm" onClick={onBuy} disabled={purchasing || !canAfford} className={cn("text-xs gap-1", canAfford ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground")}>
-            {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <><Coins className="w-3 h-3" />{item.price.toLocaleString()}</>}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

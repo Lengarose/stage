@@ -14,6 +14,7 @@ import {
   generateUCLLeaguePhase, calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
+import { awardTournamentTrophy } from "@/lib/awardTrophy";
 import KnockoutBracket from "../components/KnockoutBracket";
 import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
@@ -394,6 +395,7 @@ export default function TournamentDetail() {
                 const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
                 await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
+                awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
               }
             } else {
               for (const m of nextRoundMatches) await base44.entities.Match.create({ ...m, tournament_id: id });
@@ -420,6 +422,7 @@ export default function TournamentDetail() {
               if (winnerId) {
                 await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
+                awardTournamentTrophy({ ...tournament, id }, winnerId).catch(() => {});
               }
             }
           }
@@ -676,6 +679,7 @@ async function maybeAdvanceTournament() {
         const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
         await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
         setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
+        awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
 
         // Distribute prize pool
         if (tournament.entry_fee_stc > 0) {

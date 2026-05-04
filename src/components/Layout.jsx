@@ -9,6 +9,7 @@ import LogoImg from '@/assets/Logo.PNG';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
+import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
@@ -433,6 +434,8 @@ export default function Layout() {
       if (!p) return;
       setMyPlayer(p);
       setSubscriptionTier((p.subscription || "rookie").toLowerCase());
+      // Fire-and-forget: pay any pending weekly salary on app load
+      processPlayerSalary(p).catch(() => {});
       if (!p.gamertag) {
         localStorage.removeItem("profile-completed");
         setShowProfileModal(true);

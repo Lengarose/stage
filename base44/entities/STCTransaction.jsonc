@@ -36,7 +36,8 @@
         "charity_donation",
         "signing_bonus",
         "admin_grant",
-        "streak_bonus"
+        "streak_bonus",
+        "shirt_revenue"
       ]
     },
     "description": {

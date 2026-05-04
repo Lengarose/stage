@@ -735,12 +735,14 @@ export default function ClubDetail() {
       <BannerSelector
         open={bannerDialogOpen}
         onClose={() => setBannerDialogOpen(false)}
-        currentBannerId={club?.banner_id || "banner_default"}
-        userEmail={currentUser?.email}
+        currentBannerId={club?.banner_id}
+        currentBannerPosition={club?.banner_position}
+        currentBannerZoom={club?.banner_zoom}
         previewData={{ name: club?.name, subtitle: `${club?.platform} · ${club?.region}`, avatarUrl: club?.logo_url, type: "club" }}
-        onSelect={async (bannerId, position) => {
+        onSelect={async (bannerId, position, zoom) => {
           const update = { banner_id: bannerId };
           if (position) update.banner_position = position;
+          if (zoom) update.banner_zoom = zoom;
           await base44.entities.Club.update(id, update);
           setClub(prev => ({ ...prev, ...update }));
           setBannerDialogOpen(false);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import TransferWindowPanel from "@/components/admin/TransferWindowPanel";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import TrophyCarousel from "@/components/tournament/TrophyCarousel";
 import { cn } from "@/lib/utils";
 import {
   Shield, Swords, AlertTriangle, Users, Trophy, Check, X,
@@ -228,6 +230,18 @@ export default function Admin() {
   const [adminTrophyFile, setAdminTrophyFile] = useState(null);
   const BANNER_COLORS = ["#1e2a3a","#1a3a1a","#3a1a0a","#3a1a1a","#2a1a3a","#1a253a","#2a2a2a","#2a2a0a","#0a2a2a","#3a0a2a"];
 
+  // Trophy manager
+  const [trophyItems, setTrophyItems] = useState([]);
+  const [newTrophyName, setNewTrophyName] = useState("");
+  const [newTrophyFile, setNewTrophyFile] = useState(null);
+  const [newTrophyAdminOnly, setNewTrophyAdminOnly] = useState(false);
+  const [uploadingTrophy, setUploadingTrophy] = useState(false);
+  const trophyFileRef = useRef(null);
+
+  // Admin create tournament extras
+  const [adminEntryType, setAdminEntryType] = useState("free"); // "free" | "stc"
+  const [adminTrophyItemId, setAdminTrophyItemId] = useState("");
+
   // News creation
   const [newsForm, setNewsForm] = useState({ title: "", body: "", type: "app_update", image_url: "" });
   const [newsImageFile, setNewsImageFile] = useState(null);
@@ -246,11 +260,12 @@ export default function Admin() {
 
   async function loadAll() {
     setLoading(true);
-    const [disputedMatches, allPlayers, allTournaments, allClubs] = await Promise.all([
+    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies] = await Promise.all([
       base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50),
       base44.entities.Player.list("-created_date", 100),
       base44.entities.Tournament.list("-created_date", 200),
       base44.entities.Club.list("-created_date", 100),
+      base44.entities.TrophyItem.list("sort_order", 100).catch(() => []),
     ]);
     const forfeitMatches = await base44.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
     setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
@@ -258,7 +273,36 @@ export default function Admin() {
     setPlayers(allPlayers);
     setClubs(allClubs);
     setTournaments(allTournaments);
+    setTrophyItems(allTrophies);
     setLoading(false);
+  }
+
+  async function createTrophyItem() {
+    if (!newTrophyName.trim() || !newTrophyFile) return;
+    setUploadingTrophy(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: newTrophyFile });
+      await base44.entities.TrophyItem.create({
+        name: newTrophyName.trim(),
+        image_url: file_url,
+        is_official: true,
+        admin_only: newTrophyAdminOnly,
+        sort_order: trophyItems.length,
+      });
+      setNewTrophyName("");
+      setNewTrophyFile(null);
+      setNewTrophyAdminOnly(false);
+      const updated = await base44.entities.TrophyItem.list("sort_order", 100).catch(() => []);
+      setTrophyItems(updated);
+    } finally {
+      setUploadingTrophy(false);
+    }
+  }
+
+  async function deleteTrophyItem(id) {
+    if (!confirm("Delete this trophy from the library? It will no longer appear in carousels.")) return;
+    await base44.entities.TrophyItem.delete(id);
+    setTrophyItems(prev => prev.filter(t => t.id !== id));
   }
 
   async function resolveDispute() {
@@ -319,12 +363,24 @@ export default function Admin() {
     if (adminTrophyFile) {
       const res = await base44.integrations.Core.UploadFile({ file: adminTrophyFile });
       trophy_url = res.file_url;
+      // Auto-create TrophyItem in library from uploaded file
+      if (!adminTrophyItemId && tournamentForm.name) {
+        const created = await base44.entities.TrophyItem.create({
+          name: `By STAGE · ${tournamentForm.name}`,
+          image_url: trophy_url,
+          is_official: true,
+          sort_order: trophyItems.length,
+        }).catch(() => null);
+        if (created?.id) setAdminTrophyItemId(created.id);
+      }
     }
+    const resolvedTrophyItemId = adminTrophyItemId || null;
+    const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
     await base44.entities.Tournament.create({
       ...tournamentForm,
       max_teams: Number(tournamentForm.max_teams),
-      entry_credits: Number(tournamentForm.entry_credits),
-      win_credits: Number(tournamentForm.win_credits),
+      entry_credits: 0,
+      entry_fee_stc: adminEntryType === "stc" ? (Number(tournamentForm.entry_fee_stc) || 0) : 0,
       prize_winner_stc: Number(tournamentForm.prize_winner_stc) || 0,
       prize_runner_up_stc: Number(tournamentForm.prize_runner_up_stc) || 0,
       prize_semi_final_stc: Number(tournamentForm.prize_semi_final_stc) || 0,
@@ -339,11 +395,13 @@ export default function Admin() {
       rules_file_url,
       banner_url: banner_url || "",
       banner_color: !banner_url ? bannerColor : "",
-      trophy_url,
+      trophy_url: resolvedTrophyUrl,
+      trophy_item_id: resolvedTrophyItemId,
     });
     setCreateTournamentOpen(false);
-    setTournamentForm({ name: "", type: "knockout", participant_type: "club", platform: "PlayStation", region: "Global", country_code: "", max_teams: 8, start_date: "", description: "", prize_description: "", entry_credits: 50, win_credits: 200, custom_rules: "", prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "" });
+    setTournamentForm({ name: "", type: "knockout", participant_type: "club", platform: "PlayStation", region: "Global", country_code: "", max_teams: 8, start_date: "", description: "", prize_description: "", entry_fee_stc: 0, custom_rules: "", prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "" });
     setRulesFile(null); setBannerFile(null); setBannerColor("#1e2a3a"); setAdminTrophyFile(null);
+    setAdminTrophyItemId(""); setAdminEntryType("free");
     setSaving(false);
     await loadAll();
   }
@@ -494,6 +552,7 @@ export default function Admin() {
             <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
             <TabsTrigger value="news">Post News</TabsTrigger>
             <TabsTrigger value="transfers">Transfer Window</TabsTrigger>
+            <TabsTrigger value="trophies" className="gap-1.5"><Trophy className="w-3.5 h-3.5" /> Trophies</TabsTrigger>
           </TabsList>
 
           {/* Disputes */}
@@ -722,6 +781,115 @@ export default function Admin() {
             </div>
           </TabsContent>
 
+          {/* ── Trophy Manager ─────────────────────────────── */}
+          <TabsContent value="trophies">
+            <div className="max-w-2xl space-y-6">
+              <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-warning" /> Trophy Library
+              </h3>
+
+              {/* Add new trophy */}
+              <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+                <p className="text-sm font-bold text-foreground">Add New Trophy</p>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Trophy Name</label>
+                  <Input
+                    value={newTrophyName}
+                    onChange={e => setNewTrophyName(e.target.value)}
+                    className="bg-secondary border-border"
+                    placeholder="e.g. STAGE Champions Cup"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Trophy Image (PNG)</label>
+                  {newTrophyFile ? (
+                    <div className="flex items-center gap-3 bg-warning/5 border border-warning/20 rounded-xl p-3">
+                      <img src={URL.createObjectURL(newTrophyFile)} alt="preview" className="w-14 h-14 object-contain drop-shadow-lg" />
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-foreground">{newTrophyFile.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{(newTrophyFile.size / 1024).toFixed(0)} KB</p>
+                      </div>
+                      <button onClick={() => setNewTrophyFile(null)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => trophyFileRef.current?.click()}
+                      className="w-full h-16 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span className="text-xs">Upload PNG trophy image</span>
+                    </button>
+                  )}
+                  <input ref={trophyFileRef} type="file" accept="image/png,image/*" className="hidden"
+                    onChange={e => e.target.files[0] && setNewTrophyFile(e.target.files[0])} />
+                </div>
+                <div className="flex items-center gap-2 px-1">
+                  <input
+                    id="trophy-admin-only"
+                    type="checkbox"
+                    checked={newTrophyAdminOnly}
+                    onChange={e => setNewTrophyAdminOnly(e.target.checked)}
+                    className="w-4 h-4 rounded border-border bg-secondary text-warning focus:ring-warning"
+                  />
+                  <label htmlFor="trophy-admin-only" className="text-xs text-muted-foreground cursor-pointer select-none">
+                    Admin-Only — only selectable for STAGE tournaments
+                  </label>
+                </div>
+                <Button
+                  onClick={createTrophyItem}
+                  disabled={uploadingTrophy || !newTrophyName.trim() || !newTrophyFile}
+                  className="w-full bg-warning text-black font-bold gap-2"
+                >
+                  <Trophy className="w-4 h-4" />
+                  {uploadingTrophy ? "Uploading..." : "Add to Library"}
+                </Button>
+
+              </div>
+
+              {/* Trophy list */}
+              {trophyItems.length === 0 ? (
+                <div className="border border-dashed border-border rounded-xl p-10 text-center">
+                  <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No trophies in library yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">{trophyItems.length} trophy{trophyItems.length !== 1 ? "ies" : ""} in library</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {trophyItems.map(trophy => (
+                      <div key={trophy.id} className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2 relative group">
+                        <button
+                          onClick={() => deleteTrophyItem(trophy.id)}
+                          className="absolute top-2 right-2 w-6 h-6 rounded border border-destructive/30 flex items-center justify-center text-destructive/50 hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                        {trophy.image_url ? (
+                          <img src={trophy.image_url} alt={trophy.name} className="w-16 h-16 object-contain drop-shadow-xl" />
+                        ) : (
+                          <div className="w-16 h-16 flex items-center justify-center text-warning/20">
+                            <Trophy className="w-8 h-8" />
+                          </div>
+                        )}
+                        <p className="text-xs font-bold text-foreground text-center line-clamp-1">{trophy.name}</p>
+                        <div className="flex flex-wrap justify-center gap-1">
+                          {trophy.is_official && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded border border-warning/30 text-warning bg-warning/5 font-bold uppercase tracking-wider">Official</span>
+                          )}
+                          {trophy.admin_only && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded border border-destructive/30 text-destructive bg-destructive/5 font-bold uppercase tracking-wider">Admin Only</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
         </Tabs>
       )}
 
@@ -812,19 +980,23 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Entry + Win Credits */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Entry Credits</label>
-                <input type="number" min="0" value={tournamentForm.entry_credits} onChange={e => setTournamentForm(f => ({ ...f, entry_credits: e.target.value }))}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
+            {/* Entry Fee (STC only) */}
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Entry Fee</label>
+              <div className="flex gap-2 mb-2">
+                {[["free","Free"],["stc","STC Fee"]].map(([v,label]) => (
+                  <button key={v} type="button" onClick={() => setAdminEntryType(v)}
+                    className={cn("flex-1 py-2 rounded-lg border text-sm font-bold transition-all",
+                      adminEntryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                    )}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Win Credits</label>
-                <input type="number" min="0" value={tournamentForm.win_credits} onChange={e => setTournamentForm(f => ({ ...f, win_credits: e.target.value }))}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
-                <p className="text-[10px] text-muted-foreground mt-1">4× entry credits recommended</p>
-              </div>
+              {adminEntryType === "stc" && (
+                <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
+              )}
             </div>
 
             {/* Region */}
@@ -948,23 +1120,35 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Trophy Upload */}
+            {/* Trophy Selection */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">🏆 Tournament Trophy (PNG only)</label>
-              {adminTrophyFile ? (
-                <div className="flex items-center gap-3 bg-warning/10 border border-warning/20 rounded-xl p-3">
-                  <img src={URL.createObjectURL(adminTrophyFile)} alt="trophy" className="w-12 h-12 object-contain" />
-                  <span className="text-xs text-warning flex-1 truncate">{adminTrophyFile.name}</span>
-                  <button onClick={() => setAdminTrophyFile(null)} className="text-muted-foreground hover:text-destructive">✕</button>
-                </div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">🏆 Trophy</label>
+              <p className="text-[10px] text-muted-foreground mb-2">Select from library — awarded to winner's cabinet on completion.</p>
+              {trophyItems.length > 0 ? (
+                <TrophyCarousel trophies={trophyItems} selected={adminTrophyItemId}
+                  onSelect={id => { setAdminTrophyItemId(id || ""); setAdminTrophyFile(null); }} />
               ) : (
-                <label className="w-full h-20 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex flex-col items-center justify-center gap-1 text-warning/60 hover:text-warning transition-colors cursor-pointer">
-                  <Trophy className="w-6 h-6" />
-                  <span className="text-xs">Upload trophy image (PNG only)</span>
-                  <input type="file" accept="image/png" className="hidden" onChange={e => e.target.files[0] && setAdminTrophyFile(e.target.files[0])} />
-                </label>
+                <p className="text-xs text-muted-foreground italic mb-2">No trophies in library yet — or upload a new one below.</p>
               )}
-              <p className="text-[10px] text-muted-foreground mt-1">This trophy will be awarded to the winner's cabinet.</p>
+              <div className="mt-3">
+                <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">Or upload new trophy (auto-adds to library):</p>
+                {adminTrophyFile ? (
+                  <div className="flex items-center gap-3 bg-warning/10 border border-warning/20 rounded-lg p-3">
+                    <img src={URL.createObjectURL(adminTrophyFile)} alt="trophy" className="w-10 h-10 object-contain" />
+                    <span className="text-xs text-warning flex-1 truncate">{adminTrophyFile.name}</span>
+                    <button onClick={() => setAdminTrophyFile(null)} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <label className="w-full h-14 rounded-lg border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-xs">Upload trophy PNG (auto-creates new entry in library)</span>
+                    <input type="file" accept="image/png,image/*" className="hidden" onChange={e => { if (e.target.files[0]) { setAdminTrophyFile(e.target.files[0]); setAdminTrophyItemId(""); } }} />
+                  </label>
+                )}
+              </div>
+              {(adminTrophyItemId || adminTrophyFile) && (
+                <p className="text-[10px] text-warning mt-1.5">✓ Trophy selected — will be awarded to the winner</p>
+              )}
             </div>
 
             <Button onClick={createTournament} disabled={!tournamentForm.name || !tournamentForm.start_date || saving}

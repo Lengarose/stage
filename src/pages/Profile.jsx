@@ -616,13 +616,14 @@ export default function Profile() {
         <BannerSelector
           open={bannerDialogOpen}
           onClose={() => setBannerDialogOpen(false)}
-          currentBannerId={player?.banner_id || "banner_default"}
+          currentBannerId={player?.banner_id}
           currentBannerPosition={player?.banner_position}
-          userEmail={user?.email}
+          currentBannerZoom={player?.banner_zoom}
           previewData={{ name: player?.gamertag || user?.full_name, subtitle: player?.position, avatarUrl: player?.avatar_url, type: "player" }}
           onSelect={async (bannerId, position, zoom) => {
             const update = { banner_id: bannerId };
             if (position) update.banner_position = position;
+            if (zoom) update.banner_zoom = zoom;
             if (player) await base44.entities.Player.update(player.id, update);
             setPlayer(prev => ({ ...prev, ...update }));
             setBannerDialogOpen(false);

@@ -333,6 +333,11 @@ html.theme-white #root {
   text-shadow: 0 0 12px hsl(var(--primary) / 0.35);
 }
 
+/* Form label utility */
+.label-xs {
+  @apply text-xs text-muted-foreground uppercase tracking-wider mb-2 block font-semibold;
+}
+
 /* FC26-style diagonal stripe accent */
 .fc-stripe {
   background: repeating-linear-gradient(
