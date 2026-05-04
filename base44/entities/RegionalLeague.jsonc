@@ -1,0 +1,120 @@
+{
+  "name": "RegionalLeague",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "League Name"
+    },
+    "slug": {
+      "type": "string",
+      "title": "Slug (stable identifier)"
+    },
+    "region_slug": {
+      "type": "string",
+      "title": "Region Slug (e.g. uk-ireland, france, germany, benelux, north-america)"
+    },
+    "division": {
+      "type": "number",
+      "title": "Division (1 = top, 2 = second, etc.)",
+      "default": 1
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country Code (ISO 3166-1 alpha-2)"
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "enum": ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East", "Global"]
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": ["PlayStation", "Xbox", "PC", "Cross-Platform"],
+      "default": "Cross-Platform"
+    },
+    "season_number": {
+      "type": "number",
+      "title": "Season Number",
+      "default": 1
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["registration", "in_progress", "completed", "cancelled"],
+      "default": "registration"
+    },
+    "max_clubs": {
+      "type": "number",
+      "title": "Max Clubs",
+      "default": 16
+    },
+    "num_clubs": {
+      "type": "number",
+      "title": "Enrolled Club Count",
+      "default": 0
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date",
+      "format": "date-time"
+    },
+    "promoted_slots": {
+      "type": "number",
+      "title": "Promotion Slots (clubs qualifying to STAGE competition)",
+      "default": 2
+    },
+    "target_competition_id": {
+      "type": "string",
+      "title": "Target Competition ID"
+    },
+    "target_competition_name": {
+      "type": "string",
+      "title": "Target Competition Name (denorm)"
+    },
+    "target_competition_tier": {
+      "type": "number",
+      "title": "Target Competition Tier (denorm)"
+    },
+    "target_season_id": {
+      "type": "string",
+      "title": "Target Season ID (set when target season opens)"
+    },
+    "registered_club_ids": {
+      "type": "array",
+      "title": "Registered Club IDs",
+      "items": { "type": "string" }
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID"
+    },
+    "winner_club_name": {
+      "type": "string",
+      "title": "Winner Club Name (denorm)"
+    },
+    "organizer_email": {
+      "type": "string",
+      "title": "Organizer Email"
+    },
+    "trophy_item_id": {
+      "type": "string",
+      "title": "Trophy Item ID (optional)"
+    },
+    "banner_url": {
+      "type": "string",
+      "title": "Banner URL"
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    }
+  },
+  "required": ["name", "country_code", "region", "platform", "season_number"]
+}

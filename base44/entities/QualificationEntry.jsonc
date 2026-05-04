@@ -1,0 +1,88 @@
+{
+  "name": "QualificationEntry",
+  "type": "object",
+  "properties": {
+    "source_type": {
+      "type": "string",
+      "title": "Source Type",
+      "enum": ["regional_league", "promotion", "wild_card", "admin_direct"],
+      "default": "regional_league"
+    },
+    "regional_league_id": {
+      "type": "string",
+      "title": "Regional League ID (if source_type = regional_league)"
+    },
+    "regional_league_name": {
+      "type": "string",
+      "title": "Regional League Name (denorm)"
+    },
+    "regional_finish_position": {
+      "type": "number",
+      "title": "Final Position in Source League"
+    },
+    "target_competition_id": {
+      "type": "string",
+      "title": "Target Competition ID"
+    },
+    "target_competition_name": {
+      "type": "string",
+      "title": "Target Competition Name (denorm)"
+    },
+    "target_competition_tier": {
+      "type": "number",
+      "title": "Target Competition Tier (denorm)"
+    },
+    "target_season_id": {
+      "type": "string",
+      "title": "Target Season ID (set when admin assigns to a season)"
+    },
+    "target_season_number": {
+      "type": "number",
+      "title": "Target Season Number (denorm)"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name (denorm)"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL (denorm)"
+    },
+    "club_tag": {
+      "type": "string",
+      "title": "Club Tag (denorm)"
+    },
+    "club_region": {
+      "type": "string",
+      "title": "Club Region (denorm)"
+    },
+    "club_platform": {
+      "type": "string",
+      "title": "Club Platform (denorm)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["pending", "confirmed", "rejected", "withdrawn"],
+      "default": "pending"
+    },
+    "confirmed_by": {
+      "type": "string",
+      "title": "Confirmed/Rejected By (admin email)"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "title": "Confirmed/Rejected At",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    }
+  },
+  "required": ["source_type", "target_competition_id", "club_id", "club_name", "status"]
+}

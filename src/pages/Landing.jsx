@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Banner.jpg';
-import LogoImg from '@/assets/Logo.PNG';
+import LogoImg from '@/assets/Stadium Logo.png';
 
 /* ─── inline icons ───────────────────────────────────────── */
 const TrophyIcon = () => (
@@ -131,7 +131,7 @@ export default function Landing({ onSignIn }) {
 
       {/* ── NAV ─────────────────────────────────────────── */}
       <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-background/80 backdrop-blur-md border-b border-border">
-        <img src={LogoImg} alt="STAGE" className="h-20 w-auto object-contain" />
+        <img src={LogoImg} alt="STAGE" className="h-14 w-auto object-contain" />
         <button
           onClick={onSignIn}
           className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-bold uppercase tracking-wider transition-colors"

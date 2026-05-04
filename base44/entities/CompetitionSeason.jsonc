@@ -1,0 +1,137 @@
+{
+  "name": "CompetitionSeason",
+  "type": "object",
+  "properties": {
+    "competition_id": {
+      "type": "string",
+      "title": "Competition ID"
+    },
+    "competition_name": {
+      "type": "string",
+      "title": "Competition Name (denorm)"
+    },
+    "competition_tier": {
+      "type": "number",
+      "title": "Competition Tier (denorm)"
+    },
+    "competition_slug": {
+      "type": "string",
+      "title": "Competition Slug (denorm)",
+      "enum": ["supreme", "elite", "challenger"]
+    },
+    "season_number": {
+      "type": "number",
+      "title": "Season Number",
+      "default": 1
+    },
+    "season_label": {
+      "type": "string",
+      "title": "Season Label (e.g. Season 1)"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": ["PlayStation", "Xbox", "PC", "Cross-Platform"],
+      "default": "Cross-Platform"
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "enum": ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East", "Global"],
+      "default": "Global"
+    },
+    "format": {
+      "type": "string",
+      "title": "Competition Format",
+      "enum": ["league_36_8md", "custom"],
+      "default": "league_36_8md"
+    },
+    "num_league_matchdays": {
+      "type": "number",
+      "title": "League Phase Matchdays",
+      "default": 8
+    },
+    "fixtures_generated": {
+      "type": "boolean",
+      "title": "League Phase Fixtures Generated",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["registration", "league_phase", "playoff_round", "knockout_r16", "knockout_qf", "knockout_sf", "knockout_final", "completed"],
+      "default": "registration"
+    },
+    "playoff_format": {
+      "type": "string",
+      "title": "Playoff Format (legacy)",
+      "enum": ["top4_knockout", "top8_knockout", "9_24_bracket", "none"],
+      "default": "9_24_bracket"
+    },
+    "start_date": {
+      "type": "string",
+      "title": "Start Date",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "title": "End Date",
+      "format": "date-time"
+    },
+    "registration_deadline": {
+      "type": "string",
+      "title": "Registration Deadline",
+      "format": "date-time"
+    },
+    "registered_club_ids": {
+      "type": "array",
+      "title": "Registered Club IDs",
+      "items": { "type": "string" }
+    },
+    "num_clubs": {
+      "type": "number",
+      "title": "Number of Registered Clubs",
+      "default": 0
+    },
+    "league_matchday_total": {
+      "type": "number",
+      "title": "Total League Matchdays",
+      "default": 0
+    },
+    "current_matchday": {
+      "type": "number",
+      "title": "Current Matchday",
+      "default": 1
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID"
+    },
+    "winner_club_name": {
+      "type": "string",
+      "title": "Winner Club Name (denorm)"
+    },
+    "runner_up_club_id": {
+      "type": "string",
+      "title": "Runner-Up Club ID"
+    },
+    "runner_up_club_name": {
+      "type": "string",
+      "title": "Runner-Up Club Name (denorm)"
+    },
+    "prize_pool_stc": {
+      "type": "number",
+      "title": "Prize Pool (STC)",
+      "default": 0
+    },
+    "trophy_item_id": {
+      "type": "string",
+      "title": "Trophy Item ID (awarded to season winner)"
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    }
+  },
+  "required": ["competition_id", "competition_name", "competition_tier", "season_number", "platform"]
+}

@@ -237,11 +237,11 @@ export default function Profile() {
   // ─── Public Player Profile View ───
   if (view === "profile") {
     return (
-      <div className="min-h-screen bg-[#06091a] text-white">
+      <div className="min-h-screen bg-background text-foreground">
         {/* Banner */}
         <div className="relative w-full h-48 sm:h-64 overflow-hidden">
           <div className="w-full h-full" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#06091a] via-[#06091a]/20 to-transparent" />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
           {/* Top-right action icons */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             {unreadCount > 0 && (

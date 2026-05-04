@@ -1,0 +1,85 @@
+{
+  "name": "Competition",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Competition Name"
+    },
+    "slug": {
+      "type": "string",
+      "title": "Slug (stable identifier)",
+      "enum": ["supreme", "elite", "challenger"]
+    },
+    "tier": {
+      "type": "number",
+      "title": "Tier (1=top)",
+      "enum": [1, 2, 3]
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Competition Logo URL"
+    },
+    "banner_url": {
+      "type": "string",
+      "title": "Competition Banner URL"
+    },
+    "primary_color": {
+      "type": "string",
+      "title": "Primary Accent Color (hex)",
+      "default": "#00E5BD"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": ["PlayStation", "Xbox", "PC", "Cross-Platform"],
+      "default": "Cross-Platform"
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "enum": ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East", "Global"],
+      "default": "Global"
+    },
+    "max_clubs_per_season": {
+      "type": "number",
+      "title": "Max Clubs Per Season",
+      "default": 16
+    },
+    "promotion_spots": {
+      "type": "number",
+      "title": "Promotion Spots (clubs moved up each season)",
+      "default": 2
+    },
+    "relegation_spots": {
+      "type": "number",
+      "title": "Relegation Spots (clubs moved down each season)",
+      "default": 2
+    },
+    "playoff_spots": {
+      "type": "number",
+      "title": "Playoff Spots from league phase",
+      "default": 4
+    },
+    "qualification_spots_per_region": {
+      "type": "number",
+      "title": "Qualification Spots per Regional League",
+      "default": 2
+    },
+    "current_season": {
+      "type": "number",
+      "title": "Current Season Number",
+      "default": 1
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Active",
+      "default": true
+    }
+  },
+  "required": ["name", "slug", "tier", "platform"]
+}

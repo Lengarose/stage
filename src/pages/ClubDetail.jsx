@@ -377,7 +377,7 @@ export default function ClubDetail() {
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
         <div className="absolute inset-0" style={getBannerStyle(club?.banner_id, club?.banner_position)} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#06091a] via-[#06091a]/30 to-transparent" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
         {canEdit && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">

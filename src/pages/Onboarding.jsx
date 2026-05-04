@@ -5,7 +5,7 @@ import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import BannerImg from "@/assets/Banner.jpg";
-import LogoImg from "@/assets/Logo.PNG";
+import LogoImg from "@/assets/Stadium Logo.png";
 
 /* ── icons ─────────────────────────────────────────────────── */
 const PlayerIcon = () => (

@@ -1,0 +1,134 @@
+{
+  "name": "CompetitionStanding",
+  "type": "object",
+  "properties": {
+    "season_id": {
+      "type": "string",
+      "title": "Competition Season ID"
+    },
+    "competition_id": {
+      "type": "string",
+      "title": "Competition ID"
+    },
+    "competition_name": {
+      "type": "string",
+      "title": "Competition Name (denorm)"
+    },
+    "competition_tier": {
+      "type": "number",
+      "title": "Competition Tier (denorm)"
+    },
+    "competition_slug": {
+      "type": "string",
+      "title": "Competition Slug (denorm)"
+    },
+    "season_number": {
+      "type": "number",
+      "title": "Season Number (denorm)"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name (denorm)"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL (denorm)"
+    },
+    "club_tag": {
+      "type": "string",
+      "title": "Club Tag (denorm)"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform (denorm)"
+    },
+    "region": {
+      "type": "string",
+      "title": "Region (denorm)"
+    },
+    "position": {
+      "type": "number",
+      "title": "Current Position",
+      "default": 0
+    },
+    "played": {
+      "type": "number",
+      "title": "Played",
+      "default": 0
+    },
+    "wins": {
+      "type": "number",
+      "title": "Wins",
+      "default": 0
+    },
+    "draws": {
+      "type": "number",
+      "title": "Draws",
+      "default": 0
+    },
+    "losses": {
+      "type": "number",
+      "title": "Losses",
+      "default": 0
+    },
+    "goals_for": {
+      "type": "number",
+      "title": "Goals For",
+      "default": 0
+    },
+    "goals_against": {
+      "type": "number",
+      "title": "Goals Against",
+      "default": 0
+    },
+    "goal_difference": {
+      "type": "number",
+      "title": "Goal Difference",
+      "default": 0
+    },
+    "points": {
+      "type": "number",
+      "title": "Points",
+      "default": 0
+    },
+    "form": {
+      "type": "array",
+      "title": "Form (last 5: W/D/L)",
+      "items": { "type": "string" }
+    },
+    "is_promoted": {
+      "type": "boolean",
+      "title": "Promoted",
+      "default": false
+    },
+    "is_relegated": {
+      "type": "boolean",
+      "title": "Relegated",
+      "default": false
+    },
+    "is_playoff_qualified": {
+      "type": "boolean",
+      "title": "Playoff Qualified (positions 9-24)",
+      "default": false
+    },
+    "is_direct_knockout": {
+      "type": "boolean",
+      "title": "Direct Knockout Qualifier (positions 1-8)",
+      "default": false
+    },
+    "is_eliminated": {
+      "type": "boolean",
+      "title": "Eliminated After League Phase (positions 25-36)",
+      "default": false
+    },
+    "final_position": {
+      "type": "number",
+      "title": "Final Position (locked at season end)"
+    }
+  },
+  "required": ["season_id", "competition_id", "club_id", "club_name"]
+}

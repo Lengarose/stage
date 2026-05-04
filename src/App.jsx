@@ -46,6 +46,8 @@ import GameDay from './pages/GameDay';
 import TransferMarket from './pages/TransferMarket';
 import Lifestyle from './pages/Lifestyle';
 import FollowBack from './pages/FollowBack';
+import Competitions from './pages/Competitions';
+import CompetitionDetail from './pages/CompetitionDetail';
 
 const SplashScreen = () => (
   <motion.div
@@ -144,6 +146,8 @@ const AuthenticatedApp = () => {
         <Route path="/transfer-market" element={<TransferMarket />} />
         <Route path="/lifestyle" element={<Lifestyle />} />
         <Route path="/follow-back" element={<FollowBack />} />
+        <Route path="/competitions" element={<Competitions />} />
+        <Route path="/competitions/:slug" element={<CompetitionDetail />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

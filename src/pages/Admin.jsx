@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import TrophyCarousel from "@/components/tournament/TrophyCarousel";
 import { cn } from "@/lib/utils";
 import {
-  Shield, Swords, AlertTriangle, Users, Trophy, Check, X,
+  Shield, AlertTriangle, Users, Trophy, Check, X,
   ArrowLeft, Gavel, Flag, Ban, RefreshCw, Coins, Plus, Trash2,
   Newspaper, Upload, Building2, LogIn, Search, TrendingUp
 } from "lucide-react";
@@ -247,6 +247,17 @@ export default function Admin() {
   const [newsImageFile, setNewsImageFile] = useState(null);
   const [uploadingNews, setUploadingNews] = useState(false);
 
+  // Competitions / Leagues tab
+  const [competitions, setCompetitions] = useState([]);
+  const [compSeasons, setCompSeasons] = useState([]);
+  const [qualEntries, setQualEntries] = useState([]);
+  const [seedingComps, setSeedingComps] = useState(false);
+  const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "" });
+  const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
+  const [regionalLeagues, setRegionalLeagues] = useState([]);
+  const [seedingRegionalLeagues, setSeedingRegionalLeagues] = useState(false);
+  const [processingLeagueEnd, setProcessingLeagueEnd] = useState(null);
+
   const [adminProfile, setAdminProfile] = useState(null);
 
   useEffect(() => {
@@ -260,12 +271,16 @@ export default function Admin() {
 
   async function loadAll() {
     setLoading(true);
-    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies] = await Promise.all([
+    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues] = await Promise.all([
       base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50),
       base44.entities.Player.list("-created_date", 100),
       base44.entities.Tournament.list("-created_date", 200),
       base44.entities.Club.list("-created_date", 100),
       base44.entities.TrophyItem.list("sort_order", 100).catch(() => []),
+      base44.entities.Competition.list("tier", 10).catch(() => []),
+      base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
+      base44.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
+      base44.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
     ]);
     const forfeitMatches = await base44.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
     setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
@@ -274,6 +289,10 @@ export default function Admin() {
     setClubs(allClubs);
     setTournaments(allTournaments);
     setTrophyItems(allTrophies);
+    setCompetitions(allComps);
+    setCompSeasons(allCompSeasons);
+    setQualEntries(allQual);
+    setRegionalLeagues(allRegLeagues);
     setLoading(false);
   }
 
@@ -406,6 +425,111 @@ export default function Admin() {
     await loadAll();
   }
 
+  async function seedCompetitions() {
+    if (competitions.length >= 3) { alert("Competitions already seeded."); return; }
+    setSeedingComps(true);
+    const defs = [
+      { name: "STAGE Supreme League", slug: "supreme", tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.", max_clubs_per_season: 16, promotion_spots: 0, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+      { name: "STAGE Elite League",   slug: "elite",   tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.", max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+      { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.", max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 0, playoff_spots: 4, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+    ];
+    const existing = new Set(competitions.map(c => c.slug));
+    await Promise.all(defs.filter(d => !existing.has(d.slug)).map(d => base44.entities.Competition.create(d)));
+    await loadAll();
+    setSeedingComps(false);
+    alert("Competitions seeded!");
+  }
+
+  async function createCompetitionSeason() {
+    if (!newSeasonForm.competition_id) { alert("Select a competition."); return; }
+    setCreatingLeagueSeason(true);
+    const comp = competitions.find(c => c.id === newSeasonForm.competition_id);
+    if (!comp) { setCreatingLeagueSeason(false); return; }
+    const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
+    const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
+    await base44.entities.CompetitionSeason.create({
+      competition_id: comp.id,
+      competition_name: comp.name,
+      competition_tier: comp.tier,
+      competition_slug: comp.slug,
+      season_number: nextSeason,
+      season_label: `Season ${nextSeason}`,
+      platform: newSeasonForm.platform,
+      region: newSeasonForm.region,
+      status: "registration",
+      format: "league_36_8md",
+      playoff_format: "9_24_bracket",
+      num_league_matchdays: 8,
+      league_matchday_total: 8,
+      fixtures_generated: false,
+      registered_club_ids: [],
+      num_clubs: 0,
+      current_matchday: 1,
+      prize_pool_stc: parseInt(newSeasonForm.prize_pool_stc) || 0,
+    });
+    await base44.entities.Competition.update(comp.id, { current_season: nextSeason });
+    setNewSeasonForm(f => ({ ...f, competition_id: "" }));
+    await loadAll();
+    setCreatingLeagueSeason(false);
+    alert(`Season ${nextSeason} created for ${comp.name}!`);
+  }
+
+  async function confirmQualEntry(entry) {
+    const season = compSeasons.find(s => s.competition_id === entry.target_competition_id && s.status === "registration");
+    if (!season) { alert("No open registration season found for this competition. Create a season first."); return; }
+    const { confirmQualificationEntry } = await import("@/lib/competitionUtils");
+    await confirmQualificationEntry(entry, season, adminProfile.email);
+    setQualEntries(prev => prev.filter(e => e.id !== entry.id));
+    alert(`${entry.club_name} confirmed for ${entry.target_competition_name}`);
+  }
+
+  async function rejectQualEntry(entry) {
+    await base44.entities.QualificationEntry.update(entry.id, { status: "rejected", confirmed_by: adminProfile.email, confirmed_at: new Date().toISOString() });
+    setQualEntries(prev => prev.filter(e => e.id !== entry.id));
+  }
+
+  async function seedRegionalLeagues() {
+    setSeedingRegionalLeagues(true);
+    try {
+      const existing = new Set(regionalLeagues.map(l => l.slug));
+      const defs = [
+        { name: "UK & Ireland Division 1", slug: "uk-ireland-div-1",    region_slug: "uk-ireland",    division: 1, region: "Europe",        country_code: "GB", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
+        { name: "France Division 1",       slug: "france-div-1",        region_slug: "france",        division: 1, region: "Europe",        country_code: "FR", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
+        { name: "Germany Division 1",      slug: "germany-div-1",       region_slug: "germany",       division: 1, region: "Europe",        country_code: "DE", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
+        { name: "Benelux Division 1",      slug: "benelux-div-1",       region_slug: "benelux",       division: 1, region: "Europe",        country_code: "BE", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
+        { name: "North America Division 1",slug: "north-america-div-1", region_slug: "north-america", division: 1, region: "North America", country_code: "US", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
+      ];
+      await Promise.all(defs.filter(d => !existing.has(d.slug)).map(d => base44.entities.RegionalLeague.create(d)));
+      await loadAll();
+      alert("Regional leagues seeded!");
+    } finally {
+      setSeedingRegionalLeagues(false);
+    }
+  }
+
+  async function processLeagueEnd(league) {
+    setProcessingLeagueEnd(league.id);
+    try {
+      const standings = await base44.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
+      if (!standings.length) {
+        alert("No standings found. Add clubs and record results before processing season end.");
+        return;
+      }
+      const { processLeagueSeasonEnd } = await import("@/lib/regionalLeagueEngine");
+      const result = await processLeagueSeasonEnd(league, standings, competitions);
+      await loadAll();
+      if (result.type === "div1") {
+        alert(`Season processed! ${result.qualified} qualification entries created for STAGE competitions. ${result.relegated} clubs relegated.`);
+      } else {
+        alert(`Season processed! ${result.promoted} clubs promoted to Division 1.`);
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setProcessingLeagueEnd(null);
+    }
+  }
+
   async function postNews() {
     setUploadingNews(true);
     let image_url = newsForm.image_url;
@@ -502,57 +626,83 @@ export default function Admin() {
     }
   }
 
-  if (allowed === null) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+  if (allowed === null) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
   if (!allowed) return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
       <Shield className="w-12 h-12 text-destructive" />
-      <p className="text-muted-foreground">Admin access required.</p>
-      <Link to="/"><Button variant="outline">Go Home</Button></Link>
+      <p className="text-sm text-muted-foreground uppercase tracking-widest">Admin access required.</p>
+      <Link to="/"><Button variant="outline" className="rounded">Go Home</Button></Link>
     </div>
   );
 
   return (
-    <div className="p-6 lg:p-10 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Link>
+    <div className="min-h-screen bg-background p-4 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-destructive" />
+          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1
+              className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
+              style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
+            >
+              ADMIN
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">STAGE Control Panel</p>
           </div>
-          <h1 className="text-2xl font-bold text-foreground font-heading">ADMIN PANEL</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={loadAll} className="ml-auto border-border gap-2">
-          <RefreshCw className="w-4 h-4" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-destructive border border-destructive/30 bg-destructive/5 px-2.5 py-1 rounded uppercase tracking-widest font-bold">
+            {adminProfile?.email}
+          </span>
+          <Button variant="outline" size="sm" onClick={loadAll} className="border-border h-8 gap-1.5 rounded text-xs">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <AdminStat icon={AlertTriangle} label="Disputes" value={disputes.length} color="text-destructive" />
-        <AdminStat icon={Flag} label="Forfeit Requests" value={forfeits.length} color="text-warning" />
-        <AdminStat icon={Users} label="Total Players" value={players.length} color="text-primary" />
-        <AdminStat icon={Trophy} label="Tournaments" value={tournaments.filter(t => t.status !== "archived" && t.status !== "cancelled").length} color="text-success" />
+      {/* ── Stats ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <AdminStat icon={AlertTriangle} label="Disputes" value={disputes.length} color="text-destructive" accent="border-l-destructive/50" />
+        <AdminStat icon={Flag} label="Forfeits" value={forfeits.length} color="text-warning" accent="border-l-warning/50" />
+        <AdminStat icon={Users} label="Players" value={players.length} color="text-primary" accent="border-l-primary/50" />
+        <AdminStat icon={Trophy} label="Tournaments" value={tournaments.filter(t => t.status !== "archived" && t.status !== "cancelled").length} color="text-success" accent="border-l-success/50" />
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
       ) : (
         <Tabs defaultValue="disputes">
-          <TabsList className="bg-secondary border border-border mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="disputes" className="gap-2">
-              Disputes {disputes.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-destructive/20 text-destructive text-[10px]">{disputes.length}</span>}
-            </TabsTrigger>
-            <TabsTrigger value="forfeits" className="gap-2">
-              Forfeits {forfeits.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-warning/20 text-warning text-[10px]">{forfeits.length}</span>}
-            </TabsTrigger>
-            <TabsTrigger value="players">Players</TabsTrigger>
-            <TabsTrigger value="clubs">Clubs</TabsTrigger>
-            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
-            <TabsTrigger value="news">Post News</TabsTrigger>
-            <TabsTrigger value="transfers">Transfer Window</TabsTrigger>
-            <TabsTrigger value="trophies" className="gap-1.5"><Trophy className="w-3.5 h-3.5" /> Trophies</TabsTrigger>
+          <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-8 flex-wrap">
+            {[
+              { value: "disputes", label: "Disputes", badge: disputes.length, badgeColor: "bg-destructive/20 text-destructive" },
+              { value: "forfeits", label: "Forfeits", badge: forfeits.length, badgeColor: "bg-warning/20 text-warning" },
+              { value: "players", label: "Players" },
+              { value: "clubs", label: "Clubs" },
+              { value: "leagues", label: "Leagues", badge: qualEntries.length, badgeColor: "bg-primary/20 text-primary" },
+              { value: "tournaments", label: "Tournaments" },
+              { value: "trophies", label: "Trophies" },
+              { value: "news", label: "News" },
+              { value: "transfers", label: "Transfers" },
+            ].map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value}
+                className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent gap-1.5 shrink-0">
+                {tab.label}
+                {tab.badge > 0 && (
+                  <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", tab.badgeColor)}>{tab.badge}</span>
+                )}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           {/* Disputes */}
@@ -562,10 +712,10 @@ export default function Admin() {
             ) : (
               <div className="space-y-3">
                 {disputes.map(m => (
-                  <div key={m.id} className="bg-card border border-destructive/20 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div key={m.id} className="bg-card border border-destructive/20 rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">DISPUTED</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded border border-destructive/30 bg-destructive/10 text-destructive font-bold uppercase tracking-wider">DISPUTED</span>
                         <span className="text-xs text-muted-foreground">{m._source === "live" ? "Live Match" : "Tournament Match"}</span>
                       </div>
                       <p className="font-bold text-foreground">{m.home_club_name} vs {m.away_club_name}</p>
@@ -589,7 +739,7 @@ export default function Admin() {
                 {forfeits.map(m => {
                   const claimerName = m.forfeit_claimed_by === m.home_club_id ? m.home_club_name : m.away_club_name;
                   return (
-                    <div key={m.id} className="bg-card border border-warning/20 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div key={m.id} className="bg-card border border-warning/20 rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex-1">
                         <p className="font-bold text-foreground">{m.home_club_name} vs {m.away_club_name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Claimed by: <strong className="text-foreground">{claimerName}</strong></p>
@@ -611,12 +761,12 @@ export default function Admin() {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                 placeholder="Search by gamertag..." />
             </div>
             <div className="space-y-2">
               {players.filter(p => p.gamertag?.toLowerCase().includes(playerSearch.toLowerCase())).map(p => (
-                <div key={p.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                <div key={p.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
                   <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                     {p.avatar_url ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
                   </div>
@@ -640,12 +790,12 @@ export default function Admin() {
 
           {/* Clubs */}
           <TabsContent value="clubs">
-            <div className="mb-3 flex gap-3 flex-wrap items-center">
+            <div className="mb-4 flex gap-2 flex-wrap items-center">
               <Button
                 variant="outline" size="sm" onClick={migrateClubBalances} disabled={migrating}
-                className="border-primary/30 text-primary hover:bg-primary/10 text-xs gap-2"
+                className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5"
               >
-                {migrating ? <><span className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin inline-block" /> Migrating...</> : "💰 Migrate All Clubs (+20M STC, +5M Transfer, +4M Wage)"}
+                {migrating ? <><span className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin inline-block" /> Migrating...</> : "Migrate All Clubs (+20M STC)"}
               </Button>
               {migrateResult && (
                 <span className={cn("text-xs font-medium", migrateResult.success ? "text-success" : "text-destructive")}>
@@ -656,7 +806,7 @@ export default function Admin() {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input value={clubSearch} onChange={e => setClubSearch(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                 placeholder="Search by club name..." />
             </div>
             {clubs.length === 0 ? (
@@ -664,7 +814,7 @@ export default function Admin() {
             ) : (
               <div className="space-y-2">
                 {clubs.filter(c => c.name?.toLowerCase().includes(clubSearch.toLowerCase())).map(c => (
-                  <div key={c.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+                  <div key={c.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
                     <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-primary" />}
                     </div>
@@ -684,23 +834,219 @@ export default function Admin() {
             )}
           </TabsContent>
 
+          {/* ── Leagues / Competitions ──────────────────────── */}
+          <TabsContent value="leagues">
+            <div className="max-w-3xl space-y-6">
+
+              {/* Seed competitions */}
+              <div className="bg-card border border-border rounded p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-tight text-foreground">STAGE Competitions</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">The 3 permanent competitions. Seed once, never recreate.</p>
+                  </div>
+                  <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
+                    {seedingComps ? "Seeding..." : competitions.length >= 3 ? "✓ Seeded" : "Seed Competitions"}
+                  </Button>
+                </div>
+                {competitions.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
+                      const comp = competitions.find(c => c.slug === t.slug);
+                      const seasons = compSeasons.filter(s => s.competition_id === comp?.id);
+                      return comp ? (
+                        <div key={t.slug} className="border border-border rounded p-3" style={{ borderLeftColor: t.color, borderLeftWidth: 2 }}>
+                          <p className="text-xs font-bold text-foreground">{comp.name.replace("STAGE ", "")}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{seasons.length} season{seasons.length !== 1 ? "s" : ""} · Tier {comp.tier}</p>
+                        </div>
+                      ) : (
+                        <div key={t.slug} className="border border-dashed border-border rounded p-3 opacity-40">
+                          <p className="text-xs text-muted-foreground capitalize">{t.slug} — not seeded</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Create new season */}
+              {competitions.length > 0 && (
+                <div className="bg-card border border-border rounded p-5 space-y-4">
+                  <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Start New Season</h3>
+                  <div>
+                    <label className="label-xs">Competition</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {competitions.map(c => (
+                        <button key={c.id} type="button"
+                          onClick={() => setNewSeasonForm(f => ({ ...f, competition_id: c.id }))}
+                          className={cn("rounded border px-3 py-2 text-left text-xs font-bold transition-all",
+                            newSeasonForm.competition_id === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                          )}>
+                          {c.name.replace("STAGE ", "")}
+                          <span className="block text-[9px] font-normal mt-0.5 opacity-60">
+                            Season {compSeasons.filter(s => s.competition_id === c.id).length > 0
+                              ? Math.max(...compSeasons.filter(s => s.competition_id === c.id).map(s => s.season_number)) + 1
+                              : 1} next
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label-xs">Platform</label>
+                      <select value={newSeasonForm.platform} onChange={e => setNewSeasonForm(f => ({ ...f, platform: e.target.value }))}
+                        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+                        {["Cross-Platform","PlayStation","Xbox","PC"].map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-xs">Region</label>
+                      <select value={newSeasonForm.region} onChange={e => setNewSeasonForm(f => ({ ...f, region: e.target.value }))}
+                        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+                        {["Global","Europe","North America","South America","Asia","Oceania","Africa","Middle East"].map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label-xs">Prize Pool (STC) — optional</label>
+                    <input type="number" min="0" value={newSeasonForm.prize_pool_stc}
+                      onChange={e => setNewSeasonForm(f => ({ ...f, prize_pool_stc: e.target.value }))}
+                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                      placeholder="e.g. 5000000" />
+                  </div>
+                  <Button onClick={createCompetitionSeason} disabled={creatingLeagueSeason || !newSeasonForm.competition_id}
+                    className="w-full bg-primary text-primary-foreground h-9 text-xs rounded font-bold gap-2">
+                    {creatingLeagueSeason ? "Creating..." : "Create Season"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Pending qualification entries */}
+              <div>
+                <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">
+                  Pending Qualification Entries
+                  {qualEntries.length > 0 && <span className="ml-2 text-[10px] text-primary border border-primary/30 bg-primary/5 px-1.5 py-0.5 rounded font-bold">{qualEntries.length}</span>}
+                </h3>
+                {qualEntries.length === 0 ? (
+                  <div className="border border-dashed border-border rounded p-8 text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest">No pending entries</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {qualEntries.map(e => (
+                      <div key={e.id} className="bg-card border border-border rounded p-3 flex items-center gap-3">
+                        {e.club_logo_url
+                          ? <img src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
+                          : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{e.club_name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {e.regional_league_name || e.source_type} · Pos. {e.regional_finish_position || "—"} → {e.target_competition_name}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button size="sm" onClick={() => confirmQualEntry(e)} className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
+                            <Check className="w-3 h-3" /> Confirm
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => rejectQualEntry(e)} className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
+                            <X className="w-3 h-3" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Seasons overview */}
+              {compSeasons.length > 0 && (
+                <div>
+                  <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">All Seasons</h3>
+                  <div className="space-y-2">
+                    {compSeasons.map(s => (
+                      <SeasonCard key={s.id} season={s} onRefresh={loadAll} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Regional Leagues */}
+              <div className="bg-card border border-border rounded p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Regional Leagues</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">5 division-1 feeder leagues per region. Seed once, then manage seasons.</p>
+                  </div>
+                  <Button
+                    onClick={seedRegionalLeagues}
+                    disabled={seedingRegionalLeagues || regionalLeagues.filter(l => l.division === 1).length >= 5}
+                    className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5 shrink-0">
+                    {seedingRegionalLeagues ? "Seeding..." : regionalLeagues.filter(l => l.division === 1).length >= 5 ? "✓ Seeded" : "Seed Div 1 Leagues"}
+                  </Button>
+                </div>
+
+                {regionalLeagues.length > 0 && (
+                  <div className="space-y-2">
+                    {regionalLeagues.map(league => (
+                      <div key={league.id} className="border border-border rounded p-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{league.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {league.region} · Division {league.division || 1} · Season {league.season_number} · {league.num_clubs || 0}/{league.max_clubs} clubs
+                          </p>
+                        </div>
+                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0",
+                          league.status === "in_progress" ? "text-success border-success/30 bg-success/5" :
+                          league.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
+                          league.status === "completed" ? "text-muted-foreground border-border" :
+                          "text-warning border-warning/30 bg-warning/5"
+                        )}>{league.status.replace("_", " ")}</span>
+                        {league.status !== "completed" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={processingLeagueEnd === league.id}
+                            onClick={() => processLeagueEnd(league)}
+                            className="h-7 text-xs rounded border-warning/40 text-warning hover:bg-warning/10 shrink-0">
+                            {processingLeagueEnd === league.id ? "Processing..." : "Process Season End"}
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="bg-muted/20 border border-border/40 rounded p-3 space-y-1">
+                  <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Qualification rules (Division 1)</p>
+                  <p className="text-[10px] text-muted-foreground">1st–2nd → STAGE Supreme League</p>
+                  <p className="text-[10px] text-muted-foreground">3rd–4th → STAGE Elite League</p>
+                  <p className="text-[10px] text-muted-foreground">5th–6th → STAGE Challenger League</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Bottom 2 → relegated · Top 2 of Division 2 → promoted</p>
+                  <p className="text-[9px] text-muted-foreground/60 mt-1">Adjust spot counts in <code className="font-mono">src/lib/qualificationConfig.js</code></p>
+                </div>
+              </div>
+
+            </div>
+          </TabsContent>
+
           {/* Tournaments */}
           <TabsContent value="tournaments">
-            <div className="mb-3 flex gap-3 flex-wrap">
-              <Button onClick={() => setCreateTournamentOpen(true)} className="bg-primary text-primary-foreground gap-2 text-sm">
-                <Plus className="w-4 h-4" /> Create Tournament
+            <div className="mb-4 flex gap-2 flex-wrap">
+              <Button onClick={() => setCreateTournamentOpen(true)} className="bg-primary text-primary-foreground gap-2 text-xs h-8 rounded">
+                <Plus className="w-3.5 h-3.5" /> Create Tournament
               </Button>
-              <Button variant="outline" size="sm" onClick={seedPressQuestions} disabled={saving} className="border-primary/30 text-primary hover:bg-primary/10 text-xs gap-2">
-                🎤 Seed Press Questions
+              <Button variant="outline" size="sm" onClick={seedPressQuestions} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
+                Seed Press Questions
               </Button>
-              <Button variant="outline" size="sm" onClick={reseedLifestyle} disabled={saving} className="border-success/30 text-success hover:bg-success/10 text-xs gap-2">
-                💰 Reseed Lifestyle Prices
+              <Button variant="outline" size="sm" onClick={reseedLifestyle} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
+                Reseed Lifestyle Prices
               </Button>
             </div>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input value={tournamentSearch} onChange={e => setTournamentSearch(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                 placeholder="Search by tournament name..." />
             </div>
             {tournaments.length === 0 ? (
@@ -708,13 +1054,13 @@ export default function Admin() {
             ) : (
               <div className="space-y-3">
                 {tournaments.filter(t => t.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && t.status !== "archived" && t.status !== "cancelled").map(t => (
-                  <div key={t.id} className="bg-card border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div key={t.id} className="bg-card border border-border rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
                       <p className="font-bold text-foreground">{t.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {t.type} · {t.platform} · Round {t.current_round}/{t.total_rounds || "?"} · {(t.registered_clubs || []).length} clubs
                       </p>
-                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full border mt-1 inline-block",
+                      <span className={cn("text-[10px] px-2 py-0.5 rounded border mt-1 inline-block uppercase tracking-wider font-bold",
                         t.status === "registration" ? "bg-primary/10 text-primary border-primary/20" :
                         t.status === "in_progress" ? "bg-success/10 text-success border-success/20" :
                         t.status === "completed" ? "bg-muted text-muted-foreground border-border" :
@@ -733,10 +1079,10 @@ export default function Admin() {
 
           {/* Post News */}
           <TabsContent value="news">
-            <div className="bg-card border border-border rounded-xl p-6 max-w-2xl space-y-4">
-              <h3 className="font-bold text-foreground flex items-center gap-2"><Newspaper className="w-4 h-4 text-primary" /> Post News Update</h3>
+            <div className="bg-card border border-border rounded p-6 max-w-2xl space-y-4">
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2"><Newspaper className="w-4 h-4 text-primary" /> Post News</h3>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Category</label>
+                <label className="label-xs">Category</label>
                 <Select value={newsForm.type} onValueChange={v => setNewsForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -749,18 +1095,18 @@ export default function Admin() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Title</label>
+                <label className="label-xs">Title</label>
                 <input value={newsForm.title} onChange={e => setNewsForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                   placeholder="News headline..." />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Body</label>
+                <label className="label-xs">Body</label>
                 <Textarea value={newsForm.body} onChange={e => setNewsForm(f => ({ ...f, body: e.target.value }))}
                   className="bg-secondary border-border min-h-[80px]" placeholder="News body text..." />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Image (optional)</label>
+                <label className="label-xs">Image (optional)</label>
                 <input type="file" accept="image/*" onChange={e => setNewsImageFile(e.target.files[0])} className="text-xs text-muted-foreground" />
                 {newsImageFile && <p className="text-xs text-primary mt-1">Selected: {newsImageFile.name}</p>}
               </div>
@@ -774,8 +1120,8 @@ export default function Admin() {
           {/* Transfer Window */}
           <TabsContent value="transfers">
             <div className="max-w-2xl">
-              <h3 className="font-bold text-foreground text-lg mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" /> Transfer Window Management
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground mb-4 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary" /> Transfer Window
               </h3>
               <TransferWindowPanel />
             </div>
@@ -784,15 +1130,15 @@ export default function Admin() {
           {/* ── Trophy Manager ─────────────────────────────── */}
           <TabsContent value="trophies">
             <div className="max-w-2xl space-y-6">
-              <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-warning" /> Trophy Library
               </h3>
 
               {/* Add new trophy */}
-              <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+              <div className="bg-card border border-border rounded p-5 space-y-4">
                 <p className="text-sm font-bold text-foreground">Add New Trophy</p>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Trophy Name</label>
+                  <label className="label-xs">Trophy Name</label>
                   <Input
                     value={newTrophyName}
                     onChange={e => setNewTrophyName(e.target.value)}
@@ -801,9 +1147,9 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Trophy Image (PNG)</label>
+                  <label className="label-xs">Trophy Image (PNG)</label>
                   {newTrophyFile ? (
-                    <div className="flex items-center gap-3 bg-warning/5 border border-warning/20 rounded-xl p-3">
+                    <div className="flex items-center gap-3 bg-warning/5 border border-warning/20 rounded p-3">
                       <img src={URL.createObjectURL(newTrophyFile)} alt="preview" className="w-14 h-14 object-contain drop-shadow-lg" />
                       <div className="flex-1">
                         <p className="text-xs font-bold text-foreground">{newTrophyFile.name}</p>
@@ -816,7 +1162,7 @@ export default function Admin() {
                   ) : (
                     <button
                       onClick={() => trophyFileRef.current?.click()}
-                      className="w-full h-16 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors"
+                      className="w-full h-16 rounded border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors"
                     >
                       <Upload className="w-4 h-4" />
                       <span className="text-xs">Upload PNG trophy image</span>
@@ -850,7 +1196,7 @@ export default function Admin() {
 
               {/* Trophy list */}
               {trophyItems.length === 0 ? (
-                <div className="border border-dashed border-border rounded-xl p-10 text-center">
+                <div className="border border-dashed border-border rounded p-10 text-center">
                   <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">No trophies in library yet</p>
                 </div>
@@ -859,7 +1205,7 @@ export default function Admin() {
                   <p className="text-xs text-muted-foreground">{trophyItems.length} trophy{trophyItems.length !== 1 ? "ies" : ""} in library</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {trophyItems.map(trophy => (
-                      <div key={trophy.id} className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2 relative group">
+                      <div key={trophy.id} className="bg-card border border-border rounded p-3 flex flex-col items-center gap-2 relative group">
                         <button
                           onClick={() => deleteTrophyItem(trophy.id)}
                           className="absolute top-2 right-2 w-6 h-6 rounded border border-destructive/30 flex items-center justify-center text-destructive/50 hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100"
@@ -896,16 +1242,16 @@ export default function Admin() {
       {/* Create Tournament Dialog */}
       <Dialog open={createTournamentOpen} onOpenChange={setCreateTournamentOpen}>
         <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="leading-relaxed text-xl flex items-center gap-2"><Trophy className="w-5 h-5 text-primary" /> Create Tournament</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Trophy className="w-5 h-5 text-primary" /> Create Tournament</DialogTitle></DialogHeader>
           <div className="space-y-5 mt-2">
 
             {/* Tournament For */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tournament For</label>
+              <label className="label-xs">Tournament For</label>
               <div className="grid grid-cols-2 gap-3">
                 {[{v:"club",icon:"🏟️",label:"Club Tournament",sub:"Clubs register & compete"},{v:"player",icon:"👤",label:"Player Tournament",sub:"Individual players register"}].map(opt => (
                   <button key={opt.v} onClick={() => setTournamentForm(f => ({ ...f, participant_type: opt.v }))}
-                    className={cn("rounded-xl border p-3 text-left transition-all",
+                    className={cn("rounded border p-3 text-left transition-all",
                       tournamentForm.participant_type === opt.v ? "border-primary bg-primary/10" : "border-border hover:border-primary/40 bg-secondary"
                     )}>
                     <p className={cn("font-bold text-sm", tournamentForm.participant_type === opt.v ? "text-primary" : "text-foreground")}>{opt.icon} {opt.label}</p>
@@ -917,14 +1263,14 @@ export default function Admin() {
 
             {/* Name */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Name</label>
+              <label className="label-xs">Name</label>
               <input value={tournamentForm.name} onChange={e => setTournamentForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Tournament name..." />
+                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Tournament name..." />
             </div>
 
             {/* Description */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Description</label>
+              <label className="label-xs">Description</label>
               <Textarea value={tournamentForm.description} onChange={e => setTournamentForm(f => ({ ...f, description: e.target.value }))}
                 className="bg-secondary border-border" placeholder="Tournament details..." />
             </div>
@@ -932,7 +1278,7 @@ export default function Admin() {
             {/* Type + Max Teams */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Type</label>
+                <label className="label-xs">Type</label>
                 <Select value={tournamentForm.type} onValueChange={v => {
                   const updates = { type: v };
                   if (v === 'swiss_ucl') updates.max_teams = 36;
@@ -949,7 +1295,7 @@ export default function Admin() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Max Teams</label>
+                <label className="label-xs">Max Teams</label>
                 <Select value={String(tournamentForm.max_teams)} onValueChange={v => setTournamentForm(f => ({ ...f, max_teams: Number(v) }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -962,7 +1308,7 @@ export default function Admin() {
             {/* Platform + Start Date */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Platform</label>
+                <label className="label-xs">Platform</label>
                 <Select value={tournamentForm.platform} onValueChange={v => setTournamentForm(f => ({ ...f, platform: v }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -974,15 +1320,15 @@ export default function Admin() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Start Date</label>
+                <label className="label-xs">Start Date</label>
                 <input type="datetime-local" value={tournamentForm.start_date} onChange={e => setTournamentForm(f => ({ ...f, start_date: e.target.value }))}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
               </div>
             </div>
 
             {/* Entry Fee (STC only) */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Entry Fee</label>
+              <label className="label-xs">Entry Fee</label>
               <div className="flex gap-2 mb-2">
                 {[["free","Free"],["stc","STC Fee"]].map(([v,label]) => (
                   <button key={v} type="button" onClick={() => setAdminEntryType(v)}
@@ -995,13 +1341,13 @@ export default function Admin() {
               </div>
               {adminEntryType === "stc" && (
                 <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
               )}
             </div>
 
             {/* Region */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Region</label>
+              <label className="label-xs">Region</label>
               <Select value={tournamentForm.region} onValueChange={v => setTournamentForm(f => ({ ...f, region: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1012,7 +1358,7 @@ export default function Admin() {
 
             {/* Country Restriction */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Country Restriction <span className="text-muted-foreground normal-case font-normal">(optional)</span></label>
+              <label className="label-xs">Country Restriction <span className="text-muted-foreground normal-case font-normal">(optional)</span></label>
               <Select value={tournamentForm.country_code || "none"} onValueChange={v => setTournamentForm(f => ({ ...f, country_code: v === "none" ? "" : v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="All countries" /></SelectTrigger>
                 <SelectContent>
@@ -1026,7 +1372,7 @@ export default function Admin() {
             {/* League / Competition Picker */}
             {tournamentForm.country_code && COUNTRY_LEAGUES[tournamentForm.country_code] && (
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">
+                <label className="label-xs">
                   🏆 League / Competition <span className="normal-case font-normal">(optional — auto-fills name & teams)</span>
                 </label>
                 <div className="space-y-2">
@@ -1040,7 +1386,7 @@ export default function Admin() {
                         max_teams: [4, 8, 16, 20, 32, 36, 64].includes(league.teams) ? league.teams : 20,
                       }))}
                       className={cn(
-                        "w-full rounded-xl border px-4 py-3 text-left transition-all",
+                        "w-full rounded border px-4 py-3 text-left transition-all",
                         tournamentForm.name === league.name
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-secondary hover:border-primary/40 text-foreground"
@@ -1056,11 +1402,11 @@ export default function Admin() {
 
             {/* Custom Rules */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📋 Custom Rules (optional)</label>
+              <label className="label-xs">📋 Custom Rules (optional)</label>
               <Textarea value={tournamentForm.custom_rules} onChange={e => setTournamentForm(f => ({ ...f, custom_rules: e.target.value }))}
                 className="bg-secondary border-border min-h-[80px]" placeholder="Enter your tournament-specific rules here..." />
               <p className="text-xs text-muted-foreground mt-2 mb-1">Or upload a rules document (PDF or image):</p>
-              <label className="flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors">
+              <label className="flex flex-col items-center justify-center border border-dashed border-border rounded p-4 cursor-pointer hover:border-primary/50 transition-colors">
                 <Upload className="w-5 h-5 text-muted-foreground mb-1" />
                 <span className="text-xs text-muted-foreground">{rulesFile ? rulesFile.name : "Drop or click to upload rules file (PDF / image)"}</span>
                 <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => setRulesFile(e.target.files[0])} />
@@ -1069,9 +1415,9 @@ export default function Admin() {
 
             {/* Prize */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Prize Description (optional)</label>
+              <label className="label-xs">Prize Description (optional)</label>
               <input value={tournamentForm.prize_description} onChange={e => setTournamentForm(f => ({ ...f, prize_description: e.target.value }))}
-                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Bragging rights + custom badge" />
+                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Bragging rights + custom badge" />
             </div>
 
             {/* Prize Pool STC */}
@@ -1088,7 +1434,7 @@ export default function Admin() {
                     <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{f.label}</label>
                     <input type="number" min="0" value={tournamentForm[f.key] || ""}
                       onChange={e => setTournamentForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                       placeholder={f.placeholder} />
                   </div>
                 ))}
@@ -1097,8 +1443,8 @@ export default function Admin() {
 
             {/* Tournament Banner */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tournament Banner</label>
-              <label className="flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 transition-colors mb-3">
+              <label className="label-xs">Tournament Banner</label>
+              <label className="flex flex-col items-center justify-center border border-dashed border-border rounded p-5 cursor-pointer hover:border-primary/50 transition-colors mb-3">
                 <Upload className="w-5 h-5 text-muted-foreground mb-1" />
                 <span className="text-xs text-muted-foreground">{bannerFile ? bannerFile.name : "Upload custom banner"}</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => setBannerFile(e.target.files[0])} />
@@ -1122,7 +1468,7 @@ export default function Admin() {
 
             {/* Trophy Selection */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">🏆 Trophy</label>
+              <label className="label-xs">🏆 Trophy</label>
               <p className="text-[10px] text-muted-foreground mb-2">Select from library — awarded to winner's cabinet on completion.</p>
               {trophyItems.length > 0 ? (
                 <TrophyCarousel trophies={trophyItems} selected={adminTrophyItemId}
@@ -1162,7 +1508,7 @@ export default function Admin() {
       {/* Resolve Dispute Dialog */}
       <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); }}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="leading-relaxed text-xl flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> Resolve Dispute</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> Resolve Dispute</DialogTitle></DialogHeader>
           {resolveDialog && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground"><strong className="text-foreground">{resolveDialog.match.home_club_name}</strong> vs <strong className="text-foreground">{resolveDialog.match.away_club_name}</strong></p>
@@ -1180,7 +1526,7 @@ export default function Admin() {
                 <a href={resolveDialog.match.proof_url || resolveDialog.match.forfeit_proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">📎 View Submitted Proof</a>
               )}
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Award Win To</label>
+                <label className="label-xs">Award Win To</label>
                 <Select value={selectedWinner} onValueChange={setSelectedWinner}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select winner..." /></SelectTrigger>
                   <SelectContent>
@@ -1200,7 +1546,7 @@ export default function Admin() {
       {/* Club Finance Dialog */}
       <Dialog open={!!clubStcDialog} onOpenChange={() => setClubStcDialog(null)}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="leading-relaxed text-xl flex items-center gap-2"><Coins className="w-5 h-5 text-success" /> Club Finance — {clubStcDialog?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-success" /> Club Finance — {clubStcDialog?.name}</DialogTitle></DialogHeader>
           {clubStcDialog && (
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -1218,20 +1564,20 @@ export default function Admin() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Add STC Balance (e.g. 5000000 = 5M)</label>
+                <label className="label-xs">Add STC Balance (e.g. 5000000 = 5M)</label>
                 <input type="number" value={clubStcAmount} onChange={e => setClubStcAmount(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 10000000" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 10000000" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Set Weekly Wage Budget (STC)</label>
+                <label className="label-xs">Set Weekly Wage Budget (STC)</label>
                 <input type="number" value={clubWageBudget} onChange={e => setClubWageBudget(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 2000000" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 2000000" />
                 <p className="text-[10px] text-muted-foreground mt-1">Recommended: 1M–5M/wk for a standard club</p>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Set Transfer Budget (STC)</label>
+                <label className="label-xs">Set Transfer Budget (STC)</label>
                 <input type="number" value={clubTransferBudget} onChange={e => setClubTransferBudget(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 20000000" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 20000000" />
                 <p className="text-[10px] text-muted-foreground mt-1">Recommended: 5M–50M for a standard club</p>
               </div>
               <Button onClick={saveClubFinance} disabled={saving || (clubStcAmount === "" && clubWageBudget === "" && clubTransferBudget === "")} className="w-full bg-success/20 text-success hover:bg-success/30 border border-success/40">
@@ -1245,15 +1591,15 @@ export default function Admin() {
       {/* Grant Credits Dialog */}
       <Dialog open={!!creditsDialog} onOpenChange={() => setCreditsDialog(null)}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="leading-relaxed text-xl flex items-center gap-2"><Coins className="w-5 h-5 text-warning" /> Grant Credits</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-warning" /> Grant Credits</DialogTitle></DialogHeader>
           {creditsDialog && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">Player: <strong className="text-foreground">{creditsDialog.gamertag}</strong></p>
               <p className="text-sm text-muted-foreground">Current balance: <strong className="text-warning">{(creditsDialog.credits || 0).toLocaleString()} credits</strong></p>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Amount to Add</label>
+                <label className="label-xs">Amount to Add</label>
                 <input type="number" value={creditsAmount} onChange={e => setCreditsAmount(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 500" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 500" />
               </div>
               <Button onClick={grantCredits} disabled={!creditsAmount || saving} className="w-full bg-warning/20 text-warning hover:bg-warning/30 border border-warning/40 leading-relaxed">
                 {saving ? "Saving..." : `Add ${Number(creditsAmount).toLocaleString()} Credits`}
@@ -1262,25 +1608,150 @@ export default function Admin() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
 
-function AdminStat({ icon: Icon, label, value, color }) {
+const SEASON_STATUS_LABEL = {
+  registration: "Registration",
+  league_phase: "League Phase",
+  playoff_round: "Playoff Round",
+  knockout_r16: "Round of 16",
+  knockout_qf: "Quarter-Finals",
+  knockout_sf: "Semi-Finals",
+  knockout_final: "Final",
+  completed: "Completed",
+};
+
+function SeasonCard({ season: s, onRefresh }) {
+  const [busy, setBusy] = useState(false);
+
+  async function advance(action) {
+    setBusy(true);
+    try {
+      const { generateLeaguePhaseFixtures, generatePlayoffRound, generateKnockoutR16, generateNextKnockoutRound } = await import("@/lib/competitionUtils");
+
+      if (action === "generate_fixtures") {
+        const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
+        if (!standings.length) { alert("No clubs registered yet. Confirm qualification entries first."); return; }
+        await generateLeaguePhaseFixtures(s, standings);
+        alert(`League phase fixtures generated! ${standings.length} clubs, 8 matchdays.`);
+
+      } else if (action === "playoff_round") {
+        const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
+        await generatePlayoffRound(s, standings);
+        alert("Playoff round generated! Positions 9-24 play off. Positions 25-36 eliminated.");
+
+      } else if (action === "knockout_r16") {
+        const [standings, fixtures] = await Promise.all([
+          base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
+          base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: "playoff_round" }, null, 30).catch(() => []),
+        ]);
+        await generateKnockoutR16(s, standings, fixtures);
+        alert("Round of 16 generated!");
+
+      } else if (["knockout_qf", "knockout_sf", "knockout_final"].includes(action)) {
+        const prevPhase = { knockout_qf: "knockout_r16", knockout_sf: "knockout_qf", knockout_final: "knockout_sf" }[action];
+        const fixtures = await base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: prevPhase }, null, 30).catch(() => []);
+        await generateNextKnockoutRound(s, fixtures, prevPhase);
+        alert(`${SEASON_STATUS_LABEL[action]} fixtures generated!`);
+
+      } else if (action === "complete") {
+        await base44.entities.CompetitionSeason.update(s.id, { status: "completed" });
+        alert("Season marked as completed.");
+      }
+
+      await onRefresh();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusColor = {
+    registration: "text-primary border-primary/30 bg-primary/5",
+    league_phase: "text-success border-success/30 bg-success/5",
+    completed: "text-muted-foreground border-border bg-transparent",
+  }[s.status] || "text-warning border-warning/30 bg-warning/5";
+
   return (
-    <div className="bg-card border border-border rounded-xl p-4 text-center">
-      <Icon className={cn("w-5 h-5 mx-auto mb-1.5", color)} />
-      <p className={cn("font-bold text-2xl", color)}>{value}</p>
-      <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+    <div className="bg-card border border-border rounded p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-foreground">{s.competition_name} — {s.season_label || `Season ${s.season_number}`}</p>
+          <p className="text-[10px] text-muted-foreground">{s.num_clubs || 0} clubs · {s.platform} · {s.region}</p>
+        </div>
+        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", statusColor)}>
+          {SEASON_STATUS_LABEL[s.status] || s.status}
+        </span>
+        <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+          {s.status === "registration" && !s.fixtures_generated && (
+            <Button size="sm" disabled={busy} onClick={() => advance("generate_fixtures")}
+              className="h-7 text-[10px] rounded bg-success/20 text-success border-0 hover:bg-success/30 gap-1">
+              {busy ? "..." : "Generate Fixtures"}
+            </Button>
+          )}
+          {s.status === "league_phase" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("playoff_round")}
+              className="h-7 text-[10px] rounded border-warning/40 text-warning hover:bg-warning/10">
+              {busy ? "..." : "→ Playoff Round"}
+            </Button>
+          )}
+          {s.status === "playoff_round" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_r16")}
+              className="h-7 text-[10px] rounded border-border">
+              {busy ? "..." : "→ Round of 16"}
+            </Button>
+          )}
+          {s.status === "knockout_r16" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_qf")}
+              className="h-7 text-[10px] rounded border-border">
+              {busy ? "..." : "→ Quarter-Finals"}
+            </Button>
+          )}
+          {s.status === "knockout_qf" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_sf")}
+              className="h-7 text-[10px] rounded border-border">
+              {busy ? "..." : "→ Semi-Finals"}
+            </Button>
+          )}
+          {s.status === "knockout_sf" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_final")}
+              className="h-7 text-[10px] rounded border-border">
+              {busy ? "..." : "→ Final"}
+            </Button>
+          )}
+          {s.status === "knockout_final" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("complete")}
+              className="h-7 text-[10px] rounded border-border">
+              {busy ? "..." : "Complete Season"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminStat({ icon: Icon, label, value, color, accent }) {
+  return (
+    <div className={cn("bg-card border border-border border-l-2 rounded p-4", accent)}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{label}</span>
+        <Icon className={cn("w-3.5 h-3.5", color)} />
+      </div>
+      <p className={cn("font-heading font-black text-4xl leading-none", color)}>{value}</p>
     </div>
   );
 }
 
 function EmptyState({ icon: Icon, text }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-10 text-center">
-      <Icon className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-      <p className="text-muted-foreground text-sm">{text}</p>
+    <div className="border border-dashed border-border rounded p-12 text-center">
+      <Icon className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
+      <p className="text-muted-foreground text-sm uppercase tracking-widest">{text}</p>
     </div>
   );
 }
