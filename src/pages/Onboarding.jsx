@@ -76,9 +76,9 @@ export default function Onboarding({ onComplete }) {
   const progress = ((meta.index) / (meta.total - 1)) * 100;
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#06091a]">
+    <div className="fixed inset-0 overflow-hidden bg-background">
       <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105" />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#06091a]/60 via-[#06091a]/50 to-[#06091a]/80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/65 via-background/50 to-background/85" />
 
       {/* Nav */}
       <nav className="absolute top-0 inset-x-0 z-50 flex items-center px-6 md:px-12 py-5">
@@ -90,7 +90,7 @@ export default function Onboarding({ onComplete }) {
         {loading ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-            <p className="text-white/40 text-xs uppercase tracking-widest">Loading…</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-widest">Loading…</p>
           </div>
         ) : !user ? null : (
           <motion.div

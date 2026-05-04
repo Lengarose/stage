@@ -463,7 +463,7 @@ export default function Layout() {
     <div
       className={cn(
         "flex flex-col h-screen overflow-hidden",
-        isVideoTheme ? "bg-transparent" : "bg-[#060914]"
+        isVideoTheme ? "bg-transparent" : "bg-background"
       )}
     >
 
@@ -621,11 +621,13 @@ export default function Layout() {
         <main
           className={cn(
             "relative z-[1] flex-1 overflow-y-auto",
-            isVideoTheme ? "bg-transparent" : "bg-[#060914]"
+            isVideoTheme ? "bg-transparent" : "bg-background"
           )}
         >
           <div className="min-h-full pb-8">
-            <Outlet />
+            <div className="mx-auto w-full max-w-7xl">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

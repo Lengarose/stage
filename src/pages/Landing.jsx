@@ -127,10 +127,10 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
 /* ─── component ──────────────────────────────────────────── */
 export default function Landing({ onSignIn }) {
   return (
-    <div className="min-h-screen bg-[#06091a] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
       {/* ── NAV ─────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-[#06091a]/80 backdrop-blur-md border-b border-white/5">
+      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-background/80 backdrop-blur-md border-b border-border">
         <img src={LogoImg} alt="STAGE" className="h-20 w-auto object-contain" />
         <button
           onClick={onSignIn}
@@ -144,7 +144,7 @@ export default function Landing({ onSignIn }) {
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6">
         {/* background */}
         <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#06091a]/60 via-[#06091a]/40 to-[#06091a]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/45 to-background" />
 
         {/* content */}
         <div className="relative z-10 max-w-4xl mx-auto">
