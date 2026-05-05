@@ -8,9 +8,10 @@ router.get('/', async (req, res) => {
     const { club_id, player_id, page } = req.query;
     const ss = new ShirtSale();
     let result;
-    if (club_id) result = await ss.selectByClub(club_id);
+    if (club_id && player_id) result = await ss.selectByClubAndPlayer(club_id, player_id);
+    else if (club_id)         result = await ss.selectByClub(club_id);
+    else if (player_id)       result = await ss.selectByPlayer(player_id);
     else result = await ss.selectAll(Number(page) || 1);
-    if (player_id && result) result = result.filter(r => r.player_id === player_id);
     res.json(result);
   } catch (err) {
     console.error(err);

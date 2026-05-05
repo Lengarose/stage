@@ -17,6 +17,17 @@ class JoinRequest {
     return EXECUTESQL('SELECT * FROM join_requests ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
+  selectFiltered({ club_id, player_id, player_email, status } = {}) {
+    const conditions = [];
+    const params = [];
+    if (club_id)      { conditions.push('club_id = ?');      params.push(club_id); }
+    if (player_id)    { conditions.push('player_id = ?');    params.push(player_id); }
+    if (player_email) { conditions.push('player_email = ?'); params.push(player_email); }
+    if (status)       { conditions.push('status = ?');       params.push(status); }
+    const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    return EXECUTESQL(`SELECT * FROM join_requests${where} ORDER BY id DESC`, params);
+  }
+
   selectOne(id) {
     return EXECUTESQL('SELECT * FROM join_requests WHERE id = ?', [id]);
   }

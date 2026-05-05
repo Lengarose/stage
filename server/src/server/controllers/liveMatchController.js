@@ -8,9 +8,11 @@ router.get('/', async (req, res) => {
   try {
     const { match_id, status, page } = req.query;
     const lm = new LiveMatch();
-    let result = await lm.selectAll(Number(page) || 1);
-    if (match_id) result = result.filter(r => r.match_id === match_id);
-    if (status)   result = result.filter(r => r.status === status);
+    let result;
+    if (match_id && status) result = await lm.selectByMatchAndStatus(match_id, status);
+    else if (match_id)      result = await lm.selectByMatch(match_id);
+    else if (status)        result = await lm.selectByStatus(status);
+    else result = await lm.selectAll(Number(page) || 1);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

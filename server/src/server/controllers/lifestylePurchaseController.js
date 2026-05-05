@@ -8,9 +8,10 @@ router.get('/', async (req, res) => {
     const { player_id, item_type, page } = req.query;
     const lp = new LifestylePurchase();
     let result;
-    if (player_id) result = await lp.selectByPlayer(player_id);
+    if (player_id && item_type) result = await lp.selectByPlayerAndType(player_id, item_type);
+    else if (player_id)         result = await lp.selectByPlayer(player_id);
+    else if (item_type)         result = await lp.selectByItemType(item_type);
     else result = await lp.selectAll(Number(page) || 1);
-    if (item_type && result) result = result.filter(r => r.item_type === item_type);
     res.json(result);
   } catch (err) {
     console.error(err);

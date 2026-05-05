@@ -26,6 +26,14 @@ class ShirtSale {
     return EXECUTESQL('SELECT * FROM shirt_sales WHERE club_id = ?', [club_id]);
   }
 
+  selectByPlayer(player_id) {
+    return EXECUTESQL('SELECT * FROM shirt_sales WHERE player_id = ?', [player_id]);
+  }
+
+  selectByClubAndPlayer(club_id, player_id) {
+    return EXECUTESQL('SELECT * FROM shirt_sales WHERE club_id = ? AND player_id = ?', [club_id, player_id]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO shirt_sales

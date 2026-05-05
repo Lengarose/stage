@@ -45,6 +45,18 @@ class PlayerContract {
     return EXECUTESQL('SELECT * FROM player_contracts WHERE user_id = ?', [user_id]);
   }
 
+  selectByStatus(status) {
+    return EXECUTESQL('SELECT * FROM player_contracts WHERE status = ?', [status]);
+  }
+
+  selectByTeamAndStatus(team_id, status) {
+    return EXECUTESQL('SELECT * FROM player_contracts WHERE team_id = ? AND status = ?', [team_id, status]);
+  }
+
+  selectByUserAndStatus(user_id, status) {
+    return EXECUTESQL('SELECT * FROM player_contracts WHERE user_id = ? AND status = ?', [user_id, status]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO player_contracts

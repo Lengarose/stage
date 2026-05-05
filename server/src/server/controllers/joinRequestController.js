@@ -7,11 +7,12 @@ router.get('/', async (req, res) => {
   try {
     const { club_id, player_id, player_email, status, page } = req.query;
     const jr = new JoinRequest();
-    let result = await jr.selectAll(Number(page) || 1);
-    if (club_id)      result = result.filter(r => r.club_id === club_id);
-    if (player_id)    result = result.filter(r => r.player_id === player_id);
-    if (player_email) result = result.filter(r => r.player_email === player_email);
-    if (status)       result = result.filter(r => r.status === status);
+    let result;
+    if (club_id || player_id || player_email || status) {
+      result = await jr.selectFiltered({ club_id, player_id, player_email, status });
+    } else {
+      result = await jr.selectAll(Number(page) || 1);
+    }
     res.json(result);
   } catch (err) {
     console.error(err);

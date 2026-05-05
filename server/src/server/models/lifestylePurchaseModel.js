@@ -26,6 +26,14 @@ class LifestylePurchase {
     return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ?', [player_id]);
   }
 
+  selectByItemType(item_type) {
+    return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE item_type = ?', [item_type]);
+  }
+
+  selectByPlayerAndType(player_id, item_type) {
+    return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ? AND item_type = ?', [player_id, item_type]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO lifestyle_purchases

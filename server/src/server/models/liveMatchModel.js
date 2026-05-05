@@ -22,6 +22,18 @@ class LiveMatch {
     return EXECUTESQL('SELECT * FROM live_matches LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
+  selectByMatch(match_id) {
+    return EXECUTESQL('SELECT * FROM live_matches WHERE match_id = ?', [match_id]);
+  }
+
+  selectByMatchAndStatus(match_id, status) {
+    return EXECUTESQL('SELECT * FROM live_matches WHERE match_id = ? AND status = ?', [match_id, status]);
+  }
+
+  selectByStatus(status) {
+    return EXECUTESQL('SELECT * FROM live_matches WHERE status = ?', [status]);
+  }
+
   selectOne(id) {
     return EXECUTESQL('SELECT * FROM live_matches WHERE id = ?', [id]);
   }

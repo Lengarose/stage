@@ -8,12 +8,12 @@ router.get('/', async (req, res) => {
     const { team_id, user_id, status, page } = req.query;
     const contract = new PlayerContract();
     let result;
-    if (team_id)   result = await contract.selectByTeam(team_id);
-    else if (user_id)  result = await contract.selectByUser(user_id);
+    if (team_id && status)   result = await contract.selectByTeamAndStatus(team_id, status);
+    else if (user_id && status) result = await contract.selectByUserAndStatus(user_id, status);
+    else if (team_id)        result = await contract.selectByTeam(team_id);
+    else if (user_id)        result = await contract.selectByUser(user_id);
+    else if (status)         result = await contract.selectByStatus(status);
     else result = await contract.selectAll(Number(page) || 1);
-    if (status && result) {
-      result = result.filter(r => r.status === status);
-    }
     res.json(result);
   } catch (err) {
     console.error(err);
