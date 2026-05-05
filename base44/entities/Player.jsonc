@@ -104,6 +104,11 @@
       "title": "Banner Position",
       "default": "50% 50%"
     },
+    "banner_zoom": {
+      "type": "number",
+      "title": "Banner Zoom (%)",
+      "default": 150
+    },
     "credits": {
       "type": "number",
       "title": "STAGE Credits",

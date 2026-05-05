@@ -9,12 +9,30 @@ const { get } = require('../../constants/env');
 const SERVER_URL = get('SERVER_URL') || 'http://localhost:8080';
 
 async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, avatar }) {
+  async function ensureUserLink(player) {
+    if (!email) return player;
+    const users = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    if (!users.length) {
+      await EXECUTESQL(
+        `INSERT INTO users (id, email, created_date, updated_date)
+         VALUES (?, ?, NOW(), NOW())`,
+        [uuidv4(), email]
+      );
+    }
+    await EXECUTESQL(
+      'UPDATE players SET user_id = (SELECT id FROM users WHERE email = ? LIMIT 1) WHERE id = ?',
+      [email, player.id]
+    );
+    const refreshed = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [player.id]);
+    return refreshed[0] || player;
+  }
+
   // 1. Match by oauth_id + provider (returning user)
   let rows = await EXECUTESQL(
     'SELECT * FROM players WHERE oauth_provider = ? AND oauth_id = ?',
     [provider, oauthId]
   );
-  if (rows.length) return rows[0];
+  if (rows.length) return ensureUserLink(rows[0]);
 
   // 2. Match by email → link OAuth to existing account
   if (email) {
@@ -24,7 +42,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
         'UPDATE players SET oauth_provider = ?, oauth_id = ? WHERE id = ?',
         [provider, oauthId, rows[0].id]
       );
-      return rows[0];
+      return ensureUserLink(rows[0]);
     }
   }
 
@@ -41,7 +59,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
   );
 
   const created = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [id]);
-  return created[0];
+  return ensureUserLink(created[0]);
 }
 
 /** Which OAuth providers have env vars set and were registered with Passport */

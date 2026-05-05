@@ -216,6 +216,10 @@
       "type": "string",
       "title": "Trophy Image URL (PNG)"
     },
+    "trophy_item_id": {
+      "type": "string",
+      "title": "Linked TrophyItem ID (from admin library)"
+    },
     "num_groups": {
       "type": "number",
       "title": "Number of Groups",

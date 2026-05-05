@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 class Club {
   constructor(body = {}) {
     this.id                  = body.id;
+    this.user_id             = body.user_id;
     this.owner_email         = body.owner_email;
     this.name                = body.name;
     this.tag                 = body.tag;
@@ -59,15 +60,15 @@ class Club {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO clubs
-      (id, owner_email, name, tag, platform, region, country_code, logo_url,
+      (id, user_id, owner_email, name, tag, platform, region, country_code, logo_url,
        logo_position, description, wins, losses, draws, goals_scored,
        goals_conceded, rating, peak_rating, matches_ranked, is_provisional,
        credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
        stadium_capacity, tier, form, win_streak, loss_streak, status,
        formation, lineup, trophies)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.owner_email, this.name, this.tag, this.platform,
+      this.id, this.user_id, this.owner_email, this.name, this.tag, this.platform,
       this.region, this.country_code, this.logo_url, this.logo_position,
       this.description, this.wins, this.losses, this.draws, this.goals_scored,
       this.goals_conceded, this.rating, this.peak_rating, this.matches_ranked,
@@ -81,7 +82,7 @@ class Club {
 
   update(id) {
     const sql = `UPDATE clubs SET
-      owner_email=?, name=?, tag=?, platform=?, region=?, country_code=?,
+      user_id=?, owner_email=?, name=?, tag=?, platform=?, region=?, country_code=?,
       logo_url=?, logo_position=?, description=?, wins=?, losses=?, draws=?,
       goals_scored=?, goals_conceded=?, rating=?, peak_rating=?,
       matches_ranked=?, is_provisional=?, credits=?, stc=?, wage_budget_stc=?,
@@ -90,7 +91,7 @@ class Club {
       lineup=?, trophies=?
       WHERE id=?`;
     const values = [
-      this.owner_email, this.name, this.tag, this.platform, this.region,
+      this.user_id, this.owner_email, this.name, this.tag, this.platform, this.region,
       this.country_code, this.logo_url, this.logo_position, this.description,
       this.wins, this.losses, this.draws, this.goals_scored, this.goals_conceded,
       this.rating, this.peak_rating, this.matches_ranked, this.is_provisional,

@@ -42,6 +42,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     try {
       const foundCountry = COUNTRIES.find(c => c.code === country);
       const club = await stageClient.entities.Club.create({
+        user_id: user.id,
         name,
         tag: tag.toUpperCase(),
         platform,

@@ -4,9 +4,21 @@
 CREATE DATABASE IF NOT EXISTS stage_league CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE stage_league;
 
+-- ── users ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id                    VARCHAR(36)  PRIMARY KEY,
+  email                 VARCHAR(255) NOT NULL UNIQUE,
+  password_hash         VARCHAR(255),
+  player_id             VARCHAR(36),
+  owner_id              VARCHAR(36),
+  created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ── players ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS players (
   id                    VARCHAR(36)  PRIMARY KEY,
+  user_id               VARCHAR(36),
   email                 VARCHAR(255) NOT NULL UNIQUE,
   gamertag              VARCHAR(100),
   position              VARCHAR(50),
@@ -36,6 +48,7 @@ CREATE TABLE IF NOT EXISTS players (
 -- ── clubs ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS clubs (
   id                  VARCHAR(36)  PRIMARY KEY,
+  user_id             VARCHAR(36),
   owner_email         VARCHAR(255) NOT NULL,
   name                VARCHAR(150) NOT NULL,
   tag                 VARCHAR(20),
@@ -406,7 +419,9 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 -- ── indexes ───────────────────────────────────────────────────
 CREATE INDEX idx_players_club        ON players(club_id);
 CREATE INDEX idx_players_email       ON players(email);
+CREATE INDEX idx_players_user        ON players(user_id);
 CREATE INDEX idx_clubs_owner         ON clubs(owner_email);
+CREATE INDEX idx_clubs_user          ON clubs(user_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);

@@ -3,12 +3,12 @@ import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
   Search, Rss, ShoppingBag, Video, UsersRound,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
-  Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut,
+  Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star,
 } from "lucide-react";
-import LogoImg from '@/assets/Logo.PNG';
+import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { stageClient } from "@/api/stageClient";
+import { base44 } from "@/api/base44Client";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
@@ -38,7 +38,7 @@ const THEMES = [
   { id: "theme-custom", label: "Custom",     icon: Palette },
 ];
 
-function getPlayerGroups(clubPath) {
+function getPlayerGroups(_clubPath) {
   const homeItems = [
     { path: "/",         icon: Home,         label: "Home" },
     { path: "/profile",  icon: User,         label: "My Profile" },
@@ -50,9 +50,11 @@ function getPlayerGroups(clubPath) {
     {
       label: "Compete",
       items: [
-        { path: "/game-day",    icon: Zap,       label: "Game Day" },
-        { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
-        { path: "/rankings",    icon: BarChart3, label: "Rankings" },
+        { path: "/game-day",        icon: Zap,       label: "Game Day" },
+        { path: "/competitions",    icon: Star,      label: "Competitions" },
+        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/register-league", icon: Shield,    label: "Register" },
+        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
     },
     {
@@ -101,8 +103,10 @@ function getOwnerGroups(clubPath) {
     {
       label: "Competitions",
       items: [
-        { path: "/tournaments", icon: Trophy,    label: "Tournaments" },
-        { path: "/rankings",    icon: BarChart3, label: "Rankings" },
+        { path: "/competitions",    icon: Star,      label: "Competitions" },
+        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/register-league", icon: Shield,    label: "Register" },
+        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
     },
     {
@@ -433,6 +437,8 @@ export default function Layout() {
       if (!p) return;
       setMyPlayer(p);
       setSubscriptionTier((p.subscription || "rookie").toLowerCase());
+      // Fire-and-forget: pay any pending weekly salary on app load
+      processPlayerSalary(p).catch(() => {});
       if (!p.gamertag) {
         localStorage.removeItem("profile-completed");
         setShowProfileModal(true);
@@ -513,7 +519,7 @@ export default function Layout() {
         <div className="flex min-h-[3.75rem] h-16 items-stretch">
 
           <Link to="/" className="flex shrink-0 items-center px-4 sm:px-5 self-stretch">
-            <img src={LogoImg} alt="STAGE" className="h-11 w-auto object-contain sm:h-12" />
+            <img src={LogoImg} alt="STAGE" className="h-12 w-auto object-contain sm:h-14" />
           </Link>
 
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

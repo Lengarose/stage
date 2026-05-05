@@ -1,19 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
-import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, Send, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   generateKnockoutRound1, generateLeagueMatches, generateGroupStageMatches,
-  generateNextKnockoutRound, calculateGroupStandings, calculateLeagueStandings,
+  generateNextKnockoutRound, calculateGroupStandings,
   generateUCLLeaguePhase, calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
+import { awardTournamentTrophy } from "@/lib/awardTrophy";
+import { seedClubs } from "@/lib/rankingEngine";
 import KnockoutBracket from "../components/KnockoutBracket";
 import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
@@ -33,13 +35,13 @@ export default function TournamentDetail() {
   const [matches, setMatches] = useState([]);
   const [myPlayer, setMyPlayer] = useState(null);
   const [user, setUser] = useState(null);
-  const [isBasic, setIsBasic] = useState(false);
-  const [tournamentEntryCost, setTournamentEntryCost] = useState(50);
+  const [_isBasic, setIsBasic] = useState(false);
+  const [_tournamentEntryCost, setTournamentEntryCost] = useState(50);
   const [loading, setLoading] = useState(true);
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(null);
   const [resultForm, setResultForm] = useState({ home_score: "", away_score: "", video_url: "" });
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [_scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleMatch, setScheduleMatch] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [statsMatch, setStatsMatch] = useState(null);
@@ -227,19 +229,19 @@ export default function TournamentDetail() {
   async function generateDraw() {
     if (!tournament) return;
     const t = tournament;
-    const registeredClubs = allClubs.filter(c => t.registered_clubs?.includes(c.id));
-    if (registeredClubs.length < 2) { alert("Need at least 2 registered teams to generate a draw."); return; }
+    const seededClubs = seedClubs(allClubs.filter(c => t.registered_clubs?.includes(c.id)));
+    if (seededClubs.length < 2) { alert("Need at least 2 registered teams to generate a draw."); return; }
     let generatedMatches = [];
     const type = t.type;
-    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(registeredClubs.length / 4)) : (t.num_groups || 2);
-    if (type === "knockout") generatedMatches = generateKnockoutRound1(registeredClubs);
-    else if (type === "league") generatedMatches = generateLeagueMatches(registeredClubs);
-    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(registeredClubs, numGroups);
-    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(registeredClubs);
-    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(registeredClubs);
-    await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id, status: "scheduled" })));
-    await stageClient.entities.Tournament.update(id, { num_groups: numGroups });
-    const newMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(seededClubs.length / 4)) : (t.num_groups || 2);
+    if (type === "knockout") generatedMatches = generateKnockoutRound1(seededClubs);
+    else if (type === "league") generatedMatches = generateLeagueMatches(seededClubs);
+    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(seededClubs, numGroups);
+    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
+    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
+    await base44.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id, status: "scheduled" })));
+    await base44.entities.Tournament.update(id, { num_groups: numGroups });
+    const newMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(newMatches);
   }
 
@@ -258,14 +260,15 @@ export default function TournamentDetail() {
       setMatches(existingMatches);
       return;
     }
+    const seededClubs = seedClubs(registeredClubs);
     let generatedMatches = [];
     const type = t.type;
-    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(registeredClubs.length / 4)) : (t.num_groups || 2);
-    if (type === "knockout") generatedMatches = generateKnockoutRound1(registeredClubs);
-    else if (type === "league") generatedMatches = generateLeagueMatches(registeredClubs);
-    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(registeredClubs, numGroups);
-    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(registeredClubs);
-    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(registeredClubs);
+    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(seededClubs.length / 4)) : (t.num_groups || 2);
+    if (type === "knockout") generatedMatches = generateKnockoutRound1(seededClubs);
+    else if (type === "league") generatedMatches = generateLeagueMatches(seededClubs);
+    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(seededClubs, numGroups);
+    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
+    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
 
     await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id })));
     await stageClient.entities.Tournament.update(id, { status: "in_progress", current_round: 1, num_groups: numGroups });
@@ -287,7 +290,7 @@ export default function TournamentDetail() {
     setMatches(newMatches);
   }
 
-  async function scheduleAllMatches() {
+  async function _scheduleAllMatches() {
     if (!isOrganizer || !tournament) return;
     const unscheduledMatches = matches.filter(m => !m.scheduled_date);
     if (unscheduledMatches.length === 0) {
@@ -306,7 +309,7 @@ export default function TournamentDetail() {
     alert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
   }
 
-  async function proposeSchedule() {
+  async function _proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
     const schedDate = new Date(scheduleDate);
     await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: schedDate.toISOString() });
@@ -394,6 +397,7 @@ export default function TournamentDetail() {
                 const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
                 await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
+                awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
               }
             } else {
               for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
@@ -420,6 +424,7 @@ export default function TournamentDetail() {
               if (winnerId) {
                 await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
+                awardTournamentTrophy({ ...tournament, id }, winnerId).catch(() => {});
               }
             }
           }
@@ -676,6 +681,7 @@ async function maybeAdvanceTournament() {
         const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
         await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
         setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
+        awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
 
         // Distribute prize pool
         if (tournament.entry_fee_stc > 0) {
@@ -727,8 +733,8 @@ function resetUI() {
 
   async function approveForfeit(match) {
     const winnerClubId = match.forfeit_claimed_by;
-    const winnerName = winnerClubId === match.home_club_id ? match.home_club_name : match.away_club_name;
-    await stageClient.entities.Match.update(match.id, {
+    const _winnerName = winnerClubId === match.home_club_id ? match.home_club_name : match.away_club_name;
+    await base44.entities.Match.update(match.id, {
       status: "forfeit",
       winner_club_id: winnerClubId,
       forfeit_status: "approved",
@@ -1529,7 +1535,7 @@ function resetUI() {
         <TabsContent value="teams">
           {isPlayerTournament ? (
             (() => {
-              const regPlayers = allClubs.length >= 0 ? [] : []; // placeholder
+              const _regPlayers = allClubs.length >= 0 ? [] : []; // placeholder
               const registeredPlayerIds = tournament.registered_players || [];
               if (registeredPlayerIds.length === 0) return (
                 <div className="bg-card border border-border rounded-xl p-8 text-center">

@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 class Player {
   constructor(body = {}) {
     this.id                  = body.id;
+    this.user_id             = body.user_id;
     this.email               = body.email;
     this.gamertag            = body.gamertag;
     this.position            = body.position;
@@ -57,13 +58,13 @@ class Player {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO players
-      (id, email, gamertag, position, platform, country, country_code, bio,
+      (id, user_id, email, gamertag, position, platform, country, country_code, bio,
        avatar_url, avatar_zoom, avatar_position, shirt_number, overall_rating,
        goals, assists, credits, subscription, role, dressing_room_seat, is_ready,
        club_id, notification_settings, club_roles)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.email, this.gamertag, this.position, this.platform,
+      this.id, this.user_id, this.email, this.gamertag, this.position, this.platform,
       this.country, this.country_code, this.bio, this.avatar_url,
       this.avatar_zoom, this.avatar_position, this.shirt_number,
       this.overall_rating, this.goals, this.assists, this.credits,
@@ -75,14 +76,14 @@ class Player {
 
   update(id) {
     const sql = `UPDATE players SET
-      email=?, gamertag=?, position=?, platform=?, country=?, country_code=?,
+      user_id=?, email=?, gamertag=?, position=?, platform=?, country=?, country_code=?,
       bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, shirt_number=?,
       overall_rating=?, goals=?, assists=?, credits=?, subscription=?, role=?,
       dressing_room_seat=?, is_ready=?, club_id=?, notification_settings=?,
       club_roles=?
       WHERE id=?`;
     const values = [
-      this.email, this.gamertag, this.position, this.platform,
+      this.user_id, this.email, this.gamertag, this.position, this.platform,
       this.country, this.country_code, this.bio, this.avatar_url,
       this.avatar_zoom, this.avatar_position, this.shirt_number,
       this.overall_rating, this.goals, this.assists, this.credits,

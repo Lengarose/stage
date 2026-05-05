@@ -51,6 +51,11 @@
       ],
       "default": "common"
     },
+    "admin_only": {
+      "type": "boolean",
+      "title": "Admin-Only Trophy (STAGE tournaments only)",
+      "default": false
+    },
     "sort_order": {
       "type": "number",
       "title": "Sort Order",

@@ -5,7 +5,7 @@ import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import BannerImg from "@/assets/Banner.jpg";
-import LogoImg from "@/assets/Logo.PNG";
+import LogoImg from "@/assets/Stadium Logo.png";
 
 /* ── icons ─────────────────────────────────────────────────── */
 const PlayerIcon = () => (
@@ -184,6 +184,22 @@ export default function Onboarding({ onComplete }) {
                   {/* ── PLAYER SETUP ────────────────────────── */}
                   {step === "player" && !player && (
                     <PlayerSetup onComplete={handlePlayerComplete} user={user} />
+                  )}
+                  {step === "player" && player && (
+                    <div className="space-y-5">
+                      <div>
+                        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Player Profile Ready</h2>
+                        <p className="text-white/40 text-xs">
+                          Your player profile already exists ({player.gamertag || user?.email}). Continue to club setup.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setStep("club")}
+                        className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
+                      >
+                        Continue to Club Setup →
+                      </button>
+                    </div>
                   )}
 
                   {/* ── OPTIONAL CLUB (player path) ─────────── */}

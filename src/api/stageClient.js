@@ -5,17 +5,21 @@ const viteEnv = /** @type {any} */ (import.meta).env;
 const API_BASE = (viteEnv && viteEnv.VITE_API_BASE) || '/api/stage';
 const ACCESS_KEY  = 'stage_access_token';
 const REFRESH_KEY = 'stage_refresh_token';
+const USER_KEY    = 'stage_user_id';
 const PLAYER_KEY  = 'stage_player_id';
+const OWNER_KEY   = 'stage_owner_id';
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
-export const storeTokens = ({ accessToken, refreshToken, playerId } = /** @type {any} */({})) => {
+export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId } = /** @type {any} */({})) => {
   if (accessToken)  localStorage.setItem(ACCESS_KEY,  accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  if (userId)       localStorage.setItem(USER_KEY,    String(userId));
   if (playerId)     localStorage.setItem(PLAYER_KEY,  String(playerId));
+  if (ownerId)      localStorage.setItem(OWNER_KEY,   String(ownerId));
 };
 
 export const clearTokens = () => {
-  [ACCESS_KEY, REFRESH_KEY, PLAYER_KEY].forEach(k => localStorage.removeItem(k));
+  [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY].forEach(k => localStorage.removeItem(k));
 };
 
 // ── Core fetch with auto token-refresh ────────────────────────────────────────
@@ -143,9 +147,8 @@ const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));
 // ── Auth ───────────────────────────────────────────────────────────────────────
 const auth = {
   async me() {
-    const playerId = localStorage.getItem(PLAYER_KEY);
-    if (!playerId) throw { status: 401, message: 'Not authenticated' };
-    return apiFetch(`/players/${playerId}`);
+    if (!localStorage.getItem(ACCESS_KEY)) throw { status: 401, message: 'Not authenticated' };
+    return apiFetch('/auth/me');
   },
 
   async loginViaEmailPassword(email, password) {
@@ -156,7 +159,7 @@ const auth = {
     });
     const data = await res.json();
     if (!res.ok) throw data;
-    storeTokens(data); // { accessToken, refreshToken, playerId }
+    storeTokens(data);
     return { access_token: data.accessToken };
   },
 
@@ -168,7 +171,7 @@ const auth = {
     });
     const data = await res.json();
     if (!res.ok) throw data;
-    storeTokens(data); // { accessToken, refreshToken, playerId }
+    storeTokens(data);
     return { access_token: data.accessToken };
   },
 
@@ -203,9 +206,11 @@ const auth = {
     const params       = new URLSearchParams(window.location.search);
     const accessToken  = params.get('accessToken');
     const refreshToken = params.get('refreshToken');
+    const userId       = params.get('userId');
     const playerId     = params.get('playerId');
-    if (accessToken && playerId) {
-      storeTokens({ accessToken, refreshToken, playerId });
+    const ownerId      = params.get('ownerId');
+    if (accessToken && (userId || playerId)) {
+      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId });
       window.history.replaceState({}, '', '/');
       return true;
     }

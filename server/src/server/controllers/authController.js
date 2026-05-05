@@ -5,28 +5,26 @@ const { v4: uuidv4 } = require('uuid');
 const { EXECUTESQL } = require('../db/database');
 const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const jwt = require('jsonwebtoken');
-const { REFRESH_TOKEN_SECRET } = require('../../constants/constants');
+const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, gamertag } = req.body;
+    const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
     if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-    const existing = await EXECUTESQL('SELECT id FROM players WHERE email = ?', [email]);
+    const existing = await EXECUTESQL('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length) return res.status(409).json({ error: 'Email already registered' });
 
     const hash = await bcrypt.hash(password, 10);
-    const id = uuidv4();
-    const fallbackTag = String(email).split('@')[0];
-    const safeGamertag = (gamertag && String(gamertag).trim()) || fallbackTag;
+    const userId = uuidv4();
     await EXECUTESQL(
-      `INSERT INTO players (id, email, gamertag, password_hash, created_date)
-       VALUES (?, ?, ?, ?, NOW())`,
-      [id, email, safeGamertag, hash]
+      `INSERT INTO users (id, email, password_hash, created_date, updated_date)
+       VALUES (?, ?, ?, NOW(), NOW())`,
+      [userId, email, hash]
     );
 
-    const payload = { id, email };
+    const payload = { id: userId, email };
     const accessToken  = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -35,7 +33,7 @@ router.post('/register', async (req, res) => {
       [uuidv4(), email, refreshToken]
     );
 
-    res.status(201).json({ accessToken, refreshToken, playerId: id });
+    res.status(201).json({ accessToken, refreshToken, userId, playerId: null, ownerId: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -46,23 +44,31 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
 
-    const rows = await EXECUTESQL('SELECT * FROM players WHERE email = ?', [email]);
+    const rows = await EXECUTESQL('SELECT * FROM users WHERE email = ?', [email]);
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const player = rows[0];
-    const valid = await bcrypt.compare(password, player.password_hash);
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const payload = { id: player.id, email: player.email };
+    const payload = { id: user.id, email: user.email };
     const accessToken  = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
     await EXECUTESQL(
       'INSERT INTO auth_tokens (id, email, refresh_token, created_date) VALUES (?, ?, ?, NOW())',
-      [uuidv4(), player.email, refreshToken]
+      [uuidv4(), user.email, refreshToken]
     );
 
-    res.json({ accessToken, refreshToken, playerId: player.id });
+    const players = await EXECUTESQL('SELECT id FROM players WHERE user_id = ? LIMIT 1', [user.id]);
+    const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [user.id]);
+    res.json({
+      accessToken,
+      refreshToken,
+      userId: user.id,
+      playerId: players[0]?.id || null,
+      ownerId: clubs[0]?.id || null,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -96,6 +102,32 @@ router.post('/logout', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/me', async (req, res) => {
+  try {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+
+    const users = await EXECUTESQL('SELECT id, email, created_date, updated_date FROM users WHERE id = ? LIMIT 1', [decoded.id]);
+    if (!users.length) return res.status(401).json({ error: 'User not found' });
+    const user = users[0];
+
+    const players = await EXECUTESQL('SELECT id, gamertag, role, club_id FROM players WHERE user_id = ? LIMIT 1', [user.id]);
+    const clubs = await EXECUTESQL('SELECT id, name FROM clubs WHERE user_id = ? LIMIT 1', [user.id]);
+
+    res.json({
+      ...user,
+      player_id: players[0]?.id || null,
+      owner_id: clubs[0]?.id || null,
+      gamertag: players[0]?.gamertag || null,
+      role: players[0]?.role || null,
+      club_id: players[0]?.club_id || null,
+    });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
   }
 });
 

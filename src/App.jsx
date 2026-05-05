@@ -47,6 +47,10 @@ import GameDay from './pages/GameDay';
 import TransferMarket from './pages/TransferMarket';
 import Lifestyle from './pages/Lifestyle';
 import FollowBack from './pages/FollowBack';
+import Competitions from './pages/Competitions';
+import CompetitionDetail from './pages/CompetitionDetail';
+import LeagueDetail from './pages/LeagueDetail';
+import SeasonRegistrations from './pages/SeasonRegistrations';
 
 // Handles redirect from OAuth backend: /auth/callback?accessToken=&refreshToken=&playerId=
 const OAuthCallback = () => {
@@ -157,6 +161,10 @@ const AuthenticatedApp = () => {
         <Route path="/transfer-market" element={<TransferMarket />} />
         <Route path="/lifestyle" element={<Lifestyle />} />
         <Route path="/follow-back" element={<FollowBack />} />
+        <Route path="/competitions" element={<Competitions />} />
+        <Route path="/competitions/:slug" element={<CompetitionDetail />} />
+        <Route path="/leagues/:slug" element={<LeagueDetail />} />
+        <Route path="/register-league" element={<SeasonRegistrations />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

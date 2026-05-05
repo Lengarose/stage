@@ -69,6 +69,7 @@
       "enum": [
         "general",
         "match_invite",
+        "league_schedule",
         "contract_offer",
         "club_invite",
         "announcement"
@@ -83,6 +84,7 @@
         "accept_decline",
         "confirm",
         "accept_decline_date",
+        "schedule_accept_propose",
         "contract_negotiation"
       ],
       "default": "none"

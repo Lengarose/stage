@@ -9,7 +9,11 @@ const { get } = require('../../constants/env');
 const FRONTEND_URL = get('FRONTEND_URL') || 'http://localhost:3000';
 
 async function issueAndRedirect(res, player) {
-  const payload      = { id: player.id, email: player.email };
+  const userRows = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [player.email]);
+  if (!userRows.length) return oauthFail(res);
+  const userId = userRows[0].id;
+
+  const payload      = { id: userId, email: player.email };
   const accessToken  = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
 
@@ -23,6 +27,7 @@ async function issueAndRedirect(res, player) {
   const params = new URLSearchParams({
     accessToken,
     refreshToken,
+    userId,
     playerId: player.id,
   });
   res.redirect(`${FRONTEND_URL}/auth/callback?${params}`);

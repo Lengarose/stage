@@ -1,16 +1,18 @@
 const express = require('express');
 const router  = express.Router();
 const Player  = require('../models/playerModel');
+const { EXECUTESQL } = require('../db/database');
 const { io }  = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { email, club_id, page } = req.query;
+    const { email, user_id, club_id, page } = req.query;
     const player = new Player();
     let result;
     if (email)   result = await player.selectByEmail(email);
+    else if (user_id) result = await EXECUTESQL('SELECT * FROM players WHERE user_id = ?', [user_id]);
     else if (club_id) result = await player.selectByClub(club_id);
     else result = await player.selectAll(Number(page) || 1);
     res.json(result);
@@ -40,6 +42,9 @@ router.post('/', async (req, res) => {
     await player.create();
     const created = await player.selectOne(player.id);
     const record  = created[0];
+    if (record?.user_id) {
+      await EXECUTESQL('UPDATE users SET player_id = ?, updated_date = NOW() WHERE id = ?', [record.id, record.user_id]);
+    }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
     res.status(201).json(record);
   } catch (err) {

@@ -38,6 +38,7 @@ export default function PlayerSetup({ onComplete, user }) {
     try {
       const foundCountry = COUNTRIES.find(c => c.name === country);
       await stageClient.entities.Player.create({
+        user_id: user.id,
         gamertag,
         email: user.email,
         position,

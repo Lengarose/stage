@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { searchClub } from "@/lib/eafcClient";
-import { Search as SearchIcon, User, Shield, Swords, UserPlus, Star, Trophy, Users, ExternalLink } from "lucide-react";
+import { Search as SearchIcon, User, Shield, Swords, UserPlus, Trophy, Users, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 
 export default function Search() {
   const [query, setQuery] = useState("");
@@ -36,8 +35,8 @@ export default function Search() {
     const q = query.toLowerCase();
 
     const [allPlayers, allClubs, eafcRes] = await Promise.all([
-      stageClient.entities.Player.list("-overall_rating", 200),
-      stageClient.entities.Club.list("-rating", 200),
+      base44.entities.Player.list("-overall_rating", 200),
+      base44.entities.Club.list("-wins", 200),
       searchClub(query.trim(), platform).catch(() => null),
     ]);
 
@@ -238,10 +237,6 @@ export default function Search() {
                       <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · {c.wins || 0}W {c.losses || 0}L</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 mr-2">
-                        <Star className="w-3.5 h-3.5 text-warning" />
-                        <span className="text-sm font-bold text-foreground">{c.rating || 1000}</span>
-                      </div>
                       {myPlayer && myPlayer.club_id !== c.id && (
                         <Button size="sm" onClick={() => sendChallenge(c.id, c.name)}
                           className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-0 text-xs">

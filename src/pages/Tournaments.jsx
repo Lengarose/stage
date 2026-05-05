@@ -1,65 +1,81 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useTranslation } from '@/hooks/useTranslation';
-import { stageClient } from "@/api/stageClient";
-import { Trophy, Plus, Calendar, Users, Crown, Upload, X, BookOpen } from "lucide-react";
-import { COUNTRIES } from "../lib/countries";
-import ImagePositionEditor from "../components/ImagePositionEditor";
+import { base44 } from "@/api/base44Client";
+import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
+import BannerPreviewEditor from "../components/BannerPreviewEditor";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TrophyCarousel from "../components/tournament/TrophyCarousel";
 import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 
+const TYPE_LABEL = {
+  knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
+  double_elimination: "DBL ELIM", swiss: "SWISS", swiss_ucl: "UCL",
+};
+const TYPE_COLOR = {
+  knockout: "text-red-400 border-red-400/30",
+  league: "text-blue-400 border-blue-400/30",
+  group_stage: "text-yellow-400 border-yellow-400/30",
+  double_elimination: "text-purple-400 border-purple-400/30",
+  swiss: "text-green-400 border-green-400/30",
+  swiss_ucl: "text-yellow-300 border-yellow-300/30",
+};
+
 export default function Tournaments() {
-  const { t } = useTranslation();
   const [tournaments, setTournaments] = useState([]);
+  const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rulesType, setRulesType] = useState("knockout");
   const [canCreate, setCanCreate] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
   const [myPlayer, setMyPlayer] = useState(null);
   const [tournamentLimit, setTournamentLimit] = useState(0);
   const [myActiveCount, setMyActiveCount] = useState(0);
+
+  const [entryType, setEntryType] = useState("free"); // "free" | "stc"
   const [form, setForm] = useState({
     name: "", description: "", type: "knockout", platform: "PlayStation",
-    region: "Global", country_code: "", max_teams: "8", prize_description: "", start_date: "", entry_credits: "50",
-    entry_fee_stc: "0",
-    banner_url: "", banner_color: "#1a2a4a", banner_position: "50% 50%",
+    region: "Global", country_code: "", max_teams: "8", prize_description: "",
+    start_date: "", entry_fee_stc: "500",
+    banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%",
     participant_type: "club", custom_rules: "", rules_file_url: "",
+    trophy_item_id: "",
   });
-  const [uploadingRules, setUploadingRules] = useState(false);
-  const rulesFileRef = useRef(null);
+
   const [bannerPreview, setBannerPreview] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
-  const [posEditorOpen, setPosEditorOpen] = useState(false);
+  const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingRules, setUploadingRules] = useState(false);
+  const [creating, setCreating] = useState(false);
   const bannerInputRef = useRef(null);
-  const [trophyFile, setTrophyFile] = useState(null);
-  const trophyInputRef = useRef(null);
+  const rulesFileRef = useRef(null);
 
-  const NEUTRAL_COLORS = [
-    "#1a2a4a", "#0d2d1a", "#2d1a0d", "#2d0d1a", "#1a0d2d",
-    "#0d1a2d", "#1a1a1a", "#2d2200", "#002d2d", "#1a001a",
-  ];
+  const BANNER_COLORS = ["#0d1830","#0d2010","#1c0d08","#200d0d","#120d20","#0a1420","#181818","#1a1800","#001a1a","#180018"];
 
-  useEffect(() => {
-    async function load() {
-      const isAuthed = await stageClient.auth.isAuthenticated();
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const isAuthed = await base44.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const [data, user] = await Promise.all([
-        stageClient.entities.Tournament.list("-created_date", 100),
-        stageClient.auth.me(),
+      const [data, user, items] = await Promise.all([
+        base44.entities.Tournament.list("-created_date", 100),
+        base44.auth.me(),
+        base44.entities.TrophyItem.list("sort_order", 50).catch(() => []),
       ]);
       setTournaments(data);
-      if (user.role === "admin") {
+      const adminUser = user.role === "admin";
+      setTrophyItems(adminUser ? items : items.filter(t => !t.admin_only));
+      if (adminUser) {
         setCanCreate(true);
-        setIsVerified(true);
       } else {
         const players = await stageClient.entities.Player.filter({ email: user.email });
         const player = players[0];
@@ -67,33 +83,29 @@ export default function Tournaments() {
         const tier = player?.subscription || "rookie";
         const allowed = ["pro", "elite"].includes(tier);
         const limit = tier === "elite" ? 6 : tier === "pro" ? 3 : 0;
-        const activeCount = data.filter(t =>
-          t.organizer_email === user.email &&
-          ["registration", "in_progress"].includes(t.status)
+        const active = data.filter(t =>
+          t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)
         ).length;
         setTournamentLimit(limit);
-        setMyActiveCount(activeCount);
-        setCanCreate(allowed && activeCount < limit);
-        setIsVerified(allowed && !!player?.is_verified);
-        if (allowed && player?.is_verified) {
-          setForm(f => ({ ...f, entry_credits: "75" }));
-        }
+        setMyActiveCount(active);
+        setCanCreate(allowed && active < limit);
       }
+    } catch (err) {
+      console.error("[Tournaments] load error:", err);
+    } finally {
       setLoading(false);
     }
-    load();
-  }, []);
+  }
 
   async function handleBannerFile(file) {
     if (!file) return;
     setBannerFile(file);
-    const url = URL.createObjectURL(file);
-    setBannerPreview(url);
-    setPosEditorOpen(true);
+    setBannerPreview(URL.createObjectURL(file));
+    setBannerEditorOpen(true);
   }
 
-  async function handleBannerPositionSave(imageUrl, position) {
-    setPosEditorOpen(false);
+  async function handleBannerConfirm(url, position) {
+    setBannerEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
     setUploadingBanner(true);
     const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
@@ -106,80 +118,73 @@ export default function Tournaments() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
       const tier = myPlayer?.subscription || "rookie";
-      if (!["pro", "elite"].includes(tier)) {
-        alert("Only Pro and Elite members can create tournaments.");
-        return;
-      }
+      if (!["pro", "elite"].includes(tier)) { alert("Pro/Elite required to create tournaments."); return; }
       const limit = tier === "elite" ? 6 : 3;
-      const activeCount = tournaments.filter(t =>
-        t.organizer_email === user.email &&
-        ["registration", "in_progress"].includes(t.status)
-      ).length;
-      if (activeCount >= limit) {
-        alert(`You have reached your limit of ${limit} active tournaments.`);
-        return;
-      }
+      const active = tournaments.filter(t => t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)).length;
+      if (active >= limit) { alert(`Limit of ${limit} active tournaments reached.`); return; }
     }
-    let trophy_url = "";
-    if (trophyFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: trophyFile });
-      trophy_url = res.file_url;
+    setCreating(true);
+    try {
+      const feeSTC = entryType === "stc" ? Math.max(0, parseInt(form.entry_fee_stc) || 0) : 0;
+      const selectedTrophy = trophyItems.find(t => t.id === form.trophy_item_id);
+      await base44.entities.Tournament.create({
+        ...form,
+        name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
+        max_teams: parseInt(form.max_teams),
+        entry_credits: 0,
+        entry_fee_stc: feeSTC,
+        organizer_email: user.email,
+        creator_email: user.email,
+        creator_id: myPlayer?.id || null,
+        creator_gamertag: user.role === "admin" ? null : (myPlayer?.gamertag || null),
+        registered_clubs: [],
+        status: "registration",
+        trophy_item_id: form.trophy_item_id || null,
+        trophy_url: selectedTrophy?.image_url || "",
+      });
+      await load();
+      setDialogOpen(false);
+      resetForm();
+    } finally {
+      setCreating(false);
     }
-    let tournamentName = form.name;
-    if (user.role === "admin") {
-      tournamentName = `By STAGE · ${form.name}`;
-    }
-    await stageClient.entities.Tournament.create({
-      ...form,
-      name: tournamentName,
-      max_teams: parseInt(form.max_teams),
-      entry_credits: parseInt(form.entry_credits) || 50,
-      entry_fee_stc: parseInt(form.entry_fee_stc) || 0,
-      organizer_email: user.email,
-      creator_email: user.email,
-      creator_id: myPlayer?.id || null,
-      creator_gamertag: myPlayer?.gamertag || null,
-      registered_clubs: [],
-      status: "registration",
-      banner_url: form.banner_url || "",
-      banner_color: form.banner_color,
-      banner_position: form.banner_position,
-      trophy_url,
-    });
-    const updated = await stageClient.entities.Tournament.list("-created_date", 100);
-    setTournaments(updated);
-    setDialogOpen(false);
-    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", prize_description: "", start_date: "", entry_credits: "50", entry_fee_stc: "0", banner_url: "", banner_color: "#1a2a4a", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "" });
+  }
+
+  function resetForm() {
+    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", prize_description: "", start_date: "", entry_fee_stc: "500", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "", trophy_item_id: "" });
     setBannerPreview(null);
     setBannerFile(null);
-    setTrophyFile(null);
+    setEntryType("free");
   }
 
   const now = new Date();
   const stageTournaments = tournaments.filter(t => !t.creator_gamertag);
   const communityTournaments = tournaments.filter(t => !!t.creator_gamertag);
-  const open = communityTournaments.filter(t =>
-    t.status === "registration" ||
-    (t.status === "in_progress" && t.start_date && new Date(t.start_date) > now)
-  );
-  const inProgress = communityTournaments.filter(t =>
-    t.status === "in_progress" && (!t.start_date || new Date(t.start_date) <= now)
-  );
-  const completed = communityTournaments.filter(t => t.status === "completed");
+  const open = communityTournaments.filter(t => t.status === "registration" || (t.status === "in_progress" && t.start_date && new Date(t.start_date) > now));
+  const live = communityTournaments.filter(t => t.status === "in_progress" && (!t.start_date || new Date(t.start_date) <= now));
+  const done = communityTournaments.filter(t => t.status === "completed");
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // Showcase: all tournaments that have a trophy image
+  const trophyShowcase = [...stageTournaments, ...communityTournaments]
+    .filter(t => t.trophy_url || t.trophy_item_id)
+    .filter(t => t.status !== "completed")
+    .slice(0, 12);
+
+  const feeSTC = entryType === "stc" ? (parseInt(form.entry_fee_stc) || 0) : 0;
+  const prizePool = feeSTC * parseInt(form.max_teams || 8);
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+      <div className="max-w-7xl mx-auto space-y-8">
+
+        {/* ── Header ──────────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Trophy className="w-6 h-6 text-primary shrink-0" />
             <div>
@@ -187,546 +192,579 @@ export default function Tournaments() {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                {t("tournaments.title")}
+                TOURNAMENTS
               </h1>
-              <p className="text-xs text-muted-foreground mt-1">{t("tournaments.subtitle")}</p>
+              <p className="text-xs text-muted-foreground mt-1">Compete, win, and claim your trophy</p>
             </div>
           </div>
-
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" className="border-border gap-2 h-9" onClick={() => setRulesOpen(true)}>
-              <BookOpen className="w-4 h-4" /> <span className="hidden sm:inline">Rules</span>
+            <Button variant="outline" className="border-border h-9 gap-2 rounded text-xs" onClick={() => setRulesOpen(true)}>
+              <BookOpen className="w-3.5 h-3.5" /> Rules
             </Button>
-
             {canCreate ? (
               <>
                 {tournamentLimit > 0 && (
-                  <span className="text-xs text-muted-foreground px-2 py-1 rounded-lg border border-border bg-secondary">
-                    {myActiveCount}/{tournamentLimit} slots
+                  <span className="text-xs text-muted-foreground px-2 py-1 border border-border bg-card rounded">
+                    {myActiveCount}/{tournamentLimit}
                   </span>
                 )}
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-primary text-primary-foreground gap-2 h-9">
-                      <Plus className="w-4 h-4" /> {t("tournaments.createBtn")}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl">{t("tournaments.createBtn")}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tournament For</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { value: "club", label: "🏟️ Club Tournament", desc: "Clubs register & compete" },
-                            { value: "player", label: "👤 Player Tournament", desc: "Individual players register" },
-                          ].map(opt => (
-                            <button key={opt.value} type="button"
-                              onClick={() => setForm(f => ({ ...f, participant_type: opt.value }))}
-                              className={cn(
-                                "text-left px-3 py-2.5 rounded-xl border transition-all",
-                                form.participant_type === opt.value
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
-                              )}>
-                              <p className="text-sm font-bold">{opt.label}</p>
-                              <p className="text-[10px] mt-0.5 opacity-70">{opt.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Name</label>
-                        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border" placeholder="Tournament name" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Description</label>
-                        <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border" placeholder="Tournament details..." />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Type</label>
-                          <Select value={form.type} onValueChange={v => {
-                            const updates = { type: v };
-                            if (v === 'swiss_ucl') { updates.max_teams = '36'; }
-                            setForm(f => ({ ...f, ...updates }));
-                          }}>
-                            <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="knockout">Knockout</SelectItem>
-                              <SelectItem value="league">League</SelectItem>
-                              <SelectItem value="group_stage">Group Stage</SelectItem>
-                              <SelectItem value="double_elimination">Double Elimination</SelectItem>
-                              <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Max Teams</label>
-                          <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
-                            <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {["4","8","16","20","32","36","64"].map(n => <SelectItem key={n} value={n}>{n} Teams</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Platform</label>
-                          <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
-                            <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PlayStation">PlayStation</SelectItem>
-                              <SelectItem value="Xbox">Xbox</SelectItem>
-                              <SelectItem value="PC">PC</SelectItem>
-                              <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Start Date</label>
-                          <Input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary border-border" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">
-                            Entry Credits {isVerified && <span className="ml-1 text-warning">★ Verified</span>}
-                          </label>
-                          <Input type="number" min="50" value={form.entry_credits} onChange={e => setForm(f => ({ ...f, entry_credits: Math.max(50, parseInt(e.target.value) || 50).toString() }))} className="bg-secondary border-border" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Entry Fee (STC)</label>
-                          <Input type="number" min="0" max="1000000" value={form.entry_fee_stc} onChange={e => setForm(f => ({ ...f, entry_fee_stc: Math.max(0, Math.min(1000000, parseInt(e.target.value) || 0)).toString() }))} className="bg-secondary border-border" placeholder="0 = no STC fee" />
-                        </div>
-                        </div>
-
-                        {parseInt(form.entry_fee_stc) > 0 && (
-                        <div className="bg-success/10 border border-success/20 rounded-xl p-4 space-y-2">
-                          <p className="text-xs font-bold text-success uppercase tracking-wider">💰 Prize Pool Preview</p>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Entry Fee per Team:</span>
-                              <span className="font-bold text-foreground">{parseInt(form.entry_fee_stc).toLocaleString()} STC</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Max Teams:</span>
-                              <span className="font-bold text-foreground">{form.max_teams}</span>
-                            </div>
-                            <div className="h-px bg-success/20 my-1" />
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Total Pool (full):</span>
-                              <span className="font-bold text-success">{(parseInt(form.entry_fee_stc) * parseInt(form.max_teams)).toLocaleString()} STC</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground ml-2">→ 1st Place (80%):</span>
-                              <span className="font-bold text-warning">{Math.floor((parseInt(form.entry_fee_stc) * parseInt(form.max_teams) * 0.8)).toLocaleString()} STC</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground ml-2">→ 2nd Place (20%):</span>
-                              <span className="font-bold text-accent">{Math.floor((parseInt(form.entry_fee_stc) * parseInt(form.max_teams) * 0.2)).toLocaleString()} STC</span>
-                            </div>
-                          </div>
-                        </div>
-                        )}
-
-                        <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Region</label>
-                        <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
-                          <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Global">🌍 Global</SelectItem>
-                            <SelectItem value="Europe">🇪🇺 Europe</SelectItem>
-                            <SelectItem value="North America">🌎 North America</SelectItem>
-                            <SelectItem value="South America">🌎 South America</SelectItem>
-                            <SelectItem value="Asia">🌏 Asia</SelectItem>
-                            <SelectItem value="Middle East">🕌 Middle East</SelectItem>
-                            <SelectItem value="Africa">🌍 Africa</SelectItem>
-                            <SelectItem value="Oceania">🌏 Oceania</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country Restriction <span className="font-normal normal-case text-muted-foreground">(optional)</span></label>
-                        <Select value={form.country_code || "none"} onValueChange={v => setForm(f => ({ ...f, country_code: v === "none" ? "" : v }))}>
-                          <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="All countries" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">🌍 All countries</SelectItem>
-                            {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">📜 Custom Rules <span className="font-normal normal-case">(optional)</span></label>
-                        <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))} className="bg-secondary border-border text-sm min-h-[80px]" placeholder="Enter tournament-specific rules..." />
-                        {form.rules_file_url ? (
-                          <div className="flex items-center gap-2 bg-secondary/60 border border-border rounded-lg px-3 py-2 mt-2">
-                            <span className="text-xs text-success flex-1 truncate">✓ Rules file uploaded</span>
-                            <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View</a>
-                            <button onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <button onClick={() => rulesFileRef.current?.click()} disabled={uploadingRules}
-                              className="w-full h-14 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors text-xs mt-2">
-                              {uploadingRules ? <><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload rules (PDF / image)</>}
-                            </button>
-                            <input ref={rulesFileRef} type="file" accept="image/*,.pdf" className="hidden"
-                              onChange={async e => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                setUploadingRules(true);
-                                const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-                                setForm(f => ({ ...f, rules_file_url: file_url }));
-                                setUploadingRules(false);
-                                e.target.value = "";
-                              }} />
-                          </>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Prize <span className="font-normal normal-case">(optional)</span></label>
-                        <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} className="bg-secondary border-border" placeholder="e.g. Bragging rights + custom badge" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tournament Banner</label>
-                        {bannerPreview || form.banner_url ? (
-                          <div className="relative rounded-xl overflow-hidden mb-2" style={{ height: 100 }}>
-                            <div className="w-full h-full" style={{ backgroundImage: `url(${bannerPreview || form.banner_url})`, backgroundSize: "cover", backgroundPosition: form.banner_position }} />
-                            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
-                            <button onClick={() => { setBannerPreview(null); setBannerFile(null); setForm(f => ({ ...f, banner_url: "", banner_position: "50% 50%" })); }}
-                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                            {uploadingBanner && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
-                          </div>
-                        ) : (
-                          <>
-                            <button onClick={() => bannerInputRef.current?.click()}
-                              className="w-full h-20 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-2">
-                              <Upload className="w-4 h-4" />
-                              <span className="text-xs">Upload banner</span>
-                            </button>
-                            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
-                            <div className="flex flex-wrap gap-2">
-                              {NEUTRAL_COLORS.map(color => (
-                                <button key={color} onClick={() => setForm(f => ({ ...f, banner_color: color, banner_url: "" }))}
-                                  className="w-7 h-7 rounded-lg border-2 transition-all"
-                                  style={{ background: color, borderColor: form.banner_color === color && !form.banner_url ? "white" : "transparent" }}
-                                />
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">🏆 Trophy Image <span className="font-normal normal-case">(PNG only)</span></label>
-                        {trophyFile ? (
-                          <div className="flex items-center gap-3 bg-warning/10 border border-warning/20 rounded-xl p-3">
-                            <img src={URL.createObjectURL(trophyFile)} alt="trophy" className="w-10 h-10 object-contain shrink-0" />
-                            <span className="text-xs text-warning flex-1 truncate">{trophyFile.name}</span>
-                            <button onClick={() => setTrophyFile(null)} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
-                          </div>
-                        ) : (
-                          <button onClick={() => trophyInputRef.current?.click()}
-                            className="w-full h-16 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors">
-                            <Trophy className="w-5 h-5" />
-                            <span className="text-xs">Upload trophy (PNG)</span>
-                          </button>
-                        )}
-                        <input ref={trophyInputRef} type="file" accept="image/png" className="hidden" onChange={e => e.target.files[0] && setTrophyFile(e.target.files[0])} />
-                      </div>
-                      <Button onClick={createTournament} className="w-full bg-primary text-primary-foreground gap-2">
-                        <Trophy className="w-4 h-4" /> {t("tournaments.createBtn")}
-                      </Button>
-                      {posEditorOpen && bannerPreview && (
-                        <ImagePositionEditor
-                          open={posEditorOpen}
-                          onClose={() => setPosEditorOpen(false)}
-                          imageUrl={bannerPreview}
-                          aspect="banner"
-                          onConfirm={handleBannerPositionSave}
-                        />
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button onClick={() => setDialogOpen(true)} className="bg-primary text-primary-foreground h-9 gap-2 rounded text-xs">
+                  <Plus className="w-3.5 h-3.5" /> Create Tournament
+                </Button>
               </>
             ) : (
-              <div className="text-xs text-muted-foreground px-3 py-2 rounded-lg border border-border bg-secondary">
-                {tournamentLimit > 0
-                  ? `🔒 ${myActiveCount}/${tournamentLimit} — wait for one to finish`
-                  : `🔒 ${t("tournaments.proRequired")}`
-                }
+              <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
+                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} — wait for slot` : "Pro/Elite required"}
               </div>
             )}
-
-            <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
-              <DialogContent className="bg-card border-border max-w-lg max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-xl flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-primary" /> Tournament Rules
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-2">
-                  <Select value={rulesType} onValueChange={setRulesType}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="knockout">Knockout</SelectItem>
-                      <SelectItem value="league">League</SelectItem>
-                      <SelectItem value="group_stage">Group Stage</SelectItem>
-                      <SelectItem value="double_elimination">Double Elimination</SelectItem>
-                      <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <TournamentRules type={rulesType} />
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 
-        {/* By STAGE Section */}
-        {stageTournaments.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="font-heading text-xl font-bold text-foreground uppercase tracking-tight">By STAGE</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20 font-medium">Official</span>
-            </div>
-            <StageTabs tournaments={stageTournaments} now={now} />
-            <div className="mt-6 border-t border-border" />
-          </div>
+        {/* ── Trophy Showcase ─────────────────────────────────── */}
+        {trophyShowcase.length > 0 && (
+          <TrophyShowcase tournaments={trophyShowcase} trophyItems={trophyItems} />
         )}
 
-        <Tabs defaultValue="open" className="w-full">
-          <TabsList className="w-full rounded-none border-b border-border bg-transparent h-auto p-0 gap-0 mb-6">
-            {[
-              { value: "open", label: `${t("tournaments.tabOpen")} (${open.length})` },
-              { value: "in_progress", label: `${t("tournaments.tabInProgress")} (${inProgress.length})` },
-              { value: "completed", label: `${t("tournaments.tabCompleted")} (${completed.length})` },
-            ].map(tab => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className={cn(
-                  "flex-1 rounded-none border-b-2 border-transparent pb-3 pt-3 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-muted-foreground transition-colors",
-                  "data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent"
-                )}
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* ── By STAGE ────────────────────────────────────────── */}
+        {stageTournaments.length > 0 && (
+          <section>
+            <SectionHeader label="By STAGE" badge="Official" badgeColor="text-warning border-warning/30 bg-warning/5" />
+            <TournamentGrid tournaments={stageTournaments} trophyItems={trophyItems} now={now} />
+          </section>
+        )}
 
-          {[
-            { key: "open", data: open },
-            { key: "in_progress", data: inProgress },
-            { key: "completed", data: completed },
-          ].map(({ key, data }) => (
-            <TabsContent key={key} value={key}>
-              {data.length === 0 ? (
-                <div className="bg-card border border-border rounded-2xl p-12 text-center">
-                  <Trophy className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">No {key.replace("_", " ")} tournaments</p>
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {data.map(tournament => (
-                    <TournamentCard key={tournament.id} tournament={tournament} />
+        {/* ── Community ───────────────────────────────────────── */}
+        <section>
+          <SectionHeader label="Community" />
+          <Tabs defaultValue="open" className="w-full">
+            <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-6">
+              {[
+                { value: "open", label: "Open", count: open.length },
+                { value: "live", label: "Live", count: live.length },
+                { value: "done", label: "Done", count: done.length },
+              ].map(tab => (
+                <TabsTrigger key={tab.value} value={tab.value}
+                  className="rounded-none border-b-2 border-transparent px-5 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent">
+                  {tab.label}
+                  <span className="ml-1.5 text-[10px] opacity-50">({tab.count})</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {[
+              { key: "open", data: open },
+              { key: "live", data: live },
+              { key: "done", data: done },
+            ].map(({ key, data }) => (
+              <TabsContent key={key} value={key}>
+                {data.length === 0 ? (
+                  <div className="border border-border rounded bg-card p-12 text-center">
+                    <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">No {key} tournaments</p>
+                  </div>
+                ) : (
+                  <TournamentGrid tournaments={data} trophyItems={trophyItems} now={now} />
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </section>
+
+      </div>
+
+      {/* ── Create Tournament Dialog ─────────────────────────── */}
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) resetForm(); setDialogOpen(open); }}>
+        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" /> Create Tournament
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 mt-2">
+
+            {/* Participant type */}
+            <div>
+              <label className="label-xs">Tournament For</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: "club", label: "🏟️ Club", sub: "Clubs register & compete" },
+                  { v: "player", label: "👤 Player", sub: "Individual players register" },
+                ].map(opt => (
+                  <button key={opt.v} type="button"
+                    onClick={() => setForm(f => ({ ...f, participant_type: opt.v }))}
+                    className={cn("text-left px-3 py-2.5 rounded border transition-all",
+                      form.participant_type === opt.v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                    )}>
+                    <p className="text-sm font-bold">{opt.label}</p>
+                    <p className="text-[10px] mt-0.5 opacity-70">{opt.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="label-xs">Name</label>
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border rounded" placeholder="Tournament name" />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="label-xs">Description</label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border rounded" rows={2} placeholder="Details..." />
+            </div>
+
+            {/* Type + Max Teams */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-xs">Format</label>
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v, max_teams: v === "swiss_ucl" ? "36" : f.max_teams }))}>
+                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="knockout">Knockout</SelectItem>
+                    <SelectItem value="league">League</SelectItem>
+                    <SelectItem value="group_stage">Group Stage</SelectItem>
+                    <SelectItem value="double_elimination">Double Elim.</SelectItem>
+                    <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="label-xs">Max Teams</label>
+                <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
+                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["4","8","16","20","32","36","64"].map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Platform + Start Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-xs">Platform</label>
+                <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
+                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PlayStation">PlayStation</SelectItem>
+                    <SelectItem value="Xbox">Xbox</SelectItem>
+                    <SelectItem value="PC">PC</SelectItem>
+                    <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="label-xs">Start Date</label>
+                <Input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary border-border rounded" />
+              </div>
+            </div>
+
+            {/* Region */}
+            <div>
+              <label className="label-xs">Region</label>
+              <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
+                <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v, e]) => (
+                    <SelectItem key={v} value={v}>{e} {v}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ── Entry Fee ────────────────────────── */}
+            <div>
+              <label className="label-xs">Entry Fee</label>
+              <div className="flex gap-2 mb-3">
+                {[["free","Free"], ["stc","STC Fee"]].map(([v, label]) => (
+                  <button key={v} type="button"
+                    onClick={() => setEntryType(v)}
+                    className={cn("flex-1 py-2 rounded border text-sm font-bold transition-all",
+                      entryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                    )}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {entryType === "stc" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number" min="100" max="1000000"
+                      value={form.entry_fee_stc}
+                      onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
+                      className="bg-secondary border-border rounded"
+                      placeholder="STC per entry"
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
+                  </div>
+
+                  {feeSTC > 0 && (
+                    <div className="border border-warning/20 bg-warning/5 rounded p-4">
+                      <p className="text-xs font-bold text-warning uppercase tracking-widest mb-3">Winner Takes All</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Entry fee</span>
+                          <span className="font-bold">{feeSTC.toLocaleString()} STC</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Max teams</span>
+                          <span className="font-bold">{form.max_teams}</span>
+                        </div>
+                        <div className="h-px bg-warning/20" />
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Prize pool (full)</span>
+                          <span className="font-black text-warning text-base">{prizePool.toLocaleString()} STC</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <div className="flex items-center gap-1.5">
+                            <Crown className="w-3.5 h-3.5 text-yellow-400" />
+                            <span className="text-xs text-yellow-400 font-bold">1st Place — 100%</span>
+                          </div>
+                          <span className="font-black text-yellow-400">{prizePool.toLocaleString()} STC</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </TabsContent>
-          ))}
-        </Tabs>
+            </div>
+
+            {/* Prize description */}
+            <div>
+              <label className="label-xs">Prize Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+              <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} className="bg-secondary border-border rounded" placeholder="e.g. Custom badge + bragging rights" />
+            </div>
+
+            {/* Custom rules */}
+            <div>
+              <label className="label-xs">Custom Rules <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+              <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))} className="bg-secondary border-border rounded" rows={2} placeholder="Specific rules..." />
+              {form.rules_file_url ? (
+                <div className="flex items-center gap-2 mt-2 bg-secondary/60 border border-border rounded px-3 py-2">
+                  <span className="text-xs text-success flex-1 truncate">✓ Rules file uploaded</span>
+                  <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View</a>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ) : (
+                <>
+                  <button type="button" onClick={() => rulesFileRef.current?.click()} disabled={uploadingRules}
+                    className="w-full h-10 mt-2 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors">
+                    {uploadingRules ? <><div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-3.5 h-3.5" /> Upload rules PDF / image</>}
+                  </button>
+                  <input ref={rulesFileRef} type="file" accept="image/*,.pdf" className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingRules(true);
+                      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                      setForm(f => ({ ...f, rules_file_url: file_url }));
+                      setUploadingRules(false);
+                      e.target.value = "";
+                    }} />
+                </>
+              )}
+            </div>
+
+            {/* ── Trophy Selection ─────────────────── */}
+            <div>
+              <label className="label-xs">Trophy</label>
+              <p className="text-[10px] text-muted-foreground mb-2">Select a trophy from the library — awarded to the winner's cabinet.</p>
+              {trophyItems.length > 0 ? (
+                <TrophyCarousel
+                  trophies={trophyItems}
+                  selected={form.trophy_item_id}
+                  onSelect={id => setForm(f => ({ ...f, trophy_item_id: id || "" }))}
+                />
+              ) : (
+                <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded">
+                  No trophies yet — admin can add them via Admin → Trophies
+                </div>
+              )}
+              {form.trophy_item_id && (
+                <p className="text-[10px] text-warning mt-1.5">
+                  ✓ Trophy selected — will be awarded to the winner
+                </p>
+              )}
+            </div>
+
+            {/* ── Banner ───────────────────────────── */}
+            <div>
+              <label className="label-xs">Banner</label>
+              {(bannerPreview || form.banner_url) ? (
+                <div className="relative rounded overflow-hidden mb-2" style={{ height: 80 }}>
+                  <div className="w-full h-full"
+                    style={{ backgroundImage: `url(${bannerPreview || form.banner_url})`, backgroundSize: "cover", backgroundPosition: form.banner_position }} />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+                  <button type="button"
+                    onClick={() => { setBannerPreview(null); setBannerFile(null); setForm(f => ({ ...f, banner_url: "", banner_position: "50% 50%" })); }}
+                    className="absolute top-2 right-2 w-6 h-6 rounded bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  {uploadingBanner && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
+                </div>
+              ) : (
+                <>
+                  <button type="button" onClick={() => bannerInputRef.current?.click()}
+                    className="w-full h-16 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors mb-2">
+                    <Upload className="w-3.5 h-3.5" /> Upload banner image
+                  </button>
+                  <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
+                  <div className="flex flex-wrap gap-1.5">
+                    {BANNER_COLORS.map(c => (
+                      <button key={c} type="button"
+                        onClick={() => setForm(f => ({ ...f, banner_color: c, banner_url: "" }))}
+                        className="w-6 h-6 rounded-sm border-2 transition-all"
+                        style={{ background: c, borderColor: form.banner_color === c && !form.banner_url ? "white" : "transparent" }} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <Button onClick={createTournament} disabled={creating || !form.name} className="w-full bg-primary text-primary-foreground rounded gap-2">
+              <Trophy className="w-4 h-4" />
+              {creating ? "Creating..." : "Create Tournament"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Rules Dialog ──────────────────────────────── */}
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+        <DialogContent className="bg-card border-border max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Tournament Rules</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Select value={rulesType} onValueChange={setRulesType}>
+              <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="knockout">Knockout</SelectItem>
+                <SelectItem value="league">League</SelectItem>
+                <SelectItem value="group_stage">Group Stage</SelectItem>
+                <SelectItem value="double_elimination">Double Elimination</SelectItem>
+                <SelectItem value="swiss_ucl">Swiss UCL</SelectItem>
+              </SelectContent>
+            </Select>
+            <TournamentRules type={rulesType} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Banner editor */}
+      {bannerEditorOpen && bannerPreview && (
+        <BannerPreviewEditor
+          open={bannerEditorOpen}
+          onClose={() => setBannerEditorOpen(false)}
+          imageUrl={bannerPreview}
+          onConfirm={handleBannerConfirm}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── Trophy Showcase Strip ─────────────────────────────────────── */
+function TrophyShowcase({ tournaments, trophyItems }) {
+  const scrollRef = useRef(null);
+  function scroll(dir) { scrollRef.current?.scrollBy({ left: dir * 200, behavior: "smooth" }); }
+
+  return (
+    <div className="border border-border rounded bg-card/50 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] uppercase tracking-widest font-bold text-warning flex items-center gap-1.5">
+          <Trophy className="w-3.5 h-3.5" /> Trophies At Stake
+        </span>
+        <div className="flex gap-1">
+          <button onClick={() => scroll(-1)} className="w-6 h-6 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft className="w-3.5 h-3.5" /></button>
+          <button onClick={() => scroll(1)} className="w-6 h-6 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><ChevronRight className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {tournaments.map(t => {
+          const trophyUrl = t.trophy_url || trophyItems.find(i => i.id === t.trophy_item_id)?.image_url;
+          if (!trophyUrl) return null;
+          return (
+            <Link key={t.id} to={`/tournaments/${t.id}`} className="flex-shrink-0 flex flex-col items-center gap-2 group">
+              <div className="w-16 h-16 flex items-center justify-center rounded bg-secondary/50 border border-border group-hover:border-warning/40 transition-colors p-1">
+                <img src={trophyUrl} alt={t.name} className="w-full h-full object-contain drop-shadow-xl" />
+              </div>
+              <p className="text-[9px] text-muted-foreground text-center w-16 truncate group-hover:text-foreground transition-colors">{t.name}</p>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-const RULES = {
-  knockout: { title: "🏆 Knockout", rules: ["Single elimination — lose once and you're out.", "Available for both clubs and individual players.", "Each round, winners advance to the next stage.", "Number of rounds = log₂(teams). E.g. 8 teams = 3 rounds.", "Finals is the last remaining match between 2 participants.", "No second chances — every match counts."] },
-  league: { title: "📋 League", rules: ["Every team/player plays against every other participant TWICE.", "Win = 3 pts · Draw = 1 pt · Loss = 0 pts.", "Final standings: points → goal difference → goals scored.", "The participant with the most points at the end wins."] },
-  group_stage: { title: "🔵 Group Stage", rules: ["Participants divided into groups of equal size.", "Within each group, participants play each other once.", "Top participants from each group advance to knockout.", "Tie-breakers: points → goal difference → goals scored."] },
-  double_elimination: { title: "⚔️ Double Elimination", rules: ["Two brackets: Winners and Losers.", "Lose in Winners bracket → drop to Losers bracket.", "Lose in Losers bracket → eliminated.", "Winners champion vs Losers champion in Grand Final."] },
-  swiss_ucl: { title: "⭐ Swiss UCL", rules: ["36 teams in a league phase (8 matchdays each).", "Top 8 → direct Round of 16.", "Teams ranked #9–24 → Playoff round.", "Teams ranked #25–36 → Eliminated.", "R16 onwards: 2-leg ties. Final: single match."] },
-};
-
-function TournamentRules({ type }) {
-  const data = RULES[type] || RULES.knockout;
+/* ─── Section Header ────────────────────────────────────────────── */
+function SectionHeader({ label, badge, badgeColor }) {
   return (
-    <div className="bg-secondary/50 rounded-xl p-4 space-y-3">
-      <h3 className="font-heading text-lg font-bold text-foreground">{data.title}</h3>
-      <ul className="space-y-2">
-        {data.rules.map((rule, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-            <span className="text-primary font-bold shrink-0 mt-0.5">{i + 1}.</span>
-            <span>{rule}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="flex items-center gap-2 mb-4 border-l-2 border-primary pl-3">
+      <span className="font-heading font-black text-sm uppercase tracking-widest text-foreground">{label}</span>
+      {badge && (
+        <span className={cn("text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wider", badgeColor)}>{badge}</span>
+      )}
     </div>
   );
 }
 
-function StageTabs({ tournaments, now }) {
-  const stageOpen = tournaments.filter(t => t.status === "registration" || (t.status === "in_progress" && t.start_date && new Date(t.start_date) > now));
-  const stageInProgress = tournaments.filter(t => t.status === "in_progress" && (!t.start_date || new Date(t.start_date) <= now));
-  const stageCompleted = tournaments.filter(t => t.status === "completed");
-
+/* ─── Tournament Grid ───────────────────────────────────────────── */
+function TournamentGrid({ tournaments, trophyItems, now }) {
+  if (!tournaments.length) return (
+    <div className="border border-border rounded bg-card p-10 text-center">
+      <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+      <p className="text-sm text-muted-foreground">No tournaments</p>
+    </div>
+  );
   return (
-    <Tabs defaultValue="stage_open" className="w-full">
-      <TabsList className="bg-secondary border border-border mb-4">
-        <TabsTrigger value="stage_open" className="text-xs">Open ({stageOpen.length})</TabsTrigger>
-        <TabsTrigger value="stage_in_progress" className="text-xs">Live ({stageInProgress.length})</TabsTrigger>
-        <TabsTrigger value="stage_completed" className="text-xs">Done ({stageCompleted.length})</TabsTrigger>
-      </TabsList>
-      {[
-        { key: "stage_open", data: stageOpen },
-        { key: "stage_in_progress", data: stageInProgress },
-        { key: "stage_completed", data: stageCompleted },
-      ].map(({ key, data }) => (
-        <TabsContent key={key} value={key}>
-          {data.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-8 text-center">
-              <Trophy className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">No {key.replace("stage_", "").replace("_", " ")} tournaments</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {data.map(t => <TournamentCard key={t.id} tournament={t} compact />)}
-            </div>
-          )}
-        </TabsContent>
-      ))}
-    </Tabs>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {tournaments.map(t => <TournamentCard key={t.id} tournament={t} trophyItems={trophyItems} now={now} />)}
+    </div>
   );
 }
 
-function TournamentCard({ tournament, compact = false }) {
-  const isFull = (tournament.registered_clubs?.length || 0) >= tournament.max_teams;
-  const typeColor = {
-    knockout: "border-destructive/30 hover:border-destructive/50",
-    league: "border-primary/30 hover:border-primary/50",
-    group_stage: "border-warning/30 hover:border-warning/50",
-    double_elimination: "border-accent/30 hover:border-accent/50",
-  }[tournament.type] || "border-primary/30 hover:border-primary/50";
+/* ─── Tournament Card ───────────────────────────────────────────── */
+function TournamentCard({ tournament: t, trophyItems }) {
+  const registered = t.registered_clubs?.length || 0;
+  const fillPct = Math.round((registered / Math.max(t.max_teams, 1)) * 100);
+  const isFull = registered >= t.max_teams;
 
-  const registered = tournament.registered_clubs?.length || 0;
-  const fillPct = Math.round((registered / (tournament.max_teams || 1)) * 100);
-  const statusColors = {
-    registration: "bg-success text-black",
-    in_progress: "bg-primary text-primary-foreground",
-    completed: "bg-muted text-muted-foreground"
-  };
+  const bannerBg = t.banner_url
+    ? { backgroundImage: `url(${t.banner_url})`, backgroundSize: "cover", backgroundPosition: t.banner_position || "50% 50%" }
+    : { background: t.banner_color || "#0d1830" };
 
-  const bannerBg = tournament.banner_url
-    ? { backgroundImage: `url(${tournament.banner_url})`, backgroundSize: "cover", backgroundPosition: tournament.banner_position || "50% 50%" }
-    : { background: tournament.banner_color || "#1a2a4a" };
+  const statusBadge = {
+    registration: { label: "OPEN", cls: "bg-success text-black" },
+    in_progress:  { label: "LIVE", cls: "bg-primary text-primary-foreground" },
+    completed:    { label: "DONE", cls: "bg-muted text-muted-foreground" },
+  }[t.status] || { label: t.status, cls: "bg-muted text-muted-foreground" };
 
-  if (compact) {
-    return (
-      <Link to={`/tournaments/${tournament.id}`} className="block group">
-        <div className={cn("relative bg-card border rounded-xl overflow-hidden transition-all duration-300 h-full hover:shadow-lg hover:-translate-y-0.5", typeColor)}>
-          <div className="h-14 w-full relative" style={bannerBg}>
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70" />
-            {isFull ? (
-              <div className="absolute top-1 right-1 text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-destructive/80 text-white">FULL</div>
-            ) : tournament.status && (
-              <div className={cn("absolute top-1 right-1 text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full", statusColors[tournament.status])}>
-                {tournament.status === "registration" ? "OPEN" : tournament.status.replace("_", " ")}
+  const typeColor = TYPE_COLOR[t.type] || "text-primary border-primary/30";
+  const typeLbl = TYPE_LABEL[t.type] || t.type?.toUpperCase();
+
+  const trophyUrl = t.trophy_url || trophyItems?.find(i => i.id === t.trophy_item_id)?.image_url;
+  const hasFee = (t.entry_fee_stc || 0) > 0;
+  const pool = (t.entry_fee_stc || 0) * (t.max_teams || 8);
+
+  return (
+    <Link to={`/tournaments/${t.id}`} className="block group">
+      <div className="bg-card border border-border rounded overflow-hidden hover:border-primary/40 transition-all hover:-translate-y-0.5 duration-200 h-full flex flex-col">
+
+        {/* Banner */}
+        <div className="h-24 relative flex-shrink-0" style={bannerBg}>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/70" />
+
+          {/* Type badge */}
+          <div className={cn("absolute top-2 left-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border bg-black/50 backdrop-blur-sm", typeColor)}>
+            {typeLbl}
+          </div>
+
+          {/* Status badge */}
+          {isFull ? (
+            <div className="absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm bg-destructive/80 text-white">FULL</div>
+          ) : (
+            <div className={cn("absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm", statusBadge.cls)}>{statusBadge.label}</div>
+          )}
+
+          {/* Trophy image */}
+          {trophyUrl && (
+            <div className="absolute bottom-2 right-2 w-10 h-10">
+              <img src={trophyUrl} alt="trophy" className="w-full h-full object-contain drop-shadow-xl" />
+            </div>
+          )}
+
+          {/* Participant type */}
+          <div className="absolute bottom-2 left-2 text-[9px] text-white/70 font-medium">
+            {t.participant_type === "player" ? "👤 Players" : "🏟️ Clubs"}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-3 flex flex-col gap-2 flex-1">
+          <div>
+            <h3 className="font-heading font-black text-base text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-1 uppercase">
+              {t.name}
+            </h3>
+            {t.creator_gamertag && (
+              <p className="text-[10px] text-muted-foreground">By {t.creator_gamertag}</p>
+            )}
+          </div>
+
+          {/* Fill bar */}
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{registered}/{t.max_teams}</span>
+              {t.start_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(t.start_date).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
+            </div>
+            <div className="h-0.5 bg-secondary rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-primary/60 transition-all" style={{ width: `${fillPct}%` }} />
+            </div>
+          </div>
+
+          {/* Entry / Prize */}
+          <div className="flex items-center gap-2 mt-auto pt-1">
+            {hasFee ? (
+              <>
+                <div className="flex-1 bg-secondary/60 rounded px-2 py-1.5 text-center">
+                  <div className="text-[8px] uppercase tracking-widest text-muted-foreground">Entry</div>
+                  <div className="text-xs font-black text-foreground">{(t.entry_fee_stc || 0).toLocaleString()} <span className="font-normal text-muted-foreground text-[9px]">STC</span></div>
+                </div>
+                <div className="flex-1 bg-warning/5 border border-warning/20 rounded px-2 py-1.5 text-center">
+                  <div className="text-[8px] uppercase tracking-widest text-warning flex items-center justify-center gap-0.5"><Crown className="w-2.5 h-2.5" /> Prize</div>
+                  <div className="text-sm font-black text-warning">{pool.toLocaleString()} <span className="font-normal text-warning/60 text-[9px]">STC</span></div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 bg-success/5 border border-success/20 rounded px-2 py-1.5 text-center">
+                <div className="text-[8px] uppercase tracking-widest text-success">Entry</div>
+                <div className="text-sm font-black text-success">FREE</div>
               </div>
             )}
           </div>
-          <div className="p-2.5">
-            <h3 className="font-heading text-sm font-bold text-foreground leading-tight mb-1 group-hover:text-primary transition-colors line-clamp-1">{tournament.name}</h3>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
-              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{registered}/{tournament.max_teams}</span>
-              <span>{tournament.start_date ? new Date(tournament.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "TBD"}</span>
-            </div>
-            <div className="h-0.5 rounded-full bg-secondary overflow-hidden mb-2">
-              <div className="h-full rounded-full" style={{ width: `${fillPct}%`, background: "hsl(var(--primary)/0.7)" }} />
-            </div>
-            <div className="flex items-center justify-between bg-secondary/60 rounded-lg px-2 py-1">
-              <div className="text-center">
-                <div className="text-[8px] uppercase text-muted-foreground">Entry</div>
-                <div className="text-xs font-bold text-foreground">{tournament.entry_credits ?? 50}<span className="text-[8px] text-muted-foreground">cr</span></div>
-              </div>
-              <div className="w-px h-4 bg-border" />
-              <div className="text-center">
-                <div className="text-[8px] uppercase text-muted-foreground">Win</div>
-                <div className="text-xs font-bold text-warning">{(tournament.entry_credits ?? 50) * 4}<span className="text-[8px] text-muted-foreground">cr</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
-    );
-  }
 
-  return (
-    <Link to={`/tournaments/${tournament.id}`} className="block group">
-      <div className={cn("relative bg-card border rounded-2xl overflow-hidden transition-all duration-300 h-full hover:shadow-xl hover:-translate-y-0.5", typeColor)}>
-        <div className="h-28 sm:h-32 w-full relative" style={bannerBg}>
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
-          <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/40 backdrop-blur-sm" style={{ color: "hsl(var(--primary))" }}>
-            <Trophy className="w-3 h-3" />
-            {tournament.type?.replace(/_/g, " ")}
-          </div>
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-black/50 backdrop-blur-sm text-white/80">
-            {tournament.participant_type === "player" ? "👤 Players" : "🏟️ Clubs"}
-          </div>
-          {isFull ? (
-            <div className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-destructive/80 text-white">FULL</div>
-          ) : tournament.status && (
-            <div className={cn("absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full", statusColors[tournament.status])}>
-              {tournament.status === "registration" ? "OPEN" : tournament.status.replace("_", " ")}
+          {t.prize_description && (
+            <div className="flex items-center gap-1.5 bg-warning/5 border border-warning/10 rounded px-2 py-1.5 mt-1">
+              <Crown className="w-3 h-3 text-warning shrink-0" />
+              <span className="text-[10px] text-warning font-medium leading-snug truncate">{t.prize_description}</span>
             </div>
           )}
-        </div>
-        <div className="p-4 sm:p-5">
-          <h3 className="font-heading text-xl sm:text-2xl font-bold text-foreground leading-tight mb-1 group-hover:text-primary transition-colors">{tournament.name}</h3>
-          {tournament.creator_gamertag && (
-            <p className="text-[10px] text-muted-foreground mb-2 italic">By {tournament.creator_gamertag}</p>
-          )}
-          {tournament.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{tournament.description}</p>
-          )}
-          <div className="space-y-1.5 mb-4">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />{registered} / {tournament.max_teams} teams</div>
-              <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "TBD"}</div>
-            </div>
-            <div className="h-1 rounded-full bg-secondary overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${fillPct}%`, background: "hsl(var(--primary)/0.7)" }} />
-            </div>
-            <div className="text-[10px] text-muted-foreground">{tournament.platform}</div>
-          </div>
-          <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-3 py-2">
-            <div className="text-center">
-              <div className="text-[9px] uppercase tracking-widest text-muted-foreground mb-0.5">Entry</div>
-              <div className="text-sm font-bold text-foreground">{tournament.entry_credits ?? 50} <span className="text-[10px] font-normal text-muted-foreground">cr</span></div>
-            </div>
-            <div className="w-px h-6 bg-border" />
-            <div className="text-center">
-              <div className="text-[9px] uppercase tracking-widest text-muted-foreground mb-0.5">Win</div>
-              <div className="text-2xl font-bold text-warning">{(tournament.entry_credits ?? 50) * 4} <span className="text-[10px] font-normal text-muted-foreground">cr</span></div>
-            </div>
-          </div>
-          {tournament.prize_description && (
-            <div className="flex items-center gap-2 bg-warning/5 border border-warning/20 rounded-xl px-3 py-2 mt-2">
-              <Crown className="w-3.5 h-3.5 text-warning shrink-0" />
-              <span className="text-xs text-warning font-semibold leading-snug">{tournament.prize_description}</span>
-            </div>
-          )}
-          {tournament.start_date && new Date(tournament.start_date) > new Date() && (
-            <TournamentCountdown startDate={tournament.start_date} />
+
+          {t.start_date && new Date(t.start_date) > new Date() && t.status === "registration" && (
+            <TournamentCountdown startDate={t.start_date} />
           )}
         </div>
       </div>
     </Link>
+  );
+}
+
+/* ─── Tournament Rules ──────────────────────────────────────────── */
+const RULES = {
+  knockout: { title: "Knockout", rules: ["Single elimination — lose once and you're out.", "Each round, winners advance to the next stage.", "Number of rounds = log₂(teams). 8 teams = 3 rounds.", "Finals is the last remaining match between 2 participants."] },
+  league: { title: "League", rules: ["Every team plays against every other participant TWICE.", "Win = 3 pts · Draw = 1 pt · Loss = 0 pts.", "Final standings: points → goal difference → goals scored."] },
+  group_stage: { title: "Group Stage", rules: ["Participants split into groups.", "Within each group, everyone plays each other once.", "Top participants advance to knockout.", "Tie-breakers: points → GD → goals scored."] },
+  double_elimination: { title: "Double Elimination", rules: ["Two brackets: Winners and Losers.", "Lose in Winners → drop to Losers.", "Lose in Losers → eliminated.", "Winners champion vs Losers champion in Grand Final."] },
+  swiss_ucl: { title: "Swiss UCL", rules: ["36 teams in league phase (8 matchdays).", "Top 8 → direct Round of 16.", "#9–24 → Playoff round.", "#25–36 → eliminated.", "R16 onwards: 2-leg ties. Final: single match."] },
+};
+
+function TournamentRules({ type }) {
+  const d = RULES[type] || RULES.knockout;
+  return (
+    <div className="bg-secondary/50 rounded p-4">
+      <h3 className="font-bold text-foreground mb-2">{d.title}</h3>
+      <ul className="space-y-1.5">
+        {d.rules.map((r, i) => (
+          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+            <span className="text-primary font-bold shrink-0">{i + 1}.</span>
+            <span>{r}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

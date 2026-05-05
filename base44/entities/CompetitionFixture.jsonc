@@ -1,0 +1,184 @@
+{
+  "name": "CompetitionFixture",
+  "type": "object",
+  "properties": {
+    "season_id": {
+      "type": "string",
+      "title": "Competition Season ID"
+    },
+    "competition_id": {
+      "type": "string",
+      "title": "Competition ID"
+    },
+    "competition_name": {
+      "type": "string",
+      "title": "Competition Name (denorm)"
+    },
+    "competition_tier": {
+      "type": "number",
+      "title": "Competition Tier (denorm)"
+    },
+    "competition_slug": {
+      "type": "string",
+      "title": "Competition Slug (denorm)"
+    },
+    "season_number": {
+      "type": "number",
+      "title": "Season Number (denorm)"
+    },
+    "match_id": {
+      "type": "string",
+      "title": "Linked Match ID (from Match entity)"
+    },
+    "home_club_id": {
+      "type": "string",
+      "title": "Home Club ID"
+    },
+    "home_club_name": {
+      "type": "string",
+      "title": "Home Club Name (denorm)"
+    },
+    "home_club_logo_url": {
+      "type": "string",
+      "title": "Home Club Logo URL (denorm)"
+    },
+    "home_club_tag": {
+      "type": "string",
+      "title": "Home Club Tag (denorm)"
+    },
+    "away_club_id": {
+      "type": "string",
+      "title": "Away Club ID"
+    },
+    "away_club_name": {
+      "type": "string",
+      "title": "Away Club Name (denorm)"
+    },
+    "away_club_logo_url": {
+      "type": "string",
+      "title": "Away Club Logo URL (denorm)"
+    },
+    "away_club_tag": {
+      "type": "string",
+      "title": "Away Club Tag (denorm)"
+    },
+    "phase": {
+      "type": "string",
+      "title": "Phase",
+      "enum": ["league", "playoff_round", "knockout_r16", "knockout_qf", "knockout_sf", "knockout_final"],
+      "default": "league"
+    },
+    "tie_id": {
+      "type": "string",
+      "title": "Tie ID (links both legs of the same knockout tie)"
+    },
+    "leg": {
+      "type": "number",
+      "title": "Leg (1 = first leg, 2 = second leg, null = single match)"
+    },
+    "matchday": {
+      "type": "number",
+      "title": "Matchday (league phase)"
+    },
+    "round": {
+      "type": "number",
+      "title": "Round (knockout phase)"
+    },
+    "bracket_position": {
+      "type": "number",
+      "title": "Bracket Slot (1 = top of bracket)"
+    },
+    "scheduled_date": {
+      "type": "string",
+      "title": "Scheduled Date",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["scheduled", "awaiting_result", "completed", "forfeit", "postponed"],
+      "default": "scheduled"
+    },
+    "home_score": {
+      "type": "number",
+      "title": "Home Score",
+      "default": 0
+    },
+    "away_score": {
+      "type": "number",
+      "title": "Away Score",
+      "default": 0
+    },
+    "home_submitted_score": {
+      "type": "string",
+      "title": "Home Submitted Score"
+    },
+    "away_submitted_score": {
+      "type": "string",
+      "title": "Away Submitted Score"
+    },
+    "winner_club_id": {
+      "type": "string",
+      "title": "Winner Club ID (denorm)"
+    },
+    "winner_club_name": {
+      "type": "string",
+      "title": "Winner Club Name (denorm)"
+    },
+    "stats_processed": {
+      "type": "boolean",
+      "title": "Stats Processed (idempotency guard)",
+      "default": false
+    },
+    "window_start": {
+      "type": "string",
+      "title": "Scheduling Window Opens",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "title": "Scheduling Deadline",
+      "format": "date-time"
+    },
+    "window_days": {
+      "type": "number",
+      "title": "Window Length in Days",
+      "default": 5
+    },
+    "scheduling_status": {
+      "type": "string",
+      "title": "Scheduling Status",
+      "enum": ["open", "home_proposed", "away_proposed", "confirmed", "expired", "admin_review"],
+      "default": "open"
+    },
+    "home_proposed_date": {
+      "type": "string",
+      "title": "Home Team Proposed Date",
+      "format": "date-time"
+    },
+    "away_proposed_date": {
+      "type": "string",
+      "title": "Away Team Proposed Date",
+      "format": "date-time"
+    },
+    "confirmed_date": {
+      "type": "string",
+      "title": "Confirmed Match Date/Time",
+      "format": "date-time"
+    },
+    "last_proposed_by": {
+      "type": "string",
+      "title": "Last Proposal By (home | away)"
+    },
+    "proposal_count": {
+      "type": "number",
+      "title": "Total Proposals Made",
+      "default": 0
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    }
+  },
+  "required": ["season_id", "competition_id", "home_club_id", "away_club_id", "phase"]
+}

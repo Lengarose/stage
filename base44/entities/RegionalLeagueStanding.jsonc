@@ -1,0 +1,134 @@
+{
+  "name": "RegionalLeagueStanding",
+  "type": "object",
+  "properties": {
+    "league_id": {
+      "type": "string",
+      "title": "Regional League ID"
+    },
+    "league_name": {
+      "type": "string",
+      "title": "League Name (denorm)"
+    },
+    "region_slug": {
+      "type": "string",
+      "title": "Region Slug (e.g. uk-ireland)"
+    },
+    "division": {
+      "type": "number",
+      "title": "Division (1 = top, 2 = second, etc.)",
+      "default": 1
+    },
+    "season_number": {
+      "type": "number",
+      "title": "Season Number",
+      "default": 1
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name (denorm)"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL (denorm)"
+    },
+    "club_tag": {
+      "type": "string",
+      "title": "Club Tag (denorm)"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform"
+    },
+    "region": {
+      "type": "string",
+      "title": "Region"
+    },
+    "position": {
+      "type": "number",
+      "title": "Current Position",
+      "default": 1
+    },
+    "played": {
+      "type": "number",
+      "title": "Played",
+      "default": 0
+    },
+    "wins": {
+      "type": "number",
+      "title": "Wins",
+      "default": 0
+    },
+    "draws": {
+      "type": "number",
+      "title": "Draws",
+      "default": 0
+    },
+    "losses": {
+      "type": "number",
+      "title": "Losses",
+      "default": 0
+    },
+    "goals_for": {
+      "type": "number",
+      "title": "Goals For",
+      "default": 0
+    },
+    "goals_against": {
+      "type": "number",
+      "title": "Goals Against",
+      "default": 0
+    },
+    "goal_difference": {
+      "type": "number",
+      "title": "Goal Difference",
+      "default": 0
+    },
+    "points": {
+      "type": "number",
+      "title": "Points",
+      "default": 0
+    },
+    "form": {
+      "type": "array",
+      "title": "Last 5 Results (W/D/L)",
+      "items": { "type": "string" }
+    },
+    "is_stage_qualified": {
+      "type": "boolean",
+      "title": "Qualified for a STAGE Competition",
+      "default": false
+    },
+    "stage_competition_slug": {
+      "type": "string",
+      "title": "STAGE Competition Slug (supreme/elite/challenger)"
+    },
+    "is_promoted": {
+      "type": "boolean",
+      "title": "Promoted to Higher Division",
+      "default": false
+    },
+    "is_relegated": {
+      "type": "boolean",
+      "title": "Relegated to Lower Division",
+      "default": false
+    },
+    "final_position": {
+      "type": "number",
+      "title": "Confirmed Final Position"
+    },
+    "promotion_target_league_id": {
+      "type": "string",
+      "title": "Promotion Target League ID (Div 2 → Div 1)"
+    },
+    "relegation_target_league_id": {
+      "type": "string",
+      "title": "Relegation Target League ID (Div 1 → Div 2)"
+    }
+  },
+  "required": ["league_id", "club_id", "club_name", "season_number"]
+}

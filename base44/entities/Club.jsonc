@@ -64,6 +64,11 @@
       "title": "Banner Position",
       "default": "50% 50%"
     },
+    "banner_zoom": {
+      "type": "number",
+      "title": "Banner Zoom (%)",
+      "default": 150
+    },
     "logo_frame_id": {
       "type": "string",
       "title": "Active Logo Frame ID"
@@ -140,37 +145,20 @@
       "title": "Goals Conceded",
       "default": 0
     },
-    "rating": {
+    "ranking_points": {
       "type": "number",
-      "title": "Visible Rating (R)",
-      "default": 1500
-    },
-    "peak_rating": {
-      "type": "number",
-      "title": "Peak Rating",
-      "default": 1500
-    },
-    "matches_ranked": {
-      "type": "number",
-      "title": "Ranked Matches Played",
+      "title": "STAGE Ranking Points",
       "default": 0
     },
-    "is_provisional": {
-      "type": "boolean",
-      "title": "Provisional (< 10 ranked matches)",
-      "default": true
+    "global_rank": {
+      "type": "number",
+      "title": "Global Rank Position",
+      "default": 0
     },
-    "tier": {
-      "type": "string",
-      "title": "Tier",
-      "enum": [
-        "Bronze",
-        "Silver",
-        "Gold",
-        "Elite",
-        "World Class"
-      ],
-      "default": "Silver"
+    "regional_rank": {
+      "type": "number",
+      "title": "Regional Rank Position",
+      "default": 0
     },
     "form": {
       "type": "array",
@@ -193,21 +181,6 @@
     "loss_streak": {
       "type": "number",
       "title": "Current Loss Streak",
-      "default": 0
-    },
-    "last_ranked_match_date": {
-      "type": "string",
-      "title": "Last Ranked Match Date",
-      "format": "date-time"
-    },
-    "strength_of_schedule": {
-      "type": "number",
-      "title": "Avg Opponent Rating",
-      "default": 1500
-    },
-    "ranked_opponents_played": {
-      "type": "number",
-      "title": "Total Opponent Rating Sum (for SoS)",
       "default": 0
     },
     "trophies": {

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { stageClient } from '@/api/stageClient';
 import { useAuth } from '@/lib/AuthContext';
 import BannerImg from '@/assets/Banner.jpg';
-import LogoImg from '@/assets/Logo.PNG';
+import LogoImg from '@/assets/Stadium Logo.png';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 48 48">

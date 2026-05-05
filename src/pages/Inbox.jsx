@@ -10,6 +10,8 @@ export default function InboxPage() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [myPlayer, setMyPlayer] = useState(null);
+  const [myClub, setMyClub] = useState(null);
 
   useEffect(() => {
     let unsub = null;
@@ -18,7 +20,15 @@ export default function InboxPage() {
       const u = await stageClient.auth.me();
       setUser(u);
 
-      const data = await stageClient.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 200);
+      const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
+      const player = players[0] || null;
+      setMyPlayer(player);
+      if (player?.club_id) {
+        const clubs = await base44.entities.Club.filter({ id: player.club_id }).catch(() => []);
+        setMyClub(clubs[0] || null);
+      }
+
+      const data = await base44.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 200);
       setMessages(data || []);
 
       // Auto-open from URL param
@@ -65,7 +75,7 @@ export default function InboxPage() {
         const updated = { ...msg, is_read: true };
         setMessages(prev => prev.map(m => m.id === msg.id ? updated : m));
         setSelected(updated);
-      } catch (e) {
+      } catch {
         // ignore mark-as-read failure
       }
     }
@@ -167,6 +177,9 @@ export default function InboxPage() {
                 message={selected}
                 onDeleted={handleDeleted}
                 onStatusChanged={handleStatusChanged}
+                myClub={myClub}
+                myEmail={user?.email}
+                myGamertag={myPlayer?.gamertag}
               />
             </>
           ) : (
