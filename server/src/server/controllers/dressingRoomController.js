@@ -1,7 +1,7 @@
 const express      = require('express');
 const router       = express.Router();
 const DressingRoom = require('../models/dressingRoomModel');
-const { io }       = require('../express/index');
+const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
 // GET /
@@ -10,9 +10,10 @@ router.get('/', async (req, res) => {
     const { match_id, club_id, page } = req.query;
     const dr = new DressingRoom();
     let result;
-    if (match_id) result = await dr.selectByMatch(match_id);
+    if (match_id && club_id) result = await dr.selectByMatchAndClub(match_id, club_id);
+    else if (match_id) result = await dr.selectByMatch(match_id);
+    else if (club_id)  result = await dr.selectByClub(club_id);
     else result = await dr.selectAll(Number(page) || 1);
-    if (club_id && result) result = result.filter(r => r.club_id === club_id);
     res.json(result);
   } catch (err) {
     console.error(err);

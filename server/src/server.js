@@ -62,6 +62,48 @@ app.get('/auth/error', (_req, res) => {
   );
 });
 
+// OAuth callback fallback for hosts where frontend route /auth/callback is not directly served.
+// It mirrors stageClient token keys, then navigates to home.
+app.get('/auth/callback', (req, res) => {
+  const {
+    accessToken = '',
+    refreshToken = '',
+    userId = '',
+    playerId = '',
+    ownerId = '',
+  } = req.query || {};
+
+  const j = (v) => JSON.stringify(String(v || ''));
+  res.status(200).send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Signing in...</title>
+  </head>
+  <body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px">
+    <p>Finishing sign-in...</p>
+    <script>
+      (function () {
+        try {
+          var accessToken = ${j(accessToken)};
+          var refreshToken = ${j(refreshToken)};
+          var userId = ${j(userId)};
+          var playerId = ${j(playerId)};
+          var ownerId = ${j(ownerId)};
+          if (accessToken)  localStorage.setItem('stage_access_token', accessToken);
+          if (refreshToken) localStorage.setItem('stage_refresh_token', refreshToken);
+          if (userId)       localStorage.setItem('stage_user_id', userId);
+          if (playerId)     localStorage.setItem('stage_player_id', playerId);
+          if (ownerId)      localStorage.setItem('stage_owner_id', ownerId);
+        } catch (e) {}
+        window.location.replace('/');
+      })();
+    </script>
+  </body>
+</html>`);
+});
+
 // Health checks
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'stage-server' });

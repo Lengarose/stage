@@ -27,6 +27,14 @@ class DressingRoom {
     return EXECUTESQL('SELECT * FROM dressing_rooms WHERE match_id = ?', [match_id]);
   }
 
+  selectByClub(club_id) {
+    return EXECUTESQL('SELECT * FROM dressing_rooms WHERE club_id = ?', [club_id]);
+  }
+
+  selectByMatchAndClub(match_id, club_id) {
+    return EXECUTESQL('SELECT * FROM dressing_rooms WHERE match_id = ? AND club_id = ?', [match_id, club_id]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO dressing_rooms (id, match_id, club_id, seated_players) VALUES (?,?,?,?)`;
