@@ -1,12 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { SocketProvider } from '@/lib/SocketContext';
 import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 import BannerImg from '@/assets/Banner.jpg';
 
 import PageNotFound from './lib/PageNotFound';
@@ -47,6 +48,27 @@ import TransferMarket from './pages/TransferMarket';
 import Lifestyle from './pages/Lifestyle';
 import FollowBack from './pages/FollowBack';
 
+// Handles redirect from OAuth backend: /auth/callback?accessToken=&refreshToken=&playerId=
+const OAuthCallback = () => {
+  const { checkUserAuth } = useAuth();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    const ok = stageClient.auth.handleOAuthCallback();
+    if (ok) {
+      checkUserAuth().then(() => navigate('/', { replace: true }));
+    } else {
+      navigate('/', { replace: true });
+    }
+  }, []);
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 const SplashScreen = () => (
   <motion.div
     className="fixed inset-0 z-50"
@@ -69,48 +91,39 @@ const SplashScreen = () => (
 );
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, user } = useAuth();
-  const [playerSetupComplete, setPlayerSetupComplete] = React.useState(false);
+  const { isLoadingAuth, authError, user } = useAuth();
+  const [playerSetupComplete, setPlayerSetupComplete] = React.useState(
+    () => localStorage.getItem('stage_onboarding_completed') === '1'
+  );
   const [showLogin, setShowLogin] = React.useState(false);
 
   React.useEffect(() => {
-    if (user?.email) {
-      Promise.all([
-        base44.entities.Player.filter({ email: user.email }),
-        base44.entities.Club.filter({ owner_email: user.email }),
-      ]).then(([players, clubs]) => {
-        setPlayerSetupComplete(players.length > 0 || clubs.length > 0);
-      });
-    }
+    if (!user) return;
+    setPlayerSetupComplete(localStorage.getItem('stage_onboarding_completed') === '1');
   }, [user]);
 
-  // Show splash screen while checking app public settings or auth
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return <SplashScreen />;
-  }
+  if (isLoadingAuth) return <SplashScreen />;
 
-  // Handle authentication errors
   if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
+    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
+    if (authError.type === 'auth_required') {
       if (showLogin) return <Login />;
       return <Landing onSignIn={() => setShowLogin(true)} />;
     }
   }
 
-  // No user → landing page, then login on demand
   if (!user) {
     if (showLogin) return <Login />;
     return <Landing onSignIn={() => setShowLogin(true)} />;
   }
 
-  // If user is authenticated but hasn't completed onboarding, show onboarding
-  if (user && !playerSetupComplete) {
-    return <Onboarding onComplete={() => setPlayerSetupComplete(true)} />;
+  if (!playerSetupComplete) {
+    return <Onboarding onComplete={() => {
+      localStorage.setItem('stage_onboarding_completed', '1');
+      setPlayerSetupComplete(true);
+    }} />;
   }
 
-  // Render the main app
   return (
     <Routes>
       <Route element={<Layout />}>
@@ -153,14 +166,20 @@ const AuthenticatedApp = () => {
 function App() {
   return (
     <AuthProvider>
+      <SocketProvider>
       <TranslationProvider>
         <QueryClientProvider client={queryClientInstance}>
           <Router>
-            <AuthenticatedApp />
+            <Routes>
+              {/* OAuth callback must be outside AuthenticatedApp so tokens are stored before auth check */}
+              <Route path="/auth/callback" element={<OAuthCallback />} />
+              <Route path="*" element={<AuthenticatedApp />} />
+            </Routes>
           </Router>
           <Toaster />
         </QueryClientProvider>
       </TranslationProvider>
+      </SocketProvider>
     </AuthProvider>
   );
 }

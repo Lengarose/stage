@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +45,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
     setPosEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: bannerFile });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
     setForm(f => ({ ...f, banner_url: file_url }));
     setBannerPreview(file_url);
     setBannerFile(null);
@@ -56,7 +56,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
     setSaving(true);
     let trophy_url = trophyPreview || tournament.trophy_url || "";
     if (trophyFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: trophyFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: trophyFile });
       trophy_url = res.file_url;
     }
     const updates = {
@@ -70,7 +70,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
       banner_position: form.banner_position,
       trophy_url,
     };
-    await base44.entities.Tournament.update(tournament.id, updates);
+    await stageClient.entities.Tournament.update(tournament.id, updates);
     setSaving(false);
     onSave(updates);
     onClose();

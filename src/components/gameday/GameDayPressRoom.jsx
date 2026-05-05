@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Mic, Loader, Lock, CheckCircle2, Upload, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,8 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
       if (!myClub) { setStep("select"); return; }
 
       const [players, existing] = await Promise.all([
-        base44.entities.Player.filter({ club_id: myClub.id }),
-        base44.entities.PressConference.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.Player.filter({ club_id: myClub.id }),
+        stageClient.entities.PressConference.filter({ match_id: game.id, club_id: myClub.id }),
       ]);
 
       setClubPlayers(players || []);
@@ -50,7 +50,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
   async function startPressRoom(playerId) {
     setSelectedPlayer(clubPlayers.find(p => p.id === playerId));
     setLoading(true);
-    const allQuestions = await base44.entities.PressQuestion.list("-created_date", 100);
+    const allQuestions = await stageClient.entities.PressQuestion.list("-created_date", 100);
     const shuffled = allQuestions.sort(() => Math.random() - 0.5).slice(0, 4);
     setQuestions(shuffled);
     setSelectedAnswers(new Array(4).fill(null));
@@ -75,7 +75,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
 
   async function submitAnswers() {
     setLoading(true);
-    const conf = await base44.entities.PressConference.create({
+    const conf = await stageClient.entities.PressConference.create({
       match_id: game.id,
       context: "match",
       club_id: myClub.id,
@@ -120,7 +120,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
     // Upload image if provided
     if (imageFile) {
       setUploading(true);
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: imageFile });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file: imageFile });
       photoUrl = file_url;
       setUploading(false);
     }
@@ -137,7 +137,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
     const headline = `${selectedPlayer.gamertag} speaks ahead of ${myClub.name} vs ${opponent}`;
 
     // Create PressArticle (appears in News)
-    await base44.entities.PressArticle.create({
+    await stageClient.entities.PressArticle.create({
       press_conference_id: pressConf.id,
       headline,
       player_name: selectedPlayer.gamertag,

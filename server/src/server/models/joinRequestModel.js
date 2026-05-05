@@ -1,0 +1,53 @@
+const { EXECUTESQL } = require('../db/database');
+const { v4: uuidv4 } = require('uuid');
+
+class JoinRequest {
+  constructor(body = {}) {
+    this.id           = body.id;
+    this.player_id    = body.player_id;
+    this.player_email = body.player_email;
+    this.club_id      = body.club_id;
+    this.club_name    = body.club_name;
+    this.status       = body.status;
+  }
+
+  selectAll(page = 1) {
+    const pageSize = 25;
+    const offset   = (page - 1) * pageSize;
+    return EXECUTESQL('SELECT * FROM join_requests ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+  }
+
+  selectOne(id) {
+    return EXECUTESQL('SELECT * FROM join_requests WHERE id = ?', [id]);
+  }
+
+  create() {
+    this.id = this.id || uuidv4();
+    const sql = `INSERT INTO join_requests
+      (id, player_id, player_email, club_id, club_name, status)
+      VALUES (?,?,?,?,?,?)`;
+    const values = [
+      this.id, this.player_id, this.player_email,
+      this.club_id, this.club_name, this.status,
+    ];
+    return EXECUTESQL(sql, values);
+  }
+
+  update(id) {
+    const sql = `UPDATE join_requests SET
+      player_id=?, player_email=?, club_id=?, club_name=?, status=?
+      WHERE id=?`;
+    const values = [
+      this.player_id, this.player_email, this.club_id, this.club_name,
+      this.status,
+      id,
+    ];
+    return EXECUTESQL(sql, values);
+  }
+
+  delete(id) {
+    return EXECUTESQL('DELETE FROM join_requests WHERE id = ?', [id]);
+  }
+}
+
+module.exports = JoinRequest;

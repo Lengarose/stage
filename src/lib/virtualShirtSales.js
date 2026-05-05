@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 import { calculateShirtPrice } from './shirtEconomy';
 
 const TIER_MULTIPLIER = {
@@ -46,7 +46,7 @@ export async function generateMatchShirtSales(game) {
   if (game.mode !== 'club' || !game.home_club_id) return;
 
   try {
-    const stats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
+    const stats = await stageClient.entities.MatchPlayerStat.filter({ match_id: game.id });
     if (!stats || stats.length === 0) return;
 
     const emails = [...new Set(stats.map(s => s.player_email).filter(Boolean))];
@@ -55,7 +55,7 @@ export async function generateMatchShirtSales(game) {
     // Fetch players by email in parallel
     const playerResults = await Promise.all(
       emails.map(email =>
-        base44.entities.Player.filter({ email }, null, 1)
+        stageClient.entities.Player.filter({ email }, null, 1)
           .then(r => r[0] || null)
           .catch(() => null)
       )
@@ -66,7 +66,7 @@ export async function generateMatchShirtSales(game) {
     // Fetch lifestyle purchases per player
     const lifestyleResults = await Promise.all(
       playerResults.filter(Boolean).map(p =>
-        base44.entities.LifestylePurchase.filter({ player_id: p.id }, null, 50)
+        stageClient.entities.LifestylePurchase.filter({ player_id: p.id }, null, 50)
           .catch(() => [])
       )
     );
@@ -78,7 +78,7 @@ export async function generateMatchShirtSales(game) {
     // Fetch active contracts per player
     const contractResults = await Promise.all(
       playerResults.filter(Boolean).map(p =>
-        base44.entities.PlayerContract.filter({ user_id: p.id, status: 'active' }, null, 1)
+        stageClient.entities.PlayerContract.filter({ user_id: p.id, status: 'active' }, null, 1)
           .then(r => r.length > 0)
           .catch(() => false)
       )
@@ -99,7 +99,7 @@ export async function generateMatchShirtSales(game) {
     // Fetch both clubs
     const clubIds = [...new Set([game.home_club_id, game.away_club_id].filter(Boolean))];
     const clubArr = await Promise.all(
-      clubIds.map(id => base44.entities.Club.filter({ id }, null, 1).then(r => r[0] || null).catch(() => null))
+      clubIds.map(id => stageClient.entities.Club.filter({ id }, null, 1).then(r => r[0] || null).catch(() => null))
     );
     const clubMap = {};
     clubArr.filter(Boolean).forEach(c => { clubMap[c.id] = c; });
@@ -123,7 +123,7 @@ export async function generateMatchShirtSales(game) {
 
       for (let i = 0; i < count; i++) {
         salePromises.push(
-          base44.entities.ShirtSale.create({
+          stageClient.entities.ShirtSale.create({
             player_id:       player.id,
             player_gamertag: player.gamertag,
             shirt_number:    player.shirt_number,
@@ -144,8 +144,8 @@ export async function generateMatchShirtSales(game) {
         const club = clubMap[clubId];
         if (!club) return;
         try {
-          await base44.entities.Club.update(clubId, { stc: (club.stc || 0) + revenue });
-          await base44.entities.STCTransaction.create({
+          await stageClient.entities.Club.update(clubId, { stc: (club.stc || 0) + revenue });
+          await stageClient.entities.STCTransaction.create({
             club_id:     clubId,
             amount:      revenue,
             type:        'shirt_revenue',

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
     if (isDefaulted) { showNotif("Asset defaulted — pay overdue maintenance first", "error"); return; }
     setUpgrading(upgradeId);
     try {
-      const res = await base44.functions.invoke("upgradeLifestyleAsset", { purchase_id: purchase.id, upgrade_id: upgradeId });
+      const res = await stageClient.functions.invoke("upgradeLifestyleAsset", { purchase_id: purchase.id, upgrade_id: upgradeId });
       showNotif(`Upgrade applied — Level ${res.data.upgrade_level}`, "success");
       onUpgraded?.(purchase.id, res.data);
     } catch (err) {
@@ -83,7 +83,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
   async function handleCancelRent() {
     setCancelling(true);
     try {
-      await base44.entities.LifestylePurchase.update(purchase.id, { rent_active: false, is_residence: false });
+      await stageClient.entities.LifestylePurchase.update(purchase.id, { rent_active: false, is_residence: false });
       showNotif("Rental cancelled.", "success");
       onCancelRent?.(purchase.id);
     } catch (err) {
@@ -95,7 +95,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
   async function handleMoveOut() {
     setMovingOut(true);
     try {
-      await base44.entities.LifestylePurchase.update(purchase.id, { is_residence: false });
+      await stageClient.entities.LifestylePurchase.update(purchase.id, { is_residence: false });
       showNotif("You have moved out.", "success");
       onResidenceChanged?.();
     } catch (err) {
@@ -108,7 +108,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
     setSettingResidence(true);
     try {
       // Clear all other residences for this player (done client-side via bulk update — backend handles atomically)
-      await base44.functions.invoke("setPlayerResidence", { purchase_id: purchase.id });
+      await stageClient.functions.invoke("setPlayerResidence", { purchase_id: purchase.id });
       showNotif("Residence updated!", "success");
       onResidenceChanged?.();
     } catch (err) {

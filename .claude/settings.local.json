@@ -4,7 +4,9 @@
       "WebSearch",
       "WebFetch(domain:vocal.media)",
       "WebFetch(domain:www.ea.com)",
-      "WebFetch(domain:fpfrance.com)"
+      "WebFetch(domain:fpfrance.com)",
+      "Bash(python3 *)",
+      "Bash(npm install *)"
     ]
   }
 }

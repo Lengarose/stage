@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { formatDistanceToNow } from "date-fns";
 import { Inbox, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,12 +15,12 @@ export default function HomeInboxPanel() {
     async function load() {
       // Small delay to avoid rate-limiting burst on page load
       await new Promise(r => setTimeout(r, 300));
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       if (!user?.email) { setLoading(false); return; }
 
-      const data = await base44.entities.InboxMessage.filter(
+      const data = await stageClient.entities.InboxMessage.filter(
         { recipient_email: user.email },
         "-created_date",
         6
@@ -31,7 +31,7 @@ export default function HomeInboxPanel() {
     }
     load();
 
-    const unsub = base44.entities.InboxMessage.subscribe((event) => {
+    const unsub = stageClient.entities.InboxMessage.subscribe((event) => {
       if (event.type === "create") {
         setMessages(prev => [event.data, ...prev].slice(0, 6));
         setUnreadCount(c => c + 1);

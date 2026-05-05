@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
@@ -43,14 +43,14 @@ export default function Onboarding({ onComplete }) {
   useEffect(() => {
     (async () => {
       try {
-        const u = await base44.auth.me();
+        const u = await stageClient.auth.me();
         setUser(u);
         const [players, clubs] = await Promise.all([
-          base44.entities.Player.filter({ email: u.email }),
-          base44.entities.Club.filter({ owner_email: u.email }),
+          stageClient.entities.Player.filter({ email: u.email }),
+          stageClient.entities.Club.filter({ owner_email: u.email }),
         ]);
-        if (players[0] || clubs[0]) {
-          onComplete?.();
+        if (players[0]) {
+          setPlayer(players[0]);
         }
       } catch (err) {
         console.error("Failed to load user:", err);
@@ -62,7 +62,7 @@ export default function Onboarding({ onComplete }) {
 
   const handlePlayerComplete = async () => {
     try {
-      const updated = await base44.entities.Player.filter({ email: user.email });
+      const updated = await stageClient.entities.Player.filter({ email: user.email });
       if (updated[0]) { setPlayer(updated[0]); setStep("club"); }
     } catch (err) {
       console.error(err);

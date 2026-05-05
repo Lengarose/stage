@@ -61,7 +61,7 @@ export default function TutorialPopup({ open, onClose }) {
         <div
           className="relative h-32 sm:h-40 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("https://media.base44.com/images/public/69d77ebfc021efa72e236f84/c19e1d1f5_photo-output20.png")',
+            backgroundImage: 'url("https://media.stageClient.com/images/public/69d77ebfc021efa72e236f84/c19e1d1f5_photo-output20.png")',
           }}
         >
           {/* Close button */}

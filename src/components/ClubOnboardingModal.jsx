@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Shield, Search, Plus, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
@@ -31,7 +31,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
 
   async function loadClubs(q = "") {
     setLoadingClubs(true);
-    const all = await base44.entities.Club.list("-rating", 100);
+    const all = await stageClient.entities.Club.list("-rating", 100);
     const filtered = q
       ? all.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.tag?.toLowerCase().includes(q.toLowerCase()))
       : all;
@@ -43,7 +43,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     if (!form.name || !form.tag || !form.country_code) return;
     setCreating(true);
     try {
-      const res = await base44.functions.invoke("createClub", {
+      const res = await stageClient.functions.invoke("createClub", {
         clubData: form,
         playerId: player.id,
       });
@@ -59,7 +59,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
   async function handleJoinRequest(club) {
     if (!player) return;
     setRequesting(club.id);
-    await base44.entities.JoinRequest.create({
+    await stageClient.entities.JoinRequest.create({
       player_id: player.id,
       player_email: player.email,
       player_gamertag: player.gamertag,
@@ -70,7 +70,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     });
     // Notify club owner
     if (club.owner_email) {
-      await base44.entities.Notification.create({
+      await stageClient.entities.Notification.create({
         recipient_email: club.owner_email,
         type: "join_request",
         title: `${player.gamertag} wants to join ${club.name}`,

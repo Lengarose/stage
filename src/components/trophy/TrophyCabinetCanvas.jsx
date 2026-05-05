@@ -9,7 +9,7 @@
 import { useRef, useState, useEffect } from "react";
 import PlacedTrophy from "./PlacedTrophy";
 
-const CABINET_IMAGE = "https://media.base44.com/images/public/69d77ebfc021efa72e236f84/87227ed51_IMG_6919.png";
+const CABINET_IMAGE = "https://media.stageClient.com/images/public/69d77ebfc021efa72e236f84/87227ed51_IMG_6919.png";
 
 export default function TrophyCabinetCanvas({
   placements,

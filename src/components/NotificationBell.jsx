@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Bell } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -10,13 +10,13 @@ export default function NotificationBell() {
     let userEmail = null;
 
     async function init() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) return;
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       if (!user?.email) return;
       userEmail = user.email;
 
-      const notifications = await base44.entities.Notification.filter(
+      const notifications = await stageClient.entities.Notification.filter(
         { recipient_email: userEmail, read: false },
         "-created_date",
         100
@@ -27,7 +27,7 @@ export default function NotificationBell() {
     init();
 
     // Real-time subscription — no polling needed
-    const unsub = base44.entities.Notification.subscribe((event) => {
+    const unsub = stageClient.entities.Notification.subscribe((event) => {
       if (!userEmail) return;
       const email = event.data?.recipient_email;
       if (email && email !== userEmail) return;

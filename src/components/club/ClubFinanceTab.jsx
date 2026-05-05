@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { formatSTC } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Wallet, Users, Trophy, Coins, AlertTriangle } from "lucide-react";
@@ -12,8 +12,8 @@ export default function ClubFinanceTab({ club }) {
   useEffect(() => {
     if (!club?.id) return;
     Promise.all([
-      base44.entities.PlayerContract.filter({ team_id: club.id, status: "active" }),
-      base44.entities.STCTransaction.filter({ club_id: club.id }, "-created_date", 30),
+      stageClient.entities.PlayerContract.filter({ team_id: club.id, status: "active" }),
+      stageClient.entities.STCTransaction.filter({ club_id: club.id }, "-created_date", 30),
     ]).then(([c, t]) => {
       setContracts(c);
       setTransactions(t);

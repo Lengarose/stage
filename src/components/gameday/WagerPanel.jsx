@@ -2,7 +2,7 @@
  * WagerPanel — shows wager info and accept/decline/cancel controls on a match.
  */
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Coins, Lock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
@@ -44,7 +44,7 @@ export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onG
   async function invoke(action, extra = {}) {
     setLoading(action);
     try {
-      const res = await base44.functions.invoke("wagerMatchActions", {
+      const res = await stageClient.functions.invoke("wagerMatchActions", {
         action, match_id: game.id, ...extra,
       });
       const updated = { ...game, ...res.data._match_patch };

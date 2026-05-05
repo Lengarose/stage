@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Target, Zap, Star, CheckCircle2, Clock, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       if (!myClub) { setLoadingPlayers(false); return; }
 
       const [dressing, allPlayers] = await Promise.all([
-        base44.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        base44.entities.Player.filter({ club_id: myClub.id }),
+        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.Player.filter({ club_id: myClub.id }),
       ]);
 
       const seatedIds = dressing?.[0]?.seated_players || [];
@@ -85,7 +85,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       }];
     }
 
-    const res = await base44.functions.invoke("matchKickoff", {
+    const res = await stageClient.functions.invoke("matchKickoff", {
       match_id: game.id,
       action: "submit_result",
       home_score: Number(homeScore),

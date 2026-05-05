@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { searchClub } from "@/lib/eafcClient";
 import { Search as SearchIcon, User, Shield, Swords, UserPlus, Star, Trophy, Users, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -21,9 +21,9 @@ export default function Search() {
 
   useEffect(() => {
     async function loadUser() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
-      const pl = await base44.entities.Player.filter({ email: u.email });
+      const pl = await stageClient.entities.Player.filter({ email: u.email });
       if (pl.length > 0) setMyPlayer(pl[0]);
     }
     loadUser();
@@ -36,8 +36,8 @@ export default function Search() {
     const q = query.toLowerCase();
 
     const [allPlayers, allClubs, eafcRes] = await Promise.all([
-      base44.entities.Player.list("-overall_rating", 200),
-      base44.entities.Club.list("-rating", 200),
+      stageClient.entities.Player.list("-overall_rating", 200),
+      stageClient.entities.Club.list("-rating", 200),
       searchClub(query.trim(), platform).catch(() => null),
     ]);
 
@@ -49,8 +49,8 @@ export default function Search() {
 
   async function sendChallenge(opponentClubId, opponentClubName) {
     if (!myPlayer?.club_id) return alert("You need to be in a club to challenge.");
-    const myClub = await base44.entities.Club.filter({ id: myPlayer.club_id });
-    const liveMatch = await base44.entities.LiveMatch.create({
+    const myClub = await stageClient.entities.Club.filter({ id: myPlayer.club_id });
+    const liveMatch = await stageClient.entities.LiveMatch.create({
       home_club_id: myPlayer.club_id,
       home_club_name: myClub[0]?.name || "Unknown",
       away_club_id: opponentClubId,
@@ -64,11 +64,11 @@ export default function Search() {
       player_or_clubs: "clubs",
     });
     // Notify opponent club captains
-    const opponentPlayers = await base44.entities.Player.filter({ club_id: opponentClubId });
+    const opponentPlayers = await stageClient.entities.Player.filter({ club_id: opponentClubId });
     const captains = opponentPlayers.filter(p => p.club_roles?.some(r => ["president","captain"].includes(r)) || ["captain","vice-captain"].includes(p.role));
     const targets = captains.length > 0 ? captains : opponentPlayers;
     for (const p of targets) {
-      await base44.entities.Notification.create({
+      await stageClient.entities.Notification.create({
         recipient_email: p.email,
         type: "invite",
         title: `⚔️ Challenge from ${myClub[0]?.name || "A club"}`,
@@ -83,7 +83,7 @@ export default function Search() {
   async function challengePlayer(player) {
     if (!myPlayer) return alert("You need a player profile to challenge.");
     if (player.email === myPlayer.email) return;
-    const liveMatch = await base44.entities.LiveMatch.create({
+    const liveMatch = await stageClient.entities.LiveMatch.create({
       home_player_id: myPlayer.id,
       home_player_name: myPlayer.gamertag,
       away_player_id: player.id,
@@ -96,7 +96,7 @@ export default function Search() {
       away_confirmed: false,
       player_or_clubs: "player",
     });
-    await base44.entities.Notification.create({
+    await stageClient.entities.Notification.create({
       recipient_email: player.email,
       type: "invite",
       title: `⚔️ Challenge from ${myPlayer.gamertag}`,
@@ -109,7 +109,7 @@ export default function Search() {
 
   async function inviteToClub(playerEmail, playerGamertag) {
     if (!myPlayer?.club_id) return;
-    await base44.entities.Notification.create({
+    await stageClient.entities.Notification.create({
       recipient_email: playerEmail,
       type: "invite",
       title: `Club Invite from ${myPlayer.gamertag}`,

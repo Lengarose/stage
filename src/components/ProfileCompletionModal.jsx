@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Loader2 } from "lucide-react";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import { COUNTRIES } from "@/lib/countries";
@@ -30,7 +30,7 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
     }
 
     setLoading(true);
-    await base44.entities.Player.update(player.id, {
+    await stageClient.entities.Player.update(player.id, {
       gamertag: gamertag.trim(),
       position,
       platform,

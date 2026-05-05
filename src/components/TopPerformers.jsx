@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Target, Zap, Star, Shield, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +22,8 @@ export default function TopPerformers() {
       // Stagger to avoid rate-limiting burst alongside other widgets
       await new Promise(r => setTimeout(r, 700));
       const [pl, cl] = await Promise.all([
-        base44.entities.Player.list("-goals", 10),
-        base44.entities.Club.list("-rating", 5),
+        stageClient.entities.Player.list("-goals", 10),
+        stageClient.entities.Club.list("-rating", 5),
       ]);
       setPlayers(pl);
       setClubs(cl);

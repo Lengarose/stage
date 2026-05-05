@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -35,7 +35,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
     setLoading(action);
     try {
       // Update this message's status
-      await base44.entities.InboxMessage.update(message.id, { status: action, is_read: true });
+      await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
 
       const meta = message.metadata || {};
 
@@ -47,7 +47,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         );
         // Create the scheduled match from the invitation metadata
         const isClub = meta.invitation_type === "club_vs_club";
-        await base44.entities.Match.create({
+        await stageClient.entities.Match.create({
           status:           "scheduled",
           mode:             isClub ? "club" : "solo",
           scheduled_date:   meta.scheduled_date || null,
@@ -65,7 +65,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         });
         // Notify the challenger that their invite was accepted
         if (message.sender_email) {
-          await base44.entities.InboxMessage.create({
+          await stageClient.entities.InboxMessage.create({
             recipient_email: message.sender_email,
             sender_email:    message.recipient_email,
             subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
@@ -84,7 +84,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           `${meta.opponent_name} has declined your match invitation.`,
           "/inbox"
         );
-        await base44.entities.InboxMessage.create({
+        await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,
           sender_email:    message.recipient_email,
           subject:         `❌ Match Declined: ${meta.challenger_name} vs ${meta.opponent_name}`,
@@ -100,7 +100,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         const newDate = rescheduleDate && rescheduleTime
           ? new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString()
           : null;
-        await base44.entities.InboxMessage.create({
+        await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,
           sender_email:    message.recipient_email,
           subject:         `📅 Date Change Request: ${meta.challenger_name} vs ${meta.opponent_name}`,
@@ -124,7 +124,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   }
 
   async function handleDelete() {
-    await base44.entities.InboxMessage.delete(message.id);
+    await stageClient.entities.InboxMessage.delete(message.id);
     onDeleted(message.id);
   }
 

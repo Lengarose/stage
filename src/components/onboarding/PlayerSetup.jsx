@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
@@ -26,7 +26,7 @@ export default function PlayerSetup({ onComplete, user }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPendingAvatar(file_url);
     setUploading(false);
     e.target.value = "";
@@ -37,7 +37,7 @@ export default function PlayerSetup({ onComplete, user }) {
     setSaving(true);
     try {
       const foundCountry = COUNTRIES.find(c => c.name === country);
-      await base44.entities.Player.create({
+      await stageClient.entities.Player.create({
         gamertag,
         email: user.email,
         position,

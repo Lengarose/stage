@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Bell, BellOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { NOTIFICATION_SETTINGS, getDefaultNotificationSettings } from "@/lib/notificationTypes";
@@ -22,9 +22,9 @@ export default function NotificationSettings() {
 
   useEffect(() => {
     async function load() {
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       if (!user?.email) return;
-      const players = await base44.entities.Player.filter({ email: user.email });
+      const players = await stageClient.entities.Player.filter({ email: user.email });
       const p = players?.[0];
       if (p) {
         setPlayer(p);
@@ -44,7 +44,7 @@ export default function NotificationSettings() {
 
     if (!player?.id) return;
     setSaving(true);
-    await base44.entities.Player.update(player.id, { notification_settings: updated });
+    await stageClient.entities.Player.update(player.id, { notification_settings: updated });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

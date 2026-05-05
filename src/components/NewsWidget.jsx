@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Newspaper, Trophy, Star, Zap, BarChart3, Mic, Megaphone, ArrowRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,8 +47,8 @@ export default function NewsWidget() {
   useEffect(() => {
     const timer = setTimeout(() => {
       Promise.all([
-        base44.entities.NewsItem.list("-published_at", 20),
-        base44.entities.PressArticle.list("-published_at", 10),
+        stageClient.entities.NewsItem.list("-published_at", 20),
+        stageClient.entities.PressArticle.list("-published_at", 10),
       ]).then(([news, press]) => {
         setItems(mergeAndSort(news, press));
         setLoading(false);

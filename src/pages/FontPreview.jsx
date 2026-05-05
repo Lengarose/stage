@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -7,7 +7,7 @@ export default function FontPreview() {
   const [allowed, setAllowed] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(u => setAllowed(u?.role === "admin"));
+    stageClient.auth.me().then(u => setAllowed(u?.role === "admin"));
   }, []);
 
   if (allowed === null) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,14 +44,14 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     setSearching(true);
     try {
       if (searchType === "club") {
-        const all = await base44.entities.Club.list("-rating", 2000);
+        const all = await stageClient.entities.Club.list("-rating", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(c =>
           c.id !== myClub?.id &&
           (c.name.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q))
         ).slice(0, 10));
       } else {
-        const all = await base44.entities.Player.list("-overall_rating", 2000);
+        const all = await stageClient.entities.Player.list("-overall_rating", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(p =>
           p.id !== myPlayer?.id &&
@@ -91,7 +91,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       } else {
         recipientEmail = selected.owner_email || null;
         if (!recipientEmail) {
-          const clubPlayers = await base44.entities.Player.filter({ club_id: selected.id });
+          const clubPlayers = await stageClient.entities.Player.filter({ club_id: selected.id });
           const president = clubPlayers.find(p =>
             p.club_roles?.includes("president") ||
             p.club_roles?.includes("captain") ||
@@ -113,7 +113,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds will be locked from your balance on acceptance.`
         : "";
 
-      await base44.entities.InboxMessage.create({
+      await stageClient.entities.InboxMessage.create({
         recipient_email:      recipientEmail,
         sender_email:         myPlayer?.email || "system@stage.com",
         sender_gamertag:      senderName,

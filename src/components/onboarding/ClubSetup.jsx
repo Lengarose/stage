@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
@@ -30,7 +30,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPendingLogo(file_url);
     setUploading(false);
     e.target.value = "";
@@ -41,7 +41,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     setSaving(true);
     try {
       const foundCountry = COUNTRIES.find(c => c.code === country);
-      const club = await base44.entities.Club.create({
+      const club = await stageClient.entities.Club.create({
         name,
         tag: tag.toUpperCase(),
         platform,
@@ -61,7 +61,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       });
 
       if (player) {
-        await base44.entities.Player.update(player.id, {
+        await stageClient.entities.Player.update(player.id, {
           club_id: club.id,
           club_roles: ["president", "captain"],
           role: "captain",

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { LIFESTYLE_CATEGORIES, LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,19 +24,19 @@ export default function Lifestyle() {
   const [collecting, setCollecting] = useState(false);
 
   const load = useCallback(async () => {
-    const u = await base44.auth.me();
+    const u = await stageClient.auth.me();
     setUser(u);
     const [players, storeItems, txns] = await Promise.all([
-      base44.entities.Player.filter({ email: u.email }),
-      base44.entities.LifestyleItem.filter({ is_active: true }, "sort_order", 100),
-      base44.entities.STCTransaction.filter({ player_email: u.email }, "-created_date", 20),
+      stageClient.entities.Player.filter({ email: u.email }),
+      stageClient.entities.LifestyleItem.filter({ is_active: true }, "sort_order", 100),
+      stageClient.entities.STCTransaction.filter({ player_email: u.email }, "-created_date", 20),
     ]);
     const pl = players[0];
     setPlayer(pl || null);
     setItems(storeItems);
     setTransactions(txns);
     if (pl) {
-      const owned = await base44.entities.LifestylePurchase.filter({ player_id: pl.id }, "-created_date", 200);
+      const owned = await stageClient.entities.LifestylePurchase.filter({ player_id: pl.id }, "-created_date", 200);
       setPurchases(owned);
     }
     setLoading(false);
@@ -54,7 +54,7 @@ export default function Lifestyle() {
     if (!player) return;
     setPurchasing(item.id);
     try {
-      const res = await base44.functions.invoke("buyLifestyleItem", {
+      const res = await stageClient.functions.invoke("buyLifestyleItem", {
         item_id: item.id,
         location_city: locationData.location_city || "",
         location_country: locationData.location_country || "",
@@ -63,7 +63,7 @@ export default function Lifestyle() {
       });
       setPlayer(prev => ({ ...prev, stc: res.data.new_stc_balance }));
       // Re-fetch purchases to get full object with new fields
-      const owned = await base44.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
+      const owned = await stageClient.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
       setPurchases(owned);
       showNotif(`${item.name}${locationData.location_city ? ` in ${locationData.location_city}` : ""} purchased!`, "success");
     } catch (err) {
@@ -76,9 +76,9 @@ export default function Lifestyle() {
     if (!player) return;
     setPurchasing(item.id);
     try {
-      const res = await base44.functions.invoke("rentLifestyleItem", { item_id: item.id });
+      const res = await stageClient.functions.invoke("rentLifestyleItem", { item_id: item.id });
       setPlayer(prev => ({ ...prev, stc: res.data.new_stc_balance }));
-      const owned = await base44.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
+      const owned = await stageClient.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
       setPurchases(owned);
       showNotif(`Now renting ${item.name} — ${item.rent_price_stc?.toLocaleString()} STC/month`, "success");
     } catch (err) {
@@ -90,7 +90,7 @@ export default function Lifestyle() {
   async function handleCollect() {
     setCollecting(true);
     try {
-      const res = await base44.functions.invoke("collectPassiveIncome", {});
+      const res = await stageClient.functions.invoke("collectPassiveIncome", {});
       if (res.data.collected > 0) {
         showNotif(`+${res.data.collected.toLocaleString()} STC collected from your properties!`, "success");
         await load();
@@ -251,7 +251,7 @@ export default function Lifestyle() {
               onCancelRent={(purchaseId) => setPurchases(prev => prev.filter(p => p.id !== purchaseId))}
               onResidenceChanged={async () => {
                 if (player) {
-                  const owned = await base44.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
+                  const owned = await stageClient.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 200);
                   setPurchases(owned);
                 }
               }}

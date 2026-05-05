@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Zap, X } from "lucide-react";
 import GameDayCard from "@/components/gameday/GameDayCard";
@@ -19,20 +19,20 @@ export default function GameDay() {
     let userEmail = null;
 
     async function load() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) {
         setLoading(false);
         return;
       }
 
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       userEmail = u.email;
 
       // Get player & club
       const [players, followData] = await Promise.all([
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.Follow.filter({ follower_email: u.email }),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.Follow.filter({ follower_email: u.email }),
       ]);
 
       if (players.length > 0) {
@@ -40,7 +40,7 @@ export default function GameDay() {
         setMyPlayer(player);
         
         if (player.club_id) {
-          const clubs = await base44.entities.Club.filter({ id: player.club_id });
+          const clubs = await stageClient.entities.Club.filter({ id: player.club_id });
           if (clubs.length > 0) setMyClub(clubs[0]);
         }
       }
@@ -53,7 +53,7 @@ export default function GameDay() {
     load();
 
     // Real-time subscription — keep live/active matches in the list
-    const unsubMatch = base44.entities.Match.subscribe((event) => {
+    const unsubMatch = stageClient.entities.Match.subscribe((event) => {
       if (!userEmail) return;
       setGames(prev => {
         if (event.type === "delete") {
@@ -104,32 +104,32 @@ export default function GameDay() {
     // This avoids N×status queries and stays within rate limits
     if (clubId) {
       fetchPromises.push(
-        base44.entities.Match.filter({ home_club_id: clubId }, "-scheduled_date", 50),
-        base44.entities.Match.filter({ away_club_id: clubId }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ home_club_id: clubId }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ away_club_id: clubId }, "-scheduled_date", 50),
       );
     }
     if (playerId) {
       fetchPromises.push(
-        base44.entities.Match.filter({ home_player_id: playerId }, "-scheduled_date", 50),
-        base44.entities.Match.filter({ away_player_id: playerId }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ home_player_id: playerId }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ away_player_id: playerId }, "-scheduled_date", 50),
       );
     }
 
     // Followed clubs/players — only scheduled + live (fewer queries)
     for (const fcId of followedClubIds.slice(0, 3)) {
       fetchPromises.push(
-        base44.entities.Match.filter({ home_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ away_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ home_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ away_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ home_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ away_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ home_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ away_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
       );
     }
     for (const fpId of followedPlayerIds.slice(0, 3)) {
       fetchPromises.push(
-        base44.entities.Match.filter({ home_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ away_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ home_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
-        base44.entities.Match.filter({ away_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ home_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ away_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ home_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
+        stageClient.entities.Match.filter({ away_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
       );
     }
 
@@ -154,7 +154,7 @@ export default function GameDay() {
       relevantGames.map(m => m.tournament_id).filter(tid => tid && tid !== "ranked")
     )];
     if (tIds.length > 0) {
-      const allTournaments = await base44.entities.Tournament.list("-created_date", 200);
+      const allTournaments = await stageClient.entities.Tournament.list("-created_date", 200);
       const tMap = {};
       allTournaments.forEach(t => { if (tIds.includes(t.id)) tMap[t.id] = t; });
       setTournamentMap(tMap);

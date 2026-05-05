@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import BannerPreviewEditor from "./BannerPreviewEditor";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES, getBannerStyle } from "@/lib/storeItems";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRef } from "react";
@@ -21,7 +21,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
   useEffect(() => {
     if (!open || !userEmail) return;
     async function load() {
-      const purchases = await base44.entities.UserPurchase.filter({ buyer_email: userEmail, item_type: "banner" });
+      const purchases = await stageClient.entities.UserPurchase.filter({ buyer_email: userEmail, item_type: "banner" });
       setOwnedIds(["banner_default", ...purchases.map(p => p.item_id)]);
       setLoading(false);
     }
@@ -32,7 +32,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setUploading(false);
     // Open position editor instead of immediately saving
     setPendingUrl(file_url);

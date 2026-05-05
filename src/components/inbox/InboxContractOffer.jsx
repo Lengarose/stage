@@ -3,7 +3,7 @@
  * Allows the player (or club owner) to Accept, Decline, or Counter the contract directly from Inbox.
  */
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -47,21 +47,21 @@ export default function InboxContractOffer({ message, onActioned }) {
     if (!contractId) { setLoading(false); return; }
     async function load() {
       const [user, contractArr] = await Promise.all([
-        base44.auth.me(),
-        base44.entities.PlayerContract.filter({ id: contractId }).catch(() => []),
+        stageClient.auth.me(),
+        stageClient.entities.PlayerContract.filter({ id: contractId }).catch(() => []),
       ]);
       const c = contractArr[0] || null;
       setContract(c);
 
       // Determine if I am the player or the club owner
       const [playerArr] = await Promise.all([
-        base44.entities.Player.filter({ email: user.email }),
+        stageClient.entities.Player.filter({ email: user.email }),
       ]);
       const player = playerArr[0] || null;
       setMyPlayer(player);
 
       if (c?.team_id) {
-        const clubArr = await base44.entities.Club.filter({ id: c.team_id });
+        const clubArr = await stageClient.entities.Club.filter({ id: c.team_id });
         const club = clubArr[0] || null;
         if (player?.club_id && player.club_id === c.team_id) setMyClub(club);
         setClubName(club?.name || message?.metadata?.club_name || null);
@@ -69,7 +69,7 @@ export default function InboxContractOffer({ message, onActioned }) {
         // RLS may hide owner_email; try president fallback
         let ownerEmail = club?.owner_email || null;
         if (!ownerEmail) {
-          const clubPlayers = await base44.entities.Player.filter({ club_id: c.team_id });
+          const clubPlayers = await stageClient.entities.Player.filter({ club_id: c.team_id });
           const president = clubPlayers.find(p =>
             p.club_roles?.includes("president") || p.role === "captain"
           ) || null;
@@ -87,7 +87,7 @@ export default function InboxContractOffer({ message, onActioned }) {
 
       // Check transfer window status
       try {
-        const winRes = await base44.functions.invoke("transferWindowActions", { action: "get_current" });
+        const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
         setWindowOpen(winRes?.data?.window?.status === "open");
       } catch (_) {
         setWindowOpen(false); // default to closed if can't check
@@ -138,14 +138,14 @@ export default function InboxContractOffer({ message, onActioned }) {
         const isRenewal = myPlayer?.club_id && myPlayer.club_id === contract.team_id;
         if (!isRenewal && !windowOpen) {
           // Queue as pending_window — will execute when admin opens the window
-          await base44.entities.PlayerContract.update(contractId, { status: "pending_window" });
+          await stageClient.entities.PlayerContract.update(contractId, { status: "pending_window" });
           setContract(prev => ({ ...prev, status: "pending_window" }));
           onActioned?.("pending_window");
           return;
         }
         const today = new Date().toISOString().split("T")[0];
         const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
-        await base44.entities.PlayerContract.update(contractId, {
+        await stageClient.entities.PlayerContract.update(contractId, {
           status: "active",
           start_date: today,
           end_date: endDate,
@@ -155,13 +155,13 @@ export default function InboxContractOffer({ message, onActioned }) {
         // Deduct signing bonus from club balance and record in finance
         if ((contract.signing_bonus_stc || 0) > 0) {
           try {
-            const clubArr = await base44.entities.Club.filter({ id: contract.team_id });
+            const clubArr = await stageClient.entities.Club.filter({ id: contract.team_id });
             const contractClub = clubArr[0];
             if (contractClub) {
-              await base44.entities.Club.update(contractClub.id, {
+              await stageClient.entities.Club.update(contractClub.id, {
                 transfer_budget_stc: Math.max(0, (contractClub.transfer_budget_stc || 0) - contract.signing_bonus_stc),
               });
-              await base44.entities.STCTransaction.create({
+              await stageClient.entities.STCTransaction.create({
                 club_id: contractClub.id,
                 amount: -contract.signing_bonus_stc,
                 type: "signing_bonus",
@@ -185,7 +185,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           link: `/clubs/${contract.team_id}`,
         });
       } else {
-        await base44.entities.PlayerContract.update(contractId, { status: "rejected" });
+        await stageClient.entities.PlayerContract.update(contractId, { status: "rejected" });
         setContract(prev => ({ ...prev, status: "rejected" }));
         notify(clubOwnerEmail, "contract_rejected",
           `❌ Contract Declined`,
@@ -223,7 +223,7 @@ export default function InboxContractOffer({ message, onActioned }) {
       if (counterFee)    updatedFields.transfer_fee_stc   = parseInt(counterFee);
       if (counterTargets.length > 0) updatedFields.performance_targets = counterTargets;
 
-      await base44.entities.PlayerContract.update(contractId, updatedFields);
+      await stageClient.entities.PlayerContract.update(contractId, updatedFields);
       setContract(prev => ({ ...prev, ...updatedFields }));
       setShowCounter(false);
       setCounterNote("");

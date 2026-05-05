@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { Star, Target, TrendingUp, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,8 @@ export default function Players() {
   useEffect(() => {
     async function load() {
       const [data, clubData] = await Promise.all([
-        base44.entities.Player.list("-overall_rating", 500),
-        base44.entities.Club.list(),
+        stageClient.entities.Player.list("-overall_rating", 500),
+        stageClient.entities.Club.list(),
       ]);
       setPlayers(data);
       const clubMap = {};

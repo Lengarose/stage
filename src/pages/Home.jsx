@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useTranslation } from '@/hooks/useTranslation';
 import { Shield, Trophy, TrendingUp, ArrowRight, Search, Rss, Inbox } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -28,15 +28,15 @@ export default function Home() {
 
   useEffect(() => {
     async function load() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [c, t, pl, matches] = await Promise.all([
-        base44.entities.Club.list("-rating", 5),
-        base44.entities.Tournament.filter({ status: "registration" }, "-created_date", 3),
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.Match.filter({ status: "completed" }, "-created_date", 5),
+        stageClient.entities.Club.list("-rating", 5),
+        stageClient.entities.Tournament.filter({ status: "registration" }, "-created_date", 3),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.Match.filter({ status: "completed" }, "-created_date", 5),
       ]);
       setClubs(c);
       setTournaments(t);
@@ -148,7 +148,7 @@ export default function Home() {
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-10">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-border p-8 sm:p-12" style={{ backgroundImage: "url(https://media.base44.com/images/public/69d77ebfc021efa72e236f84/9bfa29b97_IMG_6871.png)", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
+      <div className="relative overflow-hidden rounded-2xl border border-border p-8 sm:p-12" style={{ backgroundImage: "url(https://media.stageClient.com/images/public/69d77ebfc021efa72e236f84/9bfa29b97_IMG_6871.png)", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
         <div className="absolute inset-0 bg-black/20 rounded-2xl" />
         <div className="relative">
 

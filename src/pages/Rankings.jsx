@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useTranslation } from '@/hooks/useTranslation';
 import { BarChart3, Trophy, User, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -171,8 +171,8 @@ export default function Rankings() {
   useEffect(() => {
     async function load() {
       const [clubData, playerData] = await Promise.all([
-        base44.entities.Club.list("-rating", 100),
-        base44.entities.Player.list("-overall_rating", 100),
+        stageClient.entities.Club.list("-rating", 100),
+        stageClient.entities.Player.list("-overall_rating", 100),
       ]);
       setClubs(clubData);
       setPlayers(playerData);

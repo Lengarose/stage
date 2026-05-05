@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { ArrowLeft, User, Search, Users, Check, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,8 +23,8 @@ export default function PlayersRegistered() {
   useEffect(() => {
     async function load() {
       const [tData, players] = await Promise.all([
-        base44.entities.Tournament.filter({ id }, null, 1),
-        base44.entities.Player.list("-overall_rating", 200),
+        stageClient.entities.Tournament.filter({ id }, null, 1),
+        stageClient.entities.Player.list("-overall_rating", 200),
       ]);
       const t = tData[0];
       setTournament(t);
@@ -55,7 +55,7 @@ export default function PlayersRegistered() {
 
   async function save() {
     setSaving(true);
-    await base44.entities.Tournament.update(id, { registered_players: [...selected] });
+    await stageClient.entities.Tournament.update(id, { registered_players: [...selected] });
     setTournament(prev => ({ ...prev, registered_players: [...selected] }));
     setSaving(false);
     alert("Participants saved!");

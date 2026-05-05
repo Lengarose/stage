@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, Legend
@@ -38,7 +38,7 @@ export default function ClubPlayerStats({ players, clubId }) {
 
   useEffect(() => {
     async function load() {
-      const data = await base44.entities.MatchPlayerStat.filter({ club_id: clubId });
+      const data = await stageClient.entities.MatchPlayerStat.filter({ club_id: clubId });
       setStats(data);
       setLoading(false);
     }

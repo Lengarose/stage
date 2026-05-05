@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 import { useAuth } from '@/lib/AuthContext';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Logo.PNG';
@@ -55,24 +55,36 @@ const ProviderButton = ({ onClick, icon, label, className = '' }) => (
 
 export default function Login() {
   const { checkUserAuth } = useAuth();
+  const [mode, setMode] = useState('signin');
+  const isSignup = mode === 'signup';
+
   const [email, setEmail] = useState('');
+  const [gamertag, setGamertag] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleEmailLogin = async (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (isSignup && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
     setIsLoading(true);
     try {
-      const { access_token } = await base44.auth.loginViaEmailPassword(email, password);
+      const { access_token } = isSignup
+        ? await stageClient.auth.registerViaEmailPassword({ email, password, gamertag })
+        : await stageClient.auth.loginViaEmailPassword(email, password);
       if (access_token) {
-        base44.auth.setToken(access_token);
+        stageClient.auth.setToken(access_token);
         await checkUserAuth();
       }
-    } catch {
-      setError('Invalid email or password. Please try again.');
+    } catch (err) {
+      setError(err?.error || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email or password. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -101,25 +113,27 @@ export default function Login() {
           {/* Branding */}
           <div className="flex flex-col items-center mb-7 gap-2">
             <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
-            <p className="text-white/50 text-xs uppercase tracking-[0.25em]">Welcome back</p>
+            <p className="text-white/50 text-xs uppercase tracking-[0.25em]">
+              {isSignup ? 'Create account' : 'Welcome back'}
+            </p>
           </div>
 
           {/* OAuth providers */}
           <div className="space-y-3 mb-5">
             <ProviderButton
-              onClick={() => base44.auth.loginWithProvider('google', window.location.href)}
+              onClick={() => stageClient.auth.loginWithProvider('google', window.location.href)}
               icon={<GoogleIcon />}
               label="Continue with Google"
               className="bg-white text-gray-800 hover:bg-gray-100 active:bg-gray-200"
             />
             <ProviderButton
-              onClick={() => base44.auth.loginWithProvider('microsoft', window.location.href)}
+              onClick={() => stageClient.auth.loginWithProvider('microsoft', window.location.href)}
               icon={<MicrosoftIcon />}
               label="Continue with Outlook"
               className="bg-[#0078D4] text-white hover:bg-[#006CBE] active:bg-[#005EA6]"
             />
             <ProviderButton
-              onClick={() => base44.auth.loginWithProvider('apple', window.location.href)}
+              onClick={() => stageClient.auth.loginWithProvider('apple', window.location.href)}
               icon={<AppleIcon />}
               label="Continue with Apple"
               className="bg-black text-white hover:bg-neutral-900 active:bg-neutral-800"
@@ -134,7 +148,17 @@ export default function Login() {
           </div>
 
           {/* Email / Password form */}
-          <form onSubmit={handleEmailLogin} className="space-y-3">
+          <form onSubmit={handleAuthSubmit} className="space-y-3">
+            {isSignup && (
+              <input
+                type="text"
+                placeholder="Gamertag"
+                value={gamertag}
+                onChange={e => setGamertag(e.target.value)}
+                className="w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all"
+              />
+            )}
+
             <input
               type="email"
               placeholder="Email address"
@@ -162,6 +186,26 @@ export default function Login() {
               </button>
             </div>
 
+            {isSignup && (
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/65 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
+            )}
+
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -184,10 +228,21 @@ export default function Login() {
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-[#0d2461]/25 border-t-[#0d2461] rounded-full animate-spin" />
-                  Signing in…
+                  {isSignup ? 'Creating account…' : 'Signing in…'}
                 </span>
-              ) : 'Sign In'}
+              ) : (isSignup ? 'Create Account' : 'Sign In')}
             </motion.button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError('');
+                setMode(isSignup ? 'signin' : 'signup');
+              }}
+              className="w-full text-center text-xs text-white/60 hover:text-white/90 transition-colors pt-1"
+            >
+              {isSignup ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            </button>
           </form>
         </div>
       </motion.div>

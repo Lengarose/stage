@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from '@/hooks/useTranslation';
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Plus, Calendar, Users, Crown, Upload, X, BookOpen } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import ImagePositionEditor from "../components/ImagePositionEditor";
@@ -50,18 +50,18 @@ export default function Tournaments() {
 
   useEffect(() => {
     async function load() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
       const [data, user] = await Promise.all([
-        base44.entities.Tournament.list("-created_date", 100),
-        base44.auth.me(),
+        stageClient.entities.Tournament.list("-created_date", 100),
+        stageClient.auth.me(),
       ]);
       setTournaments(data);
       if (user.role === "admin") {
         setCanCreate(true);
         setIsVerified(true);
       } else {
-        const players = await base44.entities.Player.filter({ email: user.email });
+        const players = await stageClient.entities.Player.filter({ email: user.email });
         const player = players[0];
         setMyPlayer(player);
         const tier = player?.subscription || "rookie";
@@ -96,14 +96,14 @@ export default function Tournaments() {
     setPosEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
     setUploadingBanner(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: bannerFile });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
     setForm(f => ({ ...f, banner_url: file_url }));
     setBannerPreview(file_url);
     setUploadingBanner(false);
   }
 
   async function createTournament() {
-    const user = await base44.auth.me();
+    const user = await stageClient.auth.me();
     if (user.role !== "admin") {
       const tier = myPlayer?.subscription || "rookie";
       if (!["pro", "elite"].includes(tier)) {
@@ -122,14 +122,14 @@ export default function Tournaments() {
     }
     let trophy_url = "";
     if (trophyFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: trophyFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: trophyFile });
       trophy_url = res.file_url;
     }
     let tournamentName = form.name;
     if (user.role === "admin") {
       tournamentName = `By STAGE · ${form.name}`;
     }
-    await base44.entities.Tournament.create({
+    await stageClient.entities.Tournament.create({
       ...form,
       name: tournamentName,
       max_teams: parseInt(form.max_teams),
@@ -146,7 +146,7 @@ export default function Tournaments() {
       banner_position: form.banner_position,
       trophy_url,
     });
-    const updated = await base44.entities.Tournament.list("-created_date", 100);
+    const updated = await stageClient.entities.Tournament.list("-created_date", 100);
     setTournaments(updated);
     setDialogOpen(false);
     setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", prize_description: "", start_date: "", entry_credits: "50", entry_fee_stc: "0", banner_url: "", banner_color: "#1a2a4a", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "" });
@@ -379,7 +379,7 @@ export default function Tournaments() {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 setUploadingRules(true);
-                                const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                                const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
                                 setForm(f => ({ ...f, rules_file_url: file_url }));
                                 setUploadingRules(false);
                                 e.target.value = "";

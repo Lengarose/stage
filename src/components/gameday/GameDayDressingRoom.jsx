@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,8 +20,8 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
       if (!myClub) { setLoading(false); return; }
 
       const [players, dressing] = await Promise.all([
-        base44.entities.Player.filter({ club_id: myClub.id }),
-        base44.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.Player.filter({ club_id: myClub.id }),
+        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
       ]);
 
       setClubPlayers(players || []);
@@ -37,7 +37,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
 
   // Subscribe to real-time dressing room updates
   useEffect(() => {
-    const unsub = base44.entities.DressingRoom.subscribe((event) => {
+    const unsub = stageClient.entities.DressingRoom.subscribe((event) => {
       if (event.data?.match_id === game.id && event.data?.club_id === myClub?.id) {
         setSeatedPlayerIds(event.data.seated_players || []);
         if (event.data.id) setDressingRoomId(event.data.id);
@@ -57,9 +57,9 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
     setSeatedPlayerIds(newSeated);
 
     if (dressingRoomId) {
-      await base44.entities.DressingRoom.update(dressingRoomId, { seated_players: newSeated });
+      await stageClient.entities.DressingRoom.update(dressingRoomId, { seated_players: newSeated });
     } else {
-      const created = await base44.entities.DressingRoom.create({
+      const created = await stageClient.entities.DressingRoom.create({
         match_id: game.id,
         club_id: myClub.id,
         seated_players: newSeated,

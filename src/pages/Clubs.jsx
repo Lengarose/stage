@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useTranslation } from '@/hooks/useTranslation';
 import { Shield, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ export default function Clubs() {
 
   useEffect(() => {
     async function load() {
-      const data = await base44.entities.Club.list("-rating", 100);
+      const data = await stageClient.entities.Club.list("-rating", 100);
       setClubs(data);
       setLoading(false);
     }

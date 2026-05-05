@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Radio, ExternalLink, Pencil, X, Plus, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -174,7 +174,7 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
   async function saveStream(url) {
     setSaving(true);
     const field = isMyHomeStream ? "home_stream_url" : "away_stream_url";
-    await base44.entities.Match.update(game.id, { [field]: url || null });
+    await stageClient.entities.Match.update(game.id, { [field]: url || null });
     const updated = { ...game, [field]: url || null };
     setEditing(false);
     setSaving(false);
@@ -183,7 +183,7 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
 
   async function saveEmbedHtml(html) {
     setSaving(true);
-    await base44.entities.Match.update(game.id, { stream_embed_html: html || null });
+    await stageClient.entities.Match.update(game.id, { stream_embed_html: html || null });
     const updated = { ...game, stream_embed_html: html || null };
     setEditing(false);
     setSaving(false);
@@ -193,7 +193,7 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
   async function removeStream() {
     setSaving(true);
     const field = isMyHomeStream ? "home_stream_url" : "away_stream_url";
-    await base44.entities.Match.update(game.id, { [field]: null });
+    await stageClient.entities.Match.update(game.id, { [field]: null });
     const updated = { ...game, [field]: null };
     setSaving(false);
     if (onGameUpdate) onGameUpdate(updated);
@@ -201,7 +201,7 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
 
   async function removeEmbedHtml() {
     setSaving(true);
-    await base44.entities.Match.update(game.id, { stream_embed_html: null });
+    await stageClient.entities.Match.update(game.id, { stream_embed_html: null });
     const updated = { ...game, stream_embed_html: null };
     setSaving(false);
     if (onGameUpdate) onGameUpdate(updated);

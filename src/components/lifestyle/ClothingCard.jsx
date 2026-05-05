@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
 import { TrendingUp } from "lucide-react";

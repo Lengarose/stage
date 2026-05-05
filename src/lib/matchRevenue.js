@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 import { calcAttendance } from './fanAttendance';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -7,7 +7,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 
 async function createTransaction(clubId, amount, type, description, referenceId) {
   try {
-    await base44.entities.STCTransaction.create({
+    await stageClient.entities.STCTransaction.create({
       club_id:      clubId,
       amount,
       type,
@@ -21,7 +21,7 @@ async function createTransaction(clubId, amount, type, description, referenceId)
 
 async function sendOwnerMessage(ownerEmail, subject, body, matchId) {
   try {
-    await base44.entities.InboxMessage.create({
+    await stageClient.entities.InboxMessage.create({
       recipient_email:     ownerEmail,
       sender_email:        'system@stage.com',
       subject,
@@ -56,7 +56,7 @@ export async function processMatchRevenue(gameSnapshot) {
 
   // ── Guard: skip if already processed ─────────────────────
   try {
-    const existing = await base44.entities.InboxMessage.filter({
+    const existing = await stageClient.entities.InboxMessage.filter({
       related_entity_id:   gameSnapshot.id,
       related_entity_type: 'match_revenue',
     });
@@ -67,7 +67,7 @@ export async function processMatchRevenue(gameSnapshot) {
 
   try {
     // ── Fetch fresh match data (has final scores + wager state) ──
-    const matches = await base44.entities.Match.filter({ id: gameSnapshot.id }, null, 1);
+    const matches = await stageClient.entities.Match.filter({ id: gameSnapshot.id }, null, 1);
     const game = matches[0];
     if (!game) return;
 
@@ -80,9 +80,9 @@ export async function processMatchRevenue(gameSnapshot) {
 
     // ── Fetch both clubs ───────────────────────────────────────
     const [homeArr, awayArr] = await Promise.all([
-      base44.entities.Club.filter({ id: game.home_club_id }, null, 1),
+      stageClient.entities.Club.filter({ id: game.home_club_id }, null, 1),
       game.away_club_id
-        ? base44.entities.Club.filter({ id: game.away_club_id }, null, 1)
+        ? stageClient.entities.Club.filter({ id: game.away_club_id }, null, 1)
         : Promise.resolve([]),
     ]);
     const homeClub = homeArr[0];
@@ -92,7 +92,7 @@ export async function processMatchRevenue(gameSnapshot) {
     // ── 1. TICKET REVENUE (home club only) ────────────────────
     const att = calcAttendance(homeClub);
     const newHomeStcAfterTickets = (homeClub.stc || 0) + att.revenue;
-    await base44.entities.Club.update(homeClub.id, { stc: newHomeStcAfterTickets });
+    await stageClient.entities.Club.update(homeClub.id, { stc: newHomeStcAfterTickets });
     await createTransaction(
       homeClub.id,
       att.revenue,
@@ -121,14 +121,14 @@ export async function processMatchRevenue(gameSnapshot) {
       if (isDraw) {
         // Refund both clubs
         await Promise.all([
-          base44.entities.Club.update(homeClub.id, { stc: newHomeStcAfterTickets + wagerEach }),
-          base44.entities.Club.update(awayClub.id,  { stc: (awayClub.stc || 0) + wagerEach }),
+          stageClient.entities.Club.update(homeClub.id, { stc: newHomeStcAfterTickets + wagerEach }),
+          stageClient.entities.Club.update(awayClub.id,  { stc: (awayClub.stc || 0) + wagerEach }),
         ]);
         await Promise.all([
           createTransaction(homeClub.id,  wagerEach, 'wager_refund', `Wager refunded (draw) — ${matchLabel}`, game.id),
           createTransaction(awayClub.id,  wagerEach, 'wager_refund', `Wager refunded (draw) — ${matchLabel}`, game.id),
         ]);
-        await base44.entities.Match.update(game.id, { wager_status: 'refunded' });
+        await stageClient.entities.Match.update(game.id, { wager_status: 'refunded' });
         wagerSummary = { type: 'draw', each: wagerEach };
 
       } else {
@@ -139,13 +139,13 @@ export async function processMatchRevenue(gameSnapshot) {
         const winnerNewStc = (winnerClub.id === homeClub.id)
           ? newHomeStcAfterTickets + pot
           : (winnerClub.stc || 0) + pot;
-        await base44.entities.Club.update(winnerClub.id, { stc: winnerNewStc });
+        await stageClient.entities.Club.update(winnerClub.id, { stc: winnerNewStc });
 
         await Promise.all([
           createTransaction(winnerClub.id, pot,         'wager_win',  `Wager won — ${matchLabel} (${scoreLabel})`,  game.id),
           createTransaction(loserClub.id,  -wagerEach,  'wager_loss', `Wager lost — ${matchLabel} (${scoreLabel})`, game.id),
         ]);
-        await base44.entities.Match.update(game.id, { wager_status: 'settled' });
+        await stageClient.entities.Match.update(game.id, { wager_status: 'settled' });
         wagerSummary = { type: 'settled', pot, winner: winnerClub.name, loser: loserClub.name, homeWins };
       }
     }

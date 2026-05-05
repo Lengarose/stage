@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Share2 } from "lucide-react";
@@ -198,7 +198,7 @@ export default function FormationPitch({ club, players, canEdit, onUpdate, curre
     if (onSaveToMatch) {
       await onSaveToMatch({ formation, lineup });
     } else {
-      await base44.entities.Club.update(club.id, { formation, lineup });
+      await stageClient.entities.Club.update(club.id, { formation, lineup });
       onUpdate?.({ formation, lineup });
     }
     setSaving(false);
@@ -212,7 +212,7 @@ export default function FormationPitch({ club, players, canEdit, onUpdate, curre
       return `${label}: ${p ? p.gamertag : "?"}`;
     }).join("  |  ");
 
-    await base44.entities.Post.create({
+    await stageClient.entities.Post.create({
       author_email: currentUserEmail,
       author_name: club.name,
       content: `📋 **${club.name} Starting Lineup** (${formation})\n\n${text}`,

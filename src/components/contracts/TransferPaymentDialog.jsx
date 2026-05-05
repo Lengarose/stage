@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Coins, Loader2, ArrowRight } from "lucide-react";
 import { formatSTC } from "@/lib/playerValue";
 import { notify, postContractNews } from "@/lib/notify";
@@ -25,12 +25,12 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
     setLoading(true);
     setError(null);
     try {
-      await base44.entities.Club.update(myClub.id, {
+      await stageClient.entities.Club.update(myClub.id, {
         stc: myBalance - feeNum,
         transfer_budget_stc: Math.max(0, myTransferBudget - feeNum),
       });
       if (targetClub) {
-        await base44.entities.Club.update(targetClub.id, {
+        await stageClient.entities.Club.update(targetClub.id, {
           stc: (targetClub.stc || 0) + feeNum,
           transfer_budget_stc: (targetClub.transfer_budget_stc || 0) + feeNum,
         });

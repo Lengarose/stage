@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
 import { getSubscriptionTier, TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
 import { ShoppingBag, Coins, Check, Crown, Image, Frame, Shield, Plus, Sparkles, User } from "lucide-react";
@@ -22,9 +22,9 @@ const CREDIT_PACKS = [
 ];
 
 const BADGE_IMAGES = {
-  sub_rookie: "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
-  sub_pro:    "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
-  sub_elite:  "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
+  sub_rookie: "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
+  sub_pro:    "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
+  sub_elite:  "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
 };
 
 export default function Store() {
@@ -43,16 +43,16 @@ export default function Store() {
 
   useEffect(() => {
     async function load() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [pl, purch] = await Promise.all([
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.UserPurchase.filter({ buyer_email: u.email }),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.UserPurchase.filter({ buyer_email: u.email }),
       ]);
       if (pl.length > 0) {
         setPlayer(pl[0]);
         if (pl[0].club_id) {
-          const clubs = await base44.entities.Club.filter({ id: pl[0].club_id });
+          const clubs = await stageClient.entities.Club.filter({ id: pl[0].club_id });
           if (clubs[0]) setMyClub(clubs[0]);
         }
       }
@@ -65,9 +65,9 @@ export default function Store() {
         setActiveTab('subscription');
         window.history.replaceState({}, '', '/store');
         try {
-          const fixRes = await base44.functions.invoke('fixSubscription', { email: u.email });
+          const fixRes = await stageClient.functions.invoke('fixSubscription', { email: u.email });
           if (fixRes.data?.success) {
-            const refreshed = await base44.entities.Player.filter({ email: u.email });
+            const refreshed = await stageClient.entities.Player.filter({ email: u.email });
             if (refreshed[0]) setPlayer(refreshed[0]);
             showNotif(`🌟 STAGE ${fixRes.data.tier?.toUpperCase()} activated! +${fixRes.data.credits_added} credits added.`, 'success');
           } else {
@@ -109,7 +109,7 @@ export default function Store() {
     if (window.self !== window.top) { alert("Checkout is only available from the published app, not the preview."); return; }
     setPurchasing(pack.id);
     try {
-      const res = await base44.functions.invoke('stripeCheckout', {
+      const res = await stageClient.functions.invoke('stripeCheckout', {
         packId: pack.id,
         creditTarget,
         successUrl: `${window.location.origin}/store?payment=success&pack=${pack.id}&credits=${pack.credits}&target=${creditTarget}`,
@@ -135,7 +135,7 @@ export default function Store() {
     setPurchasing(`sub_${tier}`);
     setSubError(null);
     try {
-      const res = await base44.functions.invoke('stripeSubscription', {
+      const res = await stageClient.functions.invoke('stripeSubscription', {
         tier,
         billing: subBilling,
         successUrl: `${window.location.origin}/store?sub=success&tier=${tier}&billing=${subBilling}`,
@@ -156,14 +156,14 @@ export default function Store() {
     if (currentCredits < item.price) { showNotif("Not enough STAGE Credits!", "error"); return; }
     setPurchasing(item.id);
     try {
-      const res = await base44.functions.invoke('spendCredits', {
+      const res = await stageClient.functions.invoke('spendCredits', {
         amount: item.price, target: 'player',
         item_id: item.id, item_name: item.name, item_type: item.type,
       });
       setPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
       setPurchases(prev => [...prev, { item_id: item.id, item_type: item.type }]);
       showNotif(`${item.name} unlocked!`, "success");
-      await base44.entities.Notification.create({
+      await stageClient.entities.Notification.create({
         recipient_email: user.email, type: "result_confirmed",
         title: `🎁 ${item.name} unlocked!`,
         body: `You spent ${item.price} credits. Equip it from your Profile.`,

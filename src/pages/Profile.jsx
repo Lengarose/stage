@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import {
   User, Shield, Save, Plus, LogOut, Gamepad2, Target,
   Camera, Loader2, Edit2, Check, X,
@@ -61,14 +61,14 @@ export default function Profile() {
 
   useEffect(() => {
     async function load() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [pl, cl, ownedClubs] = await Promise.all([
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.Club.list("-rating", 200),
-        base44.entities.Club.filter({ owner_email: u.email }),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.Club.list("-rating", 200),
+        stageClient.entities.Club.filter({ owner_email: u.email }),
       ]);
       setClubs(cl);
       if (pl.length > 0) {
@@ -85,8 +85,8 @@ export default function Profile() {
           shirt_number: p.shirt_number ?? "",
         });
         // Load PvP matches in background
-        base44.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpHome => {
-          base44.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpAway => {
+        stageClient.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpHome => {
+          stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpAway => {
             const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
             const pvpMap = new Map();
             allPvp.forEach(m => pvpMap.set(m.id, m));
@@ -96,7 +96,7 @@ export default function Profile() {
 
         let memberClub = p.club_id ? (cl.find(c => c.id === p.club_id) || null) : null;
         if (!memberClub && p.club_id) {
-          const direct = await base44.entities.Club.filter({ id: p.club_id });
+          const direct = await stageClient.entities.Club.filter({ id: p.club_id });
           memberClub = direct[0] || null;
         }
         const ownedClub = ownedClubs[0] || null;
@@ -117,9 +117,9 @@ export default function Profile() {
         setView("edit_player");
       }
       const [notifs, joinReqs] = await Promise.all([
-        base44.entities.Notification.filter({ recipient_email: u.email }, "-created_date", 30),
+        stageClient.entities.Notification.filter({ recipient_email: u.email }, "-created_date", 30),
         pl.length > 0 && pl[0].club_id
-          ? base44.entities.JoinRequest.filter({ club_id: pl[0].club_id, status: "pending" }, "-created_date", 30)
+          ? stageClient.entities.JoinRequest.filter({ club_id: pl[0].club_id, status: "pending" }, "-created_date", 30)
           : Promise.resolve([]),
       ]);
       setNotifications(notifs);
@@ -136,10 +136,10 @@ export default function Profile() {
       shirt_number: playerForm.shirt_number !== "" ? Number(playerForm.shirt_number) : null,
     };
     if (player) {
-      await base44.entities.Player.update(player.id, formToSave);
+      await stageClient.entities.Player.update(player.id, formToSave);
       setPlayer(prev => ({ ...prev, ...formToSave }));
     } else {
-      const created = await base44.entities.Player.create({
+      const created = await stageClient.entities.Player.create({
         ...formToSave,
         email: user.email,
         credits: 500,
@@ -155,7 +155,7 @@ export default function Profile() {
   async function saveClub() {
     if (!myClub) return;
     setSavingClub(true);
-    await base44.entities.Club.update(myClub.id, {
+    await stageClient.entities.Club.update(myClub.id, {
       name: clubForm.name,
       tag: clubForm.tag,
       platform: clubForm.platform,
@@ -172,7 +172,7 @@ export default function Profile() {
     const file = e.target.files[0];
     if (!file || !player) return;
     setUploadingAvatar(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setUploadingAvatar(false);
     setPendingAvatar(file_url);
     e.target.value = "";
@@ -180,7 +180,7 @@ export default function Profile() {
 
   async function saveAvatar(url, position, zoom) {
     if (!player) return;
-    await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
+    await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
     setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
     setPendingAvatar(null);
   }
@@ -189,7 +189,7 @@ export default function Profile() {
     if (!user || !player) return;
     // Use the backend createClub function to properly initialize the club
     // (sets up ownership contract, correct roles, etc.)
-    const res = await base44.functions.invoke("createClub", {
+    const res = await stageClient.functions.invoke("createClub", {
       clubData: {
         ...clubForm,
         owner_email: user.email,
@@ -199,7 +199,7 @@ export default function Profile() {
     const newClub = res?.data?.club;
     if (!newClub) return;
     // Refresh player to get updated club_id and roles set by the backend
-    const refreshed = await base44.entities.Player.filter({ email: user.email });
+    const refreshed = await stageClient.entities.Player.filter({ email: user.email });
     if (refreshed[0]) setPlayer(refreshed[0]);
     setMyClub(newClub);
     setClubForm({
@@ -216,7 +216,7 @@ export default function Profile() {
 
   async function leaveClub() {
     if (!player) return;
-    await base44.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
+    await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
     setPlayer(prev => ({ ...prev, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
     setMyClub(null);
     setView("profile");
@@ -256,7 +256,7 @@ export default function Profile() {
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
               </button>
             )}
-            <button onClick={() => base44.auth.logout()} className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
+            <button onClick={() => stageClient.auth.logout()} className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
               <LogOut className="w-5 h-5 text-white/70" />
             </button>
           </div>
@@ -469,7 +469,7 @@ export default function Profile() {
             setClubOnboardingOpen(false);
             if (club) {
               setMyClub(club);
-              const refreshed = await base44.entities.Player.filter({ email: user.email });
+              const refreshed = await stageClient.entities.Player.filter({ email: user.email });
               if (refreshed[0]) setPlayer(refreshed[0]);
             }
           }}
@@ -484,7 +484,7 @@ export default function Profile() {
           initialPosition={player?.avatar_position}
           initialZoom={player?.avatar_zoom}
           onConfirm={async (url, position, zoom) => {
-            await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
+            await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setAvatarEditorOpen(false);
           }}
@@ -623,7 +623,7 @@ export default function Profile() {
           onSelect={async (bannerId, position, zoom) => {
             const update = { banner_id: bannerId };
             if (position) update.banner_position = position;
-            if (player) await base44.entities.Player.update(player.id, update);
+            if (player) await stageClient.entities.Player.update(player.id, update);
             setPlayer(prev => ({ ...prev, ...update }));
             setBannerDialogOpen(false);
           }}
@@ -636,7 +636,7 @@ export default function Profile() {
           imageUrl={pendingAvatar}
           aspect="avatar"
           onConfirm={async (url, position, zoom) => {
-            await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
+            await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setPendingAvatar(null);
           }}
@@ -651,7 +651,7 @@ export default function Profile() {
           initialPosition={player?.avatar_position}
           initialZoom={player?.avatar_zoom}
           onConfirm={async (url, position, zoom) => {
-            await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
+            await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setAvatarEditorOpen(false);
           }}
@@ -726,7 +726,7 @@ export default function Profile() {
                 setClubOnboardingOpen(false);
                 if (club) {
                   setMyClub(club);
-                  const refreshed = await base44.entities.Player.filter({ email: user.email });
+                  const refreshed = await stageClient.entities.Player.filter({ email: user.email });
                   if (refreshed[0]) setPlayer(refreshed[0]);
                   setView("club");
                 }
@@ -833,7 +833,7 @@ export default function Profile() {
                 {n.link && <a href={n.link} className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"><ExternalLink className="w-3.5 h-3.5" /></a>}
                 {!n.read && (
                   <button onClick={async () => {
-                    await base44.entities.Notification.update(n.id, { read: true });
+                    await stageClient.entities.Notification.update(n.id, { read: true });
                     setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
                   }} className="p-1.5 rounded-lg hover:bg-success/10 text-success transition-colors">
                     <Check className="w-3.5 h-3.5" />
@@ -870,16 +870,16 @@ export default function Profile() {
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button size="sm" onClick={async () => {
-                  await base44.entities.JoinRequest.update(req.id, { status: "approved" });
-                  await base44.entities.Player.update(req.player_id, { club_id: req.club_id, role: "member", club_roles: ["member"], status: "active" });
-                  await base44.entities.Notification.create({ recipient_email: req.player_email, type: "join_approved", title: `Welcome to ${req.club_name}!`, body: "Your join request was approved.", link: `/clubs/${req.club_id}`, read: false });
+                  await stageClient.entities.JoinRequest.update(req.id, { status: "approved" });
+                  await stageClient.entities.Player.update(req.player_id, { club_id: req.club_id, role: "member", club_roles: ["member"], status: "active" });
+                  await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_approved", title: `Welcome to ${req.club_name}!`, body: "Your join request was approved.", link: `/clubs/${req.club_id}`, read: false });
                   setJoinRequests(prev => prev.filter(r => r.id !== req.id));
                 }} className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
                   <Check className="w-3 h-3 mr-1" /> Accept
                 </Button>
                 <Button size="sm" onClick={async () => {
-                  await base44.entities.JoinRequest.update(req.id, { status: "rejected" });
-                  await base44.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });
+                  await stageClient.entities.JoinRequest.update(req.id, { status: "rejected" });
+                  await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });
                   setJoinRequests(prev => prev.filter(r => r.id !== req.id));
                 }} className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 text-xs h-7">
                   <X className="w-3 h-3 mr-1" /> Decline
