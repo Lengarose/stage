@@ -127,6 +127,10 @@
     "admin_notes": {
       "type": "string",
       "title": "Admin Notes"
+    },
+    "trophy_image_url": {
+      "type": "string",
+      "title": "Trophy Image URL (PNG displayed in reward screens)"
     }
   },
   "required": ["name", "country_code", "region", "platform", "season_number"]

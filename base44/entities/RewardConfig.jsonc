@@ -2,18 +2,18 @@
   "name": "RewardConfig",
   "type": "object",
   "properties": {
-    "source_id": { "type": "string", "title": "Source ID" },
-    "source_type": { "type": "string", "title": "Source Type", "enum": ["competition", "regional_league"] },
-    "source_name": { "type": "string", "title": "Source Name" },
-    "position": { "type": "number", "title": "Position", "default": 1 },
-    "position_label": { "type": "string", "title": "Position Label" },
+    "source_id":       { "type": "string", "title": "Competition ID or Regional League ID" },
+    "source_type":     { "type": "string", "title": "Source Type", "enum": ["competition", "regional_league"] },
+    "source_name":     { "type": "string", "title": "Source Name (denorm)" },
+    "position":        { "type": "number", "title": "Finishing Position (1 = winner)" },
+    "position_label":  { "type": "string", "title": "Position Label (e.g. Winner, Runner-Up, 3rd Place)" },
     "badge_type": {
       "type": "string",
       "title": "Badge Type",
       "enum": ["winner", "finalist", "semi_finalist", "top_4", "participant"],
       "default": "participant"
     },
-    "stc_amount": { "type": "number", "title": "STC Amount", "default": 0 }
+    "stc_amount": { "type": "number", "title": "STC Prize Amount for Club", "default": 0 }
   },
   "required": ["source_id", "source_type", "position"]
 }

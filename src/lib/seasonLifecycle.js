@@ -59,6 +59,20 @@ export async function archiveCompetitionSeason(season, competition) {
 
   await Promise.all(ops);
   await base44.entities.CompetitionSeason.update(season.id, seasonPatch);
+
+  // Distribute STC prizes, trophies, and achievements (non-fatal)
+  import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
+    distributeSeasonRewards({
+      sourceId:       season.competition_id,
+      sourceType:     "competition",
+      sourceName:     season.competition_name || competition?.name || "Competition",
+      seasonId:       season.id,
+      seasonNumber:   season.season_number,
+      seasonLabel:    season.season_label || `Season ${season.season_number}`,
+      trophyImageUrl: competition?.trophy_image_url || "",
+      standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
+    })
+  ).catch(() => {});
 }
 
 export async function createNextCompetitionSeason(season, competition) {
@@ -133,6 +147,20 @@ export async function archiveLeague(league) {
 
   await Promise.all(ops);
   await base44.entities.RegionalLeague.update(league.id, patch);
+
+  // Distribute STC prizes, trophies, and achievements (non-fatal)
+  import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
+    distributeSeasonRewards({
+      sourceId:       league.id,
+      sourceType:     "regional_league",
+      sourceName:     league.name,
+      seasonId:       "",
+      seasonNumber:   league.season_number,
+      seasonLabel:    `Season ${league.season_number}`,
+      trophyImageUrl: league.trophy_image_url || "",
+      standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
+    })
+  ).catch(() => {});
 }
 
 export async function createNextLeagueSeason(league) {

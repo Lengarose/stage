@@ -2,27 +2,27 @@
   "name": "PlayerAchievement",
   "type": "object",
   "properties": {
-    "player_id": { "type": "string", "title": "Player ID" },
-    "player_email": { "type": "string", "title": "Player Email" },
-    "player_gamertag": { "type": "string", "title": "Player Gamertag" },
-    "club_id": { "type": "string", "title": "Club ID" },
-    "club_name": { "type": "string", "title": "Club Name" },
-    "source_id": { "type": "string", "title": "Source ID" },
-    "source_type": { "type": "string", "title": "Source Type", "enum": ["competition", "regional_league"] },
-    "source_name": { "type": "string", "title": "Source Name" },
-    "season_id": { "type": "string", "title": "Season ID" },
-    "season_number": { "type": "number", "title": "Season Number", "default": 1 },
-    "season_label": { "type": "string", "title": "Season Label" },
-    "position": { "type": "number", "title": "Position" },
-    "position_label": { "type": "string", "title": "Position Label" },
+    "player_id":         { "type": "string", "title": "Player ID" },
+    "player_email":      { "type": "string", "title": "Player Email" },
+    "player_gamertag":   { "type": "string", "title": "Player Gamertag (denorm)" },
+    "club_id":           { "type": "string", "title": "Club ID" },
+    "club_name":         { "type": "string", "title": "Club Name (denorm)" },
+    "source_id":         { "type": "string", "title": "Competition or Regional League ID" },
+    "source_type":       { "type": "string", "title": "Source Type", "enum": ["competition", "regional_league"] },
+    "source_name":       { "type": "string", "title": "Source Name (denorm)" },
+    "season_id":         { "type": "string", "title": "Season ID (competition only)" },
+    "season_number":     { "type": "number", "title": "Season Number" },
+    "season_label":      { "type": "string", "title": "Season Label" },
+    "position":          { "type": "number", "title": "Club Final Position" },
+    "position_label":    { "type": "string", "title": "Position Label" },
     "badge_type": {
       "type": "string",
       "title": "Badge Type",
       "enum": ["winner", "finalist", "semi_finalist", "top_4", "participant"],
       "default": "participant"
     },
-    "trophy_image_url": { "type": "string", "title": "Trophy Image URL" },
-    "awarded_at": { "type": "string", "title": "Awarded At", "format": "date-time" }
+    "trophy_image_url":  { "type": "string", "title": "Trophy Image URL" },
+    "awarded_at":        { "type": "string", "title": "Awarded At", "format": "date-time" }
   },
   "required": ["player_id", "source_id", "source_type", "season_number"]
 }

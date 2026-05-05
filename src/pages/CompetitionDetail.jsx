@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lucide-react";
+import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings, processFixtureResult } from "@/lib/competitionUtils";
@@ -572,6 +573,14 @@ export default function CompetitionDetail() {
             {isAdmin && <p className="text-xs text-muted-foreground mt-2">Create the first season from Admin → Leagues.</p>}
           </div>
         ) : (
+          <>
+          {competition && (
+            <TrophyHistorySection
+              sourceId={competition.id}
+              trophyImageUrl={competition.trophy_image_url}
+              className="mb-6 bg-card border border-border rounded-lg p-4"
+            />
+          )}
           <Tabs defaultValue="standings">
             <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-6">
               {[
@@ -616,6 +625,7 @@ export default function CompetitionDetail() {
               <QualificationPanel entries={qualEntries} />
             </TabsContent>
           </Tabs>
+          </>
         )}
       </div>
     </div>

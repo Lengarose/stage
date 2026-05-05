@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import TransferWindowPanel from "@/components/admin/TransferWindowPanel";
-import { stageClient } from "@/api/stageClient";
+import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
+import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -127,6 +128,9 @@ export default function Admin() {
   const [processingReg,     setProcessingReg]     = useState(false);
 
   const [adminProfile, setAdminProfile] = useState(null);
+
+  // Rewards tab
+  const [rewardSource, setRewardSource] = useState(null); // { id, type, name, trophy_image_url }
 
   useEffect(() => {
     stageClient.auth.me().then(async (u) => {
@@ -528,6 +532,7 @@ export default function Admin() {
         promotion_spots:                Number(compEditForm.promotion_spots) || 0,
         relegation_spots:               Number(compEditForm.relegation_spots) || 0,
         playoff_spots:                  Number(compEditForm.playoff_spots) || 4,
+        trophy_image_url:               compEditForm.trophy_image_url || "",
       });
       await loadAll();
       setEditingComp(null);
@@ -543,8 +548,9 @@ export default function Admin() {
     setSavingLeague(true);
     try {
       await base44.entities.RegionalLeague.update(editingLeague, {
-        max_clubs:      Number(leagueEditForm.max_clubs) || 16,
-        promoted_slots: Number(leagueEditForm.promoted_slots) || 2,
+        max_clubs:        Number(leagueEditForm.max_clubs) || 16,
+        promoted_slots:   Number(leagueEditForm.promoted_slots) || 2,
+        trophy_image_url: leagueEditForm.trophy_image_url || "",
       });
       await loadAll();
       setEditingLeague(null);
@@ -908,6 +914,7 @@ export default function Admin() {
               { value: "leagues", label: "Leagues", badge: qualEntries.length, badgeColor: "bg-primary/20 text-primary" },
               { value: "tournaments", label: "Tournaments" },
               { value: "trophies", label: "Trophies" },
+              { value: "rewards", label: "Rewards" },
               { value: "news", label: "News" },
               { value: "transfers", label: "Transfers" },
             ].map(tab => (
@@ -1246,7 +1253,7 @@ export default function Admin() {
                             className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                             onClick={() => {
                               if (isEditing) { setEditingComp(null); }
-                              else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 16, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, promotion_spots: comp.promotion_spots ?? 0, relegation_spots: comp.relegation_spots ?? 0, playoff_spots: comp.playoff_spots ?? 4 }); }
+                              else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 16, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, promotion_spots: comp.promotion_spots ?? 0, relegation_spots: comp.relegation_spots ?? 0, playoff_spots: comp.playoff_spots ?? 4, trophy_image_url: comp.trophy_image_url || "" }); }
                             }}>
                             {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                             {isEditing ? "Cancel" : "Edit Rules"}
@@ -1269,6 +1276,13 @@ export default function Admin() {
                                     className="bg-secondary border-border text-xs h-8" />
                                 </div>
                               ))}
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted-foreground mb-1 block">Trophy Image URL</label>
+                              <Input value={compEditForm.trophy_image_url ?? ""}
+                                onChange={e => setCompEditForm(f => ({ ...f, trophy_image_url: e.target.value }))}
+                                placeholder="https://… trophy PNG"
+                                className="bg-secondary border-border text-xs h-8" />
                             </div>
                             <Button size="sm" onClick={saveCompRules} disabled={savingComp}
                               className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
@@ -1713,7 +1727,7 @@ export default function Admin() {
                                       className={cn("h-7 w-7 p-0 rounded shrink-0", isEditingL ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                                       onClick={() => {
                                         if (isEditingL) { setEditingLeague(null); }
-                                        else { setEditingLeague(league.id); setLeagueEditForm({ max_clubs: league.max_clubs ?? 16, promoted_slots: league.promoted_slots ?? 2 }); }
+                                        else { setEditingLeague(league.id); setLeagueEditForm({ max_clubs: league.max_clubs ?? 16, promoted_slots: league.promoted_slots ?? 2, trophy_image_url: league.trophy_image_url || "" }); }
                                       }}>
                                       {isEditingL ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                                     </Button>
@@ -1767,6 +1781,13 @@ export default function Admin() {
                                             onChange={e => setLeagueEditForm(f => ({ ...f, promoted_slots: e.target.value }))}
                                             className="bg-secondary border-border text-xs h-8" />
                                         </div>
+                                      </div>
+                                      <div className="col-span-2">
+                                        <label className="text-[10px] text-muted-foreground mb-1 block">Trophy Image URL</label>
+                                        <Input value={leagueEditForm.trophy_image_url ?? ""}
+                                          onChange={e => setLeagueEditForm(f => ({ ...f, trophy_image_url: e.target.value }))}
+                                          placeholder="https://… trophy PNG"
+                                          className="bg-secondary border-border text-xs h-8" />
                                       </div>
                                       <Button size="sm" onClick={saveLeagueRules} disabled={savingLeague}
                                         className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
@@ -2030,6 +2051,75 @@ export default function Admin() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── Rewards / Prizes ───────────────────────────── */}
+          <TabsContent value="rewards">
+            <div className="max-w-2xl space-y-5">
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2">
+                <Coins className="w-5 h-5 text-warning" /> Season Rewards
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Configure STC prize distribution and trophy images per competition or league.
+                Rewards are distributed automatically when a season is archived.
+              </p>
+
+              {/* Source selector */}
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Select Competition or League</p>
+                <div className="space-y-1.5">
+                  {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
+                    const comp = competitions.find(c => c.slug === t.slug);
+                    if (!comp) return null;
+                    const active = rewardSource?.id === comp.id;
+                    return (
+                      <button key={t.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, trophy_image_url: comp.trophy_image_url || "" })}
+                        className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
+                          active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )} style={{ borderLeftColor: active ? undefined : t.color, borderLeftWidth: 2 }}>
+                        {comp.name}
+                        <span className="block text-[10px] font-normal mt-0.5 opacity-60">Competition · {comp.platform}</span>
+                      </button>
+                    );
+                  })}
+                  {regionalLeagues.filter(l => l.status !== "archived").slice(0, 12).map(league => {
+                    const active = rewardSource?.id === league.id;
+                    return (
+                      <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, trophy_image_url: league.trophy_image_url || "" })}
+                        className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
+                          active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )}>
+                        {league.name}
+                        <span className="block text-[10px] font-normal mt-0.5 opacity-60">
+                          Regional League · Div {league.division || 1} · S{league.season_number}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reward config panel for selected source */}
+              {rewardSource && (
+                <div className="bg-card border border-border rounded p-5 space-y-4">
+                  <p className="text-sm font-bold text-foreground">{rewardSource.name}</p>
+                  <RewardConfigPanel
+                    key={rewardSource.id}
+                    sourceId={rewardSource.id}
+                    sourceType={rewardSource.type}
+                    sourceName={rewardSource.name}
+                    trophyImageUrl={rewardSource.trophy_image_url}
+                    onTrophyUrlChange={async (url) => {
+                      setRewardSource(s => s ? { ...s, trophy_image_url: url } : s);
+                      const entity = rewardSource.type === "competition"
+                        ? base44.entities.Competition
+                        : base44.entities.RegionalLeague;
+                      await entity?.update(rewardSource.id, { trophy_image_url: url }).catch(() => {});
+                    }}
+                  />
                 </div>
               )}
             </div>

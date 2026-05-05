@@ -7,6 +7,7 @@ import {
   Trophy, ArrowLeft, Calendar, ChevronDown, ChevronRight,
   AlertTriangle, Check, Clock, Shield, Plus
 } from "lucide-react";
+import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { LEAGUE_DEFINITIONS } from "@/lib/qualificationConfig";
@@ -411,6 +412,15 @@ export default function LeagueDetail() {
             )}
           </div>
         )}
+        {/* Trophy History */}
+        {league && (
+          <TrophyHistorySection
+            sourceId={league.id}
+            trophyImageUrl={league.trophy_image_url}
+            className="bg-card border border-border rounded-xl p-4"
+          />
+        )}
+
         {/* Previous Seasons */}
         {prevSeasons.length > 0 && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
