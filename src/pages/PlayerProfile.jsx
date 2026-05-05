@@ -4,8 +4,8 @@ import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
-  ArrowLeft, User, Shield, Target, Swords, Trophy,
-  Gamepad2, Flag, TrendingUp, Medal, Settings,
+  ArrowLeft, User, Shield, Target, Swords,
+  Gamepad2, Flag, Settings,
   Coins, FileText, Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -13,9 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { getBannerStyle } from "@/lib/storeItems";
 import { cn } from "@/lib/utils";
-import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
+import { formatSTC } from "@/lib/playerValue";
 import { notify, postContractNews } from "@/lib/notify";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
+import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
@@ -99,14 +100,14 @@ export default function PlayerProfile() {
         try {
           const vcArr = await base44.entities.Club.filter({ id: myPlArr[0].club_id });
           setViewerClub(vcArr[0] || null);
-        } catch (_) {}
+        } catch { }
       }
 
       // Transfer window
       try {
         const winRes = await base44.functions.invoke("transferWindowActions", { action: "get_current" });
         setWindowOpen(winRes?.data?.window?.status === "open");
-      } catch (_) { setWindowOpen(false); }
+      } catch { setWindowOpen(false); }
 
       const matchStats = await base44.entities.MatchPlayerStat.filter({ player_email: p.email });
         const matchIds = [...new Set(matchStats.map(s => s.match_id))];
@@ -171,7 +172,7 @@ export default function PlayerProfile() {
     const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
     let recipientEmail = player.email;
     if (!recipientEmail) {
-      try { const f = await base44.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch (_) {}
+      try { const f = await base44.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
     }
     const fmt = n => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
     const newContract = await base44.entities.PlayerContract.create({
@@ -206,7 +207,7 @@ export default function PlayerProfile() {
           related_entity_id: newContract.id, status: "pending", is_read: false,
           metadata: { contract_id: newContract.id, club_id: viewerClub.id, club_name: viewerClub.name, contract_type: terms.contract_type },
         });
-      } catch (_) {}
+      } catch { }
     }
     notify(recipientEmail, "contract_offer",
       `📋 Contract Offer from ${viewerClub.name}`,
@@ -539,7 +540,8 @@ export default function PlayerProfile() {
           </TabsContent>
 
           {/* Trophies */}
-          <TabsContent value="trophies" className="px-3 sm:px-4 pt-4 pb-4">
+          <TabsContent value="trophies" className="px-3 sm:px-4 pt-4 pb-4 space-y-6">
+            <PlayerAchievementsSection playerId={player?.id} />
             <PlayerTrophyCabinet player={player} currentUserEmail={currentUser?.email} />
           </TabsContent>
 

@@ -1,0 +1,28 @@
+{
+  "name": "ClubAchievement",
+  "type": "object",
+  "properties": {
+    "club_id":           { "type": "string", "title": "Club ID" },
+    "club_name":         { "type": "string", "title": "Club Name (denorm)" },
+    "club_logo_url":     { "type": "string", "title": "Club Logo URL (denorm)" },
+    "club_tag":          { "type": "string", "title": "Club Tag (denorm)" },
+    "source_id":         { "type": "string", "title": "Competition or Regional League ID" },
+    "source_type":       { "type": "string", "title": "Source Type", "enum": ["competition", "regional_league"] },
+    "source_name":       { "type": "string", "title": "Source Name (denorm)" },
+    "season_id":         { "type": "string", "title": "Competition Season ID (competition only)" },
+    "season_number":     { "type": "number", "title": "Season Number" },
+    "season_label":      { "type": "string", "title": "Season Label (e.g. Season 3)" },
+    "position":          { "type": "number", "title": "Final Position" },
+    "position_label":    { "type": "string", "title": "Position Label (e.g. Winner)" },
+    "badge_type": {
+      "type": "string",
+      "title": "Badge Type",
+      "enum": ["winner", "finalist", "semi_finalist", "top_4", "participant"],
+      "default": "participant"
+    },
+    "stc_awarded":       { "type": "number", "title": "STC Awarded to Club", "default": 0 },
+    "trophy_image_url":  { "type": "string", "title": "Trophy Image URL" },
+    "awarded_at":        { "type": "string", "title": "Awarded At", "format": "date-time" }
+  },
+  "required": ["club_id", "source_id", "source_type", "season_number"]
+}

@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
+import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 
 export default function ClubDetail() {
   const { id } = useParams();
@@ -701,9 +702,12 @@ export default function ClubDetail() {
             />
           </TabsContent>
 
-          {/* Trophies */}
-          <TabsContent value="trophies" className="px-4 pt-4">
-            <ClubTrophyCabinetDisplay clubId={id} currentUserEmail={currentUser?.email} club={club} canEditOverride={canEdit} />
+          {/* Trophies & Achievements */}
+          <TabsContent value="trophies" className="px-4 pt-4 pb-6">
+            <div className="space-y-6">
+              <ClubAchievementsTab clubId={id} />
+              <ClubTrophyCabinetDisplay clubId={id} currentUserEmail={currentUser?.email} club={club} canEditOverride={canEdit} />
+            </div>
           </TabsContent>
 
           {/* Season History */}
