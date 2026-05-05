@@ -28,6 +28,10 @@ const ENV = {
   REFRESH_TOKEN_SECRET:
     'PAZEJFNSWJSIDAOEZRAOZERJAJ?FSLDK?FSDLFKQSLDKFLQSDKFHAZEFNEARARarrabjhsdbhjfsqsdf',
 
+  // Socket server (separate WebSocket-capable host — e.g. Railway/Render/Fly.io)
+  SOCKET_SERVER_URL:    '',
+  SOCKET_SERVER_SECRET: '',
+
   // Google OAuth — redirect: https://stageleagues.com/api/stage/auth/google/callback
   GOOGLE_CLIENT_ID: '',
   GOOGLE_CLIENT_SECRET: '',
