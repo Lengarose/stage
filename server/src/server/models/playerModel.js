@@ -55,6 +55,10 @@ class Player {
     return EXECUTESQL('SELECT * FROM players WHERE club_id = ?', [club_id]);
   }
 
+  selectByUserId(user_id) {
+    return EXECUTESQL('SELECT * FROM players WHERE user_id = ?', [user_id]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO players

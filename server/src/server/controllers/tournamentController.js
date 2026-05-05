@@ -1,7 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
 const Tournament = require('../models/tournamentModel');
-const { io }     = require('../express/index');
+const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
 // GET /
@@ -11,9 +11,7 @@ router.get('/', async (req, res) => {
     const tournament = new Tournament();
     let result;
     if (status) {
-      result = await require('../db/database').EXECUTESQL(
-        'SELECT * FROM tournaments WHERE status = ?', [status]
-      );
+      result = await tournament.selectByStatus(status);
     } else {
       result = await tournament.selectAll(Number(page) || 1);
     }

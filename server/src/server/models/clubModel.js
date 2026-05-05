@@ -57,6 +57,10 @@ class Club {
     return EXECUTESQL('SELECT * FROM clubs WHERE owner_email = ?', [email]);
   }
 
+  selectByUserId(user_id) {
+    return EXECUTESQL('SELECT * FROM clubs WHERE user_id = ?', [user_id]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO clubs

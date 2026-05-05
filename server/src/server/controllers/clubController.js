@@ -1,8 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const Club    = require('../models/clubModel');
-const { EXECUTESQL } = require('../db/database');
-const { io }  = require('../express/index');
+const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
 // GET /
@@ -12,7 +11,7 @@ router.get('/', async (req, res) => {
     const club = new Club();
     let result;
     if (owner_email) result = await club.selectByOwner(owner_email);
-    else if (user_id) result = await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ?', [user_id]);
+    else if (user_id) result = await club.selectByUserId(user_id);
     else result = await club.selectAll(Number(page) || 1);
     res.json(result);
   } catch (err) {

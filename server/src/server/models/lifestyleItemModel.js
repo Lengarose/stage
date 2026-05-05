@@ -19,6 +19,13 @@ class LifestyleItem {
     return EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ?', [id]);
   }
 
+  selectByActive(isActive) {
+    return EXECUTESQL(
+      'SELECT * FROM lifestyle_items WHERE is_active = ? ORDER BY sort_order ASC',
+      [isActive ? 1 : 0]
+    );
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO lifestyle_items (id, name, is_active, sort_order) VALUES (?,?,?,?)`;

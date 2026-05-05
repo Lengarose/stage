@@ -1,7 +1,7 @@
 const express       = require('express');
 const router        = express.Router();
 const InboxMessage  = require('../models/inboxMessageModel');
-const { io }        = require('../express/index');
+const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
 // GET /

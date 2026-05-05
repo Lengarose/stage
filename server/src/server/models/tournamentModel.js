@@ -33,6 +33,10 @@ class Tournament {
     return EXECUTESQL('SELECT * FROM tournaments WHERE id = ?', [id]);
   }
 
+  selectByStatus(status) {
+    return EXECUTESQL('SELECT * FROM tournaments WHERE status = ?', [status]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO tournaments

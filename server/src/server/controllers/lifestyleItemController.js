@@ -7,10 +7,12 @@ router.get('/', async (req, res) => {
   try {
     const { is_active, page } = req.query;
     const li = new LifestyleItem();
-    let result = await li.selectAll(Number(page) || 1);
+    let result;
     if (is_active !== undefined) {
       const active = is_active === 'true' || is_active === '1';
-      result = result.filter(r => Boolean(r.is_active) === active);
+      result = await li.selectByActive(active);
+    } else {
+      result = await li.selectAll(Number(page) || 1);
     }
     res.json(result);
   } catch (err) {
