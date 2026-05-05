@@ -8,9 +8,10 @@ router.get('/', async (req, res) => {
     const { club_id, type, page } = req.query;
     const tx = new StcTransaction();
     let result;
-    if (club_id) result = await tx.selectByClub(club_id);
+    if (club_id && type) result = await tx.selectByClubAndType(club_id, type);
+    else if (club_id)    result = await tx.selectByClub(club_id);
+    else if (type)       result = await tx.selectByType(type);
     else result = await tx.selectAll(Number(page) || 1);
-    if (type && result) result = result.filter(r => r.type === type);
     res.json(result);
   } catch (err) {
     console.error(err);

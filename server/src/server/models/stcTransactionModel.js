@@ -28,6 +28,20 @@ class StcTransaction {
     );
   }
 
+  selectByType(type) {
+    return EXECUTESQL(
+      'SELECT * FROM stc_transactions WHERE type = ? ORDER BY id DESC',
+      [type]
+    );
+  }
+
+  selectByClubAndType(club_id, type) {
+    return EXECUTESQL(
+      'SELECT * FROM stc_transactions WHERE club_id = ? AND type = ? ORDER BY id DESC',
+      [club_id, type]
+    );
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO stc_transactions

@@ -23,12 +23,15 @@ async function issueAndRedirect(res, player) {
     [uuidv4(), player.email || '', refreshToken]
   );
 
+  const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [userId]);
+
   // Redirect to frontend with tokens in query — frontend stores them and closes the OAuth window
   const params = new URLSearchParams({
     accessToken,
     refreshToken,
     userId,
     playerId: player.id,
+    ownerId:  clubs[0]?.id || '',
   });
   res.redirect(`${FRONTEND_URL}/auth/callback?${params}`);
 }

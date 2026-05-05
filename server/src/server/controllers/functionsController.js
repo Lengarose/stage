@@ -29,12 +29,12 @@ const HANDLERS = {
   },
 
   // ── Credits ───────────────────────────────────────────────────────────────
-  async spendCredits({ player_id, amount }) {
-    if (!player_id || !amount) throw new Error('player_id and amount required');
-    const rows = await EXECUTESQL('SELECT credits FROM players WHERE id = ?', [player_id]);
+  async spendCredits({ amount, _auth_user_id }) {
+    if (!_auth_user_id || !amount) throw new Error('amount required');
+    const rows = await EXECUTESQL('SELECT id, credits FROM players WHERE user_id = ?', [_auth_user_id]);
     if (!rows.length) throw new Error('Player not found');
     if (rows[0].credits < amount) throw new Error('Insufficient credits');
-    await EXECUTESQL('UPDATE players SET credits = credits - ? WHERE id = ?', [amount, player_id]);
+    await EXECUTESQL('UPDATE players SET credits = credits - ? WHERE id = ?', [amount, rows[0].id]);
     return { success: true };
   },
 
@@ -56,13 +56,15 @@ const HANDLERS = {
   },
 
   // ── Delete account ────────────────────────────────────────────────────────
-  async deleteAccount({ player_id }) {
-    if (!player_id) throw new Error('player_id required');
-    const rows = await EXECUTESQL('SELECT email FROM players WHERE id = ?', [player_id]);
-    if (rows.length && rows[0].email) {
-      await EXECUTESQL('DELETE FROM auth_tokens WHERE email = ?', [rows[0].email]);
+  async deleteAccount({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const rows = await EXECUTESQL('SELECT id, email FROM players WHERE user_id = ?', [_auth_user_id]);
+    if (rows.length) {
+      const { id: player_id, email } = rows[0];
+      if (email) await EXECUTESQL('DELETE FROM auth_tokens WHERE email = ?', [email]);
+      await EXECUTESQL('DELETE FROM players WHERE id = ?', [player_id]);
     }
-    await EXECUTESQL('DELETE FROM players WHERE id = ?', [player_id]);
+    await EXECUTESQL('DELETE FROM users WHERE id = ?', [_auth_user_id]);
     return { success: true };
   },
 };
@@ -73,8 +75,7 @@ router.post('/:name', async (req, res) => {
   if (!handler) return res.status(404).json({ error: `Function '${name}' not found` });
 
   try {
-    // Inject authenticated player_id from verifyToken middleware
-    const params = { ...req.body, player_id: req.body.player_id || req.user?.id };
+    const params = { ...req.body, _auth_user_id: req.user?.id };
     const result = await handler(params);
     res.json(result);
   } catch (err) {

@@ -86,8 +86,16 @@ router.post('/refresh', async (req, res) => {
     if (!stored.length) return res.status(401).json({ error: 'Invalid or expired refresh token' });
 
     const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-    const accessToken = generateAccessToken({ id: decoded.id, email: decoded.email });
-    res.json({ accessToken });
+    const accessToken  = generateAccessToken({ id: decoded.id, email: decoded.email });
+    const newRefresh   = generateRefreshToken({ id: decoded.id, email: decoded.email });
+
+    await EXECUTESQL('DELETE FROM auth_tokens WHERE refresh_token = ?', [refreshToken]);
+    await EXECUTESQL(
+      'INSERT INTO auth_tokens (id, email, refresh_token, created_date) VALUES (?, ?, ?, NOW())',
+      [uuidv4(), decoded.email, newRefresh]
+    );
+
+    res.json({ accessToken, refreshToken: newRefresh });
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
   }
