@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://stageleagues.com';
@@ -17,64 +17,73 @@ export const CHANNELS = {
   TOURNAMENT:    'STAGE_TOURNAMENT',
 };
 
-/** Build a targeted channel, e.g. makeChannel(clubId, CHANNELS.CLUB) → "STAGE_CLUB_abc123" */
+/** Build a targeted channel e.g. makeChannel(clubId, CHANNELS.CLUB) → "STAGE_CLUB_abc123" */
 export const makeChannel = (id, channel) =>
   id ? `${channel}_${String(id)}` : channel;
 
-// ── Context ────────────────────────────────────────────────────────────────────
-const SocketContext = createContext(null);
+// ── Singleton socket client ────────────────────────────────────────────────────
+export const SOCKET_CLIENT = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
+  auth: { token: localStorage.getItem(ACCESS_KEY) },
+  reconnectionAttempts: 10,
+  reconnectionDelay:    2000,
+  autoConnect:          false,
+});
 
-/** @param {{ children: import('react').ReactNode }} props */
+// Internal listener registry: Map<channel, callback>
+const _listeners = new Map();
+
+SOCKET_CLIENT.on('update', (data) => {
+  const { _channel, ...payload } = data || {};
+  if (!_channel) return;
+  _listeners.get(_channel)?.(payload);
+});
+
+/**
+ * Join a room and register a callback for that channel.
+ * Replaces any previous callback for the same channel (prevents duplicates).
+ *
+ * Usage (in useEffect):
+ *   setSocketListeners(makeChannel(matchId, CHANNELS.MATCH), (data) => { ... });
+ *   return () => offSocketListeners(makeChannel(matchId, CHANNELS.MATCH));
+ */
+export const setSocketListeners = (channel, callback) => {
+  _listeners.set(channel, callback);
+  SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'join', channel });
+};
+
+/**
+ * Leave a room and remove its callback.
+ */
+export const offSocketListeners = (channel) => {
+  SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'leave', channel });
+  _listeners.delete(channel);
+};
+
+// ── Context (connection status only) ──────────────────────────────────────────
+const SocketContext = createContext({ isConnected: false });
+
 export const SocketProvider = ({ children }) => {
-  const socketRef   = useRef(null);
-  const listenersRef = useRef(new Map()); // Map<channel, Set<callback>>
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(SOCKET_CLIENT.connected);
 
   useEffect(() => {
-    const token = localStorage.getItem(ACCESS_KEY);
+    SOCKET_CLIENT.auth = { token: localStorage.getItem(ACCESS_KEY) };
+    SOCKET_CLIENT.connect();
 
-    const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      auth: { token },
-      reconnectionAttempts: 10,
-      reconnectionDelay:    2000,
-    });
+    const onConnect    = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
 
-    socketRef.current = socket;
+    SOCKET_CLIENT.on('connect',    onConnect);
+    SOCKET_CLIENT.on('disconnect', onDisconnect);
 
-    socket.on('connect',    () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
-
-    // All socket mutations arrive as 'update' with _channel in the payload
-    socket.on('update', (data) => {
-      const { _channel, ...payload } = data || {};
-      if (!_channel) return;
-      listenersRef.current.get(_channel)?.forEach(cb => cb(payload));
-    });
-
-    return () => socket.disconnect();
-  }, []);
-
-  const joinRoom = useCallback((channel) => {
-    socketRef.current?.emit('JOINLEAVEROOM', { action: 'join', channel });
-  }, []);
-
-  const leaveRoom = useCallback((channel) => {
-    socketRef.current?.emit('JOINLEAVEROOM', { action: 'leave', channel });
-    listenersRef.current.delete(channel);
-  }, []);
-
-  /** Subscribe to a channel. Returns an unsubscribe function. */
-  const subscribe = useCallback((channel, callback) => {
-    if (!listenersRef.current.has(channel)) {
-      listenersRef.current.set(channel, new Set());
-    }
-    listenersRef.current.get(channel).add(callback);
-    return () => listenersRef.current.get(channel)?.delete(callback);
+    return () => {
+      SOCKET_CLIENT.off('connect',    onConnect);
+      SOCKET_CLIENT.off('disconnect', onDisconnect);
+    };
   }, []);
 
   return (
-    <SocketContext.Provider value={{ isConnected, joinRoom, leaveRoom, subscribe }}>
+    <SocketContext.Provider value={{ isConnected }}>
       {children}
     </SocketContext.Provider>
   );
