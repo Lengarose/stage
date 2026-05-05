@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL  = 'https://stageleagues.com';
-const ACCESS_KEY  = 'stage_access_token';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://stageleagues.com';
+const ACCESS_KEY = 'stage_access_token';
 
 // ── Channel constants (mirrors server/src/constants/constants.js) ──────────────
 export const CHANNELS = {
