@@ -8,7 +8,8 @@ import {
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
+import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
@@ -25,9 +26,9 @@ import {
 
 /* ── constants ─────────────────────────────────────────────── */
 const BADGE_IMAGES = {
-  rookie: "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
-  pro:    "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
-  elite:  "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
+  rookie: "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
+  pro:    "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
+  elite:  "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
 };
 
 const THEMES = [
@@ -497,7 +498,7 @@ export default function Layout() {
       {isVideoTheme && (
         <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
           <style>{`@keyframes bgPan{0%{transform:scale(1.15) translate(-4%,0%) rotate(-.5deg)}25%{transform:scale(1.18) translate(0%,-2%) rotate(0deg)}50%{transform:scale(1.15) translate(4%,1%) rotate(.5deg)}75%{transform:scale(1.18) translate(1%,-1%) rotate(0deg)}100%{transform:scale(1.15) translate(-4%,0%) rotate(-.5deg)}}`}</style>
-          <div className="absolute inset-0" style={{ backgroundImage: `url(https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/fbcf1e4e7_1C12710F-CA04-4F58-908B-BCE68BB4500E.png)`, backgroundSize: "cover", backgroundPosition: "center", animation: "bgPan 20s ease-in-out infinite", filter: "blur(3px)" }} />
+          <div className="absolute inset-0" style={{ backgroundImage: `url(https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/fbcf1e4e7_1C12710F-CA04-4F58-908B-BCE68BB4500E.png)`, backgroundSize: "cover", backgroundPosition: "center", animation: "bgPan 20s ease-in-out infinite", filter: "blur(3px)" }} />
           {isWhiteTheme ? (
             <><div className="absolute inset-0 bg-white/60" /><div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(255,255,255,.95) 0%,rgba(255,255,255,.4) 40%,rgba(255,255,255,.2) 100%)" }} /></>
           ) : (

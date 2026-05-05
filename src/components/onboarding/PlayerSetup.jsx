@@ -37,7 +37,7 @@ export default function PlayerSetup({ onComplete, user }) {
     setSaving(true);
     try {
       const foundCountry = COUNTRIES.find(c => c.name === country);
-      await stageClient.entities.Player.create({
+      const payload = {
         user_id: user.id,
         gamertag,
         email: user.email,
@@ -49,7 +49,39 @@ export default function PlayerSetup({ onComplete, user }) {
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
         stc: 50000,
-      });
+      };
+
+      const isBenignSaveError = (e) => {
+        const msg = String(e?.message || '');
+        const dataMsg = String(e?.data?.message || '');
+        const full = `${msg} ${dataMsg}`.toLowerCase();
+        return (
+          full.includes('socketemit is not defined') ||
+          full.includes('er_dup_entry') ||
+          full.includes('duplicate')
+        );
+      };
+
+      const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
+      if (existing?.length) {
+        try {
+          await stageClient.entities.Player.update(existing[0].id, payload);
+        } catch (e) {
+          if (!isBenignSaveError(e)) throw e;
+        }
+      } else {
+        try {
+          await stageClient.entities.Player.create(payload);
+        } catch (e) {
+          if (!isBenignSaveError(e)) throw e;
+        }
+      }
+
+      const verify = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
+      if (!verify?.length) {
+        throw new Error("Player profile was not saved yet. Please retry.");
+      }
+
       setSaving(false);
       onComplete();
     } catch (err) {

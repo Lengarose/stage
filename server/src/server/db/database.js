@@ -8,10 +8,10 @@ if (!dbSocketPath) {
 
 const pool = mysql.createPool({
   socketPath:         dbSocketPath,
-  user:               get('DB_USER')     || 'root',
-  password:           get('DB_PASSWORD') || '',
-  database:           get('DB_NAME')     || 'stage_league',
-  charset:            'utf8mb4',
+  user:              'root',
+  password:          '',
+  database:          'stage_league',
+  charset:           'utf8mb4',
   waitForConnections: true,
   connectionLimit:    10,
 });

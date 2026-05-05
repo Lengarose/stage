@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Move } from "lucide-react";
 
 export default function ImagePositionEditor({
@@ -62,6 +62,12 @@ export default function ImagePositionEditor({
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
       >
+        <DialogTitle className="sr-only">
+          {isAvatar ? "Position profile photo" : "Position banner image"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Drag to reposition the image and use sliders to adjust zoom and alignment.
+        </DialogDescription>
         <div className="p-6 space-y-5">
 
           {/* Header */}

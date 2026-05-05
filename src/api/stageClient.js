@@ -74,6 +74,8 @@ function entityToPath(name) {
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')  // STCTransaction → STC-Transaction
     .replace(/([a-z\d])([A-Z])/g, '$1-$2')        // MatchPlayer → Match-Player
     .toLowerCase();
+  if (/(s|x|z|ch|sh)$/.test(kebab)) return `/${kebab}es`;
+  if (/[^aeiou]y$/.test(kebab)) return `/${kebab.slice(0, -1)}ies`;
   return `/${kebab}s`;
 }
 
@@ -95,7 +97,14 @@ function makeEntity(name) {
         if (v !== undefined && v !== null) clean[k] = v;
       }
       const qs = new URLSearchParams({ ...clean, limit: String(limit) }).toString();
-      const data = await apiFetch(`${base}?${qs}`);
+      let data;
+      try {
+        data = await apiFetch(`${base}?${qs}`);
+      } catch (err) {
+        // Some legacy pages still reference entities not yet exposed by backend routes.
+        if (err?.status === 404) return [];
+        throw err;
+      }
       const arr  = Array.isArray(data) ? data : (data ? [data] : []);
       if (orderBy) {
         const desc  = orderBy.startsWith('-');
@@ -110,7 +119,12 @@ function makeEntity(name) {
     },
 
     async get(id) {
-      return apiFetch(`${base}/${id}`);
+      try {
+        return await apiFetch(`${base}/${id}`);
+      } catch (err) {
+        if (err?.status === 404) return null;
+        throw err;
+      }
     },
 
     async create(body) {
@@ -123,6 +137,11 @@ function makeEntity(name) {
 
     async delete(id) {
       return apiFetch(`${base}/${id}`, { method: 'DELETE' });
+    },
+    async bulkCreate(rows = []) {
+      const arr = Array.isArray(rows) ? rows : [];
+      if (!arr.length) return [];
+      return Promise.all(arr.map((row) => makeEntityApi.create(row)));
     },
     list,
     subscribe,
@@ -140,6 +159,14 @@ const ENTITY_NAMES = [
   'Follow', 'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
   'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage',
   'NewsItem', 'LiveMatch',
+  // Competition & league stack used by frontend pages
+  'Competition', 'CompetitionSeason', 'CompetitionFixture', 'CompetitionStanding',
+  'RegionalLeague', 'RegionalLeagueFixture', 'RegionalLeagueStanding',
+  'QualificationEntry', 'RankingConfig', 'SeasonRegistration',
+  // New reward/achievement entities
+  'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
+  // Legacy/compat entities used in some screens
+  'RatingHistory', 'LiveMatchEvent', 'Challenge',
 ];
 
 const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));
