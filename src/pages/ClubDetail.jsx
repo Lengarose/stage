@@ -408,7 +408,8 @@ export default function ClubDetail() {
 
       {/* Banner */}
       <div
-        className="relative w-full h-52 sm:h-72 md:h-80 mt-2 overflow-hidden group cursor-pointer"
+        className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden group cursor-pointer"
+        style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
         <div className="absolute inset-0" style={getBannerStyle(club?.banner_id, club?.banner_position)} />

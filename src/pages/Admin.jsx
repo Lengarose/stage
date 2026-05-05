@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import TransferWindowPanel from "@/components/admin/TransferWindowPanel";
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
+import LandingPageEditor from "@/components/admin/LandingPageEditor";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -916,6 +917,7 @@ export default function Admin() {
               { value: "rewards", label: "Rewards" },
               { value: "news", label: "News" },
               { value: "transfers", label: "Transfers" },
+              { value: "landing", label: "Landing Page" },
             ].map(tab => (
               <TabsTrigger key={tab.value} value={tab.value}
                 className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent gap-1.5 shrink-0">
@@ -2122,6 +2124,11 @@ export default function Admin() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── Landing Page ─────────────────────────────── */}
+          <TabsContent value="landing">
+            <LandingPageEditor />
           </TabsContent>
 
         </Tabs>

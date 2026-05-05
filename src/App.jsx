@@ -7,7 +7,7 @@ import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
 import { base44 } from '@/api/base44Client';
-import BannerImg from '@/assets/Banner.jpg';
+import BannerImg from '@/assets/Name logo.png';
 
 import PageNotFound from './lib/PageNotFound';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';

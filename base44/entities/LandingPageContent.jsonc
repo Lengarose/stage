@@ -1,0 +1,39 @@
+{
+  "name": "LandingPageContent",
+  "type": "object",
+  "properties": {
+    "hero_title":          { "type": "string", "title": "Hero – Label above the big title (e.g. 'Welcome To')" },
+    "hero_subtitle":       { "type": "string", "title": "Hero – Big title (e.g. 'STAGE')" },
+    "hero_description":    { "type": "string", "title": "Hero – Subtitle paragraph" },
+    "hero_image_url":      { "type": "string", "title": "Hero – Background image URL" },
+    "hero_cta_1_label":    { "type": "string", "title": "Hero – CTA Button 1 label" },
+    "hero_cta_1_url":      { "type": "string", "title": "Hero – CTA Button 1 URL" },
+    "hero_cta_2_label":    { "type": "string", "title": "Hero – CTA Button 2 label" },
+    "hero_cta_2_url":      { "type": "string", "title": "Hero – CTA Button 2 URL" },
+    "hero_cta_3_label":    { "type": "string", "title": "Hero – CTA Button 3 label" },
+    "hero_cta_3_url":      { "type": "string", "title": "Hero – CTA Button 3 URL" },
+    "section1_title":      { "type": "string", "title": "Section 1 – Title" },
+    "section1_text":       { "type": "string", "title": "Section 1 – Body text" },
+    "section1_image_url":  { "type": "string", "title": "Section 1 – Image URL" },
+    "section2_title":      { "type": "string", "title": "Section 2 – Title" },
+    "section2_text":       { "type": "string", "title": "Section 2 – Body text" },
+    "section2_image_url":  { "type": "string", "title": "Section 2 – Image URL" },
+    "section3_title":      { "type": "string", "title": "Section 3 – Title" },
+    "section3_text":       { "type": "string", "title": "Section 3 – Body text" },
+    "section3_image_url":  { "type": "string", "title": "Section 3 – Image URL" },
+    "faq_items": {
+      "type": "array",
+      "title": "FAQ Items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string" },
+          "answer":   { "type": "string" }
+        }
+      }
+    },
+    "contact_email":  { "type": "string", "title": "Footer – Contact email" },
+    "footer_tagline": { "type": "string", "title": "Footer – Tagline text" }
+  },
+  "required": []
+}

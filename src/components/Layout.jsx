@@ -516,6 +516,7 @@ export default function Layout() {
         }}
       >
         <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: 0.65 }} />
+        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: 0.65 }} />
 
         <div className="flex min-h-[3.75rem] h-16 items-stretch">
 
@@ -613,11 +614,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Gradient fade into content */}
-        <div
-          className="pointer-events-none absolute bottom-0 left-0 right-0 translate-y-full h-10 z-50"
-          style={{ background: "linear-gradient(to bottom, #080d1b, transparent)" }}
-        />
       </header>
 
       {/* ── BODY ─────────────────────────────────────────────── */}

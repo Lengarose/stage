@@ -239,7 +239,7 @@ export default function Profile() {
     return (
       <div className="min-h-screen bg-background text-foreground">
         {/* Banner */}
-        <div className="relative w-full h-48 sm:h-64 overflow-hidden">
+        <div className="relative h-48 sm:h-64 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
           <div className="w-full h-full" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
           {/* Top-right action icons */}

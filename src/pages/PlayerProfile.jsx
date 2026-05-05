@@ -256,9 +256,9 @@ export default function PlayerProfile() {
       </div>
 
       {/* ── Banner ── */}
-      <div className="relative w-full h-52 sm:h-72 md:h-80 mt-2 overflow-hidden">
+      <div className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
         <div className="absolute inset-0" style={getBannerStyle(player.banner_id, player.banner_position)} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#06091a] via-[#06091a]/30 to-transparent" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
       </div>
 
       {/* ── Profile Header ── */}
