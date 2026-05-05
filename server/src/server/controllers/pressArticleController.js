@@ -7,12 +7,11 @@ router.get('/', async (req, res) => {
   try {
     const { press_conference_id, club_name, page } = req.query;
     const pa = new PressArticle();
-    let result = await pa.selectAll(Number(page) || 1);
-    if (press_conference_id) {
-      result = result.filter(r => r.press_conference_id === press_conference_id);
-    }
-    if (club_name) {
-      result = result.filter(r => r.club_name === club_name);
+    let result;
+    if (press_conference_id || club_name) {
+      result = await pa.selectFiltered({ press_conference_id, club_name });
+    } else {
+      result = await pa.selectAll(Number(page) || 1);
     }
     res.json(result);
   } catch (err) {

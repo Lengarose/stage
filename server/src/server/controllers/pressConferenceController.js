@@ -8,10 +8,11 @@ router.get('/', async (req, res) => {
     const { match_id, club_id, status, page } = req.query;
     const pc = new PressConference();
     let result;
-    if (match_id) result = await pc.selectByMatch(match_id);
-    else result = await pc.selectAll(Number(page) || 1);
-    if (club_id && result) result = result.filter(r => r.club_id === club_id);
-    if (status && result)  result = result.filter(r => r.status === status);
+    if (match_id || club_id || status) {
+      result = await pc.selectFiltered({ match_id, club_id, status });
+    } else {
+      result = await pc.selectAll(Number(page) || 1);
+    }
     res.json(result);
   } catch (err) {
     console.error(err);

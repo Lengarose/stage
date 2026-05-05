@@ -21,6 +21,15 @@ class PressArticle {
     return EXECUTESQL('SELECT * FROM press_articles ORDER BY published_at DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
+  selectFiltered({ press_conference_id, club_name } = {}) {
+    const conditions = [];
+    const params = [];
+    if (press_conference_id) { conditions.push('press_conference_id = ?'); params.push(press_conference_id); }
+    if (club_name)           { conditions.push('club_name = ?');           params.push(club_name); }
+    const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    return EXECUTESQL(`SELECT * FROM press_articles${where} ORDER BY published_at DESC`, params);
+  }
+
   selectOne(id) {
     return EXECUTESQL('SELECT * FROM press_articles WHERE id = ?', [id]);
   }

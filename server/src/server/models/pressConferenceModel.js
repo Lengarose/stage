@@ -31,6 +31,20 @@ class PressConference {
     return EXECUTESQL('SELECT * FROM press_conferences WHERE match_id = ?', [match_id]);
   }
 
+  selectByClub(club_id) {
+    return EXECUTESQL('SELECT * FROM press_conferences WHERE club_id = ?', [club_id]);
+  }
+
+  selectFiltered({ match_id, club_id, status } = {}) {
+    const conditions = [];
+    const params = [];
+    if (match_id) { conditions.push('match_id = ?'); params.push(match_id); }
+    if (club_id)  { conditions.push('club_id = ?');  params.push(club_id); }
+    if (status)   { conditions.push('status = ?');   params.push(status); }
+    const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    return EXECUTESQL(`SELECT * FROM press_conferences${where}`, params);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO press_conferences
