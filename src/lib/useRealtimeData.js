@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
-import { useSocket } from './SocketContext';
+import { setSocketListeners, offSocketListeners } from './SocketContext';
 
 /**
  * Fetches an entity list via the API, then subscribes to a socket channel
@@ -24,9 +24,7 @@ import { useSocket } from './SocketContext';
 export function useRealtimeData(entityName, filters = {}, orderBy = null, channel = null) {
   const [data, setData]       = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { joinRoom, leaveRoom, subscribe } = useSocket() || {};
 
-  // Stable filter key for dependency array
   const filtersKey = JSON.stringify(filters);
 
   const load = useCallback(async () => {
@@ -45,11 +43,9 @@ export function useRealtimeData(entityName, filters = {}, orderBy = null, channe
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!channel || !joinRoom || !subscribe) return;
+    if (!channel) return;
 
-    joinRoom(channel);
-
-    const unsub = subscribe(channel, (update) => {
+    setSocketListeners(channel, (update) => {
       if (update.deleted) {
         setData(prev => prev.filter(item => item.id !== update.id));
       } else {
@@ -60,14 +56,13 @@ export function useRealtimeData(entityName, filters = {}, orderBy = null, channe
             next[idx] = { ...prev[idx], ...update };
             return next;
           }
-          // New record — prepend (most recent first)
           return [update, ...prev];
         });
       }
     });
 
-    return () => { unsub(); leaveRoom(channel); };
-  }, [channel, joinRoom, leaveRoom, subscribe]);
+    return () => offSocketListeners(channel);
+  }, [channel]);
 
   return { data, setData, refresh: load, isLoading };
 }
