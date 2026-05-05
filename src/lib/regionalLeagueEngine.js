@@ -6,22 +6,28 @@ import { STAGE_QUALIFICATION_RULES, RELEGATION_SPOTS, PROMOTION_SPOTS } from "./
  * Process end-of-season for a regional league.
  *
  * Division 1: creates QualificationEntry records for all 3 STAGE competitions
- *             per the STAGE_QUALIFICATION_RULES config, marks relegated clubs.
- * Division 2: marks promoted and relegated clubs (no STAGE entries).
+ *             per the STAGE_QUALIFICATION_RULES config, marks relegated clubs,
+ *             and stamps relegation_target_league_id on their standings.
+ * Division 2: marks promoted clubs with promotion_target_league_id pointing
+ *             to the paired Div 1 league.
  *
- * @param {object} league   - RegionalLeague record
- * @param {Array}  standings - RegionalLeagueStanding records for this league/season
+ * @param {object} league       - RegionalLeague record
+ * @param {Array}  standings    - RegionalLeagueStanding records for this league/season
  * @param {Array}  competitions - Competition records (for ID lookup)
+ * @param {Array}  allLeagues   - All RegionalLeague records (for linked-league lookup)
  * @returns {object} summary of what was created
  */
-export async function processLeagueSeasonEnd(league, standings, competitions) {
+export async function processLeagueSeasonEnd(league, standings, competitions, allLeagues = []) {
   if (!standings.length) throw new Error("No standings found — add clubs before processing.");
 
   const sorted = sortStandings(standings);
   const total = sorted.length;
 
+  // Find the paired league in the other division for this region
+  const linkedLeague = allLeagues.find(l => l.slug === league.linked_league_slug) || null;
+
   if ((league.division || 1) !== 1) {
-    return processDiv2SeasonEnd(league, sorted);
+    return processDiv2SeasonEnd(league, sorted, linkedLeague);
   }
 
   // ── Division 1: STAGE qualification + relegation ─────────────────────────
@@ -56,7 +62,6 @@ export async function processLeagueSeasonEnd(league, standings, competitions) {
           status: "pending",
         })
       );
-      // Mark standing as qualified
       ops.push(
         base44.entities.RegionalLeagueStanding.update(s.id, {
           is_stage_qualified: true,
@@ -70,15 +75,15 @@ export async function processLeagueSeasonEnd(league, standings, competitions) {
   // Mark relegated clubs (bottom RELEGATION_SPOTS)
   const relegated = sorted.slice(Math.max(0, total - RELEGATION_SPOTS));
   for (const s of relegated) {
-    ops.push(
-      base44.entities.RegionalLeagueStanding.update(s.id, {
-        is_relegated: true,
-        final_position: sorted.indexOf(s) + 1,
-      })
-    );
+    const update = {
+      is_relegated: true,
+      final_position: sorted.indexOf(s) + 1,
+    };
+    if (linkedLeague) update.relegation_target_league_id = linkedLeague.id;
+    ops.push(base44.entities.RegionalLeagueStanding.update(s.id, update));
   }
 
-  // Mark all other clubs with their final position
+  // Stamp final position on all other clubs
   for (let i = 0; i < total; i++) {
     const s = sorted[i];
     const isQualified = STAGE_QUALIFICATION_RULES.some(r => r.positions.includes(i + 1));
@@ -98,16 +103,15 @@ export async function processLeagueSeasonEnd(league, standings, competitions) {
   return { type: "div1", qualified: qualCount, relegated: relegated.length };
 }
 
-async function processDiv2SeasonEnd(league, sorted) {
+async function processDiv2SeasonEnd(league, sorted, linkedLeague) {
   const total = sorted.length;
   const ops = [];
 
   const promoted = sorted.slice(0, Math.min(PROMOTION_SPOTS, total));
   for (let i = 0; i < promoted.length; i++) {
-    ops.push(base44.entities.RegionalLeagueStanding.update(promoted[i].id, {
-      is_promoted: true,
-      final_position: i + 1,
-    }));
+    const update = { is_promoted: true, final_position: i + 1 };
+    if (linkedLeague) update.promotion_target_league_id = linkedLeague.id;
+    ops.push(base44.entities.RegionalLeagueStanding.update(promoted[i].id, update));
   }
 
   // Relegate bottom 2 only if the division has enough clubs
@@ -119,6 +123,11 @@ async function processDiv2SeasonEnd(league, sorted) {
         final_position: sorted.indexOf(s) + 1,
       }));
     }
+  }
+
+  // Stamp final position on mid-table
+  for (let i = PROMOTION_SPOTS; i < total - RELEGATION_SPOTS; i++) {
+    ops.push(base44.entities.RegionalLeagueStanding.update(sorted[i].id, { final_position: i + 1 }));
   }
 
   await Promise.all(ops);

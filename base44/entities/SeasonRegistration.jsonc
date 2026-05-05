@@ -1,0 +1,95 @@
+{
+  "name": "SeasonRegistration",
+  "type": "object",
+  "properties": {
+    "club_id": {
+      "type": "string",
+      "title": "Club ID"
+    },
+    "club_name": {
+      "type": "string",
+      "title": "Club Name (denorm)"
+    },
+    "club_tag": {
+      "type": "string",
+      "title": "Club Tag (denorm)"
+    },
+    "club_logo_url": {
+      "type": "string",
+      "title": "Club Logo URL (denorm)"
+    },
+    "owner_email": {
+      "type": "string",
+      "title": "Club Owner Email (denorm)"
+    },
+    "target_type": {
+      "type": "string",
+      "title": "Registration Target Type",
+      "enum": ["regional_league", "competition_season"],
+      "default": "regional_league"
+    },
+    "region_slug": {
+      "type": "string",
+      "title": "Region Slug (e.g. uk-ireland, france)"
+    },
+    "region_name": {
+      "type": "string",
+      "title": "Region Display Name (denorm)"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "enum": ["PlayStation", "Xbox", "PC", "Cross-Platform"]
+    },
+    "preferred_division": {
+      "type": "number",
+      "title": "Preferred Division (1 or 2, expressed by club)",
+      "default": 1
+    },
+    "note_from_club": {
+      "type": "string",
+      "title": "Note from Club (optional message at application time)"
+    },
+    "season_label": {
+      "type": "string",
+      "title": "Season Label (denorm, e.g. Season 1 — for display after league moves on)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Application Status",
+      "enum": ["pending", "approved", "rejected", "waitlisted"],
+      "default": "pending"
+    },
+    "assigned_league_id": {
+      "type": "string",
+      "title": "Assigned League ID (set on approval)"
+    },
+    "assigned_league_name": {
+      "type": "string",
+      "title": "Assigned League Name (denorm)"
+    },
+    "assigned_division": {
+      "type": "number",
+      "title": "Assigned Division (1 or 2, set by admin on approval)"
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Admin Notes (reason for rejection, waitlist, or assignment decision)"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "title": "Reviewed By (admin email)"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "title": "Reviewed At",
+      "format": "date-time"
+    },
+    "applied_at": {
+      "type": "string",
+      "title": "Applied At",
+      "format": "date-time"
+    }
+  },
+  "required": ["club_id", "club_name", "region_slug", "platform", "target_type", "status"]
+}

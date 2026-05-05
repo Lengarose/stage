@@ -48,6 +48,8 @@ import Lifestyle from './pages/Lifestyle';
 import FollowBack from './pages/FollowBack';
 import Competitions from './pages/Competitions';
 import CompetitionDetail from './pages/CompetitionDetail';
+import LeagueDetail from './pages/LeagueDetail';
+import SeasonRegistrations from './pages/SeasonRegistrations';
 
 const SplashScreen = () => (
   <motion.div
@@ -148,6 +150,8 @@ const AuthenticatedApp = () => {
         <Route path="/follow-back" element={<FollowBack />} />
         <Route path="/competitions" element={<Competitions />} />
         <Route path="/competitions/:slug" element={<CompetitionDetail />} />
+        <Route path="/leagues/:slug" element={<LeagueDetail />} />
+        <Route path="/register-league" element={<SeasonRegistrations />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

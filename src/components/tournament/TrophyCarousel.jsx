@@ -23,11 +23,11 @@ export default function TrophyCarousel({ trophies = [], selected, onSelect, size
   );
 
   return (
-    <div className="relative group">
+    <div className="relative group overflow-hidden">
       <button
         type="button"
         onClick={() => scroll(-1)}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground -ml-3 shadow transition-opacity opacity-0 group-hover:opacity-100"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground shadow transition-opacity opacity-0 group-hover:opacity-100"
       >
         <ChevronLeft className="w-3.5 h-3.5" />
       </button>
@@ -76,7 +76,7 @@ export default function TrophyCarousel({ trophies = [], selected, onSelect, size
       <button
         type="button"
         onClick={() => scroll(1)}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground -mr-3 shadow transition-opacity opacity-0 group-hover:opacity-100"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground shadow transition-opacity opacity-0 group-hover:opacity-100"
       >
         <ChevronRight className="w-3.5 h-3.5" />
       </button>

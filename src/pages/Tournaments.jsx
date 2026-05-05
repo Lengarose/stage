@@ -365,7 +365,7 @@ export default function Tournaments() {
               <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
                 <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"],["South America","🌎"],["Asia","🌏"],["Middle East","🕌"],["Africa","🌍"],["Oceania","🌏"]].map(([v, e]) => (
+                  {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v, e]) => (
                     <SelectItem key={v} value={v}>{e} {v}</SelectItem>
                   ))}
                 </SelectContent>

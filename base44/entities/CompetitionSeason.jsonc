@@ -59,8 +59,17 @@
     "status": {
       "type": "string",
       "title": "Status",
-      "enum": ["registration", "league_phase", "playoff_round", "knockout_r16", "knockout_qf", "knockout_sf", "knockout_final", "completed"],
-      "default": "registration"
+      "enum": ["draft", "registration", "league_phase", "playoff_round", "knockout_r16", "knockout_qf", "knockout_sf", "knockout_final", "completed", "archived"],
+      "default": "draft"
+    },
+    "archived_at": {
+      "type": "string",
+      "title": "Archived At",
+      "format": "date-time"
+    },
+    "next_season_id": {
+      "type": "string",
+      "title": "Next Season ID (link to successor)"
     },
     "playoff_format": {
       "type": "string",

@@ -4,133 +4,78 @@
   "rls": {
     "create": true,
     "read": true,
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
   },
   "properties": {
-    "club_id": {
+    "club_id": { "type": "string", "title": "Club ID" },
+    "club_name": { "type": "string", "title": "Club Name" },
+    "opponent_club_id": { "type": "string", "title": "Opponent Club ID" },
+    "opponent_club_name": { "type": "string", "title": "Opponent Club Name" },
+    "match_id": { "type": "string", "title": "Match / Fixture ID" },
+    "competition_type": {
       "type": "string",
-      "title": "Club ID"
+      "title": "Competition Type",
+      "enum": ["regional_league", "competition", "tournament"],
+      "default": "tournament"
     },
-    "club_name": {
+    "competition_slug": {
       "type": "string",
-      "title": "Club Name"
+      "title": "Competition Slug (supreme / elite / challenger / null)"
     },
-    "opponent_club_id": {
-      "type": "string",
-      "title": "Opponent Club ID"
+    "division": {
+      "type": "number",
+      "title": "Regional League Division (1 or 2, null otherwise)"
     },
-    "opponent_club_name": {
+    "phase": {
       "type": "string",
-      "title": "Opponent Club Name"
-    },
-    "match_id": {
-      "type": "string",
-      "title": "Match ID (tournament or live)"
-    },
-    "match_type": {
-      "type": "string",
-      "title": "Match Type",
-      "enum": [
-        "ranked",
-        "league",
-        "playoff",
-        "final"
-      ],
-      "default": "ranked"
+      "title": "Match Phase (league / playoff_round / knockout_r16 / etc.)"
     },
     "result": {
       "type": "string",
       "title": "Result",
-      "enum": [
-        "W",
-        "D",
-        "L"
-      ]
+      "enum": ["W", "D", "L"]
     },
-    "home_score": {
+    "home_score": { "type": "number", "title": "Home Score", "default": 0 },
+    "away_score": { "type": "number", "title": "Away Score", "default": 0 },
+    "points_before": {
       "type": "number",
-      "title": "Home Score",
+      "title": "Ranking Points Before",
       "default": 0
     },
-    "away_score": {
+    "points_after": {
       "type": "number",
-      "title": "Away Score",
+      "title": "Ranking Points After",
       "default": 0
     },
-    "rating_before": {
+    "points_change": {
       "type": "number",
-      "title": "Rating Before",
-      "default": 1500
-    },
-    "rating_after": {
-      "type": "number",
-      "title": "Rating After",
-      "default": 1500
-    },
-    "rating_change": {
-      "type": "number",
-      "title": "Rating Change (\u0394)",
+      "title": "Points Earned This Match",
       "default": 0
     },
-    "opponent_rating": {
+    "opponent_rank": {
       "type": "number",
-      "title": "Opponent Rating at Time of Match",
-      "default": 1500
+      "title": "Opponent Global Rank at Time of Match",
+      "default": 0
     },
-    "k_factor": {
+    "opp_strength_multiplier": {
       "type": "number",
-      "title": "K-Factor Used",
-      "default": 20
-    },
-    "match_weight": {
-      "type": "number",
-      "title": "Match Weight (W)",
+      "title": "Opponent Strength Multiplier Applied",
       "default": 1.0
     },
-    "goal_diff_bonus": {
+    "competition_multiplier": {
       "type": "number",
-      "title": "Goal Diff Bonus Applied",
-      "default": 0
-    },
-    "roster_continuity": {
-      "type": "number",
-      "title": "Roster Continuity Factor (C)",
+      "title": "Competition Level Multiplier Applied",
       "default": 1.0
     },
-    "was_provisional": {
-      "type": "boolean",
-      "title": "Was Provisional at Time",
-      "default": true
+    "stage_multiplier": {
+      "type": "number",
+      "title": "Tournament Stage Multiplier Applied",
+      "default": 1.0
     },
-    "voided": {
-      "type": "boolean",
-      "title": "Voided by Admin",
-      "default": false
-    },
-    "void_reason": {
-      "type": "string",
-      "title": "Void Reason"
-    },
-    "played_at": {
-      "type": "string",
-      "title": "Played At",
-      "format": "date-time"
-    }
+    "voided": { "type": "boolean", "title": "Voided by Admin", "default": false },
+    "void_reason": { "type": "string", "title": "Void Reason" },
+    "played_at": { "type": "string", "title": "Played At", "format": "date-time" }
   },
-  "required": [
-    "club_id",
-    "match_id",
-    "result",
-    "rating_before",
-    "rating_after"
-  ]
+  "required": ["club_id", "result", "points_before", "points_after"]
 }

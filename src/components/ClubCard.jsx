@@ -1,8 +1,8 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Shield, Trophy, Star } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Shield, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ClubCard({ club, rank, showChallenge, onChallenge }) {
+export default function ClubCard({ club, rank, showChallenge: _showChallenge, onChallenge: _onChallenge }) {
   // Note: ClubCard displays stored entity stats (club.wins/losses/draws)
   // For live-calculated stats, see ClubDetail.jsx which filters by confirmed/completed matches
   const totalGames = (club.wins || 0) + (club.losses || 0) + (club.draws || 0);
@@ -40,10 +40,6 @@ export default function ClubCard({ club, rank, showChallenge, onChallenge }) {
               <span>{club.region}</span>
             </div>
             <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-xs">
-                <Star className="w-3 h-3 text-warning" />
-                <span className="text-foreground font-medium">{club.rating || 0}</span>
-              </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Trophy className="w-3 h-3 text-primary" />
                 <span className="text-muted-foreground">{club.trophies || 0} trophies</span>

@@ -1,0 +1,51 @@
+{
+  "name": "RankingConfig",
+  "type": "object",
+  "rls": {
+    "create": { "user_condition": { "role": "admin" } },
+    "read": true,
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  },
+  "properties": {
+    "label": {
+      "type": "string",
+      "title": "Config Label (e.g. 'Season 1 Rules')",
+      "default": "Default"
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Active (only one config should be active at a time)",
+      "default": true
+    },
+
+    // ── Base result points ──────────────────────────────────────────────────────
+    "win_points":  { "type": "number", "title": "Win  — Base Points",  "default": 100 },
+    "draw_points": { "type": "number", "title": "Draw — Base Points",  "default":  40 },
+    "loss_points": { "type": "number", "title": "Loss — Base Points",  "default":  10 },
+
+    // ── Opponent strength multipliers (by global rank percentile) ───────────────
+    "opp_top10":    { "type": "number", "title": "Opp Top 10%  Multiplier", "default": 2.0 },
+    "opp_top25":    { "type": "number", "title": "Opp Top 25%  Multiplier", "default": 1.5 },
+    "opp_top50":    { "type": "number", "title": "Opp Top 50%  Multiplier", "default": 1.2 },
+    "opp_bot50":    { "type": "number", "title": "Opp Bot 50%  Multiplier", "default": 1.0 },
+    "opp_bot25":    { "type": "number", "title": "Opp Bot 25%  Multiplier", "default": 0.8 },
+
+    // ── Competition level multipliers ───────────────────────────────────────────
+    "comp_regional_div2": { "type": "number", "title": "Regional Div 2 Multiplier",   "default": 0.8 },
+    "comp_regional_div1": { "type": "number", "title": "Regional Div 1 Multiplier",   "default": 1.0 },
+    "comp_challenger":    { "type": "number", "title": "STAGE Challenger Multiplier", "default": 1.2 },
+    "comp_elite":         { "type": "number", "title": "STAGE Elite Multiplier",      "default": 1.5 },
+    "comp_supreme":       { "type": "number", "title": "STAGE Supreme Multiplier",    "default": 2.0 },
+    "comp_tournament":    { "type": "number", "title": "Open Tournament Multiplier",  "default": 1.0 },
+
+    // ── Tournament stage / round multipliers ────────────────────────────────────
+    "stage_group":   { "type": "number", "title": "Group / League Phase Multiplier", "default": 1.0 },
+    "stage_playoff": { "type": "number", "title": "Playoff Round Multiplier",        "default": 1.1 },
+    "stage_r16":     { "type": "number", "title": "Round of 16 Multiplier",          "default": 1.2 },
+    "stage_qf":      { "type": "number", "title": "Quarter-final Multiplier",        "default": 1.4 },
+    "stage_sf":      { "type": "number", "title": "Semi-final Multiplier",           "default": 1.6 },
+    "stage_final":   { "type": "number", "title": "Final Multiplier",                "default": 2.0 }
+  },
+  "required": ["win_points", "draw_points", "loss_points"]
+}

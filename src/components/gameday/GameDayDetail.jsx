@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { processMatchRevenue } from "@/lib/matchRevenue";
 import { generateMatchShirtSales } from "@/lib/virtualShirtSales";
+import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "date-fns";
 import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,26 +109,40 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     setKickoffLoading(false);
   }
 
-  function handleResultSubmitted(status, homeScore, awayScore) {
+  async function handleResultSubmitted(status, homeScore, awayScore) {
     setShowResultForm(false);
     const newStatus = status === "disputed" ? "disputed" : status === "completed" ? "completed" : game.status;
-    const updated = {
+    let updated = {
       ...game,
       status: newStatus,
       ...(newStatus === "completed" && homeScore != null ? { home_score: homeScore, away_score: awayScore } : {}),
     };
+
+    // Reload from server to capture both teams' goal events (stored fire-and-forget in GameDayMatchResult)
+    if (newStatus === "completed") {
+      const fresh = await base44.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
+      if (fresh?.[0]) updated = { ...updated, ...fresh[0] };
+    }
+
     setGame(updated);
     if (onGameUpdate) onGameUpdate(updated);
 
-    // Fire-and-forget: ticket revenue + wager settlement + inbox messages + shirt sales
     if (newStatus === "completed") {
       processMatchRevenue(updated);
       generateMatchShirtSales(updated);
+      syncFixtureAfterMatch(updated).catch(() => {});
+      syncPlayerCareerStats(updated.id).catch(() => {});
     }
   }
 
   const statusLabel = STATUS_LABELS[game.status] || game.status;
   const statusCls = STATUS_COLORS[game.status] || "bg-secondary text-muted-foreground";
+
+  const allGoalEvents = [
+    ...(game.home_goal_events || []).map(ev => ({ ...ev, teamName: home })),
+    ...(game.away_goal_events || []).map(ev => ({ ...ev, teamName: away })),
+  ].sort((a, b) => (Number(a.minute) || 0) - (Number(b.minute) || 0));
+  const hasGoalTimeline = allGoalEvents.length > 0;
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden shadow-lg">
@@ -157,15 +172,19 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             )}
           </p>
         )}
-        {tournament && (
+        {game.competition_context ? (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Trophy className="w-3 h-3 text-accent" />
+            <span className="text-xs text-muted-foreground">{game.competition_context}</span>
+          </div>
+        ) : tournament ? (
           <div className="flex items-center gap-1.5 mt-1.5">
             <Trophy className="w-3 h-3 text-accent" />
             <span className="text-xs text-muted-foreground">{tournament.name}</span>
           </div>
-        )}
-        {(!tournament && game.tournament_id === "ranked") && (
+        ) : game.tournament_id === "ranked" ? (
           <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Ranked Match</p>
-        )}
+        ) : null}
       </div>
 
       {/* Score */}
@@ -321,7 +340,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
                 <MessageSquare className="w-3.5 h-3.5" /> Chat
               </TabsTrigger>
             )}
-            {isCompleted && stats.length > 0 && (
+            {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
               <TabsTrigger value="stats" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
                 <Target className="w-3.5 h-3.5" /> Stats
               </TabsTrigger>
@@ -344,19 +363,48 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </TabsContent>
           )}
 
-          {isCompleted && stats.length > 0 && (
-            <TabsContent value="stats" className="p-4 space-y-2">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Player Stats</p>
-              {stats.map(stat => (
-                <div key={stat.id} className="text-xs border border-border rounded px-2 py-2 flex items-center justify-between">
-                  <span className="text-foreground font-medium">{stat.player_gamertag}</span>
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <span className="flex items-center gap-1"><Target className="w-3 h-3" />{stat.goals}</span>
-                    <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{stat.assists}</span>
-                    <span className="font-semibold text-foreground">{stat.rating}/10</span>
+          {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
+            <TabsContent value="stats" className="p-4 space-y-4">
+              {hasGoalTimeline && (
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Goals</p>
+                  <div className="space-y-0.5">
+                    {allGoalEvents.map((ev, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs py-1.5 border-b border-border last:border-0">
+                        <span className="text-muted-foreground w-8 shrink-0 text-right">
+                          {ev.minute ? `${ev.minute}'` : "—"}
+                        </span>
+                        <Target className="w-3 h-3 text-success shrink-0" />
+                        <span className="font-medium text-foreground">{ev.scorer_gamertag || "?"}</span>
+                        {ev.assist_gamertag && (
+                          <span className="text-muted-foreground flex items-center gap-0.5">
+                            <Zap className="w-2.5 h-2.5" />{ev.assist_gamertag}
+                          </span>
+                        )}
+                        {ev.is_penalty && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-warning/10 text-warning">PEN</span>
+                        )}
+                        <span className="ml-auto text-[10px] text-muted-foreground">{ev.teamName}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+              {stats.length > 0 && (
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Player Ratings</p>
+                  {stats.map(stat => (
+                    <div key={stat.id} className="text-xs border border-border rounded px-2 py-2 flex items-center justify-between">
+                      <span className="text-foreground font-medium">{stat.player_gamertag}</span>
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        {stat.goals > 0 && <span className="flex items-center gap-1 text-success"><Target className="w-3 h-3" />{stat.goals}</span>}
+                        {stat.assists > 0 && <span className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" />{stat.assists}</span>}
+                        <span className="font-semibold text-foreground">{stat.rating}/10</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </TabsContent>
           )}
         </Tabs>

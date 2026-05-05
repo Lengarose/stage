@@ -39,7 +39,7 @@ const THEMES = [
   { id: "theme-custom", label: "Custom",     icon: Palette },
 ];
 
-function getPlayerGroups(clubPath) {
+function getPlayerGroups(_clubPath) {
   const homeItems = [
     { path: "/",         icon: Home,         label: "Home" },
     { path: "/profile",  icon: User,         label: "My Profile" },
@@ -51,10 +51,11 @@ function getPlayerGroups(clubPath) {
     {
       label: "Compete",
       items: [
-        { path: "/game-day",      icon: Zap,       label: "Game Day" },
-        { path: "/competitions",  icon: Star,      label: "Competitions" },
-        { path: "/tournaments",   icon: Trophy,    label: "Tournaments" },
-        { path: "/rankings",      icon: BarChart3, label: "Rankings" },
+        { path: "/game-day",        icon: Zap,       label: "Game Day" },
+        { path: "/competitions",    icon: Star,      label: "Competitions" },
+        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/register-league", icon: Shield,    label: "Register" },
+        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
     },
     {
@@ -103,9 +104,10 @@ function getOwnerGroups(clubPath) {
     {
       label: "Competitions",
       items: [
-        { path: "/competitions",  icon: Star,      label: "Competitions" },
-        { path: "/tournaments",   icon: Trophy,    label: "Tournaments" },
-        { path: "/rankings",      icon: BarChart3, label: "Rankings" },
+        { path: "/competitions",    icon: Star,      label: "Competitions" },
+        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/register-league", icon: Shield,    label: "Register" },
+        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
     },
     {

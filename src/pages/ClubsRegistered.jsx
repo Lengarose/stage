@@ -24,7 +24,7 @@ export default function ClubsRegistered() {
     async function load() {
       const [tData, clubs] = await Promise.all([
         base44.entities.Tournament.filter({ id }, null, 1),
-        base44.entities.Club.list("-rating", 200),
+        base44.entities.Club.list("-wins", 200),
       ]);
       const t = tData[0];
       setTournament(t);
@@ -68,7 +68,7 @@ export default function ClubsRegistered() {
       const matchRegion = filterRegion === "all" || c.region === filterRegion;
       return matchSearch && matchRegion;
     })
-    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    .sort((a, b) => (b.wins || 0) - (a.wins || 0));
 
   const paginated = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginated.length < filtered.length;
@@ -130,7 +130,6 @@ export default function ClubsRegistered() {
               <th className="w-10 px-4 py-3"></th>
               <th className="text-left px-4 py-3">Club</th>
               <th className="hidden sm:table-cell px-3 py-3 text-left">Region</th>
-              <th className="px-3 py-3 text-center">Rating</th>
               <th className="hidden md:table-cell px-3 py-3 text-center">W/D/L</th>
               <th className="px-3 py-3 text-center">Status</th>
             </tr>
@@ -170,7 +169,6 @@ export default function ClubsRegistered() {
                     </div>
                   </td>
                   <td className="hidden sm:table-cell px-3 py-3 text-muted-foreground text-xs">{club.region || "—"}</td>
-                  <td className="px-3 py-3 text-center font-bold text-foreground">{club.rating || 1500}</td>
                   <td className="hidden md:table-cell px-3 py-3 text-center text-xs">
                     <span className="text-success">{club.wins || 0}W</span>
                     <span className="text-muted-foreground mx-1">/</span>

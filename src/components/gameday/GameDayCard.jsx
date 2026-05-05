@@ -14,7 +14,7 @@ const STATUS_BADGE = {
   awaiting_confirmation: { label: "Pending", cls: "bg-warning/10 text-warning" },
 };
 
-export default function GameDayCard({ game, selected, onClick, myClub, myPlayer, tournament }) {
+export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament }) {
   const date = parseDate(game.scheduled_date);
   const status = STATUS_BADGE[game.status] || { label: game.status, cls: "bg-secondary text-muted-foreground" };
 
@@ -35,7 +35,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, myPlayer,
     if (t.type === "double_elimination") return `${t.name} · Double Elim.`;
     return t.name || "Tournament";
   }
-  const competition = deriveCompetition(game, tournament);
+  const competition = game.competition_context || deriveCompetition(game, tournament);
 
   return (
     <button

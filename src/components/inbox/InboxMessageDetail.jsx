@@ -8,6 +8,7 @@ import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
+import InboxScheduleProposal from "@/components/inbox/InboxScheduleProposal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -21,7 +22,7 @@ const STATUS_COLORS = {
   pending:               "text-muted-foreground bg-muted border-border",
 };
 
-export default function InboxMessageDetail({ message, onDeleted, onStatusChanged }) {
+export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
   const [loading, setLoading] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -270,10 +271,21 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             }}
           />
         )}
+
+        {/* League / competition scheduling proposal */}
+        {message.message_type === "league_schedule" && (
+          <InboxScheduleProposal
+            message={message}
+            myClub={myClub}
+            myEmail={myEmail}
+            myGamertag={myGamertag}
+            onActioned={(status) => onStatusChanged?.(message.id, status)}
+          />
+        )}
       </div>
 
-      {/* Action buttons — only for non-contract, non-trial messages */}
-      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "trial_request" && (
+      {/* Action buttons — only for non-contract, non-trial, non-schedule messages */}
+      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
         <div className="p-4 border-t border-warning/20 bg-warning/5">
           <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />

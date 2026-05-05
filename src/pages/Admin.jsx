@@ -14,184 +14,12 @@ import { cn } from "@/lib/utils";
 import {
   Shield, AlertTriangle, Users, Trophy, Check, X,
   ArrowLeft, Gavel, Flag, Ban, RefreshCw, Coins, Plus, Trash2,
-  Newspaper, Upload, Building2, LogIn, Search, TrendingUp
+  Newspaper, Upload, Building2, LogIn, Search, TrendingUp,
+  Pencil, ChevronDown
 } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
-
-// Real leagues per country (up to 3 tiers)
-const COUNTRY_LEAGUES = {
-  "AR": [
-    { name: "Liga Profesional de Fútbol", teams: 28 },
-    { name: "Primera Nacional", teams: 38 },
-    { name: "Primera B Metropolitana", teams: 20 },
-  ],
-  "AU": [
-    { name: "A-League Men", teams: 12 },
-    { name: "NPL Australia", teams: 20 },
-  ],
-  "AT": [
-    { name: "Admiral Bundesliga", teams: 12 },
-    { name: "2. Liga", teams: 16 },
-  ],
-  "BE": [
-    { name: "Jupiler Pro League", teams: 16 },
-    { name: "Challenger Pro League", teams: 8 },
-  ],
-  "BR": [
-    { name: "Brasileirão Série A", teams: 20 },
-    { name: "Brasileirão Série B", teams: 20 },
-    { name: "Brasileirão Série C", teams: 20 },
-  ],
-  "CA": [
-    { name: "Canadian Premier League", teams: 8 },
-    { name: "League1 Ontario", teams: 16 },
-  ],
-  "CL": [
-    { name: "Primera División de Chile", teams: 16 },
-    { name: "Primera B", teams: 16 },
-  ],
-  "CN": [
-    { name: "Chinese Super League", teams: 16 },
-    { name: "China League One", teams: 16 },
-    { name: "China League Two", teams: 20 },
-  ],
-  "CO": [
-    { name: "Categoría Primera A", teams: 20 },
-    { name: "Categoría Primera B", teams: 16 },
-  ],
-  "HR": [
-    { name: "Hrvatska nogometna liga (HNL)", teams: 10 },
-    { name: "Prva NL", teams: 12 },
-  ],
-  "CZ": [
-    { name: "Fortuna Liga", teams: 16 },
-    { name: "Fortuna:Národní liga", teams: 16 },
-  ],
-  "DK": [
-    { name: "Superliga", teams: 14 },
-    { name: "1st Division", teams: 14 },
-  ],
-  "EG": [
-    { name: "Egyptian Premier League", teams: 18 },
-    { name: "Egyptian Second Division", teams: 20 },
-  ],
-  "FR": [
-    { name: "Ligue 1", teams: 18 },
-    { name: "Ligue 2", teams: 20 },
-    { name: "National", teams: 18 },
-  ],
-  "DE": [
-    { name: "Bundesliga", teams: 18 },
-    { name: "2. Bundesliga", teams: 18 },
-    { name: "3. Liga", teams: 20 },
-  ],
-  "GR": [
-    { name: "Super League 1", teams: 16 },
-    { name: "Super League 2", teams: 16 },
-  ],
-  "IE": [
-    { name: "League of Ireland Premier Division", teams: 10 },
-    { name: "League of Ireland First Division", teams: 10 },
-  ],
-  "IT": [
-    { name: "Serie A", teams: 20 },
-    { name: "Serie B", teams: 20 },
-    { name: "Serie C", teams: 20 },
-  ],
-  "JP": [
-    { name: "J1 League", teams: 20 },
-    { name: "J2 League", teams: 22 },
-    { name: "J3 League", teams: 20 },
-  ],
-  "MA": [
-    { name: "Botola Pro D1", teams: 16 },
-    { name: "Botola Pro D2", teams: 16 },
-  ],
-  "MX": [
-    { name: "Liga MX", teams: 18 },
-    { name: "Liga de Expansión MX", teams: 16 },
-  ],
-  "NL": [
-    { name: "Eredivisie", teams: 18 },
-    { name: "Eerste Divisie (Keuken Kampioen Divisie)", teams: 20 },
-  ],
-  "NG": [
-    { name: "Nigeria Premier Football League", teams: 20 },
-    { name: "Nigeria National League", teams: 20 },
-  ],
-  "NO": [
-    { name: "Eliteserien", teams: 16 },
-    { name: "1. divisjon", teams: 16 },
-  ],
-  "PL": [
-    { name: "PKO BP Ekstraklasa", teams: 18 },
-    { name: "1. Liga", teams: 18 },
-    { name: "2. Liga", teams: 18 },
-  ],
-  "PT": [
-    { name: "Primeira Liga", teams: 18 },
-    { name: "Liga Portugal 2", teams: 18 },
-    { name: "Liga 3", teams: 20 },
-  ],
-  "RU": [
-    { name: "Russian Premier League", teams: 16 },
-    { name: "Russian First League", teams: 20 },
-    { name: "Russian Second League", teams: 20 },
-  ],
-  "SA": [
-    { name: "Saudi Pro League", teams: 18 },
-    { name: "Saudi First Division League", teams: 20 },
-  ],
-  "RS": [
-    { name: "Serbian SuperLiga", teams: 16 },
-    { name: "Serbian First League", teams: 16 },
-  ],
-  "ZA": [
-    { name: "DStv Premiership", teams: 16 },
-    { name: "Motsepe Foundation Championship", teams: 16 },
-  ],
-  "KR": [
-    { name: "K League 1", teams: 12 },
-    { name: "K League 2", teams: 13 },
-  ],
-  "ES": [
-    { name: "La Liga", teams: 20 },
-    { name: "La Liga 2", teams: 22 },
-    { name: "Primera RFEF", teams: 20 },
-  ],
-  "SE": [
-    { name: "Allsvenskan", teams: 16 },
-    { name: "Superettan", teams: 16 },
-    { name: "Division 1", teams: 16 },
-  ],
-  "CH": [
-    { name: "Swiss Super League", teams: 12 },
-    { name: "Swiss Challenge League", teams: 16 },
-  ],
-  "TR": [
-    { name: "Süper Lig", teams: 19 },
-    { name: "TFF First League", teams: 19 },
-    { name: "TFF Second League", teams: 18 },
-  ],
-  "UA": [
-    { name: "Ukrainian Premier League", teams: 16 },
-    { name: "Ukrainian First League", teams: 16 },
-  ],
-  "AE": [
-    { name: "UAE Pro League", teams: 14 },
-    { name: "UAE First Division", teams: 12 },
-  ],
-  "GB": [
-    { name: "Premier League", teams: 20 },
-    { name: "EFL Championship", teams: 24 },
-    { name: "EFL League One", teams: 24 },
-  ],
-  "US": [
-    { name: "Major League Soccer (MLS)", teams: 29 },
-    { name: "USL Championship", teams: 24 },
-    { name: "USL League One", teams: 20 },
-  ],
-};
+import { REGIONS, LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
+import { forceSchedule, flagForAdminReview, declareForfeit } from "../lib/scheduleEngine";
 
 export default function Admin() {
   const [allowed, setAllowed] = useState(null);
@@ -253,10 +81,50 @@ export default function Admin() {
   const [qualEntries, setQualEntries] = useState([]);
   const [seedingComps, setSeedingComps] = useState(false);
   const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "" });
+  const [expiredFixtures, setExpiredFixtures] = useState([]);
+  const [schedulingAdminBusy, setSchedulingAdminBusy] = useState(null);
   const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
   const [regionalLeagues, setRegionalLeagues] = useState([]);
   const [seedingRegionalLeagues, setSeedingRegionalLeagues] = useState(false);
   const [processingLeagueEnd, setProcessingLeagueEnd] = useState(null);
+
+  // Competition & league inline editing
+  const [editingComp, setEditingComp]       = useState(null);
+  const [compEditForm, setCompEditForm]     = useState({});
+  const [savingComp, setSavingComp]         = useState(false);
+  const [editingLeague, setEditingLeague]   = useState(null);
+  const [leagueEditForm, setLeagueEditForm] = useState({});
+  const [savingLeague, setSavingLeague]     = useState(false);
+
+  // Fixtures panel
+  const [fixturesOpen, setFixturesOpen]               = useState(false);
+  const [fixturesPanel, setFixturesPanel]             = useState(null);
+  const [fixturesList, setFixturesList]               = useState([]);
+  const [loadingFixtures, setLoadingFixtures]         = useState(false);
+  const [selectedFixtureSeason, setSelectedFixtureSeason] = useState("");
+  const [selectedFixtureLeague, setSelectedFixtureLeague] = useState("");
+
+  // Standings panel
+  const [standingsOpen, setStandingsOpen]                 = useState(false);
+  const [standingsPanel, setStandingsPanel]               = useState(null);
+  const [standingsList, setStandingsList]                 = useState([]);
+  const [loadingStandings, setLoadingStandings]           = useState(false);
+  const [selectedStandingsSeason, setSelectedStandingsSeason] = useState("");
+  const [selectedStandingsLeague, setSelectedStandingsLeague] = useState("");
+
+  // Result entry dialog
+  const [resultDialog, setResultDialog]   = useState(null);
+  const [resultForm, setResultForm]       = useState({ home_score: "", away_score: "" });
+  const [savingResult, setSavingResult]   = useState(false);
+
+  // Season registration applications
+  const [regApplications, setRegApplications]     = useState([]);
+  const [regAppFilter,    setRegAppFilter]         = useState("actionable"); // "actionable" | "all"
+  const [approveRegDialog, setApproveRegDialog]   = useState(null); // { reg }
+  const [approveTargetId,  setApproveTargetId]    = useState("");
+  const [rejectNotesDialog, setRejectNotesDialog] = useState(null); // { reg, action: "reject"|"waitlist" }
+  const [rejectNotes,       setRejectNotes]       = useState("");
+  const [processingReg,     setProcessingReg]     = useState(false);
 
   const [adminProfile, setAdminProfile] = useState(null);
 
@@ -271,7 +139,7 @@ export default function Admin() {
 
   async function loadAll() {
     setLoading(true);
-    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues] = await Promise.all([
+    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps] = await Promise.all([
       base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50),
       base44.entities.Player.list("-created_date", 100),
       base44.entities.Tournament.list("-created_date", 200),
@@ -281,6 +149,9 @@ export default function Admin() {
       base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
       base44.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
       base44.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
+      (base44.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+      (base44.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+      (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
     ]);
     const forfeitMatches = await base44.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
     setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
@@ -293,6 +164,24 @@ export default function Admin() {
     setCompSeasons(allCompSeasons);
     setQualEntries(allQual);
     setRegionalLeagues(allRegLeagues);
+    setRegApplications(allRegApps);
+    setExpiredFixtures([
+      ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
+      ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
+    ]);
+
+    // Load ranking config (non-fatal)
+    const cfgRows = await (base44.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
+    const activeCfg = cfgRows.find(r => r.is_active) || cfgRows[0];
+    if (activeCfg) {
+      setRankingConfigId(activeCfg.id);
+      setRankingConfig(activeCfg);
+    } else {
+      const { DEFAULT_CONFIG } = await import("@/lib/rankingEngine");
+      setRankingConfig({ ...DEFAULT_CONFIG, label: "Default", is_active: true });
+      setRankingConfigId(null);
+    }
+
     setLoading(false);
   }
 
@@ -428,16 +317,34 @@ export default function Admin() {
   async function seedCompetitions() {
     if (competitions.length >= 3) { alert("Competitions already seeded."); return; }
     setSeedingComps(true);
-    const defs = [
-      { name: "STAGE Supreme League", slug: "supreme", tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.", max_clubs_per_season: 16, promotion_spots: 0, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-      { name: "STAGE Elite League",   slug: "elite",   tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.", max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-      { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.", max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 0, playoff_spots: 4, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-    ];
-    const existing = new Set(competitions.map(c => c.slug));
-    await Promise.all(defs.filter(d => !existing.has(d.slug)).map(d => base44.entities.Competition.create(d)));
-    await loadAll();
-    setSeedingComps(false);
-    alert("Competitions seeded!");
+    try {
+      const defs = [
+        { name: "STAGE Supreme League",    slug: "supreme",    tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.",          max_clubs_per_season: 16, promotion_spots: 0, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Elite League",      slug: "elite",      tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.",           max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.",             max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 0, playoff_spots: 4, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+      ];
+      const existing = new Set(competitions.map(c => c.slug));
+      const toCreate = defs.filter(d => !existing.has(d.slug));
+      await Promise.all(toCreate.map(d => base44.entities.Competition.create(d)));
+      await loadAll();
+      alert(`Competitions seeded! (${toCreate.length} created)`);
+    } catch (err) {
+      const msg = err?.message || "";
+      if (msg.includes("not found in app") || msg.includes("schema")) {
+        alert(
+          "⚠️ Competition entity not published yet.\n\n" +
+          "To fix this:\n" +
+          "1. Go to app.base44.com\n" +
+          "2. Open your app → Entities\n" +
+          "3. Find Competition and click Publish\n\n" +
+          "Once published, come back and click Seed Competitions again."
+        );
+      } else {
+        alert(`Seed failed: ${msg || "Unknown error."}`);
+      }
+    } finally {
+      setSeedingComps(false);
+    }
   }
 
   async function createCompetitionSeason() {
@@ -456,7 +363,7 @@ export default function Admin() {
       season_label: `Season ${nextSeason}`,
       platform: newSeasonForm.platform,
       region: newSeasonForm.region,
-      status: "registration",
+      status: "draft",
       format: "league_36_8md",
       playoff_format: "9_24_bracket",
       num_league_matchdays: 8,
@@ -492,16 +399,35 @@ export default function Admin() {
     setSeedingRegionalLeagues(true);
     try {
       const existing = new Set(regionalLeagues.map(l => l.slug));
-      const defs = [
-        { name: "UK & Ireland Division 1", slug: "uk-ireland-div-1",    region_slug: "uk-ireland",    division: 1, region: "Europe",        country_code: "GB", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
-        { name: "France Division 1",       slug: "france-div-1",        region_slug: "france",        division: 1, region: "Europe",        country_code: "FR", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
-        { name: "Germany Division 1",      slug: "germany-div-1",       region_slug: "germany",       division: 1, region: "Europe",        country_code: "DE", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
-        { name: "Benelux Division 1",      slug: "benelux-div-1",       region_slug: "benelux",       division: 1, region: "Europe",        country_code: "BE", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
-        { name: "North America Division 1",slug: "north-america-div-1", region_slug: "north-america", division: 1, region: "North America", country_code: "US", platform: "Cross-Platform", season_number: 1, status: "registration", max_clubs: 16, promoted_slots: 6 },
-      ];
-      await Promise.all(defs.filter(d => !existing.has(d.slug)).map(d => base44.entities.RegionalLeague.create(d)));
+      // Strip fields that require schema publishing so the seed always succeeds
+      // with the base schema. Re-seed after publishing to persist extended fields.
+      const toCreate = LEAGUE_DEFINITIONS
+        .filter(d => !existing.has(d.slug))
+        .map(({ linked_league_slug: _lls, ...d }) => ({
+          ...d,
+          platform: "Cross-Platform",
+          season_number: 1,
+          status: "registration",
+          max_clubs: 16,
+          promoted_slots: d.division === 1 ? 6 : 2,
+        }));
+      await Promise.all(toCreate.map(d => base44.entities.RegionalLeague.create(d)));
       await loadAll();
-      alert("Regional leagues seeded!");
+      alert(`Regional leagues seeded! (${toCreate.length} created)`);
+    } catch (err) {
+      const msg = err?.message || "";
+      if (msg.includes("not found in app") || msg.includes("schema")) {
+        alert(
+          "⚠️ RegionalLeague entity not published yet.\n\n" +
+          "To fix this:\n" +
+          "1. Go to app.base44.com\n" +
+          "2. Open your app → Entities\n" +
+          "3. Find RegionalLeague and click Publish\n\n" +
+          "Once published, come back and click Seed All Leagues again."
+        );
+      } else {
+        alert(`Seed failed: ${msg || "Unknown error."}`);
+      }
     } finally {
       setSeedingRegionalLeagues(false);
     }
@@ -516,7 +442,7 @@ export default function Admin() {
         return;
       }
       const { processLeagueSeasonEnd } = await import("@/lib/regionalLeagueEngine");
-      const result = await processLeagueSeasonEnd(league, standings, competitions);
+      const result = await processLeagueSeasonEnd(league, standings, competitions, regionalLeagues);
       await loadAll();
       if (result.type === "div1") {
         alert(`Season processed! ${result.qualified} qualification entries created for STAGE competitions. ${result.relegated} clubs relegated.`);
@@ -527,6 +453,214 @@ export default function Admin() {
       alert(`Error: ${err.message}`);
     } finally {
       setProcessingLeagueEnd(null);
+    }
+  }
+
+  async function leagueLifecycleAction(league, action) {
+    try {
+      if (action === "open_registration") {
+        const { openLeagueRegistration } = await import("@/lib/seasonLifecycle");
+        await openLeagueRegistration(league);
+        await loadAll();
+      } else if (action === "archive") {
+        if (!confirm(`Archive ${league.name} Season ${league.season_number}? This will lock final standings and award the winner achievement. Make sure "End Season" has been run first.`)) return;
+        const { archiveLeague } = await import("@/lib/seasonLifecycle");
+        await archiveLeague(league);
+        await loadAll();
+        alert(`Season ${league.season_number} archived.`);
+      } else if (action === "create_next") {
+        const { createNextLeagueSeason } = await import("@/lib/seasonLifecycle");
+        const next = await createNextLeagueSeason(league);
+        await loadAll();
+        alert(`${next.name} Season ${next.season_number} created as Draft. Open Registration when ready.`);
+      }
+    } catch (err) {
+      alert(`Error: ${err?.message || "Unknown error."}`);
+    }
+  }
+
+  async function handleApproveReg() {
+    if (!approveRegDialog || !approveTargetId) return;
+    setProcessingReg(true);
+    try {
+      const league = regionalLeagues.find(l => l.id === approveTargetId);
+      if (!league) throw new Error("Selected league not found.");
+      const { approveRegistration } = await import("@/lib/registrationEngine");
+      await approveRegistration(approveRegDialog, league, adminProfile?.email || "admin");
+      setApproveRegDialog(null);
+      setApproveTargetId("");
+      await loadAll();
+    } catch (err) {
+      alert(`Error: ${err?.message || "Unknown error."}`);
+    } finally {
+      setProcessingReg(false);
+    }
+  }
+
+  async function handleRejectOrWaitlistReg() {
+    if (!rejectNotesDialog) return;
+    setProcessingReg(true);
+    try {
+      const { rejectRegistration, waitlistRegistration } = await import("@/lib/registrationEngine");
+      if (rejectNotesDialog.action === "reject") {
+        await rejectRegistration(rejectNotesDialog.reg, rejectNotes, adminProfile?.email || "admin");
+      } else {
+        await waitlistRegistration(rejectNotesDialog.reg, rejectNotes, adminProfile?.email || "admin");
+      }
+      setRejectNotesDialog(null);
+      setRejectNotes("");
+      await loadAll();
+    } catch (err) {
+      alert(`Error: ${err?.message || "Unknown error."}`);
+    } finally {
+      setProcessingReg(false);
+    }
+  }
+
+  async function saveCompRules() {
+    if (!editingComp) return;
+    setSavingComp(true);
+    try {
+      await base44.entities.Competition.update(editingComp, {
+        max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || 16,
+        qualification_spots_per_region: Number(compEditForm.qualification_spots_per_region) || 2,
+        promotion_spots:                Number(compEditForm.promotion_spots) || 0,
+        relegation_spots:               Number(compEditForm.relegation_spots) || 0,
+        playoff_spots:                  Number(compEditForm.playoff_spots) || 4,
+      });
+      await loadAll();
+      setEditingComp(null);
+    } catch (err) {
+      alert(`Save failed: ${err?.message || "Unknown error."}`);
+    } finally {
+      setSavingComp(false);
+    }
+  }
+
+  async function saveLeagueRules() {
+    if (!editingLeague) return;
+    setSavingLeague(true);
+    try {
+      await base44.entities.RegionalLeague.update(editingLeague, {
+        max_clubs:      Number(leagueEditForm.max_clubs) || 16,
+        promoted_slots: Number(leagueEditForm.promoted_slots) || 2,
+      });
+      await loadAll();
+      setEditingLeague(null);
+    } catch (err) {
+      alert(`Save failed: ${err?.message || "Unknown error."}`);
+    } finally {
+      setSavingLeague(false);
+    }
+  }
+
+  async function loadFixturesForPanel(panel) {
+    setFixturesPanel(panel);
+    setFixturesList([]);
+    setLoadingFixtures(true);
+    try {
+      let list = [];
+      if (panel.type === "competition") {
+        list = await (base44.entities.CompetitionFixture?.filter({ season_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
+      } else {
+        list = await (base44.entities.RegionalLeagueFixture?.filter({ league_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
+      }
+      setFixturesList(list.sort((a, b) => (a.matchday || 0) - (b.matchday || 0)));
+    } finally {
+      setLoadingFixtures(false);
+    }
+  }
+
+  async function loadStandingsForPanel(panel) {
+    setStandingsPanel(panel);
+    setStandingsList([]);
+    setLoadingStandings(true);
+    try {
+      let list = [];
+      if (panel.type === "competition") {
+        list = await (base44.entities.CompetitionStanding?.filter({ season_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
+      } else {
+        list = await (base44.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
+      }
+      setStandingsList(list.sort((a, b) => (a.position || 99) - (b.position || 99)));
+    } finally {
+      setLoadingStandings(false);
+    }
+  }
+
+  async function processAdminResult() {
+    if (!resultDialog) return;
+    const { fixture, fixtureType } = resultDialog;
+    const home = parseInt(resultForm.home_score);
+    const away = parseInt(resultForm.away_score);
+    if (isNaN(home) || isNaN(away) || home < 0 || away < 0) {
+      alert("Enter valid scores (0 or above).");
+      return;
+    }
+    setSavingResult(true);
+    try {
+      if (fixtureType === "competition") {
+        await base44.entities.CompetitionFixture.update(fixture.id, {
+          home_score: home, away_score: away, status: "completed", stats_processed: false,
+        });
+        const { processFixtureResult } = await import("@/lib/competitionUtils");
+        await processFixtureResult({ ...fixture, home_score: home, away_score: away, stats_processed: false });
+      } else {
+        // Regional league — update fixture + standings + ranking
+        const isDraw = home === away;
+        const homeWin = home > away;
+        await (base44.entities.RegionalLeagueFixture?.update(fixture.id, {
+          home_score: home, away_score: away, status: "completed", stats_processed: true,
+        }) ?? Promise.resolve());
+        const [[homeRow], [awayRow]] = await Promise.all([
+          (base44.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
+          (base44.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
+        ]);
+        const updates = [];
+        if (homeRow) {
+          const u = {
+            played: (homeRow.played||0)+1, wins: (homeRow.wins||0)+(homeWin?1:0),
+            draws: (homeRow.draws||0)+(isDraw?1:0), losses: (homeRow.losses||0)+(!homeWin&&!isDraw?1:0),
+            goals_for: (homeRow.goals_for||0)+home, goals_against: (homeRow.goals_against||0)+away,
+            points: (homeRow.points||0)+(homeWin?3:isDraw?1:0),
+          };
+          u.goal_difference = u.goals_for - u.goals_against;
+          updates.push(base44.entities.RegionalLeagueStanding.update(homeRow.id, u));
+        }
+        if (awayRow) {
+          const u = {
+            played: (awayRow.played||0)+1, wins: (awayRow.wins||0)+(!homeWin&&!isDraw?1:0),
+            draws: (awayRow.draws||0)+(isDraw?1:0), losses: (awayRow.losses||0)+(homeWin?1:0),
+            goals_for: (awayRow.goals_for||0)+away, goals_against: (awayRow.goals_against||0)+home,
+            points: (awayRow.points||0)+(!homeWin&&!isDraw?3:isDraw?1:0),
+          };
+          u.goal_difference = u.goals_for - u.goals_against;
+          updates.push(base44.entities.RegionalLeagueStanding.update(awayRow.id, u));
+        }
+        await Promise.all(updates);
+        // Non-fatal ranking update
+        try {
+          const { updateClubRankingAfterMatch } = await import("@/lib/rankingEngine");
+          const [[hc],[ac]] = await Promise.all([
+            base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(()=>[]),
+            base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(()=>[]),
+          ]);
+          if (hc && ac) {
+            await updateClubRankingAfterMatch({
+              homeClub: hc, awayClub: ac, homeScore: home, awayScore: away,
+              competitionType: "regional_league", division: fixture.division || 1,
+              phase: "league", matchId: fixture.id,
+            });
+          }
+        } catch { /* non-fatal */ }
+      }
+      setResultDialog(null);
+      setResultForm({ home_score: "", away_score: "" });
+      if (fixturesPanel) await loadFixturesForPanel(fixturesPanel);
+    } catch (err) {
+      alert(`Error: ${err?.message || "Failed."}`);
+    } finally {
+      setSavingResult(false);
     }
   }
 
@@ -602,6 +736,86 @@ export default function Admin() {
 
   const [migrating, setMigrating] = useState(false);
   const [migrateResult, setMigrateResult] = useState(null);
+  const [resettingRankings, setResettingRankings] = useState(false);
+
+  // Rankings tab
+  const [rankingConfig, setRankingConfig]     = useState(null);
+  const [rankingConfigId, setRankingConfigId] = useState(null);
+  const [savingConfig, setSavingConfig]       = useState(false);
+  const [recalcBusy, setRecalcBusy]           = useState(false);
+  const [recalcMsg,  setRecalcMsg]            = useState("");
+
+  async function resetAllRankings() {
+    if (!confirm("This will zero out all club ranking data (ranking points, global/regional rank, form, win/loss streak) for ALL clubs. This cannot be undone. Continue?")) return;
+    setResettingRankings(true);
+    try {
+      const allClubs = await base44.entities.Club.list(null, 500);
+      await Promise.all(allClubs.map(c =>
+        base44.entities.Club.update(c.id, {
+          ranking_points:   0,
+          global_rank:      0,
+          regional_rank:    0,
+          form:             [],
+          win_streak:       0,
+          loss_streak:      0,
+        })
+      ));
+      alert(`Rankings reset for ${allClubs.length} club${allClubs.length !== 1 ? "s" : ""}.`);
+    } catch (err) {
+      alert(`Reset failed: ${err?.message || "Unknown error."}`);
+    } finally {
+      setResettingRankings(false);
+    }
+  }
+
+  async function saveRankingConfig() {
+    if (!rankingConfig) return;
+    setSavingConfig(true);
+    try {
+      const { DEFAULT_CONFIG } = await import("@/lib/rankingEngine");
+      const payload = {};
+      for (const key of Object.keys(DEFAULT_CONFIG)) {
+        if (rankingConfig[key] !== undefined) payload[key] = Number(rankingConfig[key]);
+      }
+      payload.label     = rankingConfig.label || "Default";
+      payload.is_active = true;
+
+      if (!base44.entities.RankingConfig) {
+        alert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.base44.com, then come back to save.");
+        return;
+      }
+      if (rankingConfigId) {
+        await base44.entities.RankingConfig.update(rankingConfigId, payload);
+      } else {
+        const created = await base44.entities.RankingConfig.create(payload);
+        setRankingConfigId(created.id);
+      }
+      alert("Ranking config saved.");
+    } catch (err) {
+      alert(`Save failed: ${err?.message || "Unknown error."}`);
+    } finally {
+      setSavingConfig(false);
+    }
+  }
+
+  async function recalculateRanks(type) {
+    setRecalcBusy(true);
+    setRecalcMsg("");
+    try {
+      const { recalculateGlobalRanks, recalculateRegionalRanks } = await import("@/lib/rankingEngine");
+      if (type === "global") {
+        const n = await recalculateGlobalRanks();
+        setRecalcMsg(`✓ Global ranks recalculated for ${n} clubs.`);
+      } else {
+        const n = await recalculateRegionalRanks();
+        setRecalcMsg(`✓ Regional ranks recalculated across ${n} regions.`);
+      }
+    } catch (err) {
+      setRecalcMsg(`✗ ${err?.message || "Failed."}`);
+    } finally {
+      setRecalcBusy(false);
+    }
+  }
 
   async function migrateClubBalances() {
     if (!confirm("This will add +20M STC, +5M transfer budget, and +4M wage budget to ALL existing clubs. Continue?")) return;
@@ -689,6 +903,7 @@ export default function Admin() {
               { value: "forfeits", label: "Forfeits", badge: forfeits.length, badgeColor: "bg-warning/20 text-warning" },
               { value: "players", label: "Players" },
               { value: "clubs", label: "Clubs" },
+              { value: "rankings", label: "Rankings" },
               { value: "leagues", label: "Leagues", badge: qualEntries.length, badgeColor: "bg-primary/20 text-primary" },
               { value: "tournaments", label: "Tournaments" },
               { value: "trophies", label: "Trophies" },
@@ -797,6 +1012,12 @@ export default function Admin() {
               >
                 {migrating ? <><span className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin inline-block" /> Migrating...</> : "Migrate All Clubs (+20M STC)"}
               </Button>
+              <Button
+                variant="outline" size="sm" onClick={resetAllRankings} disabled={resettingRankings}
+                className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-8 rounded gap-1.5"
+              >
+                {resettingRankings ? <><span className="w-3 h-3 border-2 border-destructive/20 border-t-destructive rounded-full animate-spin inline-block" /> Resetting...</> : "Reset All Club Rankings"}
+              </Button>
               {migrateResult && (
                 <span className={cn("text-xs font-medium", migrateResult.success ? "text-success" : "text-destructive")}>
                   {migrateResult.success ? `✓ Updated ${migrateResult.count} clubs` : `✗ ${migrateResult.error}`}
@@ -834,42 +1055,234 @@ export default function Admin() {
             )}
           </TabsContent>
 
+          {/* ── Rankings ──────────────────────────────────────── */}
+          <TabsContent value="rankings">
+            <div className="max-w-3xl space-y-6">
+
+              {/* Recalculate buttons */}
+              <div className="bg-card border border-border rounded p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" /> Rank Recalculation
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Reorders all clubs by ranking points and writes their position numbers.
+                    Run after bulk resets or manual point adjustments.
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Button size="sm" onClick={() => recalculateRanks("global")} disabled={recalcBusy}
+                      className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
+                      {recalcBusy ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                      Recalculate Global Ranks
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => recalculateRanks("regional")} disabled={recalcBusy}
+                      className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+                      {recalcBusy ? <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin inline-block" /> : null}
+                      Recalculate Regional Ranks
+                    </Button>
+                    {recalcMsg && (
+                      <span className={cn("text-xs font-medium", recalcMsg.startsWith("✓") ? "text-success" : "text-destructive")}>
+                        {recalcMsg}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Point config editor */}
+              {rankingConfig && (
+                <div className="bg-card border border-border rounded p-5 space-y-5">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-0.5 flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-primary" /> Ranking Point Rules
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Changes are saved to the database and applied to all future matches.
+                    </p>
+                  </div>
+
+                  {/* Base result points */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Base Result Points</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { key: "win_points",  label: "Win",  color: "text-success" },
+                        { key: "draw_points", label: "Draw", color: "text-warning" },
+                        { key: "loss_points", label: "Loss", color: "text-destructive" },
+                      ].map(({ key, label, color }) => (
+                        <div key={key}>
+                          <label className={cn("text-xs font-semibold mb-1 block", color)}>{label}</label>
+                          <Input type="number" min={0} value={rankingConfig[key] ?? ""}
+                            onChange={e => setRankingConfig(c => ({ ...c, [key]: e.target.value }))}
+                            className="bg-secondary border-border text-xs h-8" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Opponent strength */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Opponent Strength Multipliers</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: "opp_top10",  label: "vs Top 10%" },
+                        { key: "opp_top25",  label: "vs Top 25%" },
+                        { key: "opp_top50",  label: "vs Top 50%" },
+                        { key: "opp_bot50",  label: "vs Bottom 50%" },
+                        { key: "opp_bot25",  label: "vs Bottom 25%" },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+                          <Input type="number" min={0} step={0.1} value={rankingConfig[key] ?? ""}
+                            onChange={e => setRankingConfig(c => ({ ...c, [key]: e.target.value }))}
+                            className="bg-secondary border-border text-xs h-8" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Competition level */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Competition Level Multipliers</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: "comp_regional_div2", label: "Regional Div 2" },
+                        { key: "comp_regional_div1", label: "Regional Div 1" },
+                        { key: "comp_challenger",    label: "Challenger" },
+                        { key: "comp_elite",         label: "Elite" },
+                        { key: "comp_supreme",       label: "Supreme" },
+                        { key: "comp_tournament",    label: "Open Tournament" },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+                          <Input type="number" min={0} step={0.1} value={rankingConfig[key] ?? ""}
+                            onChange={e => setRankingConfig(c => ({ ...c, [key]: e.target.value }))}
+                            className="bg-secondary border-border text-xs h-8" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stage / round multipliers */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tournament Stage Multipliers</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: "stage_group",   label: "Group / League Phase" },
+                        { key: "stage_playoff", label: "Playoff Round" },
+                        { key: "stage_r16",     label: "Round of 16" },
+                        { key: "stage_qf",      label: "Quarter-final" },
+                        { key: "stage_sf",      label: "Semi-final" },
+                        { key: "stage_final",   label: "Final" },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+                          <Input type="number" min={0} step={0.1} value={rankingConfig[key] ?? ""}
+                            onChange={e => setRankingConfig(c => ({ ...c, [key]: e.target.value }))}
+                            className="bg-secondary border-border text-xs h-8" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-1 border-t border-border">
+                    <Input
+                      value={rankingConfig.label || ""}
+                      onChange={e => setRankingConfig(c => ({ ...c, label: e.target.value }))}
+                      placeholder="Config label (e.g. Season 1 Rules)"
+                      className="bg-secondary border-border text-xs h-8 max-w-[200px]"
+                    />
+                    <Button size="sm" onClick={saveRankingConfig} disabled={savingConfig}
+                      className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
+                      {savingConfig ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
+                      {savingConfig ? "Saving…" : "Save Config"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </TabsContent>
+
           {/* ── Leagues / Competitions ──────────────────────── */}
           <TabsContent value="leagues">
             <div className="max-w-3xl space-y-6">
 
-              {/* Seed competitions */}
+              {/* STAGE Competitions — editable rules */}
               <div className="bg-card border border-border rounded p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-heading text-base uppercase tracking-tight text-foreground">STAGE Competitions</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">The 3 permanent competitions. Seed once, never recreate.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions. Click Edit Rules to adjust spots, club limits and playoff format.</p>
                   </div>
                   <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
                     {seedingComps ? "Seeding..." : competitions.length >= 3 ? "✓ Seeded" : "Seed Competitions"}
                   </Button>
                 </div>
-                {competitions.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
-                      const comp = competitions.find(c => c.slug === t.slug);
-                      const seasons = compSeasons.filter(s => s.competition_id === comp?.id);
-                      return comp ? (
-                        <div key={t.slug} className="border border-border rounded p-3" style={{ borderLeftColor: t.color, borderLeftWidth: 2 }}>
-                          <p className="text-xs font-bold text-foreground">{comp.name.replace("STAGE ", "")}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{seasons.length} season{seasons.length !== 1 ? "s" : ""} · Tier {comp.tier}</p>
+                <div className="space-y-3">
+                  {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
+                    const comp = competitions.find(c => c.slug === t.slug);
+                    if (!comp) return (
+                      <div key={t.slug} className="border border-dashed border-border rounded p-3 opacity-40">
+                        <p className="text-xs text-muted-foreground capitalize">{t.slug} — not seeded</p>
+                      </div>
+                    );
+                    const seasons = compSeasons.filter(s => s.competition_id === comp.id);
+                    const isEditing = editingComp === comp.id;
+                    return (
+                      <div key={t.slug} className="border border-border rounded p-3 space-y-2" style={{ borderLeftColor: t.color, borderLeftWidth: 2 }}>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-foreground">{comp.name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              Tier {comp.tier} · {seasons.length} season{seasons.length !== 1 ? "s" : ""} · Max {comp.max_clubs_per_season || 16} clubs · {comp.qualification_spots_per_region || 2} spots/region
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              ↑ {comp.promotion_spots || 0} promoted · ↓ {comp.relegation_spots || 0} relegated · {comp.playoff_spots || 4} playoff spots
+                            </p>
+                          </div>
+                          <Button size="sm" variant="outline"
+                            className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
+                            onClick={() => {
+                              if (isEditing) { setEditingComp(null); }
+                              else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 16, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, promotion_spots: comp.promotion_spots ?? 0, relegation_spots: comp.relegation_spots ?? 0, playoff_spots: comp.playoff_spots ?? 4 }); }
+                            }}>
+                            {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                            {isEditing ? "Cancel" : "Edit Rules"}
+                          </Button>
                         </div>
-                      ) : (
-                        <div key={t.slug} className="border border-dashed border-border rounded p-3 opacity-40">
-                          <p className="text-xs text-muted-foreground capitalize">{t.slug} — not seeded</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        {isEditing && (
+                          <div className="pt-2 border-t border-border/50 space-y-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {[
+                                { key: "max_clubs_per_season",           label: "Max Clubs/Season" },
+                                { key: "qualification_spots_per_region", label: "Qual. Spots/Region" },
+                                { key: "promotion_spots",                label: "Promotion Spots" },
+                                { key: "relegation_spots",               label: "Relegation Spots" },
+                                { key: "playoff_spots",                  label: "Playoff Spots" },
+                              ].map(({ key, label }) => (
+                                <div key={key}>
+                                  <label className="text-[10px] text-muted-foreground mb-1 block">{label}</label>
+                                  <Input type="number" min={0} value={compEditForm[key] ?? ""}
+                                    onChange={e => setCompEditForm(f => ({ ...f, [key]: e.target.value }))}
+                                    className="bg-secondary border-border text-xs h-8" />
+                                </div>
+                              ))}
+                            </div>
+                            <Button size="sm" onClick={saveCompRules} disabled={savingComp}
+                              className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
+                              {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
+                              {savingComp ? "Saving…" : "Save Rules"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Create new season */}
+              {/* Start New Season */}
               {competitions.length > 0 && (
                 <div className="bg-card border border-border rounded p-5 space-y-4">
                   <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Start New Season</h3>
@@ -904,7 +1317,7 @@ export default function Admin() {
                       <label className="label-xs">Region</label>
                       <select value={newSeasonForm.region} onChange={e => setNewSeasonForm(f => ({ ...f, region: e.target.value }))}
                         className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
-                        {["Global","Europe","North America","South America","Asia","Oceania","Africa","Middle East"].map(r => <option key={r} value={r}>{r}</option>)}
+                        {["Global","Europe","North America"].map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>
                   </div>
@@ -921,6 +1334,122 @@ export default function Admin() {
                   </Button>
                 </div>
               )}
+
+              {/* ── Registration Applications ── */}
+              <div>
+                {(() => {
+                  const actionable = regApplications.filter(r => r.status === "pending" || r.status === "waitlisted");
+                  const displayApps = regAppFilter === "actionable" ? actionable : regApplications;
+                  const pendingCount = regApplications.filter(r => r.status === "pending").length;
+                  const waitlistCount = regApplications.filter(r => r.status === "waitlisted").length;
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">
+                          Registration Applications
+                          {actionable.length > 0 && (
+                            <span className="ml-2 text-[10px] text-warning border border-warning/30 bg-warning/5 px-1.5 py-0.5 rounded font-bold">
+                              {actionable.length}
+                            </span>
+                          )}
+                        </h3>
+                        <div className="flex gap-1">
+                          {[["actionable","Needs Action"],["all","All"]].map(([v, label]) => (
+                            <button key={v} onClick={() => setRegAppFilter(v)}
+                              className={cn("text-[10px] px-2 py-1 rounded border font-bold uppercase tracking-wider transition-colors",
+                                regAppFilter === v
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "border-border text-muted-foreground hover:text-foreground")}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {pendingCount > 0 || waitlistCount > 0 ? (
+                        <p className="text-[10px] text-muted-foreground mb-3">
+                          {pendingCount > 0 && `${pendingCount} pending`}
+                          {pendingCount > 0 && waitlistCount > 0 && " · "}
+                          {waitlistCount > 0 && `${waitlistCount} waitlisted`}
+                        </p>
+                      ) : null}
+                      {displayApps.length === 0 ? (
+                        <div className="border border-dashed border-border rounded p-8 text-center">
+                          <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                            {regAppFilter === "actionable" ? "No applications need action" : "No registration applications yet"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {displayApps.map(reg => {
+                            const statusCls = {
+                              pending:    "text-warning border-warning/30 bg-warning/5",
+                              approved:   "text-success border-success/30 bg-success/5",
+                              rejected:   "text-destructive border-destructive/30 bg-destructive/5",
+                              waitlisted: "text-muted-foreground border-border bg-secondary",
+                            }[reg.status] || "text-muted-foreground border-border";
+                            // Open leagues in the same region for approve target
+                            const candidateLeagues = regionalLeagues.filter(
+                              l => l.region_slug === reg.region_slug
+                                && l.status === "registration"
+                                && (l.platform === reg.platform || l.platform === "Cross-Platform" || reg.platform === "Cross-Platform")
+                            ).sort((a, b) => (a.division || 1) - (b.division || 1));
+                            return (
+                              <div key={reg.id} className="bg-card border border-border rounded p-3">
+                                <div className="flex items-center gap-3">
+                                  {reg.club_logo_url
+                                    ? <img src={reg.club_logo_url} alt={reg.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
+                                    : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-foreground truncate">{reg.club_name}</p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {reg.region_name || reg.region_slug} · {reg.platform}
+                                      {reg.preferred_division ? ` · Prefers Div ${reg.preferred_division}` : ""}
+                                      {reg.applied_at ? ` · ${new Date(reg.applied_at).toLocaleDateString()}` : ""}
+                                    </p>
+                                    {reg.note_from_club && (
+                                      <p className="text-[10px] text-muted-foreground italic mt-0.5">"{reg.note_from_club}"</p>
+                                    )}
+                                    {reg.assigned_league_name && (
+                                      <p className="text-[10px] text-success mt-0.5">→ {reg.assigned_league_name}</p>
+                                    )}
+                                    {reg.admin_notes && (
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">Note: {reg.admin_notes}</p>
+                                    )}
+                                  </div>
+                                  <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", statusCls)}>
+                                    {reg.status}
+                                  </span>
+                                </div>
+                                {(reg.status === "pending" || reg.status === "waitlisted") && (
+                                  <div className="flex gap-2 mt-2.5 pl-11">
+                                    <Button size="sm"
+                                      onClick={() => { setApproveRegDialog(reg); setApproveTargetId(candidateLeagues[0]?.id || ""); }}
+                                      className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
+                                      <Check className="w-3 h-3" />
+                                      {reg.status === "waitlisted" ? "Promote" : "Approve"}
+                                    </Button>
+                                    <Button size="sm" variant="outline"
+                                      onClick={() => { setRejectNotesDialog({ reg, action: "waitlist" }); setRejectNotes(""); }}
+                                      className="border-border text-muted-foreground hover:text-foreground h-7 text-xs rounded gap-1"
+                                      disabled={reg.status === "waitlisted"}>
+                                      Waitlist
+                                    </Button>
+                                    <Button size="sm" variant="outline"
+                                      onClick={() => { setRejectNotesDialog({ reg, action: "reject" }); setRejectNotes(""); }}
+                                      className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
+                                      <X className="w-3 h-3" /> Reject
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
 
               {/* Pending qualification entries */}
               <div>
@@ -959,7 +1488,7 @@ export default function Admin() {
                 )}
               </div>
 
-              {/* Seasons overview */}
+              {/* All Seasons */}
               {compSeasons.length > 0 && (
                 <div>
                   <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">All Seasons</h3>
@@ -971,61 +1500,330 @@ export default function Admin() {
                 </div>
               )}
 
-              {/* Regional Leagues */}
+              {/* Fixtures & Results — accordion */}
+              <div className="bg-card border border-border rounded overflow-hidden">
+                <button className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  onClick={() => setFixturesOpen(v => !v)}>
+                  <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Fixtures & Results</h3>
+                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", fixturesOpen && "rotate-180")} />
+                </button>
+                {fixturesOpen && (
+                  <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Competition Season</label>
+                        <select value={selectedFixtureSeason} onChange={e => setSelectedFixtureSeason(e.target.value)}
+                          className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
+                          <option value="">— Select season —</option>
+                          {compSeasons.map(s => (
+                            <option key={s.id} value={s.id}>{s.competition_name} — {s.season_label || `S${s.season_number}`} ({s.status})</option>
+                          ))}
+                        </select>
+                        <Button size="sm" disabled={!selectedFixtureSeason || loadingFixtures}
+                          onClick={() => { const s = compSeasons.find(x => x.id === selectedFixtureSeason); if (s) loadFixturesForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` }); }}
+                          className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
+                          {loadingFixtures && fixturesPanel?.type === "competition" ? "Loading…" : "Load Fixtures"}
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Regional League</label>
+                        <select value={selectedFixtureLeague} onChange={e => setSelectedFixtureLeague(e.target.value)}
+                          className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
+                          <option value="">— Select league —</option>
+                          {regionalLeagues.map(l => (
+                            <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>
+                          ))}
+                        </select>
+                        <Button size="sm" disabled={!selectedFixtureLeague || loadingFixtures}
+                          onClick={() => { const l = regionalLeagues.find(x => x.id === selectedFixtureLeague); if (l) loadFixturesForPanel({ type: "league", id: l.id, name: l.name }); }}
+                          className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
+                          {loadingFixtures && fixturesPanel?.type === "league" ? "Loading…" : "Load Fixtures"}
+                        </Button>
+                      </div>
+                    </div>
+                    {fixturesPanel && (
+                      <div>
+                        <p className="text-xs font-bold text-foreground mb-2">
+                          {fixturesPanel.name}
+                          <span className="ml-2 text-[10px] text-muted-foreground font-normal">({fixturesList.length} fixtures)</span>
+                        </p>
+                        {loadingFixtures ? (
+                          <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
+                        ) : fixturesList.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-4 text-center">No fixtures found. Generate fixtures first via the season card above.</p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+                            {fixturesList.map(f => (
+                              <div key={f.id} className="border border-border rounded p-2.5 flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-foreground truncate">
+                                    {f.home_club_name} <span className="text-muted-foreground text-[10px]">vs</span> {f.away_club_name}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {f.matchday ? `MD ${f.matchday}` : f.phase || "—"} · {f.status || "scheduled"}
+                                  </p>
+                                </div>
+                                {(f.status === "completed" || f.stats_processed) ? (
+                                  <span className="text-xs font-bold text-success shrink-0">{f.home_score ?? "?"} – {f.away_score ?? "?"}</span>
+                                ) : (
+                                  <Button size="sm" variant="outline"
+                                    onClick={() => { setResultDialog({ fixture: f, fixtureType: fixturesPanel.type === "competition" ? "competition" : "league" }); setResultForm({ home_score: "", away_score: "" }); }}
+                                    className="h-6 text-[10px] rounded border-primary/30 text-primary hover:bg-primary/10 shrink-0">
+                                    Enter Result
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Standings — accordion */}
+              <div className="bg-card border border-border rounded overflow-hidden">
+                <button className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  onClick={() => setStandingsOpen(v => !v)}>
+                  <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Standings</h3>
+                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", standingsOpen && "rotate-180")} />
+                </button>
+                {standingsOpen && (
+                  <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Competition Season</label>
+                        <select value={selectedStandingsSeason} onChange={e => setSelectedStandingsSeason(e.target.value)}
+                          className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
+                          <option value="">— Select season —</option>
+                          {compSeasons.map(s => <option key={s.id} value={s.id}>{s.competition_name} — {s.season_label || `S${s.season_number}`}</option>)}
+                        </select>
+                        <Button size="sm" disabled={!selectedStandingsSeason || loadingStandings}
+                          onClick={() => { const s = compSeasons.find(x => x.id === selectedStandingsSeason); if (s) loadStandingsForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` }); }}
+                          className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
+                          {loadingStandings && standingsPanel?.type === "competition" ? "Loading…" : "Load Standings"}
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Regional League</label>
+                        <select value={selectedStandingsLeague} onChange={e => setSelectedStandingsLeague(e.target.value)}
+                          className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
+                          <option value="">— Select league —</option>
+                          {regionalLeagues.map(l => <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>)}
+                        </select>
+                        <Button size="sm" disabled={!selectedStandingsLeague || loadingStandings}
+                          onClick={() => { const l = regionalLeagues.find(x => x.id === selectedStandingsLeague); if (l) loadStandingsForPanel({ type: "league", id: l.id, name: l.name }); }}
+                          className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
+                          {loadingStandings && standingsPanel?.type === "league" ? "Loading…" : "Load Standings"}
+                        </Button>
+                      </div>
+                    </div>
+                    {standingsPanel && (
+                      <div>
+                        <p className="text-xs font-bold text-foreground mb-2">{standingsPanel.name}</p>
+                        {loadingStandings ? (
+                          <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
+                        ) : standingsList.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-4 text-center">No standings found. Confirm clubs and generate fixtures first.</p>
+                        ) : (
+                          <div className="border border-border rounded overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border bg-secondary/50">
+                                  <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase w-8">#</th>
+                                  <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase">Club</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-8">P</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-success uppercase w-8">W</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-8">D</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-destructive uppercase w-8">L</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-10">GD</th>
+                                  <th className="px-2 py-2 text-center text-[10px] text-foreground font-bold uppercase w-10">Pts</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {standingsList.map((s, i) => (
+                                  <tr key={s.id} className={cn("border-b border-border/40", i % 2 === 0 ? "" : "bg-secondary/20")}>
+                                    <td className="px-2 py-2 text-center text-muted-foreground font-bold">{s.position || i + 1}</td>
+                                    <td className="px-2 py-2 font-medium text-foreground truncate max-w-[110px]">{s.club_name}</td>
+                                    <td className="px-2 py-2 text-center text-muted-foreground">{s.played || 0}</td>
+                                    <td className="px-2 py-2 text-center text-success">{s.wins || 0}</td>
+                                    <td className="px-2 py-2 text-center text-muted-foreground">{s.draws || 0}</td>
+                                    <td className="px-2 py-2 text-center text-destructive">{s.losses || 0}</td>
+                                    <td className="px-2 py-2 text-center text-muted-foreground">{(s.goal_difference || 0) > 0 ? `+${s.goal_difference}` : (s.goal_difference || 0)}</td>
+                                    <td className="px-2 py-2 text-center font-bold text-foreground">{s.points || 0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Regional Leagues — editable rules */}
               <div className="bg-card border border-border rounded p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Regional Leagues</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">5 division-1 feeder leagues per region. Seed once, then manage seasons.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{REGIONS.length} regions · 2 divisions each. Click the edit icon to change max clubs or promoted slots.</p>
                   </div>
-                  <Button
-                    onClick={seedRegionalLeagues}
-                    disabled={seedingRegionalLeagues || regionalLeagues.filter(l => l.division === 1).length >= 5}
+                  <Button onClick={seedRegionalLeagues}
+                    disabled={seedingRegionalLeagues || regionalLeagues.length >= LEAGUE_DEFINITIONS.length}
                     className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5 shrink-0">
-                    {seedingRegionalLeagues ? "Seeding..." : regionalLeagues.filter(l => l.division === 1).length >= 5 ? "✓ Seeded" : "Seed Div 1 Leagues"}
+                    {seedingRegionalLeagues ? "Seeding..." : regionalLeagues.length >= LEAGUE_DEFINITIONS.length ? "✓ Seeded" : "Seed All Leagues"}
                   </Button>
                 </div>
 
                 {regionalLeagues.length > 0 && (
-                  <div className="space-y-2">
-                    {regionalLeagues.map(league => (
-                      <div key={league.id} className="border border-border rounded p-3 flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-foreground truncate">{league.name}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {league.region} · Division {league.division || 1} · Season {league.season_number} · {league.num_clubs || 0}/{league.max_clubs} clubs
-                          </p>
+                  <div className="space-y-4">
+                    {REGIONS.map(region => {
+                      const div1 = regionalLeagues.find(l => l.region_slug === region.slug && (l.division || 1) === 1);
+                      const div2 = regionalLeagues.find(l => l.region_slug === region.slug && l.division === 2);
+                      if (!div1 && !div2) return null;
+                      return (
+                        <div key={region.slug}>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">{region.name}</p>
+                          <div className="space-y-1.5">
+                            {[div1, div2].filter(Boolean).map(league => {
+                              const isEditingL = editingLeague === league.id;
+                              return (
+                                <div key={league.id} className="border border-border rounded p-3 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">D{league.division || 1}</span>
+                                        <p className="text-sm font-bold text-foreground truncate">{league.name}</p>
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        Season {league.season_number} · {league.num_clubs || 0}/{league.max_clubs || 16} clubs · {league.promoted_slots || 2} promoted
+                                      </p>
+                                    </div>
+                                    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0",
+                                      league.status === "in_progress" ? "text-success border-success/30 bg-success/5" :
+                                      league.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
+                                      league.status === "completed" ? "text-muted-foreground border-border" :
+                                      "text-warning border-warning/30 bg-warning/5"
+                                    )}>{league.status.replace("_", " ")}</span>
+                                    <Button size="sm" variant="outline"
+                                      className={cn("h-7 w-7 p-0 rounded shrink-0", isEditingL ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
+                                      onClick={() => {
+                                        if (isEditingL) { setEditingLeague(null); }
+                                        else { setEditingLeague(league.id); setLeagueEditForm({ max_clubs: league.max_clubs ?? 16, promoted_slots: league.promoted_slots ?? 2 }); }
+                                      }}>
+                                      {isEditingL ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                                    </Button>
+                                    <Link to={`/leagues/${league.slug}`}>
+                                      <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">View</Button>
+                                    </Link>
+                                    {league.status === "draft" && (
+                                      <Button size="sm" onClick={() => leagueLifecycleAction(league, "open_registration")}
+                                        className="h-7 text-xs rounded bg-primary text-primary-foreground shrink-0">
+                                        Open Registration
+                                      </Button>
+                                    )}
+                                    {league.status === "in_progress" && (
+                                      <Button size="sm" variant="outline" disabled={processingLeagueEnd === league.id}
+                                        onClick={() => processLeagueEnd(league)}
+                                        className="h-7 text-xs rounded border-warning/40 text-warning hover:bg-warning/10 shrink-0">
+                                        {processingLeagueEnd === league.id ? "Processing..." : "End Season"}
+                                      </Button>
+                                    )}
+                                    {league.status === "completed" && (
+                                      <>
+                                        <Button size="sm" variant="outline" onClick={() => leagueLifecycleAction(league, "archive")}
+                                          className="h-7 text-xs rounded border-muted-foreground/30 text-muted-foreground hover:text-foreground shrink-0">
+                                          Archive
+                                        </Button>
+                                        <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
+                                          className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
+                                          New Season
+                                        </Button>
+                                      </>
+                                    )}
+                                    {league.status === "archived" && (
+                                      <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
+                                        className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
+                                        New Season
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {isEditingL && (
+                                    <div className="pt-2 border-t border-border/50 space-y-3">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <label className="text-[10px] text-muted-foreground mb-1 block">Max Clubs</label>
+                                          <Input type="number" min={1} value={leagueEditForm.max_clubs ?? ""}
+                                            onChange={e => setLeagueEditForm(f => ({ ...f, max_clubs: e.target.value }))}
+                                            className="bg-secondary border-border text-xs h-8" />
+                                        </div>
+                                        <div>
+                                          <label className="text-[10px] text-muted-foreground mb-1 block">Promoted Slots</label>
+                                          <Input type="number" min={0} value={leagueEditForm.promoted_slots ?? ""}
+                                            onChange={e => setLeagueEditForm(f => ({ ...f, promoted_slots: e.target.value }))}
+                                            className="bg-secondary border-border text-xs h-8" />
+                                        </div>
+                                      </div>
+                                      <Button size="sm" onClick={saveLeagueRules} disabled={savingLeague}
+                                        className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
+                                        {savingLeague ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
+                                        {savingLeague ? "Saving…" : "Save Rules"}
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0",
-                          league.status === "in_progress" ? "text-success border-success/30 bg-success/5" :
-                          league.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
-                          league.status === "completed" ? "text-muted-foreground border-border" :
-                          "text-warning border-warning/30 bg-warning/5"
-                        )}>{league.status.replace("_", " ")}</span>
-                        {league.status !== "completed" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={processingLeagueEnd === league.id}
-                            onClick={() => processLeagueEnd(league)}
-                            className="h-7 text-xs rounded border-warning/40 text-warning hover:bg-warning/10 shrink-0">
-                            {processingLeagueEnd === league.id ? "Processing..." : "Process Season End"}
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
+                {/* Qualification info — live from competition records */}
                 <div className="bg-muted/20 border border-border/40 rounded p-3 space-y-1">
-                  <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Qualification rules (Division 1)</p>
-                  <p className="text-[10px] text-muted-foreground">1st–2nd → STAGE Supreme League</p>
-                  <p className="text-[10px] text-muted-foreground">3rd–4th → STAGE Elite League</p>
-                  <p className="text-[10px] text-muted-foreground">5th–6th → STAGE Challenger League</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Bottom 2 → relegated · Top 2 of Division 2 → promoted</p>
-                  <p className="text-[9px] text-muted-foreground/60 mt-1">Adjust spot counts in <code className="font-mono">src/lib/qualificationConfig.js</code></p>
+                  <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Division 1 qualification (live from competition rules)</p>
+                  {competitions.length > 0 ? (
+                    [{slug:"supreme",label:"STAGE Supreme"},{slug:"elite",label:"STAGE Elite"},{slug:"challenger",label:"STAGE Challenger"}].map(({ slug, label }) => {
+                      const comp = competitions.find(c => c.slug === slug);
+                      return comp ? (
+                        <p key={slug} className="text-[10px] text-muted-foreground">
+                          {label}: <strong className="text-foreground">{comp.qualification_spots_per_region || 2}</strong> spot{(comp.qualification_spots_per_region || 2) !== 1 ? "s" : ""}/region
+                        </p>
+                      ) : null;
+                    })
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">Seed competitions first to see qualification rules here.</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Promotion/relegation spots are editable per league row above. Edit competition rules to adjust qualification spots.
+                  </p>
                 </div>
               </div>
+
+              {/* Scheduling — expired fixtures */}
+              {expiredFixtures.length > 0 && (
+                <div className="bg-card border border-destructive/30 rounded p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-destructive" />
+                    <h3 className="font-heading text-base uppercase tracking-tight text-foreground">
+                      Scheduling Disputes ({expiredFixtures.length})
+                    </h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    These fixtures expired without both teams agreeing on a time. Resolve each one below.
+                  </p>
+                  <div className="space-y-2">
+                    {expiredFixtures.map(f => (
+                      <ExpiredFixtureRow key={f.id} fixture={f} onResolved={loadAll} busy={schedulingAdminBusy} setBusy={setSchedulingAdminBusy} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           </TabsContent>
@@ -1241,7 +2039,7 @@ export default function Admin() {
 
       {/* Create Tournament Dialog */}
       <Dialog open={createTournamentOpen} onOpenChange={setCreateTournamentOpen}>
-        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Trophy className="w-5 h-5 text-primary" /> Create Tournament</DialogTitle></DialogHeader>
           <div className="space-y-5 mt-2">
 
@@ -1351,7 +2149,7 @@ export default function Admin() {
               <Select value={tournamentForm.region} onValueChange={v => setTournamentForm(f => ({ ...f, region: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Europe","North America","South America","Asia","Oceania","Africa","Middle East","Global"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {["Global","Europe","North America"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1368,37 +2166,6 @@ export default function Admin() {
               </Select>
               {tournamentForm.country_code && <p className="text-xs text-warning mt-1">⚠️ Only clubs from this country can register.</p>}
             </div>
-
-            {/* League / Competition Picker */}
-            {tournamentForm.country_code && COUNTRY_LEAGUES[tournamentForm.country_code] && (
-              <div>
-                <label className="label-xs">
-                  🏆 League / Competition <span className="normal-case font-normal">(optional — auto-fills name & teams)</span>
-                </label>
-                <div className="space-y-2">
-                  {COUNTRY_LEAGUES[tournamentForm.country_code].map((league, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setTournamentForm(f => ({
-                        ...f,
-                        name: league.name,
-                        max_teams: [4, 8, 16, 20, 32, 36, 64].includes(league.teams) ? league.teams : 20,
-                      }))}
-                      className={cn(
-                        "w-full rounded border px-4 py-3 text-left transition-all",
-                        tournamentForm.name === league.name
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-secondary hover:border-primary/40 text-foreground"
-                      )}
-                    >
-                      <span className="font-semibold text-sm">{league.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">({league.teams} teams → sets Max Teams to {[4, 8, 16, 20, 32, 36, 64].includes(league.teams) ? league.teams : 20})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Custom Rules */}
             <div>
@@ -1588,6 +2355,165 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
 
+      {/* Enter Result Dialog */}
+      <Dialog open={!!resultDialog} onOpenChange={() => { setResultDialog(null); setResultForm({ home_score: "", away_score: "" }); }}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
+              <Check className="w-5 h-5 text-success" /> Enter Result
+            </DialogTitle>
+          </DialogHeader>
+          {resultDialog && (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-foreground">{resultDialog.fixture.home_club_name}</strong>
+                <span className="mx-2 text-muted-foreground">vs</span>
+                <strong className="text-foreground">{resultDialog.fixture.away_club_name}</strong>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-xs">{resultDialog.fixture.home_club_name} (Home)</label>
+                  <input type="number" min="0" value={resultForm.home_score}
+                    onChange={e => setResultForm(f => ({ ...f, home_score: e.target.value }))}
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                    placeholder="0" />
+                </div>
+                <div>
+                  <label className="label-xs">{resultDialog.fixture.away_club_name} (Away)</label>
+                  <input type="number" min="0" value={resultForm.away_score}
+                    onChange={e => setResultForm(f => ({ ...f, away_score: e.target.value }))}
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                    placeholder="0" />
+                </div>
+              </div>
+              <Button onClick={processAdminResult}
+                disabled={savingResult || resultForm.home_score === "" || resultForm.away_score === ""}
+                className="w-full bg-success/20 text-success hover:bg-success/30 border border-success/40 leading-relaxed">
+                {savingResult
+                  ? "Processing..."
+                  : `Confirm: ${resultForm.home_score || "?"} – ${resultForm.away_score || "?"}`}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Registration Dialog */}
+      <Dialog open={!!approveRegDialog} onOpenChange={() => { setApproveRegDialog(null); setApproveTargetId(""); }}>
+        <DialogContent className="bg-card border-border text-foreground max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading uppercase tracking-tight flex items-center gap-2">
+              <Check className="w-4 h-4 text-success" /> Approve Registration
+            </DialogTitle>
+          </DialogHeader>
+          {approveRegDialog && (
+            <div className="space-y-4 mt-2">
+              <div className="bg-secondary/40 border border-border rounded-lg p-3 flex items-center gap-3">
+                {approveRegDialog.club_logo_url
+                  ? <img src={approveRegDialog.club_logo_url} alt={approveRegDialog.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
+                  : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
+                <div>
+                  <p className="text-sm font-bold text-foreground">{approveRegDialog.club_name}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {approveRegDialog.region_name || approveRegDialog.region_slug}
+                    {approveRegDialog.preferred_division ? ` · Prefers Div ${approveRegDialog.preferred_division}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Assign to League
+                </label>
+                {(() => {
+                  const candidates = regionalLeagues.filter(
+                    l => l.region_slug === approveRegDialog.region_slug
+                      && l.status === "registration"
+                      && (l.platform === approveRegDialog.platform || l.platform === "Cross-Platform" || approveRegDialog.platform === "Cross-Platform")
+                  ).sort((a, b) => (a.division || 1) - (b.division || 1));
+                  if (candidates.length === 0) {
+                    return (
+                      <div className="bg-warning/10 border border-warning/30 rounded p-3 text-xs text-warning">
+                        No open leagues found for {approveRegDialog.region_name || approveRegDialog.region_slug} in {approveRegDialog.platform}.
+                        Open a league&apos;s registration first.
+                      </div>
+                    );
+                  }
+                  return (
+                    <select value={approveTargetId} onChange={e => setApproveTargetId(e.target.value)}
+                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+                      <option value="">— Select a league —</option>
+                      {candidates.map(l => {
+                        const max = l.max_clubs || 16;
+                        const taken = l.num_clubs || 0;
+                        const full = taken >= max;
+                        return (
+                          <option key={l.id} value={l.id} disabled={full}>
+                            {l.name} (Div {l.division || 1}) — {taken}/{max}{full ? " FULL" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1 border-border h-9 text-sm"
+                  onClick={() => { setApproveRegDialog(null); setApproveTargetId(""); }}>
+                  Cancel
+                </Button>
+                <Button disabled={!approveTargetId || processingReg} onClick={handleApproveReg}
+                  className="flex-1 bg-success/20 text-success hover:bg-success/30 border border-success/30 h-9 text-sm font-bold">
+                  {processingReg ? "Approving…" : "Confirm & Assign"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject / Waitlist Registration Dialog */}
+      <Dialog open={!!rejectNotesDialog} onOpenChange={() => { setRejectNotesDialog(null); setRejectNotes(""); }}>
+        <DialogContent className="bg-card border-border text-foreground max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading uppercase tracking-tight flex items-center gap-2">
+              {rejectNotesDialog?.action === "reject"
+                ? <><X className="w-4 h-4 text-destructive" /> Reject Application</>
+                : <><Flag className="w-4 h-4 text-muted-foreground" /> Add to Waitlist</>}
+            </DialogTitle>
+          </DialogHeader>
+          {rejectNotesDialog && (
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground">
+                {rejectNotesDialog.action === "reject"
+                  ? `Reject ${rejectNotesDialog.reg.club_name}'s application for ${rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug}?`
+                  : `Add ${rejectNotesDialog.reg.club_name} to the waitlist for ${rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug}.`}
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Note to club (optional)
+                </label>
+                <Textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)}
+                  placeholder="Reason for rejection / waitlist position, etc."
+                  className="bg-secondary border-border text-foreground text-sm resize-none h-20" maxLength={300} />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1 border-border h-9 text-sm"
+                  onClick={() => { setRejectNotesDialog(null); setRejectNotes(""); }}>
+                  Cancel
+                </Button>
+                <Button disabled={processingReg} onClick={handleRejectOrWaitlistReg}
+                  className={cn("flex-1 h-9 text-sm font-bold",
+                    rejectNotesDialog.action === "reject"
+                      ? "bg-destructive/20 text-destructive hover:bg-destructive/30 border border-destructive/30"
+                      : "bg-secondary text-foreground border border-border hover:bg-secondary/80")}>
+                  {processingReg ? "Saving…" : rejectNotesDialog.action === "reject" ? "Reject" : "Waitlist"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Grant Credits Dialog */}
       <Dialog open={!!creditsDialog} onOpenChange={() => setCreditsDialog(null)}>
         <DialogContent className="bg-card border-border">
@@ -1614,6 +2540,7 @@ export default function Admin() {
 }
 
 const SEASON_STATUS_LABEL = {
+  draft: "Draft",
   registration: "Registration",
   league_phase: "League Phase",
   playoff_round: "Playoff Round",
@@ -1622,6 +2549,7 @@ const SEASON_STATUS_LABEL = {
   knockout_sf: "Semi-Finals",
   knockout_final: "Final",
   completed: "Completed",
+  archived: "Archived",
 };
 
 function SeasonCard({ season: s, onRefresh }) {
@@ -1660,6 +2588,22 @@ function SeasonCard({ season: s, onRefresh }) {
       } else if (action === "complete") {
         await base44.entities.CompetitionSeason.update(s.id, { status: "completed" });
         alert("Season marked as completed.");
+
+      } else if (action === "open_registration") {
+        await base44.entities.CompetitionSeason.update(s.id, { status: "registration" });
+        alert("Registration is now open.");
+
+      } else if (action === "archive") {
+        const { archiveCompetitionSeason } = await import("@/lib/seasonLifecycle");
+        const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
+        await archiveCompetitionSeason(s, comps[0] || null);
+        alert(`Season ${s.season_number} archived. Standings and winner locked.`);
+
+      } else if (action === "create_next") {
+        const { createNextCompetitionSeason } = await import("@/lib/seasonLifecycle");
+        const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
+        const next = await createNextCompetitionSeason(s, comps[0] || null);
+        alert(`Season ${next.season_number} created as Draft. Open Registration when ready.`);
       }
 
       await onRefresh();
@@ -1671,9 +2615,11 @@ function SeasonCard({ season: s, onRefresh }) {
   }
 
   const statusColor = {
+    draft: "text-muted-foreground border-muted-foreground/30 bg-muted/20",
     registration: "text-primary border-primary/30 bg-primary/5",
     league_phase: "text-success border-success/30 bg-success/5",
-    completed: "text-muted-foreground border-border bg-transparent",
+    completed: "text-warning border-warning/30 bg-warning/5",
+    archived: "text-muted-foreground border-border bg-transparent",
   }[s.status] || "text-warning border-warning/30 bg-warning/5";
 
   return (
@@ -1687,6 +2633,12 @@ function SeasonCard({ season: s, onRefresh }) {
           {SEASON_STATUS_LABEL[s.status] || s.status}
         </span>
         <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+          {s.status === "draft" && (
+            <Button size="sm" disabled={busy} onClick={() => advance("open_registration")}
+              className="h-7 text-[10px] rounded bg-primary text-primary-foreground gap-1">
+              {busy ? "..." : "Open Registration"}
+            </Button>
+          )}
           {s.status === "registration" && !s.fixtures_generated && (
             <Button size="sm" disabled={busy} onClick={() => advance("generate_fixtures")}
               className="h-7 text-[10px] rounded bg-success/20 text-success border-0 hover:bg-success/30 gap-1">
@@ -1729,6 +2681,24 @@ function SeasonCard({ season: s, onRefresh }) {
               {busy ? "..." : "Complete Season"}
             </Button>
           )}
+          {s.status === "completed" && (
+            <>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("archive")}
+                className="h-7 text-[10px] rounded border-muted-foreground/30 text-muted-foreground hover:text-foreground">
+                {busy ? "..." : "Archive Season"}
+              </Button>
+              <Button size="sm" disabled={busy} onClick={() => advance("create_next")}
+                className="h-7 text-[10px] rounded bg-success/20 text-success border-0 hover:bg-success/30">
+                {busy ? "..." : "Create Next Season"}
+              </Button>
+            </>
+          )}
+          {s.status === "archived" && (
+            <Button size="sm" disabled={busy} onClick={() => advance("create_next")}
+              className="h-7 text-[10px] rounded bg-success/20 text-success border-0 hover:bg-success/30">
+              {busy ? "..." : "Create Next Season"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -1752,6 +2722,81 @@ function EmptyState({ icon: Icon, text }) {
     <div className="border border-dashed border-border rounded p-12 text-center">
       <Icon className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
       <p className="text-muted-foreground text-sm uppercase tracking-widest">{text}</p>
+    </div>
+  );
+}
+
+function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }) {
+  const [forceDate, setForceDate] = useState("");
+  const [forceTime, setForceTime] = useState("");
+  const [showForce, setShowForce] = useState(false);
+  const id = fixture.id;
+
+  async function handleForce() {
+    if (!forceDate || !forceTime) return;
+    setBusy(id);
+    try {
+      const date = new Date(`${forceDate}T${forceTime}:00`).toISOString();
+      await forceSchedule({ fixture, fixtureType: fixture._fixtureType, date, adminNote: "Admin override after deadline." });
+      onResolved();
+    } finally { setBusy(null); }
+  }
+
+  async function handleForfeit(side) {
+    if (!confirm(`Declare ${side === "home" ? fixture.home_club_name : fixture.away_club_name} as forfeiting?`)) return;
+    setBusy(id);
+    try {
+      const forfeitingClubId = side === "home" ? fixture.home_club_id : fixture.away_club_id;
+      await declareForfeit({ fixture, fixtureType: fixture._fixtureType, forfeitingClubId });
+      onResolved();
+    } finally { setBusy(null); }
+  }
+
+  async function handleFlag() {
+    setBusy(id);
+    try {
+      await flagForAdminReview(fixture, fixture._fixtureType);
+      onResolved();
+    } finally { setBusy(null); }
+  }
+
+  const isBusy = busy === id;
+  const context = fixture._fixtureType === "regional_league"
+    ? `${fixture.league_name} · Matchday ${fixture.matchday}`
+    : `${fixture.competition_name}`;
+
+  return (
+    <div className="border border-destructive/20 rounded p-3 space-y-2 bg-destructive/5">
+      <div>
+        <p className="text-xs font-bold text-foreground">{fixture.home_club_name} vs {fixture.away_club_name}</p>
+        <p className="text-[10px] text-muted-foreground">{context}</p>
+      </div>
+      {!showForce ? (
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" onClick={() => setShowForce(true)} disabled={isBusy}
+            className="h-6 text-[10px] bg-primary text-primary-foreground px-2">Force Schedule</Button>
+          <Button size="sm" variant="outline" onClick={() => handleForfeit("home")} disabled={isBusy}
+            className="h-6 text-[10px] border-destructive/30 text-destructive hover:bg-destructive/10 px-2">
+            {fixture.home_club_name} forfeit</Button>
+          <Button size="sm" variant="outline" onClick={() => handleForfeit("away")} disabled={isBusy}
+            className="h-6 text-[10px] border-destructive/30 text-destructive hover:bg-destructive/10 px-2">
+            {fixture.away_club_name} forfeit</Button>
+          <Button size="sm" variant="outline" onClick={handleFlag} disabled={isBusy}
+            className="h-6 text-[10px] border-border text-muted-foreground px-2">Flag review</Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input type="date" value={forceDate} onChange={e => setForceDate(e.target.value)}
+            className="h-6 text-[10px] bg-secondary border-border w-32 px-2" />
+          <Input type="time" value={forceTime} onChange={e => setForceTime(e.target.value)}
+            className="h-6 text-[10px] bg-secondary border-border w-24 px-2" />
+          <Button size="sm" onClick={handleForce} disabled={isBusy || !forceDate || !forceTime}
+            className="h-6 text-[10px] bg-primary text-primary-foreground px-2">
+            {isBusy ? "Saving…" : "Confirm"}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setShowForce(false)} disabled={isBusy}
+            className="h-6 text-[10px] px-2">Cancel</Button>
+        </div>
+      )}
     </div>
   );
 }

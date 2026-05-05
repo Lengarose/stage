@@ -256,6 +256,29 @@
     "wager_away_player_id": {
       "type": "string",
       "title": "Wager Away Player ID"
+    },
+    "source_fixture_id": {
+      "type": "string",
+      "title": "Source Fixture ID (CompetitionFixture or RegionalLeagueFixture that spawned this match)"
+    },
+    "source_fixture_type": {
+      "type": "string",
+      "title": "Source Fixture Type",
+      "enum": ["competition", "regional_league"]
+    },
+    "competition_context": {
+      "type": "string",
+      "title": "Competition Context Label (e.g. STAGE Supreme League · Matchday 3)"
+    },
+    "home_goal_events": {
+      "type": "array",
+      "title": "Home Team Goal Events (submitted by home team — one entry per goal scored by home)",
+      "items": { "type": "object" }
+    },
+    "away_goal_events": {
+      "type": "array",
+      "title": "Away Team Goal Events (submitted by away team — one entry per goal scored by away)",
+      "items": { "type": "object" }
     }
   },
   "required": [

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  User, Shield, Save, Plus, LogOut, Gamepad2, Target,
+  User, Shield, Save, Plus, LogOut,
   Camera, Loader2, Edit2, Check, X,
-  Swords, Flag, Bell, UserCheck, ExternalLink,
+  Swords, Bell, UserCheck, ExternalLink,
   ArrowLeft, Settings, Move
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import BannerSelector from "../components/BannerSelector";
@@ -27,12 +27,12 @@ const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST"
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
 export default function Profile() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [view, setView] = useState("profile"); // default: public profile view
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
-  const [clubs, setClubs] = useState([]);
+  const [_clubs, setClubs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,7 @@ export default function Profile() {
     name: "", tag: "", platform: "PlayStation", region: "Europe", description: "", country_code: "",
   });
 
-  const [clubDialogOpen, setClubDialogOpen] = useState(false);
+  const [_clubDialogOpen, setClubDialogOpen] = useState(false);
   const [clubOnboardingOpen, setClubOnboardingOpen] = useState(false);
 
   useEffect(() => {
@@ -178,14 +178,14 @@ export default function Profile() {
     e.target.value = "";
   }
 
-  async function saveAvatar(url, position, zoom) {
+  async function _saveAvatar(url, position, zoom) {
     if (!player) return;
     await base44.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
     setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
     setPendingAvatar(null);
   }
 
-  async function createClub() {
+  async function _createClub() {
     if (!user || !player) return;
     // Use the backend createClub function to properly initialize the club
     // (sets up ownership contract, correct roles, etc.)
@@ -690,8 +690,7 @@ export default function Profile() {
                   {myClub.description && <p className="text-sm text-muted-foreground mt-1">{myClub.description}</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatBox label="Rating" value={myClub.rating || 1000} accent="warning" />
+              <div className="grid grid-cols-3 gap-3">
                 <StatBox label="Wins" value={myClub.wins || 0} accent="success" />
                 <StatBox label="Matches" value={(myClub.wins || 0) + (myClub.losses || 0) + (myClub.draws || 0)} />
                 <StatBox label="Trophies" value={myClub.trophies || 0} accent="accent" />

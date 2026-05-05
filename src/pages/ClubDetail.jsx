@@ -3,8 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   Shield, Users, Trophy, ArrowLeft,
-  Check, X, Camera, Send, Loader2, Coins, ZoomIn, LogOut,
-  Trash2, Settings, Swords, Save, Edit2, ClipboardList, Clock
+  Check, X, Camera, Send, Loader2, LogOut,
+  Trash2, Swords, Save, Edit2, ClipboardList, Clock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import { getBannerStyle } from "@/lib/storeItems";
-import DressingRoom from "../components/DressingRoom";
 import FormationPitch from "../components/FormationPitch";
 import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
@@ -52,7 +51,7 @@ export default function ClubDetail() {
   const [sendingTrial, setSendingTrial] = useState(false);
   const [trialMsg, setTrialMsg] = useState("");
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
-  const [myClubData, setMyClubData] = useState(null);
+  const [_myClubData, setMyClubData] = useState(null);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
   const [pendingLogo, setPendingLogo] = useState(null);
@@ -63,6 +62,8 @@ export default function ClubDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("posts");
+  const [historyRows,   setHistoryRows]   = useState([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editClubOpen, setEditClubOpen] = useState(false);
   const [clubForm, setClubForm] = useState({ name: "", tag: "", platform: "", region: "", description: "", country_code: "" });
   const [savingClub, setSavingClub] = useState(false);
@@ -277,6 +278,39 @@ export default function ClubDetail() {
     e.target.value = "";
   }
 
+  async function loadHistory() {
+    if (historyLoaded) return;
+    const [compRows, leagueRows] = await Promise.all([
+      (base44.entities.CompetitionStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
+      (base44.entities.RegionalLeagueStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
+    ]);
+    const comp = compRows.map(r => ({
+      type: "competition",
+      name: r.competition_name || "Competition",
+      season: r.season_number || 0,
+      pos: r.final_position || r.position || null,
+      w: r.wins || 0, d: r.draws || 0, l: r.losses || 0,
+      pts: r.points || 0,
+      winner: r.final_position === 1,
+      promoted: r.is_promoted || false,
+      relegated: r.is_relegated || false,
+    }));
+    const league = leagueRows.map(r => ({
+      type: "league",
+      name: r.league_name || "League",
+      season: r.season_number || 0,
+      pos: r.final_position || r.position || null,
+      w: r.wins || 0, d: r.draws || 0, l: r.losses || 0,
+      pts: r.points || 0,
+      winner: r.final_position === 1,
+      promoted: r.is_promoted || false,
+      relegated: r.is_relegated || false,
+    }));
+    const merged = [...comp, ...league].sort((a, b) => b.season - a.season);
+    setHistoryRows(merged);
+    setHistoryLoaded(true);
+  }
+
   async function handleDeleteClub() {
     setDeleting(true);
     await base44.functions.invoke("deleteClub", { club_id: id });
@@ -285,7 +319,7 @@ export default function ClubDetail() {
     navigate("/clubs");
   }
 
-  async function saveLogo(localUrl, position, zoom) {
+  async function saveLogo(localUrl, position, _zoom) {
     const file = pendingFileRef.current;
     if (!file) return;
     setUploadingLogo(true);
@@ -450,8 +484,6 @@ export default function ClubDetail() {
             <span>{club.platform}</span>
             <span className="text-white/20">·</span>
             <span>{club.region}</span>
-            <span className="text-white/20">·</span>
-            <span className="text-white/70">{club.rating || 1000} Rating</span>
           </div>
           {club.description && <p className="text-sm text-white/60 leading-relaxed mt-1">{club.description}</p>}
           <div className="flex items-center gap-3 text-sm">
@@ -508,10 +540,10 @@ export default function ClubDetail() {
 
       {/* ── Tabs ── */}
       <div className="max-w-5xl mx-auto mt-0">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={t => { setActiveTab(t); if (t === "history") loadHistory(); }} className="w-full">
           <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0 flex-wrap">
             {[
-              "posts", "stats", "matches", "squad", "formation", "trophies",
+              "posts", "stats", "matches", "squad", "formation", "trophies", "history",
               ...(isOwner ? ["stadium", "contracts", "finance", "shirts"] : []),
               ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : [])
             ].map(tab => (
@@ -672,6 +704,50 @@ export default function ClubDetail() {
           {/* Trophies */}
           <TabsContent value="trophies" className="px-4 pt-4">
             <ClubTrophyCabinetDisplay clubId={id} currentUserEmail={currentUser?.email} club={club} canEditOverride={canEdit} />
+          </TabsContent>
+
+          {/* Season History */}
+          <TabsContent value="history" className="px-4 pt-4 pb-6">
+            {!historyLoaded ? (
+              <p className="text-xs text-white/40 py-8 text-center">Loading history…</p>
+            ) : historyRows.length === 0 ? (
+              <p className="text-xs text-white/40 py-8 text-center">No season history yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-white/40 uppercase tracking-widest border-b border-white/10">
+                      <th className="text-left py-2 pr-3 font-semibold">Competition</th>
+                      <th className="text-left py-2 pr-3 font-semibold">Season</th>
+                      <th className="text-center py-2 px-2 font-semibold">Pos</th>
+                      <th className="text-center py-2 px-2 font-semibold">W</th>
+                      <th className="text-center py-2 px-2 font-semibold">D</th>
+                      <th className="text-center py-2 px-2 font-semibold">L</th>
+                      <th className="text-center py-2 px-2 font-semibold">Pts</th>
+                      <th className="text-center py-2 pl-2 font-semibold"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {historyRows.map((r, i) => (
+                      <tr key={i} className="text-white/70 hover:bg-white/5 transition-colors">
+                        <td className="py-2 pr-3 font-medium text-white">{r.name}</td>
+                        <td className="py-2 pr-3 text-white/50">S{r.season}</td>
+                        <td className="py-2 px-2 text-center font-bold">{r.pos ?? "—"}</td>
+                        <td className="py-2 px-2 text-center text-emerald-400">{r.w}</td>
+                        <td className="py-2 px-2 text-center">{r.d}</td>
+                        <td className="py-2 px-2 text-center text-red-400">{r.l}</td>
+                        <td className="py-2 px-2 text-center font-bold">{r.pts}</td>
+                        <td className="py-2 pl-2 text-center">
+                          {r.winner && <span className="text-[9px] px-1 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold">W</span>}
+                          {r.promoted && <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold ml-0.5">↑</span>}
+                          {r.relegated && <span className="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-400 font-bold ml-0.5">↓</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </TabsContent>
 
           {/* Contracts — owner only */}
@@ -865,11 +941,11 @@ function deriveCompetitionLabel(match, tournamentMap = {}) {
   return t.name || "Tournament";
 }
 
-function PlayerCard({ player, currentUser, myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
+function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
 
-  async function toggleFollow(e) {
+  async function _toggleFollow(e) {
     e.preventDefault();
     if (isFollowing && followId) {
       await base44.entities.Follow.delete(followId);

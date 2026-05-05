@@ -120,6 +120,14 @@
     "final_position": {
       "type": "number",
       "title": "Confirmed Final Position"
+    },
+    "promotion_target_league_id": {
+      "type": "string",
+      "title": "Promotion Target League ID (Div 2 → Div 1)"
+    },
+    "relegation_target_league_id": {
+      "type": "string",
+      "title": "Relegation Target League ID (Div 1 → Div 2)"
     }
   },
   "required": ["league_id", "club_id", "club_name", "season_number"]

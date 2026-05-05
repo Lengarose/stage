@@ -130,6 +130,51 @@
       "title": "Stats Processed (idempotency guard)",
       "default": false
     },
+    "window_start": {
+      "type": "string",
+      "title": "Scheduling Window Opens",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "title": "Scheduling Deadline",
+      "format": "date-time"
+    },
+    "window_days": {
+      "type": "number",
+      "title": "Window Length in Days",
+      "default": 5
+    },
+    "scheduling_status": {
+      "type": "string",
+      "title": "Scheduling Status",
+      "enum": ["open", "home_proposed", "away_proposed", "confirmed", "expired", "admin_review"],
+      "default": "open"
+    },
+    "home_proposed_date": {
+      "type": "string",
+      "title": "Home Team Proposed Date",
+      "format": "date-time"
+    },
+    "away_proposed_date": {
+      "type": "string",
+      "title": "Away Team Proposed Date",
+      "format": "date-time"
+    },
+    "confirmed_date": {
+      "type": "string",
+      "title": "Confirmed Match Date/Time",
+      "format": "date-time"
+    },
+    "last_proposed_by": {
+      "type": "string",
+      "title": "Last Proposal By (home | away)"
+    },
+    "proposal_count": {
+      "type": "number",
+      "title": "Total Proposals Made",
+      "default": 0
+    },
     "admin_notes": {
       "type": "string",
       "title": "Admin Notes"

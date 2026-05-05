@@ -108,6 +108,7 @@ function circleMethod(clubs) {
 }
 
 function fixtureBase(season) {
+  const now = new Date();
   return {
     season_id: season.id,
     competition_id: season.competition_id,
@@ -119,6 +120,11 @@ function fixtureBase(season) {
     stats_processed: false,
     home_score: 0,
     away_score: 0,
+    scheduling_status: "open",
+    window_start: now.toISOString(),
+    window_end: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    window_days: 5,
+    proposal_count: 0,
   };
 }
 
@@ -422,9 +428,36 @@ export async function generateNextKnockoutRound(season, currentFixtures, current
 export async function processFixtureResult(fixture) {
   if (fixture.stats_processed) return;
 
-  // Knockout / playoff fixtures: just mark processed, no standings update
+  const homeScore = fixture.home_score ?? 0;
+  const awayScore = fixture.away_score ?? 0;
+
+  // Award ranking points for every confirmed match (league + knockout)
+  const _rankingUpdate = (async () => {
+    try {
+      const { updateClubRankingAfterMatch } = await import("./rankingEngine");
+      const [[homeClub], [awayClub]] = await Promise.all([
+        base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
+        base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
+      ]);
+      if (homeClub && awayClub) {
+        await updateClubRankingAfterMatch({
+          homeClub, awayClub, homeScore, awayScore,
+          competitionType: "competition",
+          competitionSlug: fixture.competition_slug || null,
+          division:        null,
+          phase:           fixture.phase || "league",
+          matchId:         fixture.id,
+        });
+      }
+    } catch { /* non-fatal: ranking failure must not block result processing */ }
+  })();
+
+  // Knockout / playoff fixtures: mark processed only, no league-table update
   if (fixture.phase !== "league") {
-    await base44.entities.CompetitionFixture.update(fixture.id, { stats_processed: true });
+    await Promise.all([
+      base44.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
+      _rankingUpdate,
+    ]);
     return;
   }
 
@@ -436,8 +469,6 @@ export async function processFixtureResult(fixture) {
   );
   if (!homeRow || !awayRow) return;
 
-  const homeScore = fixture.home_score ?? 0;
-  const awayScore = fixture.away_score ?? 0;
   const isDraw = homeScore === awayScore;
   const homeWin = homeScore > awayScore;
 
@@ -469,6 +500,7 @@ export async function processFixtureResult(fixture) {
     base44.entities.CompetitionStanding.update(homeRow.id, homeUpdate),
     base44.entities.CompetitionStanding.update(awayRow.id, awayUpdate),
     base44.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
+    _rankingUpdate,
   ]);
 
   // Re-sort all positions in the season
@@ -478,6 +510,100 @@ export async function processFixtureResult(fixture) {
   ));
   await Promise.all(
     sorted.map((s, i) => base44.entities.CompetitionStanding.update(s.id, { position: i + 1 }))
+  );
+}
+
+// Process a completed regional league fixture and update RegionalLeagueStanding rows
+export async function processRegionalLeagueFixtureResult(fixture) {
+  if (fixture.stats_processed) return;
+
+  const homeScore = fixture.home_score ?? 0;
+  const awayScore = fixture.away_score ?? 0;
+
+  // Non-fatal ranking update
+  const _rankingUpdate = (async () => {
+    try {
+      const { updateClubRankingAfterMatch } = await import("./rankingEngine");
+      const [[homeClub], [awayClub]] = await Promise.all([
+        base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
+        base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
+      ]);
+      if (homeClub && awayClub) {
+        await updateClubRankingAfterMatch({
+          homeClub, awayClub, homeScore, awayScore,
+          competitionType: "regional_league",
+          competitionSlug: null,
+          division:        fixture.division || 1,
+          phase:           "league",
+          matchId:         fixture.id,
+        });
+      }
+    } catch { /* non-fatal */ }
+  })();
+
+  const [[homeRow], [awayRow]] = await Promise.all([
+    (base44.entities.RegionalLeagueStanding?.filter(
+      { league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1
+    ) ?? Promise.resolve([])).catch(() => []),
+    (base44.entities.RegionalLeagueStanding?.filter(
+      { league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1
+    ) ?? Promise.resolve([])).catch(() => []),
+  ]);
+
+  if (!homeRow || !awayRow) { await _rankingUpdate; return; }
+
+  const isDraw  = homeScore === awayScore;
+  const homeWin = homeScore > awayScore;
+
+  const homeUpdate = {
+    played:        (homeRow.played  || 0) + 1,
+    wins:          (homeRow.wins    || 0) + (homeWin  ? 1 : 0),
+    draws:         (homeRow.draws   || 0) + (isDraw   ? 1 : 0),
+    losses:        (homeRow.losses  || 0) + (!homeWin && !isDraw ? 1 : 0),
+    goals_for:     (homeRow.goals_for     || 0) + homeScore,
+    goals_against: (homeRow.goals_against || 0) + awayScore,
+    points:        (homeRow.points  || 0) + (homeWin ? 3 : isDraw ? 1 : 0),
+    form:          [homeWin ? "W" : isDraw ? "D" : "L", ...(homeRow.form || [])].slice(0, 5),
+  };
+  homeUpdate.goal_difference = homeUpdate.goals_for - homeUpdate.goals_against;
+
+  const awayUpdate = {
+    played:        (awayRow.played  || 0) + 1,
+    wins:          (awayRow.wins    || 0) + (!homeWin && !isDraw ? 1 : 0),
+    draws:         (awayRow.draws   || 0) + (isDraw   ? 1 : 0),
+    losses:        (awayRow.losses  || 0) + (homeWin  ? 1 : 0),
+    goals_for:     (awayRow.goals_for     || 0) + awayScore,
+    goals_against: (awayRow.goals_against || 0) + homeScore,
+    points:        (awayRow.points  || 0) + (!homeWin && !isDraw ? 3 : isDraw ? 1 : 0),
+    form:          [!homeWin && !isDraw ? "W" : isDraw ? "D" : "L", ...(awayRow.form || [])].slice(0, 5),
+  };
+  awayUpdate.goal_difference = awayUpdate.goals_for - awayUpdate.goals_against;
+
+  await Promise.all([
+    base44.entities.RegionalLeagueStanding.update(homeRow.id, homeUpdate),
+    base44.entities.RegionalLeagueStanding.update(awayRow.id, awayUpdate),
+    (base44.entities.RegionalLeagueFixture?.update(fixture.id, { stats_processed: true }) ?? Promise.resolve()),
+    _rankingUpdate,
+  ]);
+
+  // Re-sort positions
+  const allRows = await (base44.entities.RegionalLeagueStanding?.filter(
+    { league_id: fixture.league_id }, null, 100
+  ) ?? Promise.resolve([])).catch(() => []);
+
+  const sorted = allRows
+    .map(s => s.id === homeRow.id ? { ...s, ...homeUpdate }
+             : s.id === awayRow.id ? { ...s, ...awayUpdate } : s)
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      const gdDiff = ((b.goals_for || 0) - (b.goals_against || 0)) - ((a.goals_for || 0) - (a.goals_against || 0));
+      if (gdDiff !== 0) return gdDiff;
+      if ((b.goals_for || 0) !== (a.goals_for || 0)) return (b.goals_for || 0) - (a.goals_for || 0);
+      return (a.club_name || "").localeCompare(b.club_name || "");
+    });
+
+  await Promise.all(
+    sorted.map((s, i) => base44.entities.RegionalLeagueStanding.update(s.id, { position: i + 1 }))
   );
 }
 
@@ -571,5 +697,71 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
     target_season_number: season.season_number,
     confirmed_by: adminEmail,
     confirmed_at: new Date().toISOString(),
+  });
+}
+
+// ─── Regional league fixture generation (full round-robin, both legs) ─────────
+
+/**
+ * Generate home-and-away round-robin fixtures for a regional league.
+ * Uses the circle method: n clubs → n-1 rounds per leg → 2*(n-1) matchdays total.
+ * Each matchday window opens immediately (window_days = 4 by default).
+ */
+export async function generateRegionalLeagueFixtures(league, clubs, windowDays = 4) {
+  if (!base44.entities.RegionalLeagueFixture) {
+    throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.base44.com to enable fixture generation.");
+  }
+  if (clubs.length < 2) throw new Error("Need at least 2 clubs to generate fixtures.");
+  const evenClubs = clubs.length % 2 === 0 ? clubs : [...clubs, { id: "__bye__", name: "BYE" }];
+  const allRounds = circleMethod(evenClubs);
+
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const leagueBase = {
+    league_id:     league.id,
+    league_name:   league.name,
+    region_slug:   league.region_slug || "",
+    division:      league.division || 1,
+    season_number: league.season_number || 1,
+    status:        "unscheduled",
+    stats_processed: false,
+    home_score: 0, away_score: 0,
+    scheduling_status: "open",
+    window_start: now.toISOString(),
+    window_end:   windowEnd,
+    window_days:  windowDays,
+    proposal_count: 0,
+  };
+
+  // First leg (matchdays 1…n-1) + second leg mirror (matchdays n…2(n-1))
+  const matchdays = [
+    ...allRounds,
+    ...allRounds.map(day => day.map(({ home, away }) => ({ home: away, away: home }))),
+  ];
+
+  const ops = matchdays.flatMap((day, mdIdx) =>
+    day
+      .filter(({ home, away }) => home.id !== "__bye__" && away.id !== "__bye__")
+      .map(({ home, away }) =>
+        base44.entities.RegionalLeagueFixture.create({
+          ...leagueBase,
+          home_club_id:       home.id,
+          home_club_name:     home.name,
+          home_club_logo_url: home.logo_url || "",
+          home_club_tag:      home.tag || "",
+          away_club_id:       away.id,
+          away_club_name:     away.name,
+          away_club_logo_url: away.logo_url || "",
+          away_club_tag:      away.tag || "",
+          matchday: mdIdx + 1,
+        })
+      )
+  );
+
+  await Promise.all(ops);
+  await base44.entities.RegionalLeague.update(league.id, {
+    status: "in_progress",
+    num_clubs: clubs.length,
   });
 }

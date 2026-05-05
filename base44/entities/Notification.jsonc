@@ -68,7 +68,11 @@
         "message",
         "tournament_start",
         "tournament_complete",
-        "announcement"
+        "announcement",
+        "schedule_proposed",
+        "schedule_confirmed",
+        "schedule_expired",
+        "schedule_admin_review"
       ]
     },
     "title": {

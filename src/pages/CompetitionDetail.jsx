@@ -16,6 +16,7 @@ const PHASE_LABEL = {
 };
 
 const STATUS_LABEL = {
+  draft: "Draft",
   registration: "Registration",
   league_phase: "League Phase",
   playoff_round: "Playoff Round",
@@ -24,6 +25,7 @@ const STATUS_LABEL = {
   knockout_sf: "Semi-Finals",
   knockout_final: "Final",
   completed: "Completed",
+  archived: "Archived",
 };
 
 function FormBadge({ result }) {
@@ -424,7 +426,7 @@ export default function CompetitionDetail() {
         { competition_id: comp.id }, "-season_number", 20
       ).catch(() => []);
       setAllSeasons(seasons);
-      const active = seasons.find(s => s.status !== "completed") || seasons[0];
+      const active = seasons.find(s => s.status !== "completed" && s.status !== "archived" && s.status !== "draft") || seasons.find(s => s.status !== "archived" && s.status !== "draft") || seasons[0];
       if (active) setSelectedSeason(active);
       else setLoading(false);
     } catch (err) {
@@ -515,10 +517,12 @@ export default function CompetitionDetail() {
                       >
                         {s.season_label || `Season ${s.season_number}`}
                         <span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase",
+                          s.status === "archived" ? "text-muted-foreground/50 border-border/50" :
+                          s.status === "draft" ? "text-muted-foreground border-border" :
                           s.status === "completed" ? "text-muted-foreground border-border" :
                           s.status === "league_phase" ? "text-success border-success/30" :
                           "text-primary border-primary/30"
-                        )}>{s.status === "league_phase" ? "Live" : s.status}</span>
+                        )}>{STATUS_LABEL[s.status] || s.status}</span>
                       </button>
                     ))}
                   </div>

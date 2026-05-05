@@ -42,8 +42,17 @@
     "status": {
       "type": "string",
       "title": "Status",
-      "enum": ["registration", "in_progress", "completed", "cancelled"],
-      "default": "registration"
+      "enum": ["draft", "registration", "in_progress", "completed", "archived", "cancelled"],
+      "default": "draft"
+    },
+    "archived_at": {
+      "type": "string",
+      "title": "Archived At",
+      "format": "date-time"
+    },
+    "next_season_id": {
+      "type": "string",
+      "title": "Next Season ID (link to successor)"
     },
     "max_clubs": {
       "type": "number",
@@ -110,6 +119,10 @@
     "banner_url": {
       "type": "string",
       "title": "Banner URL"
+    },
+    "linked_league_slug": {
+      "type": "string",
+      "title": "Linked League Slug (paired division in the same region, e.g. uk-ireland-div-2)"
     },
     "admin_notes": {
       "type": "string",
