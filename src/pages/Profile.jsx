@@ -251,7 +251,7 @@ export default function Profile() {
       <div className="min-h-screen bg-background text-foreground">
         {/* Banner */}
         <div className="relative h-48 sm:h-64 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
-          <div className="w-full h-full" style={getBannerStyle(player?.banner_id, player?.banner_position)} />
+          <div className="w-full h-full" style={getBannerStyle(player?.banner_url, player?.banner_position)} />
           <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
           {/* Top-right action icons */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -627,17 +627,23 @@ export default function Profile() {
         <BannerSelector
           open={bannerDialogOpen}
           onClose={() => setBannerDialogOpen(false)}
-          currentBannerId={player?.banner_id}
+          currentBannerId={player?.banner_url}
           currentBannerPosition={player?.banner_position}
           currentBannerZoom={player?.banner_zoom}
           previewData={{ name: player?.gamertag || user?.full_name, subtitle: player?.position, avatarUrl: player?.avatar_url, type: "player" }}
           onSelect={async (bannerId, position, zoom) => {
-            const update = { banner_id: bannerId };
+            const update = { banner_url: bannerId };
             if (position) update.banner_position = position;
             if (zoom) update.banner_zoom = zoom;
-            if (player) await base44.entities.Player.update(player.id, update);
-            setPlayer(prev => ({ ...prev, ...update }));
             setBannerDialogOpen(false);
+            setPlayer(prev => ({ ...prev, ...update }));
+            if (player) {
+              try {
+                await stageClient.entities.Player.update(player.id, update);
+              } catch (err) {
+                console.error("Failed to save banner:", err);
+              }
+            }
           }}
         />
 

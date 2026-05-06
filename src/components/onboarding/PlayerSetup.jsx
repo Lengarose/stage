@@ -50,7 +50,7 @@ export default function PlayerSetup({ onComplete, user }) {
         avatar_position: avatarPosition,
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
-        stc: 50000,
+        credits: 50000,
       };
 
       const isBenignSaveError = (e) => {

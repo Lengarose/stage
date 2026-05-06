@@ -6,6 +6,7 @@ import { Upload, Move } from "lucide-react";
 
 export default function BannerSelector({ open, onClose, currentBannerId, onSelect, previewData, currentBannerPosition, currentBannerZoom }) {
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const [pendingUrl, setPendingUrl] = useState(null);
   const [repositioning, setRepositioning] = useState(false);
   const fileRef = useRef();
@@ -16,9 +17,18 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
+    setUploadError(null);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Upload timed out. Please try again.")), 30000)
+      );
+      const { file_url } = await Promise.race([
+        base44.integrations.Core.UploadFile({ file }),
+        timeout,
+      ]);
       setPendingUrl(file_url);
+    } catch (err) {
+      setUploadError(err?.message || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -48,6 +58,11 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
               ? <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> Uploading...</>
               : <><Upload className="w-4 h-4" /> Upload a banner image</>}
           </button>
+          {uploadError && (
+            <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              {uploadError}
+            </p>
+          )}
 
           {currentIsUrl && (
             <button

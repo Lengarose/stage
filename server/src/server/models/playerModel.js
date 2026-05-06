@@ -35,6 +35,9 @@ class Player {
           ? body.club_roles
           : JSON.stringify(body.club_roles))
       : null;
+    this.banner_url          = body.banner_url;
+    this.banner_position     = body.banner_position;
+    this.banner_zoom         = body.banner_zoom;
   }
 
   selectAll(page = 1) {
@@ -65,8 +68,9 @@ class Player {
       (id, user_id, email, gamertag, position, platform, country, country_code, bio,
        avatar_url, avatar_zoom, avatar_position, shirt_number, overall_rating,
        goals, assists, credits, subscription, role, dressing_room_seat, is_ready,
-       club_id, notification_settings, club_roles)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       club_id, notification_settings, club_roles,
+       banner_url, banner_position, banner_zoom)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.user_id, this.email, this.gamertag, this.position, this.platform,
       this.country, this.country_code, this.bio, this.avatar_url,
@@ -74,6 +78,7 @@ class Player {
       this.overall_rating, this.goals, this.assists, this.credits,
       this.subscription, this.role, this.dressing_room_seat, this.is_ready,
       this.club_id, this.notification_settings, this.club_roles,
+      this.banner_url, this.banner_position, this.banner_zoom,
     ];
     return EXECUTESQL(sql, values);
   }
@@ -84,7 +89,7 @@ class Player {
       bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, shirt_number=?,
       overall_rating=?, goals=?, assists=?, credits=?, subscription=?, role=?,
       dressing_room_seat=?, is_ready=?, club_id=?, notification_settings=?,
-      club_roles=?
+      club_roles=?, banner_url=?, banner_position=?, banner_zoom=?
       WHERE id=?`;
     const values = [
       this.user_id, this.email, this.gamertag, this.position, this.platform,
@@ -93,6 +98,7 @@ class Player {
       this.overall_rating, this.goals, this.assists, this.credits,
       this.subscription, this.role, this.dressing_room_seat, this.is_ready,
       this.club_id, this.notification_settings, this.club_roles,
+      this.banner_url, this.banner_position, this.banner_zoom,
       id,
     ];
     return EXECUTESQL(sql, values);

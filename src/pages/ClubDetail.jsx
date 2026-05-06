@@ -412,7 +412,7 @@ export default function ClubDetail() {
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
-        <div className="absolute inset-0" style={getBannerStyle(club?.banner_id, club?.banner_position)} />
+        <div className="absolute inset-0" style={getBannerStyle(club?.banner_url, club?.banner_position)} />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
         {canEdit && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -816,17 +816,21 @@ export default function ClubDetail() {
       <BannerSelector
         open={bannerDialogOpen}
         onClose={() => setBannerDialogOpen(false)}
-        currentBannerId={club?.banner_id}
+        currentBannerId={club?.banner_url}
         currentBannerPosition={club?.banner_position}
         currentBannerZoom={club?.banner_zoom}
         previewData={{ name: club?.name, subtitle: `${club?.platform} · ${club?.region}`, avatarUrl: club?.logo_url, type: "club" }}
         onSelect={async (bannerId, position, zoom) => {
-          const update = { banner_id: bannerId };
+          const update = { banner_url: bannerId };
           if (position) update.banner_position = position;
           if (zoom) update.banner_zoom = zoom;
-          await base44.entities.Club.update(id, update);
-          setClub(prev => ({ ...prev, ...update }));
           setBannerDialogOpen(false);
+          setClub(prev => ({ ...prev, ...update }));
+          try {
+            await stageClient.entities.Club.update(id, update);
+          } catch (err) {
+            console.error("Failed to save banner:", err);
+          }
         }}
       />
 

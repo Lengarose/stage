@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
+import HeroImg from "@/assets/WIS.PNG";
+import StageDeskImg from "@/assets/Stage Desk.png";
+import BFCHomeImg from "@/assets/BFC Home.PNG";
+import HIWImg from "@/assets/HIW.PNG";
 import {
   Trophy, Zap, ShoppingBag, Shield, Users, Gamepad2, Award,
   ArrowRight, Mail, ChevronDown, ChevronUp,
@@ -13,7 +17,7 @@ const DEFAULTS = {
   hero_title:        "Welcome To",
   hero_subtitle:     "STAGE",
   hero_description:  "Create your club, compete in structured leagues and tournaments, and build your legacy in the ultimate competitive football gaming community.",
-  hero_image_url:    "https://media.base44.com/images/public/69d77ebfc021efa72e236f84/9bfa29b97_IMG_6871.png",
+  hero_image_url:    HeroImg,
   hero_cta_1_label:  "Competitions",
   hero_cta_1_url:    "/competitions",
   hero_cta_2_label:  "Game Day",
@@ -22,13 +26,13 @@ const DEFAULTS = {
   hero_cta_3_url:    "/lifestyle",
   section1_title:    "What is STAGE?",
   section1_text:     "STAGE is the premier structured competitive platform for EA FC players. We provide the infrastructure for real clubs, real leagues, and real trophies — all within a professional community built around the game.",
-  section1_image_url: "",
+  section1_image_url: HIWImg,
   section2_title:    "How It Works",
   section2_text:     "Register your club, sign players to contracts, and enter league seasons or knockout tournaments. Every match is tracked, every goal counts, and every season crowns a champion.",
-  section2_image_url: "",
+  section2_image_url: StageDeskImg,
   section3_title:    "Built for Competitors",
   section3_text:     "From transfer markets and player contracts to STC rewards and custom trophies — STAGE gives serious players the structure and recognition their game deserves.",
-  section3_image_url: "",
+  section3_image_url: BFCHomeImg,
   faq_items: [
     { question: "How do I join STAGE?",                   answer: "Create your account, complete your player profile, and either create a club or join an existing one. From there you can register for leagues and competitions." },
     { question: "What game does STAGE support?",           answer: "STAGE is built around EA FC (formerly FIFA). We support all major platforms including PlayStation and Xbox." },
@@ -84,9 +88,9 @@ function FaqItem({ question, answer }) {
 }
 
 /* ── Alternating image / text section ───────────────────────── */
-function FeatureSection({ title, text, imageUrl, icon: Icon, flip }) {
+function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center" }) {
   const img = imageUrl ? (
-    <img src={imageUrl} alt={title} className="w-full h-56 sm:h-72 object-cover rounded-2xl border border-border" />
+    <img src={imageUrl} alt={title} className="w-full h-56 sm:h-72 object-cover rounded-2xl border border-border" style={{ objectPosition }} />
   ) : (
     <div className="w-full h-56 sm:h-72 rounded-2xl bg-secondary/40 border border-border flex items-center justify-center">
       <Icon className="w-12 h-12 text-muted-foreground/20" />
@@ -144,7 +148,7 @@ export default function Home() {
           style={{
             backgroundImage: `url(${c.hero_image_url})`,
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition: "center 10%",
           }}
         />
         {/* Overlays */}
@@ -218,7 +222,7 @@ export default function Home() {
         {[
           { title: c.section1_title, text: c.section1_text, imageUrl: c.section1_image_url, flip: false },
           { title: c.section2_title, text: c.section2_text, imageUrl: c.section2_image_url, flip: true  },
-          { title: c.section3_title, text: c.section3_text, imageUrl: c.section3_image_url, flip: false },
+          { title: c.section3_title, text: c.section3_text, imageUrl: c.section3_image_url, flip: false, objectPosition: "center top" },
         ].map((s, i) => (
           <FeatureSection key={i} {...s} icon={SECTION_ICONS[i]} />
         ))}

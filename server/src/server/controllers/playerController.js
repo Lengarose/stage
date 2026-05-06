@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const Player  = require('../models/playerModel');
+const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 

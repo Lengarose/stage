@@ -41,6 +41,9 @@ class Club {
     this.trophies            = body.trophies
       ? (typeof body.trophies === 'string' ? body.trophies : JSON.stringify(body.trophies))
       : null;
+    this.banner_url          = body.banner_url;
+    this.banner_position     = body.banner_position;
+    this.banner_zoom         = body.banner_zoom;
   }
 
   selectAll(page = 1) {
@@ -69,8 +72,8 @@ class Club {
        goals_conceded, rating, peak_rating, matches_ranked, is_provisional,
        credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
        stadium_capacity, tier, form, win_streak, loss_streak, status,
-       formation, lineup, trophies)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       formation, lineup, trophies, banner_url, banner_position, banner_zoom)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.user_id, this.owner_email, this.name, this.tag, this.platform,
       this.region, this.country_code, this.logo_url, this.logo_position,
@@ -80,6 +83,7 @@ class Club {
       this.transfer_budget_stc, this.stadium_level, this.stadium_capacity,
       this.tier, this.form, this.win_streak, this.loss_streak, this.status,
       this.formation, this.lineup, this.trophies,
+      this.banner_url, this.banner_position, this.banner_zoom,
     ];
     return EXECUTESQL(sql, values);
   }
@@ -92,7 +96,7 @@ class Club {
       matches_ranked=?, is_provisional=?, credits=?, stc=?, wage_budget_stc=?,
       transfer_budget_stc=?, stadium_level=?, stadium_capacity=?, tier=?,
       form=?, win_streak=?, loss_streak=?, status=?, formation=?,
-      lineup=?, trophies=?
+      lineup=?, trophies=?, banner_url=?, banner_position=?, banner_zoom=?
       WHERE id=?`;
     const values = [
       this.user_id, this.owner_email, this.name, this.tag, this.platform, this.region,
@@ -103,6 +107,7 @@ class Club {
       this.stadium_level, this.stadium_capacity, this.tier, this.form,
       this.win_streak, this.loss_streak, this.status, this.formation,
       this.lineup, this.trophies,
+      this.banner_url, this.banner_position, this.banner_zoom,
       id,
     ];
     return EXECUTESQL(sql, values);
