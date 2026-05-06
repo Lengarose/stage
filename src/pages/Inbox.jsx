@@ -20,15 +20,15 @@ export default function InboxPage() {
       const u = await stageClient.auth.me();
       setUser(u);
 
-      const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
+      const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
       const player = players[0] || null;
       setMyPlayer(player);
       if (player?.club_id) {
-        const clubs = await base44.entities.Club.filter({ id: player.club_id }).catch(() => []);
+        const clubs = await stageClient.entities.Club.filter({ id: player.club_id }).catch(() => []);
         setMyClub(clubs[0] || null);
       }
 
-      const data = await base44.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 200);
+      const data = await stageClient.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 200);
       setMessages(data || []);
 
       // Auto-open from URL param

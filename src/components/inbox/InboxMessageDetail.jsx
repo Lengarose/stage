@@ -22,6 +22,13 @@ const STATUS_COLORS = {
   pending:               "text-muted-foreground bg-muted border-border",
 };
 
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
 export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
   const [loading, setLoading] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -38,7 +45,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       // Update this message's status
       await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
 
-      const meta = message.metadata || {};
+      const meta = typeof message.metadata === "string"
+        ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
+        : (message.metadata || {});
 
       if (action === "accepted" && message.message_type === "match_invite") {
         notify(message.sender_email, "match_scheduled",
@@ -46,29 +55,61 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleDateString() : "the proposed date"}.`,
           "/schedule"
         );
-        // Create the scheduled match from the invitation metadata
-        const isClub = meta.invitation_type === "club_vs_club";
+        // Create the scheduled match from the invitation metadata.
+        // If legacy invite metadata lacks ids, resolve them from sender/recipient emails.
+        const [senderPlayers, recipientPlayers] = await Promise.all([
+          message.sender_email ? stageClient.entities.Player.filter({ email: message.sender_email }, null, 1).catch(() => []) : Promise.resolve([]),
+          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const senderPlayer = senderPlayers?.[0] || null;
+        const recipientPlayer = recipientPlayers?.[0] || null;
+
+        const home_player_id = meta.challenger_player_id || senderPlayer?.id || null;
+        const away_player_id = meta.opponent_player_id || recipientPlayer?.id || null;
+        const home_club_id = meta.challenger_club_id || senderPlayer?.club_id || null;
+        const away_club_id = meta.opponent_club_id || recipientPlayer?.club_id || null;
+
+        const isClub = meta.invitation_type === "club_vs_club" || (!!home_club_id && !!away_club_id);
+
+        const [homeClubRows, awayClubRows] = await Promise.all([
+          home_club_id ? stageClient.entities.Club.filter({ id: home_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
+          away_club_id ? stageClient.entities.Club.filter({ id: away_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const homeClub = homeClubRows?.[0] || null;
+        const awayClub = awayClubRows?.[0] || null;
+
+        // Guard against creating broken rows with every identity field null.
+        if (!home_player_id && !away_player_id && !home_club_id && !away_club_id) {
+          throw new Error("Cannot schedule match: invitation is missing challenger/opponent ids.");
+        }
+
         await stageClient.entities.Match.create({
           status:           "scheduled",
           mode:             isClub ? "club" : "solo",
-          scheduled_date:   meta.scheduled_date || null,
-          home_club_id:     meta.challenger_club_id   || null,
-          home_club_name:   isClub ? meta.challenger_name : null,
-          away_club_id:     meta.opponent_club_id     || null,
-          away_club_name:   isClub ? meta.opponent_name  : null,
-          home_player_id:   meta.challenger_player_id || null,
-          home_player_name: !isClub ? meta.challenger_name : null,
-          away_player_id:   meta.opponent_player_id   || null,
-          away_player_name: !isClub ? meta.opponent_name  : null,
+          scheduled_date:   toMysqlDateTime(meta.scheduled_date),
+          home_club_id,
+          home_club_name:   isClub ? (meta.challenger_name || homeClub?.name || null) : null,
+          away_club_id,
+          away_club_name:   isClub ? (meta.opponent_name || awayClub?.name || null) : null,
+          home_player_id,
+          home_player_name: !isClub ? (meta.challenger_name || senderPlayer?.gamertag || null) : null,
+          away_player_id,
+          away_player_name: !isClub ? (meta.opponent_name || recipientPlayer?.gamertag || null) : null,
           wager_stc:        meta.wager_stc || 0,
           wager_status:     (meta.wager_stc || 0) > 0 ? "pending_acceptance" : null,
           wager_home_locked: (meta.wager_stc || 0) > 0,
         });
         // Notify the challenger that their invite was accepted
         if (message.sender_email) {
+          const responderName = myGamertag || recipientPlayer?.gamertag || message.recipient_email || "Player";
+          const responderAvatar = recipientPlayer?.avatar_url || "";
+          const responderClubName = awayClub?.name || recipientPlayer?.club_name || null;
           await stageClient.entities.InboxMessage.create({
             recipient_email: message.sender_email,
             sender_email:    message.recipient_email,
+            sender_gamertag: responderName,
+            sender_avatar_url: responderAvatar,
+            sender_club_name: responderClubName,
             subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
             body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleString() : "TBD"}\n\nThe match has been added to your schedule.`,
             message_type:    "match_invite_response",
@@ -85,9 +126,16 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           `${meta.opponent_name} has declined your match invitation.`,
           "/inbox"
         );
+        const [recipientPlayers] = await Promise.all([
+          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const responder = recipientPlayers?.[0] || null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,
           sender_email:    message.recipient_email,
+          sender_gamertag: myGamertag || responder?.gamertag || message.recipient_email || "Player",
+          sender_avatar_url: responder?.avatar_url || "",
+          sender_club_name: null,
           subject:         `❌ Match Declined: ${meta.challenger_name} vs ${meta.opponent_name}`,
           body:            `${meta.opponent_name} has declined your match invitation.`,
           message_type:    "match_invite_response",
@@ -99,7 +147,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
       if (action === "date_change_requested" && message.sender_email) {
         const newDate = rescheduleDate && rescheduleTime
-          ? new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString()
+          ? toMysqlDateTime(new Date(`${rescheduleDate}T${rescheduleTime}:00`))
           : null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,
@@ -129,8 +177,15 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
     onDeleted(message.id);
   }
 
-  const hasAction = message.action_type && message.action_type !== "none" && message.status === "pending";
-  const isActioned = message.action_type && message.action_type !== "none" && message.status !== "pending";
+  const status = message.status || "pending";
+  // Some older/legacy messages were created without action_type even when they
+  // require accept/decline controls (notably match_invite).
+  const effectiveActionType =
+    message.action_type && message.action_type !== "none"
+      ? message.action_type
+      : (message.message_type === "match_invite" ? "accept_decline_date" : "none");
+  const hasAction = effectiveActionType !== "none" && status === "pending";
+  const isActioned = effectiveActionType !== "none" && status !== "pending";
 
   return (
     <div className="flex flex-col h-full">
@@ -221,9 +276,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         {isActioned && (
           <span className={cn(
             "inline-block mt-2 text-xs px-2 py-0.5 rounded border font-medium",
-            STATUS_COLORS[message.status] || STATUS_COLORS.pending
+            STATUS_COLORS[status] || STATUS_COLORS.pending
           )}>
-            {message.status.replace(/_/g, " ")}
+            {status.replace(/_/g, " ")}
           </span>
         )}
       </div>
@@ -292,7 +347,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             Your response required
           </p>
           <div className="flex flex-wrap gap-2">
-            {(message.action_type === "accept_decline" || message.action_type === "accept_decline_date") && (
+            {(effectiveActionType === "accept_decline" || effectiveActionType === "accept_decline_date") && (
               <>
                 <Button
                   size="sm"
@@ -315,7 +370,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 </Button>
               </>
             )}
-            {message.action_type === "confirm" && (
+            {effectiveActionType === "confirm" && (
               <Button
                 size="sm"
                 onClick={() => handleAction("confirmed")}
@@ -326,7 +381,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 {loading === "confirmed" ? "Confirming…" : "Confirm"}
               </Button>
             )}
-            {message.action_type === "accept_decline_date" && (
+            {effectiveActionType === "accept_decline_date" && (
               <>
                 {showDatePicker ? (
                   <div className="flex flex-col gap-2 w-full">

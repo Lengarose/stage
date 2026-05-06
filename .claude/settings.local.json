@@ -6,7 +6,12 @@
       "WebFetch(domain:www.ea.com)",
       "WebFetch(domain:fpfrance.com)",
       "Bash(python3 *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -15,7 +15,7 @@ export default function Rankings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Club.list("-ranking_points", 200)
+    stageClient.entities.Club.list("-ranking_points", 200)
       .then(setClubs)
       .catch(() => setClubs([]))
       .finally(() => setLoading(false));

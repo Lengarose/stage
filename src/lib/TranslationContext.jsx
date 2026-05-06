@@ -25,7 +25,7 @@ export function TranslationProvider({ children }) {
     // Also save to user profile
     stageClient.auth.me().then(user => {
       if (user) {
-        stageClient.auth.updateMe({ language });
+        stageClient.auth.updateMe({ language }).catch(() => {});
       }
     }).catch(() => {});
   }, [language]);

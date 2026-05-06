@@ -1,7 +1,21 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://stageleagues.com';
+const viteEnv = /** @type {any} */ (import.meta).env;
+const rawSocketUrl = (viteEnv && viteEnv.VITE_SOCKET_URL) || '';
+let SOCKET_URL = rawSocketUrl || window.location.origin;
+try {
+  const parsed = rawSocketUrl ? new URL(rawSocketUrl, window.location.origin) : null;
+  const currentHost = window.location.hostname;
+  const socketHost = parsed ? parsed.hostname : '';
+  const envPointsToLocalhost = socketHost === 'localhost' || socketHost === '127.0.0.1';
+  const appNotLocalhost = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
+  if (rawSocketUrl && envPointsToLocalhost && appNotLocalhost) {
+    SOCKET_URL = window.location.origin;
+  }
+} catch {
+  SOCKET_URL = window.location.origin;
+}
 const ACCESS_KEY = 'stage_access_token';
 
 // ── Channel constants (mirrors server/src/constants/constants.js) ──────────────
@@ -23,7 +37,9 @@ export const makeChannel = (id, channel) =>
 
 // ── Singleton socket client ────────────────────────────────────────────────────
 export const SOCKET_CLIENT = io(SOCKET_URL, {
-  transports: ['websocket', 'polling'],
+  // Polling-first is more reliable on shared hosts/proxies.
+  transports: ['polling', 'websocket'],
+  upgrade: true,
   auth: { token: localStorage.getItem(ACCESS_KEY) },
   reconnectionAttempts: 10,
   reconnectionDelay:    2000,

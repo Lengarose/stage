@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
-});
+}); 
 
 // GET /:id
 router.get('/:id', async (req, res) => {

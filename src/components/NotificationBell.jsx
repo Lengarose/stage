@@ -8,6 +8,22 @@ export default function NotificationBell() {
 
   useEffect(() => {
     let userEmail = null;
+    let intervalId = null;
+    let stopped = false;
+
+    async function refreshUnread() {
+      if (!userEmail || stopped) return;
+      try {
+        const notifications = await stageClient.entities.Notification.filter(
+          { recipient_email: userEmail, read: false },
+          "-created_date",
+          100
+        );
+        if (!stopped) setUnreadCount((notifications || []).length);
+      } catch {
+        // non-fatal
+      }
+    }
 
     async function init() {
       const isAuthed = await stageClient.auth.isAuthenticated();
@@ -15,28 +31,25 @@ export default function NotificationBell() {
       const user = await stageClient.auth.me();
       if (!user?.email) return;
       userEmail = user.email;
-
-      const notifications = await stageClient.entities.Notification.filter(
-        { recipient_email: userEmail, read: false },
-        "-created_date",
-        100
-      );
-      setUnreadCount((notifications || []).length);
+      await refreshUnread();
+      // Fallback strategy: poll because stageClient.subscribe is a compatibility stub.
+      intervalId = window.setInterval(refreshUnread, 15000);
     }
 
     init();
 
-    // Real-time subscription — no polling needed
-    const unsub = stageClient.entities.Notification.subscribe((event) => {
-      if (!userEmail) return;
-      const email = event.data?.recipient_email;
-      if (email && email !== userEmail) return;
-      if (event.type === "create" && !event.data?.read) setUnreadCount(c => c + 1);
-      if (event.type === "update" && event.data?.read === true) setUnreadCount(c => Math.max(0, c - 1));
-      if (event.type === "delete" && !event.data?.read) setUnreadCount(c => Math.max(0, c - 1));
-    });
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshUnread();
+    };
+    window.addEventListener("focus", refreshUnread);
+    document.addEventListener("visibilitychange", onVisibility);
 
-    return () => unsub();
+    return () => {
+      stopped = true;
+      if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshUnread);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   return (
