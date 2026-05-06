@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Inbox, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
@@ -17,7 +17,7 @@ export default function InboxPage() {
     let unsub = null;
 
     async function load() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
 
       const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
@@ -43,7 +43,7 @@ export default function InboxPage() {
 
       // Real-time subscription — set up AFTER we have the user's email
       const currentEmail = u.email;
-      unsub = base44.entities.InboxMessage.subscribe((event) => {
+      unsub = stageClient.entities.InboxMessage.subscribe((event) => {
         if (event.type === "create") {
           if (event.data?.recipient_email === currentEmail) {
             setMessages(prev => [event.data, ...prev]);
@@ -71,7 +71,7 @@ export default function InboxPage() {
     setSelected(msg);
     if (!msg.is_read) {
       try {
-        await base44.entities.InboxMessage.update(msg.id, { is_read: true });
+        await stageClient.entities.InboxMessage.update(msg.id, { is_read: true });
         const updated = { ...msg, is_read: true };
         setMessages(prev => prev.map(m => m.id === msg.id ? updated : m));
         setSelected(updated);
@@ -84,7 +84,7 @@ export default function InboxPage() {
   async function markAllAsRead() {
     const unread = messages.filter(m => !m.is_read);
     if (unread.length === 0) return;
-    await Promise.all(unread.map(m => base44.entities.InboxMessage.update(m.id, { is_read: true })));
+    await Promise.all(unread.map(m => stageClient.entities.InboxMessage.update(m.id, { is_read: true })));
     setMessages(prev => prev.map(m => ({ ...m, is_read: true })));
     if (selected) setSelected(prev => ({ ...prev, is_read: true }));
   }

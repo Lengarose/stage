@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Shield, Search, Plus, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
@@ -31,7 +31,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
 
   async function loadClubs(q = "") {
     setLoadingClubs(true);
-    const all = await base44.entities.Club.list("-rating", 100);
+    const all = await stageClient.entities.Club.list("-rating", 100);
     const filtered = q
       ? all.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.tag?.toLowerCase().includes(q.toLowerCase()))
       : all;
@@ -43,11 +43,33 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     if (!form.name || !form.tag || !form.country_code) return;
     setCreating(true);
     try {
-      const res = await base44.functions.invoke("createClub", {
-        clubData: form,
-        playerId: player.id,
+      const u = await stageClient.auth.me();
+      const club = await stageClient.entities.Club.create({
+        user_id: u?.id,
+        owner_email: u?.email,
+        name: form.name,
+        tag: form.tag.toUpperCase(),
+        platform: form.platform,
+        region: form.region,
+        country_code: form.country_code,
+        description: form.description || "",
+        logo_url: null,
+        wins: 0, losses: 0, draws: 0, goals_scored: 0, goals_conceded: 0,
+        rating: 1500, peak_rating: 1500, matches_ranked: 0, is_provisional: 1,
+        trophies: 0, credits: 0, stc: 30000000,
+        wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
+        stadium_level: 0, stadium_capacity: 5000,
+        tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
       });
-      onComplete?.(res.data.club);
+      if (!club?.id) throw new Error("Server returned no club ID");
+      if (player?.id) {
+        await stageClient.entities.Player.update(player.id, {
+          club_id: club.id,
+          club_roles: ["president", "captain"],
+          role: "captain",
+        });
+      }
+      onComplete?.(club);
     } catch (err) {
       console.error("Club creation failed:", err);
       alert("Failed to create club: " + (err?.message || err));
@@ -59,7 +81,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
   async function handleJoinRequest(club) {
     if (!player) return;
     setRequesting(club.id);
-    await base44.entities.JoinRequest.create({
+    await stageClient.entities.JoinRequest.create({
       player_id: player.id,
       player_email: player.email,
       player_gamertag: player.gamertag,
@@ -70,7 +92,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     });
     // Notify club owner
     if (club.owner_email) {
-      await base44.entities.Notification.create({
+      await stageClient.entities.Notification.create({
         recipient_email: club.owner_email,
         type: "join_request",
         title: `${player.gamertag} wants to join ${club.name}`,

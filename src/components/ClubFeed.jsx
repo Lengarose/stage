@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Image, Video, Send, Heart, MessageSquare, Loader2, X, Trash2 } from "lucide-react";
 import VideoCoverPicker from "./VideoCoverPicker";
@@ -21,13 +21,13 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
 
   useEffect(() => {
     async function load() {
-      const data = await base44.entities.Post.filter({ club_id: club.id }, "-created_date", 50);
+      const data = await stageClient.entities.Post.filter({ club_id: club.id }, "-created_date", 50);
       setPosts(data);
       setLoading(false);
     }
     load();
 
-    const unsub = base44.entities.Post.subscribe(event => {
+    const unsub = stageClient.entities.Post.subscribe(event => {
       if (event.type === "create" && event.data.club_id === club.id) {
         setPosts(prev => [event.data, ...prev]);
       } else if (event.type === "update") {
@@ -45,7 +45,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setMediaUrl(file_url);
     setMediaType(type);
     setUploading(false);
@@ -55,7 +55,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
   async function submitPost() {
     if (!content.trim() && !mediaUrl) return;
     setPosting(true);
-    await base44.entities.Post.create({
+    await stageClient.entities.Post.create({
       author_email: currentUser.email,
       author_name: club.name,
       author_avatar: club.logo_url || undefined,
@@ -73,7 +73,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
   }
 
   async function deletePost(postId) {
-    await base44.entities.Post.delete(postId);
+    await stageClient.entities.Post.delete(postId);
   }
 
   async function toggleLike(post) {
@@ -81,7 +81,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
     const likes = liked
       ? post.likes.filter(e => e !== currentUser.email)
       : [...(post.likes || []), currentUser.email];
-    await base44.entities.Post.update(post.id, { likes, likes_count: likes.length });
+    await stageClient.entities.Post.update(post.id, { likes, likes_count: likes.length });
   }
 
   return (
@@ -211,20 +211,20 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
   const liked = post.likes?.includes(currentUser?.email);
 
   useEffect(() => {
-    base44.entities.Comment.filter({ post_id: post.id }, "created_date", 100).then(setComments);
+    stageClient.entities.Comment.filter({ post_id: post.id }, "created_date", 100).then(setComments);
   }, [post.id]);
 
   async function submitComment(e) {
     e.preventDefault();
     if (!commentText.trim()) return;
     setSubmitting(true);
-    const c = await base44.entities.Comment.create({
+    const c = await stageClient.entities.Comment.create({
       post_id: post.id,
       author_email: currentUser.email,
       author_name: currentUser.full_name || currentUser.email,
       content: commentText.trim(),
     });
-    await base44.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
+    await stageClient.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
     setComments(prev => [...prev, c]);
     setCommentText("");
     setSubmitting(false);

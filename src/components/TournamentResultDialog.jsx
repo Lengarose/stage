@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -72,7 +72,7 @@ export default function TournamentResultDialog({
                     const file = e.target.files?.[0];
                     if (file) {
                       setUploadingProof(true);
-                      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
                       setResultForm(f => ({ ...f, proof_url: file_url }));
                       setUploadingProof(false);
                       e.target.value = "";
@@ -91,7 +91,7 @@ export default function TournamentResultDialog({
                     const file = e.target.files?.[0];
                     if (file) {
                       setUploadingVideo(true);
-                      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
                       setResultForm(f => ({ ...f, video_url: file_url }));
                       setUploadingVideo(false);
                       e.target.value = "";

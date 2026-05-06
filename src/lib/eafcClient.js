@@ -1,9 +1,9 @@
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 
 // All EA calls proxied through backend to avoid CORS.
 
 async function call(endpoint, params = {}) {
-  const res = await base44.functions.invoke('eafcApi', { endpoint, params });
+  const res = await stageClient.functions.invoke('eafcApi', { endpoint, params });
   if (res.data?.error) throw new Error(res.data.error);
   return res.data?.data;
 }

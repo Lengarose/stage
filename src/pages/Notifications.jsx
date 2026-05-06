@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export default function Notifications() {
     let userEmail = null;
 
     async function load() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       userEmail = u.email;
       await fetchNotifications(u.email);
@@ -51,7 +51,7 @@ export default function Notifications() {
     load();
 
     // Real-time subscription — only handle this user's notifications
-    const unsub = base44.entities.Notification.subscribe((event) => {
+    const unsub = stageClient.entities.Notification.subscribe((event) => {
       if (!userEmail) return;
       const email = event.data?.recipient_email;
       if (email && email !== userEmail) return;
@@ -72,7 +72,7 @@ export default function Notifications() {
 
   async function fetchNotifications(email) {
     setLoading(true);
-    const data = await base44.entities.Notification.filter(
+    const data = await stageClient.entities.Notification.filter(
       { recipient_email: email },
       "-created_date",
       100
@@ -83,19 +83,19 @@ export default function Notifications() {
 
   async function markAsRead(notif) {
     if (notif.read) return;
-    await base44.entities.Notification.update(notif.id, { read: true });
+    await stageClient.entities.Notification.update(notif.id, { read: true });
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
   }
 
   async function markAllAsRead() {
     const unread = notifications.filter(n => !n.read);
-    await Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { read: true })));
+    await Promise.all(unread.map(n => stageClient.entities.Notification.update(n.id, { read: true })));
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }
 
   async function deleteNotif(id, e) {
     e.stopPropagation();
-    await base44.entities.Notification.delete(id);
+    await stageClient.entities.Notification.delete(id);
     setNotifications(prev => prev.filter(n => n.id !== id));
   }
 
@@ -109,7 +109,7 @@ export default function Notifications() {
   }
 
   async function deleteAll() {
-    await Promise.all(notifications.map(n => base44.entities.Notification.delete(n.id)));
+    await Promise.all(notifications.map(n => stageClient.entities.Notification.delete(n.id)));
     setNotifications([]);
   }
 

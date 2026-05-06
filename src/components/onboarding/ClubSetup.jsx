@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
@@ -24,13 +24,14 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [logoZoom, setLogoZoom] = useState(150);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const logoInputRef = useRef();
 
   async function uploadLogo(e) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPendingLogo(file_url);
     setUploading(false);
     e.target.value = "";
@@ -39,29 +40,44 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   async function handleCreate() {
     if (!name || !tag || !country) return;
     setSaving(true);
+    setError(null);
     try {
-      const foundCountry = COUNTRIES.find(c => c.code === country);
-      const club = await base44.entities.Club.create({
+      const club = await stageClient.entities.Club.create({
+        user_id: user?.id,
         name,
         tag: tag.toUpperCase(),
         platform,
         region,
         country_code: country,
-        owner_email: user.email,
-        logo_url: logoUrl || undefined,
+        owner_email: user?.email,
+        logo_url: logoUrl || null,
         description: "",
-        wins: 0, losses: 0, draws: 0, goals_scored: 0, goals_conceded: 0,
-        rating: 1500, peak_rating: 1500, matches_ranked: 0, is_provisional: true,
-        trophies: 0, credits: 0, stc: 30_000_000,
-        wage_budget_stc: 5_000_000,
-        transfer_budget_stc: 10_000_000,
-        stadium_level: 0, stadium_capacity: 5000,
-        tier: "Silver", form: [], win_streak: 0, loss_streak: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        goals_scored: 0,
+        goals_conceded: 0,
+        rating: 1500,
+        peak_rating: 1500,
+        matches_ranked: 0,
+        is_provisional: 1,
+        trophies: 0,
+        credits: 0,
+        stc: 30000000,
+        wage_budget_stc: 5000000,
+        transfer_budget_stc: 10000000,
+        stadium_level: 0,
+        stadium_capacity: 5000,
+        tier: "Silver",
+        win_streak: 0,
+        loss_streak: 0,
         status: "active",
       });
 
-      if (player) {
-        await base44.entities.Player.update(player.id, {
+      if (!club?.id) throw new Error("Server returned no club ID");
+
+      if (player?.id) {
+        await stageClient.entities.Player.update(player.id, {
           club_id: club.id,
           club_roles: ["president", "captain"],
           role: "captain",
@@ -72,6 +88,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       onComplete(club);
     } catch (err) {
       console.error("Failed to create club:", err);
+      setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
       setSaving(false);
     }
   }
@@ -214,6 +231,12 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
           </SelectContent>
         </Select>
       </div>
+
+      {error && (
+        <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3 pt-1">

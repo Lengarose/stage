@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { STADIUM_LEVELS, getStadiumLevel, getNextStadiumLevel, calcTicketRevenue } from "@/lib/stadiumLevels";
 import { formatSTC } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
@@ -40,8 +40,8 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
         stadium_name: club.stadium_name || `${club.name} Stadium`,
         stadium_capacity: next.capacity,
       };
-      await base44.entities.Club.update(club.id, updates);
-      await base44.entities.STCTransaction.create({
+      await stageClient.entities.Club.update(club.id, updates);
+      await stageClient.entities.STCTransaction.create({
         club_id: club.id,
         amount: -next.upgrade_cost_stc,
         type: "stadium_upgrade",

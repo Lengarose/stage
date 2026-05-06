@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Target, Zap } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 
@@ -9,12 +9,12 @@ export default function PredictionLeaderboard() {
 
   useEffect(() => {
     load();
-    const unsub = base44.entities.Prediction.subscribe(() => load());
+    const unsub = stageClient.entities.Prediction.subscribe(() => load());
     return unsub;
   }, []);
 
   async function load() {
-    const predictions = await base44.entities.Prediction.list("-total_points", 500);
+    const predictions = await stageClient.entities.Prediction.list("-total_points", 500);
     
     // Group by predictor and count correct predictions
     const scoreMap = {};

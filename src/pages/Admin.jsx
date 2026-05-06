@@ -134,7 +134,7 @@ export default function Admin() {
   const [rewardSource, setRewardSource] = useState(null); // { id, type, name, trophy_image_url }
 
   useEffect(() => {
-    base44.auth.me().then(async (u) => {
+    stageClient.auth.me().then(async (u) => {
       if (u?.role !== "admin") { setAllowed(false); return; }
       setAllowed(true);
       setAdminProfile(u);
@@ -158,7 +158,7 @@ export default function Admin() {
       (base44.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
       (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
     ]);
-    const forfeitMatches = await base44.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
+    const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
     setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
     setForfeits(forfeitMatches);
     setPlayers(allPlayers);
@@ -225,7 +225,7 @@ export default function Admin() {
     const isHome = selectedWinner === m.home_club_id || selectedWinner === m.home_club_name;
     const winnerId = isHome ? m.home_club_id : m.away_club_id;
     const winnerName = isHome ? m.home_club_name : m.away_club_name;
-    await base44.entities.Match.update(m.id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerName, admin_notes: `Resolved by admin. Winner: ${winnerName}` });
+    await stageClient.entities.Match.update(m.id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerName, admin_notes: `Resolved by admin. Winner: ${winnerName}` });
     setResolveDialog(null); setSelectedWinner(""); setSaving(false);
     await loadAll();
   }
@@ -236,26 +236,26 @@ export default function Admin() {
     if (approve) {
       const winnerId = m.forfeit_claimed_by;
       const winnerName = winnerId === m.home_club_id ? m.home_club_name : m.away_club_name;
-      await base44.entities.Match.update(matchId, { status: "forfeit", forfeit_status: "approved", winner_club_id: winnerId, winner_club_name: winnerName });
+      await stageClient.entities.Match.update(matchId, { status: "forfeit", forfeit_status: "approved", winner_club_id: winnerId, winner_club_name: winnerName });
     } else {
-      await base44.entities.Match.update(matchId, { forfeit_status: "rejected" });
+      await stageClient.entities.Match.update(matchId, { forfeit_status: "rejected" });
     }
     setForfeits(prev => prev.filter(f => f.id !== matchId));
   }
 
   async function kickFromClub(playerId) {
-    await base44.entities.Player.update(playerId, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
+    await stageClient.entities.Player.update(playerId, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" } : p));
   }
 
   async function deleteClub(clubId) {
     if (!confirm("Are you sure you want to delete this club? This cannot be undone.")) return;
-    await base44.entities.Club.delete(clubId);
+    await stageClient.entities.Club.delete(clubId);
     setClubs(prev => prev.filter(c => c.id !== clubId));
   }
 
   async function cancelTournament(tournamentId) {
-    await base44.entities.Tournament.update(tournamentId, { status: "cancelled" });
+    await stageClient.entities.Tournament.update(tournamentId, { status: "cancelled" });
     setTournaments(prev => prev.filter(t => t.id !== tournamentId));
   }
 
@@ -265,16 +265,16 @@ export default function Admin() {
     let rules_file_url = "";
     let banner_url = "";
     if (rulesFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: rulesFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: rulesFile });
       rules_file_url = res.file_url;
     }
     if (bannerFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: bannerFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
       banner_url = res.file_url;
     }
     let trophy_url = "";
     if (adminTrophyFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: adminTrophyFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: adminTrophyFile });
       trophy_url = res.file_url;
       // Auto-create TrophyItem in library from uploaded file
       if (!adminTrophyItemId && tournamentForm.name) {
@@ -289,6 +289,7 @@ export default function Admin() {
     }
     const resolvedTrophyItemId = adminTrophyItemId || null;
     const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
+    
     await base44.entities.Tournament.create({
       ...tournamentForm,
       max_teams: Number(tournamentForm.max_teams),
@@ -675,10 +676,10 @@ export default function Admin() {
     setUploadingNews(true);
     let image_url = newsForm.image_url;
     if (newsImageFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: newsImageFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: newsImageFile });
       image_url = res.file_url;
     }
-    await base44.entities.NewsItem.create({
+    await stageClient.entities.NewsItem.create({
       title: newsForm.title,
       body: newsForm.body,
       type: newsForm.type,
@@ -694,7 +695,7 @@ export default function Admin() {
 
   async function seedPressQuestions() {
     setSaving(true);
-    const existing = await base44.entities.PressQuestion.list(null, 1);
+    const existing = await stageClient.entities.PressQuestion.list(null, 1);
     if (existing.length > 0) { alert("Press questions already seeded!"); setSaving(false); return; }
     const questions = [
       { question: "How do you rate your team's performance today?", answer_a: "Outstanding — we gave 100%", answer_b: "Decent, but we can improve", answer_c: "Disappointing overall", answer_d: "The result doesn't reflect the game", category: "performance" },
@@ -704,7 +705,7 @@ export default function Admin() {
       { question: "How are you preparing for the next match?", answer_a: "Full focus on recovery and analysis", answer_b: "We'll fix the tactical issues we saw today", answer_c: "Confidence is high after this result", answer_d: "One game at a time — that's our motto", category: "preparation" },
       { question: "How would you describe the atmosphere in the dressing room?", answer_a: "Buzzing — everyone is pumped!", answer_b: "Calm and focused", answer_c: "Disappointed but determined", answer_d: "United — we face it together", category: "team" },
     ];
-    await base44.entities.PressQuestion.bulkCreate(questions);
+    await stageClient.entities.PressQuestion.bulkCreate(questions);
     alert("Press questions seeded successfully!");
     setSaving(false);
   }
@@ -712,7 +713,7 @@ export default function Admin() {
   async function grantCredits() {
     if (!creditsDialog) return;
     setSaving(true);
-    await base44.entities.Player.update(creditsDialog.id, { credits: (creditsDialog.credits || 0) + Number(creditsAmount) });
+    await stageClient.entities.Player.update(creditsDialog.id, { credits: (creditsDialog.credits || 0) + Number(creditsAmount) });
     setCreditsDialog(null); setCreditsAmount(0); setSaving(false);
     await loadAll();
   }
@@ -729,14 +730,14 @@ export default function Admin() {
     if (clubStcAmount !== "") updates.stc = (clubStcDialog.stc || 0) + Number(clubStcAmount);
     if (clubWageBudget !== "") updates.wage_budget_stc = Number(clubWageBudget);
     if (clubTransferBudget !== "") updates.transfer_budget_stc = Number(clubTransferBudget);
-    await base44.entities.Club.update(clubStcDialog.id, updates);
+    await stageClient.entities.Club.update(clubStcDialog.id, updates);
     setClubStcDialog(null); setClubStcAmount(""); setClubWageBudget(""); setClubTransferBudget(""); setSaving(false);
     await loadAll();
   }
 
   async function reseedLifestyle() {
     setSaving(true);
-    await base44.functions.invoke("seedLifestyleItems", { force: true });
+    await stageClient.functions.invoke("seedLifestyleItems", { force: true });
     setSaving(false);
     alert("Lifestyle items reseeded with correct pricing!");
   }
@@ -829,10 +830,10 @@ export default function Admin() {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      const allClubs = await base44.entities.Club.list(null, 500);
+      const allClubs = await stageClient.entities.Club.list(null, 500);
       let updated = 0;
       for (const club of allClubs) {
-        await base44.entities.Club.update(club.id, {
+        await stageClient.entities.Club.update(club.id, {
           stc: (club.stc || 0) + 20_000_000,
           transfer_budget_stc: (club.transfer_budget_stc || 0) + 5_000_000,
           wage_budget_stc: (club.wage_budget_stc || 0) + 4_000_000,

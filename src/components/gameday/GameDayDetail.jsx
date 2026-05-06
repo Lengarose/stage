@@ -84,10 +84,10 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   useEffect(() => {
     async function load() {
       if (game.tournament_id && game.tournament_id !== "ranked") {
-        const tournaments = await base44.entities.Tournament.filter({ id: game.tournament_id });
+        const tournaments = await stageClient.entities.Tournament.filter({ id: game.tournament_id });
         if (tournaments.length > 0) setTournament(tournaments[0]);
       }
-      const matchStats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
+      const matchStats = await stageClient.entities.MatchPlayerStat.filter({ match_id: game.id });
       setStats(matchStats || []);
       setIsHomeClub(isClubMatch ? (myClub ? game.home_club_id === myClub.id : false) : false);
     }
@@ -96,7 +96,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   async function handleKickoff() {
     setKickoffLoading(true);
-    const res = await base44.functions.invoke("matchKickoff", {
+    const res = await stageClient.functions.invoke("matchKickoff", {
       match_id: game.id,
       action: "kickoff",
     });

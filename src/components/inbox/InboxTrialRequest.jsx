@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { notify, postContractNews } from "@/lib/notify";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
@@ -25,7 +25,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
     setLoading("offer");
     try {
       // Create trial PlayerContract (pending — player still needs to accept)
-      const contract = await base44.entities.PlayerContract.create({
+      const contract = await stageClient.entities.PlayerContract.create({
         team_id:         clubId,
         user_id:         playerId,
         contract_type:   "trial",
@@ -41,7 +41,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       });
 
       // Send contract offer to player's inbox
-      await base44.entities.InboxMessage.create({
+      await stageClient.entities.InboxMessage.create({
         recipient_email:  playerEmail,
         sender_email:     message.recipient_email,
         sender_gamertag:  clubName,
@@ -79,7 +79,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       });
 
       // Mark the trial request message as accepted
-      await base44.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
+      await stageClient.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
 
       setDone("offered");
       onActioned?.("offer");
@@ -101,7 +101,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       );
 
       // Send decline inbox message to player
-      await base44.entities.InboxMessage.create({
+      await stageClient.entities.InboxMessage.create({
         recipient_email:  playerEmail,
         sender_email:     message.recipient_email,
         sender_gamertag:  clubName,
@@ -115,7 +115,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
         is_read:          false,
       });
 
-      await base44.entities.InboxMessage.update(message.id, { status: "declined", is_read: true });
+      await stageClient.entities.InboxMessage.update(message.id, { status: "declined", is_read: true });
 
       setDone("declined");
       onActioned?.("decline");

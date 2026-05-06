@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import {
   ArrowLeft, User, Shield, Target, Swords,
   Gamepad2, Flag, Settings,
@@ -54,25 +54,25 @@ export default function PlayerProfile() {
   useEffect(() => {
     async function load() {
       if (!id) return;
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       setCurrentUser(user);
 
       const [players, follows, allFollowers] = await Promise.all([
-        base44.entities.Player.filter({ id }),
-        base44.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "player" }),
-        base44.entities.Follow.filter({ target_id: id }),
+        stageClient.entities.Player.filter({ id }),
+        stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "player" }),
+        stageClient.entities.Follow.filter({ target_id: id }),
       ]);
       setFollowersCount(allFollowers.length);
 
       const enrichedFollowers = await Promise.all(
         allFollowers.filter(f => f.follower_player_id).map(async (f) => {
-          const pl = await base44.entities.Player.filter({ id: f.follower_player_id });
+          const pl = await stageClient.entities.Player.filter({ id: f.follower_player_id });
           return { ...f, _player_id: f.follower_player_id, _player_name: pl[0]?.gamertag, avatar_url: pl[0]?.avatar_url };
         })
       );
       setFollowersList(enrichedFollowers);
 
-      const myPlArr = await base44.entities.Player.filter({ email: user.email });
+      const myPlArr = await stageClient.entities.Player.filter({ email: user.email });
       if (myPlArr.length > 0) setMyPlayer(myPlArr[0]);
 
       if (players.length > 0 && players[0].id && players[0].email) {
@@ -80,16 +80,16 @@ export default function PlayerProfile() {
         setPlayer(p);
         if (p.club_id) {
           const [clubs, tmHome, tmAway] = await Promise.all([
-            base44.entities.Club.filter({ id: p.club_id }),
-            base44.entities.Match.filter({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
-            base44.entities.Match.filter({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
+            stageClient.entities.Club.filter({ id: p.club_id }),
+            stageClient.entities.Match.filter({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
+            stageClient.entities.Match.filter({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
           ]);
           if (clubs.length > 0) setClub(clubs[0]);
           setUpcomingMatches([...tmHome, ...tmAway]);
         }
 
         // Load player's contracts for display + conflict check
-      const contractArr = await base44.entities.PlayerContract.filter({ user_id: p.id });
+      const contractArr = await stageClient.entities.PlayerContract.filter({ user_id: p.id });
       const LIVE = ["active", "pending", "pending_window", "negotiating"];
       setPlayerContracts(contractArr.filter(c => LIVE.includes(c.status)));
       setActiveContract(contractArr.find(c => c.status === "active") || null);
@@ -98,23 +98,23 @@ export default function PlayerProfile() {
       const acctMode = localStorage.getItem("stage-account-mode") || "player";
       if (acctMode === "club" && myPlArr[0]?.club_id) {
         try {
-          const vcArr = await base44.entities.Club.filter({ id: myPlArr[0].club_id });
+          const vcArr = await stageClient.entities.Club.filter({ id: myPlArr[0].club_id });
           setViewerClub(vcArr[0] || null);
         } catch { }
       }
 
       // Transfer window
       try {
-        const winRes = await base44.functions.invoke("transferWindowActions", { action: "get_current" });
+        const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
         setWindowOpen(winRes?.data?.window?.status === "open");
       } catch { setWindowOpen(false); }
 
-      const matchStats = await base44.entities.MatchPlayerStat.filter({ player_email: p.email });
+      const matchStats = await stageClient.entities.MatchPlayerStat.filter({ player_email: p.email });
         const matchIds = [...new Set(matchStats.map(s => s.match_id))];
         let filteredStats = matchStats;
         if (matchIds.length > 0) {
           const matchRecords = await Promise.all(
-            matchIds.slice(0, 50).map(mid => base44.entities.Match.filter({ id: mid }))
+            matchIds.slice(0, 50).map(mid => stageClient.entities.Match.filter({ id: mid }))
           );
           const validMatchIds = new Set(
             matchRecords.flat().filter(m => m.type !== "friendly" && m.type !== undefined).map(m => m.id)
@@ -128,8 +128,8 @@ export default function PlayerProfile() {
         setClubStats({ matches: filteredStats.length, goals: totalGoals, assists: totalAssists, avgRating });
 
         const [pvpHome, pvpAway] = await Promise.all([
-          base44.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 50),
-          base44.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 50),
+          stageClient.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 50),
+          stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 50),
         ]);
         const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
         const pvpMap = new Map();
@@ -139,7 +139,7 @@ export default function PlayerProfile() {
 
       if (follows.length > 0 && follows[0].target_id) { setIsFollowing(true); setFollowId(follows[0].id); }
 
-      const playerFollowing = await base44.entities.Follow.filter({ follower_email: players[0]?.email });
+      const playerFollowing = await stageClient.entities.Follow.filter({ follower_email: players[0]?.email });
       const validFollows = playerFollowing.filter(f => f.target_id && typeof f.target_id === 'string' && f.target_id.trim());
       setFollowingCount(playerFollowing.length);
       setFollowingList(validFollows);
@@ -150,11 +150,11 @@ export default function PlayerProfile() {
 
   async function toggleFollow() {
     if (isFollowing && followId) {
-      await base44.entities.Follow.delete(followId);
+      await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
       setFollowersCount(c => c - 1);
     } else {
-      const f = await base44.entities.Follow.create({
+      const f = await stageClient.entities.Follow.create({
         follower_email: currentUser.email,
         follower_player_id: myPlayer?.id || "",
         target_id: id,
@@ -175,7 +175,7 @@ export default function PlayerProfile() {
       try { const f = await base44.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
     }
     const fmt = n => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
-    const newContract = await base44.entities.PlayerContract.create({
+    const newContract = await stageClient.entities.PlayerContract.create({
       team_id: viewerClub.id, user_id: player.id,
       contract_type: terms.contract_type, offer_note: terms.offer_note || "",
       offered_by: myPlayer?.id || "",
@@ -198,7 +198,7 @@ export default function PlayerProfile() {
         if (terms.captaincy_offered) body += `Captaincy offered ⭐\n`;
         if (terms.offer_note) body += `\nMessage: "${terms.offer_note}"\n`;
         body += `\nPlease respond using the buttons below.\n\nBest regards,\n${viewerClub.name} Management`;
-        await base44.entities.InboxMessage.create({
+        await stageClient.entities.InboxMessage.create({
           recipient_email: recipientEmail, sender_email: myPlayer?.email || "",
           sender_gamertag: viewerClub.name, sender_avatar_url: viewerClub.logo_url || "",
           sender_club_name: viewerClub.name,

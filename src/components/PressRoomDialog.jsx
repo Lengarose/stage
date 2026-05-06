@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -210,7 +210,7 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPhotoUrl(file_url);
     setUploading(false);
   }
@@ -396,7 +396,7 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
   async function loadPlayerConference() {
     if (!conference) return;
     setLoading(true);
-    const allQs = await base44.entities.PressQuestion.list(null, 200);
+    const allQs = await stageClient.entities.PressQuestion.list(null, 200);
     const selectedIds = conference.selected_question_ids || [];
     let picked = allQs.filter(q => selectedIds.includes(q.id));
     if (picked.length < 4) picked = shuffle(allQs).slice(0, 4);
@@ -408,7 +408,7 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
 
   async function loadSelfConference() {
     setLoading(true);
-    const allQs = await base44.entities.PressQuestion.list(null, 200);
+    const allQs = await stageClient.entities.PressQuestion.list(null, 200);
     if (conference?.selected_question_ids?.length >= 4) {
       // Already created, just load it
       const picked = allQs.filter(q => conference.selected_question_ids.includes(q.id));
@@ -417,7 +417,7 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
     } else {
       // Create conference for this player
       const picked = shuffle(allQs).slice(0, 4);
-      const conf = await base44.entities.PressConference.create({
+      const conf = await stageClient.entities.PressConference.create({
         match_id: matchData.matchId,
         club_id: myPlayer?.club_id || myPlayer?.id || "",
         club_name: "",
@@ -443,11 +443,11 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
   // Manager selects a player → create conference + notify player
   async function handleSelectPlayer(player) {
     setLoading(true);
-    const allQs = await base44.entities.PressQuestion.list(null, 200);
+    const allQs = await stageClient.entities.PressQuestion.list(null, 200);
     const picked = shuffle(allQs).slice(0, 4);
     const questionIds = picked.map(q => q.id);
 
-    const conf = await base44.entities.PressConference.create({
+    const conf = await stageClient.entities.PressConference.create({
       match_id: matchData.matchId,
       club_id: matchData.clubId,
       club_name: myClub?.name || "",
@@ -464,7 +464,7 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
     });
 
     // Send notification to player
-    await base44.entities.Notification.create({
+    await stageClient.entities.Notification.create({
       recipient_email: player.email,
       type: "invite",
       title: "🎤 Press Room Invitation",
@@ -475,9 +475,9 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
     });
 
     // Send DM to player
-    const managerEmail = (await base44.auth.me()).email;
+    const managerEmail = (await stageClient.auth.me()).email;
     const conversationId = [managerEmail, player.email].sort().join("_");
-    await base44.entities.DirectMessage.create({
+    await stageClient.entities.DirectMessage.create({
       conversation_id: conversationId,
       sender_email: managerEmail,
       sender_name: myPlayer?.gamertag || "Manager",
@@ -538,10 +538,10 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
       published_at: new Date().toISOString(),
     };
 
-    const created = await base44.entities.PressArticle.create(articleData);
+    const created = await stageClient.entities.PressArticle.create(articleData);
 
     if (conference?.id) {
-      await base44.entities.PressConference.update(conference.id, {
+      await stageClient.entities.PressConference.update(conference.id, {
         status: "completed",
         answers: quotes,
       });

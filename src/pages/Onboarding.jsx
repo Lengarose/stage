@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
@@ -43,14 +43,14 @@ export default function Onboarding({ onComplete }) {
   useEffect(() => {
     (async () => {
       try {
-        const u = await base44.auth.me();
+        const u = await stageClient.auth.me();
         setUser(u);
         const [players, clubs] = await Promise.all([
-          base44.entities.Player.filter({ email: u.email }),
-          base44.entities.Club.filter({ owner_email: u.email }),
+          stageClient.entities.Player.filter({ email: u.email }),
+          stageClient.entities.Club.filter({ owner_email: u.email }),
         ]);
-        if (players[0] || clubs[0]) {
-          onComplete?.();
+        if (players[0]) {
+          setPlayer(players[0]);
         }
       } catch (err) {
         console.error("Failed to load user:", err);
@@ -60,13 +60,9 @@ export default function Onboarding({ onComplete }) {
     })();
   }, []);
 
-  const handlePlayerComplete = async () => {
-    try {
-      const updated = await base44.entities.Player.filter({ email: user.email });
-      if (updated[0]) { setPlayer(updated[0]); setStep("club"); }
-    } catch (err) {
-      console.error(err);
-    }
+  const handlePlayerComplete = (createdPlayer) => {
+    if (createdPlayer) setPlayer(createdPlayer);
+    setStep("club");
   };
 
   const finishOnboarding = () => setTutorialOpen(true);
@@ -185,9 +181,25 @@ export default function Onboarding({ onComplete }) {
                   {step === "player" && !player && (
                     <PlayerSetup onComplete={handlePlayerComplete} user={user} />
                   )}
+                  {step === "player" && player && (
+                    <div className="space-y-5">
+                      <div>
+                        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Player Profile Ready</h2>
+                        <p className="text-white/40 text-xs">
+                          Your player profile already exists ({player.gamertag || user?.email}). Continue to club setup.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setStep("club")}
+                        className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
+                      >
+                        Continue to Club Setup →
+                      </button>
+                    </div>
+                  )}
 
                   {/* ── OPTIONAL CLUB (player path) ─────────── */}
-                  {step === "club" && player && (
+                  {step === "club" && (
                     <ClubSetup
                       onSkip={finishOnboarding}
                       onComplete={finishOnboarding}

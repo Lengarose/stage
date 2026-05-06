@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 /**
  * Fire-and-forget notification helper.
@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
 export async function notify(recipientEmail, type, title, body = "", link = null) {
   if (!recipientEmail) return;
   try {
-    await base44.entities.Notification.create({
+    await stageClient.entities.Notification.create({
       recipient_email: recipientEmail,
       type,
       title,
@@ -24,7 +24,7 @@ export async function notify(recipientEmail, type, title, body = "", link = null
  */
 export async function postContractNews({ title, body = "", club_name = "", club_logo_url = "", player_name = "", player_avatar_url = "", link = "", transfer_fee_stc = 0 }) {
   try {
-    await base44.entities.NewsItem.create({
+    await stageClient.entities.NewsItem.create({
       title,
       body,
       type: "contract",

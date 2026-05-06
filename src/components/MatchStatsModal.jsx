@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Target, Zap, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ export default function MatchStatsModal({ match, open, onClose }) {
   useEffect(() => {
     if (!open || !match) return;
     setLoading(true);
-    base44.entities.MatchPlayerStat.filter({ match_id: match.id }).then(data => {
+    stageClient.entities.MatchPlayerStat.filter({ match_id: match.id }).then(data => {
       setStats(data);
       setLoading(false);
     });

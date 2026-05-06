@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import NameLogo from "@/assets/Name logo.png";
 
 export default function TutorialPopup({ open, onClose }) {
   const [step, setStep] = useState(0);
@@ -58,16 +59,16 @@ export default function TutorialPopup({ open, onClose }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-card border-border max-w-sm sm:max-w-lg p-0 overflow-hidden rounded-xl">
         {/* Banner */}
-        <div
-          className="relative h-32 sm:h-40 bg-cover bg-center"
-          style={{
-            backgroundImage: 'url("https://media.base44.com/images/public/69d77ebfc021efa72e236f84/c19e1d1f5_photo-output20.png")',
-          }}
-        >
-          {/* Close button */}
+        <div className="relative h-36 sm:h-44 overflow-hidden">
+          <img
+            src={NameLogo}
+            alt="STAGE"
+            className="w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/50" />
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-secondary/80 transition-colors z-10"
+            className="absolute top-4 right-4 p-1.5 rounded-lg bg-black/30 hover:bg-black/50 transition-colors z-10"
           >
             <X className="w-5 h-5 text-white" />
           </button>

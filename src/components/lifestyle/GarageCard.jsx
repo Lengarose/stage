@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
@@ -27,7 +27,7 @@ const VEHICLE_IMAGES = {
   "Sports Car":  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&q=80",
   "Supercar":    "https://images.unsplash.com/photo-1621135802920-133df287f89c?w=600&q=80",
   "SUV":         "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=600&q=80",
-  "Luxury Bike": "https://media.base44.com/images/public/69d77ebfc021efa72e236f84/544a25bcf_92BA6151-5122-43A9-9FB1-E2F019BE4A9D.png",
+  "Luxury Bike": "https://media.stageClient.com/images/public/69d77ebfc021efa72e236f84/544a25bcf_92BA6151-5122-43A9-9FB1-E2F019BE4A9D.png",
 };
 const FALLBACK = "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&q=80";
 
@@ -75,7 +75,7 @@ export default function GarageCard({ purchase, item, playerStc, onUpgraded, onCa
     if (isDefaulted) { showNotif("Asset defaulted — pay overdue maintenance first", "error"); return; }
     setUpgrading(upgradeId);
     try {
-      const res = await base44.functions.invoke("upgradeLifestyleAsset", { purchase_id: purchase.id, upgrade_id: upgradeId });
+      const res = await stageClient.functions.invoke("upgradeLifestyleAsset", { purchase_id: purchase.id, upgrade_id: upgradeId });
       showNotif(`Upgrade applied — Level ${res.data.upgrade_level}`, "success");
       onUpgraded?.(purchase.id, res.data);
     } catch (err) {
@@ -87,7 +87,7 @@ export default function GarageCard({ purchase, item, playerStc, onUpgraded, onCa
   async function handleCancelRent() {
     setCancelling(true);
     try {
-      await base44.entities.LifestylePurchase.update(purchase.id, { rent_active: false });
+      await stageClient.entities.LifestylePurchase.update(purchase.id, { rent_active: false });
       showNotif("Rental cancelled.", "success");
       onCancelRent?.(purchase.id);
     } catch (err) {

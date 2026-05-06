@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { useTranslation } from '@/hooks/useTranslation';
 import { BarChart3, Globe, MapPin, Clock } from "lucide-react";
 import { Link } from "react-router-dom";

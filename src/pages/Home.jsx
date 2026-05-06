@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import {
   Trophy, Zap, ShoppingBag, Shield, Users, Gamepad2, Award,
   ArrowRight, Mail, ChevronDown, ChevronUp,
@@ -121,7 +121,7 @@ export default function Home() {
   const [content, setContent] = useState(null);
 
   useEffect(() => {
-    (base44.entities.LandingPageContent?.filter({}, null, 1) ?? Promise.resolve([]))
+    (stageClient.entities.LandingPageContent?.filter({}, null, 1) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => { if (rows[0]) setContent(rows[0]); });
   }, []);

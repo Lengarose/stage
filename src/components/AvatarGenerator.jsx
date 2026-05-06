@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Wand2, Check, Loader2, Download } from "lucide-react";
@@ -105,7 +105,7 @@ function buildClubLogoPrompt(clubName, style, background) {
  * Valid models: flux, turbo, flux-realism, flux-anime, flux-3d
  *
  * Previously used Base44 built-in generator:
- * const result = await base44.integrations.Core.GenerateImage({ prompt });
+ * const result = await stageClient.integrations.Core.GenerateImage({ prompt });
  * setGenerated(result.url);
  */
 async function generateWithPollinations(prompt) {
@@ -179,7 +179,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
     setLoading(true);
     setGenerated(null);
     // spendCredits removed — Pollinations is free, no credits needed
-    // Previously: await base44.functions.invoke('spendCredits', { amount: 10, target: 'player' });
+    // Previously: await stageClient.functions.invoke('spendCredits', { amount: 10, target: 'player' });
     try {
       const prompt = imageType === "club"
         ? buildClubLogoPrompt(clubName, style, background)
@@ -198,7 +198,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
     try {
       const blob = await imageUrlToBlob(generated);
       const file = new File([blob], "avatar.png", { type: "image/png" });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
       onSelect(file_url);
       setGenerated(null);
       onClose();

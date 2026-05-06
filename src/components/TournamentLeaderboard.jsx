@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Target, Zap, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -10,15 +10,15 @@ export default function TournamentLeaderboard({ tournamentId }) {
 
   useEffect(() => {
     async function load() {
-      const data = await base44.entities.MatchPlayerStat.filter({ tournament_id: tournamentId });
+      const data = await stageClient.entities.MatchPlayerStat.filter({ tournament_id: tournamentId });
       setStats(data);
       setLoading(false);
     }
     load();
 
-    const unsub = base44.entities.MatchPlayerStat.subscribe((event) => {
+    const unsub = stageClient.entities.MatchPlayerStat.subscribe((event) => {
       if (event.data?.tournament_id === tournamentId) {
-        base44.entities.MatchPlayerStat.filter({ tournament_id: tournamentId }).then(setStats);
+        stageClient.entities.MatchPlayerStat.filter({ tournament_id: tournamentId }).then(setStats);
       }
     });
 

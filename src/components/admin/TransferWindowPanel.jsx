@@ -3,7 +3,7 @@
  * Embed this inside the Admin page.
  */
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { CalendarDays, CheckCircle, XCircle, Play, Loader2, AlertCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,8 @@ export default function TransferWindowPanel() {
   async function load() {
     setLoading(true);
     const [winRes, pendingContracts] = await Promise.all([
-      base44.functions.invoke("transferWindowActions", { action: "get_current" }),
-      base44.entities.PlayerContract.filter({ status: "pending_window" }),
+      stageClient.functions.invoke("transferWindowActions", { action: "get_current" }),
+      stageClient.entities.PlayerContract.filter({ status: "pending_window" }),
     ]);
     setCurrentWindow(winRes.data.window || null);
     setPendingCount(pendingContracts.length);
@@ -37,7 +37,7 @@ export default function TransferWindowPanel() {
 
   async function openWindow() {
     setSaving(true);
-    const res = await base44.functions.invoke("transferWindowActions", {
+    const res = await stageClient.functions.invoke("transferWindowActions", {
       action: "open_window",
       label: form.label || `Transfer Window ${new Date().toLocaleDateString()}`,
       start_date: form.start_date || new Date().toISOString(),
@@ -54,7 +54,7 @@ export default function TransferWindowPanel() {
     if (!currentWindow) return;
     if (!confirm("Close the transfer window? Players will no longer transfer until the next window.")) return;
     setSaving(true);
-    await base44.functions.invoke("transferWindowActions", {
+    await stageClient.functions.invoke("transferWindowActions", {
       action: "close_window",
       window_id: currentWindow.id,
     });
@@ -64,7 +64,7 @@ export default function TransferWindowPanel() {
 
   async function executePending() {
     setSaving(true);
-    const res = await base44.functions.invoke("transferWindowActions", { action: "execute_pending" });
+    const res = await stageClient.functions.invoke("transferWindowActions", { action: "execute_pending" });
     alert(`Executed ${res.data.transfers_executed} pending transfer(s).`);
     await load();
     setSaving(false);

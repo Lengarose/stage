@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { ShoppingBag, TrendingUp, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatShirtPrice } from "@/lib/shirtEconomy";
@@ -18,7 +18,7 @@ export default function ShirtSalesPanel({ club }) {
 
   useEffect(() => {
     if (!club?.id) return;
-    base44.entities.ShirtSale
+    stageClient.entities.ShirtSale
       .filter({ club_id: club.id }, "-created_date", 200)
       .then(data => { setSales(data); })
       .catch(() => {})

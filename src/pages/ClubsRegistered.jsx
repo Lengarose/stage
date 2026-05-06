@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { ArrowLeft, Shield, Search, Users, Check, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,7 +55,7 @@ export default function ClubsRegistered() {
 
   async function save() {
     setSaving(true);
-    await base44.entities.Tournament.update(id, { registered_clubs: [...selected] });
+    await stageClient.entities.Tournament.update(id, { registered_clubs: [...selected] });
     setTournament(prev => ({ ...prev, registered_clubs: [...selected] }));
     setSaving(false);
     alert("Participants saved!");

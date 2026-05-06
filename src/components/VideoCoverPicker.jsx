@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Loader2 } from "lucide-react";
 
 /**
@@ -54,7 +54,7 @@ export default function VideoCoverPicker({ open, onClose, videoUrl, onConfirm })
     const res = await fetch(preview);
     const blob = await res.blob();
     const file = new File([blob], "cover.jpg", { type: "image/jpeg" });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setUploading(false);
     onConfirm(file_url);
   }

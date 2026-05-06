@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -109,16 +109,16 @@ export default function CreateContract() {
   async function loadData() {
     setLoading(true);
     const [user, clubArr] = await Promise.all([
-      base44.auth.me(),
-      base44.entities.Club.filter({ id: clubId }),
+      stageClient.auth.me(),
+      stageClient.entities.Club.filter({ id: clubId }),
     ]);
     const clubData = clubArr[0];
     if (!clubData) { setLoading(false); return; }
     setClub(clubData);
 
     const [playerArr, contractArr] = await Promise.all([
-      base44.entities.Player.filter({ club_id: clubId }),
-      base44.entities.PlayerContract.filter({ team_id: clubId }),
+      stageClient.entities.Player.filter({ club_id: clubId }),
+      stageClient.entities.PlayerContract.filter({ team_id: clubId }),
     ]);
     setPlayers(playerArr);
     setContracts(contractArr);
@@ -152,7 +152,7 @@ export default function CreateContract() {
       let recipientEmail = selectedPlayer.email;
       if (!recipientEmail) {
         try {
-          const fresh = await base44.entities.Player.filter({ id: selectedPlayer.id });
+          const fresh = await stageClient.entities.Player.filter({ id: selectedPlayer.id });
           recipientEmail = fresh[0]?.email || null;
         } catch (_) { /* non-fatal */ }
       }
@@ -161,7 +161,7 @@ export default function CreateContract() {
       const salary  = weeklySalary  ? parseInt(weeklySalary)  : 0;
       const bonus   = signingBonus  ? parseInt(signingBonus)  : 0;
 
-      const newContract = await base44.entities.PlayerContract.create({
+      const newContract = await stageClient.entities.PlayerContract.create({
         team_id: clubId,
         user_id: selectedPlayer.id,
         contract_type: selectedType,
@@ -191,7 +191,7 @@ export default function CreateContract() {
             targets,
             offerNote: note,
           });
-          await base44.entities.InboxMessage.create({
+          await stageClient.entities.InboxMessage.create({
             recipient_email:  recipientEmail,
             sender_email:     myPlayer?.email || "system@stage.com",
             sender_gamertag:  club.name,

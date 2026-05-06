@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
@@ -70,7 +70,7 @@ export default function TransferMarket() {
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     if (!offerTarget || !myClub) return;
     const targetPlayer = offerTarget.player || offerTarget;
-    await base44.functions.invoke("contractActions", {
+    await stageClient.functions.invoke("contractActions", {
       action: "offer",
       team_id: myClub.id,
       user_id: targetPlayer.id,
@@ -82,7 +82,7 @@ export default function TransferMarket() {
       performance_targets,
       captaincy_offered,
     });
-    const updated = await base44.entities.PlayerContract.filter({ team_id: myClub.id });
+    const updated = await stageClient.entities.PlayerContract.filter({ team_id: myClub.id });
     setMyContracts(updated);
     setOfferTarget(null);
   }

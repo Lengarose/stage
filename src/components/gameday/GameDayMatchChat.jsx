@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export default function GameDayMatchChat({ game, myClub, user }) {
   useEffect(() => {
     async function load() {
       // Fetch existing messages
-      const msgs = await base44.entities.ChatMessage.filter(
+      const msgs = await stageClient.entities.ChatMessage.filter(
         { channel: "match_schedule", club_id: game.home_club_id },
         "-created_date",
         100
@@ -26,7 +26,7 @@ export default function GameDayMatchChat({ game, myClub, user }) {
     load();
 
     // Subscribe to new messages
-    const unsub = base44.entities.ChatMessage.subscribe((event) => {
+    const unsub = stageClient.entities.ChatMessage.subscribe((event) => {
       if (event.type === "create") {
         setMessages(prev => [event.data, ...prev]);
       }
@@ -44,7 +44,7 @@ export default function GameDayMatchChat({ game, myClub, user }) {
     if (!newMessage.trim()) return;
 
     try {
-      await base44.entities.ChatMessage.create({
+      await stageClient.entities.ChatMessage.create({
         channel: "match_schedule",
         club_id: myClub.id,
         sender_email: user.email,

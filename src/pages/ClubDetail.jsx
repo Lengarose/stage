@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
   Check, X, Camera, Send, Loader2, LogOut,
@@ -82,38 +82,38 @@ export default function ClubDetail() {
 
   useEffect(() => {
     async function load() {
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       setCurrentUser(user);
 
       const [clubData, playerData, myPl] = await Promise.all([
-        base44.entities.Club.filter({ id }, null, 1),
-        base44.entities.Player.filter({ club_id: id }),
-        base44.entities.Player.filter({ email: user.email }),
+        stageClient.entities.Club.filter({ id }, null, 1),
+        stageClient.entities.Player.filter({ club_id: id }),
+        stageClient.entities.Player.filter({ email: user.email }),
       ]);
 
       const [matchesHome, matchesAway, followData, allFollowersData] = await Promise.all([
-        base44.entities.Match.filter({ home_club_id: id, status: "completed" }, "round", 30),
-        base44.entities.Match.filter({ away_club_id: id, status: "completed" }, "round", 30),
-        base44.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "club" }),
-        base44.entities.Follow.filter({ target_id: id, target_type: "club" }),
+        stageClient.entities.Match.filter({ home_club_id: id, status: "completed" }, "round", 30),
+        stageClient.entities.Match.filter({ away_club_id: id, status: "completed" }, "round", 30),
+        stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "club" }),
+        stageClient.entities.Follow.filter({ target_id: id, target_type: "club" }),
       ]);
 
       const [tmHome, tmAway] = await Promise.all([
-        base44.entities.Match.filter({ home_club_id: id, status: "scheduled" }, "round", 30),
-        base44.entities.Match.filter({ away_club_id: id, status: "scheduled" }, "round", 30),
+        stageClient.entities.Match.filter({ home_club_id: id, status: "scheduled" }, "round", 30),
+        stageClient.entities.Match.filter({ away_club_id: id, status: "scheduled" }, "round", 30),
       ]);
 
       const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
       const tIds = [...new Set(allMatchesRaw.map(m => m.tournament_id).filter(tid => tid && tid !== "ranked"))];
       let tMap = {};
       if (tIds.length > 0) {
-        const tResults = await Promise.all(tIds.map(tid => base44.entities.Tournament.filter({ id: tid }, null, 1)));
+        const tResults = await Promise.all(tIds.map(tid => stageClient.entities.Tournament.filter({ id: tid }, null, 1)));
         tResults.forEach(arr => { if (arr[0]) tMap[arr[0].id] = arr[0]; });
       }
       setTournamentMap(tMap);
 
       const playerFollows = playerData.length > 0
-        ? await base44.entities.Follow.filter({ follower_email: user.email, target_type: "player" })
+        ? await stageClient.entities.Follow.filter({ follower_email: user.email, target_type: "player" })
         : [];
       const pfMap = {};
       for (const f of playerFollows) { pfMap[f.target_id] = f; }
@@ -146,7 +146,7 @@ export default function ClubDetail() {
       if (myPl.length > 0) {
         setMyPlayer(myPl[0]);
         if (myPl[0].club_id && myPl[0].club_id !== id) {
-          const myClubArr = await base44.entities.Club.filter({ id: myPl[0].club_id });
+          const myClubArr = await stageClient.entities.Club.filter({ id: myPl[0].club_id });
           if (myClubArr.length > 0) setMyClubData(myClubArr[0]);
         }
       }
@@ -157,13 +157,13 @@ export default function ClubDetail() {
         myPl[0].club_roles?.includes("president") ||
         clubData[0]?.owner_email === user.email
       )) {
-        const reqs = await base44.entities.JoinRequest.filter({ club_id: id, status: "pending" });
+        const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" });
         setJoinRequests(reqs);
       }
 
       // Check if this player already sent a trial request to this club
       if (myPl.length > 0) {
-        const existingTrials = await base44.entities.InboxMessage.filter(
+        const existingTrials = await stageClient.entities.InboxMessage.filter(
           { sender_email: user.email, message_type: "trial_request" }, null, 20
         ).catch(() => []);
         const sentToThisClub = existingTrials.some(m => (m.metadata?.club_id === id || m.related_entity_id === id));
@@ -174,7 +174,7 @@ export default function ClubDetail() {
     }
     load();
 
-    const unsubPlayer = base44.entities.Player.subscribe((event) => {
+    const unsubPlayer = stageClient.entities.Player.subscribe((event) => {
       if (event.type === "update" && event.data.club_id === id) {
         setPlayers(prev => prev.map(p => p.id === event.id ? event.data : p));
       }
@@ -184,11 +184,11 @@ export default function ClubDetail() {
 
   async function toggleFollow() {
     if (isFollowing && followId) {
-      await base44.entities.Follow.delete(followId);
+      await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
       setFollowersCount(c => c - 1);
     } else {
-      const f = await base44.entities.Follow.create({
+      const f = await stageClient.entities.Follow.create({
         follower_email: currentUser.email,
         follower_player_id: myPlayer?.id || "",
         target_id: id,
@@ -204,7 +204,7 @@ export default function ClubDetail() {
     if (!myPlayer || !club) return;
     setSendingTrial(true);
     try {
-      await base44.entities.InboxMessage.create({
+      await stageClient.entities.InboxMessage.create({
         recipient_email:   club.owner_email,
         sender_email:      currentUser.email,
         sender_gamertag:   myPlayer.gamertag,
@@ -246,7 +246,7 @@ export default function ClubDetail() {
   async function assignRole(targetPlayer, role) {
     const currentHolders = players.filter(p => (p.club_roles?.includes(role) || p.role === role) && p.id !== targetPlayer.id);
     await Promise.all(currentHolders.map(p =>
-      base44.entities.Player.update(p.id, {
+      stageClient.entities.Player.update(p.id, {
         club_roles: (p.club_roles || []).filter(r => r !== role),
         role: p.role === role ? "member" : p.role,
       })
@@ -254,18 +254,18 @@ export default function ClubDetail() {
     const otherRoles = (targetPlayer.club_roles || []).filter(r => r !== "captain" && r !== "vice-captain");
     const newRoles = [...new Set([...otherRoles, role])];
     const primaryRole = newRoles.includes("captain") ? "captain" : newRoles.includes("vice-captain") ? "vice-captain" : "member";
-    await base44.entities.Player.update(targetPlayer.id, { club_roles: newRoles, role: primaryRole });
-    const updated = await base44.entities.Player.filter({ club_id: id });
+    await stageClient.entities.Player.update(targetPlayer.id, { club_roles: newRoles, role: primaryRole });
+    const updated = await stageClient.entities.Player.filter({ club_id: id });
     setPlayers(updated);
   }
 
   async function handleJoinRequest(reqId, action) {
     const req = joinRequests.find(r => r.id === reqId);
     if (!req) return;
-    await base44.entities.JoinRequest.update(reqId, { status: action });
+    await stageClient.entities.JoinRequest.update(reqId, { status: action });
     setJoinRequests(prev => prev.filter(r => r.id !== reqId));
     if (action === "approved") {
-      await base44.entities.Player.update(req.player_id, { club_id: id, role: "member", club_roles: ["member"] });
+      await stageClient.entities.Player.update(req.player_id, { club_id: id, role: "member", club_roles: ["member"] });
       setPlayers(prev => [...prev, { id: req.player_id, email: req.player_email, gamertag: req.player_gamertag, club_id: id, role: "member", club_roles: ["member"] }]);
     }
   }
@@ -314,7 +314,7 @@ export default function ClubDetail() {
 
   async function handleDeleteClub() {
     setDeleting(true);
-    await base44.functions.invoke("deleteClub", { club_id: id });
+    await stageClient.functions.invoke("deleteClub", { club_id: id });
     setDeleting(false);
     setDeleteDialogOpen(false);
     navigate("/clubs");
@@ -325,8 +325,8 @@ export default function ClubDetail() {
     if (!file) return;
     setUploadingLogo(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      await base44.entities.Club.update(id, { logo_url: file_url, logo_position: position });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
+      await stageClient.entities.Club.update(id, { logo_url: file_url, logo_position: position });
       setClub(prev => ({ ...prev, logo_url: file_url, logo_position: position }));
       URL.revokeObjectURL(localUrl);
       pendingFileRef.current = null;
@@ -910,7 +910,7 @@ export default function ClubDetail() {
             <Button
               onClick={async () => {
                 setSavingClub(true);
-                await base44.entities.Club.update(id, {
+                await stageClient.entities.Club.update(id, {
                   name: clubForm.name,
                   tag: clubForm.tag,
                   platform: clubForm.platform,
@@ -953,11 +953,11 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
   async function _toggleFollow(e) {
     e.preventDefault();
     if (isFollowing && followId) {
-      await base44.entities.Follow.delete(followId);
+      await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
     } else {
-      const myPlayerData = await base44.entities.Player.filter({ email: currentUser.email });
-      const f = await base44.entities.Follow.create({
+      const myPlayerData = await stageClient.entities.Player.filter({ email: currentUser.email });
+      const f = await stageClient.entities.Follow.create({
         follower_email: currentUser.email,
         follower_player_id: myPlayerData[0]?.id || "",
         target_id: player.id,

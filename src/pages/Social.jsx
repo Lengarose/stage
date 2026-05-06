@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Heart, MessageCircle, Plus, Image, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,13 +19,13 @@ export default function Social() {
 
   useEffect(() => {
     async function load() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [postData, plData, newsData, pressData] = await Promise.all([
-        base44.entities.Post.list("-created_date", 30),
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.NewsItem.list("-published_at", 10),
-        base44.entities.PressArticle.list("-published_at", 10),
+        stageClient.entities.Post.list("-created_date", 30),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.NewsItem.list("-published_at", 10),
+        stageClient.entities.PressArticle.list("-published_at", 10),
       ]);
       const allPosts = [
         ...postData.map(p => ({ ...p, _type: "post", _sortDate: p.created_date })),
@@ -38,15 +38,15 @@ export default function Social() {
     }
     load();
 
-    const unsub = base44.entities.Post.subscribe((event) => {
+    const unsub = stageClient.entities.Post.subscribe((event) => {
       if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "post", _sortDate: event.data.created_date }, ...prev]);
       if (event.type === "update") setPosts(prev => prev.map(p => p.id === event.id ? { ...event.data, _type: "post", _sortDate: event.data.created_date } : p));
       if (event.type === "delete") setPosts(prev => prev.filter(p => p.id !== event.id));
     });
-    const unsubNews = base44.entities.NewsItem.subscribe((event) => {
+    const unsubNews = stageClient.entities.NewsItem.subscribe((event) => {
       if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "news", _sortDate: event.data.published_at || event.data.created_date }, ...prev]);
     });
-    const unsubPress = base44.entities.PressArticle.subscribe((event) => {
+    const unsubPress = stageClient.entities.PressArticle.subscribe((event) => {
       if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "press", _sortDate: event.data.published_at || event.data.created_date }, ...prev]);
     });
     return () => { unsub(); unsubNews(); unsubPress(); };
@@ -58,11 +58,11 @@ export default function Social() {
     let media_url = "";
     let media_type = "none";
     if (mediaFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: mediaFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: mediaFile });
       media_url = res.file_url;
       media_type = mediaFile.type.startsWith("video") ? "video" : "image";
     }
-    await base44.entities.Post.create({
+    await stageClient.entities.Post.create({
       author_email: user.email,
       author_name: myPlayer?.gamertag || user.full_name || user.email,
       author_avatar: myPlayer?.avatar_url || "",
@@ -80,7 +80,7 @@ export default function Social() {
   }
 
   async function deletePost(postId) {
-    await base44.entities.Post.delete(postId);
+    await stageClient.entities.Post.delete(postId);
     setPosts(prev => prev.filter(p => p.id !== postId));
   }
 
@@ -90,7 +90,7 @@ export default function Social() {
       ? post.likes.filter(e => e !== user.email)
       : [...(post.likes || []), user.email];
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: newLikes, likes_count: newLikes.length } : p));
-    await base44.entities.Post.update(post.id, { likes: newLikes, likes_count: newLikes.length });
+    await stageClient.entities.Post.update(post.id, { likes: newLikes, likes_count: newLikes.length });
   }
 
   if (loading) return (
@@ -257,7 +257,7 @@ function PostCard({ post, user, onLike, onDelete }) {
   async function loadComments() {
     if (!commentsOpen) {
       setLoadingComments(true);
-      const data = await base44.entities.Comment.filter({ post_id: post.id }, "created_date");
+      const data = await stageClient.entities.Comment.filter({ post_id: post.id }, "created_date");
       setComments(data);
       setLoadingComments(false);
     }
@@ -267,13 +267,13 @@ function PostCard({ post, user, onLike, onDelete }) {
   async function addComment(e) {
     e.preventDefault();
     if (!commentInput.trim()) return;
-    const c = await base44.entities.Comment.create({
+    const c = await stageClient.entities.Comment.create({
       post_id: post.id,
       author_email: user.email,
       author_name: user.full_name || user.email,
       content: commentInput.trim(),
     });
-    await base44.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
+    await stageClient.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
     setComments(prev => [...prev, c]);
     setCommentInput("");
   }

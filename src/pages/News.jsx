@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import {
   Newspaper, ArrowRightLeft, FileSignature, Shield,
@@ -139,26 +139,26 @@ export default function News() {
       let followed = new Set();
 
       try {
-        const u = await base44.auth.me();
-        const players = await base44.entities.Player.filter({ email: u.email });
+        const u = await stageClient.auth.me();
+        const players = await stageClient.entities.Player.filter({ email: u.email });
         player = players[0] || null;
         setMyPlayer(player);
 
         if (player?.club_id) {
-          const clubs = await base44.entities.Club.filter({ id: player.club_id });
+          const clubs = await stageClient.entities.Club.filter({ id: player.club_id });
           club = clubs[0] || null;
           setMyClub(club);
         }
 
         // Load followed entities to use for visibility
-        const follows = await base44.entities.Follow.filter({ follower_player_id: player?.id });
+        const follows = await stageClient.entities.Follow.filter({ follower_player_id: player?.id });
         followed = new Set(follows.map(f => f.target_id));
         setFollowedIds(followed);
       } catch (_) {}
 
       const [news, press] = await Promise.all([
-        base44.entities.NewsItem.list("-published_at", 100),
-        base44.entities.PressArticle.list("-published_at", 30),
+        stageClient.entities.NewsItem.list("-published_at", 100),
+        stageClient.entities.PressArticle.list("-published_at", 30),
       ]);
 
       const merged = mergeAndSort(news, press);
@@ -167,13 +167,13 @@ export default function News() {
     }
     load();
 
-    const unsub1 = base44.entities.NewsItem.subscribe(e => {
+    const unsub1 = stageClient.entities.NewsItem.subscribe(e => {
       if (e.type === "create") {
         const item = { ...e.data, _category: resolveCategory(e.data) };
         setAllItems(prev => [item, ...prev]);
       }
     });
-    const unsub2 = base44.entities.PressArticle.subscribe(e => {
+    const unsub2 = stageClient.entities.PressArticle.subscribe(e => {
       if (e.type === "create") {
         const a = e.data;
         const item = {

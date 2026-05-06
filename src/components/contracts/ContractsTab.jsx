@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { notify, postContractNews } from "@/lib/notify";
 
@@ -80,7 +80,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   async function loadContracts() {
     setLoading(true);
-    const all = await base44.entities.PlayerContract.filter({ team_id: club.id });
+    const all = await stageClient.entities.PlayerContract.filter({ team_id: club.id });
     setContracts(all);
 
     const pMap = {};
@@ -91,7 +91,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const missing = uniqueIds.filter(uid => !pMap[uid]);
     if (missing.length > 0) {
       const extras = await Promise.all(
-        missing.map(uid => base44.entities.Player.filter({ id: uid }).then(r => r[0]).catch(() => null))
+        missing.map(uid => stageClient.entities.Player.filter({ id: uid }).then(r => r[0]).catch(() => null))
       );
       extras.filter(Boolean).forEach(p => { pMap[p.id] = p; });
     }
@@ -107,7 +107,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     let recipientEmail = player.email;
     if (!recipientEmail) {
       try {
-        const fresh = await base44.entities.Player.filter({ id: player.id });
+        const fresh = await stageClient.entities.Player.filter({ id: player.id });
         recipientEmail = fresh[0]?.email || null;
       } catch (_) { /* non-fatal */ }
     }
@@ -115,7 +115,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     let newContract;
     try {
       const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-      newContract = await base44.entities.PlayerContract.create({
+      newContract = await stageClient.entities.PlayerContract.create({
         team_id: club.id,
         user_id: player.id,
         contract_type,
@@ -150,7 +150,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
           targets: performance_targets || [],
           offerNote: offer_note,
         });
-        await base44.entities.InboxMessage.create({
+        await stageClient.entities.InboxMessage.create({
           recipient_email:  recipientEmail,
           sender_email:     myPlayer?.email || "system@stage.com",
           sender_gamertag:  club.name,
@@ -186,7 +186,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function negotiateContract(contract, terms) {
-    await base44.entities.PlayerContract.update(contract.id, {
+    await stageClient.entities.PlayerContract.update(contract.id, {
       ...terms,
       status: "negotiating",
       negotiation_round:    (contract.negotiation_round || 0) + 1,
@@ -195,7 +195,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const recipient = playerMap[contract.user_id];
     const recipientEmail = recipient?.email || null;
     if (recipientEmail) {
-      await base44.entities.InboxMessage.create({
+      await stageClient.entities.InboxMessage.create({
         recipient_email:  recipientEmail,
         sender_email:     myPlayer?.email || "system@stage.com",
         sender_gamertag:  club.name,
@@ -234,7 +234,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   async function acceptContract(contract) {
     const today   = new Date().toISOString().split("T")[0];
     const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
-    await base44.entities.PlayerContract.update(contract.id, {
+    await stageClient.entities.PlayerContract.update(contract.id, {
       status: "active",
       start_date: today,
       end_date:   endDate,
@@ -245,13 +245,13 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     // Deduct signing bonus from club balance and record in finance
     if ((contract.signing_bonus_stc || 0) > 0) {
       try {
-        const freshClub = await base44.entities.Club.filter({ id: club.id });
+        const freshClub = await stageClient.entities.Club.filter({ id: club.id });
         const clubData = freshClub[0];
         if (clubData) {
-          await base44.entities.Club.update(club.id, {
+          await stageClient.entities.Club.update(club.id, {
             transfer_budget_stc: Math.max(0, (clubData.transfer_budget_stc || 0) - contract.signing_bonus_stc),
           });
-          await base44.entities.STCTransaction.create({
+          await stageClient.entities.STCTransaction.create({
             club_id: club.id,
             amount: -contract.signing_bonus_stc,
             type: "signing_bonus",
@@ -279,7 +279,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function rejectContract(contract) {
-    await base44.entities.PlayerContract.update(contract.id, { status: "rejected" });
+    await stageClient.entities.PlayerContract.update(contract.id, { status: "rejected" });
     const player = playerMap[contract.user_id];
     notify(club.owner_email, "contract_rejected",
       `❌ Contract Rejected`,
@@ -298,7 +298,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   async function terminateContract(contract) {
     if (!confirm("Are you sure you want to terminate this contract?")) return;
-    await base44.entities.PlayerContract.update(contract.id, { status: "terminated" });
+    await stageClient.entities.PlayerContract.update(contract.id, { status: "terminated" });
     const player = playerMap[contract.user_id];
     notify(player?.email, "contract_terminated",
       `🚫 Contract Terminated`,
@@ -319,7 +319,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const contract = renewDialog;
     const player   = playerMap[contract.user_id];
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-    const newContract = await base44.entities.PlayerContract.create({
+    const newContract = await stageClient.entities.PlayerContract.create({
       team_id:             contract.team_id,
       user_id:             contract.user_id,
       contract_type,
@@ -336,7 +336,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     let renewEmail = player?.email;
     if (!renewEmail && contract.user_id) {
       try {
-        const fresh = await base44.entities.Player.filter({ id: contract.user_id });
+        const fresh = await stageClient.entities.Player.filter({ id: contract.user_id });
         renewEmail = fresh[0]?.email || null;
       } catch (_) { /* non-fatal */ }
     }
@@ -354,7 +354,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
           targets: contract.performance_targets || [],
           offerNote: offer_note,
         });
-        await base44.entities.InboxMessage.create({
+        await stageClient.entities.InboxMessage.create({
           recipient_email:  renewEmail,
           sender_email:     myPlayer?.email || "system@stage.com",
           sender_gamertag:  club.name,

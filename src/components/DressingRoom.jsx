@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 
 const SEATS = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -11,7 +11,7 @@ export default function DressingRoom({ clubId, currentPlayerEmail, isAdmin }) {
 
   useEffect(() => {
     async function load() {
-      const data = await base44.entities.Player.filter({ club_id: clubId });
+      const data = await stageClient.entities.Player.filter({ club_id: clubId });
       setPlayers(data);
       const me = data.find(p => p.email === currentPlayerEmail);
       setMyPlayer(me || null);
@@ -19,7 +19,7 @@ export default function DressingRoom({ clubId, currentPlayerEmail, isAdmin }) {
     }
     load();
 
-    const unsub = base44.entities.Player.subscribe((event) => {
+    const unsub = stageClient.entities.Player.subscribe((event) => {
       if (event.type === "update") {
         setPlayers(prev => prev.map(p => p.id === event.id ? event.data : p));
         if (event.data.email === currentPlayerEmail) setMyPlayer(event.data);
@@ -33,7 +33,7 @@ export default function DressingRoom({ clubId, currentPlayerEmail, isAdmin }) {
     const available = SEATS.filter(s => !takenSeats.has(s)).sort(() => Math.random() - 0.5);
     const unready = players.filter(p => !p.dressing_room_seat);
     await Promise.all(unready.slice(0, available.length).map((p, i) =>
-      base44.entities.Player.update(p.id, { dressing_room_seat: available[i], is_ready: true })
+      stageClient.entities.Player.update(p.id, { dressing_room_seat: available[i], is_ready: true })
     ));
   }
 
@@ -41,7 +41,7 @@ export default function DressingRoom({ clubId, currentPlayerEmail, isAdmin }) {
     if (!myPlayer) return;
     const newSeat = myPlayer.dressing_room_seat === seatNum ? null : seatNum;
     const newReady = newSeat !== null;
-    await base44.entities.Player.update(myPlayer.id, {
+    await stageClient.entities.Player.update(myPlayer.id, {
       dressing_room_seat: newSeat,
       is_ready: newReady,
     });

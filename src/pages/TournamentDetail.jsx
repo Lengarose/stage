@@ -74,15 +74,15 @@ export default function TournamentDetail() {
 
   useEffect(() => {
     async function load() {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [tData, clubData, matchData, plData] = await Promise.all([
-        base44.entities.Tournament.filter({ id }, null, 1),
-        base44.entities.Club.list("-rating", 200),
-        base44.entities.Match.filter({ tournament_id: id }, "round"),
-        base44.entities.Player.filter({ email: u.email }),
+        stageClient.entities.Tournament.filter({ id }, null, 1),
+        stageClient.entities.Club.list("-rating", 200),
+        stageClient.entities.Match.filter({ tournament_id: id }, "round"),
+        stageClient.entities.Player.filter({ email: u.email }),
       ]);
       const t = tData[0] || null;
       setTournament(t);
@@ -94,13 +94,13 @@ export default function TournamentDetail() {
       }
       if (plData.length > 0) {
         setMyPlayer(plData[0]);
-        const clubPlayers = await base44.entities.Player.filter({ club_id: plData[0].club_id });
+        const clubPlayers = await stageClient.entities.Player.filter({ club_id: plData[0].club_id });
         setMyClubPlayers(clubPlayers);
       }
 
       console.log('clubs: ',myClubPlayers)
 
-      const subs = await base44.entities.UserPurchase.filter({ buyer_email: u.email, item_type: "subscription" });
+      const subs = await stageClient.entities.UserPurchase.filter({ buyer_email: u.email, item_type: "subscription" });
       const subIds = subs.map(s => s.item_id);
       const isElite = subIds.includes("sub_elite");
       const isPro = subIds.includes("sub_pro") || isElite;
@@ -111,16 +111,16 @@ export default function TournamentDetail() {
       setIsCreator(t?.creator_email === u.email);
       // Check if winner press conference already done
       if (t?.status === 'completed' && t?.winner_club_id) {
-        const existingConfs = await base44.entities.PressConference.filter({ match_id: t.id });
+        const existingConfs = await stageClient.entities.PressConference.filter({ match_id: t.id });
         setWinnerConferenceDone(existingConfs.some(c => c.context === 'tournament_winner'));
       }
       if (u.role === "admin") {
         const tcId = localStorage.getItem('admin_takeover_club_id');
         if (tcId) {
-          const tcArr = await base44.entities.Club.filter({ id: tcId });
+          const tcArr = await stageClient.entities.Club.filter({ id: tcId });
           if (tcArr.length > 0) {
             setTakeoverClub(tcArr[0]);
-            const tcPlayers = await base44.entities.Player.filter({ club_id: tcId });
+            const tcPlayers = await stageClient.entities.Player.filter({ club_id: tcId });
             setMyClubPlayers(tcPlayers);
           }
         }
@@ -129,9 +129,9 @@ export default function TournamentDetail() {
     }
     load();
 
-    const unsub = base44.entities.Match.subscribe((event) => {
+    const unsub = stageClient.entities.Match.subscribe((event) => {
       if (event.data?.tournament_id === id) {
-        base44.entities.Match.filter({ tournament_id: id }, "round").then(setMatches);
+        stageClient.entities.Match.filter({ tournament_id: id }, "round").then(setMatches);
       }
     });
 
@@ -197,7 +197,7 @@ export default function TournamentDetail() {
 
     // Lock both credits and STC
     try {
-      const res = await base44.functions.invoke('tournamentRegistration', {
+      const res = await stageClient.functions.invoke('tournamentRegistration', {
         tournament_id: tournament.id,
         club_id: effectiveId,
       });
@@ -212,7 +212,7 @@ export default function TournamentDetail() {
       setClubs(allClubs.filter(c => updated.includes(c.id)));
 
       // Notify all club players about registration
-      base44.functions.invoke('tournamentRegistrationNotify', {
+      stageClient.functions.invoke('tournamentRegistrationNotify', {
         action: 'register',
         tournament_id: tournament.id,
         club_id: effectiveId,
@@ -247,15 +247,15 @@ export default function TournamentDetail() {
 
   async function clearDraw() {
     if (!window.confirm("Clear the current draw? This will delete all generated matchups.")) return;
-    await Promise.all(matches.map(m => base44.entities.Match.delete(m.id)));
+    await Promise.all(matches.map(m => stageClient.entities.Match.delete(m.id)));
     setMatches([]);
   }
 
   async function initializeTournament(t, registeredClubs) {
     // If draw already generated, just start the tournament
-    const existingMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const existingMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     if (existingMatches.length > 0) {
-      await base44.entities.Tournament.update(id, { status: "in_progress", current_round: 1 });
+      await stageClient.entities.Tournament.update(id, { status: "in_progress", current_round: 1 });
       setTournament(prev => ({ ...prev, status: "in_progress", current_round: 1 }));
       setMatches(existingMatches);
       return;
@@ -270,8 +270,8 @@ export default function TournamentDetail() {
     else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
     else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
 
-    await base44.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id })));
-    await base44.entities.Tournament.update(id, { status: "in_progress", current_round: 1, num_groups: numGroups });
+    await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id })));
+    await stageClient.entities.Tournament.update(id, { status: "in_progress", current_round: 1, num_groups: numGroups });
     setTournament(prev => ({ ...prev, status: "in_progress", current_round: 1, num_groups: numGroups }));
 
     // Assign groups for group stage tournaments
@@ -283,10 +283,10 @@ export default function TournamentDetail() {
         groupAssignments[`groupA`] = registeredClubs.slice(startIdx, endIdx).map(c => c.id);
         if (g === 1) groupAssignments[`groupB`] = registeredClubs.slice(startIdx, endIdx).map(c => c.id);
       }
-      await base44.functions.invoke('assignGroups', { tournamentId: id, groupAssignments });
+      await stageClient.functions.invoke('assignGroups', { tournamentId: id, groupAssignments });
     }
 
-    const newMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const newMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(newMatches);
   }
 
@@ -302,9 +302,9 @@ export default function TournamentDetail() {
     const timeStep = 2 * 60 * 60 * 1000;
     for (let i = 0; i < shuffled.length; i++) {
       const schedDate = new Date(baseDate.getTime() + i * timeStep);
-      await base44.entities.Match.update(shuffled[i].id, { scheduled_date: schedDate.toISOString() });
+      await stageClient.entities.Match.update(shuffled[i].id, { scheduled_date: schedDate.toISOString() });
     }
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     alert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
   }
@@ -312,8 +312,8 @@ export default function TournamentDetail() {
   async function _proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
     const schedDate = new Date(scheduleDate);
-    await base44.entities.Match.update(scheduleMatch.id, { scheduled_date: schedDate.toISOString() });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: schedDate.toISOString() });
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     setScheduleDialogOpen(false);
     setScheduleMatch(null);
@@ -328,11 +328,11 @@ export default function TournamentDetail() {
     const winner_name = hs > as_ ? match.home_club_name: as_ == hs ? null : match.away_club_name ;
     const loserId = hs < as_ ? match.away_club_id : as_ == hs ? null  :match.home_club_id;
     const loser_name = hs < as_ ? match.away_club_name: as_ == hs ? null : match.home_club_name;
-    await base44.entities.Match.update(match.id, {
+    await stageClient.entities.Match.update(match.id, {
       home_score: hs, away_score: as_, winner_club_id: winnerId,winner_club_name:winner_name, loser_club_id:loserId, loser_club_name:loser_name,
       status: "completed", admin_notes: disputeForm.admin_notes || ""
     });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
@@ -367,7 +367,7 @@ export default function TournamentDetail() {
       if (otherScore === submittedScore) {
         // Both agree → complete
         const winnerId = hs > as_ ? activeMatch.home_club_id : as_ > hs ? activeMatch.away_club_id : null;
-        await base44.entities.Match.update(activeMatch.id, {
+        await stageClient.entities.Match.update(activeMatch.id, {
           ...mySubmitData, home_score: hs, away_score: as_,
           winner_club_id: winnerId, status: "completed",
           ...(resultForm.video_url ? { video_url: resultForm.video_url } : {}),
@@ -375,14 +375,14 @@ export default function TournamentDetail() {
         for (const [email, stat] of Object.entries(playerStats)) {
           if (stat.goals > 0 || stat.assists > 0 || stat.rating) {
             const player = myClubPlayers.find(p => p.email === email);
-            await base44.entities.MatchPlayerStat.create({
+            await stageClient.entities.MatchPlayerStat.create({
               tournament_id: id, match_id: activeMatch.id, club_id: myPlayer.club_id,
               player_email: email, player_gamertag: player?.gamertag || email,
               goals: stat.goals || 0, assists: stat.assists || 0, rating: parseFloat(stat.rating) || 6.0,
             });
           }
         }
-        const updatedMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+        const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
         setMatches(updatedMatches);
         const roundMatches = updatedMatches.filter(m => m.round === tournament.current_round);
         const allDone = roundMatches.every(m => m.status === "completed");
@@ -395,13 +395,13 @@ export default function TournamentDetail() {
               const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && m.status === "completed");
               if (finalMatch) {
                 const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
-                await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
+                await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
                 awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
               }
             } else {
-              for (const m of nextRoundMatches) await base44.entities.Match.create({ ...m, tournament_id: id });
-              await base44.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
+              for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+              await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
               setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
             }
           } else if (tournament.type === "swiss") {
@@ -410,8 +410,8 @@ export default function TournamentDetail() {
               const clubIds = tournament.registered_clubs || [];
               const clubsMap = Object.fromEntries(allClubs.map(c => [c.id, c]));
               const nextSwiss = generateSwissNextRound(clubIds, updatedMatches, tournament.current_round, clubsMap);
-              for (const m of nextSwiss) await base44.entities.Match.create({ ...m, tournament_id: id });
-              await base44.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
+              for (const m of nextSwiss) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+              await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
               setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
             } else {
               const scores = {};
@@ -422,23 +422,23 @@ export default function TournamentDetail() {
               const winnerId = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0];
               const winnerClub = allClubs.find(c => c.id === winnerId);
               if (winnerId) {
-                await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
+                await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
                 awardTournamentTrophy({ ...tournament, id }, winnerId).catch(() => {});
               }
             }
           }
-          const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+          const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
           setMatches(refreshed);
         }
       } else {
         // Disagreement → disputed, notify admins/both teams
-        await base44.entities.Match.update(activeMatch.id, { ...mySubmitData, status: "disputed" });
+        await stageClient.entities.Match.update(activeMatch.id, { ...mySubmitData, status: "disputed" });
         // Notify both clubs
         for (const clubId of [activeMatch.home_club_id, activeMatch.away_club_id]) {
-          const players = await base44.entities.Player.filter({ club_id: clubId });
+          const players = await stageClient.entities.Player.filter({ club_id: clubId });
           for (const p of players) {
-            await base44.entities.Notification.create({
+            await stageClient.entities.Notification.create({
               recipient_email: p.email, type: "result_submitted",
               title: "⚠️ Match Score Disputed",
               body: `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Scores don't match. An admin will resolve this.`,
@@ -447,12 +447,12 @@ export default function TournamentDetail() {
           }
         }
         alert(`Score disputed! You submitted ${submittedScore}, opponent submitted ${otherScore}. An admin will resolve this.`);
-        const updatedMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+        const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
         setMatches(updatedMatches);
       }
     } else {
       // First submission — save timestamp + move to awaiting_confirmation
-      await base44.entities.Match.update(activeMatch.id, {
+      await stageClient.entities.Match.update(activeMatch.id, {
         ...mySubmitData,
         status: "awaiting_confirmation",
         first_submission_at: now,
@@ -460,9 +460,9 @@ export default function TournamentDetail() {
       });
       // Notify opponent
       const opponentClubId = isHome ? activeMatch.away_club_id : activeMatch.home_club_id;
-      const opponentPlayers = await base44.entities.Player.filter({ club_id: opponentClubId });
+      const opponentPlayers = await stageClient.entities.Player.filter({ club_id: opponentClubId });
       for (const p of opponentPlayers) {
-        await base44.entities.Notification.create({
+        await stageClient.entities.Notification.create({
           recipient_email: p.email, type: "result_submitted",
           title: "Opponent Submitted Match Result",
           body: `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Your opponent submitted ${submittedScore}. Please confirm within 24h.`,
@@ -470,7 +470,7 @@ export default function TournamentDetail() {
         });
       }
       alert("Result submitted! Your opponent has 24 hours to confirm the score.");
-      const updatedMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+      const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
       setMatches(updatedMatches);
     }
     setResultDialogOpen(false);
@@ -563,7 +563,7 @@ async function handleAgreement(ctx) {
     const loserId = hs < as_ ? activeMatch.away_club_id : as_ == hs ? null  :activeMatch.home_club_id;
     const loser_name = hs < as_ ? activeMatch.away_club_name: as_ == hs ? null : activeMatch.home_club_name;
 
-  await base44.entities.Match.update(activeMatch.id, {
+  await stageClient.entities.Match.update(activeMatch.id, {
     ...mySubmitData,
     home_score: hs,
     away_score: as_,
@@ -586,7 +586,7 @@ async function handleAgreement(ctx) {
 }
 
 async function handleDispute(ctx) {
-  await base44.entities.Match.update(activeMatch.id, {
+  await stageClient.entities.Match.update(activeMatch.id, {
     ...ctx.mySubmitData,
     status: "disputed",
   });
@@ -603,7 +603,7 @@ async function handleDispute(ctx) {
 }
 
 async function handleFirstSubmission(ctx) {
-  await base44.entities.Match.update(activeMatch.id, {
+  await stageClient.entities.Match.update(activeMatch.id, {
     ...ctx.mySubmitData,
     status: "awaiting_confirmation",
     first_submission_at: ctx.now,
@@ -634,7 +634,7 @@ async function savePlayerStats() {
     entries.map(async ([email, stat]) => {
       const player = myClubPlayers.find((p) => p.email === email);
 
-      return base44.entities.MatchPlayerStat.create({
+      return stageClient.entities.MatchPlayerStat.create({
         tournament_id: id,
         match_id: activeMatch.id,
         club_id: myPlayer.club_id,
@@ -656,7 +656,7 @@ async function maybeAdvanceTournament() {
   // swiss_ucl handles its own phase advancement via the UCL Controls panel — never auto-complete it
   if (tournament.type === "swiss_ucl") return;
 
-  const updatedMatches = await base44.entities.Match.filter(
+  const updatedMatches = await stageClient.entities.Match.filter(
     { tournament_id: id },
     "round"
   );
@@ -679,22 +679,22 @@ async function maybeAdvanceTournament() {
       const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && (m.status === "completed" || m.status === "forfeit"));
       if (finalMatch) {
         const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
-        await base44.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
+        await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
         setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
         awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
 
         // Distribute prize pool
         if (tournament.entry_fee_stc > 0) {
           try {
-            await base44.functions.invoke('distributeTournamentPrizes', { tournament_id: id });
+            await stageClient.functions.invoke('distributeTournamentPrizes', { tournament_id: id });
           } catch (err) {
             console.error('Prize distribution failed:', err);
           }
         }
       }
     } else {
-      for (const m of nextRoundMatches) await base44.entities.Match.create({ ...m, tournament_id: id });
-      await base44.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
+      for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+      await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
       setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
     }
   }
@@ -716,14 +716,14 @@ function resetUI() {
 
   async function claimForfeit(match, proofUrl) {
     if (!myPlayer?.club_id) return;
-    await base44.entities.Match.update(match.id, {
+    await stageClient.entities.Match.update(match.id, {
       forfeit_claimed_by: myPlayer.club_id,
       forfeit_proof_url: proofUrl || null,
       forfeit_status: "pending",
       status: "disputed",
       admin_notes: `Forfeit claimed by ${myPlayer.club_id === match.home_club_id ? match.home_club_name : match.away_club_name}`,
     });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     setForfeitDialogOpen(false);
     setForfeitMatch(null);
@@ -739,7 +739,7 @@ function resetUI() {
       winner_club_id: winnerClubId,
       forfeit_status: "approved",
     });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
@@ -751,10 +751,10 @@ function resetUI() {
     const clubs9to24 = standings.slice(8, 24).map(s => ({ id: s.id, name: s.name }));
     if (clubs9to24.length < 16) { alert("Not enough teams ranked 9-24 yet."); return; }
     const playoffMatches = generateUCLPlayoffMatches(clubs9to24);
-    for (const m of playoffMatches) await base44.entities.Match.create({ ...m, tournament_id: id });
-    await base44.entities.Tournament.update(id, { current_round: 9, ucl_phase: "playoff" });
+    for (const m of playoffMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+    await stageClient.entities.Tournament.update(id, { current_round: 9, ucl_phase: "playoff" });
     setTournament(prev => ({ ...prev, current_round: 9, ucl_phase: "playoff" }));
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
   }
 
@@ -777,10 +777,10 @@ function resetUI() {
     }
     const r16Teams = [...top8, ...playoffWinners];
     const r16Matches = generateUCLKnockoutLegs(r16Teams, 11, "ucl_r16");
-    for (const m of r16Matches) await base44.entities.Match.create({ ...m, tournament_id: id });
-    await base44.entities.Tournament.update(id, { current_round: 11, ucl_phase: "r16" });
+    for (const m of r16Matches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+    await stageClient.entities.Tournament.update(id, { current_round: 11, ucl_phase: "r16" });
     setTournament(prev => ({ ...prev, current_round: 11, ucl_phase: "r16" }));
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
   }
 
@@ -804,10 +804,10 @@ function resetUI() {
       legMatches.push({ home_club_id: b.id, home_club_name: b.name, away_club_id: a.id, away_club_name: a.name, round: startRound, type: matchType, group: i, status: "scheduled", home_score: 0, away_score: 0 });
       legMatches.push({ home_club_id: a.id, home_club_name: a.name, away_club_id: b.id, away_club_name: b.name, round: startRound + 1, type: matchType, group: i, status: "scheduled", home_score: 0, away_score: 0 });
     }
-    for (const m of legMatches) await base44.entities.Match.create({ ...m, tournament_id: id });
-    await base44.entities.Tournament.update(id, { current_round: startRound, ucl_phase: phaseLabel });
+    for (const m of legMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
+    await stageClient.entities.Tournament.update(id, { current_round: startRound, ucl_phase: phaseLabel });
     setTournament(prev => ({ ...prev, current_round: startRound, ucl_phase: phaseLabel }));
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
   }
 
@@ -825,26 +825,26 @@ function resetUI() {
     }
     if (finalists.length < 2) { alert("Not enough finalists determined yet."); return; }
     const finalRound = Math.max(...matches.map(m => m.round)) + 1;
-    await base44.entities.Match.create({
+    await stageClient.entities.Match.create({
       home_club_id: finalists[0].id, home_club_name: finalists[0].name,
       away_club_id: finalists[1].id, away_club_name: finalists[1].name,
       round: finalRound, match_type: "final", status: "scheduled", home_score: 0, away_score: 0,
       tournament_id: id,
     });
-    await base44.entities.Tournament.update(id, { current_round: finalRound, ucl_phase: "final" });
+    await stageClient.entities.Tournament.update(id, { current_round: finalRound, ucl_phase: "final" });
     setTournament(prev => ({ ...prev, ucl_phase: "final", current_round: finalRound }));
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
   }
 
   async function refreshMatches() {
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
   }
 
   async function simulateScore(match) {
-    await base44.functions.invoke('simulateScore', { matchId: match.id, tournamentId: id });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, 'round');
+    await stageClient.functions.invoke('simulateScore', { matchId: match.id, tournamentId: id });
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, 'round');
     setMatches(refreshed);
   }
 
@@ -858,7 +858,7 @@ function resetUI() {
     if (!window.confirm(confirmMsg)) return;
     
     const updated = (tournament.registered_clubs || []).filter(cid => cid !== effectiveId);
-    await base44.entities.Tournament.update(tournament.id, { registered_clubs: updated });
+    await stageClient.entities.Tournament.update(tournament.id, { registered_clubs: updated });
     
     const clubData = takeoverClub || allClubs.find(c => c.id === effectiveId);
     if (clubData) {
@@ -866,10 +866,10 @@ function resetUI() {
       const refundStc = entryFeeSTC;
       const newCredits = (clubData.credits || 0) + entryCost;
       const newStc = (clubData.stc || 0) + refundStc;
-      await base44.entities.Club.update(effectiveId, { credits: newCredits, stc: newStc });
+      await stageClient.entities.Club.update(effectiveId, { credits: newCredits, stc: newStc });
       
       if (refundStc > 0) {
-        await base44.entities.STCTransaction.create({
+        await stageClient.entities.STCTransaction.create({
           club_id: effectiveId,
           amount: refundStc,
           type: 'tournament_entry',
@@ -885,22 +885,22 @@ function resetUI() {
 
   async function cancelTournament() {
     if (!window.confirm("Are you sure you want to cancel this tournament? This cannot be undone.")) return;
-    await base44.entities.Tournament.update(id, { status: "cancelled" });
+    await stageClient.entities.Tournament.update(id, { status: "cancelled" });
     setTournament(prev => ({ ...prev, status: "cancelled" }));
 
   }
 
   async function deleteTournament() {
     if (!window.confirm("Permanently DELETE this tournament and all its matches? This cannot be undone.")) return;
-    await base44.entities.Tournament.delete(id);
+    await stageClient.entities.Tournament.delete(id);
     window.location.href = "/tournaments";
   }
 
   async function advanceRound() {
-    await base44.functions.invoke('advanceRound', { tournamentId: id });
-    const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    await stageClient.functions.invoke('advanceRound', { tournamentId: id });
+    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
-    const updated = await base44.entities.Tournament.filter({ id }, null, 1);
+    const updated = await stageClient.entities.Tournament.filter({ id }, null, 1);
     setTournament(updated[0]);
   }
 
@@ -1108,10 +1108,10 @@ function resetUI() {
                 if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
                 const updated = [...(tournament.registered_players || []), myPlayer.id];
                 if (entryCost > 0) {
-                  const res = await base44.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
+                  const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
                   setMyPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
                 }
-                await base44.entities.Tournament.update(tournament.id, { registered_players: updated });
+                await stageClient.entities.Tournament.update(tournament.id, { registered_players: updated });
                 setTournament(prev => ({ ...prev, registered_players: updated }));
               }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}>
                 <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits)</span>
@@ -1257,14 +1257,14 @@ function resetUI() {
                       const choice = window.confirm(`Tie! ${leg1.home_club_name} vs ${leg1.away_club_name} (agg ${agg_A}-${agg_B}).\n\nClick OK if ${leg1.home_club_name} hosts leg 3.\nClick Cancel if ${leg1.away_club_name} hosts leg 3.`);
                       const homeClub = choice ? { id: leg1.home_club_id, name: leg1.home_club_name } : { id: leg1.away_club_id, name: leg1.away_club_name };
                       const awayClub = choice ? { id: leg1.away_club_id, name: leg1.away_club_name } : { id: leg1.home_club_id, name: leg1.home_club_name };
-                      await base44.entities.Match.create({
+                      await stageClient.entities.Match.create({
                         home_club_id: homeClub.id, home_club_name: homeClub.name,
                         away_club_id: awayClub.id, away_club_name: awayClub.name,
                         round: maxRound + 1, type: mType, group: parseInt(group),
                         status: "scheduled", home_score: 0, away_score: 0, tournament_id: id,
                         notes: "Leg 3 (tie-breaker)",
                       });
-                      const refreshed = await base44.entities.Match.filter({ tournament_id: id }, "round");
+                      const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
                       setMatches(refreshed);
                     }}
                     className="bg-warning/10 text-warning border border-warning/30 text-xs leading-relaxed animate-pulse">
@@ -1774,7 +1774,7 @@ function resetUI() {
               <Button
                 onClick={async () => {
                   if (streamUrl.trim()) {
-                    await base44.entities.Match.update(streamMatch.id, { stream_url: streamUrl });
+                    await stageClient.entities.Match.update(streamMatch.id, { stream_url: streamUrl });
                     setMatches(prev => prev.map(m => m.id === streamMatch.id ? { ...m, stream_url: streamUrl } : m));
                   }
                   setStreamDialogOpen(false);

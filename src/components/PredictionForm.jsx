@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Zap, Target } from "lucide-react";
@@ -19,7 +19,7 @@ export default function PredictionForm({ matchId, homePlayerName, awayPlayerName
       if (homeScoreInt > awayScoreInt) result = "H"; // Home wins
       else if (awayScoreInt > homeScoreInt) result = "A"; // Away wins
 
-      await base44.entities.Prediction.create({
+      await stageClient.entities.Prediction.create({
         live_match_id: matchId,
         predictor_email: userEmail,
         predictor_name: userName,

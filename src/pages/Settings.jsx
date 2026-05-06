@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -263,7 +263,7 @@ export default function Settings() {
 
   useEffect(() => {
     async function loadUser() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const currentTheme = localStorage.getItem("stage-theme");
       setTheme(currentTheme || "theme-dark");
@@ -297,14 +297,14 @@ export default function Settings() {
     const file = e.target.files[0];
     if (!file) return;
     setLoading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setBackgroundImage(file_url);
     setLoading(false);
   }
 
   async function handleSave() {
     setLoading(true);
-    await base44.auth.updateMe({
+    await stageClient.auth.updateMe({
       language: localLanguage,
       customPrimaryColor,
       customGradientColor,
@@ -332,7 +332,7 @@ export default function Settings() {
     
     setPasswordLoading(true);
     try {
-      await base44.functions.invoke("changePassword", {
+      await stageClient.functions.invoke("changePassword", {
         current_password: currentPassword,
         new_password: newPassword,
       });
@@ -837,8 +837,8 @@ export default function Settings() {
               disabled={deleteConfirm !== "DELETE" || deleting}
               onClick={async () => {
                 setDeleting(true);
-                await base44.functions.invoke("deleteAccount", {});
-                await base44.auth.logout("/");
+                await stageClient.functions.invoke("deleteAccount", {});
+                await stageClient.auth.logout("/");
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >

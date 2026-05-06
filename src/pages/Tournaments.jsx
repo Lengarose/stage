@@ -77,7 +77,7 @@ export default function Tournaments() {
       if (adminUser) {
         setCanCreate(true);
       } else {
-        const players = await base44.entities.Player.filter({ email: user.email });
+        const players = await stageClient.entities.Player.filter({ email: user.email });
         const player = players[0];
         setMyPlayer(player);
         const tier = player?.subscription || "rookie";
@@ -108,14 +108,14 @@ export default function Tournaments() {
     setBannerEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
     setUploadingBanner(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file: bannerFile });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
     setForm(f => ({ ...f, banner_url: file_url }));
     setBannerPreview(file_url);
     setUploadingBanner(false);
   }
 
   async function createTournament() {
-    const user = await base44.auth.me();
+    const user = await stageClient.auth.me();
     if (user.role !== "admin") {
       const tier = myPlayer?.subscription || "rookie";
       if (!["pro", "elite"].includes(tier)) { alert("Pro/Elite required to create tournaments."); return; }

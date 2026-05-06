@@ -34,8 +34,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     async function loadSeated() {
       if (!myClub) { setLoadingPlayers(false); return; }
       const [dressing, allPlayers] = await Promise.all([
-        base44.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        base44.entities.Player.filter({ club_id: myClub.id }),
+        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.Player.filter({ club_id: myClub.id }),
       ]);
       const seatedIds = dressing?.[0]?.seated_players || [];
       const seated    = seatedIds.length > 0

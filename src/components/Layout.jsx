@@ -8,7 +8,7 @@ import {
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
@@ -367,7 +367,7 @@ function HeaderIdentityMenu({
         <DropdownMenuItem
           className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
           style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          onClick={() => base44.auth.logout()}
+          onClick={() => stageClient.auth.logout()}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           Logout
@@ -406,18 +406,18 @@ export default function Layout() {
 
   useEffect(() => {
     (async () => {
-      if (!await base44.auth.isAuthenticated()) return;
-      const u = await base44.auth.me();
+      if (!await stageClient.auth.isAuthenticated()) return;
+      const u = await stageClient.auth.me();
       if (u?.role === "admin") setIsAdmin(true);
     })();
   }, []);
 
   useEffect(() => {
     (async () => {
-      if (!await base44.auth.isAuthenticated()) return;
-      const u = await base44.auth.me();
+      if (!await stageClient.auth.isAuthenticated()) return;
+      const u = await stageClient.auth.me();
       if (!u) return;
-      const clubs = await base44.entities.Club.filter({ owner_email: u.email });
+      const clubs = await stageClient.entities.Club.filter({ owner_email: u.email });
       const c = clubs?.[0];
       if (c?.id) {
         setMyClubId(c.id);
@@ -431,9 +431,9 @@ export default function Layout() {
 
   useEffect(() => {
     (async () => {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       if (!u) return;
-      const players = await base44.entities.Player.filter({ email: u.email });
+      const players = await stageClient.entities.Player.filter({ email: u.email });
       const p = players?.[0];
       if (!p) return;
       setMyPlayer(p);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { LIFESTYLE_CATEGORIES } from "@/lib/lifestyleItems";
 import { cn } from "@/lib/utils";
 import { Package, TrendingUp, Coins } from "lucide-react";
@@ -13,8 +13,8 @@ export default function PlayerLifestyleTab({ player }) {
     async function load() {
       if (!player?.id) return;
       const [owned, catalog] = await Promise.all([
-        base44.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 50),
-        base44.entities.LifestyleItem.filter({ is_active: true }, "sort_order", 100),
+        stageClient.entities.LifestylePurchase.filter({ player_id: player.id }, "-created_date", 50),
+        stageClient.entities.LifestyleItem.filter({ is_active: true }, "sort_order", 100),
       ]);
       setPurchases(owned);
       setItems(catalog);

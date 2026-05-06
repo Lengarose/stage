@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { User } from "lucide-react";
 
 export default function PlayerRegistrantList({ playerIds }) {
@@ -8,7 +8,7 @@ export default function PlayerRegistrantList({ playerIds }) {
 
   useEffect(() => {
     if (!playerIds?.length) return;
-    Promise.all(playerIds.map(id => base44.entities.Player.filter({ id }, null, 1).then(r => r[0]))).then(results => {
+    Promise.all(playerIds.map(id => stageClient.entities.Player.filter({ id }, null, 1).then(r => r[0]))).then(results => {
       setPlayers(results.filter(Boolean));
     });
   }, [playerIds?.join(",")]);

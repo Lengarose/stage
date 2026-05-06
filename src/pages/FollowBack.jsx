@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FollowedClubRow from "@/components/followback/FollowedClubRow";
 import FollowedPlayerRow from "@/components/followback/FollowedPlayerRow";
@@ -16,14 +16,14 @@ export default function FollowBack() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
       if (!user) return;
 
       const [playerRes, followRes, scheduledRes, liveRes] = await Promise.all([
-        base44.entities.Player.filter({ email: user.email }),
-        base44.entities.Follow.filter({ follower_email: user.email }),
-        base44.entities.Match.filter({ status: "scheduled" }, "-scheduled_date", 200),
-        base44.entities.Match.filter({ status: "in_progress" }, "-scheduled_date", 50),
+        stageClient.entities.Player.filter({ email: user.email }),
+        stageClient.entities.Follow.filter({ follower_email: user.email }),
+        stageClient.entities.Match.filter({ status: "scheduled" }, "-scheduled_date", 200),
+        stageClient.entities.Match.filter({ status: "in_progress" }, "-scheduled_date", 50),
       ]);
 
       const player = playerRes[0];
@@ -36,10 +36,10 @@ export default function FollowBack() {
 
       const [clubResults, playerResults] = await Promise.all([
         clubFollows.length > 0
-          ? Promise.all(clubFollows.map(f => base44.entities.Club.filter({ id: f.target_id }).then(r => r[0])))
+          ? Promise.all(clubFollows.map(f => stageClient.entities.Club.filter({ id: f.target_id }).then(r => r[0])))
           : Promise.resolve([]),
         playerFollows.length > 0
-          ? Promise.all(playerFollows.map(f => base44.entities.Player.filter({ id: f.target_id }).then(r => r[0])))
+          ? Promise.all(playerFollows.map(f => stageClient.entities.Player.filter({ id: f.target_id }).then(r => r[0])))
           : Promise.resolve([]),
       ]);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -135,7 +135,7 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPhotoUrl(file_url);
     setUploading(false);
   }
@@ -227,7 +227,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    base44.entities.PressQuestion.filter({ category: "tournament_winner" }, null, 50)
+    stageClient.entities.PressQuestion.filter({ category: "tournament_winner" }, null, 50)
       .then(qs => {
         setQuestions(shuffle(qs).slice(0, 3));
         setLoading(false);
@@ -260,7 +260,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
     }));
 
     // Create press article with tournament visibility
-    const article = await base44.entities.PressArticle.create({
+    const article = await stageClient.entities.PressArticle.create({
       press_conference_id: "",
       headline,
       player_name: winnerClub.name,
@@ -280,7 +280,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
     });
 
     // Idempotency record
-    await base44.entities.PressConference.create({
+    await stageClient.entities.PressConference.create({
       match_id: tournament.id,
       context: "tournament_winner",
       tournament_id: tournament.id,
@@ -294,7 +294,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
     });
 
     // Post in Feed — visible to followers of winner club
-    await base44.entities.Post.create({
+    await stageClient.entities.Post.create({
       author_email: user.email,
       author_name: winnerClub.name,
       author_avatar: winnerClub.logo_url || null,

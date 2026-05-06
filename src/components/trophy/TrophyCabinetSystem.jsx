@@ -9,7 +9,7 @@
  *   wonTournaments — array of Tournament records the owner has won
  */
 import { useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Pencil, Check, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TrophyCabinetCanvas from "./TrophyCabinetCanvas";
@@ -27,8 +27,8 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
     if (!ownerId) return;
     async function load() {
       const [lib, placed] = await Promise.all([
-        base44.entities.TrophyItem.list("sort_order", 200),
-        base44.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
+        stageClient.entities.TrophyItem.list("sort_order", 200),
+        stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
       ]);
       setAllTrophies(lib);
       setPlacements(placed);
@@ -61,7 +61,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
     // Check if already placed — if so, just update position
     const existing = placements.find(p => p.trophy_item_id === trophy.id);
     if (existing) {
-      const updated = await base44.entities.TrophyPlacement.update(existing.id, {
+      const updated = await stageClient.entities.TrophyPlacement.update(existing.id, {
         x_percent: pos.x,
         y_percent: pos.y,
       });
@@ -73,7 +73,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
     // Create new placement
     const winCount = unlockedMap[trophy.id]?.length || 1;
     const wonIds = (unlockedMap[trophy.id] || []).map(t => t.id);
-    const newPlacement = await base44.entities.TrophyPlacement.create({
+    const newPlacement = await stageClient.entities.TrophyPlacement.create({
       owner_id: ownerId,
       owner_type: ownerType,
       trophy_item_id: trophy.id,
@@ -97,13 +97,13 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   // Save to DB only when drag ends or scale buttons clicked
   async function handleMovePlacedSave(placementId, changes) {
     setPlacements(prev => prev.map(p => p.id === placementId ? { ...p, ...changes } : p));
-    await base44.entities.TrophyPlacement.update(placementId, changes);
+    await stageClient.entities.TrophyPlacement.update(placementId, changes);
   }
 
   // Remove a placed trophy
   async function handleRemovePlaced(placementId) {
     setPlacements(prev => prev.filter(p => p.id !== placementId));
-    await base44.entities.TrophyPlacement.delete(placementId);
+    await stageClient.entities.TrophyPlacement.delete(placementId);
   }
 
   if (loading) {

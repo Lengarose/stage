@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { stageClient } from '@/api/stageClient';
 
 // Import all translation files
 import en from '../translations/en.json';
@@ -23,9 +23,9 @@ export function TranslationProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('language', language);
     // Also save to user profile
-    base44.auth.me().then(user => {
+    stageClient.auth.me().then(user => {
       if (user) {
-        base44.auth.updateMe({ language });
+        stageClient.auth.updateMe({ language });
       }
     }).catch(() => {});
   }, [language]);

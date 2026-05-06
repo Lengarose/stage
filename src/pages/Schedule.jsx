@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import ScheduleList from "../components/schedule/ScheduleList";
 import MatchDetail from "../components/schedule/MatchDetail";
@@ -25,14 +25,14 @@ export default function Schedule() {
 
   async function load() {
     setLoading(true);
-    const u = await base44.auth.me().catch(() => null);
+    const u = await stageClient.auth.me().catch(() => null);
     if (!u) { setLoading(false); return; }
     setUser(u);
 
     const [players, tournaments, contracts] = await Promise.all([
-      base44.entities.Player.filter({ email: u.email }),
-      base44.entities.Tournament.list("-created_date", 100),
-      base44.entities.PlayerContract.list("-created_date", 50),
+      stageClient.entities.Player.filter({ email: u.email }),
+      stageClient.entities.Tournament.list("-created_date", 100),
+      stageClient.entities.PlayerContract.list("-created_date", 50),
     ]);
 
     const player = players?.[0] || null;
@@ -42,8 +42,8 @@ export default function Schedule() {
     let clubPlayers = [];
     if (player?.club_id) {
       const [clubs, cPlayers] = await Promise.all([
-        base44.entities.Club.filter({ id: player.club_id }),
-        base44.entities.Player.filter({ club_id: player.club_id }),
+        stageClient.entities.Club.filter({ id: player.club_id }),
+        stageClient.entities.Player.filter({ club_id: player.club_id }),
       ]);
       club = clubs?.[0] || null;
       clubPlayers = cPlayers || [];
@@ -55,14 +55,14 @@ export default function Schedule() {
     const matchFilters = [];
     if (club?.id) {
       matchFilters.push(
-        base44.entities.Match.filter({ home_club_id: club.id }, "-scheduled_date", 50),
-        base44.entities.Match.filter({ away_club_id: club.id }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ home_club_id: club.id }, "-scheduled_date", 50),
+        stageClient.entities.Match.filter({ away_club_id: club.id }, "-scheduled_date", 50),
       );
     }
     if (player?.id) {
       matchFilters.push(
-        base44.entities.Match.filter({ home_player_id: player.id }, "-scheduled_date", 30),
-        base44.entities.Match.filter({ away_player_id: player.id }, "-scheduled_date", 30),
+        stageClient.entities.Match.filter({ home_player_id: player.id }, "-scheduled_date", 30),
+        stageClient.entities.Match.filter({ away_player_id: player.id }, "-scheduled_date", 30),
       );
     }
 
@@ -83,7 +83,7 @@ export default function Schedule() {
     // Fetch stats for all matches (batch)
     let allStats = [];
     if (player?.email && matchIds.length > 0) {
-      allStats = await base44.entities.MatchPlayerStat.filter({ player_email: player.email }, "-created_date", 200).catch(() => []);
+      allStats = await stageClient.entities.MatchPlayerStat.filter({ player_email: player.email }, "-created_date", 200).catch(() => []);
     }
     const statsByMatch = new Map(allStats.map(s => [s.match_id, s]));
 
@@ -105,10 +105,10 @@ export default function Schedule() {
     // Fetch player avatars and club logos in parallel
     const [soloPlayersData, clubsData] = await Promise.all([
       soloPlayerIds.size > 0
-        ? Promise.all([...soloPlayerIds].map(pid => base44.entities.Player.filter({ id: pid }).catch(() => []))).then(r => r.flat())
+        ? Promise.all([...soloPlayerIds].map(pid => stageClient.entities.Player.filter({ id: pid }).catch(() => []))).then(r => r.flat())
         : Promise.resolve([]),
       clubIds.size > 0
-        ? Promise.all([...clubIds].map(cid => base44.entities.Club.filter({ id: cid }).catch(() => []))).then(r => r.flat())
+        ? Promise.all([...clubIds].map(cid => stageClient.entities.Club.filter({ id: cid }).catch(() => []))).then(r => r.flat())
         : Promise.resolve([]),
     ]);
     const playerAvatarMap = new Map(soloPlayersData.map(p => [p.id, p.avatar_url]));

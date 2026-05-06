@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import TrophyCabinetSystem from "@/components/trophy/TrophyCabinetSystem";
 
 // Player trophies from solo tournament wins
@@ -9,7 +9,7 @@ export default function PlayerTrophyCabinet({ player, currentUserEmail }) {
 
   useEffect(() => {
     async function load() {
-      const all = await base44.entities.Tournament.filter({ status: "completed" }, "-updated_date", 200);
+      const all = await stageClient.entities.Tournament.filter({ status: "completed" }, "-updated_date", 200);
       setWonTournaments(all.filter(t => t.winner_player_id === player.id));
       setLoading(false);
     }
@@ -43,7 +43,7 @@ export function ClubTrophyCabinetDisplay({ clubId, currentUserEmail, club, canEd
 
   useEffect(() => {
     async function load() {
-      const won = await base44.entities.Tournament.filter({ winner_club_id: clubId, status: "completed" });
+      const won = await stageClient.entities.Tournament.filter({ winner_club_id: clubId, status: "completed" });
       setWonTournaments(won);
       setLoading(false);
     }

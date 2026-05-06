@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { User, Shield, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,19 +22,19 @@ export default function FreeAgents() {
 
   useEffect(() => {
     async function load() {
-      const u = await base44.auth.me();
+      const u = await stageClient.auth.me();
       setUser(u);
       const [allPlayers, myPlayer, allClubs] = await Promise.all([
-        base44.entities.Player.filter({ status: "free_agent" }),
-        base44.entities.Player.filter({ email: u.email }),
-        base44.entities.Club.list(null, 500),
+        stageClient.entities.Player.filter({ status: "free_agent" }),
+        stageClient.entities.Player.filter({ email: u.email }),
+        stageClient.entities.Club.list(null, 500),
       ]);
       const ownerEmails = new Set(allClubs.map(c => c.owner_email).filter(Boolean));
       // Only show players with no club AND who don't own a club
       const trueAgents = allPlayers.filter(p => !p.club_id && !ownerEmails.has(p.email));
       setPlayers(trueAgents);
       if (myPlayer[0]?.club_id) {
-        const clubs = await base44.entities.Club.filter({ id: myPlayer[0].club_id });
+        const clubs = await stageClient.entities.Club.filter({ id: myPlayer[0].club_id });
         if (clubs[0]) setMyClub(clubs[0]);
       }
       setLoading(false);
@@ -44,7 +44,7 @@ export default function FreeAgents() {
 
   async function invite(player) {
     if (!myClub) return;
-    await base44.entities.Notification.create({
+    await stageClient.entities.Notification.create({
       recipient_email: player.email,
       type: "invite",
       title: `${myClub.name} wants you!`,

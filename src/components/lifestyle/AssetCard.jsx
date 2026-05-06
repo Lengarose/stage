@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
@@ -36,7 +36,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
   async function handleCancelRent() {
     setCancelling(true);
     try {
-      await base44.entities.LifestylePurchase.update(purchase.id, { rent_active: false });
+      await stageClient.entities.LifestylePurchase.update(purchase.id, { rent_active: false });
       showNotif("Rental cancelled.", "success");
       onCancelRent?.(purchase.id);
     } catch (err) {
@@ -70,7 +70,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
     }
     setUpgrading(upgradeId);
     try {
-      const res = await base44.functions.invoke("upgradeLifestyleAsset", {
+      const res = await stageClient.functions.invoke("upgradeLifestyleAsset", {
         purchase_id: purchase.id,
         upgrade_id: upgradeId,
       });

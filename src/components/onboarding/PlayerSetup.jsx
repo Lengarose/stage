@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
@@ -20,39 +20,43 @@ export default function PlayerSetup({ onComplete, user }) {
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const avatarInputRef = useRef();
 
   async function uploadAvatar(e) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setPendingAvatar(file_url);
     setUploading(false);
     e.target.value = "";
   }
 
   async function handleSave() {
-    if (!gamertag || !country || !avatarUrl) return;
+    if (!gamertag || !country) return;
     setSaving(true);
+    setError(null);
     try {
       const foundCountry = COUNTRIES.find(c => c.name === country);
-      await base44.entities.Player.create({
+      const created = await stageClient.entities.Player.create({
+        user_id: user.id,
         gamertag,
         email: user.email,
         position,
         country,
         country_code: foundCountry?.code || "",
-        avatar_url: avatarUrl,
+        avatar_url: avatarUrl || undefined,
         avatar_position: avatarPosition,
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
         stc: 50000,
       });
       setSaving(false);
-      onComplete();
+      onComplete(created);
     } catch (err) {
       console.error("Failed to save player:", err);
+      setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
       setSaving(false);
     }
   }
@@ -117,9 +121,15 @@ export default function PlayerSetup({ onComplete, user }) {
         </div>
       </div>
 
+      {error && (
+        <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
+
       <button
         onClick={handleSave}
-        disabled={saving || !gamertag || !country || !avatarUrl}
+        disabled={saving || !gamertag || !country}
         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 disabled:opacity-40 transition-all shadow-lg"
       >
         {saving ? (
