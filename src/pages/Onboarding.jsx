@@ -60,12 +60,21 @@ export default function Onboarding({ onComplete }) {
     })();
   }, []);
 
-  const handlePlayerComplete = async () => {
+  const handlePlayerComplete = async (optimisticPlayer = null) => {
     try {
       const updated = await stageClient.entities.Player.filter({ email: user.email });
-      if (updated[0]) { setPlayer(updated[0]); setStep("club"); }
+      if (updated[0]) {
+        setPlayer(updated[0]);
+      } else if (optimisticPlayer) {
+        setPlayer(optimisticPlayer);
+      }
+      setStep("club");
     } catch (err) {
       console.error(err);
+      if (optimisticPlayer) {
+        setPlayer(optimisticPlayer);
+        setStep("club");
+      }
     }
   };
 

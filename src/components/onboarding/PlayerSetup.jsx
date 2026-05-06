@@ -20,6 +20,7 @@ export default function PlayerSetup({ onComplete, user }) {
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const avatarInputRef = useRef();
 
   async function uploadAvatar(e) {
@@ -34,6 +35,7 @@ export default function PlayerSetup({ onComplete, user }) {
 
   async function handleSave() {
     if (!gamertag || !country || !avatarUrl) return;
+    setSaveError("");
     setSaving(true);
     try {
       const foundCountry = COUNTRIES.find(c => c.name === country);
@@ -77,15 +79,15 @@ export default function PlayerSetup({ onComplete, user }) {
         }
       }
 
-      const verify = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
-      if (!verify?.length) {
-        throw new Error("Player profile was not saved yet. Please retry.");
-      }
-
       setSaving(false);
-      onComplete();
+      onComplete?.({
+        ...payload,
+        id: existing?.[0]?.id || null,
+      });
     } catch (err) {
       console.error("Failed to save player:", err);
+      const msg = String(err?.data?.error || err?.data?.message || err?.message || "Could not save profile.");
+      setSaveError(msg);
       setSaving(false);
     }
   }
@@ -161,6 +163,11 @@ export default function PlayerSetup({ onComplete, user }) {
           </span>
         ) : "Continue to Club Setup →"}
       </button>
+      {saveError && (
+        <p className="text-xs text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
+          {saveError}
+        </p>
+      )}
 
       <ImagePositionEditor
         open={!!pendingAvatar}

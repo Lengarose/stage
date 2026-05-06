@@ -46,20 +46,46 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleDateString() : "the proposed date"}.`,
           "/schedule"
         );
-        // Create the scheduled match from the invitation metadata
-        const isClub = meta.invitation_type === "club_vs_club";
+        // Create the scheduled match from the invitation metadata.
+        // If legacy invite metadata lacks ids, resolve them from sender/recipient emails.
+        const [senderPlayers, recipientPlayers] = await Promise.all([
+          message.sender_email ? stageClient.entities.Player.filter({ email: message.sender_email }, null, 1).catch(() => []) : Promise.resolve([]),
+          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const senderPlayer = senderPlayers?.[0] || null;
+        const recipientPlayer = recipientPlayers?.[0] || null;
+
+        const home_player_id = meta.challenger_player_id || senderPlayer?.id || null;
+        const away_player_id = meta.opponent_player_id || recipientPlayer?.id || null;
+        const home_club_id = meta.challenger_club_id || senderPlayer?.club_id || null;
+        const away_club_id = meta.opponent_club_id || recipientPlayer?.club_id || null;
+
+        const isClub = meta.invitation_type === "club_vs_club" || (!!home_club_id && !!away_club_id);
+
+        const [homeClubRows, awayClubRows] = await Promise.all([
+          home_club_id ? stageClient.entities.Club.filter({ id: home_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
+          away_club_id ? stageClient.entities.Club.filter({ id: away_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const homeClub = homeClubRows?.[0] || null;
+        const awayClub = awayClubRows?.[0] || null;
+
+        // Guard against creating broken rows with every identity field null.
+        if (!home_player_id && !away_player_id && !home_club_id && !away_club_id) {
+          throw new Error("Cannot schedule match: invitation is missing challenger/opponent ids.");
+        }
+
         await stageClient.entities.Match.create({
           status:           "scheduled",
           mode:             isClub ? "club" : "solo",
           scheduled_date:   meta.scheduled_date || null,
-          home_club_id:     meta.challenger_club_id   || null,
-          home_club_name:   isClub ? meta.challenger_name : null,
-          away_club_id:     meta.opponent_club_id     || null,
-          away_club_name:   isClub ? meta.opponent_name  : null,
-          home_player_id:   meta.challenger_player_id || null,
-          home_player_name: !isClub ? meta.challenger_name : null,
-          away_player_id:   meta.opponent_player_id   || null,
-          away_player_name: !isClub ? meta.opponent_name  : null,
+          home_club_id,
+          home_club_name:   isClub ? (meta.challenger_name || homeClub?.name || null) : null,
+          away_club_id,
+          away_club_name:   isClub ? (meta.opponent_name || awayClub?.name || null) : null,
+          home_player_id,
+          home_player_name: !isClub ? (meta.challenger_name || senderPlayer?.gamertag || null) : null,
+          away_player_id,
+          away_player_name: !isClub ? (meta.opponent_name || recipientPlayer?.gamertag || null) : null,
           wager_stc:        meta.wager_stc || 0,
           wager_status:     (meta.wager_stc || 0) > 0 ? "pending_acceptance" : null,
           wager_home_locked: (meta.wager_stc || 0) > 0,
@@ -129,8 +155,15 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
     onDeleted(message.id);
   }
 
-  const hasAction = message.action_type && message.action_type !== "none" && message.status === "pending";
-  const isActioned = message.action_type && message.action_type !== "none" && message.status !== "pending";
+  const status = message.status || "pending";
+  // Some older/legacy messages were created without action_type even when they
+  // require accept/decline controls (notably match_invite).
+  const effectiveActionType =
+    message.action_type && message.action_type !== "none"
+      ? message.action_type
+      : (message.message_type === "match_invite" ? "accept_decline_date" : "none");
+  const hasAction = effectiveActionType !== "none" && status === "pending";
+  const isActioned = effectiveActionType !== "none" && status !== "pending";
 
   return (
     <div className="flex flex-col h-full">
@@ -221,9 +254,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         {isActioned && (
           <span className={cn(
             "inline-block mt-2 text-xs px-2 py-0.5 rounded border font-medium",
-            STATUS_COLORS[message.status] || STATUS_COLORS.pending
+            STATUS_COLORS[status] || STATUS_COLORS.pending
           )}>
-            {message.status.replace(/_/g, " ")}
+            {status.replace(/_/g, " ")}
           </span>
         )}
       </div>
@@ -292,7 +325,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             Your response required
           </p>
           <div className="flex flex-wrap gap-2">
-            {(message.action_type === "accept_decline" || message.action_type === "accept_decline_date") && (
+            {(effectiveActionType === "accept_decline" || effectiveActionType === "accept_decline_date") && (
               <>
                 <Button
                   size="sm"
@@ -315,7 +348,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 </Button>
               </>
             )}
-            {message.action_type === "confirm" && (
+            {effectiveActionType === "confirm" && (
               <Button
                 size="sm"
                 onClick={() => handleAction("confirmed")}
@@ -326,7 +359,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 {loading === "confirmed" ? "Confirming…" : "Confirm"}
               </Button>
             )}
-            {message.action_type === "accept_decline_date" && (
+            {effectiveActionType === "accept_decline_date" && (
               <>
                 {showDatePicker ? (
                   <div className="flex flex-col gap-2 w-full">

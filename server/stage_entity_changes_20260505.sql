@@ -37,6 +37,42 @@ SET @sql = IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Ensure inbox_messages can store invite action metadata (needed for scheduling IDs)
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'inbox_messages' AND COLUMN_NAME = 'action_type') = 0,
+  'ALTER TABLE inbox_messages ADD COLUMN action_type VARCHAR(100)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'inbox_messages' AND COLUMN_NAME = 'sender_gamertag') = 0,
+  'ALTER TABLE inbox_messages ADD COLUMN sender_gamertag VARCHAR(255)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'inbox_messages' AND COLUMN_NAME = 'sender_avatar_url') = 0,
+  'ALTER TABLE inbox_messages ADD COLUMN sender_avatar_url TEXT',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'inbox_messages' AND COLUMN_NAME = 'sender_club_name') = 0,
+  'ALTER TABLE inbox_messages ADD COLUMN sender_club_name VARCHAR(255)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'inbox_messages' AND COLUMN_NAME = 'metadata') = 0,
+  'ALTER TABLE inbox_messages ADD COLUMN metadata JSON',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @sql = IF(
   (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'source_fixture_type') = 0,
   'ALTER TABLE matches ADD COLUMN source_fixture_type VARCHAR(50)',
