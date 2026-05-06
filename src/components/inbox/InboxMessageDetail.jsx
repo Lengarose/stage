@@ -22,6 +22,13 @@ const STATUS_COLORS = {
   pending:               "text-muted-foreground bg-muted border-border",
 };
 
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
 export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
   const [loading, setLoading] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -38,7 +45,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       // Update this message's status
       await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
 
-      const meta = message.metadata || {};
+      const meta = typeof message.metadata === "string"
+        ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
+        : (message.metadata || {});
 
       if (action === "accepted" && message.message_type === "match_invite") {
         notify(message.sender_email, "match_scheduled",
@@ -77,7 +86,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         await stageClient.entities.Match.create({
           status:           "scheduled",
           mode:             isClub ? "club" : "solo",
-          scheduled_date:   meta.scheduled_date || null,
+          scheduled_date:   toMysqlDateTime(meta.scheduled_date),
           home_club_id,
           home_club_name:   isClub ? (meta.challenger_name || homeClub?.name || null) : null,
           away_club_id,
@@ -92,9 +101,15 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         });
         // Notify the challenger that their invite was accepted
         if (message.sender_email) {
+          const responderName = myGamertag || recipientPlayer?.gamertag || message.recipient_email || "Player";
+          const responderAvatar = recipientPlayer?.avatar_url || "";
+          const responderClubName = awayClub?.name || recipientPlayer?.club_name || null;
           await stageClient.entities.InboxMessage.create({
             recipient_email: message.sender_email,
             sender_email:    message.recipient_email,
+            sender_gamertag: responderName,
+            sender_avatar_url: responderAvatar,
+            sender_club_name: responderClubName,
             subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
             body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleString() : "TBD"}\n\nThe match has been added to your schedule.`,
             message_type:    "match_invite_response",
@@ -111,9 +126,16 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           `${meta.opponent_name} has declined your match invitation.`,
           "/inbox"
         );
+        const [recipientPlayers] = await Promise.all([
+          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
+        ]);
+        const responder = recipientPlayers?.[0] || null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,
           sender_email:    message.recipient_email,
+          sender_gamertag: myGamertag || responder?.gamertag || message.recipient_email || "Player",
+          sender_avatar_url: responder?.avatar_url || "",
+          sender_club_name: null,
           subject:         `❌ Match Declined: ${meta.challenger_name} vs ${meta.opponent_name}`,
           body:            `${meta.opponent_name} has declined your match invitation.`,
           message_type:    "match_invite_response",
@@ -125,7 +147,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
       if (action === "date_change_requested" && message.sender_email) {
         const newDate = rescheduleDate && rescheduleTime
-          ? new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString()
+          ? toMysqlDateTime(new Date(`${rescheduleDate}T${rescheduleTime}:00`))
           : null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,

@@ -1,6 +1,22 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  const asString = String(value).trim();
+  // Already MySQL-friendly: YYYY-MM-DD HH:MM:SS
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(asString)) return asString;
+  // Convert ISO (e.g. 2026-05-09T13:30:00.000Z)
+  const parsed = new Date(asString);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  return null;
+}
+
 class Match {
   constructor(body = {}) {
     this.id                = body.id;
@@ -17,7 +33,7 @@ class Match {
     this.type              = body.type;
     this.round             = body.round;
     this.tournament_id     = body.tournament_id;
-    this.scheduled_date    = body.scheduled_date;
+    this.scheduled_date    = toMysqlDateTime(body.scheduled_date);
     this.wager_stc         = body.wager_stc;
     this.wager_status      = body.wager_status;
     this.wager_home_locked = body.wager_home_locked;

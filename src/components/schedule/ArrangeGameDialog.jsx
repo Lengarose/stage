@@ -9,6 +9,13 @@ import { cn } from "@/lib/utils";
 
 const STEPS = ["search", "details", "confirm"];
 
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const [step, setStep] = useState("search");
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,7 +77,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
     try {
       const localDateTime = new Date(`${date}T${time}:00`);
-      const scheduledDate = localDateTime.toISOString();
+      const scheduledDate = toMysqlDateTime(localDateTime);
 
       const senderIsClub   = searchType === "club";
       const recipientIsClub = searchType === "club";

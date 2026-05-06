@@ -1,5 +1,6 @@
 // Drop-in replacement for the Base44 SDK — mirrors the same API surface
 // so zero changes are needed in any component file.
+import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 const API_BASE = (viteEnv && viteEnv.VITE_API_BASE) || '/api/stage';
@@ -79,16 +80,73 @@ function entityToPath(name) {
   return `/${kebab}s`;
 }
 
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // ── Entity CRUD factory ────────────────────────────────────────────────────────
 function makeEntity(name) {
   const base = entityToPath(name);
+  const normalizeBody = (body) => {
+    if (!body || typeof body !== 'object') return body;
+    const next = { ...body };
+    // Defensive frontend normalization for MySQL DATETIME columns.
+    if (name === 'Match' && next.scheduled_date) {
+      next.scheduled_date = toMysqlDateTime(next.scheduled_date);
+    }
+    return next;
+  };
   const list = async (orderBy = null, limit = 200) => {
     return makeEntityApi.filter({}, orderBy, limit);
   };
 
-  // Compatibility stub for old Base44 real-time subscriptions.
-  // Components keep working without runtime crashes; live updates are handled elsewhere.
-  const subscribe = (_handler) => () => {};
+  const subscribe = (handler) => {
+    const knownIds = new Set();
+    let disposed = false;
+    let channel = null;
+
+    (async () => {
+      try {
+        // Current backend emits room-scoped updates. For now, wire entities that
+        // are reliably user-scoped in the existing app.
+        const me = await auth.me().catch(() => null);
+        if (disposed || !me?.email) return;
+
+        if (name === "Notification") {
+          channel = makeChannel(me.email, CHANNELS.NOTIFICATION);
+        } else if (name === "InboxMessage") {
+          channel = makeChannel(me.email, CHANNELS.INBOX);
+        } else {
+          // Keep compatibility for unsupported entities.
+          return;
+        }
+
+        setSocketListeners(channel, (payload) => {
+          if (!payload || disposed) return;
+          if (payload.deleted) {
+            handler?.({ type: "delete", id: payload.id, data: payload });
+            return;
+          }
+          const id = payload.id;
+          const type = id && !knownIds.has(id) ? "create" : "update";
+          if (id) knownIds.add(id);
+          handler?.({ type, id, data: payload });
+        });
+      } catch {
+        // Non-fatal: keep app functional if realtime wiring fails.
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      if (channel) offSocketListeners(channel);
+    };
+  };
 
   const makeEntityApi = {
     async filter(filters = {}, orderBy = null, limit = 200) {
@@ -128,11 +186,11 @@ function makeEntity(name) {
     },
 
     async create(body) {
-      return apiFetch(base, { method: 'POST', body: JSON.stringify(body) });
+      return apiFetch(base, { method: 'POST', body: JSON.stringify(normalizeBody(body)) });
     },
 
     async update(id, body) {
-      return apiFetch(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      return apiFetch(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(normalizeBody(body)) });
     },
 
     async delete(id) {
