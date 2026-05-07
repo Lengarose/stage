@@ -500,7 +500,7 @@ const HANDLERS = {
     return { success: true, data: { updated: result.affectedRows || 0 } };
   },
 
-  async buyLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji, purchase_intent }) {
+  async buyLifestyleItem({ _auth_user_id, item_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!item_id) throw new Error('item_id required');
     const { user, player } = await getMe(_auth_user_id);
@@ -508,25 +508,25 @@ const HANDLERS = {
     const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [item_id]);
     if (!items.length) throw new Error('Item not found');
     const item = items[0];
+    if (item.can_buy === 0) throw new Error('This asset is not available for purchase');
     const price = Number(item.price_stc || 0);
-    const currentStc = Number(player.stc || 0);
-    if (price > currentStc) throw new Error('Insufficient STC');
+    if (!price) throw new Error('No buy price set for this asset');
+    if (price > Number(player.stc || 0)) throw new Error('Insufficient STC');
     const purchaseId = uuidv4();
     await EXECUTESQL(
-      `INSERT INTO lifestyle_purchases (
-        id, player_id, item_id, item_type, item_tier, rent_active, is_residence, created_date
-      ) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
-      [purchaseId, player.id, item_id, item.category || item.item_type || null,
-       item.tier || item.item_tier || null, item.category === 'real_estate' ? 1 : 0]
+      `INSERT INTO lifestyle_purchases
+         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
+          purchase_type, price_paid_stc, current_value_stc, status, created_date)
+       VALUES (?,?,?,?,?,?,0,?,  'buy',?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, item_id,
+       item.category || null, item.tier || null,
+       (item.category === 'real_estate' || item.category === 'houses') ? 1 : 0,
+       price, price]
     );
-    await EXECUTESQL(
-      `INSERT INTO user_purchases (id, buyer_email, item_type, item_id, created_date) VALUES (?, ?, ?, ?, NOW())`,
-      [uuidv4(), user.email, item.category || item.item_type || null, purchaseId]
-    ).catch(() => {});
     const { new_balance: new_stc_balance } = await createPlayerTx({
       playerId: player.id, playerEmail: user.email, amount: -price,
       category: 'lifestyle_purchase', source: item.name || 'Lifestyle',
-      description: `Bought: ${item.name || item_id}`, referenceId: purchaseId,
+      description: `Bought: ${item.name}`, referenceId: purchaseId,
     });
     return { success: true, data: { new_stc_balance, purchase_id: purchaseId } };
   },
@@ -534,65 +534,238 @@ const HANDLERS = {
   async rentLifestyleItem({ _auth_user_id, item_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!item_id) throw new Error('item_id required');
-    const { player } = await getMe(_auth_user_id);
+    const { user, player } = await getMe(_auth_user_id);
     if (!player) throw new Error('Player not found');
     const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [item_id]);
     if (!items.length) throw new Error('Item not found');
     const item = items[0];
+    if (!item.can_rent) throw new Error('This asset is not available for rent');
     const rent = Number(item.rent_price_stc || 0);
-    const currentStc = Number(player.stc || 0);
-    if (rent > currentStc) throw new Error('Insufficient STC');
+    if (!rent) throw new Error('No rent price set');
+    if (rent > Number(player.stc || 0)) throw new Error('Insufficient STC');
+    const durationDays = Number(item.rent_duration_days || 30);
+    const rentEndDate = new Date();
+    rentEndDate.setDate(rentEndDate.getDate() + durationDays);
+    const purchaseId = uuidv4();
     await EXECUTESQL(
-      `INSERT INTO lifestyle_purchases (id, player_id, item_id, item_type, item_tier, rent_active, is_residence, created_date)
-       VALUES (?, ?, ?, ?, ?, 1, 0, NOW())`,
-      [uuidv4(), player.id, item_id, item.category || item.item_type || null, item.tier || item.item_tier || null]
+      `INSERT INTO lifestyle_purchases
+         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
+          purchase_type, price_paid_stc, rent_end_date, status, created_date)
+       VALUES (?,?,?,?,?,?,1,0,  'rent',?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, item_id,
+       item.category || null, item.tier || null,
+       rent, rentEndDate.toISOString().slice(0, 19).replace('T', ' ')]
     );
     const { new_balance: new_stc_balance } = await createPlayerTx({
-      playerId: player.id, playerEmail: player.email || null, amount: -rent,
+      playerId: player.id, playerEmail: user.email, amount: -rent,
       category: 'lifestyle_rent', source: item.name || 'Lifestyle',
-      description: `Rented: ${item.name || item_id}`,
+      description: `Rented: ${item.name} for ${durationDays} days`,
+      referenceId: purchaseId,
     });
-    return { success: true, data: { new_stc_balance } };
+    return { success: true, data: { new_stc_balance, purchase_id: purchaseId, rent_end_date: rentEndDate } };
+  },
+
+  async investInLifestyleItem({ _auth_user_id, item_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!item_id) throw new Error('item_id required');
+    const { user, player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [item_id]);
+    if (!items.length) throw new Error('Item not found');
+    const item = items[0];
+    if (!item.can_invest) throw new Error('This asset does not support investment');
+    const price = Number(item.invest_price_stc || item.price_stc || 0);
+    if (!price) throw new Error('No investment price set');
+    if (price > Number(player.stc || 0)) throw new Error('Insufficient STC');
+    const returnRate = Number(item.invest_return_rate || 0);
+    const returnAmount = Math.floor(price * returnRate / 100);
+    const durationDays = Number(item.invest_duration_days || 30);
+    const investEndDate = new Date();
+    investEndDate.setDate(investEndDate.getDate() + durationDays);
+    const purchaseId = uuidv4();
+    await EXECUTESQL(
+      `INSERT INTO lifestyle_purchases
+         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
+          purchase_type, price_paid_stc, invest_end_date, invest_return_amount, status, created_date)
+       VALUES (?,?,?,?,?,?,0,0,  'invest',?,?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, item_id,
+       item.category || null, item.tier || null,
+       price,
+       investEndDate.toISOString().slice(0, 19).replace('T', ' '),
+       returnAmount]
+    );
+    const { new_balance: new_stc_balance } = await createPlayerTx({
+      playerId: player.id, playerEmail: user.email, amount: -price,
+      category: 'lifestyle_invest', source: item.name || 'Investment',
+      description: `Invested in: ${item.name} — ${returnRate}% return in ${durationDays}d`,
+      referenceId: purchaseId,
+    });
+    return { success: true, data: { new_stc_balance, purchase_id: purchaseId, return_amount: returnAmount, due_date: investEndDate } };
+  },
+
+  async sellLifestyleAsset({ _auth_user_id, purchase_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!purchase_id) throw new Error('purchase_id required');
+    const { user, player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const purchases = await EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE id = ? AND player_id = ? LIMIT 1", [purchase_id, player.id]
+    );
+    if (!purchases.length) throw new Error('Asset not found');
+    const purchase = purchases[0];
+    if (purchase.purchase_type !== 'buy') throw new Error('Only owned assets can be sold');
+    const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [purchase.item_id]);
+    if (!items.length) throw new Error('Item not found');
+    const item = items[0];
+    if (!item.can_sell) throw new Error('This asset cannot be sold');
+    const sellPercent = Number(item.sell_value_percent || 60);
+    const paidPrice = Number(purchase.price_paid_stc || item.price_stc || 0);
+    const sellPrice = Math.floor(paidPrice * sellPercent / 100);
+    await EXECUTESQL("UPDATE lifestyle_purchases SET status = 'sold' WHERE id = ?", [purchase_id]);
+    const { new_balance: new_stc_balance } = await createPlayerTx({
+      playerId: player.id, playerEmail: user.email, amount: sellPrice,
+      category: 'lifestyle_sell', source: item.name || 'Asset Sale',
+      description: `Sold: ${item.name} for ${sellPrice.toLocaleString()} STC (${sellPercent}% of buy price)`,
+      referenceId: purchase_id,
+    });
+    return { success: true, data: { new_stc_balance, sell_price: sellPrice } };
+  },
+
+  async collectInvestmentReturn({ _auth_user_id, purchase_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!purchase_id) throw new Error('purchase_id required');
+    const { user, player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const purchases = await EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE id = ? AND player_id = ? AND purchase_type = 'invest' AND status = 'active' LIMIT 1",
+      [purchase_id, player.id]
+    );
+    if (!purchases.length) throw new Error('Investment not found');
+    const inv = purchases[0];
+    const endDate = inv.invest_end_date ? new Date(inv.invest_end_date) : null;
+    if (endDate && new Date() < endDate) {
+      throw new Error(`Investment matures on ${endDate.toLocaleDateString()}`);
+    }
+    const principal = Number(inv.price_paid_stc || 0);
+    const returns = Number(inv.invest_return_amount || 0);
+    const total = principal + returns;
+    await EXECUTESQL("UPDATE lifestyle_purchases SET status = 'collected' WHERE id = ?", [purchase_id]);
+    const { new_balance: new_stc_balance } = await createPlayerTx({
+      playerId: player.id, playerEmail: user.email, amount: total,
+      category: 'lifestyle_invest_return', source: 'Investment Return',
+      description: `Investment matured: ${principal.toLocaleString()} principal + ${returns.toLocaleString()} return`,
+      referenceId: purchase_id,
+    });
+    return { success: true, data: { new_stc_balance, principal, returns, total } };
   },
 
   async collectPassiveIncome({ _auth_user_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    const { player } = await getMe(_auth_user_id);
+    const { user, player } = await getMe(_auth_user_id);
     if (!player) throw new Error('Player not found');
-    const purchases = await EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ?', [player.id]);
+    const purchases = await EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE player_id = ? AND purchase_type = 'buy' AND status = 'active'",
+      [player.id]
+    );
     if (!purchases.length) return { success: true, data: { collected: 0 } };
     let collected = 0;
+    const now = new Date();
     for (const p of purchases) {
       const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [p.item_id]);
       if (!items.length) continue;
-      const inc = Number(items[0].passive_income_stc || 0);
-      collected += Math.max(0, inc);
+      const item = items[0];
+      const inc = Number(item.passive_income_stc || 0);
+      if (inc <= 0) continue;
+      const intervalDays = Number(item.passive_income_interval_days || 7);
+      const lastCollected = p.last_passive_collected ? new Date(p.last_passive_collected) : new Date(p.created_date || 0);
+      const msSinceCollect = now - lastCollected;
+      const msInterval = intervalDays * 24 * 60 * 60 * 1000;
+      if (msSinceCollect < msInterval) continue;
+      collected += inc;
+      await EXECUTESQL('UPDATE lifestyle_purchases SET last_passive_collected = NOW() WHERE id = ?', [p.id]);
     }
     if (collected > 0) {
       await createPlayerTx({
-        playerId: player.id, playerEmail: player.email || null, amount: collected,
-        category: 'lifestyle_passive_income', source: 'Investment Portfolio',
-        description: `Passive income from ${purchases.length} asset(s)`,
+        playerId: player.id, playerEmail: user.email, amount: collected,
+        category: 'lifestyle_passive_income', source: 'Passive Income',
+        description: `Passive income collected from owned assets`,
       });
     }
     return { success: true, data: { collected } };
   },
 
-  async upgradeLifestyleAsset({ _auth_user_id, purchase_id, upgrade_id }) {
+  async lifestyleAdmin({ _auth_user_id, action, asset_id,
+    name, category, subcategory, description, image_url, tier, sort_order,
+    price_stc, rent_price_stc, rent_duration_days, invest_price_stc,
+    invest_return_rate, invest_duration_days, passive_income_stc,
+    passive_income_interval_days, weekly_maintenance_stc,
+    can_buy, can_rent, can_invest, can_sell, sell_value_percent,
+    allows_multiple, is_active,
+  }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    if (!purchase_id) throw new Error('purchase_id required');
-    const { player } = await getMe(_auth_user_id);
-    const rows = await EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE id = ? AND player_id = ? LIMIT 1', [purchase_id, player.id]);
-    if (!rows.length) throw new Error('Purchase not found');
-    const p = rows[0];
-    const level = Number(p.upgrade_level || 0);
-    const cost = Number((p.base_upgrade_cost_stc || 25000) * (level + 1));
-    if (Number(player.stc || 0) < cost) throw new Error('Insufficient STC');
-    const new_stc_balance = Number(player.stc || 0) - cost;
-    const upgrade_level = level + 1;
-    const new_value = Number(p.current_value_stc || p.price_paid_stc || 0) + cost;
-    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
-    return { success: true, data: { purchase_id, upgrade_id: upgrade_id || null, upgrade_level, cost, new_value, new_stc_balance } };
+    const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+
+    const vals = [
+      name, category || 'fashion', subcategory || null,
+      description || null, image_url || null, tier || 'standard',
+      Number(sort_order || 0),
+      Number(price_stc || 0), Number(rent_price_stc || 0), Number(rent_duration_days || 30),
+      Number(invest_price_stc || 0), Number(invest_return_rate || 0), Number(invest_duration_days || 30),
+      Number(passive_income_stc || 0), Number(passive_income_interval_days || 7),
+      Number(weekly_maintenance_stc || 0),
+      can_buy    != null ? (can_buy    ? 1 : 0) : 1,
+      can_rent   != null ? (can_rent   ? 1 : 0) : 0,
+      can_invest != null ? (can_invest ? 1 : 0) : 0,
+      can_sell   != null ? (can_sell   ? 1 : 0) : 1,
+      Number(sell_value_percent || 60),
+      allows_multiple != null ? (allows_multiple ? 1 : 0) : 1,
+      is_active  != null ? (is_active  ? 1 : 0) : 1,
+    ];
+
+    if (action === 'add') {
+      const id = uuidv4();
+      await EXECUTESQL(
+        `INSERT INTO lifestyle_items
+           (id, name, category, subcategory, description, image_url, tier, sort_order,
+            price_stc, rent_price_stc, rent_duration_days, invest_price_stc, invest_return_rate,
+            invest_duration_days, passive_income_stc, passive_income_interval_days,
+            weekly_maintenance_stc, can_buy, can_rent, can_invest, can_sell,
+            sell_value_percent, allows_multiple, is_active)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, ...vals]
+      );
+      return { success: true, data: { id } };
+    }
+
+    if (action === 'edit') {
+      if (!asset_id) throw new Error('asset_id required');
+      await EXECUTESQL(
+        `UPDATE lifestyle_items SET
+           name=?, category=?, subcategory=?, description=?, image_url=?, tier=?, sort_order=?,
+           price_stc=?, rent_price_stc=?, rent_duration_days=?, invest_price_stc=?, invest_return_rate=?,
+           invest_duration_days=?, passive_income_stc=?, passive_income_interval_days=?,
+           weekly_maintenance_stc=?, can_buy=?, can_rent=?, can_invest=?, can_sell=?,
+           sell_value_percent=?, allows_multiple=?, is_active=?
+         WHERE id=?`,
+        [...vals, asset_id]
+      );
+      return { success: true };
+    }
+
+    if (action === 'delete') {
+      if (!asset_id) throw new Error('asset_id required');
+      await EXECUTESQL('DELETE FROM lifestyle_items WHERE id = ?', [asset_id]);
+      return { success: true };
+    }
+
+    if (action === 'toggle') {
+      if (!asset_id) throw new Error('asset_id required');
+      await EXECUTESQL('UPDATE lifestyle_items SET is_active = NOT is_active WHERE id = ?', [asset_id]);
+      return { success: true };
+    }
+
+    throw new Error('Invalid action');
   },
 
   async setPlayerResidence({ _auth_user_id, purchase_id }) {
@@ -622,22 +795,76 @@ const HANDLERS = {
 
   async seedLifestyleItems() {
     const seed = [
-      { name: 'Urban Loft', category: 'real_estate', tier: 'starter', sort_order: 1, price_stc: 120000, rent_price_stc: 12000, passive_income_stc: 3000 },
-      { name: 'Sports Coupe', category: 'cars', tier: 'starter', sort_order: 2, price_stc: 90000, rent_price_stc: 9000, passive_income_stc: 0 },
-      { name: 'Designer Watch', category: 'fashion', tier: 'starter', sort_order: 3, price_stc: 40000, rent_price_stc: 0, passive_income_stc: 0 },
+      // Houses & Apartments
+      { name: 'Studio Apartment',  category: 'houses', tier: 'standard', sort_order: 1,  price_stc: 800000,    rent_price_stc: 35000,   rent_duration_days: 30, invest_price_stc: 800000,    invest_return_rate: 8,  invest_duration_days: 30, passive_income_stc: 10000, passive_income_interval_days: 7, weekly_maintenance_stc: 5000,  can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 70, allows_multiple: 1, description: 'A compact modern studio in the city centre. Good starter investment.' },
+      { name: 'City Apartment',    category: 'houses', tier: 'premium',  sort_order: 2,  price_stc: 2500000,   rent_price_stc: 100000,  rent_duration_days: 30, invest_price_stc: 2500000,   invest_return_rate: 10, invest_duration_days: 30, passive_income_stc: 30000, passive_income_interval_days: 7, weekly_maintenance_stc: 15000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 75, allows_multiple: 1, description: 'Stylish apartment with city views. Strong rental yield.' },
+      { name: 'Penthouse Suite',   category: 'houses', tier: 'elite',    sort_order: 3,  price_stc: 12000000,  rent_price_stc: 500000,  rent_duration_days: 30, invest_price_stc: 12000000,  invest_return_rate: 12, invest_duration_days: 30, passive_income_stc: 150000, passive_income_interval_days: 7, weekly_maintenance_stc: 80000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 80, allows_multiple: 1, description: 'Top-floor penthouse with panoramic views and private terrace.' },
+      { name: 'Luxury Villa',      category: 'houses', tier: 'legendary',sort_order: 4,  price_stc: 50000000,  rent_price_stc: 2000000, rent_duration_days: 30, invest_price_stc: 50000000,  invest_return_rate: 15, invest_duration_days: 30, passive_income_stc: 600000, passive_income_interval_days: 7, weekly_maintenance_stc: 250000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 85, allows_multiple: 1, description: 'Stunning private villa with pool and landscaped grounds.' },
+      // Cars
+      { name: 'Hatchback',         category: 'cars',   tier: 'standard', sort_order: 10, price_stc: 250000,    rent_price_stc: 12000,   rent_duration_days: 30, invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 3000,  can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 55, allows_multiple: 0, description: 'A reliable daily driver. Gets you from A to B in style.' },
+      { name: 'SUV',               category: 'cars',   tier: 'premium',  sort_order: 11, price_stc: 900000,    rent_price_stc: 40000,   rent_duration_days: 30, invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 8000,  can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 60, allows_multiple: 0, description: 'Premium large SUV with luxury interior and all-terrain capability.' },
+      { name: 'Sports Car',        category: 'cars',   tier: 'elite',    sort_order: 12, price_stc: 3500000,   rent_price_stc: 140000,  rent_duration_days: 7,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 25000, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 65, allows_multiple: 0, description: 'Sleek two-door performance machine. Turn heads everywhere.' },
+      { name: 'Hypercar',          category: 'cars',   tier: 'legendary',sort_order: 13, price_stc: 15000000,  rent_price_stc: 600000,  rent_duration_days: 3,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 100000,can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 70, allows_multiple: 0, description: 'The pinnacle of automotive engineering. Pure performance and prestige.' },
+      // Watches
+      { name: 'Steel Sport Watch', category: 'watches',tier: 'standard', sort_order: 20, price_stc: 300000,    rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 300000,    invest_return_rate: 5,  invest_duration_days: 60, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 65, allows_multiple: 1, description: 'A precision-engineered sport timepiece. Quality and durability.' },
+      { name: 'Luxury Watch',      category: 'watches',tier: 'premium',  sort_order: 21, price_stc: 1500000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 1500000,   invest_return_rate: 8,  invest_duration_days: 60, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 75, allows_multiple: 1, description: 'Hand-crafted Swiss precision timepiece. A statement of status.' },
+      { name: 'Diamond Watch',     category: 'watches',tier: 'legendary',sort_order: 22, price_stc: 8000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 8000000,   invest_return_rate: 12, invest_duration_days: 90, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 80, allows_multiple: 1, description: 'Diamond-encrusted masterpiece. The ultimate collector\'s statement.' },
+      // Fashion
+      { name: 'Designer Outfit',   category: 'fashion',tier: 'standard', sort_order: 30, price_stc: 150000,    rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Premium tailored fashion for match days and press conferences.' },
+      { name: 'Luxury Collection', category: 'fashion',tier: 'elite',    sort_order: 31, price_stc: 2000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Full wardrobe from the most prestigious fashion houses.' },
+      { name: 'Exclusive Drops',   category: 'fashion',tier: 'legendary',sort_order: 32, price_stc: 5000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Ultra-rare limited edition streetwear. Only for the elite.' },
+      // VIP Experiences
+      { name: 'VIP Match Day',     category: 'vip_experiences', tier: 'standard', sort_order: 40, price_stc: 500000,  rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Executive box seat and VIP hospitality at any STAGE match.' },
+      { name: 'Award Show Access', category: 'vip_experiences', tier: 'premium',  sort_order: 41, price_stc: 3000000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Attend the prestigious STAGE annual awards ceremony.' },
+      { name: 'Private Yacht Day', category: 'vip_experiences', tier: 'elite',    sort_order: 42, price_stc: 8000000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Exclusive private yacht charter for a day on the water.' },
+      // Personal Services
+      { name: 'Personal Trainer',  category: 'personal_services', tier: 'standard', sort_order: 50, price_stc: 400000,    rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Elite personal trainer dedicated to your fitness and performance.' },
+      { name: 'Private Chef',      category: 'personal_services', tier: 'premium',  sort_order: 51, price_stc: 1200000,   rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Michelin-star-trained private chef preparing all your meals.' },
+      { name: 'Media Team',        category: 'personal_services', tier: 'elite',    sort_order: 52, price_stc: 5000000,   rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Dedicated media and PR team managing your public image.' },
     ];
     let inserted = 0;
+    let updated = 0;
     for (const item of seed) {
       const exists = await EXECUTESQL('SELECT id FROM lifestyle_items WHERE name = ? LIMIT 1', [item.name]);
-      if (exists.length) continue;
+      if (exists.length) {
+        await EXECUTESQL(
+          `UPDATE lifestyle_items SET
+             category=?, tier=?, sort_order=?, description=?,
+             price_stc=?, rent_price_stc=?, rent_duration_days=?,
+             invest_price_stc=?, invest_return_rate=?, invest_duration_days=?,
+             passive_income_stc=?, passive_income_interval_days=?, weekly_maintenance_stc=?,
+             can_buy=?, can_rent=?, can_invest=?, can_sell=?,
+             sell_value_percent=?, allows_multiple=?, is_active=1
+           WHERE name=?`,
+          [item.category, item.tier, item.sort_order, item.description,
+           item.price_stc, item.rent_price_stc, item.rent_duration_days,
+           item.invest_price_stc, item.invest_return_rate, item.invest_duration_days,
+           item.passive_income_stc, item.passive_income_interval_days, item.weekly_maintenance_stc,
+           item.can_buy, item.can_rent, item.can_invest, item.can_sell,
+           item.sell_value_percent, item.allows_multiple, item.name]
+        );
+        updated += 1;
+        continue;
+      }
       await EXECUTESQL(
-        `INSERT INTO lifestyle_items (id, name, is_active, sort_order)
-         VALUES (?, ?, 1, ?)`,
-        [uuidv4(), item.name, item.sort_order]
+        `INSERT INTO lifestyle_items
+           (id, name, category, description, tier, sort_order,
+            price_stc, rent_price_stc, rent_duration_days, invest_price_stc,
+            invest_return_rate, invest_duration_days, passive_income_stc,
+            passive_income_interval_days, weekly_maintenance_stc,
+            can_buy, can_rent, can_invest, can_sell,
+            sell_value_percent, allows_multiple, is_active)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+        [uuidv4(), item.name, item.category, item.description, item.tier, item.sort_order,
+         item.price_stc, item.rent_price_stc, item.rent_duration_days,
+         item.invest_price_stc, item.invest_return_rate, item.invest_duration_days,
+         item.passive_income_stc, item.passive_income_interval_days, item.weekly_maintenance_stc,
+         item.can_buy, item.can_rent, item.can_invest, item.can_sell,
+         item.sell_value_percent, item.allows_multiple]
       );
       inserted += 1;
     }
-    return { success: true, data: { inserted } };
+    return { success: true, data: { inserted, updated } };
   },
 
   async deleteClub({ _auth_user_id, club_id }) {

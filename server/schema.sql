@@ -363,22 +363,53 @@ CREATE TABLE IF NOT EXISTS join_requests (
 
 -- ── lifestyle_items ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lifestyle_items (
-  id         VARCHAR(36)  PRIMARY KEY,
-  name       VARCHAR(200) NOT NULL,
-  is_active  TINYINT(1)   DEFAULT 1,
-  sort_order INT          DEFAULT 0
+  id                           VARCHAR(36)   PRIMARY KEY,
+  name                         VARCHAR(200)  NOT NULL,
+  is_active                    TINYINT(1)    DEFAULT 1,
+  sort_order                   INT           DEFAULT 0,
+  category                     VARCHAR(50)   DEFAULT 'fashion',
+  subcategory                  VARCHAR(100),
+  description                  TEXT,
+  image_url                    VARCHAR(500),
+  tier                         VARCHAR(50)   DEFAULT 'standard',
+  price_stc                    BIGINT        DEFAULT 0,
+  rent_price_stc               BIGINT        DEFAULT 0,
+  rent_duration_days           INT           DEFAULT 30,
+  invest_price_stc             BIGINT        DEFAULT 0,
+  invest_return_rate           DECIMAL(5,2)  DEFAULT 0,
+  invest_duration_days         INT           DEFAULT 30,
+  passive_income_stc           BIGINT        DEFAULT 0,
+  passive_income_interval_days INT           DEFAULT 7,
+  weekly_maintenance_stc       BIGINT        DEFAULT 0,
+  can_buy                      TINYINT(1)    DEFAULT 1,
+  can_rent                     TINYINT(1)    DEFAULT 0,
+  can_invest                   TINYINT(1)    DEFAULT 0,
+  can_sell                     TINYINT(1)    DEFAULT 1,
+  sell_value_percent           INT           DEFAULT 60,
+  allows_multiple              TINYINT(1)    DEFAULT 1
 );
 
 -- ── lifestyle_purchases ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lifestyle_purchases (
-  id           VARCHAR(36)  PRIMARY KEY,
-  player_id    VARCHAR(36)  NOT NULL,
-  item_id      VARCHAR(36)  NOT NULL,
-  item_type    VARCHAR(100),
-  item_tier    VARCHAR(50),
-  rent_active  TINYINT(1)   DEFAULT 0,
-  is_residence TINYINT(1)   DEFAULT 0,
-  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP
+  id                    VARCHAR(36)  PRIMARY KEY,
+  player_id             VARCHAR(36)  NOT NULL,
+  player_email          VARCHAR(255),
+  item_id               VARCHAR(36)  NOT NULL,
+  item_type             VARCHAR(100),
+  item_tier             VARCHAR(50),
+  rent_active           TINYINT(1)   DEFAULT 0,
+  is_residence          TINYINT(1)   DEFAULT 0,
+  purchase_type         VARCHAR(20)  DEFAULT 'buy',
+  price_paid_stc        BIGINT       DEFAULT 0,
+  rent_end_date         DATETIME,
+  invest_end_date       DATETIME,
+  invest_return_amount  BIGINT       DEFAULT 0,
+  status                VARCHAR(20)  DEFAULT 'active',
+  current_value_stc     BIGINT       DEFAULT 0,
+  upgrade_level         INT          DEFAULT 0,
+  last_passive_collected DATETIME,
+  base_upgrade_cost_stc BIGINT       DEFAULT 0,
+  created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── user_purchases ────────────────────────────────────────────

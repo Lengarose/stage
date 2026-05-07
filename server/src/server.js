@@ -172,6 +172,41 @@ async function runStartupMigrations() {
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');
+
+  // Lifestyle items expanded schema (v2)
+  await addCol('lifestyle_items', 'category',                    "VARCHAR(50) DEFAULT 'fashion'");
+  await addCol('lifestyle_items', 'subcategory',                 'VARCHAR(100)');
+  await addCol('lifestyle_items', 'description',                 'TEXT');
+  await addCol('lifestyle_items', 'image_url',                   'VARCHAR(500)');
+  await addCol('lifestyle_items', 'tier',                        "VARCHAR(50) DEFAULT 'standard'");
+  await addCol('lifestyle_items', 'price_stc',                   'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'rent_price_stc',              'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'rent_duration_days',          'INT DEFAULT 30');
+  await addCol('lifestyle_items', 'invest_price_stc',            'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'invest_return_rate',          'DECIMAL(5,2) DEFAULT 0');
+  await addCol('lifestyle_items', 'invest_duration_days',        'INT DEFAULT 30');
+  await addCol('lifestyle_items', 'passive_income_stc',          'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'passive_income_interval_days','INT DEFAULT 7');
+  await addCol('lifestyle_items', 'weekly_maintenance_stc',      'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'can_buy',                     'TINYINT(1) DEFAULT 1');
+  await addCol('lifestyle_items', 'can_rent',                    'TINYINT(1) DEFAULT 0');
+  await addCol('lifestyle_items', 'can_invest',                  'TINYINT(1) DEFAULT 0');
+  await addCol('lifestyle_items', 'can_sell',                    'TINYINT(1) DEFAULT 1');
+  await addCol('lifestyle_items', 'sell_value_percent',          'INT DEFAULT 60');
+  await addCol('lifestyle_items', 'allows_multiple',             'TINYINT(1) DEFAULT 1');
+
+  // Lifestyle purchases expanded schema (v2)
+  await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
+  await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'rent_end_date',           'DATETIME NULL');
+  await addCol('lifestyle_purchases', 'invest_end_date',         'DATETIME NULL');
+  await addCol('lifestyle_purchases', 'invest_return_amount',    'BIGINT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'status',                  "VARCHAR(20) DEFAULT 'active'");
+  await addCol('lifestyle_purchases', 'player_email',            'VARCHAR(255) NULL');
+  await addCol('lifestyle_purchases', 'current_value_stc',       'BIGINT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'upgrade_level',           'INT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'last_passive_collected',  'DATETIME NULL');
+  await addCol('lifestyle_purchases', 'base_upgrade_cost_stc',   'BIGINT DEFAULT 0');
 }
 
 runStartupMigrations().catch(err => console.error('[migration] startup error:', err));
