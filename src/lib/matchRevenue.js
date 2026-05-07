@@ -3,8 +3,6 @@ import { calcAttendance } from './fanAttendance';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
-/* ── helpers ─────────────────────────────────────────────── */
-
 async function createTransaction(clubId, amount, type, description, referenceId) {
   try {
     await stageClient.entities.STCTransaction.create({
@@ -37,10 +35,10 @@ async function sendOwnerMessage(ownerEmail, subject, body, matchId) {
   }
 }
 
-/* ── main export ─────────────────────────────────────────── */
-
 /**
  * processSoloMatchRevenue — settle wager for player-vs-player (non-club) matches.
+ * Delegates entirely to the server-side processSoloWager handler which is authoritative
+ * and guards against double-settlement via an atomic status claim.
  */
 export async function processSoloMatchRevenue(gameSnapshot) {
   if (gameSnapshot.mode === 'club') return;
@@ -57,17 +55,17 @@ export async function processSoloMatchRevenue(gameSnapshot) {
  *
  * Handles:
  *  1. Fan attendance ticket revenue for the HOME club.
- *  2. Wager settlement (winner takes pot / draw = refund) for BOTH clubs.
- *  3. STCTransaction records for every money movement.
- *  4. Inbox messages to both club owners with full breakdowns.
+ *  2. Inbox notifications to both club owners (wager result is read from settled match state).
+ *
+ * Wager settlement is NOT done here — processMatchCompletion on the server handles it
+ * atomically and reliably before this function is ever called.
  *
  * Guards against double-processing via an existing InboxMessage check.
  */
 export async function processMatchRevenue(gameSnapshot) {
-  // Only club matches generate match revenue
   if (gameSnapshot.mode !== 'club' || !gameSnapshot.home_club_id) return;
 
-  // ── Guard: skip if already processed ─────────────────────
+  // Guard: skip if already processed
   try {
     const existing = await stageClient.entities.InboxMessage.filter({
       related_entity_id:   gameSnapshot.id,
@@ -75,11 +73,11 @@ export async function processMatchRevenue(gameSnapshot) {
     });
     if (existing.length > 0) return;
   } catch {
-    // If filter fails, proceed (better to risk a duplicate than miss processing)
+    // If filter fails, proceed
   }
 
   try {
-    // ── Fetch fresh match data (has final scores + wager state) ──
+    // Fetch fresh match data (has final scores + server-settled wager state)
     const matches = await stageClient.entities.Match.filter({ id: gameSnapshot.id }, null, 1);
     const game = matches[0];
     if (!game) return;
@@ -91,7 +89,7 @@ export async function processMatchRevenue(gameSnapshot) {
     const isTournament = game.tournament_id && game.tournament_id !== 'ranked';
     const typeLabel = isTournament ? '🏆 Tournament' : '⚡ Ranked';
 
-    // ── Fetch both clubs ───────────────────────────────────────
+    // Fetch both clubs for attendance calc
     const [homeArr, awayArr] = await Promise.all([
       stageClient.entities.Club.filter({ id: game.home_club_id }, null, 1),
       game.away_club_id
@@ -114,74 +112,30 @@ export async function processMatchRevenue(gameSnapshot) {
       game.id,
     );
 
-    // ── 2. WAGER SETTLEMENT ───────────────────────────────────
-    const hasWager = (game.wager_stc || 0) > 0
-      && game.wager_status === 'active'
-      && game.wager_home_locked
-      && game.wager_away_locked
-      && !isTournament; // wagers only on non-tournament club games
+    // ── 2. READ WAGER OUTCOME from already-settled match state ──
+    const hasWager = Number(game.wager_stc || 0) > 0 && !isTournament;
+    const wagerEach = Number(game.wager_stc || 0);
+    const pot = wagerEach * 2;
+    const homeScore = game.home_score ?? 0;
+    const awayScore = game.away_score ?? 0;
+    const homeWins  = homeScore > awayScore;
 
     let wagerSummary = null;
-
-    if (hasWager && awayClub) {
-      const wagerEach = game.wager_stc;
-      const pot       = wagerEach * 2;
-      const homeScore = game.home_score ?? 0;
-      const awayScore = game.away_score ?? 0;
-      const isDraw    = homeScore === awayScore;
-      const homeWins  = homeScore > awayScore;
-
-      if (isDraw) {
-        // Refund both clubs
-        await Promise.all([
-          stageClient.entities.Club.update(homeClub.id, { stc: newHomeStcAfterTickets + wagerEach }),
-          stageClient.entities.Club.update(awayClub.id,  { stc: (awayClub.stc || 0) + wagerEach }),
-        ]);
-        await Promise.all([
-          createTransaction(homeClub.id,  wagerEach, 'wager_refund', `Wager refunded (draw) — ${matchLabel}`, game.id),
-          createTransaction(awayClub.id,  wagerEach, 'wager_refund', `Wager refunded (draw) — ${matchLabel}`, game.id),
-        ]);
-        await stageClient.entities.Match.update(game.id, { wager_status: 'refunded' });
-        wagerSummary = { type: 'draw', each: wagerEach };
-
-      } else {
-        const winnerClub = homeWins ? homeClub : awayClub;
-        const loserClub  = homeWins ? awayClub  : homeClub;
-
-        // Winner gets full pot; loser already had funds deducted on wager lock
-        const winnerNewStc = (winnerClub.id === homeClub.id)
-          ? newHomeStcAfterTickets + pot
-          : (winnerClub.stc || 0) + pot;
-        await stageClient.entities.Club.update(winnerClub.id, { stc: winnerNewStc });
-
-        await Promise.all([
-          createTransaction(winnerClub.id, pot,         'wager_win',  `Wager won — ${matchLabel} (${scoreLabel})`,  game.id),
-          createTransaction(loserClub.id,  -wagerEach,  'wager_loss', `Wager lost — ${matchLabel} (${scoreLabel})`, game.id),
-        ]);
-        await stageClient.entities.Match.update(game.id, { wager_status: 'settled' });
-        wagerSummary = { type: 'settled', pot, winner: winnerClub.name, loser: loserClub.name, homeWins };
-      }
+    if (hasWager && game.wager_status === 'settled') {
+      wagerSummary = { type: 'settled', pot, homeWins, winner: homeWins ? game.home_club_name : game.away_club_name, loser: homeWins ? game.away_club_name : game.home_club_name };
+    } else if (hasWager && game.wager_status === 'refunded') {
+      wagerSummary = { type: 'draw', each: wagerEach };
     }
 
     // ── 3. INBOX — home club owner ────────────────────────────
     if (homeClub.owner_email) {
-      const finalHomeStc = wagerSummary?.type === 'settled' && wagerSummary.homeWins
-        ? (homeClub.stc || 0) + att.revenue + wagerSummary.pot
-        : wagerSummary?.type === 'draw'
-        ? (homeClub.stc || 0) + att.revenue + wagerSummary.each
-        : newHomeStcAfterTickets;
-
       const wagerBlock = wagerSummary
         ? wagerSummary.type === 'draw'
           ? [``, `🤝 Wager: Draw — ${fmt(wagerSummary.each)} STC refunded to both clubs`]
           : wagerSummary.homeWins
           ? [``, `🏆 Wager WON — Full pot: +${fmt(wagerSummary.pot)} STC added to balance`]
-          : [``, `❌ Wager LOST — ${fmt(game.wager_stc)} STC forfeited to ${wagerSummary.winner}`]
+          : [``, `❌ Wager LOST — ${fmt(wagerEach)} STC forfeited to ${wagerSummary.winner}`]
         : [];
-
-      const totalGain = att.revenue
-        + (wagerSummary?.type === 'settled' && wagerSummary.homeWins ? wagerSummary.pot : 0)
-        + (wagerSummary?.type === 'draw' ? wagerSummary.each : 0);
 
       const lines = [
         `📅 Match: ${matchLabel}`,
@@ -191,9 +145,6 @@ export async function processMatchRevenue(gameSnapshot) {
         `👥 Attendance: ${fmt(att.count)} fans (${att.pct}% full)`,
         `🎟️  Tickets: ${fmt(att.count)} × ${fmt(att.ticketPrice)} STC = +${fmt(att.revenue)} STC`,
         ...wagerBlock,
-        ``,
-        `💰 Total added:  +${fmt(totalGain)} STC`,
-        `📈 Club balance: ${fmt(finalHomeStc)} STC`,
         ``,
         att.pct < 40
           ? `💡 Win more games to fill your stadium and boost gate receipts.`
@@ -218,22 +169,19 @@ export async function processMatchRevenue(gameSnapshot) {
             `📊 Result: ${scoreLabel} (Draw)`,
             ``,
             `🤝 Wager: Draw — ${fmt(wagerSummary.each)} STC refunded to your club.`,
-            `📈 Club balance: ${fmt((awayClub.stc || 0) + wagerSummary.each)} STC`,
           ]
         : wagerSummary.homeWins
         ? [
             `📅 Match: ${matchLabel}`,
             `📊 Result: ${scoreLabel}`,
             ``,
-            `❌ Wager LOST — ${fmt(game.wager_stc)} STC forfeited.`,
-            `📈 Club balance: ${fmt(awayClub.stc || 0)} STC`,
+            `❌ Wager LOST — ${fmt(wagerEach)} STC forfeited.`,
           ]
         : [
             `📅 Match: ${matchLabel}`,
             `📊 Result: ${scoreLabel}`,
             ``,
             `🏆 Wager WON — Full pot: +${fmt(wagerSummary.pot)} STC added to your balance!`,
-            `📈 Club balance: ${fmt((awayClub.stc || 0) + wagerSummary.pot)} STC`,
           ];
 
       const awaySubject = wagerSummary.type === 'draw'

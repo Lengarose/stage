@@ -14,6 +14,7 @@ const CATEGORY_META = {
   lifestyle_purchase:       { label: "Lifestyle Purchase",  icon: ShoppingBag, color: "text-destructive", bg: "bg-destructive/10" },
   lifestyle_rent:           { label: "Lifestyle Rental",    icon: Building2,   color: "text-destructive", bg: "bg-destructive/10" },
   lifestyle_passive_income: { label: "Investment Return",   icon: TrendingUp,  color: "text-accent",      bg: "bg-accent/10"      },
+  wager_stake:              { label: "Wager Stake",         icon: Coins,       color: "text-warning",     bg: "bg-warning/10"     },
   wager_win:                { label: "Wager Won",           icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
   wager_loss:               { label: "Wager Lost",          icon: Zap,         color: "text-destructive", bg: "bg-destructive/10" },
   wager_refund:             { label: "Wager Refunded",      icon: Zap,         color: "text-warning",     bg: "bg-warning/10"     },

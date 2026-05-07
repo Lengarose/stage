@@ -1,11 +1,8 @@
-/**
- * WagerPanel — shows wager info and accept/decline/cancel controls on a match.
- */
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Coins, Lock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Coins, Lock, CheckCircle2, XCircle, AlertTriangle, Trophy, RefreshCw } from "lucide-react";
 
 const MIN_BET = 10_000;
 const MAX_BET = 2_000_000;
@@ -18,23 +15,42 @@ function formatSTC(v) {
 }
 
 const WAGER_STATUS_CONFIG = {
-  pending_acceptance: { label: "Awaiting Acceptance", color: "text-warning", bg: "bg-warning/10 border-warning/30" },
-  active:             { label: "Funds Locked 🔒",      color: "text-success", bg: "bg-success/10 border-success/30" },
-  settled:            { label: "Settled ✅",            color: "text-primary", bg: "bg-primary/10 border-primary/30" },
-  refunded:           { label: "Refunded (Draw)",       color: "text-muted-foreground", bg: "bg-secondary border-border" },
-  declined:           { label: "Declined",              color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
-  cancelled:          { label: "Cancelled",             color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
+  pending_acceptance: { label: "Awaiting Acceptance", color: "text-warning",          bg: "bg-warning/10 border-warning/30" },
+  active:             { label: "Funds Locked 🔒",      color: "text-success",          bg: "bg-success/10 border-success/30" },
+  settling:           { label: "Settling…",             color: "text-primary",          bg: "bg-primary/10 border-primary/30" },
+  settled:            { label: "Settled ✅",             color: "text-primary",          bg: "bg-primary/10 border-primary/30" },
+  refunded:           { label: "Draw — Refunded",       color: "text-muted-foreground", bg: "bg-secondary border-border" },
+  declined:           { label: "Declined",              color: "text-destructive",      bg: "bg-destructive/10 border-destructive/30" },
+  cancelled:          { label: "Cancelled",             color: "text-destructive",      bg: "bg-destructive/10 border-destructive/30" },
 };
 
-export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onGameUpdate }) {
+export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeTeam, onGameUpdate }) {
   const [loading, setLoading] = useState(null);
   const [notif, setNotif] = useState(null);
 
-  const wagerStc = game.wager_stc || 0;
+  const wagerStc   = Number(game.wager_stc || 0);
   const wagerStatus = game.wager_status;
   const pot = wagerStc * 2;
   const isAwaySide = isMyMatch && !amIHomeTeam;
   const isHomeSide = isMyMatch && amIHomeTeam;
+
+  // Determine winner for settled display
+  const homeScore = Number(game.home_score ?? -1);
+  const awayScore = Number(game.away_score ?? -1);
+  const homeWon = homeScore > awayScore;
+  const awayWon = awayScore > homeScore;
+  const isDraw  = homeScore >= 0 && homeScore === awayScore;
+
+  const homeName = game.mode === 'club' ? (game.home_club_name || 'Home') : (game.home_player_name || 'Home');
+  const awayName = game.mode === 'club' ? (game.away_club_name || 'Away') : (game.away_player_name || 'Away');
+
+  // Who am I rooting for?
+  const myIsHome = isMyMatch && amIHomeTeam;
+  const myIsAway = isMyMatch && !amIHomeTeam;
+  const myTeamWon = (myIsHome && homeWon) || (myIsAway && awayWon);
+  const myTeamLost = (myIsHome && awayWon) || (myIsAway && homeWon);
+
+  if (!wagerStc) return null;
 
   function showNotif(msg, type) {
     setNotif({ msg, type });
@@ -47,10 +63,9 @@ export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onG
       const res = await stageClient.functions.invoke("wagerMatchActions", {
         action, match_id: game.id, ...extra,
       });
-      const updated = { ...game, ...res.data._match_patch };
       if (action === 'accept_wager') {
         onGameUpdate?.({ ...game, wager_away_locked: true, wager_status: 'active' });
-        showNotif("Wager accepted! Funds locked. 🔒", "success");
+        showNotif("Wager accepted — funds locked. 🔒", "success");
       } else if (action === 'decline_wager') {
         onGameUpdate?.({ ...game, wager_status: 'declined', wager_stc: 0 });
         showNotif("Wager declined. No funds deducted.", "info");
@@ -63,10 +78,6 @@ export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onG
     }
     setLoading(null);
   }
-
-  // Don't render if no wager and match is already in_progress or beyond
-  if (!wagerStc && (game.status !== 'scheduled' || !isMyMatch)) return null;
-  if (!wagerStc) return null;
 
   const statusCfg = WAGER_STATUS_CONFIG[wagerStatus] || WAGER_STATUS_CONFIG.pending_acceptance;
 
@@ -103,17 +114,49 @@ export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onG
         </div>
       </div>
 
-      {/* Lock status */}
-      <div className="flex items-center gap-3 text-xs">
-        <div className={cn("flex items-center gap-1", game.wager_home_locked ? "text-success" : "text-muted-foreground")}>
-          {game.wager_home_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-          Home {game.wager_home_locked ? "locked" : "not locked"}
+      {/* Lock status — only show while pending/active */}
+      {['pending_acceptance', 'active'].includes(wagerStatus) && (
+        <div className="flex items-center gap-3 text-xs">
+          <div className={cn("flex items-center gap-1", game.wager_home_locked ? "text-success" : "text-muted-foreground")}>
+            {game.wager_home_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+            Home {game.wager_home_locked ? "locked" : "not locked"}
+          </div>
+          <div className={cn("flex items-center gap-1", game.wager_away_locked ? "text-success" : "text-muted-foreground")}>
+            {game.wager_away_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+            Away {game.wager_away_locked ? "locked" : "not locked"}
+          </div>
         </div>
-        <div className={cn("flex items-center gap-1", game.wager_away_locked ? "text-success" : "text-muted-foreground")}>
-          {game.wager_away_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-          Away {game.wager_away_locked ? "locked" : "not locked"}
+      )}
+
+      {/* Settled outcome banner */}
+      {wagerStatus === 'settled' && (
+        <div className={cn(
+          "rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-semibold",
+          myTeamWon   ? "bg-success/20 text-success" :
+          myTeamLost  ? "bg-destructive/20 text-destructive" :
+          "bg-primary/15 text-primary"
+        )}>
+          {myTeamWon ? (
+            <><Trophy className="w-3.5 h-3.5 shrink-0" /> You won! +{formatSTC(pot)} STC added to your balance</>
+          ) : myTeamLost ? (
+            <><XCircle className="w-3.5 h-3.5 shrink-0" /> You lost — {formatSTC(wagerStc)} STC forfeited</>
+          ) : (
+            <><Trophy className="w-3.5 h-3.5 shrink-0" /> {homeWon ? homeName : awayName} won — {formatSTC(pot)} STC pot</>
+          )}
         </div>
-      </div>
+      )}
+      {wagerStatus === 'refunded' && (
+        <div className="rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-medium bg-secondary text-muted-foreground">
+          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+          Draw — both sides refunded {formatSTC(wagerStc)} STC
+        </div>
+      )}
+      {wagerStatus === 'cancelled' && (
+        <p className="text-xs text-destructive font-medium text-center">Wager cancelled — funds refunded</p>
+      )}
+      {wagerStatus === 'declined' && (
+        <p className="text-xs text-muted-foreground text-center">Wager declined — no funds deducted</p>
+      )}
 
       {/* Away side: accept / decline */}
       {isAwaySide && wagerStatus === 'pending_acceptance' && game.status === 'scheduled' && (
@@ -142,23 +185,15 @@ export default function WagerPanel({ game, myPlayer, isMyMatch, amIHomeTeam, onG
         </div>
       )}
 
-      {/* Home side: cancel (only while scheduled) */}
+      {/* Home side: cancel (only while scheduled / pending) */}
       {isHomeSide && ['pending_acceptance', 'active'].includes(wagerStatus) && game.status === 'scheduled' && (
         <button
           onClick={() => invoke('cancel_wager')}
           disabled={!!loading}
           className="text-[10px] text-destructive/60 hover:text-destructive transition-colors w-full text-center pt-1"
         >
-          {loading === 'cancel_wager' ? "Cancelling..." : "Cancel wager (refund both sides)"}
+          {loading === 'cancel_wager' ? "Cancelling…" : "Cancel wager (refund both sides)"}
         </button>
-      )}
-
-      {/* Settled banner */}
-      {wagerStatus === 'settled' && (
-        <p className="text-xs text-success font-semibold text-center">Winner received {formatSTC(pot)} STC</p>
-      )}
-      {wagerStatus === 'refunded' && (
-        <p className="text-xs text-muted-foreground font-semibold text-center">Draw — both sides refunded {formatSTC(wagerStc)} STC</p>
       )}
     </div>
   );

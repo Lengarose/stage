@@ -220,9 +220,13 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         <WagerPanel
           game={game}
           myPlayer={myPlayer}
+          myClub={myClub}
           isMyMatch={isMyMatch}
           amIHomeTeam={amIHomeTeam}
-          onGameUpdate={onGameUpdate}
+          onGameUpdate={(updated) => {
+            setGame(updated);
+            if (onGameUpdate) onGameUpdate(updated);
+          }}
         />
       )}
 
