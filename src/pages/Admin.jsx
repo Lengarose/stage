@@ -944,18 +944,30 @@ export default function Admin(props) {
 
   const [clubStcDialog, setClubStcDialog] = useState(null);
   const [clubStcAmount, setClubStcAmount] = useState("");
+  const [clubStcNote, setClubStcNote] = useState("");
   const [clubWageBudget, setClubWageBudget] = useState("");
   const [clubTransferBudget, setClubTransferBudget] = useState("");
 
   async function saveClubFinance() {
     if (!clubStcDialog) return;
     setSaving(true);
-    const updates = {};
-    if (clubStcAmount !== "") updates.stc = (clubStcDialog.stc || 0) + Number(clubStcAmount);
-    if (clubWageBudget !== "") updates.wage_budget_stc = Number(clubWageBudget);
-    if (clubTransferBudget !== "") updates.transfer_budget_stc = Number(clubTransferBudget);
-    await stageClient.entities.Club.update(clubStcDialog.id, updates);
-    setClubStcDialog(null); setClubStcAmount(""); setClubWageBudget(""); setClubTransferBudget(""); setSaving(false);
+    try {
+      await stageClient.functions.invoke("clubFinance", {
+        action: "admin_adjust",
+        club_id: clubStcDialog.id,
+        ...(clubStcAmount !== "" ? { balance_delta: Number(clubStcAmount) } : {}),
+        ...(clubWageBudget !== "" ? { set_wage_budget: Number(clubWageBudget) } : {}),
+        ...(clubTransferBudget !== "" ? { set_transfer_budget: Number(clubTransferBudget) } : {}),
+        ...(clubStcNote ? { note: clubStcNote } : {}),
+      });
+    } catch (err) {
+      alert(err?.message || "Failed to save club finance");
+      setSaving(false);
+      return;
+    }
+    setClubStcDialog(null);
+    setClubStcAmount(""); setClubStcNote(""); setClubWageBudget(""); setClubTransferBudget("");
+    setSaving(false);
     await loadAll();
   }
 
@@ -3010,9 +3022,10 @@ export default function Admin(props) {
                 </div>
               </div>
               <div>
-                <label className="label-xs">Add STC Balance (e.g. 5000000 = 5M)</label>
+                <label className="label-xs">Adjust Balance — Delta STC (e.g. +5000000 or -2000000)</label>
                 <input type="number" value={clubStcAmount} onChange={e => setClubStcAmount(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 10000000" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 10000000 or -5000000" />
+                <p className="text-[10px] text-muted-foreground mt-1">Amount is added/subtracted from current balance and logged as a transaction</p>
               </div>
               <div>
                 <label className="label-xs">Set Weekly Wage Budget (STC)</label>
@@ -3025,6 +3038,11 @@ export default function Admin(props) {
                 <input type="number" value={clubTransferBudget} onChange={e => setClubTransferBudget(e.target.value)}
                   className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 20000000" />
                 <p className="text-[10px] text-muted-foreground mt-1">Recommended: 5M–50M for a standard club</p>
+              </div>
+              <div>
+                <label className="label-xs">Note / Reason (optional)</label>
+                <input type="text" value={clubStcNote} onChange={e => setClubStcNote(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Competition prize, correction..." />
               </div>
               <Button onClick={saveClubFinance} disabled={saving || (clubStcAmount === "" && clubWageBudget === "" && clubTransferBudget === "")} className="w-full bg-success/20 text-success hover:bg-success/30 border border-success/40">
                 {saving ? "Saving..." : "Save Club Finance"}

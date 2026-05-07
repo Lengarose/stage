@@ -195,6 +195,10 @@ async function runStartupMigrations() {
   await addCol('lifestyle_items', 'sell_value_percent',          'INT DEFAULT 60');
   await addCol('lifestyle_items', 'allows_multiple',             'TINYINT(1) DEFAULT 1');
 
+  // Club finance: enrich stc_transactions
+  await addCol('stc_transactions', 'category',      'VARCHAR(100)');
+  await addCol('stc_transactions', 'balance_after',  'DECIMAL(12,2)');
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');

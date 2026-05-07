@@ -58,6 +58,19 @@ async function getCurrentTransferWindow() {
   return rows[0] || null;
 }
 
+async function createClubTx({ clubId, amount, type, category, description, referenceId }) {
+  const rows = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [clubId]);
+  const newBalance = Number(rows[0]?.stc || 0) + Number(amount);
+  await EXECUTESQL('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, clubId]);
+  const txId = uuidv4();
+  await EXECUTESQL(
+    `INSERT INTO stc_transactions (id, club_id, amount, balance_after, type, category, description, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [txId, clubId, Number(amount), newBalance, type || null, category || null, description || null, referenceId || null]
+  );
+  return { new_balance: newBalance, transaction_id: txId };
+}
+
 async function createPlayerTx({ playerId, playerEmail, amount, category, source, description, referenceId }) {
   const rows = await EXECUTESQL('SELECT stc FROM players WHERE id = ? LIMIT 1', [playerId]);
   const newBalance = Number(rows[0]?.stc || 0) + Number(amount);
@@ -131,6 +144,24 @@ async function processMatchCompletion(m, homeSub, awaySub) {
         'UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?, goals_scored=goals_scored+?, goals_conceded=goals_conceded+?, updated_date=NOW() WHERE id=?',
         [awayWon ? 1 : 0, isDraw ? 1 : 0, homeWon ? 1 : 0, finalAwayScore, finalHomeScore, m.away_club_id]
       ).catch(() => {});
+    }
+  }
+
+  // Settle club wager if applicable
+  if (m.mode === 'club' && Number(m.wager_stc || 0) > 0 && m.wager_status === 'active') {
+    const wagerEach = Number(m.wager_stc);
+    const pot       = wagerEach * 2;
+    const label     = `${m.home_club_name || 'Home'} vs ${m.away_club_name || 'Away'}`;
+    if (isDraw) {
+      if (m.home_club_id) await createClubTx({ clubId: m.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: m.id }).catch(() => {});
+      if (m.away_club_id) await createClubTx({ clubId: m.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: m.id }).catch(() => {});
+      await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [m.id]).catch(() => {});
+    } else {
+      const winnerClubId = homeWon ? m.home_club_id : m.away_club_id;
+      const winnerName   = homeWon ? (m.home_club_name || 'Home') : (m.away_club_name || 'Away');
+      const loserName    = homeWon ? (m.away_club_name || 'Away') : (m.home_club_name || 'Home');
+      if (winnerClubId) await createClubTx({ clubId: winnerClubId, amount: pot, type: 'wager_win', category: 'wager_win', description: `Wager won vs ${loserName} — +${pot.toLocaleString()} STC`, referenceId: m.id }).catch(() => {});
+      await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [m.id]).catch(() => {});
     }
   }
 
@@ -379,12 +410,12 @@ const HANDLERS = {
           if (m.home_club_id) {
             const [hc] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.home_club_id]);
             if (!hc || Number(hc.stc || 0) < wagerEach) throw new Error('Home club has insufficient STC for this wager');
-            await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_club_id]);
+            await createClubTx({ clubId: m.home_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_loss', description: `Wager stake locked — match vs ${m.away_club_name || 'Away'}`, referenceId: m.id });
           }
           if (m.away_club_id) {
             const [ac] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.away_club_id]);
             if (!ac || Number(ac.stc || 0) < wagerEach) throw new Error('Your club has insufficient STC for this wager');
-            await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_club_id]);
+            await createClubTx({ clubId: m.away_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_loss', description: `Wager stake locked — match vs ${m.home_club_name || 'Home'}`, referenceId: m.id });
           }
         } else {
           if (m.home_player_id) {
@@ -419,8 +450,8 @@ const HANDLERS = {
       const wagerEach = Number(m.wager_stc || 0);
       if (wagerEach > 0 && m.wager_status === 'active') {
         if (isClub) {
-          if (m.home_club_id) await EXECUTESQL('UPDATE clubs SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_club_id]);
-          if (m.away_club_id) await EXECUTESQL('UPDATE clubs SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_club_id]);
+          if (m.home_club_id) await createClubTx({ clubId: m.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded — match cancelled`, referenceId: m.id });
+          if (m.away_club_id) await createClubTx({ clubId: m.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded — match cancelled`, referenceId: m.id });
         } else {
           if (m.home_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_player_id]);
           if (m.away_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_player_id]);
@@ -867,6 +898,123 @@ const HANDLERS = {
     return { success: true, data: { inserted, updated } };
   },
 
+  // ── Club Finance ──────────────────────────────────────────────────────────
+  async clubFinance({ _auth_user_id, action, club_id, page, ...params }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+
+    if (action === 'get_overview') {
+      const cid = club_id;
+      if (!cid) throw new Error('club_id required');
+      const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [cid]);
+      if (!clubs.length) throw new Error('Club not found');
+      const club = clubs[0];
+
+      const pageNum = Number(page || 1);
+      const limit = 25;
+      const offset = (pageNum - 1) * limit;
+
+      const [contracts, transactions, countRows, summaryRows] = await Promise.all([
+        EXECUTESQL("SELECT * FROM player_contracts WHERE team_id = ? AND status = 'active' ORDER BY created_date DESC", [cid]),
+        EXECUTESQL('SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY created_date DESC LIMIT ? OFFSET ?', [cid, limit, offset]),
+        EXECUTESQL('SELECT COUNT(*) as total FROM stc_transactions WHERE club_id = ?', [cid]),
+        EXECUTESQL(
+          `SELECT
+             SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income,
+             SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses
+           FROM stc_transactions WHERE club_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+          [cid]
+        ),
+      ]);
+
+      const weeklyWages = contracts.reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
+      return {
+        success: true,
+        data: {
+          balance:         Number(club.stc || 0),
+          transfer_budget: Number(club.transfer_budget_stc || 0),
+          wage_budget:     Number(club.wage_budget_stc || 0),
+          weekly_wages:    weeklyWages,
+          contracts,
+          transactions,
+          total_transactions: Number(countRows[0]?.total || 0),
+          income_30d:  Number(summaryRows[0]?.income   || 0),
+          expenses_30d: Number(summaryRows[0]?.expenses || 0),
+        },
+      };
+    }
+
+    if (action === 'adjust_budgets') {
+      const { user } = await getMe(_auth_user_id);
+      const targetClubId = params.target_club_id || club_id;
+      if (!targetClubId) throw new Error('club_id required');
+      const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? AND owner_email = ? LIMIT 1', [targetClubId, user.email]);
+      if (!clubs.length) throw new Error('Club not found or not owner');
+      const club = clubs[0];
+
+      const newTransfer = Number(params.transfer_budget);
+      const newWage     = Number(params.wage_budget);
+      const currentTotal = Number(club.transfer_budget_stc || 0) + Number(club.wage_budget_stc || 0);
+
+      if (Math.abs(newTransfer + newWage - currentTotal) > 100) throw new Error('Budget total must not change');
+      if (newTransfer < 0 || newWage < 0) throw new Error('Budgets cannot be negative');
+
+      const weeklyCheck = await EXECUTESQL(
+        "SELECT SUM(weekly_salary_stc) as total FROM player_contracts WHERE team_id = ? AND status = 'active'", [targetClubId]
+      );
+      const committedWages = Number(weeklyCheck[0]?.total || 0);
+      if (newWage < committedWages) throw new Error(`Wage budget cannot fall below committed weekly wages (${committedWages.toLocaleString()} STC/wk)`);
+
+      await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = ?, wage_budget_stc = ?, updated_date = NOW() WHERE id = ?',
+        [newTransfer, newWage, targetClubId]);
+
+      return { success: true, data: { transfer_budget: newTransfer, wage_budget: newWage } };
+    }
+
+    if (action === 'admin_adjust') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+
+      const { target_club_id, balance_delta, set_balance, set_transfer_budget, set_wage_budget, note } = params;
+      const cid2 = target_club_id || club_id;
+      if (!cid2) throw new Error('club_id required');
+
+      const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [cid2]);
+      if (!clubs.length) throw new Error('Club not found');
+      const club = clubs[0];
+
+      if (balance_delta != null && Number(balance_delta) !== 0) {
+        await createClubTx({ clubId: cid2, amount: Number(balance_delta), type: 'admin_adjustment', category: 'adjustment', description: note || `Admin adjustment: ${Number(balance_delta) >= 0 ? '+' : ''}${Number(balance_delta).toLocaleString()} STC` });
+      } else if (set_balance != null) {
+        const delta = Number(set_balance) - Number(club.stc || 0);
+        if (delta !== 0) {
+          await createClubTx({ clubId: cid2, amount: delta, type: 'admin_adjustment', category: 'adjustment', description: note || `Admin set balance: ${Number(set_balance).toLocaleString()} STC` });
+        }
+      }
+
+      const updates = [];
+      const vals = [];
+      if (set_transfer_budget != null) { updates.push('transfer_budget_stc = ?'); vals.push(Number(set_transfer_budget)); }
+      if (set_wage_budget     != null) { updates.push('wage_budget_stc = ?');     vals.push(Number(set_wage_budget)); }
+      if (updates.length) {
+        vals.push(cid2);
+        await EXECUTESQL(`UPDATE clubs SET ${updates.join(', ')}, updated_date = NOW() WHERE id = ?`, vals);
+      }
+
+      return { success: true };
+    }
+
+    if (action === 'delete_transaction') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      const { transaction_id } = params;
+      if (!transaction_id) throw new Error('transaction_id required');
+      await EXECUTESQL('DELETE FROM stc_transactions WHERE id = ?', [transaction_id]);
+      return { success: true };
+    }
+
+    throw new Error(`Unknown clubFinance action: ${action}`);
+  },
+
   async deleteClub({ _auth_user_id, club_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!club_id) throw new Error('club_id required');
@@ -950,7 +1098,11 @@ const HANDLERS = {
       const grossAmount = Math.min(salary * weeksMultiplier, Number(club.stc || 0));
       if (grossAmount <= 0) throw new Error('Club has insufficient funds to pay salary');
 
-      await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [grossAmount, contract.team_id]);
+      await createClubTx({
+        clubId: contract.team_id, amount: -grossAmount, type: 'salary_payment', category: 'salary',
+        description: `Salary paid: ${player.gamertag || player.full_name || 'Player'}${weeksMultiplier > 1 ? ` (${weeksMultiplier}wk)` : ''}`,
+        referenceId: contract.id,
+      });
       await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = NOW(), updated_date = NOW() WHERE id = ?', [contract.id]);
 
       const result = await createPlayerTx({

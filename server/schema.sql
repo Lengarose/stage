@@ -307,13 +307,15 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 -- ── stc_transactions ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stc_transactions (
-  id           VARCHAR(36)   PRIMARY KEY,
-  club_id      VARCHAR(36)   NOT NULL,
-  amount       DECIMAL(12,2) NOT NULL,
-  type         VARCHAR(100),
-  description  TEXT,
-  reference_id VARCHAR(36),
-  created_date DATETIME      DEFAULT CURRENT_TIMESTAMP
+  id            VARCHAR(36)   PRIMARY KEY,
+  club_id       VARCHAR(36)   NOT NULL,
+  amount        DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2),
+  type          VARCHAR(100),
+  category      VARCHAR(100),
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── shirt_sales ───────────────────────────────────────────────

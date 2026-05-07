@@ -49,7 +49,12 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const club = new Club(req.body);
+    const body = { ...req.body };
+    if (body.stc               == null) body.stc                = 30_000_000;
+    if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
+    if (body.wage_budget_stc     == null) body.wage_budget_stc     = 1_500_000;
+
+    const club = new Club(body);
     await club.create();
     const created = await club.selectOne(club.id);
     const record  = created[0];
