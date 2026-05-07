@@ -51,6 +51,7 @@ export default function PlayerSetup({ onComplete, user }) {
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
         credits: 50,
+        stc: 50000,
       };
 
       const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
