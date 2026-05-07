@@ -172,9 +172,9 @@
     word-spacing: 0.15em;
   }
 
-  /* Anton has no GF italic file; Barlow Condensed italic loads as fallback. Synthetic italic applies to Anton. */
   .font-heading {
-    font-style: italic;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
