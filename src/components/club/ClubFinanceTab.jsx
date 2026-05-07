@@ -191,21 +191,39 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
   const [catFilter, setCatFilter] = useState("all");
   const [sliderSaving, setSliderSaving] = useState(false);
 
-  const load = useCallback(async (p = 1) => {
+  const load = useCallback(async () => {
     if (!club?.id) return;
     setLoading(true);
     try {
-      const res = await stageClient.functions.invoke("clubFinance", {
-        action: "get_overview", club_id: club.id, page: p,
+      const [contracts, allTx] = await Promise.all([
+        stageClient.entities.PlayerContract.filter({ team_id: club.id, status: "active" }, null, 200),
+        stageClient.entities.STCTransaction.filter({ club_id: club.id }, "-created_date", 500),
+      ]);
+
+      const weeklyWages  = (contracts || []).reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
+      const thirtyAgo    = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const recent       = (allTx || []).filter(t => new Date(t.created_date).getTime() >= thirtyAgo);
+      const income_30d   = recent.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0);
+      const expenses_30d = recent.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+
+      setData({
+        balance:          Number(club.stc || 0),
+        transfer_budget:  Number(club.transfer_budget_stc || 0),
+        wage_budget:      Number(club.wage_budget_stc || 0),
+        weekly_wages:     weeklyWages,
+        contracts:        contracts || [],
+        allTransactions:  allTx || [],
+        income_30d,
+        expenses_30d,
       });
-      setData(res.data);
-    } catch {
+    } catch (err) {
+      console.error("[ClubFinanceTab] load failed:", err);
       setData(null);
     }
     setLoading(false);
-  }, [club?.id]);
+  }, [club?.id, club?.stc, club?.transfer_budget_stc, club?.wage_budget_stc]);
 
-  useEffect(() => { load(page); }, [load, page]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleAdjustBudgets(transfer, wage) {
     setSliderSaving(true);
@@ -216,7 +234,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         transfer_budget: transfer,
         wage_budget: wage,
       });
-      await load(page);
+      await load();
     } catch (err) {
       alert(err?.message || "Failed to adjust budgets");
     }
@@ -229,7 +247,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       await stageClient.functions.invoke("clubFinance", {
         action: "delete_transaction", club_id: club.id, transaction_id: txId,
       });
-      await load(page);
+      await load();
     } catch (err) {
       alert(err?.message || "Failed");
     }
@@ -249,16 +267,18 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
 
   const {
     balance, transfer_budget, wage_budget, weekly_wages,
-    contracts, transactions, total_transactions, income_30d, expenses_30d,
+    contracts, allTransactions, income_30d, expenses_30d,
   } = data;
 
   const net30 = income_30d - expenses_30d;
-  const totalPages = Math.ceil(total_transactions / 25) || 1;
   const wageUsedPct = wage_budget > 0 ? Math.min(100, (weekly_wages / wage_budget) * 100) : 0;
 
-  const visibleTx = catFilter === "all"
-    ? transactions
-    : transactions.filter(tx => (tx.category || tx.type || "") === catFilter);
+  const filteredTx = catFilter === "all"
+    ? allTransactions
+    : allTransactions.filter(tx => (tx.category || tx.type || "") === catFilter);
+  const PAGE_SIZE  = 25;
+  const totalPages = Math.ceil(filteredTx.length / PAGE_SIZE) || 1;
+  const visibleTx  = filteredTx.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-5">
@@ -340,9 +360,9 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Transaction History
-            {total_transactions > 0 && <span className="ml-2 text-muted-foreground font-normal">({total_transactions})</span>}
+            {allTransactions.length > 0 && <span className="ml-2 text-muted-foreground font-normal">({allTransactions.length})</span>}
           </h4>
-          <button onClick={() => load(page)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+          <button onClick={() => load()} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
             <RefreshCw className="w-3 h-3" /> Refresh
           </button>
         </div>
@@ -352,7 +372,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
           {CATEGORY_FILTERS.map(f => (
             <button
               key={f.key}
-              onClick={() => setCatFilter(f.key)}
+              onClick={() => { setCatFilter(f.key); setPage(1); }}
               className={cn(
                 "px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors",
                 catFilter === f.key
