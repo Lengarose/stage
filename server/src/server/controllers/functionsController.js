@@ -475,6 +475,209 @@ const HANDLERS = {
     return { success: true, data: { contract_id: id, status } };
   },
 
+  async contractManagement({
+    action, _auth_user_id,
+    contract_id, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
+    contract_type, start_date, end_date, max_days, max_games,
+    status, offer_note, performance_targets, note, amount,
+  }) {
+    // ── accept ──────────────────────────────────────────────────────────────
+    if (action === 'accept') {
+      if (!contract_id) throw new Error('contract_id required');
+      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      if (!contracts.length) throw new Error('Contract not found');
+      const contract = contracts[0];
+      if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) {
+        throw new Error(`Cannot accept contract with status: ${contract.status}`);
+      }
+
+      const salary = Number(contract.weekly_salary_stc || 0);
+      if (salary > 0) {
+        const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
+        if (!clubs.length) throw new Error('Club not found');
+        const clubData = clubs[0];
+        const wageBudget = Number(clubData.wage_budget_stc || 0);
+        const committedRows = await EXECUTESQL(
+          "SELECT COALESCE(SUM(weekly_salary_stc),0) as total FROM player_contracts WHERE team_id = ? AND status = 'active' AND id != ?",
+          [contract.team_id, contract_id]
+        );
+        const committed = Number(committedRows[0]?.total || 0);
+        if (committed + salary > wageBudget) {
+          throw new Error(`Insufficient wage budget. Available: ${(wageBudget - committed).toLocaleString()} STC/wk, Required: ${salary.toLocaleString()} STC/wk`);
+        }
+      }
+
+      const today   = new Date().toISOString().split('T')[0];
+      const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
+      await EXECUTESQL(
+        "UPDATE player_contracts SET status = 'active', start_date = ?, end_date = ?, updated_date = NOW() WHERE id = ?",
+        [today, endDate, contract_id]
+      );
+
+      const bonus = Number(contract.signing_bonus_stc || 0);
+      if (bonus > 0) {
+        const players = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [contract.user_id]);
+        const player  = players[0];
+        const clubRows = await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
+        await createClubTx({
+          clubId: contract.team_id, amount: -bonus, type: 'signing_bonus', category: 'signing_bonus',
+          description: `Signing bonus — ${player?.gamertag || player?.full_name || 'Player'} (${contract.contract_type})`,
+          referenceId: contract_id,
+        });
+        if (player) {
+          await createPlayerTx({
+            playerId: player.id, playerEmail: player.email, amount: bonus,
+            category: 'signing_bonus', source: clubRows[0]?.name || 'Club',
+            description: `Signing bonus — ${clubRows[0]?.name || 'Club'} (${contract.contract_type})`,
+            referenceId: contract_id,
+          });
+        }
+      }
+      return { success: true, data: { status: 'active', start_date: today, end_date: endDate } };
+    }
+
+    // ── terminate ────────────────────────────────────────────────────────────
+    if (action === 'terminate') {
+      if (!contract_id) throw new Error('contract_id required');
+      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      if (!contracts.length) throw new Error('Contract not found');
+      if (contracts[0].status !== 'active') throw new Error('Can only terminate active contracts');
+      await EXECUTESQL("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+      return { success: true, data: { status: 'terminated' } };
+    }
+
+    // ── expire_overdue ───────────────────────────────────────────────────────
+    if (action === 'expire_overdue') {
+      const result = await EXECUTESQL(
+        "UPDATE player_contracts SET status = 'expired', updated_date = NOW() WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE()",
+        []
+      );
+      return { success: true, data: { expired_count: result.affectedRows || 0 } };
+    }
+
+    // ── auto_pay_salaries ────────────────────────────────────────────────────
+    if (action === 'auto_pay_salaries') {
+      const overdue = await EXECUTESQL(
+        `SELECT pc.*, p.gamertag, p.full_name, p.email AS player_email,
+                c.stc AS club_stc, c.name AS club_name
+         FROM player_contracts pc
+         JOIN players p ON p.id = pc.user_id
+         JOIN clubs c ON c.id = pc.team_id
+         WHERE pc.status = 'active' AND pc.weekly_salary_stc > 0
+           AND (pc.last_salary_paid_at IS NULL OR pc.last_salary_paid_at < DATE_SUB(NOW(), INTERVAL 7 DAY))`,
+        []
+      );
+      let paid = 0; let failed = 0;
+      for (const contract of overdue) {
+        try {
+          const salary    = Number(contract.weekly_salary_stc);
+          const lastPaid  = contract.last_salary_paid_at || contract.start_date || contract.created_date;
+          const weeksMult = lastPaid
+            ? Math.max(1, Math.floor((Date.now() - new Date(lastPaid).getTime()) / (7 * 24 * 60 * 60 * 1000)))
+            : 1;
+          const gross = Math.min(salary * weeksMult, Number(contract.club_stc || 0));
+          if (gross <= 0) { failed++; continue; }
+          await createClubTx({
+            clubId: contract.team_id, amount: -gross, type: 'salary_payment', category: 'salary',
+            description: `Salary: ${contract.gamertag || contract.full_name || 'Player'}${weeksMult > 1 ? ` (${weeksMult}wk)` : ''}`,
+            referenceId: contract.id,
+          });
+          await createPlayerTx({
+            playerId: contract.user_id, playerEmail: contract.player_email, amount: gross,
+            category: 'salary', source: contract.club_name || 'Club',
+            description: `Weekly salary${weeksMult > 1 ? ` (${weeksMult} weeks)` : ''} — ${contract.club_name}`,
+            referenceId: contract.id,
+          });
+          await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = NOW(), updated_date = NOW() WHERE id = ?', [contract.id]);
+          paid++;
+        } catch (_) { failed++; }
+      }
+      return { success: true, data: { paid, failed, total: overdue.length } };
+    }
+
+    // ── get_all (admin) ──────────────────────────────────────────────────────
+    if (action === 'get_all') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      const rows = await EXECUTESQL(
+        `SELECT pc.*, p.gamertag, p.full_name, p.avatar_url,
+                c.name AS club_name, c.logo_url AS club_logo_url
+         FROM player_contracts pc
+         LEFT JOIN players p ON p.id = pc.user_id
+         LEFT JOIN clubs c ON c.id = pc.team_id
+         ORDER BY pc.created_date DESC LIMIT 300`,
+        []
+      );
+      return { data: { contracts: rows } };
+    }
+
+    // ── admin_edit ───────────────────────────────────────────────────────────
+    if (action === 'admin_edit') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!contract_id) throw new Error('contract_id required');
+      const updates = {};
+      if (weekly_salary_stc != null)   updates.weekly_salary_stc = Number(weekly_salary_stc);
+      if (signing_bonus_stc != null)   updates.signing_bonus_stc = Number(signing_bonus_stc);
+      if (transfer_fee_stc  != null)   updates.transfer_fee_stc  = Number(transfer_fee_stc);
+      if (contract_type)               updates.contract_type     = contract_type;
+      if (start_date)                  updates.start_date        = start_date;
+      if (end_date)                    updates.end_date          = end_date;
+      if (max_days  != null)           updates.max_days          = Number(max_days);
+      if (max_games != null)           updates.max_games         = Number(max_games);
+      if (offer_note != null)          updates.offer_note        = offer_note;
+      if (status)                      updates.status            = status;
+      if (performance_targets != null) updates.performance_targets = JSON.stringify(performance_targets);
+      if (!Object.keys(updates).length) throw new Error('No fields to update');
+      const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      await EXECUTESQL(
+        `UPDATE player_contracts SET ${setClauses}, updated_date = NOW() WHERE id = ?`,
+        [...Object.values(updates), contract_id]
+      );
+      return { success: true };
+    }
+
+    // ── admin_cancel ─────────────────────────────────────────────────────────
+    if (action === 'admin_cancel') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!contract_id) throw new Error('contract_id required');
+      await EXECUTESQL("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+      return { success: true };
+    }
+
+    // ── admin_correct_salary ─────────────────────────────────────────────────
+    if (action === 'admin_correct_salary') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!contract_id || amount == null) throw new Error('contract_id and amount required');
+      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      if (!contracts.length) throw new Error('Contract not found');
+      const contract  = contracts[0];
+      const players   = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [contract.user_id]);
+      if (!players.length) throw new Error('Player not found');
+      const player    = players[0];
+      const clubRows  = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
+      if (!clubRows.length) throw new Error('Club not found');
+      const club      = clubRows[0];
+      const corrAmt   = Number(amount);
+      await createClubTx({
+        clubId: contract.team_id, amount: -corrAmt, type: 'salary_correction', category: 'salary',
+        description: note || `Admin salary correction — ${player.gamertag || 'Player'}`,
+        referenceId: contract_id,
+      });
+      await createPlayerTx({
+        playerId: player.id, playerEmail: player.email, amount: corrAmt,
+        category: 'salary', source: club.name || 'Club',
+        description: note || `Admin salary correction — ${club.name}`,
+        referenceId: contract_id,
+      });
+      return { success: true };
+    }
+
+    throw new Error(`Unknown contractManagement action: ${action}`);
+  },
+
   async transferWindowActions({ action, label, start_date, end_date, notes, window_id }) {
     const current = await getCurrentTransferWindow();
 

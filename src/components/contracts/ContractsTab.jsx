@@ -232,35 +232,12 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function acceptContract(contract) {
-    const today   = new Date().toISOString().split("T")[0];
-    const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
-    await stageClient.entities.PlayerContract.update(contract.id, {
-      status: "active",
-      start_date: today,
-      end_date:   endDate,
-    });
-
     const player = playerMap[contract.user_id];
-
-    // Deduct signing bonus from club balance and record in finance
-    if ((contract.signing_bonus_stc || 0) > 0) {
-      try {
-        const freshClub = await stageClient.entities.Club.filter({ id: club.id });
-        const clubData = freshClub[0];
-        if (clubData) {
-          await stageClient.entities.Club.update(club.id, {
-            transfer_budget_stc: Math.max(0, (clubData.transfer_budget_stc || 0) - contract.signing_bonus_stc),
-          });
-          await stageClient.entities.STCTransaction.create({
-            club_id: club.id,
-            amount: -contract.signing_bonus_stc,
-            type: "signing_bonus",
-            description: `Signing bonus — ${player?.gamertag || "Player"} (${contract.contract_type} contract)`,
-            reference_id: contract.id,
-          });
-        }
-      } catch (_) { /* non-fatal */ }
-    }
+    const result = await stageClient.functions.invoke("contractManagement", {
+      action: "accept",
+      contract_id: contract.id,
+    });
+    const { start_date, end_date } = result?.data || {};
     notify(club.owner_email, "contract_accepted",
       `✅ Contract Accepted`,
       `${player?.gamertag || "A player"} has accepted your ${contract.contract_type} contract offer.`,
@@ -274,7 +251,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       link: `/clubs/${club.id}`,
     });
     setContracts(prev => prev.map(c =>
-      c.id === contract.id ? { ...c, status: "active", start_date: today, end_date: endDate } : c
+      c.id === contract.id ? { ...c, status: "active", start_date, end_date } : c
     ));
   }
 
@@ -298,7 +275,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   async function terminateContract(contract) {
     if (!confirm("Are you sure you want to terminate this contract?")) return;
-    await stageClient.entities.PlayerContract.update(contract.id, { status: "terminated" });
+    await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
     const player = playerMap[contract.user_id];
     notify(player?.email, "contract_terminated",
       `🚫 Contract Terminated`,

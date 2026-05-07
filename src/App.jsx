@@ -121,10 +121,19 @@ const AuthenticatedApp = () => {
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     const userScopedDone = localStorage.getItem(userScopedKey) === '1';
     const legacyDone = localStorage.getItem('stage_onboarding_completed') === '1';
-    // Consider onboarding complete if user already has profile data on backend.
     const hasProfileData = Boolean(user.player_id || user.owner_id);
     setPlayerSetupComplete(userScopedDone || legacyDone || hasProfileData);
   }, [user]);
+
+  // Run automated contract maintenance once per session
+  React.useEffect(() => {
+    if (!user) return;
+    const sessionKey = `stage_contract_maintenance_${new Date().toDateString()}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+    stageClient.functions.invoke('contractManagement', { action: 'expire_overdue' }).catch(() => {});
+    stageClient.functions.invoke('contractManagement', { action: 'auto_pay_salaries' }).catch(() => {});
+  }, [user?.id]);
 
   if (isLoadingAuth) return <SplashScreen />;
 
