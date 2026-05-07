@@ -54,10 +54,6 @@ export default function PlayerSetup({ onComplete, user }) {
       };
 
       const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
-      const gamertagConflict = await stageClient.entities.Player.filter({ gamertag }, null, 1).catch(() => []);
-      if (gamertagConflict?.length && (!existing?.length || gamertagConflict[0].id !== existing[0].id)) {
-        throw new Error("A player with this gamertag already exists.");
-      }
 
       const isBenignSaveError = (e) => {
         const msg = String(e?.message || '');
