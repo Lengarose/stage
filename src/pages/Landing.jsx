@@ -3,111 +3,7 @@ import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Stadium Logo.png';
 
-/* ─── inline icons ───────────────────────────────────────── */
-const TrophyIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/>
-    <path d="M6 5h12v6a6 6 0 0 1-12 0V5z"/><path d="M12 17v4"/><path d="M8 21h8"/>
-  </svg>
-);
-const ShieldIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-);
-const ArrowRightLeft = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>
-  </svg>
-);
-const ContractIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-  </svg>
-);
-const ChartIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-  </svg>
-);
-const HomeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-  </svg>
-);
-const ChevronDown = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
-
-/* ─── data ───────────────────────────────────────────────── */
-const FEATURES = [
-  {
-    Icon: TrophyIcon,
-    title: 'Tournaments',
-    desc: 'Create tournaments. Run group stages, knockout brackets, and league competitions — with automated prize distribution at the final whistle.',
-    accent: '#f59e0b',
-    bg: 'from-amber-500/15 to-transparent',
-    border: 'border-amber-500/25',
-  },
-  {
-    Icon: ShieldIcon,
-    title: 'Club Management',
-    desc: 'Build your squad, manage club finances, fill your trophy cabinet, upgrade your stadium, and climb the rankings every season.',
-    accent: '#3b82f6',
-    bg: 'from-blue-500/15 to-transparent',
-    border: 'border-blue-500/25',
-  },
-  {
-    Icon: ArrowRightLeft,
-    title: 'Transfer Market',
-    desc: 'Buy and sell players during transfer windows. Negotiate fees, wages, and bonus clauses in real time.',
-    accent: '#10b981',
-    bg: 'from-emerald-500/15 to-transparent',
-    border: 'border-emerald-500/25',
-  },
-  {
-    Icon: ContractIcon,
-    title: 'Player Contracts',
-    desc: 'Get signed by a clubs team, negotiate your contract with performance bonuses, salary caps, and much more.',
-    accent: '#8b5cf6',
-    bg: 'from-violet-500/15 to-transparent',
-    border: 'border-violet-500/25',
-  },
-  {
-    Icon: ChartIcon,
-    title: 'Live Stats & Rankings',
-    desc: 'Track every goal, assist, and clean sheet. Real-time leaderboards keep the competition fierce.',
-    accent: '#ef4444',
-    bg: 'from-red-500/15 to-transparent',
-    border: 'border-red-500/25',
-  },
-  {
-    Icon: HomeIcon,
-    title: 'Lifestyle & Assets',
-    desc: 'Spend your earnings on mansions, supercars, and exclusive gear — flex your status off the pitch.',
-    accent: '#ec4899',
-    bg: 'from-pink-500/15 to-transparent',
-    border: 'border-pink-500/25',
-  },
-];
-
-const STATS = [
-  { value: '2 000+', label: 'Active Players' },
-  { value: '200+',   label: 'Clubs' },
-  { value: '500+',   label: 'Tournaments Played' },
-  { value: '10 000+',label: 'Matches Recorded' },
-];
-
-const STEPS = [
-  { num: '01', title: 'Create Your Profile', desc: 'Sign up, set your position, and build your player identity in minutes.' },
-  { num: '02', title: 'Join or Found a Club', desc: 'Represent a club, negotiate your contract, and train with your squad.' },
-  { num: '03', title: 'Compete & Dominate', desc: 'Enter tournaments, climb the leaderboard, and chase every trophy.' },
-];
-
-/* ─── animated section wrapper ──────────────────────────── */
+/* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
@@ -124,13 +20,166 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
   );
 };
 
+/* ─── alternating picture + text section ─────────────────── */
+function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', accent = '#3b82f6' }) {
+  const frame = imageUrl ? (
+    <div className="w-full aspect-[16/10] rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+      <img
+        src={imageUrl}
+        alt={title}
+        className="w-full h-full object-cover"
+        style={{ objectPosition }}
+      />
+    </div>
+  ) : (
+    <div className="w-full aspect-[16/10] rounded-2xl border border-white/10 bg-white/4 flex items-center justify-center">
+      <p className="text-white/15 text-xs uppercase tracking-widest">Image</p>
+    </div>
+  );
+
+  const txt = (
+    <div className="flex flex-col justify-center space-y-5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.32em]" style={{ color: accent }}>{tag}</p>
+      <h2 className="text-3xl md:text-5xl font-black uppercase leading-tight text-white">{title}</h2>
+      <p className="text-white/50 text-sm md:text-base leading-relaxed">{text}</p>
+    </div>
+  );
+
+  return (
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center`}>
+      {flip ? <>{txt}{frame}</> : <>{frame}{txt}</>}
+    </div>
+  );
+}
+
+/* ─── data ───────────────────────────────────────────────── */
+const FEATURES = [
+  {
+    title: 'Competitions & Leagues',
+    desc: 'Enter structured regional leagues and knockout competitions. Every season has standings, match days, and a champion crowned at the final whistle.',
+    accent: '#f59e0b',
+    border: 'border-amber-500/25',
+    bg: 'from-amber-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/>
+        <path d="M6 5h12v6a6 6 0 0 1-12 0V5z"/><path d="M12 17v4"/><path d="M8 21h8"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Club Management',
+    desc: 'Found your club, set your formation, manage your wage budget, upgrade your stadium, and build a legacy across multiple seasons.',
+    accent: '#3b82f6',
+    border: 'border-blue-500/25',
+    bg: 'from-blue-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Game Day',
+    desc: 'Schedule matches, submit scores, and track every result in real time. Your club\'s form, streaks, and standings update instantly.',
+    accent: '#10b981',
+    border: 'border-emerald-500/25',
+    bg: 'from-emerald-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Player Contracts',
+    desc: 'Sign to a club on a formal contract with wages, bonuses, and release clauses — just like the real game.',
+    accent: '#8b5cf6',
+    border: 'border-violet-500/25',
+    bg: 'from-violet-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Transfer Market',
+    desc: 'Buy and sell players during transfer windows. Negotiate fees, wages, and bonuses with clubs across the platform.',
+    accent: '#ef4444',
+    border: 'border-red-500/25',
+    bg: 'from-red-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Rankings & Live Stats',
+    desc: 'Goals, assists, ratings, clean sheets — every stat tracked. See where you rank against every player on the platform.',
+    accent: '#ec4899',
+    border: 'border-pink-500/25',
+    bg: 'from-pink-500/12 to-transparent',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    ),
+  },
+];
+
+const STATS = [
+  { value: '2 000+',  label: 'Active Players' },
+  { value: '200+',    label: 'Clubs' },
+  { value: '500+',    label: 'Competitions Played' },
+  { value: '10 000+', label: 'Matches Recorded' },
+];
+
+const STEPS = [
+  { num: '01', title: 'Create Your Profile', desc: 'Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.' },
+  { num: '02', title: 'Join or Found a Club', desc: 'Browse existing clubs and request to join, or create your own — set the name, badge, region, and start recruiting.' },
+  { num: '03', title: 'Register & Compete', desc: 'Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.' },
+];
+
+const PICTURE_SECTIONS = [
+  {
+    tag: 'Compete',
+    title: 'Structured Leagues & Competitions',
+    text: 'STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on Game Day, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.',
+    flip: false,
+    accent: '#f59e0b',
+    imageUrl: null,
+    objectPosition: 'center',
+  },
+  {
+    tag: 'Manage',
+    title: 'Your Club, Your Rules',
+    text: 'Every great club starts with a vision. Set your formation, manage your transfer and wage budget in STC, sign players to proper contracts, and watch your squad grow. Upgrade your stadium capacity, fill your trophy cabinet, and lead your club to the top of the rankings.',
+    flip: true,
+    accent: '#3b82f6',
+    imageUrl: null,
+    objectPosition: 'center',
+  },
+  {
+    tag: 'Grow',
+    title: 'Build a Career Worth Watching',
+    text: 'Create a player profile, get scouted, and sign for a club that fits your ambitions. Every goal, assist, and rating update is tracked. Climb the free agent board, negotiate your next contract, and spend your earnings on lifestyle items that show off your status off the pitch.',
+    flip: false,
+    accent: '#10b981',
+    imageUrl: null,
+    objectPosition: 'center',
+  },
+];
+
 /* ─── component ──────────────────────────────────────────── */
 export default function Landing({ onSignIn }) {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
       {/* ── NAV ─────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-background/80 backdrop-blur-md border-b border-border">
+      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-background/80 backdrop-blur-md border-b border-white/8">
         <img src={LogoImg} alt="STAGE" className="h-14 w-auto object-contain" />
         <button
           onClick={onSignIn}
@@ -142,11 +191,9 @@ export default function Landing({ onSignIn }) {
 
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6">
-        {/* background */}
-        <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/45 to-background" />
+        <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%' }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
 
-        {/* content */}
         <div className="relative z-10 max-w-4xl mx-auto">
           <motion.p
             initial={{ opacity: 0, y: 16 }}
@@ -154,7 +201,7 @@ export default function Landing({ onSignIn }) {
             transition={{ duration: 0.6 }}
             className="text-blue-400 text-xs md:text-sm font-bold uppercase tracking-[0.35em] mb-5"
           >
-            The Ultimate Platform For EA FC Clubs
+            The Competitive EA FC Platform
           </motion.p>
 
           <motion.h1
@@ -163,10 +210,10 @@ export default function Landing({ onSignIn }) {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="text-6xl md:text-8xl lg:text-9xl font-black uppercase leading-none tracking-tight mb-6"
           >
-            <span className="text-white">Where </span>
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Champions</span>
+            <span className="text-white">Your </span>
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Stage</span>
             <br />
-            <span className="text-white">Are Made</span>
+            <span className="text-white">Awaits</span>
           </motion.h1>
 
           <motion.p
@@ -175,7 +222,7 @@ export default function Landing({ onSignIn }) {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="text-white/60 text-base md:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
           >
-            Compete in tournaments, create your lifestyle, manage your club — all in one platform built for EA FC players.
+            Leagues, competitions, clubs, contracts, and a community — everything the serious EA FC player needs, all in one place.
           </motion.p>
 
           <motion.div
@@ -199,7 +246,6 @@ export default function Landing({ onSignIn }) {
           </motion.div>
         </div>
 
-        {/* scroll hint */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -208,7 +254,9 @@ export default function Landing({ onSignIn }) {
         >
           <span className="uppercase tracking-widest text-[10px]">Scroll</span>
           <motion.div animate={{ y: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-            <ChevronDown />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </motion.div>
         </motion.div>
       </section>
@@ -227,19 +275,30 @@ export default function Landing({ onSignIn }) {
         </div>
       </section>
 
-      {/* ── FEATURES ─────────────────────────────────────── */}
-      <section className="py-28 px-6">
+      {/* ── PICTURE SECTIONS ─────────────────────────────── */}
+      <section className="py-24 px-6">
+        <div className="max-w-6xl mx-auto space-y-28">
+          {PICTURE_SECTIONS.map((s, i) => (
+            <FadeIn key={s.title} delay={0.05}>
+              <PictureSection {...s} />
+            </FadeIn>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FEATURE GRID ─────────────────────────────────── */}
+      <section className="py-24 px-6 bg-gradient-to-b from-transparent via-blue-950/15 to-transparent">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
             <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Everything you need</p>
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">
-              Built for the<br />
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Competitive Player</span>
+              One Platform.<br />
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Every Feature.</span>
             </h2>
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {FEATURES.map(({ Icon, title, desc, accent, bg, border }, i) => (
+            {FEATURES.map(({ icon, title, desc, accent, bg, border }, i) => (
               <FadeIn key={title} delay={i * 0.07}>
                 <motion.div
                   whileHover={{ y: -5, scale: 1.02 }}
@@ -248,13 +307,13 @@ export default function Landing({ onSignIn }) {
                 >
                   <div
                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{ background: `radial-gradient(circle at 0% 0%, ${accent}12, transparent 60%)` }}
+                    style={{ background: `radial-gradient(circle at 0% 0%, ${accent}18, transparent 60%)` }}
                   />
                   <div className="relative z-10">
                     <div className="mb-4 inline-flex p-3 rounded-xl" style={{ background: `${accent}20`, color: accent }}>
-                      <Icon />
+                      {icon}
                     </div>
-                    <h3 className="text-lg font-black uppercase tracking-wide text-white mb-2">{title}</h3>
+                    <h3 className="text-base font-black uppercase tracking-wide text-white mb-2">{title}</h3>
                     <p className="text-white/50 text-sm leading-relaxed">{desc}</p>
                   </div>
                 </motion.div>
@@ -265,10 +324,10 @@ export default function Landing({ onSignIn }) {
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
-      <section className="py-28 px-6 bg-gradient-to-b from-transparent via-blue-950/20 to-transparent">
+      <section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Simple process</p>
+            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Get started in minutes</p>
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">How It Works</h2>
           </FadeIn>
 
@@ -276,7 +335,6 @@ export default function Landing({ onSignIn }) {
             {STEPS.map(({ num, title, desc }, i) => (
               <FadeIn key={num} delay={i * 0.12}>
                 <div className="relative text-center md:text-left">
-                  {/* connector line */}
                   {i < 2 && (
                     <div className="hidden md:block absolute top-8 left-[calc(100%+1rem)] w-8 h-px bg-gradient-to-r from-blue-500/50 to-transparent" />
                   )}
@@ -302,10 +360,10 @@ export default function Landing({ onSignIn }) {
             <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Join the community</p>
             <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-white mb-6">
               Ready to<br />
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Play?</span>
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Compete?</span>
             </h2>
             <p className="text-white/50 text-base mb-10 leading-relaxed">
-              Thousands of players are already competing. Your club is waiting.
+              Thousands of players and clubs are already active. Sign up free and find your competition.
             </p>
             <button
               onClick={onSignIn}
@@ -327,6 +385,7 @@ export default function Landing({ onSignIn }) {
           </button>
         </div>
       </footer>
+
     </div>
   );
 }

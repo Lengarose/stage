@@ -8,10 +8,11 @@ const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/consta
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { email, user_id, club_id, page } = req.query;
+    const { id, email, user_id, club_id, page } = req.query;
     const player = new Player();
     let result;
-    if (email)   result = await player.selectByEmail(email);
+    if (id)      result = await player.selectOne(id);
+    else if (email)   result = await player.selectByEmail(email);
     else if (user_id) result = await player.selectByUserId(user_id);
     else if (club_id) result = await player.selectByClub(club_id);
     else result = await player.selectAll(Number(page) || 1);

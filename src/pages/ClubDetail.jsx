@@ -408,17 +408,27 @@ export default function ClubDetail() {
 
       {/* Banner */}
       <div
-        className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden group cursor-pointer"
+        className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)] group cursor-pointer"
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}
         onClick={() => canEdit && setBannerDialogOpen(true)}
       >
         <div className="absolute inset-0" style={getBannerStyle(club?.banner_url, club?.banner_position)} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
         {canEdit && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
               <Camera className="w-4 h-4" /> Change Banner
             </span>
+          </div>
+        )}
+        {canEdit && (
+          <div className="absolute top-4 right-4 z-10" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setEditClubOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors text-white/70 text-xs font-medium"
+            >
+              <Edit2 className="w-4 h-4" /> Edit Club
+            </button>
           </div>
         )}
       </div>
@@ -452,11 +462,6 @@ export default function ClubDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            {canEdit && (
-              <Button size="sm" variant="outline" className="gap-1.5 border-white/20 text-white hover:bg-white/10 bg-transparent" onClick={() => setEditClubOpen(true)}>
-                <Edit2 className="w-3.5 h-3.5" /> Edit Club
-              </Button>
-            )}
             {!isMember && (
               <Button
                 size="sm"
@@ -464,11 +469,6 @@ export default function ClubDetail() {
                 className={cn(isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-blue-600 hover:bg-blue-500 text-white")}
               >
                 {isFollowing ? "Unfollow" : "Follow"}
-              </Button>
-            )}
-            {isOwner && (
-              <Button size="sm" variant="outline" onClick={() => setDeleteDialogOpen(true)} className="border-destructive/40 text-destructive hover:bg-destructive/10">
-                <Trash2 className="w-3.5 h-3.5" />
               </Button>
             )}
           </div>
@@ -931,6 +931,15 @@ export default function ClubDetail() {
             >
               <Save className="w-4 h-4 mr-2" /> {savingClub ? "Saving..." : "Save Changes"}
             </Button>
+            {isOwner && (
+              <Button
+                variant="ghost"
+                onClick={() => { setEditClubOpen(false); setDeleteDialogOpen(true); }}
+                className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive border border-destructive/20 mt-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Club
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

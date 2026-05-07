@@ -57,11 +57,12 @@ export default function PlayerProfile() {
       const user = await stageClient.auth.me();
       setCurrentUser(user);
 
-      const [players, follows, allFollowers] = await Promise.all([
-        stageClient.entities.Player.filter({ id }),
+      const [playerResult, follows, allFollowers] = await Promise.all([
+        stageClient.entities.Player.get(id),
         stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "player" }),
         stageClient.entities.Follow.filter({ target_id: id }),
       ]);
+      const players = playerResult ? [playerResult] : [];
       setFollowersCount(allFollowers.length);
 
       const enrichedFollowers = await Promise.all(
@@ -256,9 +257,9 @@ export default function PlayerProfile() {
       </div>
 
       {/* ── Banner ── */}
-      <div className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
+      <div className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)]" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
         <div className="absolute inset-0" style={getBannerStyle(player.banner_url, player.banner_position)} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
       </div>
 
       {/* ── Profile Header ── */}
