@@ -511,6 +511,7 @@ export default function ClubDetail() {
       >
         <div className="absolute inset-0" style={getBannerStyle(club?.banner_url, club?.banner_position)} />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
+        <div className="absolute inset-0 pointer-events-none hidden dark:block" style={{ background: "linear-gradient(to bottom, transparent 35%, hsl(var(--background)) 100%)" }} />
         {canEdit && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
