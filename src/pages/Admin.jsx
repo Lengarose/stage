@@ -30,9 +30,22 @@ function BackfillStcButton() {
   const [result, setResult] = useState(null);
   async function run() {
     setState('running');
+    setResult(null);
     try {
-      const res = await stageClient.functions.invoke('backfillPlayerStc', {});
-      setResult(res?.data?.updated ?? 0);
+      // Fetch all players in batches and update those with stc <= 0
+      let updated = 0;
+      let offset = 0;
+      const batch = 200;
+      while (true) {
+        const players = await stageClient.entities.Player.list(null, batch).catch(() => []);
+        if (!players?.length) break;
+        const needsStc = players.filter(p => !p.stc || Number(p.stc) <= 0);
+        await Promise.all(needsStc.map(p => stageClient.entities.Player.update(p.id, { stc: 50000 }).catch(() => {})));
+        updated += needsStc.length;
+        if (players.length < batch) break;
+        offset += batch;
+      }
+      setResult(updated);
       setState('done');
     } catch (err) {
       setResult(err?.message || 'Failed');
@@ -44,6 +57,7 @@ function BackfillStcButton() {
       <div>
         <p className="text-xs font-bold text-warning uppercase tracking-wider">One-time: Backfill 50K STC</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">Gives 50,000 STC to every player currently at 0.</p>
+        {state === 'running' && <p className="text-[10px] text-warning mt-0.5">Updating players…</p>}
         {state === 'done' && <p className="text-[10px] text-success mt-0.5">{result} player(s) updated ✓</p>}
         {state === 'error' && <p className="text-[10px] text-destructive mt-0.5">{result}</p>}
       </div>
