@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
-import BannerImg from '@/assets/Banner.jpg';
+import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
@@ -191,7 +191,7 @@ export default function Landing({ onSignIn }) {
 
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6">
-        <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%' }} />
+        <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%', filter: 'blur(6px)', transform: 'scale(1.05)' }} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
 
         <div className="relative z-10 max-w-4xl mx-auto">
