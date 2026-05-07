@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 const CATEGORY_META = {
+  initial_grant:            { label: "Welcome Bonus",       icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
   salary:                   { label: "Weekly Salary",       icon: Briefcase,   color: "text-primary",    bg: "bg-primary/10"     },
   lifestyle_purchase:       { label: "Lifestyle Purchase",  icon: ShoppingBag, color: "text-destructive", bg: "bg-destructive/10" },
   lifestyle_rent:           { label: "Lifestyle Rental",    icon: Building2,   color: "text-destructive", bg: "bg-destructive/10" },

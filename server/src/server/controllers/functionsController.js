@@ -1071,12 +1071,71 @@ const HANDLERS = {
     return { success: true, data: { result: 'settled', pot, winner: winnerName, loser: loserName } };
   },
 
-  async backfillPlayerStc({ _auth_user_id }) {
+  async backfillPlayerStc({ _auth_user_id, dry_run = false }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    const result = await EXECUTESQL(
-      "UPDATE players SET stc = 50000, updated_date = NOW() WHERE stc IS NULL OR stc = 0"
+    const admins = await EXECUTESQL('SELECT id FROM users WHERE id = ? AND role_id = 0 LIMIT 1', [_auth_user_id]);
+    if (!admins.length) throw new Error('Admin access required');
+
+    const needsStc = await EXECUTESQL(
+      'SELECT id, email, stc, created_date FROM players WHERE stc IS NULL OR stc < 50000'
     );
-    return { success: true, data: { updated: result.affectedRows || 0 } };
+    const missingTxOnly = await EXECUTESQL(
+      `SELECT p.id, p.email, p.stc, p.created_date FROM players p
+       WHERE (p.stc IS NOT NULL AND p.stc >= 50000)
+         AND NOT EXISTS (
+           SELECT 1 FROM player_stc_transactions t
+           WHERE t.player_id = p.id AND t.category = 'initial_grant'
+         )`
+    );
+
+    const stats = {
+      needs_stc: needsStc.length,
+      needs_tx_only: missingTxOnly.length,
+      total_to_repair: needsStc.length + missingTxOnly.length,
+      repaired_stc: 0,
+      repaired_tx: 0,
+      errors: 0,
+    };
+
+    if (dry_run) return { success: true, data: stats };
+
+    for (const p of needsStc) {
+      try {
+        await EXECUTESQL(
+          'UPDATE players SET stc = 50000, updated_date = NOW() WHERE id = ? AND (stc IS NULL OR stc < 50000)',
+          [p.id]
+        );
+        const existing = await EXECUTESQL(
+          "SELECT id FROM player_stc_transactions WHERE player_id = ? AND category = 'initial_grant' LIMIT 1",
+          [p.id]
+        );
+        if (!existing.length) {
+          await EXECUTESQL(
+            `INSERT INTO player_stc_transactions
+               (id, player_id, player_email, amount, balance_after, type, category, source, description, created_date)
+             VALUES (?, ?, ?, 50000, 50000, 'income', 'initial_grant', 'STAGE',
+                     'Welcome to STAGE — 50,000 STC starting balance', ?)`,
+            [uuidv4(), p.id, p.email || null, p.created_date || new Date()]
+          );
+        }
+        stats.repaired_stc++;
+      } catch { stats.errors++; }
+    }
+
+    for (const p of missingTxOnly) {
+      try {
+        await EXECUTESQL(
+          `INSERT INTO player_stc_transactions
+             (id, player_id, player_email, amount, balance_after, type, category, source, description, created_date)
+           VALUES (?, ?, ?, 50000, ?, 'income', 'initial_grant', 'STAGE',
+                   'Welcome to STAGE — 50,000 STC starting balance', ?)`,
+          [uuidv4(), p.id, p.email || null, Number(p.stc || 50000), p.created_date || new Date()]
+        );
+        stats.repaired_tx++;
+      } catch { stats.errors++; }
+    }
+
+    return { success: true, data: stats };
   },
 
   async buyLifestyleItem({ _auth_user_id, item_id }) {
