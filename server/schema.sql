@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS players (
   goals                 INT          DEFAULT 0,
   assists               INT          DEFAULT 0,
   credits               INT          DEFAULT 0,
+  stc                   DECIMAL(12,2) DEFAULT 0,
   subscription          VARCHAR(50)  DEFAULT 'rookie',
   role                  VARCHAR(50),
   dressing_room_seat    INT,

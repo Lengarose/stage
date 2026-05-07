@@ -116,4 +116,31 @@ app.get('/api/stage/health', (_req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// ── Startup migrations ────────────────────────────────────────────────────────
+const { EXECUTESQL } = require('./server/db/database');
+
+async function runStartupMigrations() {
+  const addCol = async (table, column, definition) => {
+    try {
+      const rows = await EXECUTESQL(
+        'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1',
+        [table, column]
+      );
+      if (!rows.length) {
+        await EXECUTESQL(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+        console.log(`[migration] Added ${table}.${column}`);
+      }
+    } catch (err) {
+      console.error(`[migration] Failed to add ${table}.${column}:`, err.message);
+    }
+  };
+
+  await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
+  await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
+  await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
+}
+
+runStartupMigrations().catch(err => console.error('[migration] startup error:', err));
+
 server.listen(PORT, () => console.log(`[stage] server running on port ${PORT}`));
