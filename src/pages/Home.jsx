@@ -519,7 +519,7 @@ export default function Home() {
           <p className="font-heading font-bold uppercase mb-1 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
             {c.hero_title}
           </p>
-          <h1 className="font-heading font-black leading-none" style={{ fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", textShadow: "0 0 30px hsl(189 100% 52% / 0.6), 0 0 90px hsl(189 100% 52% / 0.25)" }}>
+          <h1 className="font-heading font-black leading-none" style={{ fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
             {c.hero_subtitle}
           </h1>
           <p className="mt-6 max-w-md text-sm sm:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
