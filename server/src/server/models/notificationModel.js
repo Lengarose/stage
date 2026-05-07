@@ -8,7 +8,8 @@ class Notification {
     this.type            = body.type;
     this.title           = body.title;
     this.body            = body.body;
-    this.read            = body.read;
+    // MySQL column is named `read` (reserved keyword) — store as 0/1.
+    this.read            = body.read === true || body.read === 1 || body.read === "1" ? 1 : 0;
     this.link            = body.link;
   }
 
@@ -24,19 +25,19 @@ class Notification {
 
   selectByRecipient(email) {
     return EXECUTESQL(
-      'SELECT * FROM notifications WHERE recipient_email = ? ORDER BY id DESC',
+      'SELECT * FROM notifications WHERE LOWER(recipient_email) = LOWER(?) ORDER BY id DESC',
       [email]
     );
   }
 
   markRead(id) {
-    return EXECUTESQL('UPDATE notifications SET read = 1 WHERE id = ?', [id]);
+    return EXECUTESQL('UPDATE notifications SET `read` = 1 WHERE id = ?', [id]);
   }
 
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO notifications
-      (id, recipient_email, type, title, body, read, link)
+      (id, recipient_email, type, title, body, \`read\`, link)
       VALUES (?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.recipient_email, this.type, this.title,
@@ -47,7 +48,7 @@ class Notification {
 
   update(id) {
     const sql = `UPDATE notifications SET
-      recipient_email=?, type=?, title=?, body=?, read=?, link=?
+      recipient_email=?, type=?, title=?, body=?, \`read\`=?, link=?
       WHERE id=?`;
     const values = [
       this.recipient_email, this.type, this.title, this.body,

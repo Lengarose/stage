@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS matches (
   away_player_id      VARCHAR(36),
   home_club_name      VARCHAR(150),
   away_club_name      VARCHAR(150),
+  home_player_name    VARCHAR(150),
+  away_player_name    VARCHAR(150),
   home_score          INT          DEFAULT 0,
   away_score          INT          DEFAULT 0,
   status              VARCHAR(50)  DEFAULT 'scheduled',

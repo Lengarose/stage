@@ -15,10 +15,13 @@ export default function InboxPage() {
 
   useEffect(() => {
     let unsub = null;
+    let intervalId = null;
+    let stopped = false;
 
     async function load() {
       const u = await stageClient.auth.me();
       setUser(u);
+      const currentEmail = String(u.email || "").trim().toLowerCase();
 
       const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
       const player = players[0] || null;
@@ -28,7 +31,7 @@ export default function InboxPage() {
         setMyClub(clubs[0] || null);
       }
 
-      const data = await stageClient.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 200);
+      const data = await stageClient.entities.InboxMessage.filter({ recipient_email: currentEmail }, "-created_date", 200);
       setMessages(data || []);
 
       // Auto-open from URL param
@@ -42,15 +45,15 @@ export default function InboxPage() {
       setLoading(false);
 
       // Real-time subscription — set up AFTER we have the user's email
-      const currentEmail = u.email;
       unsub = stageClient.entities.InboxMessage.subscribe((event) => {
+        const recipientEmail = String(event.data?.recipient_email || "").trim().toLowerCase();
         if (event.type === "create") {
-          if (event.data?.recipient_email === currentEmail) {
+          if (recipientEmail === currentEmail) {
             setMessages(prev => [event.data, ...prev]);
           }
         }
         if (event.type === "update") {
-          if (event.data?.recipient_email === currentEmail) {
+          if (recipientEmail === currentEmail) {
             setMessages(prev => prev.map(m => m.id === event.id ? event.data : m));
             setSelected(prev => prev?.id === event.id ? event.data : prev);
           }
@@ -60,11 +63,24 @@ export default function InboxPage() {
           setSelected(prev => prev?.id === event.id ? null : prev);
         }
       });
+
+      // Fallback polling to keep inbox consistent when socket updates are missed.
+      intervalId = window.setInterval(async () => {
+        if (stopped) return;
+        const latest = await stageClient.entities.InboxMessage
+          .filter({ recipient_email: currentEmail }, "-created_date", 200)
+          .catch(() => null);
+        if (latest) setMessages(latest);
+      }, 15000);
     }
 
     load();
 
-    return () => { if (unsub) unsub(); };
+    return () => {
+      stopped = true;
+      if (intervalId) window.clearInterval(intervalId);
+      if (unsub) unsub();
+    };
   }, []);
 
   async function openMessage(msg) {

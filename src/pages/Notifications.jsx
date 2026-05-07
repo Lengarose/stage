@@ -41,19 +41,25 @@ export default function Notifications() {
 
   useEffect(() => {
     let userEmail = null;
+    let intervalId = null;
+    let stopped = false;
 
     async function load() {
       const u = await stageClient.auth.me();
       setUser(u);
-      userEmail = u.email;
-      await fetchNotifications(u.email);
+      userEmail = String(u.email || "").trim().toLowerCase();
+      await fetchNotifications(userEmail);
+      // Fallback polling if realtime misses events.
+      intervalId = window.setInterval(() => {
+        if (!stopped && userEmail) fetchNotifications(userEmail);
+      }, 15000);
     }
     load();
 
     // Real-time subscription — only handle this user's notifications
     const unsub = stageClient.entities.Notification.subscribe((event) => {
       if (!userEmail) return;
-      const email = event.data?.recipient_email;
+      const email = String(event.data?.recipient_email || "").trim().toLowerCase();
       if (email && email !== userEmail) return;
 
       if (event.type === "create") {
@@ -67,7 +73,11 @@ export default function Notifications() {
       }
     });
 
-    return () => unsub();
+    return () => {
+      stopped = true;
+      if (intervalId) window.clearInterval(intervalId);
+      unsub();
+    };
   }, []);
 
   async function fetchNotifications(email) {

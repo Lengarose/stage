@@ -140,12 +140,36 @@ const AuthenticatedApp = () => {
     return <Landing onSignIn={() => setShowLogin(true)} />;
   }
 
-  const isAdmin = Number(user.role_id) === 0;
-  if (isAdmin && !location.pathname.startsWith('/admin')) {
+  const roleOverrideRaw =
+    typeof window !== 'undefined' ? localStorage.getItem('stage_admin_effective_role_id') : null;
+  const dbRoleId = Number(user.role_id);
+  const effectiveRoleId =
+    dbRoleId === 0 && roleOverrideRaw !== null ? Number(roleOverrideRaw) : dbRoleId;
+  const isAdmin = effectiveRoleId === 0;
+  const takeoverClubId =
+    typeof window !== 'undefined' ? localStorage.getItem('admin_takeover_club_id') : null;
+  const isAdminTakeoverClubRoute =
+    Boolean(takeoverClubId) &&
+    (location.pathname === `/clubs/${takeoverClubId}` ||
+      location.pathname.startsWith(`/clubs/${takeoverClubId}/`));
+  const isAdminAllowedGlobalRoute =
+    location.pathname === '/' ||
+    location.pathname === '/clubs' ||
+    location.pathname.startsWith('/clubs/') ||
+    location.pathname === '/search' ||
+    location.pathname === '/notifications' ||
+    location.pathname === '/settings';
+  if (
+    isAdmin &&
+    !location.pathname.startsWith('/admin') &&
+    !isAdminTakeoverClubRoute &&
+    !isAdminAllowedGlobalRoute
+  ) {
     return <Navigate to="/admin" replace />;
   }
 
-  if (!isAdmin && !playerSetupComplete) {
+  const isDatabaseAdmin = dbRoleId === 0;
+  if (!isAdmin && !isDatabaseAdmin && !playerSetupComplete) {
     return <Onboarding onComplete={() => {
       localStorage.setItem('stage_onboarding_completed', '1');
       if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');

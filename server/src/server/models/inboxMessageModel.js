@@ -34,7 +34,7 @@ class InboxMessage {
 
   selectByRecipient(email) {
     return EXECUTESQL(
-      'SELECT * FROM inbox_messages WHERE recipient_email = ? ORDER BY created_date DESC',
+      'SELECT * FROM inbox_messages WHERE LOWER(recipient_email) = LOWER(?) ORDER BY created_date DESC',
       [email]
     );
   }

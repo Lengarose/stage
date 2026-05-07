@@ -71,6 +71,7 @@ export default function Admin(props) {
 
   function takeControl(club) {
     localStorage.setItem('admin_takeover_club_id', club.id);
+    localStorage.setItem('stage_admin_effective_role_id', '1');
     localStorage.setItem('stage-account-mode', 'club');
     navigate(`/clubs/${club.id}`);
   }

@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
       userId: user.id,
       playerId: players[0]?.id || null,
       ownerId: clubs[0]?.id || null,
-      roleId: user.role_id || 1,
+      roleId: Number(user.role_id ?? 1),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -26,6 +26,8 @@ class Match {
     this.away_player_id    = body.away_player_id;
     this.home_club_name    = body.home_club_name;
     this.away_club_name    = body.away_club_name;
+    this.home_player_name  = body.home_player_name;
+    this.away_player_name  = body.away_player_name;
     this.home_score        = body.home_score;
     this.away_score        = body.away_score;
     this.status            = body.status;
@@ -71,13 +73,15 @@ class Match {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO matches
       (id, home_club_id, away_club_id, home_player_id, away_player_id,
-       home_club_name, away_club_name, home_score, away_score, status, mode,
+       home_club_name, away_club_name, home_player_name, away_player_name,
+       home_score, away_score, status, mode,
        type, round, tournament_id, scheduled_date, wager_stc, wager_status,
        wager_home_locked, wager_away_locked, stream_url, stream_embed_html)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.home_club_id, this.away_club_id, this.home_player_id,
       this.away_player_id, this.home_club_name, this.away_club_name,
+      this.home_player_name, this.away_player_name,
       this.home_score, this.away_score, this.status, this.mode, this.type,
       this.round, this.tournament_id, this.scheduled_date, this.wager_stc,
       this.wager_status, this.wager_home_locked, this.wager_away_locked,
@@ -89,7 +93,8 @@ class Match {
   update(id) {
     const sql = `UPDATE matches SET
       home_club_id=?, away_club_id=?, home_player_id=?, away_player_id=?,
-      home_club_name=?, away_club_name=?, home_score=?, away_score=?,
+      home_club_name=?, away_club_name=?, home_player_name=?, away_player_name=?,
+      home_score=?, away_score=?,
       status=?, mode=?, type=?, round=?, tournament_id=?, scheduled_date=?,
       wager_stc=?, wager_status=?, wager_home_locked=?, wager_away_locked=?,
       stream_url=?, stream_embed_html=?
@@ -97,6 +102,7 @@ class Match {
     const values = [
       this.home_club_id, this.away_club_id, this.home_player_id,
       this.away_player_id, this.home_club_name, this.away_club_name,
+      this.home_player_name, this.away_player_name,
       this.home_score, this.away_score, this.status, this.mode, this.type,
       this.round, this.tournament_id, this.scheduled_date, this.wager_stc,
       this.wager_status, this.wager_home_locked, this.wager_away_locked,

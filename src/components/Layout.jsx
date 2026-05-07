@@ -702,6 +702,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
             type="button"
             onClick={() => {
               localStorage.removeItem("admin_takeover_club_id");
+              localStorage.setItem("stage_admin_effective_role_id", "0");
               navigate("/admin");
             }}
             className="ml-0.5 flex items-center gap-1 rounded-lg border border-amber-500/45 bg-amber-500/10 px-2 py-1"
@@ -866,6 +867,7 @@ export default function Layout() {
     if (localStorage.getItem("admin_takeover_club_id")) {
       localStorage.removeItem("admin_takeover_club_id");
     }
+    localStorage.setItem("stage_admin_effective_role_id", "0");
   }, [location.pathname]);
 
   useEffect(() => {
@@ -1112,6 +1114,7 @@ export default function Layout() {
                 type="button"
                 onClick={() => {
                   localStorage.removeItem("admin_takeover_club_id");
+                  localStorage.setItem("stage_admin_effective_role_id", "0");
                   navigate("/admin");
                 }}
                 className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1.5 transition-colors hover:bg-amber-500/15 ml-0.5"

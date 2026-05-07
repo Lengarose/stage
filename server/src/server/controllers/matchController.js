@@ -17,7 +17,8 @@ async function getAuthContext(req) {
   ]);
   return {
     userId,
-    roleId: Number(user.role_id || 1),
+    // Use ?? so role_id 0 (admin) is not replaced by || 1.
+    roleId: Number(user.role_id ?? 1),
     playerId: players[0]?.id || null,
     playerClubId: players[0]?.club_id || null,
     ownerClubId: clubs[0]?.id || null,
@@ -33,6 +34,72 @@ function ownScopeWhere(ctx) {
 
 function hasOwnScope(ctx) {
   return Boolean(ctx.playerId || ctx.playerClubId || ctx.ownerClubId);
+}
+
+async function enrichMatchRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return list;
+
+  const clubIds = [...new Set(
+    list.flatMap((r) => [r.home_club_id, r.away_club_id]).filter(Boolean)
+  )];
+  const playerIds = [...new Set(
+    list.flatMap((r) => [r.home_player_id, r.away_player_id]).filter(Boolean)
+  )];
+
+  const [clubs, players] = await Promise.all([
+    clubIds.length
+      ? EXECUTESQL(
+          `SELECT id, name FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
+          clubIds
+        )
+      : Promise.resolve([]),
+    playerIds.length
+      ? EXECUTESQL(
+          `SELECT id, gamertag FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+          playerIds
+        )
+      : Promise.resolve([]),
+  ]);
+
+  const clubNameById = new Map(clubs.map((c) => [c.id, c.name]));
+  const playerNameById = new Map(players.map((p) => [p.id, p.gamertag]));
+
+  return list.map((r) => ({
+    ...r,
+    home_club_name: r.home_club_name || (r.home_club_id ? (clubNameById.get(r.home_club_id) || null) : null),
+    away_club_name: r.away_club_name || (r.away_club_id ? (clubNameById.get(r.away_club_id) || null) : null),
+    home_player_name: r.home_player_name || (r.home_player_id ? (playerNameById.get(r.home_player_id) || null) : null),
+    away_player_name: r.away_player_name || (r.away_player_id ? (playerNameById.get(r.away_player_id) || null) : null),
+  }));
+}
+
+async function attachMatchNames(payload) {
+  const next = { ...(payload || {}) };
+  const clubIds = [next.home_club_id, next.away_club_id].filter(Boolean);
+  const playerIds = [next.home_player_id, next.away_player_id].filter(Boolean);
+
+  if (clubIds.length) {
+    const clubs = await EXECUTESQL(
+      `SELECT id, name FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
+      clubIds
+    );
+    const byId = new Map(clubs.map((c) => [c.id, c.name]));
+    if (next.home_club_id) next.home_club_name = byId.get(next.home_club_id) || next.home_club_name || null;
+    if (next.away_club_id) next.away_club_name = byId.get(next.away_club_id) || next.away_club_name || null;
+  }
+
+  if (playerIds.length) {
+    const players = await EXECUTESQL(
+      `SELECT id, gamertag FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+      playerIds
+    );
+    const byId = new Map(players.map((p) => [p.id, p.gamertag]));
+    if (next.home_player_id) next.home_player_name = byId.get(next.home_player_id) || next.home_player_name || null;
+    if (next.away_player_id) next.away_player_name = byId.get(next.away_player_id) || next.away_player_name || null;
+  }
+
+  return next;
 }
 
 // GET /
@@ -89,7 +156,7 @@ router.get('/', async (req, res) => {
       result = await match.selectAll(Number(page) || 1);
     }
 
-    res.json(result);
+    res.json(await enrichMatchRows(result));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -114,7 +181,7 @@ router.get('/:id', async (req, res) => {
       record.home_club_id === userClubId ||
       record.away_club_id === userClubId;
     if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
-    res.json(record);
+    res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -138,12 +205,13 @@ router.post('/', async (req, res) => {
         payload.away_club_id === userClubId;
       if (!touchesMine) return res.status(403).json({ error: 'Forbidden' });
     }
-    const match = new Match(req.body);
+    const payloadWithNames = await attachMatchNames(req.body);
+    const match = new Match(payloadWithNames);
     await match.create();
     const created = await match.selectOne(match.id);
     const record  = created[0];
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
-    res.status(201).json(record);
+    res.status(201).json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -170,12 +238,13 @@ router.patch('/:id', async (req, res) => {
         record.away_club_id === userClubId;
       if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
     }
-    const match = new Match({ ...existing[0], ...req.body });
+    const payloadWithNames = await attachMatchNames({ ...existing[0], ...req.body });
+    const match = new Match(payloadWithNames);
     await match.update(id);
     const updated = await match.selectOne(id);
     const record  = updated[0];
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
-    res.json(record);
+    res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
