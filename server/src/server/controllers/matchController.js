@@ -211,6 +211,7 @@ router.post('/', async (req, res) => {
     const created = await match.selectOne(match.id);
     const record  = created[0];
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
+    socketEmit(SOCKET_CHANNELS.MATCH, record);
     res.status(201).json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -244,6 +245,7 @@ router.patch('/:id', async (req, res) => {
     const updated = await match.selectOne(id);
     const record  = updated[0];
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
+    socketEmit(SOCKET_CHANNELS.MATCH, record);
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -273,6 +275,7 @@ router.delete('/:id', async (req, res) => {
     }
     await new Match().delete(id);
     socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.MATCH), { deleted: true, id });
+    socketEmit(SOCKET_CHANNELS.MATCH, { deleted: true, id });
     res.json({ success: true });
   } catch (err) {
     console.error(err);

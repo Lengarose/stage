@@ -8,13 +8,20 @@ const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/consta
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { email, user_id, club_id, page } = req.query;
+    const { email, user_id, club_id, gamertag, page } = req.query;
     const player = new Player();
     let result;
-    if (email)   result = await player.selectByEmail(email);
+    if (email) result = await player.selectByEmail(email);
     else if (user_id) result = await player.selectByUserId(user_id);
     else if (club_id) result = await player.selectByClub(club_id);
-    else result = await player.selectAll(Number(page) || 1);
+    else if (gamertag) {
+      result = await EXECUTESQL(
+        'SELECT * FROM players WHERE LOWER(gamertag) = LOWER(?) LIMIT 50',
+        [String(gamertag)]
+      );
+    } else {
+      result = await player.selectAll(Number(page) || 1);
+    }
     res.json(result);
   } catch (err) {
     console.error(err);
