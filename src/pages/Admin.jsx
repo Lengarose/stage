@@ -96,6 +96,7 @@ export default function Admin(props) {
   const [newTrophyFile, setNewTrophyFile] = useState(null);
   const [newTrophyAdminOnly, setNewTrophyAdminOnly] = useState(false);
   const [uploadingTrophy, setUploadingTrophy] = useState(false);
+  const [trophyUploadError, setTrophyUploadError] = useState(null);
   const trophyFileRef = useRef(null);
 
   // Admin create tournament extras
@@ -242,11 +243,13 @@ export default function Admin(props) {
   async function createTrophyItem() {
     if (!newTrophyName.trim() || !newTrophyFile) return;
     setUploadingTrophy(true);
+    setTrophyUploadError(null);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: newTrophyFile });
+      const uploadResult = await base44.integrations.Core.UploadFile({ file: newTrophyFile });
+      if (!uploadResult?.file_url) throw new Error("Upload succeeded but no URL was returned.");
       await base44.entities.TrophyItem.create({
         name: newTrophyName.trim(),
-        image_url: file_url,
+        image_url: uploadResult.file_url,
         is_official: true,
         admin_only: newTrophyAdminOnly,
         sort_order: trophyItems.length,
@@ -254,8 +257,12 @@ export default function Admin(props) {
       setNewTrophyName("");
       setNewTrophyFile(null);
       setNewTrophyAdminOnly(false);
+      if (trophyFileRef.current) trophyFileRef.current.value = "";
       const updated = await base44.entities.TrophyItem.list("sort_order", 100).catch(() => []);
       setTrophyItems(updated);
+    } catch (err) {
+      setTrophyUploadError(err?.message || JSON.stringify(err) || "Failed to add trophy. Check console.");
+      console.error("createTrophyItem error:", err);
     } finally {
       setUploadingTrophy(false);
     }
@@ -2095,6 +2102,11 @@ export default function Admin(props) {
                   <Trophy className="w-4 h-4" />
                   {uploadingTrophy ? "Uploading..." : "Add to Library"}
                 </Button>
+                {trophyUploadError && (
+                  <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded px-3 py-2">
+                    {trophyUploadError}
+                  </p>
+                )}
 
               </div>
 
