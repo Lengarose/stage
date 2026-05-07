@@ -1,17 +1,40 @@
 const express      = require('express');
 const router       = express.Router();
 const Notification = require('../models/notificationModel');
+const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+
+async function getCurrentUser(req) {
+  const userId = req.user?.id;
+  if (!userId) return null;
+  const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  return rows[0] || null;
+}
 
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { email, page } = req.query;
+    const { email, recipient_email, page, read } = req.query;
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser?.email) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = Number(currentUser.role_id) === 0;
+    const requestedEmail = String(email || recipient_email || '').trim().toLowerCase();
+    const targetEmail = requestedEmail || String(currentUser.email || '').trim().toLowerCase();
     const notification = new Notification();
     let result;
-    if (email) result = await notification.selectByRecipient(email);
-    else result = await notification.selectAll(Number(page) || 1);
+    if (isAdmin && !requestedEmail && page) {
+      result = await notification.selectAll(Number(page) || 1);
+    } else {
+      if (!isAdmin && targetEmail !== String(currentUser.email || '').trim().toLowerCase()) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      result = await notification.selectByRecipient(targetEmail);
+    }
+    if (read !== undefined && read !== null && read !== '') {
+      const wantRead = String(read).toLowerCase() === 'true' || String(read) === '1';
+      result = (result || []).filter((row) => Boolean(Number(row.read)) === wantRead);
+    }
     res.json(result);
   } catch (err) {
     console.error(err);

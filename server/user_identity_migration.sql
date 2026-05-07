@@ -3,10 +3,26 @@
 
 USE stage_league;
 
+CREATE TABLE IF NOT EXISTS roles (
+  id            INT PRIMARY KEY,
+  name          VARCHAR(100) NOT NULL UNIQUE,
+  description   VARCHAR(255),
+  created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO roles (id, name, description) VALUES
+  (1, 'player_club', 'Player/Club role'),
+  (2, 'admin', 'Administrator role')
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  description = VALUES(description);
+
 CREATE TABLE IF NOT EXISTS users (
   id            VARCHAR(36) PRIMARY KEY,
   email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255),
+  role_id       INT DEFAULT 1,
   player_id     VARCHAR(36),
   owner_id      VARCHAR(36),
   created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -64,5 +80,9 @@ UPDATE users u
 LEFT JOIN players p ON p.user_id = u.id
 LEFT JOIN clubs c ON c.user_id = u.id
 SET u.player_id = p.id,
-    u.owner_id = c.id;
+    u.owner_id = c.id,
+    u.role_id = CASE
+      WHEN p.id IS NOT NULL OR c.id IS NOT NULL THEN 1
+      ELSE COALESCE(u.role_id, 1)
+    END;
 

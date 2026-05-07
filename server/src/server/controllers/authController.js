@@ -13,14 +13,14 @@ router.post('/register', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
     if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-    const existing = await EXECUTESQL('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length) return res.status(409).json({ error: 'Email already registered' });
+    const existing = await EXECUTESQL('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [email]);
+    if (existing.length) return res.status(409).json({ error: 'This user with this email exist' });
 
     const hash = await bcrypt.hash(password, 10);
     const userId = uuidv4();
     await EXECUTESQL(
-      `INSERT INTO users (id, email, password_hash, created_date, updated_date)
-       VALUES (?, ?, ?, NOW(), NOW())`,
+      `INSERT INTO users (id, email, password_hash, role_id, created_date, updated_date)
+       VALUES (?, ?, ?, 1, NOW(), NOW())`,
       [userId, email, hash]
     );
 
@@ -41,10 +41,21 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+    const { email, identifier, password } = req.body;
+    const loginIdentifier = String(identifier || email || '').trim();
+    if (!loginIdentifier || !password) return res.status(400).json({ error: 'identifier and password required' });
 
-    const rows = await EXECUTESQL('SELECT * FROM users WHERE email = ?', [email]);
+    // Allow login by: email OR player gamertag OR club name.
+    const rows = await EXECUTESQL(
+      `SELECT u.* FROM users u
+       LEFT JOIN players p ON p.user_id = u.id
+       LEFT JOIN clubs c ON c.user_id = u.id
+       WHERE LOWER(u.email) = LOWER(?)
+          OR LOWER(p.gamertag) = LOWER(?)
+          OR LOWER(c.name) = LOWER(?)
+       LIMIT 1`,
+      [loginIdentifier, loginIdentifier, loginIdentifier]
+    );
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
 
     const user = rows[0];
@@ -68,6 +79,7 @@ router.post('/login', async (req, res) => {
       userId: user.id,
       playerId: players[0]?.id || null,
       ownerId: clubs[0]?.id || null,
+      roleId: Number(user.role_id ?? 1),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -119,20 +131,47 @@ router.get('/me', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
 
-    const users = await EXECUTESQL('SELECT id, email, created_date, updated_date FROM users WHERE id = ? LIMIT 1', [decoded.id]);
-    if (!users.length) return res.status(401).json({ error: 'User not found' });
-    const user = users[0];
-
-    const players = await EXECUTESQL('SELECT id, gamertag, role, club_id FROM players WHERE user_id = ? LIMIT 1', [user.id]);
-    const clubs = await EXECUTESQL('SELECT id, name FROM clubs WHERE user_id = ? LIMIT 1', [user.id]);
+    const rows = await EXECUTESQL(
+      `SELECT
+         u.id,
+         u.email,
+         u.role_id,
+         u.created_date,
+         u.updated_date,
+         r.name AS db_role_name,
+         p.id AS player_id,
+         p.gamertag,
+         p.role AS player_role,
+         p.club_id,
+         c.id AS owner_id,
+         c.name AS club_name
+       FROM users u
+       LEFT JOIN roles r   ON r.id = u.role_id
+       LEFT JOIN players p ON p.user_id = u.id
+       LEFT JOIN clubs c   ON c.user_id = u.id
+       WHERE u.id = ?
+       LIMIT 1`,
+      [decoded.id]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'User not found' });
+    const me = rows[0];
+    const roleId = me.role_id ?? 1;
+    const roleName = me.db_role_name || (Number(roleId) === 0 ? 'admin' : 'player_club');
+    const appRole = Number(roleId) === 0 ? 'admin' : (me.player_role || 'player');
 
     res.json({
-      ...user,
-      player_id: players[0]?.id || null,
-      owner_id: clubs[0]?.id || null,
-      gamertag: players[0]?.gamertag || null,
-      role: players[0]?.role || null,
-      club_id: players[0]?.club_id || null,
+      id: me.id,
+      email: me.email,
+      created_date: me.created_date,
+      updated_date: me.updated_date,
+      player_id: me.player_id || null,
+      owner_id: me.owner_id || null,
+      role_id: roleId,
+      role_name: roleName,
+      role: appRole,
+      gamertag: me.gamertag || null,
+      club_id: me.club_id || null,
+      club_name: me.club_name || null,
     });
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });

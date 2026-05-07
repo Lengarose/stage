@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff } from "lucide-react";
+import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
@@ -794,6 +794,15 @@ export default function Settings() {
           className="w-full"
         >
           {loading ? "Saving..." : "Save Settings"}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => stageClient.auth.logout("/")}
+          className="w-full border-warning/40 text-warning hover:bg-warning/10"
+        >
+          <LogOut className="w-4 h-4 mr-2" /> Sign Out
         </Button>
 
         {/* Danger Zone */}

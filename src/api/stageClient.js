@@ -224,7 +224,7 @@ const ENTITY_NAMES = [
   // New reward/achievement entities
   'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
   // Legacy/compat entities used in some screens
-  'RatingHistory', 'LiveMatchEvent', 'Challenge',
+  'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
 ];
 
 const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));
@@ -236,11 +236,11 @@ const auth = {
     return apiFetch('/auth/me');
   },
 
-  async loginViaEmailPassword(email, password) {
+  async loginViaEmailPassword(identifier, password) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     const data = await res.json();
     if (!res.ok) throw data;
@@ -248,11 +248,11 @@ const auth = {
     return { access_token: data.accessToken };
   },
 
-  async registerViaEmailPassword({ email, password, gamertag }) {
+  async registerViaEmailPassword({ email, password }) {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, gamertag }),
+      body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw data;

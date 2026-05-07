@@ -5,10 +5,11 @@ import { stageClient } from "@/api/stageClient";
  * Never throws — failures are silently swallowed so callers don't need try/catch.
  */
 export async function notify(recipientEmail, type, title, body = "", link = null) {
-  if (!recipientEmail) return;
+  const target = String(recipientEmail || "").trim().toLowerCase();
+  if (!target) return;
   try {
     await stageClient.entities.Notification.create({
-      recipient_email: recipientEmail,
+      recipient_email: target,
       type,
       title,
       body,

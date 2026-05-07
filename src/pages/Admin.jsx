@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import TransferWindowPanel from "@/components/admin/TransferWindowPanel";
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import LandingPageEditor from "@/components/admin/LandingPageEditor";
 import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +25,33 @@ import { COUNTRIES } from "../lib/countries";
 import { REGIONS, LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { forceSchedule, flagForAdminReview, declareForfeit } from "../lib/scheduleEngine";
 
-export default function Admin() {
+const ADMIN_SECTION_ALIASES = {
+  players: "players",
+  clubs: "clubs",
+  lifestyles: "lifestyles",
+  transfers: "transfers",
+  "press-conferences": "press-conferences",
+  pressconferences: "press-conferences",
+  matches: "disputes",
+  notifications: "news",
+  inbox: "forfeits",
+  disputes: "disputes",
+  forfeits: "forfeits",
+  tournaments: "tournaments",
+  leagues: "leagues",
+  news: "news",
+  trophies: "trophies",
+  rewards: "rewards",
+  rankings: "rankings",
+  landing: "landing",
+};
+
+/** @param {{ forcedSection?: string }} [props] */
+export default function Admin(props) {
+  const forcedSection = props?.forcedSection;
+  const params = useParams();
+  /** Static routes like `/admin/players` do not define `:section`; wrappers pass `forcedSection`. */
+  const section = params.section ?? forcedSection;
   const [allowed, setAllowed] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [forfeits, setForfeits] = useState([]);
@@ -43,6 +71,8 @@ export default function Admin() {
 
   function takeControl(club) {
     localStorage.setItem('admin_takeover_club_id', club.id);
+    localStorage.setItem('stage_admin_effective_role_id', '1');
+    localStorage.setItem('stage-account-mode', 'club');
     navigate(`/clubs/${club.id}`);
   }
 
@@ -129,65 +159,84 @@ export default function Admin() {
   const [processingReg,     setProcessingReg]     = useState(false);
 
   const [adminProfile, setAdminProfile] = useState(null);
+  const [pressConferences, setPressConferences] = useState([]);
+  const [lifestyleItems, setLifestyleItems] = useState([]);
 
   // Rewards tab
   const [rewardSource, setRewardSource] = useState(null); // { id, type, name, trophy_image_url }
 
   useEffect(() => {
-    stageClient.auth.me().then(async (u) => {
-      if (u?.role !== "admin") { setAllowed(false); return; }
-      setAllowed(true);
-      setAdminProfile(u);
-      await loadAll();
-    });
+    (async () => {
+      try {
+        const u = await stageClient.auth.me();
+        const isAdmin = u?.role === "admin" || Number(u?.role_id) === 0;
+        if (!isAdmin) { setAllowed(false); return; }
+        setAllowed(true);
+        setAdminProfile(u);
+        await loadAll();
+      } catch {
+        setAllowed(false);
+      }
+    })();
   }, []);
+
+  const adminTab = useMemo(
+    () => (section && ADMIN_SECTION_ALIASES[section] ? ADMIN_SECTION_ALIASES[section] : null),
+    [section]
+  );
 
   async function loadAll() {
     setLoading(true);
-    const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps] = await Promise.all([
-      base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50),
-      base44.entities.Player.list("-created_date", 100),
-      base44.entities.Tournament.list("-created_date", 200),
-      base44.entities.Club.list("-created_date", 100),
-      base44.entities.TrophyItem.list("sort_order", 100).catch(() => []),
-      base44.entities.Competition.list("tier", 10).catch(() => []),
-      base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
-      base44.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
-      base44.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
-      (base44.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
-      (base44.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
-      (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
-    ]);
-    const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50);
-    setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
-    setForfeits(forfeitMatches);
-    setPlayers(allPlayers);
-    setClubs(allClubs);
-    setTournaments(allTournaments);
-    setTrophyItems(allTrophies);
-    setCompetitions(allComps);
-    setCompSeasons(allCompSeasons);
-    setQualEntries(allQual);
-    setRegionalLeagues(allRegLeagues);
-    setRegApplications(allRegApps);
-    setExpiredFixtures([
-      ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
-      ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
-    ]);
+    try {
+      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems] = await Promise.all([
+        base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
+        base44.entities.Player.list("-created_date", 100).catch(() => []),
+        base44.entities.Tournament.list("-created_date", 200).catch(() => []),
+        base44.entities.Club.list("-created_date", 100).catch(() => []),
+        base44.entities.TrophyItem.list("sort_order", 100).catch(() => []),
+        base44.entities.Competition.list("tier", 10).catch(() => []),
+        base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
+        base44.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
+        base44.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
+        (base44.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+        (base44.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+        (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
+        stageClient.entities.PressConference.list("-created_date", 200).catch(() => []),
+        stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
+      ]);
+      const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
+      setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
+      setForfeits(forfeitMatches);
+      setPlayers(allPlayers);
+      setClubs(allClubs);
+      setTournaments(allTournaments);
+      setTrophyItems(allTrophies);
+      setCompetitions(allComps);
+      setCompSeasons(allCompSeasons);
+      setQualEntries(allQual);
+      setRegionalLeagues(allRegLeagues);
+      setRegApplications(allRegApps);
+      setPressConferences(allPressConferences);
+      setLifestyleItems(allLifestyleItems);
+      setExpiredFixtures([
+        ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
+        ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
+      ]);
 
-    // Load ranking config (non-fatal)
-    const cfgRows = await (base44.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
-    const activeCfg = cfgRows.find(r => r.is_active) || cfgRows[0];
-    if (activeCfg) {
-      setRankingConfigId(activeCfg.id);
-      setRankingConfig(activeCfg);
-    } else {
-      const { DEFAULT_CONFIG } = await import("@/lib/rankingEngine");
-      setRankingConfig({ ...DEFAULT_CONFIG, label: "Default", is_active: true });
-      setRankingConfigId(null);
+      // Load ranking config (non-fatal)
+      const cfgRows = await (base44.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
+      const activeCfg = cfgRows.find(r => r.is_active) || cfgRows[0];
+      if (activeCfg) {
+        setRankingConfigId(activeCfg.id);
+        setRankingConfig(activeCfg);
+      } else {
+        const { DEFAULT_CONFIG } = await import("@/lib/rankingEngine");
+        setRankingConfig({ ...DEFAULT_CONFIG, label: "Default", is_active: true });
+        setRankingConfigId(null);
+      }
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function createTrophyItem() {
@@ -903,33 +952,18 @@ export default function Admin() {
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
+      ) : adminTab === null ? (
+        <div className="border border-dashed border-border rounded-lg p-10 text-center space-y-3 bg-card/30">
+          <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold">
+            Choose a section
+          </p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Use the <span className="text-foreground font-semibold">Admin</span> and{" "}
+            <span className="text-foreground font-semibold">Operations</span> menus in the header to open disputes, players, landing page, and other tools. This dashboard shows live counts only.
+          </p>
+        </div>
       ) : (
-        <Tabs defaultValue="disputes">
-          <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-8 flex-wrap">
-            {[
-              { value: "disputes", label: "Disputes", badge: disputes.length, badgeColor: "bg-destructive/20 text-destructive" },
-              { value: "forfeits", label: "Forfeits", badge: forfeits.length, badgeColor: "bg-warning/20 text-warning" },
-              { value: "players", label: "Players" },
-              { value: "clubs", label: "Clubs" },
-              { value: "rankings", label: "Rankings" },
-              { value: "leagues", label: "Leagues", badge: qualEntries.length, badgeColor: "bg-primary/20 text-primary" },
-              { value: "tournaments", label: "Tournaments" },
-              { value: "trophies", label: "Trophies" },
-              { value: "rewards", label: "Rewards" },
-              { value: "news", label: "News" },
-              { value: "transfers", label: "Transfers" },
-              { value: "landing", label: "Landing Page" },
-            ].map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value}
-                className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent gap-1.5 shrink-0">
-                {tab.label}
-                {tab.badge > 0 && (
-                  <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", tab.badgeColor)}>{tab.badge}</span>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
+        <Tabs value={adminTab}>
           {/* Disputes */}
           <TabsContent value="disputes">
             {disputes.length === 0 ? (
@@ -1935,6 +1969,54 @@ export default function Admin() {
               <Button onClick={postNews} disabled={!newsForm.title || uploadingNews} className="bg-primary text-primary-foreground gap-2">
                 <Upload className="w-4 h-4" /> {uploadingNews ? "Posting..." : "Post News"}
               </Button>
+            </div>
+          </TabsContent>
+
+          {/* Press conferences */}
+          <TabsContent value="press-conferences">
+            <div className="bg-card border border-border rounded p-5 space-y-3">
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">Press Conferences</h3>
+              {pressConferences.length === 0 ? (
+                <EmptyState icon={Newspaper} text="No press conferences found." />
+              ) : (
+                <div className="space-y-2">
+                  {pressConferences.map((pc) => (
+                    <div key={pc.id} className="border border-border rounded px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground truncate">{pc.id}</span>
+                        <span className="text-xs text-muted-foreground uppercase">{pc.status || "pending"}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        match: {pc.match_id || "n/a"} · club: {pc.club_id || "n/a"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Lifestyle items */}
+          <TabsContent value="lifestyles">
+            <div className="bg-card border border-border rounded p-5 space-y-3">
+              <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">Lifestyle Items</h3>
+              {lifestyleItems.length === 0 ? (
+                <EmptyState icon={Building2} text="No lifestyle items found." />
+              ) : (
+                <div className="space-y-2">
+                  {lifestyleItems.map((item) => (
+                    <div key={item.id} className="border border-border rounded px-3 py-2 text-sm flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">sort: {item.sort_order || 0}</p>
+                      </div>
+                      <span className={cn("text-[10px] px-2 py-0.5 rounded border uppercase", item.is_active ? "text-success border-success/30 bg-success/10" : "text-muted-foreground border-border bg-secondary")}>
+                        {item.is_active ? "active" : "inactive"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
 

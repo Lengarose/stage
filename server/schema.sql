@@ -5,10 +5,26 @@ CREATE DATABASE IF NOT EXISTS stage_league CHARACTER SET utf8mb4 COLLATE utf8mb4
 USE stage_league;
 
 -- ── users ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS roles (
+  id            INT PRIMARY KEY,
+  name          VARCHAR(100) NOT NULL UNIQUE,
+  description   VARCHAR(255),
+  created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO roles (id, name, description) VALUES
+  (1, 'player_club', 'Player/Club role'),
+  (2, 'admin', 'Administrator role')
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  description = VALUES(description);
+
 CREATE TABLE IF NOT EXISTS users (
   id                    VARCHAR(36)  PRIMARY KEY,
   email                 VARCHAR(255) NOT NULL UNIQUE,
   password_hash         VARCHAR(255),
+  role_id               INT          DEFAULT 1,
   player_id             VARCHAR(36),
   owner_id              VARCHAR(36),
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
@@ -94,6 +110,8 @@ CREATE TABLE IF NOT EXISTS matches (
   away_player_id      VARCHAR(36),
   home_club_name      VARCHAR(150),
   away_club_name      VARCHAR(150),
+  home_player_name    VARCHAR(150),
+  away_player_name    VARCHAR(150),
   home_score          INT          DEFAULT 0,
   away_score          INT          DEFAULT 0,
   status              VARCHAR(50)  DEFAULT 'scheduled',

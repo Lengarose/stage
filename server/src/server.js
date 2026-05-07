@@ -50,6 +50,7 @@ app.use('/api/stage/trophy-placements', verifyToken, require('./server/controlle
 app.use('/api/stage/chat-messages',     verifyToken, require('./server/controllers/chatMessageController'));
 app.use('/api/stage/news-items',        verifyToken, require('./server/controllers/newsItemController'));
 app.use('/api/stage/live-matches',      verifyToken, require('./server/controllers/liveMatchController'));
+app.use('/api/stage/landing-page-contents', verifyToken, require('./server/controllers/landingPageContentController'));
 
 // Static `/uploads` — same folder as multer (see constants/paths.js); created if missing
 const uploadsStaticDir = ensureUploadsDir();

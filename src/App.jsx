@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { SocketProvider } from '@/lib/SocketContext';
 import { TranslationProvider } from '@/lib/TranslationContext';
@@ -35,7 +35,22 @@ import PredictionLeaderboard from './pages/PredictionLeaderboard';
 import Settings from './pages/Settings';
 import FontPreview from './pages/FontPreview';
 import News from './pages/News';
-import Admin from './pages/Admin';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminDisputesPage from './pages/admin/AdminDisputesPage';
+import AdminForfeitsPage from './pages/admin/AdminForfeitsPage';
+import AdminPlayersPage from './pages/admin/AdminPlayersPage';
+import AdminClubsPage from './pages/admin/AdminClubsPage';
+import AdminRankingsPage from './pages/admin/AdminRankingsPage';
+import AdminLeaguesPage from './pages/admin/AdminLeaguesPage';
+import AdminTournamentsPage from './pages/admin/AdminTournamentsPage';
+import AdminTrophiesPage from './pages/admin/AdminTrophiesPage';
+import AdminRewardsPage from './pages/admin/AdminRewardsPage';
+import AdminNewsPage from './pages/admin/AdminNewsPage';
+import AdminPressConferencesPage from './pages/admin/AdminPressConferencesPage';
+import AdminLifestylesPage from './pages/admin/AdminLifestylesPage';
+import AdminTransfersPage from './pages/admin/AdminTransfersPage';
+import AdminLandingPage from './pages/admin/AdminLandingPage';
+import AdminSectionRoutePage from './pages/admin/AdminSectionRoutePage';
 import Players from './pages/Players';
 import ClubsRegistered from './pages/ClubsRegistered';
 import PlayersRegistered from './pages/PlayersRegistered';
@@ -96,14 +111,18 @@ const SplashScreen = () => (
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, authError, user } = useAuth();
-  const [playerSetupComplete, setPlayerSetupComplete] = React.useState(
-    () => localStorage.getItem('stage_onboarding_completed') === '1'
-  );
+  const [playerSetupComplete, setPlayerSetupComplete] = React.useState(false);
   const [showLogin, setShowLogin] = React.useState(false);
+  const location = useLocation();
 
   React.useEffect(() => {
     if (!user) return;
-    setPlayerSetupComplete(localStorage.getItem('stage_onboarding_completed') === '1');
+    const userScopedKey = `stage_onboarding_completed_${user.id}`;
+    const userScopedDone = localStorage.getItem(userScopedKey) === '1';
+    const legacyDone = localStorage.getItem('stage_onboarding_completed') === '1';
+    // Consider onboarding complete if user already has profile data on backend.
+    const hasProfileData = Boolean(user.player_id || user.owner_id);
+    setPlayerSetupComplete(userScopedDone || legacyDone || hasProfileData);
   }, [user]);
 
   if (isLoadingAuth) return <SplashScreen />;
@@ -121,9 +140,39 @@ const AuthenticatedApp = () => {
     return <Landing onSignIn={() => setShowLogin(true)} />;
   }
 
-  if (!playerSetupComplete) {
+  const roleOverrideRaw =
+    typeof window !== 'undefined' ? localStorage.getItem('stage_admin_effective_role_id') : null;
+  const dbRoleId = Number(user.role_id);
+  const effectiveRoleId =
+    dbRoleId === 0 && roleOverrideRaw !== null ? Number(roleOverrideRaw) : dbRoleId;
+  const isAdmin = effectiveRoleId === 0;
+  const takeoverClubId =
+    typeof window !== 'undefined' ? localStorage.getItem('admin_takeover_club_id') : null;
+  const isAdminTakeoverClubRoute =
+    Boolean(takeoverClubId) &&
+    (location.pathname === `/clubs/${takeoverClubId}` ||
+      location.pathname.startsWith(`/clubs/${takeoverClubId}/`));
+  const isAdminAllowedGlobalRoute =
+    location.pathname === '/' ||
+    location.pathname === '/clubs' ||
+    location.pathname.startsWith('/clubs/') ||
+    location.pathname === '/search' ||
+    location.pathname === '/notifications' ||
+    location.pathname === '/settings';
+  if (
+    isAdmin &&
+    !location.pathname.startsWith('/admin') &&
+    !isAdminTakeoverClubRoute &&
+    !isAdminAllowedGlobalRoute
+  ) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  const isDatabaseAdmin = dbRoleId === 0;
+  if (!isAdmin && !isDatabaseAdmin && !playerSetupComplete) {
     return <Onboarding onComplete={() => {
       localStorage.setItem('stage_onboarding_completed', '1');
+      if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
       setPlayerSetupComplete(true);
     }} />;
   }
@@ -150,7 +199,22 @@ const AuthenticatedApp = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/font-preview" element={<FontPreview />} />
         <Route path="/news" element={<News />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/disputes" element={<AdminDisputesPage />} />
+        <Route path="/admin/forfeits" element={<AdminForfeitsPage />} />
+        <Route path="/admin/players" element={<AdminPlayersPage />} />
+        <Route path="/admin/clubs" element={<AdminClubsPage />} />
+        <Route path="/admin/rankings" element={<AdminRankingsPage />} />
+        <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
+        <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />
+        <Route path="/admin/trophies" element={<AdminTrophiesPage />} />
+        <Route path="/admin/rewards" element={<AdminRewardsPage />} />
+        <Route path="/admin/news" element={<AdminNewsPage />} />
+        <Route path="/admin/press-conferences" element={<AdminPressConferencesPage />} />
+        <Route path="/admin/lifestyles" element={<AdminLifestylesPage />} />
+        <Route path="/admin/transfers" element={<AdminTransfersPage />} />
+        <Route path="/admin/landing" element={<AdminLandingPage />} />
+        <Route path="/admin/:section" element={<AdminSectionRoutePage />} />
         <Route path="/tournaments/:id/clubs" element={<ClubsRegistered />} />
         <Route path="/tournaments/:id/players" element={<PlayersRegistered />} />
         <Route path="/contracts/create" element={<CreateContract />} />

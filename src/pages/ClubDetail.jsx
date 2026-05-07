@@ -4,7 +4,7 @@ import { stageClient } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
   Check, X, Camera, Send, Loader2, LogOut,
-  Trash2, Swords, Save, Edit2, ClipboardList, Clock
+  Trash2, Swords, Save, Edit2, ClipboardList, Clock, MessageCircle
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +34,13 @@ import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 
+const POSITION_OPTIONS = [
+  "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
+  "RM", "LM", "RW", "LW", "CF", "ST",
+];
+
+const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
+
 export default function ClubDetail() {
   const { id } = useParams();
   const [club, setClub] = useState(null);
@@ -51,6 +58,10 @@ export default function ClubDetail() {
   const [trialRequestSent, setTrialRequestSent] = useState(false);
   const [sendingTrial, setSendingTrial] = useState(false);
   const [trialMsg, setTrialMsg] = useState("");
+  const [trialPosition, setTrialPosition] = useState("");
+  const [trialConsole, setTrialConsole] = useState("");
+  const [trialExperience, setTrialExperience] = useState("");
+  const [showTrialPreview, setShowTrialPreview] = useState(false);
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [_myClubData, setMyClubData] = useState(null);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
@@ -68,25 +79,31 @@ export default function ClubDetail() {
   const [editClubOpen, setEditClubOpen] = useState(false);
   const [clubForm, setClubForm] = useState({ name: "", tag: "", platform: "", region: "", description: "", country_code: "" });
   const [savingClub, setSavingClub] = useState(false);
+  const [clubChatMessages, setClubChatMessages] = useState([]);
+  const [clubChatInput, setClubChatInput] = useState("");
+  const [sendingClubChat, setSendingClubChat] = useState(false);
   const navigate = useNavigate();
   const logoInputRef  = useRef();
   const pendingFileRef = useRef(null);
 
   const isMember = !!myPlayer?.club_id && myPlayer.club_id === id;
   const isCaptain = isMember && (myPlayer?.role === "captain" || myPlayer?.role === "vice-captain");
-  const isAdminTakeover = currentUser?.role === "admin" && localStorage.getItem("admin_takeover_club_id") === id;
+  const isAdminUser = currentUser?.role === "admin" || Number(currentUser?.role_id) === 0;
+  const isAdminTakeover = isAdminUser && localStorage.getItem("admin_takeover_club_id") === id;
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwner = (club?.owner_email === currentUser?.email && accountMode === "club") || isAdminTakeover;
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
   const canEdit = isOwner || isCaptain;
+  const CLUB_CHAT_CHANNEL = `club:${id}`;
 
   useEffect(() => {
     async function load() {
+      try {
       const user = await stageClient.auth.me();
       setCurrentUser(user);
 
-      const [clubData, playerData, myPl] = await Promise.all([
-        stageClient.entities.Club.filter({ id }, null, 1),
+      const [clubRecord, playerData, myPl] = await Promise.all([
+        stageClient.entities.Club.get(id),
         stageClient.entities.Player.filter({ club_id: id }),
         stageClient.entities.Player.filter({ email: user.email }),
       ]);
@@ -118,7 +135,7 @@ export default function ClubDetail() {
       const pfMap = {};
       for (const f of playerFollows) { pfMap[f.target_id] = f; }
 
-      const c = clubData[0] || null;
+      const c = clubRecord || null;
       setClub(c);
       if (c) {
         setClubForm({
@@ -155,7 +172,7 @@ export default function ClubDetail() {
         myPl[0].role === "captain" ||
         myPl[0].role === "vice-captain" ||
         myPl[0].club_roles?.includes("president") ||
-        clubData[0]?.owner_email === user.email
+        c?.owner_email === user.email
       )) {
         const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" });
         setJoinRequests(reqs);
@@ -170,7 +187,17 @@ export default function ClubDetail() {
         if (sentToThisClub) setTrialRequestSent(true);
       }
 
-      setLoading(false);
+      const clubChatRows = await stageClient.entities.ChatMessage
+        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
+        .catch(() => []);
+      setClubChatMessages(clubChatRows || []);
+
+      } catch (err) {
+        console.error("ClubDetail load failed:", err);
+        setClub(null);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
 
@@ -202,15 +229,43 @@ export default function ClubDetail() {
 
   async function sendTrialRequest() {
     if (!myPlayer || !club) return;
+    const gamerTag = myPlayer.gamertag || "Unknown";
+    const recipientEmail = String(club.owner_email || "").trim().toLowerCase();
+    if (!recipientEmail) {
+      console.error("Trial request aborted: club owner_email is missing", club);
+      return;
+    }
+    const preferredPosition = trialPosition || myPlayer.position || "N/A";
+    const consoleName = trialConsole || myPlayer.platform || "N/A";
+    const experienceText = trialExperience.trim() || "No experience details shared.";
+    const customNote = trialMsg.trim();
+    const formattedRequest = [
+      `Hello ${club.name} management team,`,
+      "",
+      `My name is ${gamerTag}, and I would like to request a trial with your club.`,
+      "",
+      "Player Profile",
+      `- GamerTag: ${gamerTag}`,
+      `- Preferred Position: ${preferredPosition}`,
+      `- Console: ${consoleName}`,
+      `- Overall: ${myPlayer.overall_rating || "N/A"}`,
+      "",
+      "Experience",
+      experienceText,
+      "",
+      customNote ? `Additional Message\n${customNote}\n` : "",
+      "I am motivated, active, and ready to prove myself. Thank you for your consideration.",
+    ].filter(Boolean).join("\n");
+
     setSendingTrial(true);
     try {
       await stageClient.entities.InboxMessage.create({
-        recipient_email:   club.owner_email,
+        recipient_email:   recipientEmail,
         sender_email:      currentUser.email,
-        sender_gamertag:   myPlayer.gamertag,
+        sender_gamertag:   gamerTag,
         sender_avatar_url: myPlayer.avatar_url || "",
-        subject:           `⚽ Trial Request from ${myPlayer.gamertag}`,
-        body:              `${myPlayer.gamertag} is requesting a trial at ${club.name}.\n\nPosition: ${myPlayer.position || "N/A"} · OVR: ${myPlayer.overall_rating || "N/A"}\n\n${trialMsg ? `Message: "${trialMsg}"\n\n` : ""}You can offer a trial contract directly from your inbox below.`,
+        subject:           `⚽ Trial Request from ${gamerTag}`,
+        body:              formattedRequest,
         message_type:      "trial_request",
         action_type:       "trial_response",
         related_entity_id: id,
@@ -218,17 +273,20 @@ export default function ClubDetail() {
         is_read:           false,
         metadata: {
           player_id:        myPlayer.id,
-          player_gamertag:  myPlayer.gamertag,
+          player_gamertag:  gamerTag,
           player_email:     currentUser.email,
           player_avatar_url: myPlayer.avatar_url || "",
-          player_position:  myPlayer.position || "",
+          player_position:  preferredPosition,
+          player_console:   consoleName,
+          player_experience: experienceText,
+          trial_note:       customNote,
           player_overall:   myPlayer.overall_rating || 70,
           club_id:          id,
           club_name:        club.name,
           club_logo_url:    club.logo_url || "",
         },
       });
-      await notify(club.owner_email, "club_update",
+      await notify(recipientEmail, "club_update",
         `⚽ Trial Request — ${myPlayer.gamertag}`,
         `${myPlayer.gamertag} is requesting a trial at ${club.name}. Check your inbox to respond.`,
         "/inbox"
@@ -236,10 +294,49 @@ export default function ClubDetail() {
       setTrialRequestSent(true);
       setTrialDialogOpen(false);
       setTrialMsg("");
+      setTrialPosition("");
+      setTrialConsole("");
+      setTrialExperience("");
+      setShowTrialPreview(false);
     } catch (err) {
       console.error("Failed to send trial request:", err);
     } finally {
       setSendingTrial(false);
+    }
+  }
+
+  useEffect(() => {
+    let stopped = false;
+    const intervalId = window.setInterval(async () => {
+      if (stopped) return;
+      const latest = await stageClient.entities.ChatMessage
+        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
+        .catch(() => null);
+      if (latest) setClubChatMessages(latest);
+    }, 8000);
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
+  }, [CLUB_CHAT_CHANNEL]);
+
+  async function sendClubChatMessage() {
+    const content = clubChatInput.trim();
+    if (!content || !currentUser?.email) return;
+    setSendingClubChat(true);
+    try {
+      await stageClient.entities.ChatMessage.create({
+        match_id: CLUB_CHAT_CHANNEL,
+        sender_email: currentUser.email,
+        content,
+      });
+      setClubChatInput("");
+      const latest = await stageClient.entities.ChatMessage
+        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
+        .catch(() => []);
+      setClubChatMessages(latest || []);
+    } finally {
+      setSendingClubChat(false);
     }
   }
 
@@ -399,7 +496,7 @@ export default function ClubDetail() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 ml-auto">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
             <span className="text-xs text-warning font-medium">Admin Takeover</span>
-            <button onClick={() => { localStorage.removeItem('admin_takeover_club_id'); window.location.href = '/admin'; }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
+            <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); localStorage.setItem('stage_admin_effective_role_id', '0'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
               <LogOut className="w-3 h-3" /> Exit
             </button>
           </div>
@@ -515,20 +612,99 @@ export default function ClubDetail() {
                     <ClipboardList className="w-3 h-3" /> Request Trial
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-[#0d1225] border-white/10">
+                <DialogContent className="bg-[#0d1225] border-white/10 max-h-[85vh] overflow-y-auto">
                   <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> Request Trial at {club.name}</DialogTitle></DialogHeader>
                   <div className="space-y-4 mt-2">
                     <p className="text-sm text-white/60 leading-relaxed">
                       Send a trial request to <span className="text-white font-medium">{club.name}</span>. The club owner will receive your request in their inbox and can respond with a <span className="text-primary font-medium">trial contract</span> (5 games / 14 days).
                     </p>
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-white/50">Player Name (GamerTag)</label>
+                      <Input
+                        value={myPlayer?.gamertag || ""}
+                        readOnly
+                        className="bg-white/5 border-white/10 text-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-xs uppercase tracking-widest text-white/50">Position</label>
+                        <Select value={trialPosition || (myPlayer?.position || "")} onValueChange={setTrialPosition}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {POSITION_OPTIONS.map((pos) => (
+                              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs uppercase tracking-widest text-white/50">Which Console</label>
+                        <Select value={trialConsole || (myPlayer?.platform || "")} onValueChange={setTrialConsole}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue placeholder="Select console" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONSOLE_OPTIONS.map((consoleName) => (
+                              <SelectItem key={consoleName} value={consoleName}>{consoleName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-white/50">Experience</label>
+                      <Textarea
+                        value={trialExperience}
+                        onChange={e => setTrialExperience(e.target.value)}
+                        className="bg-white/5 border-white/10 resize-none"
+                        rows={3}
+                        placeholder="Share your level, past clubs, strengths, and availability..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-white/50">Additional Message</label>
                     <Textarea
                       value={trialMsg}
                       onChange={e => setTrialMsg(e.target.value)}
                       className="bg-white/5 border-white/10 resize-none"
                       rows={3}
-                      placeholder="Tell the club why you'd be a great fit... (optional)"
+                        placeholder="Optional custom note for this club..."
                     />
-                    <Button onClick={sendTrialRequest} disabled={sendingTrial} className="w-full bg-primary text-primary-foreground gap-2">
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowTrialPreview(true)}
+                      disabled={!trialExperience.trim()}
+                      className="w-full border-white/20 text-white hover:border-primary/40 hover:text-primary"
+                    >
+                      Show Request Message
+                    </Button>
+                    {showTrialPreview && (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                        <p className="text-xs uppercase tracking-widest text-primary/90 font-semibold">Request Preview</p>
+                        <pre className="whitespace-pre-wrap text-sm text-white/85 leading-relaxed font-sans">
+{`Hello ${club.name} management team,
+
+My name is ${myPlayer?.gamertag || "Unknown"}, and I would like to request a trial with your club.
+
+Player Profile
+- GamerTag: ${myPlayer?.gamertag || "Unknown"}
+- Preferred Position: ${trialPosition || myPlayer?.position || "N/A"}
+- Console: ${trialConsole || myPlayer?.platform || "N/A"}
+- Overall: ${myPlayer?.overall_rating || "N/A"}
+
+Experience
+${trialExperience.trim() || "No experience details shared."}
+
+${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motivated, active, and ready to prove myself. Thank you for your consideration.`}
+                        </pre>
+                      </div>
+                    )}
+                    <Button onClick={sendTrialRequest} disabled={sendingTrial || !trialExperience.trim()} className="w-full bg-primary text-primary-foreground gap-2">
                       {sendingTrial ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       {sendingTrial ? "Sending..." : "Send Trial Request"}
                     </Button>
@@ -545,7 +721,7 @@ export default function ClubDetail() {
         <Tabs value={activeTab} onValueChange={t => { setActiveTab(t); if (t === "history") loadHistory(); }} className="w-full">
           <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0 flex-wrap">
             {[
-              "posts", "stats", "matches", "squad", "formation", "trophies", "history",
+              "posts", "stats", "matches", "chat", "squad", "formation", "trophies", "history",
               ...(isOwner ? ["stadium", "contracts", "finance", "shirts"] : []),
               ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : [])
             ].map(tab => (
@@ -663,6 +839,60 @@ export default function ClubDetail() {
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="chat" className="px-4 pt-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.02]">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold text-white">Club Chat</p>
+              </div>
+              <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2">
+                {clubChatMessages.length === 0 ? (
+                  <p className="text-sm text-white/45 text-center py-6">No messages yet. Start the conversation.</p>
+                ) : (
+                  clubChatMessages.map((msg) => {
+                    const mine = msg.sender_email === currentUser?.email;
+                    return (
+                      <div key={msg.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-lg px-3 py-2 border",
+                            mine ? "bg-primary/15 border-primary/35" : "bg-white/[0.03] border-white/10"
+                          )}
+                        >
+                          <p className="text-[11px] text-white/50 mb-1">{msg.sender_email}</p>
+                          <p className="text-sm text-white whitespace-pre-wrap break-words">{msg.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div className="p-3 border-t border-white/10 flex items-center gap-2">
+                <Input
+                  value={clubChatInput}
+                  onChange={(e) => setClubChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendClubChatMessage();
+                    }
+                  }}
+                  placeholder="Write a message to your club..."
+                  className="bg-white/5 border-white/10 text-white"
+                />
+                <Button
+                  type="button"
+                  onClick={sendClubChatMessage}
+                  disabled={sendingClubChat || !clubChatInput.trim()}
+                  className="gap-1.5"
+                >
+                  {sendingClubChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Send
+                </Button>
               </div>
             </div>
           </TabsContent>

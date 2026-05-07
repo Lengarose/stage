@@ -21,7 +21,7 @@ export default function PlayerSetup({ onComplete, user }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const avatarInputRef = useRef();
+  const avatarInputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
 
   async function uploadAvatar(e) {
     const file = e.target.files[0];
@@ -50,8 +50,14 @@ export default function PlayerSetup({ onComplete, user }) {
         avatar_position: avatarPosition,
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
-        credits: 50000,
+        credits: 50,
       };
+
+      const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
+      const gamertagConflict = await stageClient.entities.Player.filter({ gamertag }, null, 1).catch(() => []);
+      if (gamertagConflict?.length && (!existing?.length || gamertagConflict[0].id !== existing[0].id)) {
+        throw new Error("A player with this gamertag already exists.");
+      }
 
       const isBenignSaveError = (e) => {
         const msg = String(e?.message || '');
@@ -59,12 +65,10 @@ export default function PlayerSetup({ onComplete, user }) {
         const full = `${msg} ${dataMsg}`.toLowerCase();
         return (
           full.includes('socketemit is not defined') ||
-          full.includes('er_dup_entry') ||
-          full.includes('duplicate')
+          full.includes('er_dup_entry')
         );
       };
 
-      const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
       if (existing?.length) {
         try {
           await stageClient.entities.Player.update(existing[0].id, payload);
@@ -109,7 +113,7 @@ export default function PlayerSetup({ onComplete, user }) {
             )}
           </div>
           <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
+            <button onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
             </button>
           </div>
@@ -174,6 +178,8 @@ export default function PlayerSetup({ onComplete, user }) {
         onClose={() => setPendingAvatar(null)}
         imageUrl={pendingAvatar}
         aspect="avatar"
+        initialPosition={avatarPosition}
+        initialZoom={avatarZoom}
         onConfirm={(url, position, zoom) => {
           setAvatarUrl(url);
           setAvatarPosition(position);

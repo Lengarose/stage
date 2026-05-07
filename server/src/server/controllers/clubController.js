@@ -8,11 +8,12 @@ const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/consta
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { owner_email, user_id, page } = req.query;
+    const { owner_email, user_id, page, id } = req.query;
     const club = new Club();
     let result;
     if (owner_email) result = await club.selectByOwner(owner_email);
     else if (user_id) result = await club.selectByUserId(user_id);
+    else if (id) result = await club.selectOne(String(id));
     else result = await club.selectAll(Number(page) || 1);
     res.json(result);
   } catch (err) {
@@ -37,12 +38,26 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
+    const { name } = req.body || {};
+    if (name) {
+      const existingByName = await EXECUTESQL(
+        'SELECT id FROM clubs WHERE LOWER(name) = LOWER(?) LIMIT 1',
+        [name]
+      );
+      if (existingByName.length) {
+        return res.status(409).json({ error: 'A club with this name already exists' });
+      }
+    }
+
     const club = new Club(req.body);
     await club.create();
     const created = await club.selectOne(club.id);
     const record  = created[0];
     if (record?.user_id) {
-      await EXECUTESQL('UPDATE users SET owner_id = ?, updated_date = NOW() WHERE id = ?', [record.id, record.user_id]);
+      await EXECUTESQL(
+        'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
+        [record.id, record.user_id]
+      );
     }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.CLUB), record);
     res.status(201).json(record);
@@ -58,10 +73,25 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new Club().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if (req.body?.name) {
+      const existingByName = await EXECUTESQL(
+        'SELECT id FROM clubs WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1',
+        [req.body.name, id]
+      );
+      if (existingByName.length) {
+        return res.status(409).json({ error: 'A club with this name already exists' });
+      }
+    }
     const club = new Club({ ...existing[0], ...req.body });
     await club.update(id);
     const updated = await club.selectOne(id);
     const record  = updated[0];
+    if (record?.user_id) {
+      await EXECUTESQL(
+        'UPDATE users SET owner_id = COALESCE(owner_id, ?), role_id = 1, updated_date = NOW() WHERE id = ?',
+        [record.id, record.user_id]
+      );
+    }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.CLUB), record);
     res.json(record);
   } catch (err) {

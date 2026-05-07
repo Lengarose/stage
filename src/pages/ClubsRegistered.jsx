@@ -23,8 +23,8 @@ export default function ClubsRegistered() {
   useEffect(() => {
     async function load() {
       const [tData, clubs] = await Promise.all([
-        base44.entities.Tournament.filter({ id }, null, 1),
-        base44.entities.Club.list("-wins", 200),
+        stageClient.entities.Tournament.filter({ id }, null, 1),
+        stageClient.entities.Club.list("-wins", 200),
       ]);
       const t = tData[0];
       setTournament(t);

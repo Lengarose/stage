@@ -2,6 +2,8 @@ const express = require('express');
 const router  = express.Router();
 const { EXECUTESQL } = require('../db/database');
 const axios = require('axios').default;
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -14,6 +16,47 @@ const EA_ENDPOINTS = {
   leagueMatches:    (p) => `clubs/matches?platform=${p.platform}&clubIds=${p.clubId}&matchType=leagueMatch`,
   playoffMatches:   (p) => `clubs/matches?platform=${p.platform}&clubIds=${p.clubId}&matchType=playoffMatch`,
 };
+
+const MYSQL_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  if (MYSQL_DATETIME_RE.test(String(value))) return String(value);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+async function getMe(_auth_user_id) {
+  if (!_auth_user_id) throw new Error('not authenticated');
+  const users = await EXECUTESQL('SELECT id, email FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+  if (!users.length) throw new Error('User not found');
+  const me = users[0];
+  const players = await EXECUTESQL('SELECT * FROM players WHERE user_id = ? LIMIT 1', [_auth_user_id]);
+  const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [_auth_user_id]);
+  return { user: me, player: players[0] || null, club: clubs[0] || null };
+}
+
+async function getCurrentTransferWindow() {
+  await EXECUTESQL(`
+    CREATE TABLE IF NOT EXISTS transfer_windows (
+      id VARCHAR(36) PRIMARY KEY,
+      label VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'open',
+      start_date DATETIME,
+      end_date DATETIME,
+      notes TEXT,
+      transfers_executed INT DEFAULT 0,
+      created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+  const rows = await EXECUTESQL(
+    "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
+    []
+  );
+  return rows[0] || null;
+}
 
 const HANDLERS = {
   // ── EA Pro Clubs API proxy ────────────────────────────────────────────────
@@ -52,6 +95,319 @@ const HANDLERS = {
       await EXECUTESQL('UPDATE clubs SET stc = stc + ? WHERE id = ?', [prizes.first || 0, t.winner_club_id]);
     }
     await EXECUTESQL("UPDATE tournaments SET status = 'prizes_distributed' WHERE id = ?", [tournament_id]);
+    return { success: true };
+  },
+
+  async getTransferMarket() {
+    const currentWindow = await getCurrentTransferWindow();
+    const activeContracts = await EXECUTESQL(
+      "SELECT DISTINCT user_id FROM player_contracts WHERE status IN ('active','pending','pending_window')",
+      []
+    );
+    const activeIds = new Set(activeContracts.map((r) => r.user_id));
+
+    const players = await EXECUTESQL('SELECT * FROM players', []);
+    const free_agents = players.filter((p) => !activeIds.has(p.id));
+
+    const expiringContracts = await EXECUTESQL(
+      "SELECT * FROM player_contracts WHERE status = 'active' AND end_date IS NOT NULL ORDER BY end_date ASC",
+      []
+    );
+    const expiring_players = [];
+    const now = Date.now();
+    for (const c of expiringContracts) {
+      const endMs = new Date(c.end_date).getTime();
+      if (Number.isNaN(endMs)) continue;
+      const days_left = Math.ceil((endMs - now) / (24 * 60 * 60 * 1000));
+      if (days_left < 0 || days_left > 30) continue;
+      const playerRows = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [c.user_id]);
+      if (!playerRows.length) continue;
+      expiring_players.push({ player: playerRows[0], contract: c, days_left });
+    }
+
+    return {
+      data: {
+        free_agents,
+        expiring_players,
+        current_window: currentWindow,
+      },
+    };
+  },
+
+  async contractActions({
+    action, _auth_user_id, team_id, user_id, contract_type, offer_note,
+    weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered,
+  }) {
+    if (action !== 'offer') throw new Error(`Unsupported contract action: ${action}`);
+    const { user, player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player profile not found');
+    if (!team_id || !user_id) throw new Error('team_id and user_id required');
+
+    const window = await getCurrentTransferWindow();
+    const status = window ? 'pending' : 'pending_window';
+    const id = uuidv4();
+    await EXECUTESQL(
+      `INSERT INTO player_contracts (
+        id, team_id, user_id, contract_type, status, offered_by,
+        weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
+        captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+      [
+        id,
+        team_id,
+        user_id,
+        contract_type || 'standard',
+        status,
+        user.email,
+        Number(weekly_salary_stc || 0),
+        Number(signing_bonus_stc || 0),
+        Number(transfer_fee_stc || 0),
+        offer_note || '',
+        captaincy_offered ? 1 : 0,
+        0,
+        performance_targets ? JSON.stringify(performance_targets) : null,
+      ]
+    );
+    return { success: true, data: { contract_id: id, status } };
+  },
+
+  async transferWindowActions({ action, label, start_date, end_date, notes, window_id }) {
+    const current = await getCurrentTransferWindow();
+
+    if (action === 'get_current') {
+      return { data: { window: current } };
+    }
+
+    if (action === 'open_window') {
+      if (current) throw new Error('A transfer window is already open');
+      const id = uuidv4();
+      await EXECUTESQL(
+        `INSERT INTO transfer_windows (id, label, status, start_date, end_date, notes, transfers_executed, created_date, updated_date)
+         VALUES (?, ?, 'open', ?, ?, ?, 0, NOW(), NOW())`,
+        [id, label || 'Transfer Window', toMysqlDateTime(start_date) || toMysqlDateTime(new Date()), toMysqlDateTime(end_date), notes || '']
+      );
+      const created = await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [id]);
+      return { success: true, data: { window: created[0] || null } };
+    }
+
+    if (action === 'close_window') {
+      const id = window_id || current?.id;
+      if (!id) throw new Error('No open transfer window');
+      await EXECUTESQL("UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ?", [id]);
+      return { success: true, data: { closed: true } };
+    }
+
+    if (action === 'execute_pending') {
+      const pendings = await EXECUTESQL(
+        "SELECT * FROM player_contracts WHERE status = 'pending_window' ORDER BY created_date ASC",
+        []
+      );
+      for (const c of pendings) {
+        await EXECUTESQL("UPDATE player_contracts SET status = 'pending', updated_date = NOW() WHERE id = ?", [c.id]);
+      }
+      if (current?.id) {
+        await EXECUTESQL(
+          'UPDATE transfer_windows SET transfers_executed = transfers_executed + ?, updated_date = NOW() WHERE id = ?',
+          [pendings.length, current.id]
+        );
+      }
+      return { success: true, data: { transfers_executed: pendings.length } };
+    }
+
+    throw new Error(`Unknown transferWindowActions action: ${action}`);
+  },
+
+  async matchKickoff({ action, match_id }) {
+    if (!match_id) throw new Error('match_id required');
+    if (action !== 'kickoff') throw new Error(`Unsupported matchKickoff action: ${action}`);
+    await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
+    return { data: { success: true } };
+  },
+
+  async wagerMatchActions({ action, match_id }) {
+    if (!match_id) throw new Error('match_id required');
+    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+    if (!rows.length) throw new Error('Match not found');
+    const m = rows[0];
+    if (action === 'accept_wager') {
+      await EXECUTESQL(
+        "UPDATE matches SET wager_away_locked = 1, wager_status = 'active', updated_date = NOW() WHERE id = ?",
+        [match_id]
+      );
+      return { success: true, data: { _match_patch: { wager_away_locked: 1, wager_status: 'active' } } };
+    }
+    if (action === 'decline_wager') {
+      await EXECUTESQL(
+        "UPDATE matches SET wager_status = 'declined', wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
+        [match_id]
+      );
+      return { success: true, data: { _match_patch: { wager_status: 'declined', wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
+    }
+    if (action === 'cancel_wager') {
+      const nextStatus = m.status === 'completed' ? m.wager_status : 'cancelled';
+      await EXECUTESQL(
+        "UPDATE matches SET wager_status = ?, wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
+        [nextStatus, match_id]
+      );
+      return { success: true, data: { _match_patch: { wager_status: nextStatus, wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
+    }
+    throw new Error(`Unknown wager action: ${action}`);
+  },
+
+  async buyLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji, purchase_intent }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!item_id) throw new Error('item_id required');
+    const { user, player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [item_id]);
+    if (!items.length) throw new Error('Item not found');
+    const item = items[0];
+    const price = Number(item.price_stc || 0);
+    const currentStc = Number(player.stc || 0);
+    if (price > currentStc) throw new Error('Insufficient STC');
+    const new_stc_balance = Math.max(0, currentStc - price);
+    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
+    const purchaseId = uuidv4();
+    await EXECUTESQL(
+      `INSERT INTO lifestyle_purchases (
+        id, player_id, item_id, item_type, item_tier, rent_active, is_residence,
+        created_date
+      ) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
+      [
+        purchaseId,
+        player.id,
+        item_id,
+        item.category || item.item_type || null,
+        item.tier || item.item_tier || null,
+        item.category === 'real_estate' ? 1 : 0,
+      ]
+    );
+    await EXECUTESQL(
+      `INSERT INTO stc_transactions (id, club_id, amount, type, description, reference_id, created_date)
+       VALUES (?, ?, ?, 'purchase', ?, ?, NOW())`,
+      [uuidv4(), player.club_id || null, -price, `Lifestyle purchase: ${item.name || item_id}`, purchaseId]
+    ).catch(() => {});
+    await EXECUTESQL(
+      `INSERT INTO user_purchases (id, buyer_email, item_type, item_id, created_date)
+       VALUES (?, ?, ?, ?, NOW())`,
+      [uuidv4(), user.email, item.category || item.item_type || null, purchaseId]
+    ).catch(() => {});
+    return { success: true, data: { new_stc_balance, purchase_id: purchaseId } };
+  },
+
+  async rentLifestyleItem({ _auth_user_id, item_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!item_id) throw new Error('item_id required');
+    const { player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [item_id]);
+    if (!items.length) throw new Error('Item not found');
+    const item = items[0];
+    const rent = Number(item.rent_price_stc || 0);
+    const currentStc = Number(player.stc || 0);
+    if (rent > currentStc) throw new Error('Insufficient STC');
+    const new_stc_balance = Math.max(0, currentStc - rent);
+    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
+    await EXECUTESQL(
+      `INSERT INTO lifestyle_purchases (id, player_id, item_id, item_type, item_tier, rent_active, is_residence, created_date)
+       VALUES (?, ?, ?, ?, ?, 1, 0, NOW())`,
+      [uuidv4(), player.id, item_id, item.category || item.item_type || null, item.tier || item.item_tier || null]
+    );
+    return { success: true, data: { new_stc_balance } };
+  },
+
+  async collectPassiveIncome({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const { player } = await getMe(_auth_user_id);
+    if (!player) throw new Error('Player not found');
+    const purchases = await EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ?', [player.id]);
+    if (!purchases.length) return { success: true, data: { collected: 0 } };
+    let collected = 0;
+    for (const p of purchases) {
+      const items = await EXECUTESQL('SELECT * FROM lifestyle_items WHERE id = ? LIMIT 1', [p.item_id]);
+      if (!items.length) continue;
+      const inc = Number(items[0].passive_income_stc || 0);
+      collected += Math.max(0, inc);
+    }
+    if (collected > 0) {
+      const newBalance = Number(player.stc || 0) + collected;
+      await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, player.id]);
+    }
+    return { success: true, data: { collected } };
+  },
+
+  async upgradeLifestyleAsset({ _auth_user_id, purchase_id, upgrade_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!purchase_id) throw new Error('purchase_id required');
+    const { player } = await getMe(_auth_user_id);
+    const rows = await EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE id = ? AND player_id = ? LIMIT 1', [purchase_id, player.id]);
+    if (!rows.length) throw new Error('Purchase not found');
+    const p = rows[0];
+    const level = Number(p.upgrade_level || 0);
+    const cost = Number((p.base_upgrade_cost_stc || 25000) * (level + 1));
+    if (Number(player.stc || 0) < cost) throw new Error('Insufficient STC');
+    const new_stc_balance = Number(player.stc || 0) - cost;
+    const upgrade_level = level + 1;
+    const new_value = Number(p.current_value_stc || p.price_paid_stc || 0) + cost;
+    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
+    return { success: true, data: { purchase_id, upgrade_id: upgrade_id || null, upgrade_level, cost, new_value, new_stc_balance } };
+  },
+
+  async setPlayerResidence({ _auth_user_id, purchase_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!purchase_id) throw new Error('purchase_id required');
+    const { player } = await getMe(_auth_user_id);
+    await EXECUTESQL('UPDATE lifestyle_purchases SET is_residence = 0 WHERE player_id = ?', [player.id]);
+    await EXECUTESQL(
+      'UPDATE lifestyle_purchases SET is_residence = 1 WHERE id = ? AND player_id = ?',
+      [purchase_id, player.id]
+    );
+    return { success: true, data: { residence_purchase_id: purchase_id } };
+  },
+
+  async changePassword({ _auth_user_id, current_password, new_password }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!current_password || !new_password) throw new Error('current_password and new_password required');
+    if (String(new_password).length < 8) throw new Error('Password must be at least 8 characters');
+    const rows = await EXECUTESQL('SELECT id, password_hash FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!rows.length) throw new Error('User not found');
+    const ok = await bcrypt.compare(String(current_password), rows[0].password_hash || '');
+    if (!ok) throw new Error('Current password is incorrect');
+    const hash = await bcrypt.hash(String(new_password), 10);
+    await EXECUTESQL('UPDATE users SET password_hash = ?, updated_date = NOW() WHERE id = ?', [hash, _auth_user_id]);
+    return { success: true };
+  },
+
+  async seedLifestyleItems() {
+    const seed = [
+      { name: 'Urban Loft', category: 'real_estate', tier: 'starter', sort_order: 1, price_stc: 120000, rent_price_stc: 12000, passive_income_stc: 3000 },
+      { name: 'Sports Coupe', category: 'cars', tier: 'starter', sort_order: 2, price_stc: 90000, rent_price_stc: 9000, passive_income_stc: 0 },
+      { name: 'Designer Watch', category: 'fashion', tier: 'starter', sort_order: 3, price_stc: 40000, rent_price_stc: 0, passive_income_stc: 0 },
+    ];
+    let inserted = 0;
+    for (const item of seed) {
+      const exists = await EXECUTESQL('SELECT id FROM lifestyle_items WHERE name = ? LIMIT 1', [item.name]);
+      if (exists.length) continue;
+      await EXECUTESQL(
+        `INSERT INTO lifestyle_items (id, name, is_active, sort_order)
+         VALUES (?, ?, 1, ?)`,
+        [uuidv4(), item.name, item.sort_order]
+      );
+      inserted += 1;
+    }
+    return { success: true, data: { inserted } };
+  },
+
+  async deleteClub({ _auth_user_id, club_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!club_id) throw new Error('club_id required');
+    const { user } = await getMe(_auth_user_id);
+    const clubs = await EXECUTESQL('SELECT id, owner_email FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+    if (!clubs.length) throw new Error('Club not found');
+    const club = clubs[0];
+    if (club.owner_email !== user.email) throw new Error('Only owner can delete this club');
+    await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club_id]);
+    await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club_id]);
     return { success: true };
   },
 

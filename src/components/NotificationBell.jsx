@@ -30,7 +30,7 @@ export default function NotificationBell() {
       if (!isAuthed) return;
       const user = await stageClient.auth.me();
       if (!user?.email) return;
-      userEmail = user.email;
+      userEmail = String(user.email || "").trim().toLowerCase();
       await refreshUnread();
       // Fallback strategy: poll because stageClient.subscribe is a compatibility stub.
       intervalId = window.setInterval(refreshUnread, 15000);

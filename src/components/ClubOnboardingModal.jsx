@@ -14,7 +14,7 @@ const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
   const [step, setStep] = useState("choose"); // choose | create | join
   const [creating, setCreating] = useState(false);
-  const [requesting, setRequesting] = useState(null);
+  const [requestingIds, setRequestingIds] = useState(new Set());
   const [requested, setRequested] = useState(new Set());
   const [clubs, setClubs] = useState([]);
   const [search, setSearch] = useState("");
@@ -31,11 +31,41 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
 
   async function loadClubs(q = "") {
     setLoadingClubs(true);
-    const all = await stageClient.entities.Club.list("-rating", 100);
+    const [all, existingRequests] = await Promise.all([
+      stageClient.entities.Club.list("-rating", 200),
+      player?.id
+        ? stageClient.entities.JoinRequest.filter({ player_id: player.id }, "-created_date", 200).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    const existingRequestedIds = new Set(
+      (existingRequests || [])
+        .filter((r) => !["rejected", "cancelled", "withdrawn"].includes(String(r.status || "").toLowerCase()))
+        .map((r) => r.club_id)
+        .filter(Boolean)
+    );
+    setRequested(existingRequestedIds);
+
     const filtered = q
       ? all.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.tag?.toLowerCase().includes(q.toLowerCase()))
       : all;
-    setClubs(filtered.filter(c => c.status !== "disbanded"));
+
+    // De-duplicate visual duplicates by club signature (name+tag+platform+region).
+    const dedupedBySignature = new Map();
+    for (const club of filtered.filter(c => c.status !== "disbanded")) {
+      const signature = [
+        String(club.name || "").trim().toLowerCase(),
+        String(club.tag || "").trim().toLowerCase(),
+        String(club.platform || "").trim().toLowerCase(),
+        String(club.region || "").trim().toLowerCase(),
+      ].join("::");
+      const existing = dedupedBySignature.get(signature);
+      if (!existing || Number(club.rating || 0) > Number(existing.rating || 0)) {
+        dedupedBySignature.set(signature, club);
+      }
+    }
+
+    setClubs(Array.from(dedupedBySignature.values()));
     setLoadingClubs(false);
   }
 
@@ -80,29 +110,39 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
 
   async function handleJoinRequest(club) {
     if (!player) return;
-    setRequesting(club.id);
-    await stageClient.entities.JoinRequest.create({
-      player_id: player.id,
-      player_email: player.email,
-      player_gamertag: player.gamertag,
-      club_id: club.id,
-      club_name: club.name,
-      message: "I'd like to join your club!",
-      status: "pending",
-    });
-    // Notify club owner
-    if (club.owner_email) {
-      await stageClient.entities.Notification.create({
-        recipient_email: club.owner_email,
-        type: "join_request",
-        title: `${player.gamertag} wants to join ${club.name}`,
-        body: "Check your Profile → Join Requests to respond.",
-        link: "/profile",
-        read: false,
+    if (requested.has(club.id)) return;
+    if (requestingIds.has(club.id)) return;
+
+    setRequestingIds((prev) => new Set(prev).add(club.id));
+    try {
+      await stageClient.entities.JoinRequest.create({
+        player_id: player.id,
+        player_email: player.email,
+        player_gamertag: player.gamertag,
+        club_id: club.id,
+        club_name: club.name,
+        message: "I'd like to join your club!",
+        status: "pending",
+      });
+      // Notify club owner
+      if (club.owner_email) {
+        await stageClient.entities.Notification.create({
+          recipient_email: club.owner_email,
+          type: "join_request",
+          title: `${player.gamertag} wants to join ${club.name}`,
+          body: "Check your Profile → Join Requests to respond.",
+          link: "/profile",
+          read: false,
+        });
+      }
+      setRequested(prev => new Set([...prev, club.id]));
+    } finally {
+      setRequestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(club.id);
+        return next;
       });
     }
-    setRequested(prev => new Set([...prev, club.id]));
-    setRequesting(null);
   }
 
   const filteredClubs = search
@@ -243,11 +283,11 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                     </div>
                     <Button
                       size="sm"
-                      disabled={isRequested || requesting === c.id}
+                      disabled={isRequested || requestingIds.has(c.id)}
                       onClick={() => handleJoinRequest(c)}
                       className={cn("shrink-0 text-xs", isRequested ? "bg-success/20 text-success border border-success/30" : "bg-primary/10 text-primary hover:bg-primary/20 border-0")}
                     >
-                      {requesting === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : isRequested ? <><Check className="w-3 h-3 mr-1" /> Sent</> : <>Request <ArrowRight className="w-3 h-3 ml-1" /></>}
+                      {requestingIds.has(c.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : isRequested ? <><Check className="w-3 h-3 mr-1" /> Sent</> : <>Request <ArrowRight className="w-3 h-3 ml-1" /></>}
                     </Button>
                   </div>
                 );
