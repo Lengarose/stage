@@ -244,7 +244,7 @@ export default function CreateContract() {
   // Derived for the financial section
   const statOptions = selectedPlayer ? getStatOptionsForPosition(selectedPlayer.position) : [];
   const groupedStats = groupStatOptions(statOptions);
-  const salarySuggestion = selectedPlayer ? suggestSalaryRange(selectedType, selectedPlayer.overall_rating) : null;
+  const salarySuggestion = selectedPlayer ? suggestSalaryRange(selectedType, selectedPlayer.overall_rating, selectedPlayer.market_value_stc || 0) : null;
   const salaryNum = parseInt(weeklySalary) || 0;
   const wagePct = club?.wage_budget_stc > 0 && salaryNum > 0 ? Math.round((salaryNum / club.wage_budget_stc) * 100) : 0;
   const overBudget = club?.wage_budget_stc > 0 && salaryNum > club.wage_budget_stc;
@@ -377,7 +377,12 @@ export default function CreateContract() {
                 <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Suggested Salary Range</p>
                 <p className="text-xs text-foreground font-light mt-0.5">
                   {formatSTC(salarySuggestion.min)} – {formatSTC(salarySuggestion.max)} / week
-                  <span className="text-muted-foreground ml-1">({salarySuggestion.label} · OVR {selectedPlayer.overall_rating})</span>
+                  <span className="text-muted-foreground ml-1">
+                    ({salarySuggestion.label}
+                    {salarySuggestion.based_on_value
+                      ? ` · based on ${formatSTC(selectedPlayer.market_value_stc)} market value`
+                      : ` · OVR ${selectedPlayer.overall_rating}`})
+                  </span>
                 </p>
               </div>
             </div>

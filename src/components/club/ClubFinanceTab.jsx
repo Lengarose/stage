@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
-import { formatSTC } from "@/lib/playerValue";
+import { formatSTC, calculatePlayerValue } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Wallet, Users, Trophy, Coins,
@@ -195,9 +195,10 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
     if (!club?.id) return;
     setLoading(true);
     try {
-      const [contracts, allTx] = await Promise.all([
+      const [contracts, allTx, squadPlayers] = await Promise.all([
         stageClient.entities.PlayerContract.filter({ team_id: club.id, status: "active" }, null, 200),
         stageClient.entities.STCTransaction.filter({ club_id: club.id }, "-created_date", 500),
+        stageClient.entities.Player.filter({ club_id: club.id }, null, 100),
       ]);
 
       const weeklyWages  = (contracts || []).reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
@@ -205,6 +206,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       const recent       = (allTx || []).filter(t => new Date(t.created_date).getTime() >= thirtyAgo);
       const income_30d   = recent.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0);
       const expenses_30d = recent.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const squadValue   = (squadPlayers || []).reduce((s, p) => s + calculatePlayerValue(p), 0);
 
       setData({
         balance:          Number(club.stc || 0),
@@ -213,6 +215,8 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         weekly_wages:     weeklyWages,
         contracts:        contracts || [],
         allTransactions:  allTx || [],
+        squadPlayers:     squadPlayers || [],
+        squad_value:      squadValue,
         income_30d,
         expenses_30d,
       });
@@ -267,7 +271,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
 
   const {
     balance, transfer_budget, wage_budget, weekly_wages,
-    contracts, allTransactions, income_30d, expenses_30d,
+    contracts, allTransactions, squad_value, income_30d, expenses_30d,
   } = data;
 
   const net30 = income_30d - expenses_30d;
@@ -284,8 +288,9 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
     <div className="space-y-5">
 
       {/* Balance + Budget Cards */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <StatCard icon={Wallet}  label="Club Balance"     value={formatSTC(balance)}          color="text-success"  sub="Available funds" />
+        <StatCard icon={TrendingUp} label="Squad Value"   value={formatSTC(squad_value || 0)} color="text-purple-400" sub="Combined player value" />
         <StatCard icon={Users}   label="Wage Budget"      value={formatSTC(wage_budget)}       color="text-warning"  sub={`${formatSTC(weekly_wages)}/wk committed`} />
         <StatCard icon={Coins}   label="Transfer Budget"  value={formatSTC(transfer_budget)}   color="text-primary"  sub="Signing funds" />
       </div>

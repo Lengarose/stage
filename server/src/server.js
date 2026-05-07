@@ -199,6 +199,51 @@ async function runStartupMigrations() {
   await addCol('stc_transactions', 'category',      'VARCHAR(100)');
   await addCol('stc_transactions', 'balance_after',  'DECIMAL(12,2)');
 
+  // Player market value system (v1)
+  await addCol('players', 'market_value_stc',  'BIGINT DEFAULT 250000');
+  await addCol('players', 'matches_played',    'INT DEFAULT 0');
+  await addCol('players', 'avg_match_rating',  'DECIMAL(4,2) DEFAULT 0');
+  await addCol('players', 'wins_count',        'INT DEFAULT 0');
+  await addCol('players', 'man_of_the_match',  'INT DEFAULT 0');
+  await addCol('players', 'clean_sheets',      'INT DEFAULT 0');
+  await addCol('players', 'form_last10',       'TEXT NULL');
+  await addCol('players', 'value_updated_at',  'DATETIME NULL');
+
+  // Market value config table
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS market_value_config (
+    id            VARCHAR(36)  PRIMARY KEY,
+    name          VARCHAR(100) DEFAULT 'default',
+    weights       JSON,
+    is_active     TINYINT(1)   DEFAULT 1,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] market_value_config:', err.message));
+
+  // Seed default config if none exists
+  const cfgCount = await EXECUTESQL('SELECT COUNT(*) as n FROM market_value_config', []).catch(() => [{ n: 1 }]);
+  if (Number(cfgCount[0]?.n || 0) === 0) {
+    const { v4: _uuid } = require('uuid');
+    const defaultWeights = {
+      base_per_match: 60000,
+      max_base: 8000000,
+      goal_rate_bonus: 2000000,
+      assist_rate_bonus: 1000000,
+      clean_sheet_rate_bonus: 2500000,
+      motm_bonus: 300000,
+      consistency_boost: 0.15,
+      form_boost: 0.20,
+      form_penalty: 0.12,
+      win_rate_boost: 0.10,
+      ovr_weight: 0.08,
+      spike_cap_up: 0.50,
+      spike_cap_down: 0.35,
+    };
+    await EXECUTESQL(
+      "INSERT INTO market_value_config (id, name, weights, is_active) VALUES (?, 'default', ?, 1)",
+      [_uuid(), JSON.stringify(defaultWeights)]
+    ).catch(() => {});
+  }
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');

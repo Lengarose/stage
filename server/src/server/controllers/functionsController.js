@@ -92,6 +92,122 @@ function parseSubmission(raw) {
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
 }
 
+// ── Market Value Engine ────────────────────────────────────────────────────
+
+const DEFAULT_MV_WEIGHTS = {
+  base_per_match:           60_000,
+  max_base:              8_000_000,
+  goal_rate_bonus:       2_000_000,
+  assist_rate_bonus:     1_000_000,
+  clean_sheet_rate_bonus:2_500_000,
+  motm_bonus:              300_000,
+  consistency_boost:          0.15,
+  form_boost:                 0.20,
+  form_penalty:               0.12,
+  win_rate_boost:             0.10,
+  ovr_weight:                 0.08,
+  spike_cap_up:               0.50,
+  spike_cap_down:             0.35,
+};
+
+let _mvConfigCache = null;
+let _mvConfigCachedAt = 0;
+async function getMvConfig() {
+  if (_mvConfigCache && Date.now() - _mvConfigCachedAt < 60_000) return _mvConfigCache;
+  try {
+    const rows = await EXECUTESQL("SELECT weights FROM market_value_config WHERE is_active = 1 ORDER BY updated_date DESC LIMIT 1", []);
+    const cfg = rows[0]?.weights ? JSON.parse(typeof rows[0].weights === 'string' ? rows[0].weights : JSON.stringify(rows[0].weights)) : {};
+    _mvConfigCache = { ...DEFAULT_MV_WEIGHTS, ...cfg };
+    _mvConfigCachedAt = Date.now();
+  } catch {
+    _mvConfigCache = { ...DEFAULT_MV_WEIGHTS };
+  }
+  return _mvConfigCache;
+}
+
+function computeValueFromStats(p, W, storedValue = null) {
+  const matches     = Number(p.matches_played  || 0);
+  const goals       = Number(p.goals           || 0);
+  const assists     = Number(p.assists          || 0);
+  const avgRating   = Number(p.avg_match_rating || 0);
+  const motm        = Number(p.man_of_the_match || 0);
+  const cleanSheets = Number(p.clean_sheets     || 0);
+  const wins        = Number(p.wins_count       || 0);
+  const ovr         = Number(p.overall_rating   || 65);
+
+  if (matches === 0) return 250_000;
+
+  // 1. Experience base
+  const base = Math.min(matches * W.base_per_match, W.max_base);
+
+  // 2. Rating multiplier (4.5 → 0.30, 6.5 → 1.18, 7.5 → 1.62, 9.0+ → 2.5)
+  const ratingMult = avgRating >= 5
+    ? Math.max(0.3, Math.min(2.5, 0.3 + ((avgRating - 4.5) / 5.0) * 2.2))
+    : 0.3;
+
+  // 3. Output rate bonuses
+  const goalRateBonus = Math.min((goals / matches) * W.goal_rate_bonus, 6_000_000);
+  const asstRateBonus = Math.min((assists / matches) * W.assist_rate_bonus, 3_000_000);
+  const csRateBonus   = Math.min((cleanSheets / matches) * W.clean_sheet_rate_bonus, 5_000_000);
+  const outputBonus   = goalRateBonus + asstRateBonus + csRateBonus;
+
+  // 4. Achievement bonus
+  const achieveBonus = Math.min(motm * W.motm_bonus, 5_000_000);
+
+  // 5. Consistency & recent form (from form_last10)
+  let formArr = [];
+  try { formArr = JSON.parse(p.form_last10 || '[]'); } catch {}
+  formArr = formArr.filter(r => typeof r === 'number');
+
+  let consistencyMult = 1.0;
+  let formMult = 1.0;
+  if (formArr.length >= 5) {
+    const mean    = formArr.reduce((s, v) => s + v, 0) / formArr.length;
+    const stdDev  = Math.sqrt(formArr.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / formArr.length);
+    if (stdDev < 0.5)      consistencyMult = 1 + W.consistency_boost;
+    else if (stdDev > 1.5) consistencyMult = 0.90;
+
+    if (avgRating > 0) {
+      const recent5Avg = formArr.slice(-5).reduce((s, v) => s + v, 0) / 5;
+      if (recent5Avg > avgRating + 0.3)      formMult = 1 + W.form_boost;
+      else if (recent5Avg < avgRating - 0.5) formMult = 1 - W.form_penalty;
+    }
+  }
+
+  // 6. Win rate
+  const winRate = wins / matches;
+  const winMult = winRate > 0.7 ? 1 + W.win_rate_boost
+                : winRate > 0.5 ? 1 + W.win_rate_boost * 0.5
+                : 1.0;
+
+  // 7. OVR minor contribution (max ~800K for 90-rated player)
+  const ovrBonus = Math.max(ovr - 60, 0) * 8_000 * W.ovr_weight;
+
+  // Assemble raw
+  const raw = Math.round(
+    (base + outputBonus + achieveBonus + ovrBonus) * ratingMult * consistencyMult * formMult * winMult
+  );
+
+  // 8. Anti-spike: cap change at ±(spike_cap)% vs stored value
+  let final = raw;
+  if (storedValue != null && storedValue > 0) {
+    final = Math.min(
+      Math.round(storedValue * (1 + W.spike_cap_up)),
+      Math.max(Math.round(storedValue * (1 - W.spike_cap_down)), raw)
+    );
+  }
+
+  // Round to nearest 100K, minimum 250K
+  return Math.max(250_000, Math.round(final / 100_000) * 100_000);
+}
+
+async function computeMarketValue(playerId, storedValue = null) {
+  const pRows = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [playerId]);
+  if (!pRows.length) return storedValue || 250_000;
+  const W = await getMvConfig();
+  return computeValueFromStats(pRows[0], W, storedValue);
+}
+
 async function processMatchCompletion(m, homeSub, awaySub) {
   const finalHomeScore = Number(homeSub.home_score ?? 0);
   const finalAwayScore = Number(homeSub.away_score ?? 0);
@@ -125,11 +241,89 @@ async function processMatchCompletion(m, homeSub, awaySub) {
          Number(stat.rating || 6), m.tournament_id || null]
       ).catch(() => {});
 
-      if (stat.player_id) {
+        if (stat.player_id) {
         await EXECUTESQL(
           'UPDATE players SET goals = goals + ?, assists = assists + ?, updated_date = NOW() WHERE id = ?',
           [Number(stat.goals || 0), Number(stat.assists || 0), stat.player_id]
         ).catch(() => {});
+      }
+    }
+
+    // ── Per-player match performance tracking + market value recalc ──────
+    // Determine MOTM (highest rated player in this match)
+    let motmPlayerId = null;
+    let motmPeak = -1;
+    for (const stat of allStats) {
+      if (stat.player_id && Number(stat.rating || 0) > motmPeak) {
+        motmPeak = Number(stat.rating || 0);
+        motmPlayerId = stat.player_id;
+      }
+    }
+
+    const W = await getMvConfig().catch(() => ({ ...DEFAULT_MV_WEIGHTS }));
+
+    for (const stat of allStats) {
+      if (!stat.player_id) continue;
+      try {
+        const pRows = await EXECUTESQL(
+          'SELECT matches_played, avg_match_rating, form_last10, market_value_stc, wins_count FROM players WHERE id = ? LIMIT 1',
+          [stat.player_id]
+        );
+        if (!pRows.length) continue;
+        const p = pRows[0];
+
+        const prevMatches   = Number(p.matches_played || 0);
+        const prevAvgRating = Number(p.avg_match_rating || 0);
+        const matchRating   = Number(stat.rating || 6);
+        const newMatches    = prevMatches + 1;
+        const newAvgRating  = Number(
+          ((prevAvgRating * prevMatches + matchRating) / newMatches).toFixed(2)
+        );
+
+        let formArr = [];
+        try { formArr = JSON.parse(p.form_last10 || '[]'); } catch {}
+        const newForm = JSON.stringify([...formArr, matchRating].slice(-10));
+
+        // Determine which side this player is on for win/clean-sheet logic
+        const isHomeSide = stat.club_id
+          ? stat.club_id === m.home_club_id
+          : stat.player_id === m.home_player_id;
+        const teamWon      = isHomeSide ? homeWon : awayWon;
+        const teamConceded = isHomeSide ? finalAwayScore : finalHomeScore;
+
+        const isMotm       = stat.player_id === motmPlayerId;
+        const isCleanSheet = teamConceded === 0;
+
+        await EXECUTESQL(
+          `UPDATE players SET
+            matches_played   = ?,
+            avg_match_rating = ?,
+            wins_count       = wins_count + ?,
+            man_of_the_match = man_of_the_match + ?,
+            clean_sheets     = clean_sheets + ?,
+            form_last10      = ?,
+            updated_date     = NOW()
+           WHERE id = ?`,
+          [newMatches, newAvgRating, teamWon ? 1 : 0, isMotm ? 1 : 0, isCleanSheet ? 1 : 0, newForm, stat.player_id]
+        );
+
+        // Build a synthetic player record with fresh stats for value calculation
+        const freshStats = {
+          ...p,
+          matches_played:  newMatches,
+          avg_match_rating: newAvgRating,
+          form_last10:     newForm,
+          wins_count:      Number(p.wins_count || 0) + (teamWon ? 1 : 0),
+          man_of_the_match: Number(p.man_of_the_match || 0) + (isMotm ? 1 : 0),
+          clean_sheets:    Number(p.clean_sheets || 0) + (isCleanSheet ? 1 : 0),
+        };
+        const newValue = computeValueFromStats(freshStats, W, Number(p.market_value_stc || 0));
+        await EXECUTESQL(
+          'UPDATE players SET market_value_stc = ?, value_updated_at = NOW() WHERE id = ?',
+          [newValue, stat.player_id]
+        );
+      } catch (err) {
+        console.error('[market-value] update failed for', stat.player_id, err.message);
       }
     }
 
@@ -1013,6 +1207,130 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown clubFinance action: ${action}`);
+  },
+
+  // ── Player Market Value ───────────────────────────────────────────────────
+  async playerMarketValue({ _auth_user_id, action, player_id, ...params }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+
+    if (action === 'get_breakdown') {
+      const pid = player_id;
+      if (!pid) throw new Error('player_id required');
+      const pRows = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [pid]);
+      if (!pRows.length) throw new Error('Player not found');
+      const p = pRows[0];
+      const W = await getMvConfig();
+
+      const matches     = Number(p.matches_played  || 0);
+      const goals       = Number(p.goals           || 0);
+      const assists     = Number(p.assists          || 0);
+      const avgRating   = Number(p.avg_match_rating || 0);
+      const motm        = Number(p.man_of_the_match || 0);
+      const cleanSheets = Number(p.clean_sheets     || 0);
+      const wins        = Number(p.wins_count       || 0);
+      const stored      = Number(p.market_value_stc || 250_000);
+
+      let formArr = [];
+      try { formArr = JSON.parse(p.form_last10 || '[]'); } catch {}
+      const recentForm = formArr.slice(-5);
+      const recentAvg  = recentForm.length ? recentForm.reduce((s, v) => s + v, 0) / recentForm.length : 0;
+
+      const base      = matches > 0 ? Math.min(matches * W.base_per_match, W.max_base) : 0;
+      const ratingMult= matches > 0 && avgRating >= 5
+        ? Math.max(0.3, Math.min(2.5, 0.3 + ((avgRating - 4.5) / 5.0) * 2.2)) : 0.3;
+      const goalBon   = matches > 0 ? Math.min((goals / matches) * W.goal_rate_bonus, 6_000_000) : 0;
+      const asstBon   = matches > 0 ? Math.min((assists / matches) * W.assist_rate_bonus, 3_000_000) : 0;
+      const csBon     = matches > 0 ? Math.min((cleanSheets / matches) * W.clean_sheet_rate_bonus, 5_000_000) : 0;
+      const achievBon = Math.min(motm * W.motm_bonus, 5_000_000);
+
+      return {
+        success: true,
+        data: {
+          market_value:     stored,
+          value_tier:       stored >= 200_000_000 ? 'World Class'
+                          : stored >= 50_000_000  ? 'Elite'
+                          : stored >= 10_000_000  ? 'Pro'
+                          : stored >= 2_000_000   ? 'Rising'
+                          : 'Prospect',
+          breakdown: {
+            experience_base: Math.round(base),
+            rating_multiplier: Math.round(ratingMult * 100) / 100,
+            goal_rate_bonus:  Math.round(goalBon),
+            assist_rate_bonus: Math.round(asstBon),
+            clean_sheet_bonus: Math.round(csBon),
+            achievement_bonus: Math.round(achievBon),
+          },
+          stats: {
+            matches_played: matches, goals, assists, avg_match_rating: avgRating,
+            wins_count: wins, man_of_the_match: motm, clean_sheets: cleanSheets,
+            recent_avg: Math.round(recentAvg * 10) / 10,
+            form: formArr.slice(-10),
+          },
+          updated_at: p.value_updated_at,
+        },
+      };
+    }
+
+    if (action === 'recalculate') {
+      const pid = player_id || params.target_player_id;
+      if (!pid) throw new Error('player_id required');
+      const pRows = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [pid]);
+      if (!pRows.length) throw new Error('Player not found');
+      const p = pRows[0];
+      const W = await getMvConfig();
+      const newValue = computeValueFromStats(p, W, Number(p.market_value_stc || 0));
+      await EXECUTESQL('UPDATE players SET market_value_stc = ?, value_updated_at = NOW() WHERE id = ?', [newValue, pid]);
+      return { success: true, data: { market_value: newValue } };
+    }
+
+    if (action === 'recalculate_all') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      const allPlayers = await EXECUTESQL('SELECT * FROM players WHERE matches_played > 0', []);
+      const W = await getMvConfig();
+      let updated = 0;
+      for (const p of allPlayers) {
+        try {
+          const newValue = computeValueFromStats(p, W, Number(p.market_value_stc || 0));
+          await EXECUTESQL('UPDATE players SET market_value_stc = ?, value_updated_at = NOW() WHERE id = ?', [newValue, p.id]);
+          updated++;
+        } catch {}
+      }
+      return { success: true, data: { updated } };
+    }
+
+    if (action === 'get_config') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      _mvConfigCache = null; // bust cache
+      const rows = await EXECUTESQL("SELECT * FROM market_value_config WHERE is_active = 1 ORDER BY updated_date DESC LIMIT 1", []);
+      const cfg  = rows[0] || {};
+      let weights = {};
+      try { weights = JSON.parse(typeof cfg.weights === 'string' ? cfg.weights : JSON.stringify(cfg.weights || {})); } catch {}
+      return { success: true, data: { ...DEFAULT_MV_WEIGHTS, ...weights, _id: cfg.id } };
+    }
+
+    if (action === 'set_config') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      const newWeights = { ...DEFAULT_MV_WEIGHTS };
+      const numericKeys = Object.keys(DEFAULT_MV_WEIGHTS);
+      for (const k of numericKeys) {
+        if (params[k] !== undefined && !isNaN(Number(params[k]))) newWeights[k] = Number(params[k]);
+      }
+      _mvConfigCache = null; // bust cache
+      const existing = await EXECUTESQL("SELECT id FROM market_value_config WHERE is_active = 1 LIMIT 1", []);
+      if (existing.length) {
+        await EXECUTESQL("UPDATE market_value_config SET weights = ?, updated_date = NOW() WHERE id = ?",
+          [JSON.stringify(newWeights), existing[0].id]);
+      } else {
+        await EXECUTESQL("INSERT INTO market_value_config (id, name, weights, is_active) VALUES (?, 'default', ?, 1)",
+          [uuidv4(), JSON.stringify(newWeights)]);
+      }
+      return { success: true };
+    }
+
+    throw new Error(`Unknown playerMarketValue action: ${action}`);
   },
 
   async deleteClub({ _auth_user_id, club_id }) {
