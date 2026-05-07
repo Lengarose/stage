@@ -31,11 +31,11 @@ export default function TransferMarket() {
   async function load() {
     setLoading(true);
     try {
-      const user = await base44.auth.me();
+      const user = await stageClient.auth.me();
 
       const [marketRes, playerArr] = await Promise.all([
-        base44.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} })),
-        base44.entities.Player.filter({ email: user.email }),
+        stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} })),
+        stageClient.entities.Player.filter({ email: user.email }),
       ]);
 
       const player = playerArr[0] || null;
@@ -46,8 +46,8 @@ export default function TransferMarket() {
 
       if (player?.club_id) {
         const [clubArr, contractArr] = await Promise.all([
-          base44.entities.Club.filter({ id: player.club_id }),
-          base44.entities.PlayerContract.filter({ team_id: player.club_id }),
+          stageClient.entities.Club.filter({ id: player.club_id }),
+          stageClient.entities.PlayerContract.filter({ team_id: player.club_id }),
         ]);
         const club = clubArr[0] || null;
         setMyClub(club);

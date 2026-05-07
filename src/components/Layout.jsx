@@ -1,9 +1,10 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
   Search, Rss, ShoppingBag, Video, UsersRound,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
-  Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star,
+  Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
+  AlertTriangle, Flag,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -23,6 +24,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+function isAppAdminUser(u) {
+  return u?.role === "admin" || Number(u?.role_id) === 0;
+}
 
 /* ── constants ─────────────────────────────────────────────── */
 const BADGE_IMAGES = {
@@ -115,6 +120,36 @@ function getOwnerGroups(clubPath) {
       items: [
         { path: "/news",  icon: Newspaper,   label: "News" },
         { path: "/store", icon: ShoppingBag, label: "Store" },
+      ],
+    },
+  ];
+}
+
+function getAdminGroups() {
+  return [
+    {
+      label: "Admin",
+      items: [
+        { path: "/admin", icon: ShieldAlert, label: "Dashboard" },
+        { path: "/admin/disputes", icon: AlertTriangle, label: "Disputes" },
+        { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
+        { path: "/admin/players", icon: UsersRound, label: "Players" },
+        { path: "/admin/clubs", icon: Shield, label: "Clubs" },
+        { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
+        { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
+        { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
+      ],
+    },
+    {
+      label: "Operations",
+      items: [
+        { path: "/admin/trophies", icon: Trophy, label: "Trophies" },
+        { path: "/admin/rewards", icon: Star, label: "Rewards" },
+        { path: "/admin/news", icon: Newspaper, label: "News" },
+        { path: "/admin/press-conferences", icon: Newspaper, label: "PressConferences" },
+        { path: "/admin/lifestyles", icon: Coins, label: "LifeStyles" },
+        { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
+        { path: "/admin/landing", icon: Palette, label: "Landing Page" },
       ],
     },
   ];
@@ -377,10 +412,423 @@ function HeaderIdentityMenu({
   );
 }
 
+/* ── Mobile primary tabs ──────────────────────────────────── */
+const MOBILE_PRIMARY = [
+  { path: "/",             icon: Home,   label: "Home"    },
+  { path: "/competitions", icon: Trophy, label: "Compete" },
+  { path: "/search",       icon: Search, label: "Search"  },
+  { path: "/social",       icon: Rss,    label: "Social"  },
+  { path: "/profile",      icon: User,   label: "Profile" },
+];
+
+const MOBILE_MORE_GROUPS = [
+  {
+    label: "Play",
+    items: [
+      { path: "/game-day",        icon: Zap,           label: "Game Day"      },
+      { path: "/tournaments",     icon: Trophy,        label: "Tournaments"   },
+      { path: "/register-league", icon: Shield,        label: "Register"      },
+      { path: "/rankings",        icon: BarChart3,     label: "Rankings"      },
+    ],
+  },
+  {
+    label: "Community",
+    items: [
+      { path: "/clubs",           icon: Shield,        label: "Clubs"         },
+      { path: "/players-list",    icon: UsersRound,    label: "Players"       },
+      { path: "/follow-back",     icon: Heart,         label: "Follow Back"   },
+      { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
+    ],
+  },
+  {
+    label: "Market",
+    items: [
+      { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
+      { path: "/lifestyle",       icon: Coins,           label: "Lifestyle"  },
+      { path: "/store",           icon: ShoppingBag,     label: "Store"      },
+    ],
+  },
+  {
+    label: "Info",
+    items: [
+      { path: "/news",            icon: Newspaper,     label: "News"          },
+      { path: "/inbox",           icon: Inbox,         label: "Inbox"         },
+      { path: "/schedule",        icon: CalendarDays,  label: "Schedule"      },
+      { path: "/notifications",   icon: Bell,          label: "Notifications" },
+      { path: "/settings",        icon: Settings,      label: "Settings"      },
+    ],
+  },
+];
+
+function MobileMoreSheet({ open, onClose, pathname }) {
+  return (
+    <>
+      {/* backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
+          style={{ WebkitBackdropFilter: "blur(4px)" }}
+          onClick={onClose}
+        />
+      )}
+      {/* sheet */}
+      <div
+        className="fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out"
+        style={{
+          bottom: 0,
+          transform: open ? "translateY(0)" : "translateY(110%)",
+          background: "linear-gradient(180deg, #0e1530 0%, #090d1c 100%)",
+          borderTop: "1.5px solid rgba(0,229,189,0.2)",
+          boxShadow: "0 -12px 60px rgba(0,0,0,0.8)",
+          paddingBottom: "calc(var(--mobile-tab-h) + var(--safe-bottom))",
+          maxHeight: "82vh",
+        }}
+      >
+        {/* drag handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+        </div>
+
+        <div
+          className="overflow-y-auto px-4 pb-4"
+          style={{ maxHeight: "calc(82vh - 60px)", WebkitOverflowScrolling: "touch" }}
+        >
+          {MOBILE_MORE_GROUPS.map((group) => (
+            <div key={group.label} className="mb-4">
+              <p
+                className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
+                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 700, color: "rgba(0,229,189,0.45)" }}
+              >
+                {group.label}
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.path;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onClose}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl py-3 px-1 transition-all active:scale-95"
+                      style={{
+                        background: isActive ? "rgba(0,229,189,0.12)" : "rgba(255,255,255,0.04)",
+                        border: isActive ? "1px solid rgba(0,229,189,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <Icon
+                        className="w-5 h-5"
+                        style={{ color: isActive ? "#00E5BD" : "rgba(255,255,255,0.5)" }}
+                      />
+                      <span
+                        className="text-[9px] text-center leading-tight"
+                        style={{
+                          fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                          fontWeight: 700,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: isActive ? "#00E5BD" : "rgba(255,255,255,0.45)",
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const inMore = !MOBILE_PRIMARY.some((t) => t.path === pathname);
+
+  return (
+    <>
+      <MobileMoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} pathname={pathname} />
+
+      <nav
+        className="fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
+        style={{
+          background: "rgba(8,11,24,0.92)",
+          backdropFilter: "blur(32px)",
+          WebkitBackdropFilter: "blur(32px)",
+          borderTop: "1px solid rgba(0,229,189,0.12)",
+          boxShadow: "0 -4px 30px rgba(0,0,0,0.6)",
+          paddingBottom: "var(--safe-bottom)",
+        }}
+      >
+        <div className="flex w-full">
+          {MOBILE_PRIMARY.map((tab) => {
+            const isActive = pathname === tab.path;
+            const Icon = tab.icon;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+                style={{ minHeight: "var(--mobile-tab-h)" }}
+                onClick={() => setMoreOpen(false)}
+              >
+                <div className="relative flex items-center justify-center">
+                  <Icon
+                    className="w-[22px] h-[22px] transition-colors"
+                    style={{ color: isActive ? "#00E5BD" : "rgba(255,255,255,0.38)" }}
+                  />
+                  {isActive && (
+                    <span
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{ background: "#00E5BD", boxShadow: "0 0 6px #00E5BD" }}
+                    />
+                  )}
+                </div>
+                <span
+                  className="text-[9px] transition-colors"
+                  style={{
+                    fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: isActive ? "#00E5BD" : "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {tab.label}
+                </span>
+              </Link>
+            );
+          })}
+
+          {/* More */}
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+            style={{ minHeight: "var(--mobile-tab-h)" }}
+          >
+            <div className="relative">
+              <div
+                className="w-[22px] h-[22px] flex flex-col items-center justify-center gap-[3px]"
+              >
+                {[0,1,2].map((i) => (
+                  <span
+                    key={i}
+                    className="block rounded-full transition-all"
+                    style={{
+                      width: moreOpen ? (i === 1 ? 14 : 10) : 14,
+                      height: 2,
+                      background: (moreOpen || inMore) ? "#00E5BD" : "rgba(255,255,255,0.38)",
+                    }}
+                  />
+                ))}
+              </div>
+              {notifCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold"
+                  style={{ background: "#ff4757", color: "#fff", padding: "0 3px" }}
+                >
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </div>
+            <span
+              className="text-[9px] transition-colors"
+              style={{
+                fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: (moreOpen || inMore) ? "#00E5BD" : "rgba(255,255,255,0.3)",
+              }}
+            >
+              More
+            </span>
+          </button>
+        </div>
+      </nav>
+    </>
+  );
+}
+
+function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin }) {
+  const navigate = useNavigate();
+  const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
+  const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
+
+  return (
+    <header
+      className="md:hidden relative z-50 shrink-0 flex items-center justify-between px-4"
+      style={{
+        paddingTop: "calc(var(--safe-top) + 10px)",
+        paddingBottom: 10,
+        background: "linear-gradient(180deg, #090d1c 0%, rgba(9,13,28,0.92) 100%)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(0,229,189,0.1)",
+      }}
+    >
+      <Link to="/">
+        <img src={LogoImg} alt="STAGE" className="h-9 w-auto object-contain" />
+      </Link>
+
+      <div className="flex items-center gap-1">
+        {/* Theme mini-picker */}
+        <select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          className="bg-transparent outline-none border border-white/10 rounded-lg px-2 py-1 text-[10px] uppercase"
+          style={{
+            fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            color: "rgba(255,255,255,0.5)",
+            background: "rgba(255,255,255,0.05)",
+          }}
+        >
+          {THEMES.map((t) => (
+            <option key={t.id} value={t.id} className="bg-[#080f1c] text-white normal-case">{t.label}</option>
+          ))}
+        </select>
+
+        {/* Notification bell */}
+        <NotificationBell />
+
+        {showAdminTakeoverExit && (
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem("admin_takeover_club_id");
+              navigate("/admin");
+            }}
+            className="ml-0.5 flex items-center gap-1 rounded-lg border border-amber-500/45 bg-amber-500/10 px-2 py-1"
+            style={{
+              fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+              fontWeight: 800,
+              fontSize: 9,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "#fbbf24",
+            }}
+            title="Admin takeover — back to Admin panel"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Admin
+          </button>
+        )}
+
+        {/* Identity avatar tap → profile */}
+        <Link to="/profile" className="ml-1">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border"
+            style={{
+              border: "1.5px solid rgba(0,229,189,0.4)",
+              background: myPlayer?.avatar_url ? `url(${myPlayer.avatar_url})` : "rgba(255,255,255,0.08)",
+              backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
+              backgroundPosition: myPlayer?.avatar_position || "50% 50%",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            {!myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />}
+          </div>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function AdminMobileTopBar({ pathname, theme, setTheme }) {
+  const adminTabs = [
+    { path: "/admin", label: "Dash", icon: ShieldAlert },
+    { path: "/admin/players", label: "Players", icon: UsersRound },
+    { path: "/admin/clubs", label: "Clubs", icon: Shield },
+    { path: "/admin/transfers", label: "Transfers", icon: ArrowLeftRight },
+  ];
+
+  return (
+    <header
+      className="md:hidden relative z-50 shrink-0"
+      style={{
+        paddingTop: "calc(var(--safe-top) + 8px)",
+        paddingBottom: 8,
+        background: "linear-gradient(180deg, #160a12 0%, #090d1c 100%)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(248,113,113,0.22)",
+      }}
+    >
+      <div className="flex items-center justify-between px-3">
+        <Link to="/admin" className="flex items-center gap-2">
+          <img src={LogoImg} alt="STAGE" className="h-8 w-auto object-contain" />
+          <span
+            className="text-[10px] uppercase"
+            style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.16em", color: "#f87171" }}
+          >
+            Admin
+          </span>
+        </Link>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <Link to="/" className="rounded p-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <Home className="w-4 h-4" />
+          </Link>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            className="bg-transparent outline-none border border-white/10 rounded px-1.5 py-1 text-[10px] uppercase"
+            style={{
+              fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              color: "rgba(255,255,255,0.55)",
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            {THEMES.map((t) => (
+              <option key={t.id} value={t.id} className="bg-[#080f1c] text-white normal-case">{t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-2 px-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-1.5 min-w-max">
+          {adminTabs.map((tab) => {
+            const isActive = pathname === tab.path;
+            const Icon = tab.icon;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+                style={{
+                  background: isActive ? "rgba(248,113,113,0.14)" : "rgba(255,255,255,0.04)",
+                  border: isActive ? "1px solid rgba(248,113,113,0.35)" : "1px solid rgba(255,255,255,0.08)",
+                  color: isActive ? "#f87171" : "rgba(255,255,255,0.55)",
+                }}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span style={{ ...headingFont, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {tab.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </header>
+  );
+}
+
 /* ── layout ────────────────────────────────────────────────── */
 export default function Layout() {
   const location  = useLocation();
+  const navigate  = useNavigate();
   const [isAdmin,          setIsAdmin]          = useState(false);
+  const [takeoverClubName, setTakeoverClubName] = useState(null);
   const [myClubId,         setMyClubId]         = useState(null);
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
@@ -408,9 +856,39 @@ export default function Layout() {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
       const u = await stageClient.auth.me();
-      if (u?.role === "admin") setIsAdmin(true);
+      if (isAppAdminUser(u)) setIsAdmin(true);
     })();
   }, []);
+
+  /** Leaving takeover context: any navigation into the admin panel clears club takeover. */
+  useEffect(() => {
+    if (!location.pathname.startsWith("/admin")) return;
+    if (localStorage.getItem("admin_takeover_club_id")) {
+      localStorage.removeItem("admin_takeover_club_id");
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const tid = localStorage.getItem("admin_takeover_club_id");
+    if (tid && isAdmin && (location.pathname === `/clubs/${tid}` || location.pathname.startsWith(`/clubs/${tid}/`))) {
+      localStorage.setItem("stage-account-mode", "club");
+      setAccountMode("club");
+    }
+  }, [isAdmin, location.pathname]);
+
+  useEffect(() => {
+    const id = localStorage.getItem("admin_takeover_club_id");
+    if (!id || !isAdmin || location.pathname.startsWith("/admin")) {
+      setTakeoverClubName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const rows = await stageClient.entities.Club.filter({ id }, null, 1).catch(() => []);
+      if (!cancelled) setTakeoverClubName(rows[0]?.name || null);
+    })();
+    return () => { cancelled = true; };
+  }, [isAdmin, location.pathname]);
 
   useEffect(() => {
     (async () => {
@@ -459,9 +937,27 @@ export default function Layout() {
 
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const adminTakeoverClubId =
+    typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
+  const showAdminTakeoverChip =
+    isAdmin && adminTakeoverClubId && !isAdminRoute;
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
   const playerGroups = getPlayerGroups(clubPath);
   const ownerGroups = getOwnerGroups(clubPath);
+  const adminGroups = getAdminGroups();
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const u = await stageClient.auth.me().catch(() => null);
+      if (!u) return;
+      const notifs = await stageClient.entities.Notification
+        .filter({ recipient_email: u.email }, "-created_date", 30)
+        .catch(() => []);
+      setNotifCount(notifs.filter(n => !n.read).length);
+    })();
+  }, []);
 
   return (
     <div
@@ -507,9 +1003,27 @@ export default function Layout() {
         </div>
       )}
 
-      {/* ── EAFC26 HEADER ─────────────────────────────────────── */}
+      {/* ── MOBILE TOP BAR (phone only) ───────────────────────── */}
+      {isAdminRoute ? (
+        <AdminMobileTopBar pathname={location.pathname} theme={theme} setTheme={setTheme} />
+      ) : (
+        <MobileTopBar
+          myPlayer={myPlayer}
+          myClub={myClub}
+          accountMode={accountMode}
+          switchMode={switchMode}
+          subscriptionTier={subscriptionTier}
+          notifCount={notifCount}
+          theme={theme}
+          setTheme={setTheme}
+          pathname={location.pathname}
+          isAdmin={isAdmin}
+        />
+      )}
+
+      {/* ── EAFC26 HEADER (desktop only) ──────────────────────── */}
       <header
-        className="relative z-50 shrink-0 overflow-visible"
+        className="relative z-50 shrink-0 overflow-visible hidden md:block"
         style={{
           background: "linear-gradient(180deg, #0b1024 0%, #080d1b 100%)",
           boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
@@ -526,7 +1040,7 @@ export default function Layout() {
 
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-            {(myPlayer || myClubId) && (
+            {!isAdminRoute && (myPlayer || myClubId) && (
               <div className="flex shrink-0 items-center px-3 sm:px-4">
                 <HeaderIdentityMenu
                   myPlayer={myPlayer}
@@ -539,7 +1053,7 @@ export default function Layout() {
               </div>
             )}
 
-            {!(myPlayer && myClubId) && (myClubId || myPlayer) && (
+            {!isAdminRoute && !(myPlayer && myClubId) && (myClubId || myPlayer) && (
               <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
                 {myClubId && !myPlayer && (
                   <>
@@ -556,11 +1070,26 @@ export default function Layout() {
               </div>
             )}
 
-            <SidebarNavSectionDropdowns
-              variant="header"
-              groups={accountMode === "club" ? ownerGroups : playerGroups}
-              pathname={location.pathname}
-            />
+            {isAdminRoute ? (
+              <>
+                <div className="hidden sm:flex shrink-0 items-center px-3">
+                  <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#f87171" }}>
+                    Stage Control Panel
+                  </span>
+                </div>
+                <SidebarNavSectionDropdowns
+                  variant="header"
+                  groups={adminGroups}
+                  pathname={location.pathname}
+                />
+              </>
+            ) : (
+              <SidebarNavSectionDropdowns
+                variant="header"
+                groups={accountMode === "club" ? ownerGroups : playerGroups}
+                pathname={location.pathname}
+              />
+            )}
 
             <div className="hidden sm:flex shrink-0 items-center px-3 self-stretch">
               <span style={{ ...headingFont, fontWeight: 700, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(0,229,189,0.22)" }}>
@@ -571,13 +1100,41 @@ export default function Layout() {
 
           <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3">
             <Link
-              to="/search"
+              to={isAdminRoute ? "/" : "/search"}
               className="rounded p-2 transition-all"
-              style={{ color: location.pathname === "/search" ? TEAL : "rgba(255,255,255,0.35)", background: location.pathname === "/search" ? "rgba(0,229,189,0.1)" : "transparent" }}
+              style={{ color: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? TEAL : "rgba(255,255,255,0.35)", background: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
             >
-              <Search className="h-[1.125rem] w-[1.125rem]" />
+              {isAdminRoute ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
             </Link>
             <NotificationBell />
+            {showAdminTakeoverChip && (
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem("admin_takeover_club_id");
+                  navigate("/admin");
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1.5 transition-colors hover:bg-amber-500/15 ml-0.5"
+                style={{
+                  ...headingFont,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#fbbf24",
+                  border: "1px solid rgba(245,158,11,0.45)",
+                  background: "rgba(245,158,11,0.08)",
+                }}
+                title={
+                  takeoverClubName
+                    ? `Admin · viewing ${takeoverClubName} — click to return to Admin`
+                    : "Admin takeover active — click to return to Admin panel"
+                }
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
             <Link
               to="/settings"
               className="rounded p-2 transition-all"
@@ -624,13 +1181,26 @@ export default function Layout() {
             isVideoTheme ? "bg-transparent" : "bg-background"
           )}
         >
-          <div className="min-h-full pb-8">
+          {/* pb: mobile accounts for bottom tab + home indicator; desktop uses pb-8 */}
+          <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+1rem)] md:pb-8">
             <div className="mx-auto w-full max-w-7xl">
               <Outlet />
             </div>
           </div>
         </main>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
+      {!isAdminRoute && (
+        <MobileBottomBar
+          pathname={location.pathname}
+          myPlayer={myPlayer}
+          myClub={myClub}
+          accountMode={accountMode}
+          subscriptionTier={subscriptionTier}
+          notifCount={notifCount}
+        />
+      )}
     </div>
   );
 }

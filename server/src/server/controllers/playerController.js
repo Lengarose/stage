@@ -38,12 +38,26 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
+    const { gamertag } = req.body || {};
+    if (gamertag) {
+      const existingByGamertag = await EXECUTESQL(
+        'SELECT id FROM players WHERE LOWER(gamertag) = LOWER(?) LIMIT 1',
+        [gamertag]
+      );
+      if (existingByGamertag.length) {
+        return res.status(409).json({ error: 'A player with this gamertag already exists' });
+      }
+    }
+
     const player = new Player(req.body);
     await player.create();
     const created = await player.selectOne(player.id);
     const record  = created[0];
     if (record?.user_id) {
-      await EXECUTESQL('UPDATE users SET player_id = ?, updated_date = NOW() WHERE id = ?', [record.id, record.user_id]);
+      await EXECUTESQL(
+        'UPDATE users SET player_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
+        [record.id, record.user_id]
+      );
     }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
     res.status(201).json(record);
@@ -59,10 +73,25 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if (req.body?.gamertag) {
+      const existingByGamertag = await EXECUTESQL(
+        'SELECT id FROM players WHERE LOWER(gamertag) = LOWER(?) AND id <> ? LIMIT 1',
+        [req.body.gamertag, id]
+      );
+      if (existingByGamertag.length) {
+        return res.status(409).json({ error: 'A player with this gamertag already exists' });
+      }
+    }
     const player = new Player({ ...existing[0], ...req.body });
     await player.update(id);
     const updated = await player.selectOne(id);
     const record  = updated[0];
+    if (record?.user_id) {
+      await EXECUTESQL(
+        'UPDATE users SET player_id = COALESCE(player_id, ?), role_id = 1, updated_date = NOW() WHERE id = ?',
+        [record.id, record.user_id]
+      );
+    }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
     res.json(record);
   } catch (err) {

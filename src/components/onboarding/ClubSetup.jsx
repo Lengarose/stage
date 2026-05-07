@@ -42,6 +42,11 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     setSaving(true);
     setError(null);
     try {
+      const existingByName = await stageClient.entities.Club.filter({ name }, null, 1).catch(() => []);
+      if (existingByName?.length) {
+        throw new Error("A club with this name already exists.");
+      }
+
       const club = await stageClient.entities.Club.create({
         user_id: user?.id,
         name,

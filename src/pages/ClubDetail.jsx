@@ -74,7 +74,8 @@ export default function ClubDetail() {
 
   const isMember = !!myPlayer?.club_id && myPlayer.club_id === id;
   const isCaptain = isMember && (myPlayer?.role === "captain" || myPlayer?.role === "vice-captain");
-  const isAdminTakeover = currentUser?.role === "admin" && localStorage.getItem("admin_takeover_club_id") === id;
+  const isAdminUser = currentUser?.role === "admin" || Number(currentUser?.role_id) === 0;
+  const isAdminTakeover = isAdminUser && localStorage.getItem("admin_takeover_club_id") === id;
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwner = (club?.owner_email === currentUser?.email && accountMode === "club") || isAdminTakeover;
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
@@ -399,7 +400,7 @@ export default function ClubDetail() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 ml-auto">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
             <span className="text-xs text-warning font-medium">Admin Takeover</span>
-            <button onClick={() => { localStorage.removeItem('admin_takeover_club_id'); window.location.href = '/admin'; }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
+            <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
               <LogOut className="w-3 h-3" /> Exit
             </button>
           </div>

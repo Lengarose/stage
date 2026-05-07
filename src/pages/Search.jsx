@@ -35,8 +35,8 @@ export default function Search() {
     const q = query.toLowerCase();
 
     const [allPlayers, allClubs, eafcRes] = await Promise.all([
-      base44.entities.Player.list("-overall_rating", 200),
-      base44.entities.Club.list("-wins", 200),
+      stageClient.entities.Player.list("-overall_rating", 200),
+      stageClient.entities.Club.list("-wins", 200),
       searchClub(query.trim(), platform).catch(() => null),
     ]);
 

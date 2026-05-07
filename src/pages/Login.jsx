@@ -58,8 +58,7 @@ export default function Login() {
   const [mode, setMode] = useState('signin');
   const isSignup = mode === 'signup';
 
-  const [email, setEmail] = useState('');
-  const [gamertag, setGamertag] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -77,14 +76,19 @@ export default function Login() {
     setIsLoading(true);
     try {
       const { access_token } = isSignup
-        ? await stageClient.auth.registerViaEmailPassword({ email, password, gamertag })
-        : await stageClient.auth.loginViaEmailPassword(email, password);
+        ? await stageClient.auth.registerViaEmailPassword({ email: identifier, password })
+        : await stageClient.auth.loginViaEmailPassword(identifier, password);
       if (access_token) {
         stageClient.auth.setToken(access_token);
         await checkUserAuth();
       }
     } catch (err) {
-      setError(err?.error || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email or password. Please try again.'));
+      const serverError = err?.error || err?.message || '';
+      if (isSignup && String(serverError).toLowerCase().includes('this user with this email exist')) {
+        setError('this user with this email exist');
+      } else {
+        setError(serverError || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email, gamertag, club name, or password.'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -149,21 +153,11 @@ export default function Login() {
 
           {/* Email / Password form */}
           <form onSubmit={handleAuthSubmit} className="space-y-3">
-            {isSignup && (
-              <input
-                type="text"
-                placeholder="Gamertag"
-                value={gamertag}
-                onChange={e => setGamertag(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all"
-              />
-            )}
-
             <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              type={isSignup ? 'email' : 'text'}
+              placeholder={isSignup ? 'Email address' : 'Email, gamertag, or club name'}
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
               required
               className="w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all"
             />

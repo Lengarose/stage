@@ -322,7 +322,36 @@ html.theme-white main > div.min-h-full {
 .theme-white nav a,
 .theme-white nav button { color: hsl(0, 0%, 100%) !important; }
 
+/* ─── Safe area CSS variables ───────────────────────────────── */
+:root {
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left,   0px);
+  --safe-right:  env(safe-area-inset-right,  0px);
+  --mobile-tab-h: 56px;
+}
+
+/* ─── Native mobile feel ────────────────────────────────────── */
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* iOS momentum scroll on any scrollable container */
+.overflow-y-auto,
+.overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars on mobile without losing scroll ability */
+@media (max-width: 767px) {
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}
+
 /* Custom scrollbar */
+@media (min-width: 768px) {
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -336,6 +365,7 @@ html.theme-white main > div.min-h-full {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(220 45% 28%);
 }
+} /* end @media min-width 768px */
 
 /* Glow effects */
 .glow-primary {

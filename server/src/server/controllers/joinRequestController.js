@@ -36,6 +36,20 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
+    const { player_id, club_id } = req.body || {};
+    if (!player_id || !club_id) {
+      return res.status(400).json({ error: 'player_id and club_id are required' });
+    }
+
+    const existing = await new JoinRequest().selectFiltered({ player_id, club_id });
+    const active = existing.find(
+      (r) => !['rejected', 'cancelled', 'withdrawn'].includes(String(r.status || '').toLowerCase())
+    );
+    if (active) {
+      // Idempotent behavior: do not create duplicates for same player+club.
+      return res.status(200).json(active);
+    }
+
     const jr = new JoinRequest(req.body);
     await jr.create();
     const created = await jr.selectOne(jr.id);

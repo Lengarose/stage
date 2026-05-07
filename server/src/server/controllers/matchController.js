@@ -1,19 +1,94 @@
 const express = require('express');
 const router  = express.Router();
 const Match   = require('../models/matchModel');
+const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+
+async function getAuthContext(req) {
+  const userId = req.user?.id;
+  if (!userId) return null;
+  const users = await EXECUTESQL('SELECT id, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  if (!users.length) return null;
+  const user = users[0];
+  const [players, clubs] = await Promise.all([
+    EXECUTESQL('SELECT id, club_id FROM players WHERE user_id = ? LIMIT 1', [userId]),
+    EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [userId]),
+  ]);
+  return {
+    userId,
+    roleId: Number(user.role_id || 1),
+    playerId: players[0]?.id || null,
+    playerClubId: players[0]?.club_id || null,
+    ownerClubId: clubs[0]?.id || null,
+  };
+}
+
+function ownScopeWhere(ctx) {
+  return {
+    clause: '(home_player_id = ? OR away_player_id = ? OR home_club_id = ? OR away_club_id = ?)',
+    values: [ctx.playerId, ctx.playerId, ctx.playerClubId || ctx.ownerClubId, ctx.playerClubId || ctx.ownerClubId],
+  };
+}
+
+function hasOwnScope(ctx) {
+  return Boolean(ctx.playerId || ctx.playerClubId || ctx.ownerClubId);
+}
 
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { club_id, tournament_id, status, page } = req.query;
+    const {
+      club_id,
+      tournament_id,
+      status,
+      page,
+      id,
+      home_club_id,
+      away_club_id,
+      home_player_id,
+      away_player_id,
+      mode,
+      round,
+      type,
+    } = req.query;
     const match = new Match();
+    const auth = await getAuthContext(req);
+    if (!auth) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = auth.roleId === 0;
+    if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     let result;
-    if (club_id)       result = await match.selectByClub(club_id);
-    else if (tournament_id) result = await match.selectByTournament(tournament_id);
-    else if (status)   result = await match.selectByStatus(status);
-    else result = await match.selectAll(Number(page) || 1);
+
+    // Support generic stageClient filters, otherwise we accidentally fall back
+    // to selectAll() and leak unrelated schedule rows.
+    const filters = {
+      id, home_club_id, away_club_id, home_player_id, away_player_id,
+      tournament_id, status, mode, round, type,
+    };
+    const clean = Object.entries(filters).filter(([, v]) => v !== undefined && v !== null && v !== '');
+    if (!isAdmin) {
+      const own = ownScopeWhere(auth);
+      const whereParts = [own.clause];
+      const values = [...own.values];
+      for (const [k, v] of clean) {
+        whereParts.push(`${k} = ?`);
+        values.push(v);
+      }
+      result = await EXECUTESQL(`SELECT * FROM matches WHERE ${whereParts.join(' AND ')} ORDER BY scheduled_date DESC`, values);
+    } else if (clean.length) {
+      const where = clean.map(([k]) => `${k} = ?`).join(' AND ');
+      const values = clean.map(([, v]) => v);
+      result = await EXECUTESQL(`SELECT * FROM matches WHERE ${where} ORDER BY scheduled_date DESC`, values);
+    } else if (club_id) {
+      result = await match.selectByClub(club_id);
+    } else if (tournament_id) {
+      result = await match.selectByTournament(tournament_id);
+    } else if (status) {
+      result = await match.selectByStatus(status);
+    } else {
+      result = await match.selectAll(Number(page) || 1);
+    }
+
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -24,10 +99,22 @@ router.get('/', async (req, res) => {
 // GET /:id
 router.get('/:id', async (req, res) => {
   try {
+    const auth = await getAuthContext(req);
+    if (!auth) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = auth.roleId === 0;
+    if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     const match  = new Match();
     const result = await match.selectOne(req.params.id);
     if (!result.length) return res.status(404).json({ error: 'Not found' });
-    res.json(result[0]);
+    const record = result[0];
+    const userClubId = auth.playerClubId || auth.ownerClubId;
+    const canAccess = isAdmin ||
+      record.home_player_id === auth.playerId ||
+      record.away_player_id === auth.playerId ||
+      record.home_club_id === userClubId ||
+      record.away_club_id === userClubId;
+    if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+    res.json(record);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -37,6 +124,20 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
+    const auth = await getAuthContext(req);
+    if (!auth) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = auth.roleId === 0;
+    if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isAdmin) {
+      const userClubId = auth.playerClubId || auth.ownerClubId;
+      const payload = req.body || {};
+      const touchesMine =
+        payload.home_player_id === auth.playerId ||
+        payload.away_player_id === auth.playerId ||
+        payload.home_club_id === userClubId ||
+        payload.away_club_id === userClubId;
+      if (!touchesMine) return res.status(403).json({ error: 'Forbidden' });
+    }
     const match = new Match(req.body);
     await match.create();
     const created = await match.selectOne(match.id);
@@ -53,8 +154,22 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const auth = await getAuthContext(req);
+    if (!auth) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = auth.roleId === 0;
+    if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     const existing = await new Match().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if (!isAdmin) {
+      const record = existing[0];
+      const userClubId = auth.playerClubId || auth.ownerClubId;
+      const canAccess =
+        record.home_player_id === auth.playerId ||
+        record.away_player_id === auth.playerId ||
+        record.home_club_id === userClubId ||
+        record.away_club_id === userClubId;
+      if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+    }
     const match = new Match({ ...existing[0], ...req.body });
     await match.update(id);
     const updated = await match.selectOne(id);
@@ -71,8 +186,22 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const auth = await getAuthContext(req);
+    if (!auth) return res.status(403).json({ error: 'Forbidden' });
+    const isAdmin = auth.roleId === 0;
+    if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     const existing = await new Match().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if (!isAdmin) {
+      const record = existing[0];
+      const userClubId = auth.playerClubId || auth.ownerClubId;
+      const canAccess =
+        record.home_player_id === auth.playerId ||
+        record.away_player_id === auth.playerId ||
+        record.home_club_id === userClubId ||
+        record.away_club_id === userClubId;
+      if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+    }
     await new Match().delete(id);
     socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.MATCH), { deleted: true, id });
     res.json({ success: true });
