@@ -208,6 +208,153 @@ async function computeMarketValue(playerId, storedValue = null) {
   return computeValueFromStats(pRows[0], W, storedValue);
 }
 
+// ── Shirt Sales Engine ──────────────────────────────────────────────────────
+
+const DEFAULT_SHIRT_WEIGHTS = {
+  base_per_mv_1m: 0.5,         // shirts per 1M market value
+  goal_demand: 4,               // extra shirts per goal
+  assist_demand: 2,             // extra shirts per assist
+  rating_demand_per_point: 1.5, // extra shirts per rating point above 6.0
+  motm_demand: 6,               // bonus if MOTM
+  clean_sheet_demand: 2,        // bonus per clean sheet
+  form_influence: 0.12,         // form effect (capped ±20%)
+  contract_boost: 0.10,         // 10% boost if has active contract
+  max_per_match: 12,            // anti-spike cap per player per match
+  price_base: 3000,             // base shirt price in STC
+  price_per_ovr_above_70: 800,  // STC per OVR point above 70
+  price_per_goal: 300,          // STC per career goal
+  price_per_assist: 200,        // STC per career assist
+  price_per_rating_point: 1500, // STC per avg_rating point above 6.0
+};
+
+let _shirtConfigCache = null;
+let _shirtConfigCachedAt = 0;
+async function getShirtConfig() {
+  if (_shirtConfigCache && Date.now() - _shirtConfigCachedAt < 60_000) return _shirtConfigCache;
+  try {
+    const rows = await EXECUTESQL("SELECT weights FROM shirt_sales_config WHERE is_active = 1 LIMIT 1");
+    const parsed = rows[0]?.weights
+      ? (typeof rows[0].weights === 'string' ? JSON.parse(rows[0].weights) : rows[0].weights)
+      : {};
+    _shirtConfigCache = { ...DEFAULT_SHIRT_WEIGHTS, ...parsed };
+    _shirtConfigCachedAt = Date.now();
+  } catch {
+    _shirtConfigCache = { ...DEFAULT_SHIRT_WEIGHTS };
+  }
+  return _shirtConfigCache;
+}
+
+async function generateShirtSalesForMatch(m, allStats) {
+  if (!m.home_club_id) return;
+
+  // Idempotency: skip if already generated for this match
+  const existing = await EXECUTESQL('SELECT id FROM shirt_sales WHERE match_id = ? LIMIT 1', [m.id]).catch(() => []);
+  if (existing.length) return;
+
+  const W = await getShirtConfig();
+
+  const playerIds = [...new Set(allStats.map(s => s.player_id).filter(Boolean))];
+  if (!playerIds.length) return;
+
+  const playerRows = await EXECUTESQL(
+    `SELECT id, gamertag, shirt_number, club_id, market_value_stc, overall_rating,
+            goals, assists, avg_match_rating, form_last10
+     FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+    playerIds
+  );
+  const playerMap = {};
+  playerRows.forEach(p => { playerMap[p.id] = p; });
+
+  const contractRows = await EXECUTESQL(
+    `SELECT user_id FROM player_contracts WHERE user_id IN (${playerIds.map(() => '?').join(',')}) AND status = 'active'`,
+    playerIds
+  );
+  const contractSet = new Set(contractRows.map(r => r.user_id));
+
+  let motmPlayerId = null, topRating = -1;
+  for (const s of allStats) {
+    if (s.player_id && Number(s.rating || 0) > topRating) {
+      topRating = Number(s.rating || 0);
+      motmPlayerId = s.player_id;
+    }
+  }
+  const motmQualifies = topRating >= 7.0;
+
+  const clubRevenue = {};
+
+  for (const stat of allStats) {
+    const player = playerMap[stat.player_id];
+    if (!player?.club_id) continue;
+
+    const goals   = Number(stat.goals   || 0);
+    const assists = Number(stat.assists  || 0);
+    const rating  = Number(stat.rating   || 6.0);
+    const mv      = Number(player.market_value_stc || 250_000);
+    const ovr     = Number(player.overall_rating   || 70);
+    const hasContract = contractSet.has(player.id);
+    const isMotm      = stat.player_id === motmPlayerId && motmQualifies;
+
+    const isHomeSide   = stat.club_id ? stat.club_id === m.home_club_id : stat.player_id === m.home_player_id;
+    const teamConceded = isHomeSide ? Number(m.away_score ?? 1) : Number(m.home_score ?? 1);
+    const isCleanSheet = teamConceded === 0;
+
+    // Demand calculation
+    const popularityScore = Math.min(mv / 1_000_000, 20) * W.base_per_mv_1m;
+    const matchPerfScore  = goals * W.goal_demand
+      + assists * W.assist_demand
+      + Math.max(0, (rating - 6.0) * W.rating_demand_per_point)
+      + (isMotm ? W.motm_demand : 0)
+      + (isCleanSheet ? W.clean_sheet_demand : 0);
+
+    // Form modifier — capped to ±20%, uses career avg vs recent 5
+    let formMod = 1.0;
+    try {
+      const form = JSON.parse(player.form_last10 || '[]');
+      if (form.length >= 3) {
+        const recent5    = form.slice(-5);
+        const recentAvg  = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+        const careerAvg  = Number(player.avg_match_rating || 6.0);
+        formMod = Math.max(0.8, Math.min(1.2, 1 + (recentAvg - careerAvg) * W.form_influence));
+      }
+    } catch {}
+
+    const contractBoost = hasContract ? 1 + W.contract_boost : 1.0;
+    const rawCount = (popularityScore + matchPerfScore) * formMod * contractBoost;
+    const count    = Math.max(0, Math.min(Math.round(rawCount), W.max_per_match));
+    if (count === 0) continue;
+
+    // Shirt price (career-based, stable — not per-match)
+    const price = Math.max(2500, Math.round(
+      (W.price_base
+        + Math.max(0, ovr - 70) * W.price_per_ovr_above_70
+        + Number(player.goals   || 0) * W.price_per_goal
+        + Number(player.assists || 0) * W.price_per_assist
+        + Math.max(0, Number(player.avg_match_rating || 6.0) - 6.0) * W.price_per_rating_point
+      ) / 500
+    ) * 500);
+
+    const revenue = price * count;
+    clubRevenue[player.club_id] = (clubRevenue[player.club_id] || 0) + revenue;
+
+    await EXECUTESQL(
+      `INSERT INTO shirt_sales
+         (id, player_id, player_gamertag, shirt_number, club_id, buyer_email, match_id, quantity, price_stc, created_date)
+       VALUES (?, ?, ?, ?, ?, 'virtual_fan', ?, ?, ?, NOW())`,
+      [uuidv4(), player.id, player.gamertag || '', player.shirt_number, player.club_id, m.id, count, revenue]
+    ).catch(() => {});
+  }
+
+  // Credit clubs via createClubTx for proper financial tracking
+  for (const [clubId, revenue] of Object.entries(clubRevenue)) {
+    if (revenue <= 0) continue;
+    await createClubTx({
+      clubId, amount: revenue, type: 'shirt_revenue', category: 'merchandise',
+      description: `Virtual shirt sales — ${m.home_club_name || 'Home'} vs ${m.away_club_name || 'Away'}`,
+      referenceId: m.id,
+    }).catch(() => {});
+  }
+}
+
 async function processMatchCompletion(m, homeSub, awaySub) {
   const finalHomeScore = Number(homeSub.home_score ?? 0);
   const finalAwayScore = Number(homeSub.away_score ?? 0);
@@ -339,6 +486,10 @@ async function processMatchCompletion(m, homeSub, awaySub) {
         [awayWon ? 1 : 0, isDraw ? 1 : 0, homeWon ? 1 : 0, finalAwayScore, finalHomeScore, m.away_club_id]
       ).catch(() => {});
     }
+
+    // Generate virtual shirt sales with final scores
+    const enrichedM = { ...m, home_score: finalHomeScore, away_score: finalAwayScore };
+    await generateShirtSalesForMatch(enrichedM, allStats).catch(() => {});
   }
 
   // Settle club wager if applicable
@@ -1655,6 +1806,109 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown playerWallet action: ${action}`);
+  },
+
+  // ── Shirt Sales ───────────────────────────────────────────────────────────
+  async shirtSales({ action, _auth_user_id, club_id, period, limit, amount, note, match_id, weights }) {
+    // ── get_leaderboard ───────────────────────────────────────────────────
+    if (action === 'get_leaderboard') {
+      const periodSql = period === '7d'  ? 'AND ss.created_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+                      : period === '30d' ? 'AND ss.created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
+                      : '';
+      const params = [];
+      let clubSql = '';
+      if (club_id) { clubSql = 'AND ss.club_id = ?'; params.push(club_id); }
+      params.push(Number(limit) || 10);
+
+      const rows = await EXECUTESQL(
+        `SELECT ss.player_id,
+                COALESCE(MAX(p.gamertag), MAX(ss.player_gamertag)) AS gamertag,
+                MAX(p.shirt_number) AS shirt_number,
+                MAX(p.avatar_url)   AS avatar_url,
+                MAX(c.name)         AS club_name,
+                MAX(c.logo_url)     AS club_logo_url,
+                SUM(ss.quantity)    AS total_shirts,
+                SUM(ss.price_stc)   AS total_revenue
+         FROM shirt_sales ss
+         LEFT JOIN players p ON p.id = ss.player_id
+         LEFT JOIN clubs c ON c.id = ss.club_id
+         WHERE 1=1 ${periodSql} ${clubSql}
+         GROUP BY ss.player_id
+         ORDER BY total_shirts DESC
+         LIMIT ?`,
+        params
+      );
+      return { data: { leaderboard: rows } };
+    }
+
+    // ── get_club_summary ──────────────────────────────────────────────────
+    if (action === 'get_club_summary') {
+      if (!club_id) throw new Error('club_id required');
+      const periodSql = period === '7d'  ? 'AND created_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+                      : period === '30d' ? 'AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
+                      : '';
+      const rows = await EXECUTESQL(
+        `SELECT COALESCE(SUM(quantity), 0) AS total_shirts,
+                COALESCE(SUM(price_stc), 0) AS total_revenue,
+                COUNT(DISTINCT match_id) AS matches_with_sales
+         FROM shirt_sales WHERE club_id = ? ${periodSql}`,
+        [club_id]
+      );
+      return { data: rows[0] || { total_shirts: 0, total_revenue: 0, matches_with_sales: 0 } };
+    }
+
+    // ── generate_for_match (GameDay path) ─────────────────────────────────
+    if (action === 'generate_for_match') {
+      if (!match_id) throw new Error('match_id required');
+      const matches = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      if (!matches.length) throw new Error('Match not found');
+      const match = matches[0];
+      if (!match.home_club_id) return { success: true, data: { skipped: true } };
+      const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [match_id]);
+      if (!stats.length) return { success: true, data: { skipped: true, reason: 'no_stats' } };
+      await generateShirtSalesForMatch(match, stats);
+      return { success: true };
+    }
+
+    // ── get_config ────────────────────────────────────────────────────────
+    if (action === 'get_config') {
+      const rows = await EXECUTESQL('SELECT id, weights FROM shirt_sales_config WHERE is_active = 1 LIMIT 1');
+      const w = rows.length
+        ? (typeof rows[0].weights === 'string' ? JSON.parse(rows[0].weights) : rows[0].weights)
+        : DEFAULT_SHIRT_WEIGHTS;
+      return { data: { id: rows[0]?.id, weights: { ...DEFAULT_SHIRT_WEIGHTS, ...w } } };
+    }
+
+    // ── set_config (admin) ────────────────────────────────────────────────
+    if (action === 'set_config') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!weights) throw new Error('weights required');
+      const existing = await EXECUTESQL('SELECT id FROM shirt_sales_config WHERE is_active = 1 LIMIT 1');
+      if (existing.length) {
+        await EXECUTESQL('UPDATE shirt_sales_config SET weights = ?, updated_date = NOW() WHERE id = ?',
+          [JSON.stringify(weights), existing[0].id]);
+      } else {
+        await EXECUTESQL("INSERT INTO shirt_sales_config (name, weights, is_active) VALUES ('default', ?, 1)",
+          [JSON.stringify(weights)]);
+      }
+      _shirtConfigCache = null;
+      return { success: true };
+    }
+
+    // ── correct_revenue (admin) ───────────────────────────────────────────
+    if (action === 'correct_revenue') {
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!club_id || amount == null) throw new Error('club_id and amount required');
+      const result = await createClubTx({
+        clubId: club_id, amount: Number(amount), type: 'shirt_revenue', category: 'merchandise',
+        description: note || 'Admin shirt revenue correction',
+      });
+      return { success: true, data: result };
+    }
+
+    throw new Error(`Unknown shirtSales action: ${action}`);
   },
 
   // ── Delete account ────────────────────────────────────────────────────────

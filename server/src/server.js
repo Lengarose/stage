@@ -244,6 +244,33 @@ async function runStartupMigrations() {
     ).catch(() => {});
   }
 
+  // Shirt sales system (v2) — aggregated per-player-per-match records
+  await addCol('shirt_sales', 'match_id', 'VARCHAR(36) NULL');
+  await addCol('shirt_sales', 'quantity', 'INT DEFAULT 1');
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS shirt_sales_config (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    name          VARCHAR(100) DEFAULT 'default',
+    weights       JSON,
+    is_active     TINYINT(1) DEFAULT 1,
+    created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] shirt_sales_config:', err.message));
+
+  const shirtCfgCount = await EXECUTESQL('SELECT COUNT(*) as n FROM shirt_sales_config', []).catch(() => [{ n: 1 }]);
+  if (Number(shirtCfgCount[0]?.n || 0) === 0) {
+    await EXECUTESQL(
+      "INSERT INTO shirt_sales_config (name, weights, is_active) VALUES ('default', ?, 1)",
+      [JSON.stringify({
+        base_per_mv_1m: 0.5, goal_demand: 4, assist_demand: 2,
+        rating_demand_per_point: 1.5, motm_demand: 6, clean_sheet_demand: 2,
+        form_influence: 0.12, contract_boost: 0.10, max_per_match: 12,
+        price_base: 3000, price_per_ovr_above_70: 800,
+        price_per_goal: 300, price_per_assist: 200, price_per_rating_point: 1500,
+      })]
+    ).catch(() => {});
+  }
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');
