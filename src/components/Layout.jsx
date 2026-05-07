@@ -157,7 +157,7 @@ function getAdminGroups() {
 
 /* ── EAFC26 design tokens ─────────────────────────────────── */
 const TEAL = "#00E5BD";
-const headingFont = { fontFamily: "var(--font-heading), 'Barlow Condensed', sans-serif" };
+const headingFont = { fontFamily: "var(--font-heading), 'Barlow Condensed', sans-serif", fontStyle: "italic" };
 
 const EAFC_DD = {
   background: "linear-gradient(160deg, #0c1426 0%, #080f1d 100%)",
