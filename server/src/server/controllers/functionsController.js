@@ -58,6 +58,69 @@ async function getCurrentTransferWindow() {
   return rows[0] || null;
 }
 
+function parseSubmission(raw) {
+  if (!raw) return null;
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
+}
+
+async function processMatchCompletion(m, homeSub, awaySub) {
+  const finalHomeScore = Number(homeSub.home_score ?? 0);
+  const finalAwayScore = Number(homeSub.away_score ?? 0);
+  const homeWon = finalHomeScore > finalAwayScore;
+  const awayWon = finalAwayScore > finalHomeScore;
+  const isDraw  = finalHomeScore === finalAwayScore;
+
+  const setClauses = ["status = 'completed'", 'home_score = ?', 'away_score = ?', 'stats_processed = 1', 'updated_date = NOW()'];
+  const setVals    = [finalHomeScore, finalAwayScore];
+  const homeGoalEvts = (homeSub.goal_events || []).length > 0 ? JSON.stringify(homeSub.goal_events) : null;
+  const awayGoalEvts = (awaySub.goal_events || []).length > 0 ? JSON.stringify(awaySub.goal_events) : null;
+  if (homeGoalEvts) { setClauses.push('home_goal_events = ?'); setVals.push(homeGoalEvts); }
+  if (awayGoalEvts) { setClauses.push('away_goal_events = ?'); setVals.push(awayGoalEvts); }
+  setVals.push(m.id);
+  await EXECUTESQL(`UPDATE matches SET ${setClauses.join(', ')} WHERE id = ?`, setVals);
+
+  if (!m.stats_processed) {
+    const allStats = [
+      ...(homeSub.player_stats || []),
+      ...(awaySub.player_stats || []),
+    ];
+
+    for (const stat of allStats) {
+      if (!stat.player_id && !stat.player_email) continue;
+      await EXECUTESQL(
+        `INSERT INTO match_player_stats
+           (id, match_id, club_id, player_id, player_email, player_gamertag, goals, assists, rating, tournament_id, created_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [uuidv4(), m.id, stat.club_id || null, stat.player_id || null, stat.player_email || null,
+         stat.player_gamertag || null, Number(stat.goals || 0), Number(stat.assists || 0),
+         Number(stat.rating || 6), m.tournament_id || null]
+      ).catch(() => {});
+
+      if (stat.player_id) {
+        await EXECUTESQL(
+          'UPDATE players SET goals = goals + ?, assists = assists + ?, updated_date = NOW() WHERE id = ?',
+          [Number(stat.goals || 0), Number(stat.assists || 0), stat.player_id]
+        ).catch(() => {});
+      }
+    }
+
+    if (m.home_club_id) {
+      await EXECUTESQL(
+        'UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?, goals_scored=goals_scored+?, goals_conceded=goals_conceded+?, updated_date=NOW() WHERE id=?',
+        [homeWon ? 1 : 0, isDraw ? 1 : 0, awayWon ? 1 : 0, finalHomeScore, finalAwayScore, m.home_club_id]
+      ).catch(() => {});
+    }
+    if (m.away_club_id) {
+      await EXECUTESQL(
+        'UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?, goals_scored=goals_scored+?, goals_conceded=goals_conceded+?, updated_date=NOW() WHERE id=?',
+        [awayWon ? 1 : 0, isDraw ? 1 : 0, homeWon ? 1 : 0, finalAwayScore, finalHomeScore, m.away_club_id]
+      ).catch(() => {});
+    }
+  }
+
+  return { data: { status: 'completed', home_score: finalHomeScore, away_score: finalAwayScore } };
+}
+
 const HANDLERS = {
   // ── EA Pro Clubs API proxy ────────────────────────────────────────────────
   async eafcApi({ endpoint, params }) {
@@ -217,11 +280,73 @@ const HANDLERS = {
     throw new Error(`Unknown transferWindowActions action: ${action}`);
   },
 
-  async matchKickoff({ action, match_id }) {
+  async matchKickoff({ action, match_id, is_home_team, home_score, away_score, player_stats, goal_events, proof_url, admin_resolve_winner, admin_home_score, admin_away_score }) {
     if (!match_id) throw new Error('match_id required');
-    if (action !== 'kickoff') throw new Error(`Unsupported matchKickoff action: ${action}`);
-    await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
-    return { data: { success: true } };
+
+    if (action === 'kickoff') {
+      await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
+      return { data: { success: true } };
+    }
+
+    if (action === 'submit_result') {
+      const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      if (!rows.length) throw new Error('Match not found');
+      const m = rows[0];
+
+      const submission = JSON.stringify({
+        home_score:   Number(home_score  ?? 0),
+        away_score:   Number(away_score  ?? 0),
+        player_stats: player_stats  || [],
+        goal_events:  goal_events   || [],
+        proof_url:    proof_url     || null,
+        submitted_at: new Date().toISOString(),
+      });
+
+      if (is_home_team) {
+        await EXECUTESQL(
+          'UPDATE matches SET home_submission = ?, result_home_submitted = 1, updated_date = NOW() WHERE id = ?',
+          [submission, match_id]
+        );
+      } else {
+        await EXECUTESQL(
+          'UPDATE matches SET away_submission = ?, result_away_submitted = 1, updated_date = NOW() WHERE id = ?',
+          [submission, match_id]
+        );
+      }
+
+      const [updated] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      const homeSub = parseSubmission(updated.home_submission);
+      const awaySub = parseSubmission(updated.away_submission);
+
+      if (!homeSub || !awaySub) {
+        return { data: { status: 'waiting' } };
+      }
+
+      if (Number(homeSub.home_score) !== Number(awaySub.home_score) ||
+          Number(homeSub.away_score) !== Number(awaySub.away_score)) {
+        await EXECUTESQL("UPDATE matches SET status = 'disputed', updated_date = NOW() WHERE id = ?", [match_id]);
+        return { data: { status: 'disputed' } };
+      }
+
+      return processMatchCompletion(updated, homeSub, awaySub);
+    }
+
+    if (action === 'admin_resolve') {
+      const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      if (!rows.length) throw new Error('Match not found');
+      const m = rows[0];
+
+      const homeSub = parseSubmission(m.home_submission) || { home_score: 0, away_score: 0, player_stats: [], goal_events: [] };
+      const awaySub = parseSubmission(m.away_submission) || { home_score: 0, away_score: 0, player_stats: [], goal_events: [] };
+      const accepted = admin_resolve_winner === 'home' ? { ...homeSub } : { ...awaySub };
+
+      if (admin_home_score != null) accepted.home_score = Number(admin_home_score);
+      if (admin_away_score != null) accepted.away_score = Number(admin_away_score);
+
+      return processMatchCompletion(m, accepted, accepted);
+    }
+
+    throw new Error(`Unsupported matchKickoff action: ${action}`);
   },
 
   async wagerMatchActions({ action, match_id }) {

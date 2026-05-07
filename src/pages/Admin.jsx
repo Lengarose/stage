@@ -322,10 +322,19 @@ export default function Admin(props) {
     if (!resolveDialog || !selectedWinner) return;
     setSaving(true);
     const m = resolveDialog.match;
-    const isHome = selectedWinner === m.home_club_id || selectedWinner === m.home_club_name;
-    const winnerId = isHome ? m.home_club_id : m.away_club_id;
-    const winnerName = isHome ? m.home_club_name : m.away_club_name;
-    await stageClient.entities.Match.update(m.id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerName, admin_notes: `Resolved by admin. Winner: ${winnerName}` });
+    try {
+      const isHome = selectedWinner === m.home_club_id;
+      await stageClient.functions.invoke("matchKickoff", {
+        match_id: m.id,
+        action: "admin_resolve",
+        admin_resolve_winner: isHome ? "home" : "away",
+      });
+    } catch {
+      // Fallback: direct update
+      const isHome = selectedWinner === m.home_club_id;
+      const winnerName = isHome ? m.home_club_name : m.away_club_name;
+      await stageClient.entities.Match.update(m.id, { status: "completed", winner_club_id: selectedWinner, winner_club_name: winnerName });
+    }
     setResolveDialog(null); setSelectedWinner(""); setSaving(false);
     await loadAll();
   }
@@ -1021,21 +1030,33 @@ export default function Admin(props) {
               <EmptyState icon={AlertTriangle} text="No disputed matches." />
             ) : (
               <div className="space-y-3">
-                {disputes.map(m => (
-                  <div key={m.id} className="bg-card border border-destructive/20 rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] px-2 py-0.5 rounded border border-destructive/30 bg-destructive/10 text-destructive font-bold uppercase tracking-wider">DISPUTED</span>
-                        <span className="text-xs text-muted-foreground">{m._source === "live" ? "Live Match" : "Tournament Match"}</span>
+                {disputes.map(m => {
+                  const parseSub = (raw) => { try { return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null; } catch { return null; } };
+                  const hs = parseSub(m.home_submission);
+                  const as_ = parseSub(m.away_submission);
+                  const homeLbl = (m.home_club_name || m.home_player_name) ?? "Home";
+                  const awayLbl = (m.away_club_name || m.away_player_name) ?? "Away";
+                  const hScore = hs ? `${hs.home_score}–${hs.away_score}` : "?";
+                  const aScore = as_ ? `${as_.home_score}–${as_.away_score}` : "?";
+                  return (
+                    <div key={m.id} className="bg-card border border-destructive/20 rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded border border-destructive/30 bg-destructive/10 text-destructive font-bold uppercase tracking-wider">DISPUTED</span>
+                        </div>
+                        <p className="font-bold text-foreground">{homeLbl} vs {awayLbl}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {homeLbl} says <strong className="text-foreground">{hScore}</strong>
+                          {" · "}
+                          {awayLbl} says <strong className="text-foreground">{aScore}</strong>
+                        </p>
                       </div>
-                      <p className="font-bold text-foreground">{m.home_club_name} vs {m.away_club_name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Home submitted: {m.home_submitted_score || "?"} · Away submitted: {m.away_submitted_score || "?"}</p>
+                      <Button onClick={() => { setResolveDialog({ match: m, type: m._source }); setSelectedWinner(""); }} className="bg-primary text-primary-foreground shrink-0 gap-2" size="sm">
+                        <Gavel className="w-4 h-4" /> Resolve
+                      </Button>
                     </div>
-                    <Button onClick={() => { setResolveDialog({ match: m, type: m._source }); setSelectedWinner(""); }} className="bg-primary text-primary-foreground shrink-0 gap-2" size="sm">
-                      <Gavel className="w-4 h-4" /> Resolve
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -2513,37 +2534,46 @@ export default function Admin(props) {
       <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); }}>
         <DialogContent className="bg-card border-border">
           <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> Resolve Dispute</DialogTitle></DialogHeader>
-          {resolveDialog && (
-            <div className="space-y-4 mt-2">
-              <p className="text-sm text-muted-foreground"><strong className="text-foreground">{resolveDialog.match.home_club_name}</strong> vs <strong className="text-foreground">{resolveDialog.match.away_club_name}</strong></p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <p className="text-muted-foreground text-xs mb-1">Home submitted</p>
-                  <p className="font-bold text-foreground">{resolveDialog.match.home_submitted_score || "Not submitted"}</p>
+          {resolveDialog && (() => {
+            const m = resolveDialog.match;
+            const parseSub = (raw) => { try { return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null; } catch { return null; } };
+            const homeSub = parseSub(m.home_submission);
+            const awaySub = parseSub(m.away_submission);
+            const homeScore = homeSub ? `${homeSub.home_score} – ${homeSub.away_score}` : "Not submitted";
+            const awayScore = awaySub ? `${awaySub.home_score} – ${awaySub.away_score}` : "Not submitted";
+            const homeProof = homeSub?.proof_url;
+            const awayProof = awaySub?.proof_url;
+            return (
+              <div className="space-y-4 mt-2">
+                <p className="text-sm text-muted-foreground"><strong className="text-foreground">{m.home_club_name || m.home_player_name}</strong> vs <strong className="text-foreground">{m.away_club_name || m.away_player_name}</strong></p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-secondary rounded-lg p-3 text-center">
+                    <p className="text-muted-foreground text-xs mb-1">{m.home_club_name || m.home_player_name} submitted</p>
+                    <p className="font-bold text-foreground text-lg">{homeScore}</p>
+                    {homeProof && <a href={homeProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">📎 Proof</a>}
+                  </div>
+                  <div className="bg-secondary rounded-lg p-3 text-center">
+                    <p className="text-muted-foreground text-xs mb-1">{m.away_club_name || m.away_player_name} submitted</p>
+                    <p className="font-bold text-foreground text-lg">{awayScore}</p>
+                    {awayProof && <a href={awayProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">📎 Proof</a>}
+                  </div>
                 </div>
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <p className="text-muted-foreground text-xs mb-1">Away submitted</p>
-                  <p className="font-bold text-foreground">{resolveDialog.match.away_submitted_score || "Not submitted"}</p>
+                <div>
+                  <label className="label-xs">Accept submission from</label>
+                  <Select value={selectedWinner} onValueChange={setSelectedWinner}>
+                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select which result to accept..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={m.home_club_id || "home"}>{m.home_club_name || m.home_player_name} (Home) — {homeScore}</SelectItem>
+                      <SelectItem value={m.away_club_id || "away"}>{m.away_club_name || m.away_player_name} (Away) — {awayScore}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                <Button onClick={resolveDispute} disabled={!selectedWinner || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
+                  <Gavel className="w-4 h-4" /> {saving ? "Saving..." : "Confirm Resolution"}
+                </Button>
               </div>
-              {(resolveDialog.match.proof_url || resolveDialog.match.forfeit_proof_url) && (
-                <a href={resolveDialog.match.proof_url || resolveDialog.match.forfeit_proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">📎 View Submitted Proof</a>
-              )}
-              <div>
-                <label className="label-xs">Award Win To</label>
-                <Select value={selectedWinner} onValueChange={setSelectedWinner}>
-                  <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select winner..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={resolveDialog.match.home_club_id}>{resolveDialog.match.home_club_name} (Home)</SelectItem>
-                    <SelectItem value={resolveDialog.match.away_club_id}>{resolveDialog.match.away_club_name} (Away)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={resolveDispute} disabled={!selectedWinner || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
-                <Gavel className="w-4 h-4" /> {saving ? "Saving..." : "Confirm Resolution"}
-              </Button>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -139,6 +139,20 @@ async function runStartupMigrations() {
   await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
+
+  // Match result submission fields
+  await addCol('matches', 'home_goal_events', 'TEXT NULL');
+  await addCol('matches', 'away_goal_events', 'TEXT NULL');
+  await addCol('matches', 'result_home_submitted', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'result_away_submitted', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'home_submission', 'TEXT NULL');
+  await addCol('matches', 'away_submission', 'TEXT NULL');
+  await addCol('matches', 'stats_processed', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'competition_context', 'VARCHAR(255) NULL');
+
+  // match_player_stats — add player_id and gamertag (schema v2)
+  await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
+  await addCol('match_player_stats', 'player_gamertag', 'VARCHAR(255) NULL');
 }
 
 runStartupMigrations().catch(err => console.error('[migration] startup error:', err));

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { Target, Zap, Star, CheckCircle2, Clock, Plus, Trash2 } from "lucide-react";
+import { Target, Zap, Star, CheckCircle2, Clock, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +24,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [submitting,  setSubmitting]  = useState(false);
   const [submitted,   setSubmitted]   = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(isClubMatch);
+  const [proofFile,   setProofFile]   = useState(null);
+  const [proofUrl,    setProofUrl]    = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const proofInputRef = useRef(null);
 
   const alreadySubmitted = isHomeTeam ? game.result_home_submitted : game.result_away_submitted;
   const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
@@ -34,8 +38,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     async function loadSeated() {
       if (!myClub) { setLoadingPlayers(false); return; }
       const [dressing, allPlayers] = await Promise.all([
-        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        stageClient.entities.Player.filter({ club_id: myClub.id }),
+        base44.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        base44.entities.Player.filter({ club_id: myClub.id }),
       ]);
       const seatedIds = dressing?.[0]?.seated_players || [];
       const seated    = seatedIds.length > 0
@@ -76,6 +80,23 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       }
       return { ...ev, [field]: value };
     }));
+  }
+
+  // ── Proof upload ───────────────────────────────────────────────────────────
+
+  async function handleProofChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProofFile(file);
+    setUploadingProof(true);
+    try {
+      const result = await base44.integrations.Core.UploadFile({ file });
+      setProofUrl(result?.file_url || null);
+    } catch {
+      setProofUrl(null);
+    } finally {
+      setUploadingProof(false);
+    }
   }
 
   // Derive goals/assists per player from the goal events
@@ -130,34 +151,28 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         }];
       }
 
+      const eventsToStore = goalEvents.map(ev => ({
+        minute:           Number(ev.minute) || null,
+        scorer_player_id: ev.scorer_player_id || null,
+        scorer_gamertag:  ev.scorer_gamertag  || null,
+        assist_player_id: ev.assist_player_id || null,
+        assist_gamertag:  ev.assist_gamertag  || null,
+        is_penalty:       !!ev.is_penalty,
+      }));
+
       const res = await base44.functions.invoke("matchKickoff", {
         match_id:     game.id,
         action:       "submit_result",
+        is_home_team: isHomeTeam,
         home_score:   Number(homeScore),
         away_score:   Number(awayScore),
         player_stats: playerStatsArr,
+        goal_events:  eventsToStore,
+        proof_url:    proofUrl || null,
       });
 
-      // Store goal events on the Match entity (non-fatal, best-effort)
-      if (isClubMatch && goalEvents.length > 0) {
-        const eventsToStore = goalEvents.map(ev => ({
-          minute:            Number(ev.minute) || null,
-          scorer_player_id:  ev.scorer_player_id  || null,
-          scorer_gamertag:   ev.scorer_gamertag   || null,
-          assist_player_id:  ev.assist_player_id  || null,
-          assist_gamertag:   ev.assist_gamertag   || null,
-          is_penalty:        !!ev.is_penalty,
-        }));
-        const field = isHomeTeam ? "home_goal_events" : "away_goal_events";
-        base44.entities.Match.update(game.id, { [field]: eventsToStore }).catch(() => {});
-      }
-
-      const status = res?.data?.status;
-      if (status === "completed" || status === "disputed") {
-        if (onSubmitted) onSubmitted(status, Number(homeScore), Number(awayScore), goalEvents);
-      } else {
-        setSubmitted(true);
-      }
+      const status = res?.data?.status || 'waiting';
+      if (onSubmitted) onSubmitted(status, Number(homeScore), Number(awayScore), goalEvents);
     } finally {
       setSubmitting(false);
     }
@@ -165,10 +180,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   // ── Already submitted state ────────────────────────────────────────────────
 
-  if (alreadySubmitted || submitted) {
+  if (alreadySubmitted) {
     return (
       <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-success/10 border border-success/30">
-        <Clock className="w-4 h-4 text-success shrink-0" />
+        <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
         <div>
           <p className="text-xs font-semibold text-success">Result submitted!</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -345,8 +360,30 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         </div>
       )}
 
+      {/* ── Proof screenshot (optional) ── */}
+      <div>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
+          Proof Screenshot <span className="normal-case font-normal">(optional)</span>
+        </p>
+        <input ref={proofInputRef} type="file" accept="image/*" className="hidden" onChange={handleProofChange} />
+        <button
+          type="button"
+          onClick={() => proofInputRef.current?.click()}
+          disabled={uploadingProof}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors",
+            proofUrl
+              ? "border-success/40 bg-success/10 text-success"
+              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          )}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          {uploadingProof ? "Uploading…" : proofUrl ? "Screenshot uploaded ✓" : "Attach screenshot"}
+        </button>
+      </div>
+
       {/* ── Submit ── */}
-      <Button onClick={submit} disabled={submitting} className="w-full bg-success text-white gap-2">
+      <Button onClick={submit} disabled={submitting || uploadingProof} className="w-full bg-success text-white gap-2">
         {submitting
           ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <><CheckCircle2 className="w-4 h-4" /> Submit Result</>

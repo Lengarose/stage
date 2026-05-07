@@ -121,14 +121,23 @@ CREATE TABLE IF NOT EXISTS matches (
   round               INT,
   tournament_id       VARCHAR(36),
   scheduled_date      DATETIME,
-  wager_stc           DECIMAL(12,2) DEFAULT 0,
-  wager_status        VARCHAR(50),
-  wager_home_locked   TINYINT(1)   DEFAULT 0,
-  wager_away_locked   TINYINT(1)   DEFAULT 0,
-  stream_url          TEXT,
-  stream_embed_html   TEXT,
-  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  wager_stc             DECIMAL(12,2) DEFAULT 0,
+  wager_status          VARCHAR(50),
+  wager_home_locked     TINYINT(1)   DEFAULT 0,
+  wager_away_locked     TINYINT(1)   DEFAULT 0,
+  stream_url            TEXT,
+  stream_embed_html     TEXT,
+  competition_context   VARCHAR(255),
+  -- result submission
+  result_home_submitted TINYINT(1)   DEFAULT 0,
+  result_away_submitted TINYINT(1)   DEFAULT 0,
+  home_submission       TEXT,
+  away_submission       TEXT,
+  home_goal_events      TEXT,
+  away_goal_events      TEXT,
+  stats_processed       TINYINT(1)   DEFAULT 0,
+  created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ── tournaments ───────────────────────────────────────────────
@@ -177,15 +186,17 @@ CREATE TABLE IF NOT EXISTS comments (
 
 -- ── match_player_stats ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS match_player_stats (
-  id             VARCHAR(36)  PRIMARY KEY,
-  match_id       VARCHAR(36)  NOT NULL,
-  tournament_id  VARCHAR(36),
-  club_id        VARCHAR(36),
-  player_email   VARCHAR(255) NOT NULL,
-  goals          INT          DEFAULT 0,
-  assists        INT          DEFAULT 0,
-  rating         DECIMAL(3,1) DEFAULT 0,
-  created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP
+  id              VARCHAR(36)  PRIMARY KEY,
+  match_id        VARCHAR(36)  NOT NULL,
+  tournament_id   VARCHAR(36),
+  club_id         VARCHAR(36),
+  player_id       VARCHAR(36),
+  player_email    VARCHAR(255),
+  player_gamertag VARCHAR(255),
+  goals           INT          DEFAULT 0,
+  assists         INT          DEFAULT 0,
+  rating          DECIMAL(3,1) DEFAULT 0,
+  created_date    DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── notifications ─────────────────────────────────────────────
