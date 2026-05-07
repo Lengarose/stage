@@ -25,6 +25,36 @@ import { COUNTRIES } from "../lib/countries";
 import { REGIONS, LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { forceSchedule, flagForAdminReview, declareForfeit } from "../lib/scheduleEngine";
 
+function BackfillStcButton() {
+  const [state, setState] = useState(null); // null | 'running' | 'done' | 'error'
+  const [result, setResult] = useState(null);
+  async function run() {
+    setState('running');
+    try {
+      const res = await stageClient.functions.invoke('backfillPlayerStc', {});
+      setResult(res?.data?.updated ?? 0);
+      setState('done');
+    } catch (err) {
+      setResult(err?.message || 'Failed');
+      setState('error');
+    }
+  }
+  return (
+    <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded-xl flex items-center justify-between gap-4">
+      <div>
+        <p className="text-xs font-bold text-warning uppercase tracking-wider">One-time: Backfill 50K STC</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Gives 50,000 STC to every player currently at 0.</p>
+        {state === 'done' && <p className="text-[10px] text-success mt-0.5">{result} player(s) updated ✓</p>}
+        {state === 'error' && <p className="text-[10px] text-destructive mt-0.5">{result}</p>}
+      </div>
+      <Button size="sm" onClick={run} disabled={state === 'running' || state === 'done'}
+        className="shrink-0 bg-warning text-black font-bold text-xs h-8 px-4">
+        {state === 'running' ? 'Running…' : state === 'done' ? 'Done ✓' : 'Run Backfill'}
+      </Button>
+    </div>
+  );
+}
+
 const ADMIN_SECTION_ALIASES = {
   players: "players",
   clubs: "clubs",
@@ -1024,6 +1054,7 @@ export default function Admin(props) {
 
           {/* Players */}
           <TabsContent value="players">
+            <BackfillStcButton />
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}

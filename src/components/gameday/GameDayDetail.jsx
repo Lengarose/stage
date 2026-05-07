@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { processMatchRevenue } from "@/lib/matchRevenue";
+import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { generateMatchShirtSales } from "@/lib/virtualShirtSales";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "date-fns";
@@ -129,6 +129,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
     if (newStatus === "completed") {
       processMatchRevenue(updated);
+      processSoloMatchRevenue(updated);
       generateMatchShirtSales(updated);
       syncFixtureAfterMatch(updated).catch(() => {});
       syncPlayerCareerStats(updated.id).catch(() => {});

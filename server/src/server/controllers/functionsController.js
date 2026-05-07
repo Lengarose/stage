@@ -229,13 +229,42 @@ const HANDLERS = {
     const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
     if (!rows.length) throw new Error('Match not found');
     const m = rows[0];
+    const isClub = m.mode === 'club';
+
     if (action === 'accept_wager') {
+      const wagerEach = Number(m.wager_stc || 0);
+      if (wagerEach > 0) {
+        if (isClub) {
+          if (m.home_club_id) {
+            const [hc] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.home_club_id]);
+            if (!hc || Number(hc.stc || 0) < wagerEach) throw new Error('Home club has insufficient STC for this wager');
+            await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_club_id]);
+          }
+          if (m.away_club_id) {
+            const [ac] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.away_club_id]);
+            if (!ac || Number(ac.stc || 0) < wagerEach) throw new Error('Your club has insufficient STC for this wager');
+            await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_club_id]);
+          }
+        } else {
+          if (m.home_player_id) {
+            const [hp] = await EXECUTESQL('SELECT stc FROM players WHERE id = ? LIMIT 1', [m.home_player_id]);
+            if (!hp || Number(hp.stc || 0) < wagerEach) throw new Error('Home player has insufficient STC for this wager');
+            await EXECUTESQL('UPDATE players SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_player_id]);
+          }
+          if (m.away_player_id) {
+            const [ap] = await EXECUTESQL('SELECT stc FROM players WHERE id = ? LIMIT 1', [m.away_player_id]);
+            if (!ap || Number(ap.stc || 0) < wagerEach) throw new Error('You have insufficient STC for this wager');
+            await EXECUTESQL('UPDATE players SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_player_id]);
+          }
+        }
+      }
       await EXECUTESQL(
-        "UPDATE matches SET wager_away_locked = 1, wager_status = 'active', updated_date = NOW() WHERE id = ?",
+        "UPDATE matches SET wager_away_locked = 1, wager_home_locked = 1, wager_status = 'active', updated_date = NOW() WHERE id = ?",
         [match_id]
       );
-      return { success: true, data: { _match_patch: { wager_away_locked: 1, wager_status: 'active' } } };
+      return { success: true, data: { _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
     }
+
     if (action === 'decline_wager') {
       await EXECUTESQL(
         "UPDATE matches SET wager_status = 'declined', wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
@@ -243,7 +272,19 @@ const HANDLERS = {
       );
       return { success: true, data: { _match_patch: { wager_status: 'declined', wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
     }
+
     if (action === 'cancel_wager') {
+      // Refund both sides only if wager was already active (funds were deducted)
+      const wagerEach = Number(m.wager_stc || 0);
+      if (wagerEach > 0 && m.wager_status === 'active') {
+        if (isClub) {
+          if (m.home_club_id) await EXECUTESQL('UPDATE clubs SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_club_id]);
+          if (m.away_club_id) await EXECUTESQL('UPDATE clubs SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_club_id]);
+        } else {
+          if (m.home_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_player_id]);
+          if (m.away_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_player_id]);
+        }
+      }
       const nextStatus = m.status === 'completed' ? m.wager_status : 'cancelled';
       await EXECUTESQL(
         "UPDATE matches SET wager_status = ?, wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
@@ -252,6 +293,75 @@ const HANDLERS = {
       return { success: true, data: { _match_patch: { wager_status: nextStatus, wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
     }
     throw new Error(`Unknown wager action: ${action}`);
+  },
+
+  // Settle wager for solo (player-vs-player) matches on completion
+  async processSoloWager({ match_id }) {
+    if (!match_id) throw new Error('match_id required');
+    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+    if (!rows.length) throw new Error('Match not found');
+    const m = rows[0];
+    if (m.mode === 'club') return { success: true, data: { skipped: true } };
+    const wagerEach = Number(m.wager_stc || 0);
+    if (!wagerEach || m.wager_status !== 'active' || !m.wager_home_locked || !m.wager_away_locked) {
+      return { success: true, data: { skipped: true } };
+    }
+    // Guard: already settled
+    const existing = await EXECUTESQL(
+      "SELECT id FROM inbox_messages WHERE related_entity_id = ? AND related_entity_type = 'solo_wager' LIMIT 1",
+      [match_id]
+    ).catch(() => []);
+    if (existing.length) return { success: true, data: { skipped: true } };
+
+    const pot = wagerEach * 2;
+    const homeScore = Number(m.home_score ?? 0);
+    const awayScore = Number(m.away_score ?? 0);
+    const isDraw = homeScore === awayScore;
+
+    if (isDraw) {
+      if (m.home_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_player_id]);
+      if (m.away_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_player_id]);
+      await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match_id]);
+      // Notify both players
+      const notif = async (email, msg) => email && EXECUTESQL(
+        `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
+         VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
+        [uuidv4(), email, '🤝 Wager Refunded', msg, match_id]
+      ).catch(() => {});
+      const label = `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
+      await notif(m.home_player_email || null, `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+      await notif(m.away_player_email || null, `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+      return { success: true, data: { result: 'refunded', wagerEach } };
+    }
+
+    const homeWins = homeScore > awayScore;
+    const winnerId   = homeWins ? m.home_player_id   : m.away_player_id;
+    const winnerName = homeWins ? (m.home_player_name || 'Home') : (m.away_player_name || 'Away');
+    const loserName  = homeWins ? (m.away_player_name || 'Away') : (m.home_player_name || 'Home');
+    const winnerEmail = homeWins ? (m.home_player_email || null) : (m.away_player_email || null);
+    const loserEmail  = homeWins ? (m.away_player_email || null) : (m.home_player_email || null);
+
+    if (winnerId) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [pot, winnerId]);
+    await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match_id]);
+
+    const label = `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
+    const notify = async (email, subj, body) => email && EXECUTESQL(
+      `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
+       VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
+      [uuidv4(), email, subj, body, match_id]
+    ).catch(() => {});
+    await notify(winnerEmail, `🏆 Wager Won — ${label}`, `You won! +${pot.toLocaleString()} STC added to your wallet.`);
+    await notify(loserEmail,  `❌ Wager Lost — ${label}`, `You lost the wager vs ${winnerName}. ${wagerEach.toLocaleString()} STC forfeited.`);
+
+    return { success: true, data: { result: 'settled', pot, winner: winnerName, loser: loserName } };
+  },
+
+  async backfillPlayerStc({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const result = await EXECUTESQL(
+      "UPDATE players SET stc = 50000, updated_date = NOW() WHERE stc IS NULL OR stc = 0"
+    );
+    return { success: true, data: { updated: result.affectedRows || 0 } };
   },
 
   async buyLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji, purchase_intent }) {

@@ -40,6 +40,19 @@ async function sendOwnerMessage(ownerEmail, subject, body, matchId) {
 /* ── main export ─────────────────────────────────────────── */
 
 /**
+ * processSoloMatchRevenue — settle wager for player-vs-player (non-club) matches.
+ */
+export async function processSoloMatchRevenue(gameSnapshot) {
+  if (gameSnapshot.mode === 'club') return;
+  if (!gameSnapshot.wager_stc || gameSnapshot.wager_status !== 'active') return;
+  try {
+    await stageClient.functions.invoke('processSoloWager', { match_id: gameSnapshot.id });
+  } catch (err) {
+    console.warn('[matchRevenue] solo wager settlement failed:', err);
+  }
+}
+
+/**
  * processMatchRevenue — called once when a club match status → "completed".
  *
  * Handles:
