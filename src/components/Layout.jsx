@@ -77,6 +77,7 @@ function getPlayerGroups(_clubPath) {
       items: [
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
+        { path: "/wallet",          icon: Zap,            label: "Wallet" },
       ],
     },
     {

@@ -26,15 +26,13 @@ export default function Lifestyle() {
   const load = useCallback(async () => {
     const u = await stageClient.auth.me();
     setUser(u);
-    const [players, storeItems, txns] = await Promise.all([
+    const [players, storeItems] = await Promise.all([
       stageClient.entities.Player.filter({ email: u.email }),
       stageClient.entities.LifestyleItem.filter({ is_active: true }, "sort_order", 100),
-      stageClient.entities.STCTransaction.filter({ player_email: u.email }, "-created_date", 20),
     ]);
     const pl = players[0];
     setPlayer(pl || null);
     setItems(storeItems);
-    setTransactions(txns);
     if (pl) {
       const owned = await stageClient.entities.LifestylePurchase.filter({ player_id: pl.id }, "-created_date", 200);
       setPurchases(owned);
@@ -260,7 +258,7 @@ export default function Lifestyle() {
 
           {/* Wallet */}
           <TabsContent value="wallet">
-            <STCWallet player={player} transactions={transactions} />
+            <STCWallet player={player} />
           </TabsContent>
         </Tabs>
       </div>

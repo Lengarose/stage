@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   start_date            DATETIME,
   end_date              DATETIME,
   performance_targets   JSON,
+  last_salary_paid_at   DATETIME,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -446,6 +447,21 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ── player_stc_transactions ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS player_stc_transactions (
+  id            VARCHAR(36)    PRIMARY KEY,
+  player_id     VARCHAR(36)    NOT NULL,
+  player_email  VARCHAR(255),
+  amount        DECIMAL(12,2)  NOT NULL,
+  balance_after DECIMAL(12,2),
+  type          VARCHAR(20),
+  category      VARCHAR(100),
+  source        VARCHAR(255),
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME       DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ── indexes ───────────────────────────────────────────────────
 CREATE INDEX idx_players_club        ON players(club_id);
 CREATE INDEX idx_players_email       ON players(email);
@@ -466,3 +482,6 @@ CREATE INDEX idx_chat_match          ON chat_messages(match_id);
 CREATE INDEX idx_stats_match         ON match_player_stats(match_id);
 CREATE INDEX idx_follows_email       ON follows(follower_email);
 CREATE INDEX idx_stc_club            ON stc_transactions(club_id);
+CREATE INDEX idx_player_tx_player   ON player_stc_transactions(player_id);
+CREATE INDEX idx_player_tx_email    ON player_stc_transactions(player_email);
+CREATE INDEX idx_player_tx_category ON player_stc_transactions(category);

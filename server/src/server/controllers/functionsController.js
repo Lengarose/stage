@@ -58,6 +58,22 @@ async function getCurrentTransferWindow() {
   return rows[0] || null;
 }
 
+async function createPlayerTx({ playerId, playerEmail, amount, category, source, description, referenceId }) {
+  const rows = await EXECUTESQL('SELECT stc FROM players WHERE id = ? LIMIT 1', [playerId]);
+  const newBalance = Number(rows[0]?.stc || 0) + Number(amount);
+  await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, playerId]);
+  const txId = uuidv4();
+  await EXECUTESQL(
+    `INSERT INTO player_stc_transactions
+       (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [txId, playerId, playerEmail || null, Number(amount), newBalance,
+     Number(amount) >= 0 ? 'income' : 'expense',
+     category || null, source || null, description || null, referenceId || null]
+  );
+  return { new_balance: newBalance, transaction_id: txId };
+}
+
 function parseSubmission(raw) {
   if (!raw) return null;
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
@@ -442,41 +458,36 @@ const HANDLERS = {
     const homeScore = Number(m.home_score ?? 0);
     const awayScore = Number(m.away_score ?? 0);
     const isDraw = homeScore === awayScore;
-
-    if (isDraw) {
-      if (m.home_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.home_player_id]);
-      if (m.away_player_id) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [wagerEach, m.away_player_id]);
-      await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match_id]);
-      // Notify both players
-      const notif = async (email, msg) => email && EXECUTESQL(
-        `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
-         VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
-        [uuidv4(), email, '🤝 Wager Refunded', msg, match_id]
-      ).catch(() => {});
-      const label = `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
-      await notif(m.home_player_email || null, `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-      await notif(m.away_player_email || null, `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-      return { success: true, data: { result: 'refunded', wagerEach } };
-    }
-
-    const homeWins = homeScore > awayScore;
-    const winnerId   = homeWins ? m.home_player_id   : m.away_player_id;
-    const winnerName = homeWins ? (m.home_player_name || 'Home') : (m.away_player_name || 'Away');
-    const loserName  = homeWins ? (m.away_player_name || 'Away') : (m.home_player_name || 'Home');
-    const winnerEmail = homeWins ? (m.home_player_email || null) : (m.away_player_email || null);
-    const loserEmail  = homeWins ? (m.away_player_email || null) : (m.home_player_email || null);
-
-    if (winnerId) await EXECUTESQL('UPDATE players SET stc = stc + ?, updated_date = NOW() WHERE id = ?', [pot, winnerId]);
-    await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match_id]);
-
     const label = `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
-    const notify = async (email, subj, body) => email && EXECUTESQL(
+
+    const notifyInbox = async (email, subj, body) => email && EXECUTESQL(
       `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
        VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
       [uuidv4(), email, subj, body, match_id]
     ).catch(() => {});
-    await notify(winnerEmail, `🏆 Wager Won — ${label}`, `You won! +${pot.toLocaleString()} STC added to your wallet.`);
-    await notify(loserEmail,  `❌ Wager Lost — ${label}`, `You lost the wager vs ${winnerName}. ${wagerEach.toLocaleString()} STC forfeited.`);
+
+    if (isDraw) {
+      await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match_id]);
+      if (m.home_player_id) await createPlayerTx({ playerId: m.home_player_id, playerEmail: m.home_player_email || null, amount: wagerEach, category: 'wager_refund', source: label, description: `Wager refunded (draw) — ${label}`, referenceId: match_id }).catch(() => {});
+      if (m.away_player_id) await createPlayerTx({ playerId: m.away_player_id, playerEmail: m.away_player_email || null, amount: wagerEach, category: 'wager_refund', source: label, description: `Wager refunded (draw) — ${label}`, referenceId: match_id }).catch(() => {});
+      await notifyInbox(m.home_player_email, '🤝 Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+      await notifyInbox(m.away_player_email, '🤝 Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+      return { success: true, data: { result: 'refunded', wagerEach } };
+    }
+
+    const homeWins  = homeScore > awayScore;
+    const winnerId  = homeWins ? m.home_player_id  : m.away_player_id;
+    const loserId   = homeWins ? m.away_player_id  : m.home_player_id;
+    const winnerName  = homeWins ? (m.home_player_name || 'Home') : (m.away_player_name || 'Away');
+    const loserName   = homeWins ? (m.away_player_name || 'Away') : (m.home_player_name || 'Home');
+    const winnerEmail = homeWins ? (m.home_player_email || null) : (m.away_player_email || null);
+    const loserEmail  = homeWins ? (m.away_player_email || null) : (m.home_player_email || null);
+
+    await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match_id]);
+    if (winnerId) await createPlayerTx({ playerId: winnerId, playerEmail: winnerEmail, amount: pot, category: 'wager_win', source: label, description: `Wager won vs ${loserName} — ${label}`, referenceId: match_id }).catch(() => {});
+    if (loserId)  await createPlayerTx({ playerId: loserId,  playerEmail: loserEmail,  amount: 0,   category: 'wager_loss', source: label, description: `Wager lost vs ${winnerName} — ${label}`, referenceId: match_id }).catch(() => {});
+    await notifyInbox(winnerEmail, `🏆 Wager Won — ${label}`, `You won! +${pot.toLocaleString()} STC added to your wallet.`);
+    await notifyInbox(loserEmail,  `❌ Wager Lost — ${label}`, `You lost the wager vs ${winnerName}. ${wagerEach.toLocaleString()} STC forfeited.`);
 
     return { success: true, data: { result: 'settled', pot, winner: winnerName, loser: loserName } };
   },
@@ -500,33 +511,23 @@ const HANDLERS = {
     const price = Number(item.price_stc || 0);
     const currentStc = Number(player.stc || 0);
     if (price > currentStc) throw new Error('Insufficient STC');
-    const new_stc_balance = Math.max(0, currentStc - price);
-    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
     const purchaseId = uuidv4();
     await EXECUTESQL(
       `INSERT INTO lifestyle_purchases (
-        id, player_id, item_id, item_type, item_tier, rent_active, is_residence,
-        created_date
+        id, player_id, item_id, item_type, item_tier, rent_active, is_residence, created_date
       ) VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
-      [
-        purchaseId,
-        player.id,
-        item_id,
-        item.category || item.item_type || null,
-        item.tier || item.item_tier || null,
-        item.category === 'real_estate' ? 1 : 0,
-      ]
+      [purchaseId, player.id, item_id, item.category || item.item_type || null,
+       item.tier || item.item_tier || null, item.category === 'real_estate' ? 1 : 0]
     );
     await EXECUTESQL(
-      `INSERT INTO stc_transactions (id, club_id, amount, type, description, reference_id, created_date)
-       VALUES (?, ?, ?, 'purchase', ?, ?, NOW())`,
-      [uuidv4(), player.club_id || null, -price, `Lifestyle purchase: ${item.name || item_id}`, purchaseId]
-    ).catch(() => {});
-    await EXECUTESQL(
-      `INSERT INTO user_purchases (id, buyer_email, item_type, item_id, created_date)
-       VALUES (?, ?, ?, ?, NOW())`,
+      `INSERT INTO user_purchases (id, buyer_email, item_type, item_id, created_date) VALUES (?, ?, ?, ?, NOW())`,
       [uuidv4(), user.email, item.category || item.item_type || null, purchaseId]
     ).catch(() => {});
+    const { new_balance: new_stc_balance } = await createPlayerTx({
+      playerId: player.id, playerEmail: user.email, amount: -price,
+      category: 'lifestyle_purchase', source: item.name || 'Lifestyle',
+      description: `Bought: ${item.name || item_id}`, referenceId: purchaseId,
+    });
     return { success: true, data: { new_stc_balance, purchase_id: purchaseId } };
   },
 
@@ -541,13 +542,16 @@ const HANDLERS = {
     const rent = Number(item.rent_price_stc || 0);
     const currentStc = Number(player.stc || 0);
     if (rent > currentStc) throw new Error('Insufficient STC');
-    const new_stc_balance = Math.max(0, currentStc - rent);
-    await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [new_stc_balance, player.id]);
     await EXECUTESQL(
       `INSERT INTO lifestyle_purchases (id, player_id, item_id, item_type, item_tier, rent_active, is_residence, created_date)
        VALUES (?, ?, ?, ?, ?, 1, 0, NOW())`,
       [uuidv4(), player.id, item_id, item.category || item.item_type || null, item.tier || item.item_tier || null]
     );
+    const { new_balance: new_stc_balance } = await createPlayerTx({
+      playerId: player.id, playerEmail: player.email || null, amount: -rent,
+      category: 'lifestyle_rent', source: item.name || 'Lifestyle',
+      description: `Rented: ${item.name || item_id}`,
+    });
     return { success: true, data: { new_stc_balance } };
   },
 
@@ -565,8 +569,11 @@ const HANDLERS = {
       collected += Math.max(0, inc);
     }
     if (collected > 0) {
-      const newBalance = Number(player.stc || 0) + collected;
-      await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, player.id]);
+      await createPlayerTx({
+        playerId: player.id, playerEmail: player.email || null, amount: collected,
+        category: 'lifestyle_passive_income', source: 'Investment Portfolio',
+        description: `Passive income from ${purchases.length} asset(s)`,
+      });
     }
     return { success: true, data: { collected } };
   },
@@ -644,6 +651,110 @@ const HANDLERS = {
     await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club_id]);
     await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club_id]);
     return { success: true };
+  },
+
+  // ── Player Wallet ─────────────────────────────────────────────────────────
+  async playerWallet({ action, _auth_user_id, player_id, amount, description, category, page, limit: limitParam }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+
+    if (action === 'get_balance') {
+      const { player } = await getMe(_auth_user_id);
+      if (!player) throw new Error('Player not found');
+
+      const [contracts, summary, recent] = await Promise.all([
+        EXECUTESQL("SELECT * FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [_auth_user_id]),
+        EXECUTESQL(
+          `SELECT type, category, SUM(amount) as total FROM player_stc_transactions
+           WHERE player_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           GROUP BY type, category`,
+          [player.id]
+        ).catch(() => []),
+        EXECUTESQL(
+          'SELECT * FROM player_stc_transactions WHERE player_id = ? ORDER BY created_date DESC LIMIT 20',
+          [player.id]
+        ).catch(() => []),
+      ]);
+
+      const activeContract = contracts[0] || null;
+      let nextSalaryDays = null;
+      if (activeContract?.weekly_salary_stc) {
+        const lastPaid = activeContract.last_salary_paid_at || activeContract.start_date || activeContract.created_date;
+        if (lastPaid) {
+          const daysSince = (Date.now() - new Date(lastPaid).getTime()) / (1000 * 60 * 60 * 24);
+          nextSalaryDays = Math.max(0, Math.ceil(7 - daysSince));
+        }
+      }
+
+      return { data: { balance: Number(player.stc || 0), contract: activeContract, weekly_salary: activeContract?.weekly_salary_stc || 0, next_salary_days: nextSalaryDays, summary, recent_transactions: recent } };
+    }
+
+    if (action === 'get_history') {
+      const { player } = await getMe(_auth_user_id);
+      if (!player) throw new Error('Player not found');
+      const pageNum  = Number(page  || 1);
+      const pageSize = Number(limitParam || 30);
+      const offset   = (pageNum - 1) * pageSize;
+      const [rows, countRows] = await Promise.all([
+        EXECUTESQL('SELECT * FROM player_stc_transactions WHERE player_id = ? ORDER BY created_date DESC LIMIT ? OFFSET ?', [player.id, pageSize, offset]),
+        EXECUTESQL('SELECT COUNT(*) as total FROM player_stc_transactions WHERE player_id = ?', [player.id]),
+      ]);
+      return { data: { transactions: rows, total: Number(countRows[0]?.total || 0), page: pageNum, limit: pageSize } };
+    }
+
+    if (action === 'pay_salary') {
+      const { user, player } = await getMe(_auth_user_id);
+      if (!player) throw new Error('Player not found');
+
+      const contracts = await EXECUTESQL("SELECT * FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [_auth_user_id]);
+      if (!contracts.length || !contracts[0].weekly_salary_stc) throw new Error('No active salary contract');
+      const contract = contracts[0];
+      const salary = Number(contract.weekly_salary_stc);
+
+      const lastPaid = contract.last_salary_paid_at || contract.start_date || contract.created_date;
+      if (lastPaid) {
+        const daysSince = (Date.now() - new Date(lastPaid).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince < 7) throw new Error(`Salary already paid. Next payment in ${Math.ceil(7 - daysSince)} day(s).`);
+      }
+
+      const clubs = await EXECUTESQL('SELECT name, stc FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
+      const club = clubs[0];
+      if (!club) throw new Error('Club not found');
+      const weeksMultiplier = lastPaid ? Math.floor((Date.now() - new Date(lastPaid).getTime()) / (7 * 24 * 60 * 60 * 1000)) : 1;
+      const grossAmount = Math.min(salary * weeksMultiplier, Number(club.stc || 0));
+      if (grossAmount <= 0) throw new Error('Club has insufficient funds to pay salary');
+
+      await EXECUTESQL('UPDATE clubs SET stc = stc - ?, updated_date = NOW() WHERE id = ?', [grossAmount, contract.team_id]);
+      await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = NOW(), updated_date = NOW() WHERE id = ?', [contract.id]);
+
+      const result = await createPlayerTx({
+        playerId: player.id, playerEmail: user.email, amount: grossAmount,
+        category: 'salary', source: club.name || 'Club',
+        description: `Weekly salary${weeksMultiplier > 1 ? ` (${weeksMultiplier} weeks)` : ''} — ${club.name}`,
+        referenceId: contract.id,
+      });
+      return { success: true, data: result };
+    }
+
+    if (action === 'admin_adjust') {
+      const { user } = await getMe(_auth_user_id);
+      const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
+      if (!player_id || amount == null) throw new Error('player_id and amount required');
+
+      const players = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+      if (!players.length) throw new Error('Player not found');
+      const target = players[0];
+
+      const result = await createPlayerTx({
+        playerId: player_id, playerEmail: target.email,
+        amount: Number(amount),
+        category: Number(amount) >= 0 ? 'admin_credit' : 'admin_debit',
+        source: 'Admin', description: description || (Number(amount) >= 0 ? 'Admin credit' : 'Admin debit'),
+      });
+      return { success: true, data: result };
+    }
+
+    throw new Error(`Unknown playerWallet action: ${action}`);
   },
 
   // ── Delete account ────────────────────────────────────────────────────────

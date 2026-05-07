@@ -827,6 +827,47 @@ export default function Admin(props) {
     await loadAll();
   }
 
+  const [playerWalletDialog, setPlayerWalletDialog] = useState(null);
+  const [walletAdjustAmount, setWalletAdjustAmount] = useState("");
+  const [walletAdjustNote,   setWalletAdjustNote]   = useState("");
+  const [walletTxns, setWalletTxns] = useState([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  async function openPlayerWallet(p) {
+    setPlayerWalletDialog(p);
+    setWalletAdjustAmount("");
+    setWalletAdjustNote("");
+    setWalletLoading(true);
+    try {
+      const txns = await stageClient.entities.PlayerStcTransaction.filter({ player_id: p.id }, "-created_date", 30);
+      setWalletTxns(txns || []);
+    } catch { setWalletTxns([]); }
+    setWalletLoading(false);
+  }
+
+  async function applyWalletAdjust() {
+    if (!playerWalletDialog || walletAdjustAmount === "") return;
+    setSaving(true);
+    try {
+      await stageClient.functions.invoke("playerWallet", {
+        action: "admin_adjust",
+        player_id: playerWalletDialog.id,
+        amount: Number(walletAdjustAmount),
+        description: walletAdjustNote || undefined,
+      });
+      // Refresh player list and wallet
+      const fresh = await stageClient.entities.Player.filter({ id: playerWalletDialog.id }, null, 1);
+      if (fresh[0]) setPlayerWalletDialog(fresh[0]);
+      setPlayers(prev => prev.map(p => p.id === playerWalletDialog.id ? { ...p, stc: fresh[0]?.stc ?? p.stc } : p));
+      await openPlayerWallet(fresh[0] || playerWalletDialog);
+      setWalletAdjustAmount("");
+      setWalletAdjustNote("");
+    } catch (err) {
+      alert(err?.message || "Failed");
+    }
+    setSaving(false);
+  }
+
   const [clubStcDialog, setClubStcDialog] = useState(null);
   const [clubStcAmount, setClubStcAmount] = useState("");
   const [clubWageBudget, setClubWageBudget] = useState("");
@@ -1106,13 +1147,14 @@ export default function Admin(props) {
                     <p className="font-medium text-foreground truncate">{p.gamertag}</p>
                     <p className="text-xs text-muted-foreground truncate">{p.email} · {p.platform} · {p.position}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
-                    <Coins className="w-3.5 h-3.5 text-warning" />
-                    <span>{(p.credits || 0).toLocaleString()}</span>
+                  <div className="hidden sm:flex items-center gap-2 shrink-0 text-xs">
+                    <Coins className="w-3.5 h-3.5 text-success" />
+                    <span className="font-semibold text-success">{(p.stc || 0).toLocaleString()}</span>
+                    <span className="text-muted-foreground">STC</span>
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex gap-2 shrink-0 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
                     <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(0); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
-
                     {p.club_id && <Button size="sm" variant="outline" onClick={() => kickFromClub(p.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Ban className="w-3.5 h-3.5" /> Kick</Button>}
                   </div>
                 </div>
@@ -2574,6 +2616,78 @@ export default function Admin(props) {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Player Wallet Dialog */}
+      <Dialog open={!!playerWalletDialog} onOpenChange={() => setPlayerWalletDialog(null)}>
+        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
+              <Coins className="w-5 h-5 text-success" /> Player Wallet — {playerWalletDialog?.gamertag}
+            </DialogTitle>
+          </DialogHeader>
+          {playerWalletDialog && (
+            <div className="space-y-5 mt-2">
+              {/* Balance */}
+              <div className="bg-gradient-to-br from-success/10 to-card rounded-2xl border border-success/20 p-5 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">STC Balance</p>
+                <p className="font-heading font-black text-4xl text-success">{(playerWalletDialog.stc || 0).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">Stage Coin</p>
+              </div>
+
+              {/* Adjust balance */}
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Adjust Balance</p>
+                <p className="text-[10px] text-muted-foreground">Use positive amounts to credit, negative to debit. Creates a transaction record.</p>
+                <input
+                  type="number"
+                  value={walletAdjustAmount}
+                  onChange={e => setWalletAdjustAmount(e.target.value)}
+                  placeholder="e.g. 5000 or -2000"
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                />
+                <input
+                  type="text"
+                  value={walletAdjustNote}
+                  onChange={e => setWalletAdjustNote(e.target.value)}
+                  placeholder="Note (optional)"
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+                />
+                <Button onClick={applyWalletAdjust} disabled={walletAdjustAmount === "" || saving}
+                  className="w-full bg-primary text-primary-foreground gap-2">
+                  <Coins className="w-4 h-4" /> {saving ? "Applying…" : "Apply Adjustment"}
+                </Button>
+              </div>
+
+              {/* Transaction history */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Recent Transactions</p>
+                {walletLoading ? (
+                  <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+                ) : walletTxns.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No transactions yet.</p>
+                ) : (
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    {walletTxns.map(tx => {
+                      const isPos = Number(tx.amount) > 0;
+                      return (
+                        <div key={tx.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/40 last:border-0 hover:bg-secondary/30">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">{tx.description || tx.category}</p>
+                            <p className="text-[10px] text-muted-foreground">{tx.source || "—"} · {new Date(tx.created_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</p>
+                          </div>
+                          <span className={cn("text-xs font-bold shrink-0", isPos ? "text-success" : "text-destructive")}>
+                            {isPos ? "+" : ""}{Number(tx.amount).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

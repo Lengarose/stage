@@ -49,8 +49,9 @@ app.use('/api/stage/trophy-items',      verifyToken, require('./server/controlle
 app.use('/api/stage/trophy-placements', verifyToken, require('./server/controllers/trophyPlacementController'));
 app.use('/api/stage/chat-messages',     verifyToken, require('./server/controllers/chatMessageController'));
 app.use('/api/stage/news-items',        verifyToken, require('./server/controllers/newsItemController'));
-app.use('/api/stage/live-matches',      verifyToken, require('./server/controllers/liveMatchController'));
-app.use('/api/stage/landing-page-contents', verifyToken, require('./server/controllers/landingPageContentController'));
+app.use('/api/stage/live-matches',              verifyToken, require('./server/controllers/liveMatchController'));
+app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
+app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 
 // Static `/uploads` — same folder as multer (see constants/paths.js); created if missing
 const uploadsStaticDir = ensureUploadsDir();
@@ -153,6 +154,24 @@ async function runStartupMigrations() {
   // match_player_stats — add player_id and gamertag (schema v2)
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
   await addCol('match_player_stats', 'player_gamertag', 'VARCHAR(255) NULL');
+
+  // Player wallet transaction table
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_stc_transactions (
+    id            VARCHAR(36)    PRIMARY KEY,
+    player_id     VARCHAR(36)    NOT NULL,
+    player_email  VARCHAR(255),
+    amount        DECIMAL(12,2)  NOT NULL,
+    balance_after DECIMAL(12,2),
+    type          VARCHAR(20),
+    category      VARCHAR(100),
+    source        VARCHAR(255),
+    description   TEXT,
+    reference_id  VARCHAR(36),
+    created_date  DATETIME       DEFAULT CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] player_stc_transactions:', err.message));
+
+  // Salary tracking on contracts
+  await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');
 }
 
 runStartupMigrations().catch(err => console.error('[migration] startup error:', err));
