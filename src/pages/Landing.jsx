@@ -2,6 +2,9 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
+import TrophiesImg from '@/assets/Trophies.PNG';
+import CoachLuisImg from '@/assets/Coach Luis.PNG';
+import DDZImg from '@/assets/DDZ.PNG';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -150,7 +153,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on Game Day, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.',
     flip: false,
     accent: '#f59e0b',
-    imageUrl: null,
+    imageUrl: TrophiesImg,
     objectPosition: 'center',
   },
   {
@@ -159,7 +162,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'Every great club starts with a vision. Set your formation, manage your transfer and wage budget in STC, sign players to proper contracts, and watch your squad grow. Upgrade your stadium capacity, fill your trophy cabinet, and lead your club to the top of the rankings.',
     flip: true,
     accent: '#3b82f6',
-    imageUrl: null,
+    imageUrl: CoachLuisImg,
     objectPosition: 'center',
   },
   {
@@ -168,7 +171,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'Create a player profile, get scouted, and sign for a club that fits your ambitions. Every goal, assist, and rating update is tracked. Climb the free agent board, negotiate your next contract, and spend your earnings on lifestyle items that show off your status off the pitch.',
     flip: false,
     accent: '#10b981',
-    imageUrl: null,
+    imageUrl: DDZImg,
     objectPosition: 'center',
   },
 ];
