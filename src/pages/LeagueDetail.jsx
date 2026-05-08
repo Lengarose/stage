@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
-import { format, isPast } from "date-fns";
+import { format, isPast } from "@/lib/momentDate";
 import {
   Trophy, ArrowLeft, Calendar, ChevronDown, ChevronRight,
   AlertTriangle, Check, Clock, Shield, Plus

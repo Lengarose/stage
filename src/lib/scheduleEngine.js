@@ -1,6 +1,6 @@
 import { base44 } from "@/api/base44Client";
 import { notify } from "./notify";
-import { addDays, format } from "date-fns";
+import { addDays, format } from "@/lib/momentDate";
 
 const DEFAULT_WINDOW_DAYS_REGIONAL = 4;
 const DEFAULT_WINDOW_DAYS_COMPETITION = 5;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format } from "@/lib/momentDate";
 import { Link } from "react-router-dom";
 
 export default function FollowedPlayerRow({ player, matchData, allClubs }) {

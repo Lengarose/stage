@@ -9,7 +9,11 @@ export default function InboxTrialRequest({ message, onActioned }) {
   const [loading, setLoading] = useState(null);
   const [done, setDone] = useState(null);
 
-  const meta = message.metadata || {};
+  const meta = typeof message.metadata === "string"
+    ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
+    : (message.metadata || {});
+  const currentStatus = String(message.status || "pending").toLowerCase();
+  const isAlreadyResolved = ["accepted", "declined", "confirmed", "rejected"].includes(currentStatus);
   const playerEmail    = meta.player_email    || message.sender_email;
   const playerId       = meta.player_id       || "";
   const playerGamertag = meta.player_gamertag || message.sender_gamertag || "Player";
@@ -140,6 +144,22 @@ export default function InboxTrialRequest({ message, onActioned }) {
       <div className="mt-4 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive font-medium">
         <X className="w-4 h-4 shrink-0" />
         Trial request declined.
+      </div>
+    );
+  }
+
+  if (isAlreadyResolved) {
+    const accepted = currentStatus === "accepted" || currentStatus === "confirmed";
+    return (
+      <div
+        className={`mt-4 flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium ${
+          accepted
+            ? "bg-success/10 border-success/20 text-success"
+            : "bg-destructive/10 border-destructive/20 text-destructive"
+        }`}
+      >
+        {accepted ? <Check className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
+        {accepted ? "Trial request already accepted." : "Trial request already declined."}
       </div>
     );
   }

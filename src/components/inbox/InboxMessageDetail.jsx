@@ -2,7 +2,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
+import { format } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";

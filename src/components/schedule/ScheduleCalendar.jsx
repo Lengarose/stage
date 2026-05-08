@@ -5,7 +5,7 @@ import {
   format, parseISO, isValid, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, addDays, addMonths, subMonths,
   isSameMonth, isSameDay, isToday
-} from "date-fns";
+} from "@/lib/momentDate";
 import { ChevronLeft, ChevronRight, X, Trophy, FileText, Shield, Star } from "lucide-react";
 import MatchDetail from "./MatchDetail";
 

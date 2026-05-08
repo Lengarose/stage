@@ -7,6 +7,10 @@ import sound6 from "@/assets/sounds/sound6.mp3";
 import sound7 from "@/assets/sounds/sound7.mp3";
 import sound8 from "@/assets/sounds/sound8.mp3";
 import sound9 from "@/assets/sounds/sound9.mp3";
+import sound10 from "@/assets/sounds/sound10.mp3";
+import sound11 from "@/assets/sounds/sound11.mp3";
+import sound12 from "@/assets/sounds/sound12.mp3";
+import sound13 from "@/assets/sounds/sound13.mp3";
 
 export const NOTIFICATION_SOUND_STORAGE_KEY = "stage_notification_sound";
 
@@ -20,6 +24,10 @@ export const NOTIFICATION_SOUNDS = [
   { id: "sound7", label: "Sound 7", src: sound7 },
   { id: "sound8", label: "Sound 8", src: sound8 },
   { id: "sound9", label: "Sound 9", src: sound9 },
+  { id: "sound10", label: "Sound 10", src: sound10 },
+  { id: "sound11", label: "Sound 11", src: sound11 },
+  { id: "sound12", label: "Sound 12", src: sound12 },
+  { id: "sound13", label: "Sound 13", src: sound13 },
 ];
 
 export function getSelectedNotificationSoundId() {
@@ -30,7 +38,7 @@ export function playNotificationSound(soundId = getSelectedNotificationSoundId()
   const sound = NOTIFICATION_SOUNDS.find((s) => s.id === soundId) || NOTIFICATION_SOUNDS[0];
   if (!sound) return;
   const audio = new Audio(sound.src);
-  audio.volume = 0.7;
+  audio.volume = 0.9;
   audio.play().catch(() => {});
 }
 

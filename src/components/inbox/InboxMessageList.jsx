@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 

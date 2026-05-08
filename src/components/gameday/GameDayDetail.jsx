@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { processMatchRevenue } from "@/lib/matchRevenue";
 import { generateMatchShirtSales } from "@/lib/virtualShirtSales";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
-import { format, parseISO, isValid, differenceInMinutes } from "date-fns";
+import { format, parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
 import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
