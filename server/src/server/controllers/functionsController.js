@@ -123,6 +123,19 @@ function parseSubmission(raw) {
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
 }
 
+async function createAuditLog({ adminUserId, adminEmail, action, entityType, entityId, entityName, oldValue, newValue, reason }) {
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+       (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [uuidv4(), adminUserId || null, adminEmail || null, action || null,
+     entityType || null, entityId || null, entityName || null,
+     oldValue != null ? String(oldValue) : null,
+     newValue != null ? String(newValue) : null,
+     reason || null]
+  ).catch(() => {}); // non-blocking — audit failures must never break the operation
+}
+
 // ── Market Value Engine ────────────────────────────────────────────────────
 
 const DEFAULT_MV_WEIGHTS = {
@@ -2265,6 +2278,317 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown shirtSales action: ${action}`);
+  },
+
+  // ── Admin Economy Control ─────────────────────────────────────────────────
+  async adminEconomyControl(params) {
+    const { action, _auth_user_id,
+      player_id, player_email, club_id,
+      amount, balance, transfer_budget, wage_budget,
+      category, description, reason, note,
+      date_from, date_to, min_amount, max_amount,
+      limit: qLimit, entity_type,
+      new_level, dry_run,
+      match_id, competition_id,
+      purchase_id, purchase_status,
+    } = params;
+
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminRows.length || Number(adminRows[0].role_id) !== 0) throw new Error('Admin access required');
+    const adminEmail = adminRows[0].email;
+    const LIMIT = Math.min(Number(qLimit) || 50, 500);
+
+    // ── get_player_wallet ──────────────────────────────────────────────────
+    if (action === 'get_player_wallet') {
+      let players;
+      if (player_id) {
+        players = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+      } else if (player_email) {
+        players = await EXECUTESQL('SELECT * FROM players WHERE email = ? LIMIT 1', [player_email]);
+      } else {
+        throw new Error('player_id or player_email required');
+      }
+      if (!players.length) throw new Error('Player not found');
+      const p = players[0];
+      const [txs, contract, lifestyle] = await Promise.all([
+        EXECUTESQL(
+          'SELECT * FROM player_stc_transactions WHERE player_id = ? ORDER BY created_date DESC LIMIT 50',
+          [p.id]
+        ),
+        EXECUTESQL(
+          "SELECT * FROM player_contracts WHERE user_id = ? AND status IN ('active','pending') ORDER BY created_date DESC LIMIT 1",
+          [p.id]
+        ),
+        EXECUTESQL(
+          "SELECT lp.*, li.name as item_name, li.category FROM lifestyle_purchases lp LEFT JOIN lifestyle_items li ON li.id = lp.item_id WHERE lp.player_id = ? AND lp.status = 'active' ORDER BY lp.created_date DESC LIMIT 20",
+          [p.id]
+        ),
+      ]);
+      return { data: { player: p, transactions: txs, contract: contract[0] || null, lifestyle } };
+    }
+
+    // ── set_player_balance ─────────────────────────────────────────────────
+    if (action === 'set_player_balance') {
+      if (!player_id || balance == null) throw new Error('player_id and balance required');
+      const rows = await EXECUTESQL('SELECT id, stc, gamertag FROM players WHERE id = ? LIMIT 1', [player_id]);
+      if (!rows.length) throw new Error('Player not found');
+      const old = Number(rows[0].stc || 0);
+      const newBal = Number(balance);
+      const diff = newBal - old;
+      await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBal, player_id]);
+      const txId = uuidv4();
+      await EXECUTESQL(
+        `INSERT INTO player_stc_transactions (id, player_id, player_email, amount, balance_after, type, category, source, description, created_date)
+         VALUES (?, ?, ?, ?, ?, 'admin_correction', 'admin_correction', 'Admin', ?, NOW())`,
+        [txId, player_id, player_email || null, diff, newBal, reason || 'Admin balance correction']
+      );
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'set_player_balance', entityType: 'player', entityId: player_id, entityName: rows[0].gamertag, oldValue: old, newValue: newBal, reason });
+      return { success: true, data: { old_balance: old, new_balance: newBal, diff } };
+    }
+
+    // ── add_player_tx ──────────────────────────────────────────────────────
+    if (action === 'add_player_tx') {
+      if (!player_id || amount == null) throw new Error('player_id and amount required');
+      const rows = await EXECUTESQL('SELECT id, stc, gamertag FROM players WHERE id = ? LIMIT 1', [player_id]);
+      if (!rows.length) throw new Error('Player not found');
+      const result = await createPlayerTx({
+        playerId: player_id, playerEmail: player_email || null,
+        amount: Number(amount), category: category || 'admin_correction',
+        source: 'Admin', description: description || reason || 'Admin manual transaction',
+      });
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'add_player_tx', entityType: 'player', entityId: player_id, entityName: rows[0].gamertag, oldValue: Number(rows[0].stc || 0), newValue: result.new_balance, reason: description || reason });
+      return { success: true, data: result };
+    }
+
+    // ── get_club_finance ───────────────────────────────────────────────────
+    if (action === 'get_club_finance') {
+      if (!club_id) throw new Error('club_id required');
+      const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      if (!clubs.length) throw new Error('Club not found');
+      const c = clubs[0];
+      const [txs, contracts, wagers] = await Promise.all([
+        EXECUTESQL(
+          'SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY created_date DESC LIMIT 50',
+          [club_id]
+        ),
+        EXECUTESQL(
+          "SELECT pc.*, p.gamertag FROM player_contracts pc LEFT JOIN players p ON p.id = pc.user_id WHERE pc.club_id = ? AND pc.status = 'active' ORDER BY pc.weekly_salary_stc DESC LIMIT 20",
+          [club_id]
+        ),
+        EXECUTESQL(
+          "SELECT * FROM matches WHERE (home_club_id = ? OR away_club_id = ?) AND wager_stc > 0 ORDER BY updated_date DESC LIMIT 10",
+          [club_id, club_id]
+        ),
+      ]);
+      return { data: { club: c, transactions: txs, contracts, wagers } };
+    }
+
+    // ── set_club_finance ───────────────────────────────────────────────────
+    if (action === 'set_club_finance') {
+      if (!club_id) throw new Error('club_id required');
+      const rows = await EXECUTESQL('SELECT id, name, stc, transfer_budget_stc, wage_budget_stc FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      if (!rows.length) throw new Error('Club not found');
+      const old = rows[0];
+      const sets = [];
+      const vals = [];
+      const changes = {};
+      if (balance != null) { sets.push('stc = ?'); vals.push(Number(balance)); changes.stc = { from: Number(old.stc || 0), to: Number(balance) }; }
+      if (transfer_budget != null) { sets.push('transfer_budget_stc = ?'); vals.push(Number(transfer_budget)); changes.transfer_budget = { from: Number(old.transfer_budget_stc || 0), to: Number(transfer_budget) }; }
+      if (wage_budget != null) { sets.push('wage_budget_stc = ?'); vals.push(Number(wage_budget)); changes.wage_budget = { from: Number(old.wage_budget_stc || 0), to: Number(wage_budget) }; }
+      if (!sets.length) throw new Error('Nothing to update');
+      sets.push('updated_date = NOW()');
+      await EXECUTESQL(`UPDATE clubs SET ${sets.join(', ')} WHERE id = ?`, [...vals, club_id]);
+      if (balance != null) {
+        const diff = Number(balance) - Number(old.stc || 0);
+        const txId = uuidv4();
+        await EXECUTESQL(
+          `INSERT INTO stc_transactions (id, club_id, amount, balance_after, type, category, description, created_date)
+           VALUES (?, ?, ?, ?, 'admin_correction', 'admin_correction', ?, NOW())`,
+          [txId, club_id, diff, Number(balance), reason || 'Admin balance correction']
+        );
+      }
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'set_club_finance', entityType: 'club', entityId: club_id, entityName: old.name, oldValue: JSON.stringify({ stc: old.stc, transfer_budget_stc: old.transfer_budget_stc, wage_budget_stc: old.wage_budget_stc }), newValue: JSON.stringify(changes), reason });
+      return { success: true, data: { changes } };
+    }
+
+    // ── add_club_tx ────────────────────────────────────────────────────────
+    if (action === 'add_club_tx') {
+      if (!club_id || amount == null) throw new Error('club_id and amount required');
+      const rows = await EXECUTESQL('SELECT id, name, stc FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      if (!rows.length) throw new Error('Club not found');
+      const result = await createClubTx({
+        clubId: club_id, amount: Number(amount),
+        type: 'admin_correction', category: category || 'admin_correction',
+        description: description || reason || 'Admin manual transaction',
+      });
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'add_club_tx', entityType: 'club', entityId: club_id, entityName: rows[0].name, oldValue: Number(rows[0].stc || 0), newValue: result.new_balance, reason: description || reason });
+      return { success: true, data: result };
+    }
+
+    // ── search_player_txs ──────────────────────────────────────────────────
+    if (action === 'search_player_txs') {
+      const wheres = ['1=1'];
+      const vals = [];
+      if (player_id) { wheres.push('t.player_id = ?'); vals.push(player_id); }
+      if (player_email) { wheres.push('t.player_email = ?'); vals.push(player_email); }
+      if (category) { wheres.push('t.category = ?'); vals.push(category); }
+      if (date_from) { wheres.push('t.created_date >= ?'); vals.push(date_from); }
+      if (date_to) { wheres.push('t.created_date <= ?'); vals.push(date_to); }
+      if (min_amount != null) { wheres.push('t.amount >= ?'); vals.push(Number(min_amount)); }
+      if (max_amount != null) { wheres.push('t.amount <= ?'); vals.push(Number(max_amount)); }
+      const rows = await EXECUTESQL(
+        `SELECT t.*, p.gamertag FROM player_stc_transactions t
+         LEFT JOIN players p ON p.id = t.player_id
+         WHERE ${wheres.join(' AND ')}
+         ORDER BY t.created_date DESC LIMIT ?`,
+        [...vals, LIMIT]
+      );
+      return { data: { transactions: rows, count: rows.length } };
+    }
+
+    // ── search_club_txs ────────────────────────────────────────────────────
+    if (action === 'search_club_txs') {
+      const wheres = ['1=1'];
+      const vals = [];
+      if (club_id) { wheres.push('t.club_id = ?'); vals.push(club_id); }
+      if (category) { wheres.push('t.category = ?'); vals.push(category); }
+      if (date_from) { wheres.push('t.created_date >= ?'); vals.push(date_from); }
+      if (date_to) { wheres.push('t.created_date <= ?'); vals.push(date_to); }
+      if (min_amount != null) { wheres.push('t.amount >= ?'); vals.push(Number(min_amount)); }
+      if (max_amount != null) { wheres.push('t.amount <= ?'); vals.push(Number(max_amount)); }
+      const rows = await EXECUTESQL(
+        `SELECT t.*, c.name as club_name FROM stc_transactions t
+         LEFT JOIN clubs c ON c.id = t.club_id
+         WHERE ${wheres.join(' AND ')}
+         ORDER BY t.created_date DESC LIMIT ?`,
+        [...vals, LIMIT]
+      );
+      return { data: { transactions: rows, count: rows.length } };
+    }
+
+    // ── health_check ───────────────────────────────────────────────────────
+    if (action === 'health_check') {
+      const [
+        playersNeg, clubsNeg, playersNull, clubsNull,
+        clubsMissingTransfer, clubsMissingWage,
+        wagersStuck, contractsBroken,
+      ] = await Promise.all([
+        EXECUTESQL('SELECT id, gamertag, email, stc FROM players WHERE stc < 0'),
+        EXECUTESQL('SELECT id, name, stc FROM clubs WHERE stc < 0'),
+        EXECUTESQL('SELECT id, gamertag, email FROM players WHERE stc IS NULL'),
+        EXECUTESQL('SELECT id, name FROM clubs WHERE stc IS NULL'),
+        EXECUTESQL('SELECT id, name, transfer_budget_stc FROM clubs WHERE transfer_budget_stc IS NULL OR transfer_budget_stc < 0'),
+        EXECUTESQL('SELECT id, name, wage_budget_stc FROM clubs WHERE wage_budget_stc IS NULL OR wage_budget_stc < 0'),
+        EXECUTESQL(
+          "SELECT m.id, m.home_club_name, m.away_club_name, m.wager_stc, m.wager_status FROM matches m WHERE m.wager_status = 'active' AND m.status IN ('completed','forfeit') LIMIT 50"
+        ),
+        EXECUTESQL(
+          "SELECT pc.id, pc.user_id, pc.club_id, pc.weekly_salary_stc FROM player_contracts pc WHERE pc.status = 'active' AND (pc.weekly_salary_stc < 0 OR pc.weekly_salary_stc IS NULL) LIMIT 50"
+        ),
+      ]);
+      return {
+        data: {
+          players_negative_balance: playersNeg,
+          clubs_negative_balance:   clubsNeg,
+          players_null_wallet:      playersNull,
+          clubs_null_balance:       clubsNull,
+          clubs_missing_transfer:   clubsMissingTransfer,
+          clubs_missing_wage:       clubsMissingWage,
+          wagers_stuck:             wagersStuck,
+          contracts_broken:         contractsBroken,
+          summary: {
+            issues: playersNeg.length + clubsNeg.length + playersNull.length + clubsNull.length + clubsMissingTransfer.length + clubsMissingWage.length + wagersStuck.length + contractsBroken.length,
+            checks_run: 8,
+          },
+        },
+      };
+    }
+
+    // ── backfill_player_wallets ─────────────────────────────────────────────
+    if (action === 'backfill_player_wallets') {
+      const nullPlayers = await EXECUTESQL('SELECT id, gamertag, email FROM players WHERE stc IS NULL');
+      if (dry_run) return { data: { dry_run: true, would_fix: nullPlayers.length, players: nullPlayers } };
+      let fixed = 0;
+      for (const p of nullPlayers) {
+        const existingGrant = await EXECUTESQL(
+          "SELECT id FROM player_stc_transactions WHERE player_id = ? AND category = 'initial_grant' LIMIT 1",
+          [p.id]
+        );
+        await EXECUTESQL('UPDATE players SET stc = 50000, updated_date = NOW() WHERE id = ?', [p.id]);
+        if (!existingGrant.length) {
+          await EXECUTESQL(
+            `INSERT INTO player_stc_transactions (id, player_id, player_email, amount, balance_after, type, category, source, description, created_date)
+             VALUES (?, ?, ?, 50000, 50000, 'income', 'initial_grant', 'System', 'Welcome bonus — wallet initialised', NOW())`,
+            [uuidv4(), p.id, p.email || null]
+          );
+        }
+        fixed++;
+      }
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'backfill_player_wallets', entityType: 'system', entityId: null, entityName: 'bulk', oldValue: 'null wallets', newValue: `fixed: ${fixed}`, reason: 'Admin backfill' });
+      return { success: true, data: { fixed } };
+    }
+
+    // ── backfill_club_finances ──────────────────────────────────────────────
+    if (action === 'backfill_club_finances') {
+      const nullClubs = await EXECUTESQL('SELECT id, name FROM clubs WHERE stc IS NULL OR transfer_budget_stc IS NULL OR wage_budget_stc IS NULL');
+      if (dry_run) return { data: { dry_run: true, would_fix: nullClubs.length, clubs: nullClubs } };
+      let fixed = 0;
+      for (const c of nullClubs) {
+        await EXECUTESQL(
+          `UPDATE clubs SET
+             stc                 = COALESCE(stc, 5000000),
+             transfer_budget_stc = COALESCE(transfer_budget_stc, 0),
+             wage_budget_stc     = COALESCE(wage_budget_stc, 0),
+             updated_date        = NOW()
+           WHERE id = ?`,
+          [c.id]
+        );
+        fixed++;
+      }
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'backfill_club_finances', entityType: 'system', entityId: null, entityName: 'bulk', oldValue: 'null finances', newValue: `fixed: ${fixed}`, reason: 'Admin backfill' });
+      return { success: true, data: { fixed } };
+    }
+
+    // ── distribute_competition_reward ───────────────────────────────────────
+    if (action === 'distribute_competition_reward') {
+      if (!club_id || amount == null) throw new Error('club_id and amount required');
+      const rows = await EXECUTESQL('SELECT id, name, stc FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      if (!rows.length) throw new Error('Club not found');
+      const result = await createClubTx({
+        clubId: club_id, amount: Number(amount),
+        type: 'competition_prize', category: 'competition_reward',
+        description: description || reason || `Competition reward`,
+        referenceId: competition_id || null,
+      });
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'distribute_competition_reward', entityType: 'club', entityId: club_id, entityName: rows[0].name, oldValue: Number(rows[0].stc || 0), newValue: result.new_balance, reason: description || reason });
+      return { success: true, data: result };
+    }
+
+    // ── set_lifestyle_status ────────────────────────────────────────────────
+    if (action === 'set_lifestyle_status') {
+      if (!purchase_id || !purchase_status) throw new Error('purchase_id and purchase_status required');
+      const rows = await EXECUTESQL('SELECT lp.id, lp.player_id, li.name FROM lifestyle_purchases lp LEFT JOIN lifestyle_items li ON li.id = lp.item_id WHERE lp.id = ? LIMIT 1', [purchase_id]);
+      if (!rows.length) throw new Error('Purchase not found');
+      await EXECUTESQL('UPDATE lifestyle_purchases SET status = ?, updated_date = NOW() WHERE id = ?', [purchase_status, purchase_id]);
+      await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'set_lifestyle_status', entityType: 'lifestyle_purchase', entityId: purchase_id, entityName: rows[0].name, oldValue: 'unknown', newValue: purchase_status, reason });
+      return { success: true };
+    }
+
+    // ── get_audit_log ───────────────────────────────────────────────────────
+    if (action === 'get_audit_log') {
+      const wheres = ['1=1'];
+      const vals = [];
+      if (entity_type) { wheres.push('entity_type = ?'); vals.push(entity_type); }
+      if (player_id) { wheres.push("entity_type = 'player' AND entity_id = ?"); vals.push(player_id); }
+      if (club_id) { wheres.push("entity_type = 'club' AND entity_id = ?"); vals.push(club_id); }
+      const rows = await EXECUTESQL(
+        `SELECT * FROM admin_audit_log WHERE ${wheres.join(' AND ')} ORDER BY created_date DESC LIMIT ?`,
+        [...vals, LIMIT]
+      );
+      return { data: { log: rows, count: rows.length } };
+    }
+
+    throw new Error(`Unknown adminEconomyControl action: ${action}`);
   },
 
   // ── Delete account ────────────────────────────────────────────────────────

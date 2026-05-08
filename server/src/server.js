@@ -307,6 +307,24 @@ async function runStartupMigrations() {
     }
   }
 
+  // Admin audit log
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id          VARCHAR(36) PRIMARY KEY,
+    admin_user_id VARCHAR(36),
+    admin_email VARCHAR(255),
+    action      VARCHAR(100),
+    entity_type VARCHAR(50),
+    entity_id   VARCHAR(36),
+    entity_name VARCHAR(255),
+    old_value   TEXT,
+    new_value   TEXT,
+    reason      TEXT,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_aal_entity  (entity_type, entity_id),
+    INDEX idx_aal_admin   (admin_user_id),
+    INDEX idx_aal_created (created_date)
+  )`).catch(() => {});
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');
