@@ -128,7 +128,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             </div>
 
             {/* Financials */}
-            <div>
+            {selectedType !== "ownership" && <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block flex items-center gap-1">
                 <Coins className="w-3 h-3" /> Financial Terms (STC)
               </label>
@@ -213,10 +213,10 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   </button>
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* Performance targets */}
-            <div>
+            {selectedType !== "ownership" && <div>
               <button
                 onClick={() => setShowTargets(!showTargets)}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
@@ -289,7 +289,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   </button>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Note */}
             <div>
