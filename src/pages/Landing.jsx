@@ -3,6 +3,7 @@ import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
 import TrophiesImg from '@/assets/Trophies.PNG';
+import CoachLuisImg from '@/assets/Coach Luis.PNG';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -160,7 +161,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'Every great club starts with a vision. Set your formation, manage your transfer and wage budget in STC, sign players to proper contracts, and watch your squad grow. Upgrade your stadium capacity, fill your trophy cabinet, and lead your club to the top of the rankings.',
     flip: true,
     accent: '#3b82f6',
-    imageUrl: null,
+    imageUrl: CoachLuisImg,
     objectPosition: 'center',
   },
   {
