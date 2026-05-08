@@ -4,7 +4,7 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "date-fns";
-import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
+import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayDressingRoom from "./GameDayDressingRoom";
@@ -214,6 +214,35 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
           if (onGameUpdate) onGameUpdate(updated);
         }}
       />
+
+      {/* Ticket revenue / attendance card — home club only, after completion */}
+      {isCompleted && isClubMatch && Number(game.home_ticket_revenue || 0) > 0 && (
+        <div className="mx-5 mb-3 rounded-xl border border-success/25 bg-success/5 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Ticket className="w-4 h-4 text-success shrink-0" />
+            <span className="text-sm font-bold text-foreground">Gate Receipts</span>
+            <span className="ml-auto text-sm font-black text-success">
+              +{Number(game.home_ticket_revenue).toLocaleString()} STC
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Attendance</p>
+              <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_attendance || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Capacity</p>
+              <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_capacity || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Full</p>
+              <p className={cn("text-xs font-bold", Number(game.home_ticket_pct || 0) >= 80 ? "text-success" : Number(game.home_ticket_pct || 0) >= 50 ? "text-warning" : "text-muted-foreground")}>
+                {game.home_ticket_pct || 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Wager panel */}
       {(game.wager_stc > 0) && (

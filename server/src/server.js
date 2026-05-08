@@ -271,6 +271,42 @@ async function runStartupMigrations() {
     ).catch(() => {});
   }
 
+  // Stadium economy — match-level ticket data + stadium name on clubs
+  await addCol('clubs',   'stadium_name',           'VARCHAR(150) NULL');
+  await addCol('matches', 'home_ticket_revenue',     'DECIMAL(12,2) DEFAULT 0');
+  await addCol('matches', 'home_ticket_attendance',  'INT DEFAULT 0');
+  await addCol('matches', 'home_ticket_capacity',    'INT DEFAULT 0');
+  await addCol('matches', 'home_ticket_price',       'DECIMAL(8,2) DEFAULT 0');
+  await addCol('matches', 'home_ticket_pct',         'TINYINT DEFAULT 0');
+
+  // Stadium config table — admin-configurable tier values
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS stadium_config (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    level            INT NOT NULL UNIQUE,
+    name             VARCHAR(100),
+    capacity         INT DEFAULT 5000,
+    ticket_price_stc DECIMAL(8,2) DEFAULT 15,
+    upgrade_cost_stc BIGINT DEFAULT 0,
+    description      TEXT,
+    updated_date     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] stadium_config:', err.message));
+
+  const stadiumCfgCount = await EXECUTESQL('SELECT COUNT(*) as n FROM stadium_config', []).catch(() => [{ n: 1 }]);
+  if (Number(stadiumCfgCount[0]?.n || 0) === 0) {
+    const defaults = [
+      [0, 'Local Ground',  5000,  15,  0,           'A humble but passionate home ground. Every great club starts somewhere.'],
+      [1, 'Pro Stadium',   20000, 50,  50000000,    'Professional-grade facilities. The home ground for serious clubs.'],
+      [2, 'Elite Ground',  45000, 130, 120000000,   'State-of-the-art stadium. Champions League ready.'],
+      [3, 'Iconic Arena',  80000, 180, 250000000,   'A legendary venue. The world\'s eyes are on you.'],
+    ];
+    for (const [level, name, capacity, price, cost, desc] of defaults) {
+      await EXECUTESQL(
+        'INSERT IGNORE INTO stadium_config (level, name, capacity, ticket_price_stc, upgrade_cost_stc, description) VALUES (?, ?, ?, ?, ?, ?)',
+        [level, name, capacity, price, cost, desc]
+      ).catch(() => {});
+    }
+  }
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');

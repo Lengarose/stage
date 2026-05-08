@@ -87,6 +87,37 @@ async function createPlayerTx({ playerId, playerEmail, amount, category, source,
   return { new_balance: newBalance, transaction_id: txId };
 }
 
+// ── Stadium Economy ────────────────────────────────────────────────────────
+
+const DEFAULT_STADIUM_CONFIG = [
+  { level: 0, name: 'Local Ground',  capacity: 5000,  ticket_price_stc: 15,  upgrade_cost_stc: 0 },
+  { level: 1, name: 'Pro Stadium',   capacity: 20000, ticket_price_stc: 50,  upgrade_cost_stc: 50_000_000 },
+  { level: 2, name: 'Elite Ground',  capacity: 45000, ticket_price_stc: 130, upgrade_cost_stc: 120_000_000 },
+  { level: 3, name: 'Iconic Arena',  capacity: 80000, ticket_price_stc: 180, upgrade_cost_stc: 250_000_000 },
+];
+let _stadiumConfigCache = null;
+let _stadiumConfigCachedAt = 0;
+async function getStadiumConfig() {
+  if (_stadiumConfigCache && Date.now() - _stadiumConfigCachedAt < 60_000) return _stadiumConfigCache;
+  try {
+    const rows = await EXECUTESQL('SELECT * FROM stadium_config ORDER BY level ASC');
+    _stadiumConfigCache = rows.length >= 4 ? rows : DEFAULT_STADIUM_CONFIG;
+  } catch {
+    _stadiumConfigCache = DEFAULT_STADIUM_CONFIG;
+  }
+  _stadiumConfigCachedAt = Date.now();
+  return _stadiumConfigCache;
+}
+
+function calcAttendancePct(wins, losses, winStreak) {
+  const base         = 15;
+  const winBonus     = Math.min(wins      * 2.5, 55);
+  const lossDeduct   = Math.min(losses    * 0.8, 10);
+  const streakBonus  = Math.min(winStreak * 3,   15);
+  const pct = base + winBonus - lossDeduct + streakBonus;
+  return Math.min(95, Math.max(5, Math.round(pct)));
+}
+
 function parseSubmission(raw) {
   if (!raw) return null;
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
@@ -474,16 +505,110 @@ async function processMatchCompletion(m, homeSub, awaySub) {
       }
     }
 
+    // ── Club records + streaks ───────────────────────────────────────────────
     if (m.home_club_id) {
+      const [homeClubPre] = await EXECUTESQL(
+        'SELECT wins, losses, win_streak, loss_streak, stadium_level, owner_email FROM clubs WHERE id = ? LIMIT 1',
+        [m.home_club_id]
+      ).catch(() => [null]);
+
+      const newHomeWinStreak  = homeWon ? Number(homeClubPre?.win_streak  || 0) + 1 : 0;
+      const newHomeLossStreak = awayWon ? Number(homeClubPre?.loss_streak || 0) + 1 : 0;
+
       await EXECUTESQL(
-        'UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?, goals_scored=goals_scored+?, goals_conceded=goals_conceded+?, updated_date=NOW() WHERE id=?',
-        [homeWon ? 1 : 0, isDraw ? 1 : 0, awayWon ? 1 : 0, finalHomeScore, finalAwayScore, m.home_club_id]
+        `UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?,
+          goals_scored=goals_scored+?, goals_conceded=goals_conceded+?,
+          win_streak=?, loss_streak=?, updated_date=NOW() WHERE id=?`,
+        [homeWon ? 1 : 0, isDraw ? 1 : 0, awayWon ? 1 : 0,
+         finalHomeScore, finalAwayScore,
+         newHomeWinStreak, newHomeLossStreak, m.home_club_id]
       ).catch(() => {});
+
+      // ── Ticket revenue (home club, club matches only) ────────────────────
+      try {
+        const existingTicketTx = await EXECUTESQL(
+          "SELECT id FROM stc_transactions WHERE reference_id = ? AND type = 'ticket_revenue' LIMIT 1",
+          [m.id]
+        ).catch(() => []);
+        if (!existingTicketTx.length && homeClubPre) {
+          const stadiumCfg = await getStadiumConfig();
+          const levelIdx  = Math.min(Math.max(Number(homeClubPre.stadium_level || 0), 0), stadiumCfg.length - 1);
+          const lvl       = stadiumCfg[levelIdx];
+          const postWins  = Number(homeClubPre.wins   || 0) + (homeWon ? 1 : 0);
+          const postLoss  = Number(homeClubPre.losses || 0) + (awayWon ? 1 : 0);
+          const pct       = calcAttendancePct(postWins, postLoss, newHomeWinStreak);
+          const attendance = Math.round(Number(lvl.capacity) * pct / 100);
+          const revenue    = attendance * Number(lvl.ticket_price_stc);
+          const transferShare = Math.round(revenue * 0.15);
+          const matchLabel = `${m.home_club_name || 'Home'} vs ${m.away_club_name || 'Away'}`;
+          const matchType  = m.tournament_id && m.tournament_id !== 'ranked'
+            ? '🏆 Tournament' : m.tournament_id === 'ranked' ? '⚡ Ranked' : '⚽ League';
+
+          await createClubTx({
+            clubId: m.home_club_id,
+            amount: revenue,
+            type: 'ticket_revenue',
+            category: 'ticket_revenue',
+            description: `Gate receipts: ${attendance.toLocaleString()} fans @ ${Number(lvl.ticket_price_stc)} STC — ${matchLabel}`,
+            referenceId: m.id,
+          }).catch(err => console.error('[ticket-revenue] tx failed:', err.message));
+
+          if (transferShare > 0) {
+            await EXECUTESQL(
+              'UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ?, updated_date = NOW() WHERE id = ?',
+              [transferShare, m.home_club_id]
+            ).catch(() => {});
+          }
+
+          await EXECUTESQL(
+            'UPDATE matches SET home_ticket_revenue=?, home_ticket_attendance=?, home_ticket_capacity=?, home_ticket_price=?, home_ticket_pct=?, updated_date=NOW() WHERE id=?',
+            [revenue, attendance, Number(lvl.capacity), Number(lvl.ticket_price_stc), pct, m.id]
+          ).catch(() => {});
+
+          // Inbox to home club owner
+          if (homeClubPre.owner_email) {
+            const scoreLabel = `${finalHomeScore} – ${finalAwayScore}`;
+            const lines = [
+              `📅 Match: ${matchLabel}`,
+              `📊 Result: ${scoreLabel}  |  ${matchType}`,
+              ``,
+              `🏟️  Stadium: ${lvl.name} (capacity ${Number(lvl.capacity).toLocaleString()})`,
+              `👥 Attendance: ${attendance.toLocaleString()} fans (${pct}% full)`,
+              `🎟️  Tickets: ${attendance.toLocaleString()} × ${Number(lvl.ticket_price_stc)} STC = +${revenue.toLocaleString()} STC`,
+              transferShare > 0 ? `🏦 Transfer Fund: +${transferShare.toLocaleString()} STC (15% to signing budget)` : ``,
+              ``,
+              pct < 40 ? `💡 Win more games to fill your stadium and boost gate receipts.`
+                       : pct >= 80 ? `🔥 Near-capacity crowd — your club is on fire!`
+                       : `📈 Attendance growing. Keep the wins coming!`,
+            ].filter(l => l !== undefined);
+            await EXECUTESQL(
+              `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
+               VALUES (?, ?, 'system@stage.com', ?, ?, 'match_revenue', ?, 'match_revenue', 0, NOW())`,
+              [uuidv4(), homeClubPre.owner_email,
+               `🎟️ Match Revenue — ${matchLabel}`,
+               lines.join('\n'), m.id]
+            ).catch(() => {});
+          }
+        }
+      } catch (ticketErr) {
+        console.error('[ticket-revenue] processing failed for match', m.id, ticketErr.message);
+      }
     }
+
     if (m.away_club_id) {
+      const [awayClubPre] = await EXECUTESQL(
+        'SELECT win_streak, loss_streak FROM clubs WHERE id = ? LIMIT 1',
+        [m.away_club_id]
+      ).catch(() => [null]);
+      const newAwayWinStreak  = awayWon ? Number(awayClubPre?.win_streak  || 0) + 1 : 0;
+      const newAwayLossStreak = homeWon ? Number(awayClubPre?.loss_streak || 0) + 1 : 0;
       await EXECUTESQL(
-        'UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?, goals_scored=goals_scored+?, goals_conceded=goals_conceded+?, updated_date=NOW() WHERE id=?',
-        [awayWon ? 1 : 0, isDraw ? 1 : 0, homeWon ? 1 : 0, finalAwayScore, finalHomeScore, m.away_club_id]
+        `UPDATE clubs SET wins=wins+?, draws=draws+?, losses=losses+?,
+          goals_scored=goals_scored+?, goals_conceded=goals_conceded+?,
+          win_streak=?, loss_streak=?, updated_date=NOW() WHERE id=?`,
+        [awayWon ? 1 : 0, isDraw ? 1 : 0, homeWon ? 1 : 0,
+         finalAwayScore, finalHomeScore,
+         newAwayWinStreak, newAwayLossStreak, m.away_club_id]
       ).catch(() => {});
     }
 
@@ -1163,6 +1288,84 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown wagerManagement action: ${action}`);
+  },
+
+  async stadiumManagement({ _auth_user_id, action, level, capacity, ticket_price_stc, upgrade_cost_stc, description, club_id, stadium_level, stadium_name, amount, note }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const admins = await EXECUTESQL('SELECT id FROM users WHERE id = ? AND role_id = 0 LIMIT 1', [_auth_user_id]);
+    if (!admins.length) throw new Error('Admin access required');
+
+    if (action === 'get_config') {
+      const rows = await EXECUTESQL('SELECT * FROM stadium_config ORDER BY level ASC');
+      return { success: true, data: { levels: rows } };
+    }
+
+    if (action === 'set_level_config') {
+      if (level == null) throw new Error('level required');
+      const updates = [];
+      const vals = [];
+      if (capacity        != null) { updates.push('capacity = ?');         vals.push(Number(capacity)); }
+      if (ticket_price_stc!= null) { updates.push('ticket_price_stc = ?'); vals.push(Number(ticket_price_stc)); }
+      if (upgrade_cost_stc!= null) { updates.push('upgrade_cost_stc = ?'); vals.push(Number(upgrade_cost_stc)); }
+      if (description     != null) { updates.push('description = ?');      vals.push(String(description)); }
+      if (!updates.length) throw new Error('Nothing to update');
+      vals.push(Number(level));
+      await EXECUTESQL(`UPDATE stadium_config SET ${updates.join(', ')}, updated_date = NOW() WHERE level = ?`, vals);
+      _stadiumConfigCache = null; // bust cache
+      return { success: true };
+    }
+
+    if (action === 'edit_club_stadium') {
+      if (!club_id) throw new Error('club_id required');
+      const sets = [];
+      const vals = [];
+      if (stadium_level != null) { sets.push('stadium_level = ?');    vals.push(Number(stadium_level)); }
+      if (stadium_name  != null) { sets.push('stadium_name = ?');     vals.push(String(stadium_name)); }
+      if (capacity      != null) { sets.push('stadium_capacity = ?'); vals.push(Number(capacity)); }
+      if (!sets.length) throw new Error('Nothing to update');
+      vals.push(club_id);
+      await EXECUTESQL(`UPDATE clubs SET ${sets.join(', ')}, updated_date = NOW() WHERE id = ?`, vals);
+      return { success: true };
+    }
+
+    if (action === 'correct_revenue') {
+      if (!club_id || amount == null) throw new Error('club_id and amount required');
+      const corrAmt = Number(amount);
+      await createClubTx({
+        clubId: club_id, amount: corrAmt,
+        type: corrAmt >= 0 ? 'ticket_revenue' : 'adjustment',
+        category: 'ticket_revenue',
+        description: note ? `Admin revenue correction: ${note}` : 'Admin ticket revenue correction',
+        referenceId: club_id,
+      });
+      return { success: true };
+    }
+
+    if (action === 'upgrade_club_stadium') {
+      if (!club_id) throw new Error('club_id required');
+      const [club] = await EXECUTESQL('SELECT id, stc, stadium_level, name FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      if (!club) throw new Error('Club not found');
+      const cfg = await getStadiumConfig();
+      const currentLevel = Math.min(Math.max(Number(club.stadium_level || 0), 0), cfg.length - 1);
+      const next = cfg[currentLevel + 1];
+      if (!next) throw new Error('Already at maximum stadium level');
+      const cost = Number(next.upgrade_cost_stc || 0);
+      if (Number(club.stc || 0) < cost) throw new Error(`Insufficient STC — need ${cost.toLocaleString()}, have ${Number(club.stc || 0).toLocaleString()}`);
+      await createClubTx({
+        clubId: club_id, amount: -cost,
+        type: 'stadium_upgrade', category: 'stadium_upgrade',
+        description: `Stadium upgraded to ${next.name}`,
+        referenceId: club_id,
+      });
+      await EXECUTESQL(
+        'UPDATE clubs SET stadium_level = ?, stadium_capacity = ?, updated_date = NOW() WHERE id = ?',
+        [currentLevel + 1, Number(next.capacity), club_id]
+      );
+      _stadiumConfigCache = null;
+      return { success: true, data: { new_level: currentLevel + 1, new_capacity: next.capacity, name: next.name } };
+    }
+
+    throw new Error(`Unknown stadiumManagement action: ${action}`);
   },
 
   async backfillPlayerStc({ _auth_user_id, dry_run = false }) {

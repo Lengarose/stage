@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, Wallet, Users, Trophy, Coins,
   AlertTriangle, ChevronLeft, ChevronRight, SlidersHorizontal,
-  RefreshCw, DollarSign, Zap, Gift, ArrowLeftRight,
+  RefreshCw, DollarSign, Zap, Gift, ArrowLeftRight, Ticket, Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Category metadata ──────────────────────────────────────────────────────
 const TX_CATEGORIES = {
+  ticket_revenue:  { label: "Ticket Revenue",  color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Ticket },
+  stadium_upgrade: { label: "Stadium Upgrade", color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: Building2 },
   salary:          { label: "Salary",          color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: Users },
   wager_win:       { label: "Wager Win",        color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Trophy },
   wager_loss:      { label: "Wager Loss",       color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: TrendingDown },
@@ -176,6 +178,8 @@ function TxRow({ tx, isAdmin, onDelete }) {
 // ── Main component ─────────────────────────────────────────────────────────
 const CATEGORY_FILTERS = [
   { key: "all",             label: "All" },
+  { key: "ticket_revenue",  label: "Tickets" },
+  { key: "stadium_upgrade", label: "Stadium" },
   { key: "salary",          label: "Salary" },
   { key: "wager_win",       label: "Wager Win" },
   { key: "wager_loss",      label: "Wager Loss" },
