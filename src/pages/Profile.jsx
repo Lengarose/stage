@@ -250,9 +250,10 @@ export default function Profile() {
     return (
       <div className="min-h-screen bg-background text-foreground">
         {/* Banner */}
-        <div className="relative h-48 sm:h-64 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
+        <div className="relative h-48 sm:h-64 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)]" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
           <div className="w-full h-full" style={getBannerStyle(player?.banner_url, player?.banner_position)} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, hsl(var(--background) / 0.6) 35%, transparent 70%)" }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
+          <div className="absolute inset-0 pointer-events-none hidden dark:block" style={{ background: "linear-gradient(to bottom, transparent 35%, hsl(var(--background)) 100%)" }} />
           {/* Top-right action icons */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             {unreadCount > 0 && (
@@ -267,6 +268,9 @@ export default function Profile() {
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
               </button>
             )}
+            <button onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors text-white/70 text-xs font-medium">
+              <Settings className="w-4 h-4" /> Edit Profile
+            </button>
             <button onClick={() => stageClient.auth.logout()} className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
               <LogOut className="w-5 h-5 text-white/70" />
             </button>
@@ -289,9 +293,6 @@ export default function Profile() {
 
             {/* Actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Button size="sm" variant="outline" onClick={() => setView("edit_player")} className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
-                <Settings className="w-3.5 h-3.5" /> Edit Profile
-              </Button>
               {myClub && (
                 <Button size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
                   <Shield className="w-3.5 h-3.5" /> My Club

@@ -4,6 +4,8 @@ const { v4: uuidv4 } = require('uuid');
 class StcTransaction {
   constructor(body = {}) {
     this.id           = body.id;
+    this.player_id    = body.player_id;
+    this.player_email = body.player_email;
     this.club_id      = body.club_id;
     this.amount       = body.amount;
     this.type         = body.type;
@@ -22,17 +24,15 @@ class StcTransaction {
   }
 
   selectByClub(club_id) {
-    return EXECUTESQL(
-      'SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY id DESC',
-      [club_id]
-    );
+    return EXECUTESQL('SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY id DESC', [club_id]);
+  }
+
+  selectByPlayer(player_id) {
+    return EXECUTESQL('SELECT * FROM stc_transactions WHERE player_id = ? ORDER BY id DESC', [player_id]);
   }
 
   selectByType(type) {
-    return EXECUTESQL(
-      'SELECT * FROM stc_transactions WHERE type = ? ORDER BY id DESC',
-      [type]
-    );
+    return EXECUTESQL('SELECT * FROM stc_transactions WHERE type = ? ORDER BY id DESC', [type]);
   }
 
   selectByClubAndType(club_id, type) {
@@ -45,22 +45,22 @@ class StcTransaction {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO stc_transactions
-      (id, club_id, amount, type, description, reference_id)
-      VALUES (?,?,?,?,?,?)`;
+      (id, player_id, player_email, club_id, amount, type, description, reference_id)
+      VALUES (?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.club_id, this.amount, this.type,
-      this.description, this.reference_id,
+      this.id, this.player_id, this.player_email, this.club_id,
+      this.amount, this.type, this.description, this.reference_id,
     ];
     return EXECUTESQL(sql, values);
   }
 
   update(id) {
     const sql = `UPDATE stc_transactions SET
-      club_id=?, amount=?, type=?, description=?, reference_id=?
+      player_id=?, player_email=?, club_id=?, amount=?, type=?, description=?, reference_id=?
       WHERE id=?`;
     const values = [
-      this.club_id, this.amount, this.type, this.description,
-      this.reference_id,
+      this.player_id, this.player_email, this.club_id,
+      this.amount, this.type, this.description, this.reference_id,
       id,
     ];
     return EXECUTESQL(sql, values);

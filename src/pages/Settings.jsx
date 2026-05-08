@@ -8,6 +8,12 @@ import { useTranslation } from "@/hooks/useTranslation";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
 import {
+  NOTIFICATION_SOUNDS,
+  NOTIFICATION_SOUND_STORAGE_KEY,
+  getSelectedNotificationSoundId,
+  playNotificationSound,
+} from "@/lib/notificationSound";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -260,6 +266,7 @@ export default function Settings() {
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [notificationSound, setNotificationSound] = useState(() => getSelectedNotificationSoundId());
 
   useEffect(() => {
     async function loadUser() {
@@ -315,6 +322,7 @@ export default function Settings() {
       customSecondaryTextColor,
       backgroundImage,
     });
+    localStorage.setItem(NOTIFICATION_SOUND_STORAGE_KEY, notificationSound);
     
     setLoading(false);
   }
@@ -785,6 +793,31 @@ export default function Settings() {
         {/* Notification Settings */}
         <div className="space-y-3">
           <NotificationSettings />
+        </div>
+
+        {/* Notification Sound */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg leading-relaxed font-bold text-foreground">Notification Sound</h3>
+            <p className="text-sm text-muted-foreground">Choose which sound plays when a new notification arrives</p>
+          </div>
+          <div className="flex gap-2">
+            <Select value={notificationSound} onValueChange={setNotificationSound}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {NOTIFICATION_SOUNDS.map((sound) => (
+                  <SelectItem key={sound.id} value={sound.id}>
+                    {sound.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" onClick={() => playNotificationSound(notificationSound)}>
+              Preview
+            </Button>
+          </div>
         </div>
 
         {/* Save Button */}

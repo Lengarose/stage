@@ -54,10 +54,9 @@
       "title": "Logo Position",
       "default": "50% 50%"
     },
-    "banner_id": {
+    "banner_url": {
       "type": "string",
-      "title": "Active Banner ID",
-      "default": "banner_default"
+      "title": "Banner URL"
     },
     "banner_position": {
       "type": "string",

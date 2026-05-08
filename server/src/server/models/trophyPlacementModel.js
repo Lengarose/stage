@@ -5,7 +5,6 @@ class TrophyPlacementModel {
   static async getAll({ limit = 25, offset = 0, owner_id, owner_type, player_id, trophy_item_id } = {}) {
     let sql = 'SELECT * FROM trophy_placements WHERE 1=1';
     const params = [];
-    // Support both legacy (player_id) and current (owner_id/owner_type) filters.
     if (owner_id)       { sql += ' AND owner_id = ?';       params.push(owner_id); }
     if (owner_type)     { sql += ' AND owner_type = ?';     params.push(owner_type); }
     if (player_id)      { sql += ' AND (player_id = ? OR owner_id = ?)'; params.push(player_id, player_id); }
@@ -22,14 +21,30 @@ class TrophyPlacementModel {
 
   static async create(data) {
     const id = uuidv4();
-    // Current payload (owner-based)
-    const ownerId = data.owner_id || data.player_id || null;
+    const ownerId   = data.owner_id || data.player_id || null;
     const ownerType = data.owner_type || (data.player_id ? 'player' : null);
-    const position = data.position ?? data.slot_index ?? 0;
+    const position  = data.position ?? data.slot_index ?? 0;
+    const wonIds    = data.won_tournament_ids
+      ? (typeof data.won_tournament_ids === 'string' ? data.won_tournament_ids : JSON.stringify(data.won_tournament_ids))
+      : null;
     await EXECUTESQL(
-      `INSERT INTO trophy_placements (id, owner_id, owner_type, trophy_item_id, position)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, ownerId, ownerType, data.trophy_item_id, position]
+      `INSERT INTO trophy_placements
+        (id, owner_id, owner_type, trophy_item_id,
+         trophy_image_url, trophy_name,
+         x_percent, y_percent, scale,
+         won_tournament_ids, win_count, position)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, ownerId, ownerType, data.trophy_item_id,
+        data.trophy_image_url || null,
+        data.trophy_name || null,
+        data.x_percent ?? 50,
+        data.y_percent ?? 50,
+        data.scale ?? 1,
+        wonIds,
+        data.win_count ?? 1,
+        position,
+      ]
     );
     return this.getById(id);
   }
@@ -37,9 +52,24 @@ class TrophyPlacementModel {
   static async update(id, data) {
     const fields = [];
     const params = [];
-    if (data.position       !== undefined) { fields.push('position = ?');       params.push(data.position); }
-    if (data.slot_index     !== undefined) { fields.push('position = ?');       params.push(data.slot_index); }
-    if (data.trophy_item_id !== undefined) { fields.push('trophy_item_id = ?'); params.push(data.trophy_item_id); }
+    const updatable = [
+      'trophy_item_id', 'trophy_image_url', 'trophy_name',
+      'x_percent', 'y_percent', 'scale',
+      'win_count', 'position',
+    ];
+    for (const key of updatable) {
+      if (data[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        params.push(data[key]);
+      }
+    }
+    if (data.slot_index !== undefined) { fields.push('position = ?'); params.push(data.slot_index); }
+    if (data.won_tournament_ids !== undefined) {
+      fields.push('won_tournament_ids = ?');
+      params.push(typeof data.won_tournament_ids === 'string'
+        ? data.won_tournament_ids
+        : JSON.stringify(data.won_tournament_ids));
+    }
     if (!fields.length) return this.getById(id);
     params.push(id);
     await EXECUTESQL(`UPDATE trophy_placements SET ${fields.join(', ')} WHERE id = ?`, params);

@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
+import { playNotificationSound } from "@/lib/notificationSound";
 
 export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     let userEmail = null;
@@ -19,7 +21,16 @@ export default function NotificationBell() {
           "-created_date",
           100
         );
-        if (!stopped) setUnreadCount((notifications || []).length);
+        if (!stopped) {
+          const nextCount = (notifications || []).length;
+          setUnreadCount((prevCount) => {
+            if (hasLoadedOnceRef.current && nextCount > prevCount) {
+              playNotificationSound();
+            }
+            return nextCount;
+          });
+          if (!hasLoadedOnceRef.current) hasLoadedOnceRef.current = true;
+        }
       } catch {
         // non-fatal
       }

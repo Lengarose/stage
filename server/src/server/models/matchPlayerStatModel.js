@@ -3,14 +3,16 @@ const { v4: uuidv4 } = require('uuid');
 
 class MatchPlayerStat {
   constructor(body = {}) {
-    this.id           = body.id;
-    this.match_id     = body.match_id;
-    this.tournament_id = body.tournament_id;
-    this.club_id      = body.club_id;
-    this.player_email = body.player_email;
-    this.goals        = body.goals;
-    this.assists      = body.assists;
-    this.rating       = body.rating;
+    this.id              = body.id;
+    this.match_id        = body.match_id;
+    this.tournament_id   = body.tournament_id;
+    this.club_id         = body.club_id;
+    this.player_email    = body.player_email;
+    this.player_gamertag = body.player_gamertag;
+    this.goals           = body.goals;
+    this.assists         = body.assists;
+    this.own_goals       = body.own_goals;
+    this.rating          = body.rating;
   }
 
   selectAll(page = 1) {
@@ -34,23 +36,26 @@ class MatchPlayerStat {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO match_player_stats
-      (id, match_id, tournament_id, club_id, player_email, goals, assists, rating)
-      VALUES (?,?,?,?,?,?,?,?)`;
+      (id, match_id, tournament_id, club_id, player_email, player_gamertag,
+       goals, assists, own_goals, rating)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.match_id, this.tournament_id, this.club_id,
-      this.player_email, this.goals, this.assists, this.rating,
+      this.player_email, this.player_gamertag,
+      this.goals, this.assists, this.own_goals, this.rating,
     ];
     return EXECUTESQL(sql, values);
   }
 
   update(id) {
     const sql = `UPDATE match_player_stats SET
-      match_id=?, tournament_id=?, club_id=?, player_email=?,
-      goals=?, assists=?, rating=?
+      match_id=?, tournament_id=?, club_id=?, player_email=?, player_gamertag=?,
+      goals=?, assists=?, own_goals=?, rating=?
       WHERE id=?`;
     const values = [
-      this.match_id, this.tournament_id, this.club_id, this.player_email,
-      this.goals, this.assists, this.rating,
+      this.match_id, this.tournament_id, this.club_id,
+      this.player_email, this.player_gamertag,
+      this.goals, this.assists, this.own_goals, this.rating,
       id,
     ];
     return EXECUTESQL(sql, values);
