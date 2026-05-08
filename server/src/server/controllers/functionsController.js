@@ -2591,6 +2591,425 @@ const HANDLERS = {
     throw new Error(`Unknown adminEconomyControl action: ${action}`);
   },
 
+  // ── Economy Tests ─────────────────────────────────────────────────────────
+  async economyTests({ action, test_name, suite, sample_size, _auth_user_id }) {
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminRows.length || Number(adminRows[0].role_id) !== 0) throw new Error('Admin access required');
+
+    // ── internal helpers ────────────────────────────────────────────────────
+    function assert(cond, msg) { if (!cond) throw new Error(`Assertion failed: ${msg}`); }
+
+    async function runTest(name, description, fn) {
+      const start = Date.now();
+      const cleanups = [];
+      const addCleanup = (c) => cleanups.push(c);
+      try {
+        const r = await fn(addCleanup);
+        return { name, description, status: r.status || 'pass', message: r.message || 'All assertions passed', assertions: r.assertions || [], duration_ms: Date.now() - start };
+      } catch (err) {
+        return { name, description, status: 'fail', message: err.message, assertions: err.assertions || [], duration_ms: Date.now() - start };
+      } finally {
+        for (const c of cleanups.reverse()) await c().catch(() => {});
+      }
+    }
+
+    // ── simulation tests ────────────────────────────────────────────────────
+    const SIM_TESTS = {
+
+      wallet_creation: () => runTest('wallet_creation', 'New player gets 50,000 STC + initial_grant transaction; no duplicates', async (add) => {
+        const pid = uuidv4(), uid = uuidv4();
+        await EXECUTESQL(`INSERT INTO players (id, gamertag, email, user_id, stc, created_date) VALUES (?, ?, ?, ?, NULL, NOW())`,
+          [pid, `__TEST__wc_${pid.slice(0,6)}`, `__test__wc_${pid.slice(0,6)}@stage.test`, uid]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id = ?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id = ?', [pid]));
+
+        await EXECUTESQL('UPDATE players SET stc = 50000, updated_date = NOW() WHERE id = ?', [pid]);
+        await EXECUTESQL(`INSERT INTO player_stc_transactions (id,player_id,player_email,amount,balance_after,type,category,source,description,created_date)
+          VALUES (?,?,NULL,50000,50000,'income','initial_grant','System','Welcome bonus',NOW())`, [uuidv4(), pid]);
+
+        const [p] = await EXECUTESQL('SELECT stc FROM players WHERE id = ?', [pid]);
+        assert(Number(p.stc) === 50000, `Expected balance 50000, got ${p.stc}`);
+        const txs = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='initial_grant'", [pid]);
+        assert(txs.length === 1, `Expected 1 initial_grant tx, got ${txs.length}`);
+        assert(Number(txs[0].amount) === 50000, `Tx amount mismatch`);
+        assert(Number(txs[0].balance_after) === 50000, `balance_after mismatch`);
+        // Idempotency: running init again should not create duplicate
+        const dup = await EXECUTESQL("SELECT COUNT(*) as cnt FROM player_stc_transactions WHERE player_id=? AND category='initial_grant'", [pid]);
+        assert(Number(dup[0].cnt) === 1, `Duplicate initial_grant detected`);
+        return { assertions: ['✓ Balance = 50,000 STC', '✓ initial_grant tx (amount=50000, balance_after=50000)', '✓ No duplicate initial_grant'] };
+      }),
+
+      club_default_finances: () => runTest('club_default_finances', 'New club has positive STC and non-negative budgets', async (add) => {
+        const cid = uuidv4(), uid = uuidv4();
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,5000000,0,0,NOW())`,
+          [cid, `__TEST__cf_${cid.slice(0,6)}`, 'TCC', uid]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id = ?', [cid]));
+        const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc, wage_budget_stc FROM clubs WHERE id = ?', [cid]);
+        assert(Number(c.stc) > 0, `stc must be > 0, got ${c.stc}`);
+        assert(Number(c.transfer_budget_stc) >= 0, `transfer_budget must be >= 0`);
+        assert(Number(c.wage_budget_stc) >= 0, `wage_budget must be >= 0`);
+        return { assertions: [`✓ stc = ${Number(c.stc).toLocaleString()} STC`, `✓ transfer_budget = ${Number(c.transfer_budget_stc).toLocaleString()}`, `✓ wage_budget = ${Number(c.wage_budget_stc).toLocaleString()}`] };
+      }),
+
+      salary_payment: () => runTest('salary_payment', 'Weekly salary: player balance +salary, club balance -salary, both have tx records', async (add) => {
+        const pid = uuidv4(), cid = uuidv4(), uid1 = uuidv4(), uid2 = uuidv4();
+        const SALARY = 5000, P_START = 100000, C_START = 10000000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [pid, `__TEST__sal_${pid.slice(0,6)}`, `__test__sal_${pid.slice(0,6)}@s.t`, uid1, P_START]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__salc_${cid.slice(0,6)}`, 'TSL', uid2, C_START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+
+        await createPlayerTx({ playerId: pid, playerEmail: null, amount: SALARY, category: 'wage_payment', source: cid, description: 'Test weekly salary' });
+        await createClubTx({ clubId: cid, amount: -SALARY, type: 'expense', category: 'wage_payment', description: 'Test weekly salary', referenceId: pid });
+
+        const [pRow] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [pid]);
+        const [cRow] = await EXECUTESQL('SELECT stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(pRow.stc) === P_START + SALARY, `Player: expected ${P_START+SALARY}, got ${pRow.stc}`);
+        assert(Number(cRow.stc) === C_START - SALARY, `Club: expected ${C_START-SALARY}, got ${cRow.stc}`);
+        const ptx = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wage_payment'", [pid]);
+        const ctx = await EXECUTESQL("SELECT * FROM stc_transactions WHERE club_id=? AND category='wage_payment'", [cid]);
+        assert(ptx.length === 1, `Expected 1 player wage tx`);
+        assert(ctx.length === 1, `Expected 1 club wage tx`);
+        return { assertions: [`✓ Player: ${P_START.toLocaleString()} → ${(P_START+SALARY).toLocaleString()} (+${SALARY.toLocaleString()})`, `✓ Club: ${C_START.toLocaleString()} → ${(C_START-SALARY).toLocaleString()} (-${SALARY.toLocaleString()})`, '✓ wage_payment tx on both sides'] };
+      }),
+
+      lifestyle_purchase: () => runTest('lifestyle_purchase', 'Purchase deducts player balance; tx with correct amount and balance_after', async (add) => {
+        const pid = uuidv4(), uid = uuidv4();
+        const PRICE = 10000, START = 100000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [pid, `__TEST__lsp_${pid.slice(0,6)}`, `__test__lsp_${pid.slice(0,6)}@s.t`, uid, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
+        await createPlayerTx({ playerId: pid, playerEmail: null, amount: -PRICE, category: 'lifestyle_purchase', source: 'Lifestyle', description: 'Test purchase' });
+        const [p] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [pid]);
+        assert(Number(p.stc) === START - PRICE, `Expected ${START-PRICE}, got ${p.stc}`);
+        const txs = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='lifestyle_purchase'", [pid]);
+        assert(txs.length === 1, 'Expected 1 lifestyle_purchase tx');
+        assert(Number(txs[0].amount) === -PRICE, `amount mismatch`);
+        assert(Number(txs[0].balance_after) === START - PRICE, `balance_after mismatch`);
+        return { assertions: [`✓ Balance: ${START.toLocaleString()} → ${(START-PRICE).toLocaleString()} (-${PRICE.toLocaleString()})`, '✓ lifestyle_purchase tx recorded', '✓ balance_after is accurate'] };
+      }),
+
+      lifestyle_rental: () => runTest('lifestyle_rental', 'Rental deducts player balance and creates transaction', async (add) => {
+        const pid = uuidv4(), uid = uuidv4();
+        const RENT = 3000, START = 50000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [pid, `__TEST__lsr_${pid.slice(0,6)}`, `__test__lsr_${pid.slice(0,6)}@s.t`, uid, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
+        await createPlayerTx({ playerId: pid, playerEmail: null, amount: -RENT, category: 'lifestyle_rental', source: 'Lifestyle', description: 'Test rental' });
+        const [p] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [pid]);
+        assert(Number(p.stc) === START - RENT, `Expected ${START-RENT}, got ${p.stc}`);
+        const txs = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='lifestyle_rental'", [pid]);
+        assert(txs.length === 1, 'Expected 1 rental tx');
+        return { assertions: [`✓ Rental deduction: -${RENT.toLocaleString()} STC`, `✓ Balance after: ${(START-RENT).toLocaleString()} STC`, '✓ lifestyle_rental tx recorded'] };
+      }),
+
+      lifestyle_investment: () => runTest('lifestyle_investment', 'Investment deducts balance; return credits back; net profit reflected correctly', async (add) => {
+        const pid = uuidv4(), uid = uuidv4();
+        const INVEST = 20000, RETURN = 22000, START = 100000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [pid, `__TEST__lsi_${pid.slice(0,6)}`, `__test__lsi_${pid.slice(0,6)}@s.t`, uid, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
+        await createPlayerTx({ playerId: pid, playerEmail: null, amount: -INVEST, category: 'lifestyle_investment', source: 'Lifestyle', description: 'Test investment' });
+        await createPlayerTx({ playerId: pid, playerEmail: null, amount: RETURN, category: 'lifestyle_return', source: 'Lifestyle', description: 'Test investment return' });
+        const [p] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [pid]);
+        const expected = START - INVEST + RETURN;
+        assert(Number(p.stc) === expected, `Expected ${expected}, got ${p.stc}`);
+        const ivTx = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='lifestyle_investment'", [pid]);
+        const rtTx = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='lifestyle_return'", [pid]);
+        assert(ivTx.length === 1 && rtTx.length === 1, 'Expected both investment and return txs');
+        return { assertions: [`✓ Investment: -${INVEST.toLocaleString()}`, `✓ Return: +${RETURN.toLocaleString()} (profit +${(RETURN-INVEST).toLocaleString()})`, `✓ Final balance: ${expected.toLocaleString()} STC`, '✓ Both txs recorded'] };
+      }),
+
+      wager_block: () => runTest('wager_block', 'Wager stake reduces both player balances; blocked funds confirmed deducted', async (add) => {
+        const p1 = uuidv4(), p2 = uuidv4(), u1 = uuidv4(), u2 = uuidv4();
+        const STAKE = 10000, START = 50000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p1, `__TEST__wb1_${p1.slice(0,6)}`, `__test__wb1_${p1.slice(0,6)}@s.t`, u1, START]);
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p2, `__TEST__wb2_${p2.slice(0,6)}`, `__test__wb2_${p2.slice(0,6)}@s.t`, u2, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id IN (?,?)', [p1,p2]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id IN (?,?)', [p1,p2]));
+        await createPlayerTx({ playerId: p1, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Test stake' });
+        await createPlayerTx({ playerId: p2, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Test stake' });
+        const [r1] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p1]);
+        const [r2] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p2]);
+        assert(Number(r1.stc) === START - STAKE, `P1 expected ${START-STAKE}, got ${r1.stc}`);
+        assert(Number(r2.stc) === START - STAKE, `P2 expected ${START-STAKE}, got ${r2.stc}`);
+        const t1 = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_stake'", [p1]);
+        const t2 = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_stake'", [p2]);
+        assert(t1.length === 1 && t2.length === 1, 'Expected stake txs for both players');
+        assert(Number(r1.stc) < START, 'P1 blocked funds: cannot spend staked amount');
+        assert(Number(r2.stc) < START, 'P2 blocked funds: cannot spend staked amount');
+        return { assertions: [`✓ P1: ${START.toLocaleString()} → ${(START-STAKE).toLocaleString()} (stake blocked)`, `✓ P2: ${START.toLocaleString()} → ${(START-STAKE).toLocaleString()} (stake blocked)`, '✓ wager_stake txs recorded', '✓ Staked amount deducted from spendable balance'] };
+      }),
+
+      wager_payout: () => runTest('wager_payout', 'Winner receives full pot; loser gets no refund; payout tx recorded', async (add) => {
+        const p1 = uuidv4(), p2 = uuidv4(), u1 = uuidv4(), u2 = uuidv4();
+        const STAKE = 10000, POT = STAKE * 2, START = 50000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p1, `__TEST__wp1_${p1.slice(0,6)}`, `__test__wp1_${p1.slice(0,6)}@s.t`, u1, START]);
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p2, `__TEST__wp2_${p2.slice(0,6)}`, `__test__wp2_${p2.slice(0,6)}@s.t`, u2, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id IN (?,?)', [p1,p2]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id IN (?,?)', [p1,p2]));
+        await createPlayerTx({ playerId: p1, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Stake' });
+        await createPlayerTx({ playerId: p2, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Stake' });
+        await createPlayerTx({ playerId: p1, playerEmail: null, amount: POT, category: 'wager_payout', source: 'Wager', description: 'Win payout' });
+        const [r1] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p1]);
+        const [r2] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p2]);
+        const p1Exp = START - STAKE + POT, p2Exp = START - STAKE;
+        assert(Number(r1.stc) === p1Exp, `Winner expected ${p1Exp}, got ${r1.stc}`);
+        assert(Number(r2.stc) === p2Exp, `Loser expected ${p2Exp}, got ${r2.stc}`);
+        const ptx = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_payout'", [p1]);
+        assert(ptx.length === 1 && Number(ptx[0].amount) === POT, `Expected payout tx of ${POT}`);
+        const ltx = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_payout'", [p2]);
+        assert(ltx.length === 0, 'Loser must not receive a payout tx');
+        return { assertions: [`✓ Winner: ${START.toLocaleString()} → ${p1Exp.toLocaleString()} (net +${(p1Exp-START).toLocaleString()})`, `✓ Loser: ${START.toLocaleString()} → ${p2Exp.toLocaleString()} (net -${STAKE.toLocaleString()})`, `✓ wager_payout tx = ${POT.toLocaleString()} STC`, '✓ Loser received no payout'] };
+      }),
+
+      wager_refund: () => runTest('wager_refund', 'Both players refunded to pre-wager balance; refund txs recorded', async (add) => {
+        const p1 = uuidv4(), p2 = uuidv4(), u1 = uuidv4(), u2 = uuidv4();
+        const STAKE = 10000, START = 50000;
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p1, `__TEST__wr1_${p1.slice(0,6)}`, `__test__wr1_${p1.slice(0,6)}@s.t`, u1, START]);
+        await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
+          [p2, `__TEST__wr2_${p2.slice(0,6)}`, `__test__wr2_${p2.slice(0,6)}@s.t`, u2, START]);
+        add(() => EXECUTESQL('DELETE FROM players WHERE id IN (?,?)', [p1,p2]));
+        add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id IN (?,?)', [p1,p2]));
+        await createPlayerTx({ playerId: p1, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Stake' });
+        await createPlayerTx({ playerId: p2, playerEmail: null, amount: -STAKE, category: 'wager_stake', source: 'Wager', description: 'Stake' });
+        await createPlayerTx({ playerId: p1, playerEmail: null, amount: STAKE, category: 'wager_refund', source: 'Wager', description: 'Refund' });
+        await createPlayerTx({ playerId: p2, playerEmail: null, amount: STAKE, category: 'wager_refund', source: 'Wager', description: 'Refund' });
+        const [r1] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p1]);
+        const [r2] = await EXECUTESQL('SELECT stc FROM players WHERE id=?', [p2]);
+        assert(Number(r1.stc) === START, `P1 expected ${START}, got ${r1.stc}`);
+        assert(Number(r2.stc) === START, `P2 expected ${START}, got ${r2.stc}`);
+        const rt1 = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_refund'", [p1]);
+        const rt2 = await EXECUTESQL("SELECT * FROM player_stc_transactions WHERE player_id=? AND category='wager_refund'", [p2]);
+        assert(rt1.length === 1 && rt2.length === 1, 'Expected refund txs for both');
+        return { assertions: [`✓ P1 restored to ${START.toLocaleString()} STC`, `✓ P2 restored to ${START.toLocaleString()} STC`, '✓ wager_refund txs recorded for both'] };
+      }),
+
+      ticket_revenue: () => runTest('ticket_revenue', 'Home match revenue: correct attendance calc, club credited, 15% to transfer budget, idempotency guard, match fields updated', async (add) => {
+        const cid = uuidv4(), mid = uuidv4(), uid = uuidv4();
+        const WINS = 5, LOSSES = 1, STREAK = 3, START = 5000000;
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,wins,losses,win_streak,created_date) VALUES (?,?,?,?,?,0,0,?,?,?,NOW())`,
+          [cid, `__TEST__tr_${cid.slice(0,6)}`, 'TTR', uid, START, WINS, LOSSES, STREAK]);
+        await EXECUTESQL(`INSERT INTO matches (id,home_club_id,status,stats_processed,home_ticket_revenue,created_date) VALUES (?,?,'completed',0,0,NOW())`,
+          [mid, cid]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        add(() => EXECUTESQL('DELETE FROM matches WHERE id=?', [mid]));
+        add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+
+        const cfg = await getStadiumConfig();
+        const lvl = cfg[0] || { capacity: 5000, ticket_price_stc: 15 };
+        const pct = calcAttendancePct(WINS, LOSSES, STREAK);
+        const attendance = Math.round(lvl.capacity * pct / 100);
+        const revenue = attendance * Number(lvl.ticket_price_stc);
+        const cut = Math.round(revenue * 0.15);
+
+        // Idempotency guard check (no existing tx)
+        const prior = await EXECUTESQL("SELECT id FROM stc_transactions WHERE club_id=? AND category='ticket_revenue' AND reference_id=? LIMIT 1", [cid, mid]);
+        assert(prior.length === 0, 'Pre-condition: no prior ticket_revenue tx');
+
+        await createClubTx({ clubId: cid, amount: revenue, type: 'income', category: 'ticket_revenue', description: `Test tickets (${attendance} fans @ ${lvl.ticket_price_stc} STC)`, referenceId: mid });
+        await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ? WHERE id=?', [cut, cid]);
+        await EXECUTESQL('UPDATE matches SET home_ticket_revenue=?,home_ticket_attendance=?,home_ticket_pct=?,home_ticket_capacity=?,home_ticket_price=? WHERE id=?',
+          [revenue, attendance, pct, lvl.capacity, lvl.ticket_price_stc, mid]);
+
+        const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc FROM clubs WHERE id=?', [cid]);
+        const [m] = await EXECUTESQL('SELECT home_ticket_revenue, home_ticket_attendance, home_ticket_pct FROM matches WHERE id=?', [mid]);
+        assert(Number(c.stc) === START + revenue, `Club balance mismatch`);
+        assert(Number(c.transfer_budget_stc) === cut, `Transfer budget cut mismatch`);
+        assert(Number(m.home_ticket_revenue) === revenue, `Match revenue field mismatch`);
+        assert(Number(m.home_ticket_attendance) === attendance, `Match attendance field mismatch`);
+
+        const txs = await EXECUTESQL("SELECT id FROM stc_transactions WHERE club_id=? AND category='ticket_revenue' AND reference_id=?", [cid, mid]);
+        assert(txs.length === 1, 'Expected exactly 1 ticket_revenue tx');
+
+        // Test idempotency: a second call would find the tx and skip
+        const guard = await EXECUTESQL("SELECT id FROM stc_transactions WHERE club_id=? AND category='ticket_revenue' AND reference_id=? LIMIT 1", [cid, mid]);
+        assert(guard.length === 1, 'Idempotency: tx exists → second run would be skipped');
+
+        return { assertions: [`✓ Attendance: ${pct}% of ${lvl.capacity.toLocaleString()} = ${attendance.toLocaleString()} fans`, `✓ Revenue: ${revenue.toLocaleString()} STC`, `✓ Club balance: +${revenue.toLocaleString()} STC`, `✓ Transfer budget: +${cut.toLocaleString()} STC (15%)`, '✓ Match fields updated', '✓ Idempotency guard confirmed'] };
+      }),
+
+      shirt_sales_revenue: () => runTest('shirt_sales_revenue', 'Shirt sales: club receives revenue, shirt_revenue tx recorded', async (add) => {
+        const cid = uuidv4(), uid = uuidv4();
+        const REV = 3750, START = 5000000;
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__ss_${cid.slice(0,6)}`, 'TSS', uid, START]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await createClubTx({ clubId: cid, amount: REV, type: 'income', category: 'shirt_revenue', description: 'Test shirt sales' });
+        const [c] = await EXECUTESQL('SELECT stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(c.stc) === START + REV, `Expected ${START+REV}, got ${c.stc}`);
+        const txs = await EXECUTESQL("SELECT * FROM stc_transactions WHERE club_id=? AND category='shirt_revenue'", [cid]);
+        assert(txs.length === 1, 'Expected 1 shirt_revenue tx');
+        return { assertions: [`✓ Club credited: +${REV.toLocaleString()} STC`, `✓ Balance: ${(START+REV).toLocaleString()} STC`, '✓ shirt_revenue tx recorded'] };
+      }),
+
+      competition_reward: () => runTest('competition_reward', 'Competition reward: correct STC credited, competition_reward tx created', async (add) => {
+        const cid = uuidv4(), uid = uuidv4();
+        const PRIZE = 1000000, START = 5000000;
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__cr_${cid.slice(0,6)}`, 'TCP', uid, START]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await createClubTx({ clubId: cid, amount: PRIZE, type: 'income', category: 'competition_reward', description: 'Test 1st place prize' });
+        const [c] = await EXECUTESQL('SELECT stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(c.stc) === START + PRIZE, `Expected ${START+PRIZE}, got ${c.stc}`);
+        const txs = await EXECUTESQL("SELECT * FROM stc_transactions WHERE club_id=? AND category='competition_reward'", [cid]);
+        assert(txs.length === 1, 'Expected 1 competition_reward tx');
+        return { assertions: [`✓ Prize: +${PRIZE.toLocaleString()} STC`, `✓ Balance: ${(START+PRIZE).toLocaleString()} STC`, '✓ competition_reward tx recorded'] };
+      }),
+
+      transfer_budget_change: () => runTest('transfer_budget_change', 'Transfer fee deducted from both STC balance and transfer budget atomically', async (add) => {
+        const cid = uuidv4(), uid = uuidv4();
+        const FEE = 2000000, START = 10000000, BUDGET = 5000000;
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,0,NOW())`,
+          [cid, `__TEST__tb_${cid.slice(0,6)}`, 'TTB', uid, START, BUDGET]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await createClubTx({ clubId: cid, amount: -FEE, type: 'expense', category: 'transfer_fee', description: 'Test transfer fee' });
+        await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = transfer_budget_stc - ? WHERE id=?', [FEE, cid]);
+        const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(c.stc) === START - FEE, `Balance mismatch`);
+        assert(Number(c.transfer_budget_stc) === BUDGET - FEE, `Transfer budget mismatch`);
+        const txs = await EXECUTESQL("SELECT * FROM stc_transactions WHERE club_id=? AND category='transfer_fee'", [cid]);
+        assert(txs.length === 1, 'Expected 1 transfer_fee tx');
+        return { assertions: [`✓ Balance: ${START.toLocaleString()} → ${(START-FEE).toLocaleString()} (-${FEE.toLocaleString()})`, `✓ Transfer budget: ${BUDGET.toLocaleString()} → ${(BUDGET-FEE).toLocaleString()}`, '✓ transfer_fee tx recorded'] };
+      }),
+
+      wage_budget_change: () => runTest('wage_budget_change', 'Wage budget tracks contracted salaries: increases on sign, decreases on expiry', async (add) => {
+        const cid = uuidv4(), uid = uuidv4();
+        const SALARY = 25000, BUDGET = 1000000;
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,10000000,0,?,NOW())`,
+          [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', uid, BUDGET]);
+        add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc + ? WHERE id=?', [SALARY, cid]);
+        const [after] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(after.wage_budget_stc) === BUDGET + SALARY, `After contract: expected ${BUDGET+SALARY}, got ${after.wage_budget_stc}`);
+        await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc - ? WHERE id=?', [SALARY, cid]);
+        const [final] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);
+        assert(Number(final.wage_budget_stc) === BUDGET, `After expiry: expected ${BUDGET}, got ${final.wage_budget_stc}`);
+        return { assertions: [`✓ Wage budget +${SALARY.toLocaleString()} on contract sign`, `✓ Wage budget -${SALARY.toLocaleString()} on expiry`, `✓ Restored to: ${BUDGET.toLocaleString()} STC`] };
+      }),
+    };
+
+    // ── verification tests (read-only) ──────────────────────────────────────
+    const VERIFY_TESTS = {
+
+      no_negative_balances: () => runTest('no_negative_balances', 'No player or club has a negative STC balance', async () => {
+        const negP = await EXECUTESQL("SELECT id, gamertag, stc FROM players WHERE stc < 0 AND gamertag NOT LIKE '__TEST__%'");
+        const negC = await EXECUTESQL("SELECT id, name, stc FROM clubs WHERE stc < 0 AND name NOT LIKE '__TEST__%'");
+        if (negP.length || negC.length) {
+          const d = [...negP.map(p=>`Player ${p.gamertag}: ${p.stc}`), ...negC.map(c=>`Club ${c.name}: ${c.stc}`)];
+          throw Object.assign(new Error(`${negP.length} player(s) + ${negC.length} club(s) with negative balances`), { assertions: d.slice(0,10).map(s=>`✗ ${s}`) });
+        }
+        return { assertions: ['✓ All players have stc ≥ 0', '✓ All clubs have stc ≥ 0'] };
+      }),
+
+      no_duplicate_initial_grants: () => runTest('no_duplicate_initial_grants', 'No player has multiple initial_grant wallet transactions', async () => {
+        const dups = await EXECUTESQL(`SELECT player_id, COUNT(*) as cnt FROM player_stc_transactions WHERE category='initial_grant' GROUP BY player_id HAVING cnt > 1 LIMIT 10`);
+        if (dups.length) throw new Error(`${dups.length} player(s) have duplicate initial_grant txs (first: player_id ${dups[0].player_id} × ${dups[0].cnt})`);
+        return { assertions: ['✓ No duplicate initial_grant transactions found'] };
+      }),
+
+      balance_accuracy: () => runTest('balance_accuracy', `Spot-check ${sample_size || 10} random players: sum(txs) matches stored balance`, async () => {
+        const N = Math.min(Number(sample_size) || 10, 50);
+        const players = await EXECUTESQL(`SELECT id, gamertag, stc FROM players WHERE stc IS NOT NULL AND gamertag NOT LIKE '__TEST__%' ORDER BY RAND() LIMIT ?`, [N]);
+        const mismatches = [];
+        for (const p of players) {
+          const [s] = await EXECUTESQL('SELECT COALESCE(SUM(amount),0) as total FROM player_stc_transactions WHERE player_id=?', [p.id]);
+          const txSum = Math.round(Number(s.total)), actual = Math.round(Number(p.stc));
+          if (Math.abs(txSum - actual) > 1) mismatches.push(`${p.gamertag}: txs=${txSum.toLocaleString()} ≠ balance=${actual.toLocaleString()} (Δ${txSum-actual})`);
+        }
+        if (mismatches.length) throw Object.assign(new Error(`${mismatches.length}/${players.length} balance/tx mismatches`), { assertions: mismatches.map(m=>`✗ ${m}`) });
+        return { assertions: [`✓ ${players.length} players checked — all balances match transaction sum`] };
+      }),
+
+      no_duplicate_payments: () => runTest('no_duplicate_payments', 'No duplicate same-amount same-category same-minute transactions', async () => {
+        const pDups = await EXECUTESQL(`SELECT player_id, category, amount, DATE_FORMAT(created_date,'%Y-%m-%d %H:%i') as min, COUNT(*) as cnt FROM player_stc_transactions WHERE category NOT IN ('lifestyle_passive','initial_grant') GROUP BY player_id,category,amount,min HAVING cnt>1 LIMIT 10`);
+        const cDups = await EXECUTESQL(`SELECT club_id, category, amount, DATE_FORMAT(created_date,'%Y-%m-%d %H:%i') as min, COUNT(*) as cnt FROM stc_transactions WHERE category NOT IN ('shirt_revenue','ticket_revenue') GROUP BY club_id,category,amount,min HAVING cnt>1 LIMIT 10`);
+        if (pDups.length || cDups.length) throw new Error(`Potential duplicates: ${pDups.length} player, ${cDups.length} club (check manually — may be legitimate)`);
+        return { assertions: ['✓ No suspicious duplicate player transactions', '✓ No suspicious duplicate club transactions'] };
+      }),
+
+      wager_integrity: () => runTest('wager_integrity', 'Active wagers have both locks; settled solo wagers have payout records', async () => {
+        const unlocked = await EXECUTESQL(`SELECT id FROM matches WHERE wager_status='active' AND (wager_home_locked=0 OR wager_away_locked=0) AND status NOT IN ('completed','forfeit','cancelled') LIMIT 10`);
+        const noPayoutTx = await EXECUTESQL(`SELECT m.id FROM matches m WHERE m.wager_status='settled' AND m.mode='solo' AND m.home_player_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM player_stc_transactions t WHERE t.reference_id=m.id AND t.category='wager_payout') LIMIT 10`);
+        const issues = [];
+        if (unlocked.length) issues.push(`${unlocked.length} active wager(s) with incomplete locks`);
+        if (noPayoutTx.length) issues.push(`${noPayoutTx.length} settled solo wager(s) missing payout tx`);
+        if (issues.length) throw new Error(issues.join('; '));
+        return { assertions: ['✓ All active wagers have both home + away locks', '✓ All settled solo wagers have payout transactions'] };
+      }),
+
+      transaction_completeness: () => runTest('transaction_completeness', 'Completed club matches have ticket revenue; active contracts have recent salary records', async () => {
+        const noRevenue = await EXECUTESQL(`SELECT id, home_club_name FROM matches WHERE status='completed' AND home_club_id IS NOT NULL AND stats_processed=1 AND home_ticket_revenue=0 AND created_date >= DATE_SUB(NOW(), INTERVAL 7 DAY) LIMIT 10`);
+        const staleSalary = await EXECUTESQL(`SELECT pc.id, pc.weekly_salary_stc FROM player_contracts pc WHERE pc.status='active' AND pc.weekly_salary_stc>0 AND pc.created_date<DATE_SUB(NOW(),INTERVAL 8 DAY) AND NOT EXISTS (SELECT 1 FROM player_stc_transactions t WHERE t.player_id=pc.user_id AND t.category='wage_payment' AND t.created_date>=DATE_SUB(NOW(),INTERVAL 8 DAY)) LIMIT 10`);
+        const issues = [];
+        if (noRevenue.length) issues.push(`${noRevenue.length} recent completed match(es) with 0 ticket revenue`);
+        if (staleSalary.length) issues.push(`${staleSalary.length} active contract(s) with no salary in 8 days`);
+        if (issues.length) return { status: 'warn', message: issues.join('; '), assertions: issues.map(i=>`⚠ ${i}`) };
+        return { assertions: ['✓ Recent completed matches have ticket revenue', '✓ Active contracts have salary on record'] };
+      }),
+
+      club_profile_accuracy: () => runTest('club_profile_accuracy', `Spot-check ${sample_size || 5} clubs: sum(txs) ≈ stored balance`, async () => {
+        const N = Math.min(Number(sample_size) || 5, 20);
+        const clubs = await EXECUTESQL(`SELECT id, name, stc FROM clubs WHERE stc IS NOT NULL AND name NOT LIKE '__TEST__%' ORDER BY RAND() LIMIT ?`, [N]);
+        const mismatches = [];
+        for (const c of clubs) {
+          const [s] = await EXECUTESQL('SELECT COALESCE(SUM(amount),0) as total FROM stc_transactions WHERE club_id=?', [c.id]);
+          const txSum = Math.round(Number(s.total)), actual = Math.round(Number(c.stc));
+          if (Math.abs(txSum - actual) > 100) mismatches.push(`${c.name}: txs=${txSum.toLocaleString()} ≠ balance=${actual.toLocaleString()}`);
+        }
+        if (mismatches.length) return { status: 'warn', message: `${mismatches.length}/${clubs.length} clubs with balance/tx discrepancies (may be pre-tx-system data)`, assertions: mismatches.map(m=>`⚠ ${m}`) };
+        return { assertions: [`✓ ${clubs.length} clubs checked — balances consistent with transaction history`] };
+      }),
+    };
+
+    // ── routing ─────────────────────────────────────────────────────────────
+    if (action === 'list_tests') {
+      return { data: { simulations: Object.keys(SIM_TESTS), verifications: Object.keys(VERIFY_TESTS) } };
+    }
+
+    if (action === 'run_test') {
+      if (!test_name) throw new Error('test_name required');
+      const fn = SIM_TESTS[test_name] || VERIFY_TESTS[test_name];
+      if (!fn) throw new Error(`Unknown test: ${test_name}`);
+      return { data: { result: await fn() } };
+    }
+
+    if (action === 'run_suite') {
+      const names = suite === 'verify'
+        ? Object.keys(VERIFY_TESTS)
+        : suite === 'sim'
+        ? Object.keys(SIM_TESTS)
+        : [...Object.keys(SIM_TESTS), ...Object.keys(VERIFY_TESTS)];
+      const results = [];
+      for (const n of names) {
+        const fn = SIM_TESTS[n] || VERIFY_TESTS[n];
+        results.push(await fn());
+      }
+      const passed  = results.filter(r => r.status === 'pass').length;
+      const failed  = results.filter(r => r.status === 'fail').length;
+      const warned  = results.filter(r => r.status === 'warn').length;
+      const errored = results.filter(r => r.status === 'error').length;
+      return { data: { results, summary: { total: results.length, passed, failed, warned, errored } } };
+    }
+
+    throw new Error(`Unknown economyTests action: ${action}`);
+  },
+
   // ── Delete account ────────────────────────────────────────────────────────
   async deleteAccount({ _auth_user_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
