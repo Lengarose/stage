@@ -545,7 +545,7 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const c = { ...DEFAULTS, ...content };
+  const c = DEFAULTS;
 
   return (
     <div ref={pageRef} className="min-h-screen relative">
