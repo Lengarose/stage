@@ -66,6 +66,32 @@ router.post('/', async (req, res) => {
         [record.id, record.user_id]
       );
     }
+
+    // ── Wallet initialization: always grant 50,000 STC on first creation ──
+    const INITIAL_STC = 50_000;
+    try {
+      await EXECUTESQL(
+        'UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ? AND stc < ?',
+        [INITIAL_STC, record.id, INITIAL_STC]
+      );
+      const existingWelcome = await EXECUTESQL(
+        "SELECT id FROM player_stc_transactions WHERE player_id = ? AND category = 'initial_grant' LIMIT 1",
+        [record.id]
+      );
+      if (!existingWelcome.length) {
+        await EXECUTESQL(
+          `INSERT INTO player_stc_transactions
+             (id, player_id, player_email, amount, balance_after, type, category, source, description, created_date)
+           VALUES (?, ?, ?, ?, ?, 'income', 'initial_grant', 'STAGE',
+                   'Welcome to STAGE — 50,000 STC starting balance', NOW())`,
+          [uuidv4(), record.id, record.email || null, INITIAL_STC, INITIAL_STC]
+        );
+      }
+      record.stc = INITIAL_STC;
+    } catch (walletErr) {
+      console.error('[wallet-init] failed for player', record.id, walletErr.message);
+    }
+
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
     res.status(201).json(record);
   } catch (err) {

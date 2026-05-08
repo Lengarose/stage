@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { processMatchRevenue } from "@/lib/matchRevenue";
-import { generateMatchShirtSales } from "@/lib/virtualShirtSales";
+import { stageClient } from "@/api/stageClient";
+import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
 import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
@@ -84,10 +84,10 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   useEffect(() => {
     async function load() {
       if (game.tournament_id && game.tournament_id !== "ranked") {
-        const tournaments = await stageClient.entities.Tournament.filter({ id: game.tournament_id });
+        const tournaments = await base44.entities.Tournament.filter({ id: game.tournament_id });
         if (tournaments.length > 0) setTournament(tournaments[0]);
       }
-      const matchStats = await stageClient.entities.MatchPlayerStat.filter({ match_id: game.id });
+      const matchStats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
       setStats(matchStats || []);
       setIsHomeClub(isClubMatch ? (myClub ? game.home_club_id === myClub.id : false) : false);
     }
@@ -96,7 +96,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   async function handleKickoff() {
     setKickoffLoading(true);
-    const res = await stageClient.functions.invoke("matchKickoff", {
+    const res = await base44.functions.invoke("matchKickoff", {
       match_id: game.id,
       action: "kickoff",
     });
@@ -111,25 +111,22 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   async function handleResultSubmitted(status, homeScore, awayScore) {
     setShowResultForm(false);
-    const newStatus = status === "disputed" ? "disputed" : status === "completed" ? "completed" : game.status;
-    let updated = {
-      ...game,
-      status: newStatus,
-      ...(newStatus === "completed" && homeScore != null ? { home_score: homeScore, away_score: awayScore } : {}),
-    };
 
-    // Reload from server to capture both teams' goal events (stored fire-and-forget in GameDayMatchResult)
-    if (newStatus === "completed") {
-      const fresh = await base44.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
-      if (fresh?.[0]) updated = { ...updated, ...fresh[0] };
-    }
+    // Always reload from server — captures submission flags, goal events, scores
+    const fresh = await base44.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
+    let updated = fresh?.[0] ? { ...game, ...fresh[0] } : {
+      ...game,
+      status: status === "disputed" ? "disputed" : status === "completed" ? "completed" : game.status,
+      ...(status === "completed" && homeScore != null ? { home_score: homeScore, away_score: awayScore } : {}),
+    };
 
     setGame(updated);
     if (onGameUpdate) onGameUpdate(updated);
 
-    if (newStatus === "completed") {
+    if (status === "completed") {
       processMatchRevenue(updated);
-      generateMatchShirtSales(updated);
+      processSoloMatchRevenue(updated);
+      stageClient.functions.invoke("shirtSales", { action: "generate_for_match", match_id: updated.id }).catch(() => {});
       syncFixtureAfterMatch(updated).catch(() => {});
       syncPlayerCareerStats(updated.id).catch(() => {});
     }
@@ -218,14 +215,47 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         }}
       />
 
+      {/* Ticket revenue / attendance card — home club only, after completion */}
+      {isCompleted && isClubMatch && Number(game.home_ticket_revenue || 0) > 0 && (
+        <div className="mx-5 mb-3 rounded-xl border border-success/25 bg-success/5 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Ticket className="w-4 h-4 text-success shrink-0" />
+            <span className="text-sm font-bold text-foreground">Gate Receipts</span>
+            <span className="ml-auto text-sm font-black text-success">
+              +{Number(game.home_ticket_revenue).toLocaleString()} STC
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Attendance</p>
+              <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_attendance || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Capacity</p>
+              <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_capacity || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-black/15 rounded-lg px-2 py-1.5">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Full</p>
+              <p className={cn("text-xs font-bold", Number(game.home_ticket_pct || 0) >= 80 ? "text-success" : Number(game.home_ticket_pct || 0) >= 50 ? "text-warning" : "text-muted-foreground")}>
+                {game.home_ticket_pct || 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Wager panel */}
       {(game.wager_stc > 0) && (
         <WagerPanel
           game={game}
           myPlayer={myPlayer}
+          myClub={myClub}
           isMyMatch={isMyMatch}
           amIHomeTeam={amIHomeTeam}
-          onGameUpdate={onGameUpdate}
+          onGameUpdate={(updated) => {
+            setGame(updated);
+            if (onGameUpdate) onGameUpdate(updated);
+          }}
         />
       )}
 
@@ -266,7 +296,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </div>
           )}
 
-          {/* Full Time — home calls it; away can submit their result independently */}
+          {/* Full Time — both teams submit independently once match is live */}
           {isLive && !showResultForm && amIHomeTeam && !game.result_home_submitted && (
             <Button
               onClick={() => setShowResultForm(true)}
@@ -275,7 +305,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               <Flag className="w-4 h-4" /> Full Time — Submit Result
             </Button>
           )}
-          {isLive && !showResultForm && !amIHomeTeam && !game.result_away_submitted && game.result_home_submitted && (
+          {isLive && !showResultForm && !amIHomeTeam && !game.result_away_submitted && (
             <Button
               onClick={() => setShowResultForm(true)}
               variant="outline"
@@ -283,12 +313,6 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             >
               <Flag className="w-4 h-4" /> Submit My Result
             </Button>
-          )}
-          {isLive && !showResultForm && !amIHomeTeam && !game.result_away_submitted && !game.result_home_submitted && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              Waiting for home team to call Full Time before you can submit.
-            </div>
           )}
           {isLive && !showResultForm && amIHomeTeam && game.result_home_submitted && (
             <div className="flex items-center gap-2 text-xs text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">

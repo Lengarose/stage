@@ -8,7 +8,9 @@ class StcTransaction {
     this.player_email = body.player_email;
     this.club_id      = body.club_id;
     this.amount       = body.amount;
+    this.balance_after= body.balance_after;
     this.type         = body.type;
+    this.category     = body.category;
     this.description  = body.description;
     this.reference_id = body.reference_id;
   }
@@ -16,7 +18,7 @@ class StcTransaction {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM stc_transactions ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL('SELECT * FROM stc_transactions ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
   selectOne(id) {
@@ -35,10 +37,10 @@ class StcTransaction {
     return EXECUTESQL('SELECT * FROM stc_transactions WHERE type = ? ORDER BY id DESC', [type]);
   }
 
-  selectByClubAndType(club_id, type) {
+  selectByClubAndCategory(club_id, category) {
     return EXECUTESQL(
-      'SELECT * FROM stc_transactions WHERE club_id = ? AND type = ? ORDER BY id DESC',
-      [club_id, type]
+      'SELECT * FROM stc_transactions WHERE club_id = ? AND category = ? ORDER BY created_date DESC',
+      [club_id, category]
     );
   }
 
@@ -62,8 +64,7 @@ class StcTransaction {
       this.player_id, this.player_email, this.club_id,
       this.amount, this.type, this.description, this.reference_id,
       id,
-    ];
-    return EXECUTESQL(sql, values);
+    ]);
   }
 
   delete(id) {

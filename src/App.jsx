@@ -50,6 +50,7 @@ import AdminPressConferencesPage from './pages/admin/AdminPressConferencesPage';
 import AdminLifestylesPage from './pages/admin/AdminLifestylesPage';
 import AdminTransfersPage from './pages/admin/AdminTransfersPage';
 import AdminLandingPage from './pages/admin/AdminLandingPage';
+import AdminHomePage from './pages/admin/AdminHomePage';
 import AdminSectionRoutePage from './pages/admin/AdminSectionRoutePage';
 import Players from './pages/Players';
 import ClubsRegistered from './pages/ClubsRegistered';
@@ -61,6 +62,7 @@ import Schedule from './pages/Schedule';
 import GameDay from './pages/GameDay';
 import TransferMarket from './pages/TransferMarket';
 import Lifestyle from './pages/Lifestyle';
+import Wallet from './pages/Wallet';
 import FollowBack from './pages/FollowBack';
 import Competitions from './pages/Competitions';
 import CompetitionDetail from './pages/CompetitionDetail';
@@ -120,10 +122,19 @@ const AuthenticatedApp = () => {
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     const userScopedDone = localStorage.getItem(userScopedKey) === '1';
     const legacyDone = localStorage.getItem('stage_onboarding_completed') === '1';
-    // Consider onboarding complete if user already has profile data on backend.
     const hasProfileData = Boolean(user.player_id || user.owner_id);
     setPlayerSetupComplete(userScopedDone || legacyDone || hasProfileData);
   }, [user]);
+
+  // Run automated contract maintenance once per session
+  React.useEffect(() => {
+    if (!user) return;
+    const sessionKey = `stage_contract_maintenance_${new Date().toDateString()}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+    stageClient.functions.invoke('contractManagement', { action: 'expire_overdue' }).catch(() => {});
+    stageClient.functions.invoke('contractManagement', { action: 'auto_pay_salaries' }).catch(() => {});
+  }, [user?.id]);
 
   if (isLoadingAuth) return <SplashScreen />;
 
@@ -214,6 +225,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/lifestyles" element={<AdminLifestylesPage />} />
         <Route path="/admin/transfers" element={<AdminTransfersPage />} />
         <Route path="/admin/landing" element={<AdminLandingPage />} />
+        <Route path="/admin/home" element={<AdminHomePage />} />
         <Route path="/admin/:section" element={<AdminSectionRoutePage />} />
         <Route path="/tournaments/:id/clubs" element={<ClubsRegistered />} />
         <Route path="/tournaments/:id/players" element={<PlayersRegistered />} />
@@ -224,6 +236,7 @@ const AuthenticatedApp = () => {
         <Route path="/game-day" element={<GameDay />} />
         <Route path="/transfer-market" element={<TransferMarket />} />
         <Route path="/lifestyle" element={<Lifestyle />} />
+        <Route path="/wallet" element={<Wallet />} />
         <Route path="/follow-back" element={<FollowBack />} />
         <Route path="/competitions" element={<Competitions />} />
         <Route path="/competitions/:slug" element={<CompetitionDetail />} />

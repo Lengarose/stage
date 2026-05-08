@@ -28,7 +28,7 @@ class LifestyleItem {
   }
 
   selectAll(page = 1) {
-    const pageSize = 25;
+    const pageSize = 100;
     const offset   = (page - 1) * pageSize;
     return EXECUTESQL('SELECT * FROM lifestyle_items ORDER BY sort_order ASC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
@@ -41,6 +41,13 @@ class LifestyleItem {
     return EXECUTESQL(
       'SELECT * FROM lifestyle_items WHERE is_active = ? ORDER BY sort_order ASC',
       [isActive ? 1 : 0]
+    );
+  }
+
+  selectByCategory(category) {
+    return EXECUTESQL(
+      'SELECT * FROM lifestyle_items WHERE category = ? AND is_active = 1 ORDER BY sort_order ASC',
+      [category]
     );
   }
 

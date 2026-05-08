@@ -40,17 +40,18 @@ export default function InboxContractOffer({ message, onActioned }) {
   const [clubOwnerEmail, setClubOwnerEmail] = useState(null);
   const [clubName, setClubName] = useState(null);
   const [clubLogoUrl, setClubLogoUrl] = useState(null);
+  const [myEmail, setMyEmail] = useState(null);
 
   const contractId = message?.metadata?.contract_id || message?.related_entity_id;
 
   useEffect(() => {
     if (!contractId) { setLoading(false); return; }
     async function load() {
-      const [user, contractArr] = await Promise.all([
+      const [user, c] = await Promise.all([
         stageClient.auth.me(),
-        stageClient.entities.PlayerContract.filter({ id: contractId }).catch(() => []),
+        stageClient.entities.PlayerContract.get(contractId).catch(() => null),
       ]);
-      const c = contractArr[0] || null;
+      setMyEmail(user.email);
       setContract(c);
 
       // Determine if I am the player or the club owner
@@ -114,8 +115,12 @@ export default function InboxContractOffer({ message, onActioned }) {
     );
   }
 
-  // Determine my role
-  const isPlayer = myPlayer?.id === contract.user_id;
+  // Determine my role.
+  // isPlayer: direct ID match OR this inbox message was delivered to me (I am the recipient).
+  const isPlayer = myPlayer != null && (
+    myPlayer.id === contract.user_id ||
+    (myEmail && myEmail === message?.recipient_email)
+  );
   const isClubOwner = myClub?.id === contract.team_id;
   const isActionable = ["pending", "negotiating"].includes(contract.status);
   // Player can act when: pending (always), or negotiating where last move was by club
@@ -137,40 +142,17 @@ export default function InboxContractOffer({ message, onActioned }) {
         // Renewal = player already belongs to this club; transfers need an open window
         const isRenewal = myPlayer?.club_id && myPlayer.club_id === contract.team_id;
         if (!isRenewal && !windowOpen) {
-          // Queue as pending_window — will execute when admin opens the window
           await stageClient.entities.PlayerContract.update(contractId, { status: "pending_window" });
           setContract(prev => ({ ...prev, status: "pending_window" }));
           onActioned?.("pending_window");
           return;
         }
-        const today = new Date().toISOString().split("T")[0];
-        const endDate = new Date(Date.now() + (contract.max_days || 180) * 86400000).toISOString().split("T")[0];
-        await stageClient.entities.PlayerContract.update(contractId, {
-          status: "active",
-          start_date: today,
-          end_date: endDate,
+        const result = await stageClient.functions.invoke("contractManagement", {
+          action: "accept",
+          contract_id: contractId,
         });
-        setContract(prev => ({ ...prev, status: "active", start_date: today, end_date: endDate }));
-
-        // Deduct signing bonus from club balance and record in finance
-        if ((contract.signing_bonus_stc || 0) > 0) {
-          try {
-            const clubArr = await stageClient.entities.Club.filter({ id: contract.team_id });
-            const contractClub = clubArr[0];
-            if (contractClub) {
-              await stageClient.entities.Club.update(contractClub.id, {
-                transfer_budget_stc: Math.max(0, (contractClub.transfer_budget_stc || 0) - contract.signing_bonus_stc),
-              });
-              await stageClient.entities.STCTransaction.create({
-                club_id: contractClub.id,
-                amount: -contract.signing_bonus_stc,
-                type: "signing_bonus",
-                description: `Signing bonus — ${myPlayer?.gamertag || "Player"} (${contract.contract_type} contract)`,
-                reference_id: contractId,
-              });
-            }
-          } catch (_) { /* non-fatal */ }
-        }
+        const { start_date, end_date } = result?.data || {};
+        setContract(prev => ({ ...prev, status: "active", start_date, end_date }));
 
         notify(clubOwnerEmail, "contract_accepted",
           `✅ Contract Accepted`,

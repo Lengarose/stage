@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
@@ -130,7 +130,7 @@ const FEATURES = [
   },
 ];
 
-const STATS = [
+const DEFAULT_STATS = [
   { value: '2 000+',  label: 'Active Players' },
   { value: '200+',    label: 'Clubs' },
   { value: '500+',    label: 'Competitions Played' },
@@ -143,7 +143,7 @@ const STEPS = [
   { num: '03', title: 'Register & Compete', desc: 'Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.' },
 ];
 
-const PICTURE_SECTIONS = [
+const DEFAULT_PICTURE_SECTIONS = [
   {
     tag: 'Compete',
     title: 'Structured Leagues & Competitions',
@@ -175,6 +175,36 @@ const PICTURE_SECTIONS = [
 
 /* ─── component ──────────────────────────────────────────── */
 export default function Landing({ onSignIn }) {
+  const [cms, setCms] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/stage/public/landing-content')
+      .then(r => r.ok ? r.json() : {})
+      .catch(() => ({}))
+      .then(setCms);
+  }, []);
+
+  const heroImg        = cms?.hero_image_url || null;
+  const heroEyebrow    = cms?.hero_title      || 'The Competitive EA FC Platform';
+  const heroDesc       = cms?.hero_description || 'Leagues, competitions, clubs, contracts, and a community — everything the serious EA FC player needs, all in one place.';
+  const footerTagline  = cms?.footer_tagline  || 'The premier competitive football gaming platform.';
+
+  const stats = (() => {
+    try {
+      const s = typeof cms?.stats_json === 'string' ? JSON.parse(cms.stats_json) : cms?.stats_json;
+      if (Array.isArray(s) && s.length) return s;
+    } catch {}
+    return DEFAULT_STATS;
+  })();
+
+  const pictureSections = DEFAULT_PICTURE_SECTIONS.map((s, i) => ({
+    ...s,
+    tag:      cms?.[`section${i + 1}_tag`]       || s.tag,
+    title:    cms?.[`section${i + 1}_title`]     || s.title,
+    text:     cms?.[`section${i + 1}_text`]      || s.text,
+    imageUrl: cms?.[`section${i + 1}_image_url`] || s.imageUrl,
+  }));
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
@@ -191,7 +221,7 @@ export default function Landing({ onSignIn }) {
 
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6">
-        <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%', filter: 'blur(6px)', transform: 'scale(1.05)' }} />
+        <img src={heroImg || BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%', filter: 'blur(6px)', transform: 'scale(1.05)' }} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
 
         <div className="relative z-10 max-w-4xl mx-auto">
@@ -201,7 +231,7 @@ export default function Landing({ onSignIn }) {
             transition={{ duration: 0.6 }}
             className="text-blue-400 text-xs md:text-sm font-bold uppercase tracking-[0.35em] mb-5"
           >
-            The Competitive EA FC Platform
+            {heroEyebrow}
           </motion.p>
 
           <motion.h1
@@ -222,7 +252,7 @@ export default function Landing({ onSignIn }) {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="text-white/60 text-base md:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
           >
-            Leagues, competitions, clubs, contracts, and a community — everything the serious EA FC player needs, all in one place.
+            {heroDesc}
           </motion.p>
 
           <motion.div
@@ -264,8 +294,8 @@ export default function Landing({ onSignIn }) {
       {/* ── STATS BAR ────────────────────────────────────── */}
       <section className="border-y border-white/8 bg-white/3">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-white/8">
-          {STATS.map(({ value, label }, i) => (
-            <FadeIn key={label} delay={i * 0.08}>
+          {stats.map(({ value, label }, i) => (
+            <FadeIn key={i} delay={i * 0.08}>
               <div className="py-10 px-6 text-center">
                 <p className="text-3xl md:text-4xl font-black text-white mb-1">{value}</p>
                 <p className="text-white/40 text-xs uppercase tracking-widest">{label}</p>
@@ -278,7 +308,7 @@ export default function Landing({ onSignIn }) {
       {/* ── PICTURE SECTIONS ─────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto space-y-28">
-          {PICTURE_SECTIONS.map((s, i) => (
+          {pictureSections.map((s, i) => (
             <FadeIn key={s.title} delay={0.05}>
               <PictureSection {...s} />
             </FadeIn>
@@ -379,7 +409,7 @@ export default function Landing({ onSignIn }) {
       <footer className="border-t border-white/8 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <img src={LogoImg} alt="STAGE" className="h-9 w-auto object-contain opacity-40" />
-          <p className="text-white/20 text-xs">© {new Date().getFullYear()} Stage. All rights reserved.</p>
+          <p className="text-white/20 text-xs">{footerTagline || `© ${new Date().getFullYear()} Stage. All rights reserved.`}</p>
           <button onClick={onSignIn} className="text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-widest transition-colors">
             Sign In →
           </button>

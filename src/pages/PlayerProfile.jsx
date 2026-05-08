@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { getBannerStyle } from "@/lib/storeItems";
 import { cn } from "@/lib/utils";
-import { formatSTC } from "@/lib/playerValue";
+import { formatSTC, calculatePlayerValue, getValueTier } from "@/lib/playerValue";
+import { TrendingUp } from "lucide-react";
 import { notify, postContractNews } from "@/lib/notify";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
 import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
@@ -422,30 +423,60 @@ export default function PlayerProfile() {
 
           {/* Stats */}
           <TabsContent value="stats" className="px-3 sm:px-4 pt-4">
+            {(() => {
+              const mv = calculatePlayerValue(player);
+              const tier = getValueTier(mv);
+              return (
             <div className="space-y-4">
-              {/* OVR card */}
-              <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 flex items-center gap-3">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-primary/10 border border-primary/20 flex flex-col items-center justify-center shrink-0">
-                  <span className="font-heading text-lg sm:text-xl font-black text-primary leading-none">{player.overall_rating || 70}</span>
-                  <span className="text-[8px] uppercase tracking-wider text-white/40 mt-0.5">OVR</span>
+              {/* Market Value Card */}
+              <div className={cn("border rounded-xl p-3 sm:p-4 flex items-center gap-4", tier.bg, tier.border)}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 mb-0.5 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> Market Value
+                  </p>
+                  <p className={cn("font-light text-2xl sm:text-3xl tracking-tight leading-none", tier.color)}>
+                    {formatSTC(mv)}
+                  </p>
+                  <p className={cn("text-xs font-semibold mt-1", tier.color)}>{tier.label}</p>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-white truncate">{player.gamertag}</p>
-                  <p className="text-xs text-white/40">{player.position} · {player.platform}</p>
-                  <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-wider">Ranked / Tournament stats only</p>
+                <div className="text-right shrink-0 space-y-1">
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider">OVR</div>
+                  <div className="font-heading text-lg font-black text-primary leading-none">{player.overall_rating || 70}</div>
+                  <div className="text-[10px] text-white/40">{player.position}</div>
                 </div>
               </div>
-
 
               {/* Stat grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                <StatCard label="Matches" value={clubStats?.matches ?? 0} />
-                <StatCard label="Goals" value={clubStats?.goals ?? 0} accent="success" />
-                <StatCard label="Assists" value={clubStats?.assists ?? 0} accent="accent" />
-                <StatCard label="Avg Rating" value={(clubStats?.avgRating || 6).toFixed(1)} accent="warning" />
+                <StatCard label="Matches" value={player.matches_played ?? clubStats?.matches ?? 0} />
+                <StatCard label="Goals" value={player.goals ?? clubStats?.goals ?? 0} accent="success" />
+                <StatCard label="Assists" value={player.assists ?? clubStats?.assists ?? 0} accent="accent" />
+                <StatCard label="Avg Rating" value={player.avg_match_rating > 0 ? Number(player.avg_match_rating).toFixed(1) : (clubStats?.avgRating || 0).toFixed(1)} accent="warning" />
                 <StatCard label="MOTM" value={player.man_of_the_match || 0} />
                 <StatCard label="Clean Sheets" value={player.clean_sheets || 0} />
               </div>
+
+              {/* Recent form strip */}
+              {(() => {
+                let form = [];
+                try { form = JSON.parse(player.form_last10 || '[]'); } catch {}
+                if (!form.length) return null;
+                return (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Recent Form (last {form.length})</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {form.map((r, i) => {
+                        const col = r >= 8 ? 'bg-warning/80 text-black' : r >= 7 ? 'bg-success/80 text-black' : r >= 6 ? 'bg-primary/60 text-white' : 'bg-white/10 text-white/60';
+                        return (
+                          <span key={i} className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", col)}>
+                            {r.toFixed(1)}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* PvP summary */}
               {pvpMatches.length > 0 && (() => {
@@ -473,6 +504,8 @@ export default function PlayerProfile() {
                 );
               })()}
             </div>
+            );
+            })()}
           </TabsContent>
 
           {/* Matches */}

@@ -50,9 +50,12 @@ class LifestylePurchase {
   }
 
   selectAll(page = 1) {
-    const pageSize = 25;
+    const pageSize = 50;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM lifestyle_purchases LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE status != 'sold' ORDER BY created_date DESC LIMIT ? OFFSET ?",
+      [pageSize, offset]
+    );
   }
 
   selectOne(id) {
@@ -60,15 +63,24 @@ class LifestylePurchase {
   }
 
   selectByPlayer(player_id) {
-    return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ?', [player_id]);
+    return EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE player_id = ? AND status != 'sold' ORDER BY created_date DESC",
+      [player_id]
+    );
+  }
+
+  selectByPlayerAndType(player_id, purchase_type) {
+    return EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE player_id = ? AND purchase_type = ? AND status = 'active' ORDER BY created_date DESC",
+      [player_id, purchase_type]
+    );
   }
 
   selectByItemType(item_type) {
-    return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE item_type = ?', [item_type]);
-  }
-
-  selectByPlayerAndType(player_id, item_type) {
-    return EXECUTESQL('SELECT * FROM lifestyle_purchases WHERE player_id = ? AND item_type = ?', [player_id, item_type]);
+    return EXECUTESQL(
+      "SELECT * FROM lifestyle_purchases WHERE item_type = ? AND status != 'sold'",
+      [item_type]
+    );
   }
 
   create() {
@@ -113,8 +125,7 @@ class LifestylePurchase {
       this.location_city, this.location_country, this.location_emoji, this.custom_name,
       this.weekly_maintenance_stc, this.last_maintenance_paid_at, this.is_defaulted, this.upgrade_slots,
       id,
-    ];
-    return EXECUTESQL(sql, values);
+    ]);
   }
 
   delete(id) {

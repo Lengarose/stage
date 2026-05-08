@@ -77,6 +77,7 @@ function getPlayerGroups(_clubPath) {
       items: [
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
+        { path: "/wallet",          icon: Zap,            label: "Wallet" },
       ],
     },
     {
@@ -149,6 +150,7 @@ function getAdminGroups() {
         { path: "/admin/press-conferences", icon: Newspaper, label: "PressConferences" },
         { path: "/admin/lifestyles", icon: Coins, label: "LifeStyles" },
         { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
+        { path: "/admin/home", icon: Palette, label: "Home Page" },
         { path: "/admin/landing", icon: Palette, label: "Landing Page" },
       ],
     },

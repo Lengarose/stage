@@ -16,9 +16,8 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
   const [upgrading, setUpgrading] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // Clamp old-format levels (0-5) to new 3-level system (0-2)
   const rawLevel = club?.stadium_level || 0;
-  const currentLevel = rawLevel > 2 ? 2 : rawLevel; // cap at 2
+  const currentLevel = Math.min(Math.max(rawLevel, 0), STADIUM_LEVELS.length - 1);
   const current = getStadiumLevel(currentLevel);
   const next = getNextStadiumLevel(currentLevel);
   const clubStc = club?.stc || 0;
@@ -33,23 +32,17 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
     if (!next || !canAfford) return;
     setUpgrading(true);
     try {
-      const newStc = clubStc - next.upgrade_cost_stc;
-      const updates = {
-        stc: newStc,
-        stadium_level: currentLevel + 1,
-        stadium_name: club.stadium_name || `${club.name} Stadium`,
-        stadium_capacity: next.capacity,
-      };
-      await stageClient.entities.Club.update(club.id, updates);
-      await stageClient.entities.STCTransaction.create({
+      const res = await stageClient.functions.invoke("stadiumManagement", {
+        action: "upgrade_club_stadium",
         club_id: club.id,
-        amount: -next.upgrade_cost_stc,
-        type: "stadium_upgrade",
-        description: `Stadium upgraded to ${next.name}`,
-        reference_id: club.id,
       });
+      const updates = {
+        stc: clubStc - next.upgrade_cost_stc,
+        stadium_level: res?.data?.new_level ?? (currentLevel + 1),
+        stadium_capacity: res?.data?.new_capacity ?? next.capacity,
+      };
       onUpdate?.(updates);
-      showNotif(`Stadium upgraded to ${next.name}!`, "success");
+      showNotif(`Stadium upgraded to ${res?.data?.name || next.name}!`, "success");
     } catch (err) {
       showNotif(err.message || "Upgrade failed", "error");
     }
