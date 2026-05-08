@@ -468,7 +468,6 @@ function InboxPanel({ messages, user }) {
    PAGE
    ══════════════════════════════════════════════════════════ */
 export default function Home() {
-  const [content,    setContent]    = useState(null);
   const [seasons,    setSeasons]    = useState([]);
   const [newsItems,  setNewsItems]  = useState([]);
   const [matches,    setMatches]    = useState([]);
@@ -477,9 +476,6 @@ export default function Home() {
 
   useEffect(() => {
     const safe = (p) => Promise.resolve(p).catch(() => []);
-
-    safe(stageClient.entities.LandingPageContent.filter({}, null, 1))
-      .then(rows => { if (rows?.[0]) setContent(rows[0]); });
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
       .then(rows => setSeasons(rows || []));
@@ -500,7 +496,7 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  const c = { ...DEFAULTS, ...content };
+  const c = DEFAULTS;
 
   return (
     <div className="min-h-screen">
