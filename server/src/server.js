@@ -366,11 +366,34 @@ async function runStartupMigrations() {
     INDEX idx_aal_created (created_date)
   )`).catch(() => {});
 
-  // Trophy items — add missing columns
+  // Trophy items table
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_items (
+    id           VARCHAR(36)   NOT NULL PRIMARY KEY,
+    name         VARCHAR(255)  NOT NULL,
+    description  TEXT          NULL,
+    image_url    VARCHAR(500)  NULL,
+    rarity       VARCHAR(50)   DEFAULT 'common',
+    price        DECIMAL(12,2) DEFAULT 0,
+    created_date DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] trophy_items:', err.message));
   await addCol('trophy_items', 'description', 'TEXT NULL');
   await addCol('trophy_items', 'image_url',   'VARCHAR(500) NULL');
   await addCol('trophy_items', 'rarity',      "VARCHAR(50) DEFAULT 'common'");
   await addCol('trophy_items', 'price',       'DECIMAL(12,2) DEFAULT 0');
+
+  // Trophy placements table
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_placements (
+    id             VARCHAR(36)  NOT NULL PRIMARY KEY,
+    owner_id       VARCHAR(36)  NULL,
+    owner_type     VARCHAR(50)  NULL,
+    trophy_item_id VARCHAR(36)  NULL,
+    position       INT          DEFAULT 0,
+    created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_tp_owner (owner_id, owner_type),
+    INDEX idx_tp_item  (trophy_item_id)
+  )`).catch(err => console.error('[migration] trophy_placements:', err.message));
 
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
