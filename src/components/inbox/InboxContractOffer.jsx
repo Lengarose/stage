@@ -40,17 +40,18 @@ export default function InboxContractOffer({ message, onActioned }) {
   const [clubOwnerEmail, setClubOwnerEmail] = useState(null);
   const [clubName, setClubName] = useState(null);
   const [clubLogoUrl, setClubLogoUrl] = useState(null);
+  const [myEmail, setMyEmail] = useState(null);
 
   const contractId = message?.metadata?.contract_id || message?.related_entity_id;
 
   useEffect(() => {
     if (!contractId) { setLoading(false); return; }
     async function load() {
-      const [user, contractArr] = await Promise.all([
+      const [user, c] = await Promise.all([
         stageClient.auth.me(),
-        stageClient.entities.PlayerContract.filter({ id: contractId }).catch(() => []),
+        stageClient.entities.PlayerContract.get(contractId).catch(() => null),
       ]);
-      const c = contractArr[0] || null;
+      setMyEmail(user.email);
       setContract(c);
 
       // Determine if I am the player or the club owner
@@ -114,8 +115,12 @@ export default function InboxContractOffer({ message, onActioned }) {
     );
   }
 
-  // Determine my role
-  const isPlayer = myPlayer?.id === contract.user_id;
+  // Determine my role.
+  // isPlayer: direct ID match OR this inbox message was delivered to me (I am the recipient).
+  const isPlayer = myPlayer != null && (
+    myPlayer.id === contract.user_id ||
+    (myEmail && myEmail === message?.recipient_email)
+  );
   const isClubOwner = myClub?.id === contract.team_id;
   const isActionable = ["pending", "negotiating"].includes(contract.status);
   // Player can act when: pending (always), or negotiating where last move was by club
