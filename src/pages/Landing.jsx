@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
+import TrophiesImg from '@/assets/Trophies.PNG';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -150,7 +151,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on Game Day, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.',
     flip: false,
     accent: '#f59e0b',
-    imageUrl: null,
+    imageUrl: TrophiesImg,
     objectPosition: 'center',
   },
   {
