@@ -53,6 +53,19 @@ app.use('/api/stage/live-matches',              verifyToken, require('./server/c
 app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 
+// Competition & league entity stack (generic CRUD via single league_entities table)
+const { makeRouter: makeLeagueRouter } = require('./server/controllers/leagueEntityController');
+app.use('/api/stage/competitions',               verifyToken, makeLeagueRouter('competition'));
+app.use('/api/stage/competition-seasons',        verifyToken, makeLeagueRouter('competition_season'));
+app.use('/api/stage/competition-fixtures',       verifyToken, makeLeagueRouter('competition_fixture'));
+app.use('/api/stage/competition-standings',      verifyToken, makeLeagueRouter('competition_standing'));
+app.use('/api/stage/regional-leagues',           verifyToken, makeLeagueRouter('regional_league'));
+app.use('/api/stage/regional-league-fixtures',   verifyToken, makeLeagueRouter('regional_league_fixture'));
+app.use('/api/stage/regional-league-standings',  verifyToken, makeLeagueRouter('regional_league_standing'));
+app.use('/api/stage/qualification-entries',      verifyToken, makeLeagueRouter('qualification_entry'));
+app.use('/api/stage/ranking-configs',            verifyToken, makeLeagueRouter('ranking_config'));
+app.use('/api/stage/season-registrations',       verifyToken, makeLeagueRouter('season_registration'));
+
 // Static `/uploads` — same folder as multer (see constants/paths.js); created if missing
 const uploadsStaticDir = ensureUploadsDir();
 app.use('/uploads', require('express').static(uploadsStaticDir));
@@ -306,6 +319,34 @@ async function runStartupMigrations() {
       ).catch(() => {});
     }
   }
+
+  // Competition & league entity store (single flexible table for all league/comp entities)
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS league_entities (
+    id               VARCHAR(36)  NOT NULL PRIMARY KEY,
+    entity_type      VARCHAR(50)  NOT NULL,
+    data_json        MEDIUMTEXT,
+    status           VARCHAR(50)  DEFAULT NULL,
+    scheduling_status VARCHAR(50) DEFAULT NULL,
+    slug             VARCHAR(100) DEFAULT NULL,
+    league_id        VARCHAR(36)  DEFAULT NULL,
+    season_id        VARCHAR(36)  DEFAULT NULL,
+    competition_id   VARCHAR(36)  DEFAULT NULL,
+    club_id          VARCHAR(36)  DEFAULT NULL,
+    is_active        TINYINT(1)   DEFAULT NULL,
+    tier             INT          DEFAULT NULL,
+    division         INT          DEFAULT NULL,
+    region           VARCHAR(100) DEFAULT NULL,
+    platform         VARCHAR(50)  DEFAULT NULL,
+    season_number    INT          DEFAULT NULL,
+    created_date     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_le_type        (entity_type),
+    INDEX idx_le_type_status (entity_type, status),
+    INDEX idx_le_slug        (entity_type, slug),
+    INDEX idx_le_league      (entity_type, league_id),
+    INDEX idx_le_season      (entity_type, season_id),
+    INDEX idx_le_comp        (entity_type, competition_id)
+  )`).catch(() => {});
 
   // Admin audit log
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS admin_audit_log (
