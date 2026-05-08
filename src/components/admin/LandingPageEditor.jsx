@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Upload, Check, Image, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Upload, Check, Image, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_STATS = [
@@ -125,7 +125,7 @@ export default function LandingPageEditor() {
   const [saved, setSaved]   = useState(false);
 
   useEffect(() => {
-    (base44.entities.LandingPageContent?.filter({}, null, 1) ?? Promise.resolve([]))
+    (base44.entities.LandingConfig?.filter({}, null, 1) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
         const r = rows[0] || {};
@@ -159,7 +159,6 @@ export default function LandingPageEditor() {
       section3_title:     r.section3_title     ?? "Build a Career Worth Watching",
       section3_text:      r.section3_text      ?? "",
       section3_image_url: r.section3_image_url ?? "",
-      faq_items:          r.faq_items          ?? [],
       footer_tagline:     r.footer_tagline     ?? "",
     };
   }
@@ -176,19 +175,6 @@ export default function LandingPageEditor() {
     });
   }
 
-  function addFaq() {
-    setForm(f => ({ ...f, faq_items: [...(f.faq_items || []), { question: "", answer: "" }] }));
-  }
-  function removeFaq(i) {
-    setForm(f => ({ ...f, faq_items: f.faq_items.filter((_, idx) => idx !== i) }));
-  }
-  function setFaq(i, field, value) {
-    setForm(f => ({
-      ...f,
-      faq_items: f.faq_items.map((item, idx) => idx === i ? { ...item, [field]: value } : item),
-    }));
-  }
-
   async function handleSave() {
     if (!form) return;
     setSaving(true);
@@ -199,9 +185,9 @@ export default function LandingPageEditor() {
       };
       delete payload.stats;
       if (record?.id) {
-        await base44.entities.LandingPageContent.update(record.id, payload);
+        await base44.entities.LandingConfig.update(record.id, payload);
       } else {
-        const created = await base44.entities.LandingPageContent.create(payload);
+        const created = await base44.entities.LandingConfig.create(payload);
         setRecord(created);
       }
       setSaved(true);
@@ -298,27 +284,6 @@ export default function LandingPageEditor() {
           />
         </EditorSection>
       ))}
-
-      {/* ── FAQ ── */}
-      <EditorSection title="FAQ" badge={form.faq_items?.length || 0}>
-        <div className="space-y-3">
-          {(form.faq_items || []).map((item, i) => (
-            <div key={i} className="border border-border rounded-lg p-3 space-y-2 bg-secondary/20">
-              <div className="flex items-center justify-between">
-                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold">Question {i + 1}</p>
-                <button type="button" onClick={() => removeFaq(i)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <Input value={item.question} onChange={e => setFaq(i, "question", e.target.value)} className="h-8 text-xs" placeholder="Question…" />
-              <Textarea value={item.answer} onChange={e => setFaq(i, "answer", e.target.value)} className="text-xs resize-none" rows={2} placeholder="Answer…" />
-            </div>
-          ))}
-          <Button type="button" size="sm" variant="outline" onClick={addFaq} className="h-7 text-[10px] gap-1.5">
-            <Plus className="w-3 h-3" /> Add Question
-          </Button>
-        </div>
-      </EditorSection>
 
       {/* ── Footer ── */}
       <EditorSection title="Footer">

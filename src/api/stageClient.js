@@ -223,6 +223,8 @@ const ENTITY_NAMES = [
   'QualificationEntry', 'RankingConfig', 'SeasonRegistration',
   // New reward/achievement entities
   'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
+  // Pre-login landing page config
+  'LandingConfig',
   // Legacy/compat entities used in some screens
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
 ];

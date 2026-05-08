@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import TransferWindowPanel from "@/components/admin/TransferWindowPanel";
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import LandingPageEditor from "@/components/admin/LandingPageEditor";
+import HomePageEditor from "@/components/admin/HomePageEditor";
 import { base44 } from "@/api/base44Client";
 import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
@@ -1923,6 +1924,7 @@ const ADMIN_SECTION_ALIASES = {
   rewards: "rewards",
   rankings: "rankings",
   landing: "landing",
+  home: "home",
 };
 
 /** @param {{ forcedSection?: string }} [props] */
@@ -4482,9 +4484,14 @@ export default function Admin(props) {
             </div>
           </TabsContent>
 
-          {/* ── Landing Page ─────────────────────────────── */}
+          {/* ── Landing Page (pre-login) ─────────────────── */}
           <TabsContent value="landing">
             <LandingPageEditor />
+          </TabsContent>
+
+          {/* ── Home Page (post-login) ───────────────────── */}
+          <TabsContent value="home">
+            <HomePageEditor />
           </TabsContent>
 
         </Tabs>

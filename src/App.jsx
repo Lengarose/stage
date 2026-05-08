@@ -50,6 +50,7 @@ import AdminPressConferencesPage from './pages/admin/AdminPressConferencesPage';
 import AdminLifestylesPage from './pages/admin/AdminLifestylesPage';
 import AdminTransfersPage from './pages/admin/AdminTransfersPage';
 import AdminLandingPage from './pages/admin/AdminLandingPage';
+import AdminHomePage from './pages/admin/AdminHomePage';
 import AdminSectionRoutePage from './pages/admin/AdminSectionRoutePage';
 import Players from './pages/Players';
 import ClubsRegistered from './pages/ClubsRegistered';
@@ -224,6 +225,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/lifestyles" element={<AdminLifestylesPage />} />
         <Route path="/admin/transfers" element={<AdminTransfersPage />} />
         <Route path="/admin/landing" element={<AdminLandingPage />} />
+        <Route path="/admin/home" element={<AdminHomePage />} />
         <Route path="/admin/:section" element={<AdminSectionRoutePage />} />
         <Route path="/tournaments/:id/clubs" element={<ClubsRegistered />} />
         <Route path="/tournaments/:id/players" element={<PlayersRegistered />} />

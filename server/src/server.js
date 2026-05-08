@@ -51,6 +51,7 @@ app.use('/api/stage/chat-messages',     verifyToken, require('./server/controlle
 app.use('/api/stage/news-items',        verifyToken, require('./server/controllers/newsItemController'));
 app.use('/api/stage/live-matches',              verifyToken, require('./server/controllers/liveMatchController'));
 app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
+app.use('/api/stage/landing-configs',           verifyToken, require('./server/controllers/landingConfigController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 
 // Competition & league entity stack (generic CRUD via single league_entities table)
@@ -127,11 +128,11 @@ app.get('/api/stage/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'stage-server' });
 });
 
-// Public landing page content — no auth, served to logged-out visitors
+// Public pre-login landing page config — no auth
 app.get('/api/stage/public/landing-content', async (_req, res) => {
   try {
-    const LPC = require('./server/models/landingPageContentModel');
-    const rows = await new LPC().selectAll(1);
+    const LC = require('./server/models/landingConfigModel');
+    const rows = await new LC().selectAll(1);
     res.json(rows[0] || {});
   } catch { res.json({}); }
 });
@@ -374,6 +375,30 @@ async function runStartupMigrations() {
     INDEX idx_aal_admin   (admin_user_id),
     INDEX idx_aal_created (created_date)
   )`).catch(() => {});
+
+  // Pre-login landing page config table
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS landing_config (
+    id               VARCHAR(36)  NOT NULL PRIMARY KEY,
+    hero_title       VARCHAR(255) NULL,
+    hero_description TEXT         NULL,
+    hero_image_url   VARCHAR(500) NULL,
+    stats_json       TEXT         NULL,
+    section1_tag     VARCHAR(100) NULL,
+    section1_title   VARCHAR(255) NULL,
+    section1_text    TEXT         NULL,
+    section1_image_url VARCHAR(500) NULL,
+    section2_tag     VARCHAR(100) NULL,
+    section2_title   VARCHAR(255) NULL,
+    section2_text    TEXT         NULL,
+    section2_image_url VARCHAR(500) NULL,
+    section3_tag     VARCHAR(100) NULL,
+    section3_title   VARCHAR(255) NULL,
+    section3_text    TEXT         NULL,
+    section3_image_url VARCHAR(500) NULL,
+    footer_tagline   VARCHAR(255) NULL,
+    created_date     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] landing_config:', err.message));
 
   // Landing page content — extra fields for dynamic sections
   await addCol('landing_page_contents', 'stats_json',   'TEXT NULL');
