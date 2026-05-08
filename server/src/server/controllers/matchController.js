@@ -4,6 +4,7 @@ const Match   = require('../models/matchModel');
 const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { v4: uuidv4 } = require('uuid');
 
 async function getAuthContext(req) {
   const userId = req.user?.id;
@@ -34,6 +35,137 @@ function ownScopeWhere(ctx) {
 
 function hasOwnScope(ctx) {
   return Boolean(ctx.playerId || ctx.playerClubId || ctx.ownerClubId);
+}
+
+function eloDelta(ratingA, ratingB, result) {
+  const K = 32;
+  const expected = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+  const actual = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
+  return Math.round((K * (actual - expected)) * 10) / 10;
+}
+
+function parseForm(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function runPostConfirmProcessing(record) {
+  if (!record || record.status !== 'confirmed' || Number(record.stats_processed || 0) === 1) return;
+  const homeScore = Number(record.home_score || 0);
+  const awayScore = Number(record.away_score || 0);
+  const homeResult = homeScore > awayScore ? 'win' : (homeScore < awayScore ? 'loss' : 'draw');
+  const awayResult = homeResult === 'win' ? 'loss' : (homeResult === 'loss' ? 'win' : 'draw');
+
+  // Update player aggregates from match_player_stats if any.
+  const statRows = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [record.id]);
+  if (statRows.length) {
+    const maxRating = Math.max(...statRows.map((s) => Number(s.rating || 0)));
+    for (const s of statRows) {
+      const pRows = await EXECUTESQL('SELECT * FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1', [s.player_email]);
+      const p = pRows[0];
+      if (!p) continue;
+      const isHome = s.club_id && record.home_club_id && s.club_id === record.home_club_id;
+      const result = isHome ? homeResult : awayResult;
+      await EXECUTESQL(
+        `UPDATE players SET
+          matches_played = IFNULL(matches_played,0)+1,
+          goals = IFNULL(goals,0)+?,
+          assists = IFNULL(assists,0)+?,
+          wins_count = IFNULL(wins_count,0)+?,
+          losses_count = IFNULL(losses_count,0)+?,
+          draws_count = IFNULL(draws_count,0)+?,
+          man_of_the_match = IFNULL(man_of_the_match,0)+?,
+          updated_date = NOW()
+         WHERE id = ?`,
+        [
+          Number(s.goals || 0),
+          Number(s.assists || 0),
+          result === 'win' ? 1 : 0,
+          result === 'loss' ? 1 : 0,
+          result === 'draw' ? 1 : 0,
+          Number(s.rating || 0) === maxRating ? 1 : 0,
+          p.id,
+        ]
+      );
+    }
+  }
+
+  // Club aggregates + ranking updates (club mode only).
+  if (record.mode === 'club' && record.home_club_id && record.away_club_id) {
+    const [homeRows, awayRows] = await Promise.all([
+      EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [record.home_club_id]),
+      EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [record.away_club_id]),
+    ]);
+    const homeClub = homeRows[0];
+    const awayClub = awayRows[0];
+    if (homeClub && awayClub) {
+      const isRanked = record.type === 'ranked';
+      const hDelta = eloDelta(Number(homeClub.rating || 1500), Number(awayClub.rating || 1500), homeResult);
+      const aDelta = eloDelta(Number(awayClub.rating || 1500), Number(homeClub.rating || 1500), awayResult);
+      const newHRating = Math.max(100, Math.round(Number(homeClub.rating || 1500) + hDelta));
+      const newARating = Math.max(100, Math.round(Number(awayClub.rating || 1500) + aDelta));
+      await EXECUTESQL(
+        `UPDATE clubs SET
+          wins = IFNULL(wins,0)+?, losses = IFNULL(losses,0)+?, draws = IFNULL(draws,0)+?,
+          goals_scored = IFNULL(goals_scored,0)+?, goals_conceded = IFNULL(goals_conceded,0)+?,
+          matches_ranked = IFNULL(matches_ranked,0)+?,
+          rating = ?, peak_rating = GREATEST(IFNULL(peak_rating,1500), ?),
+          form = ?, updated_date = NOW()
+         WHERE id = ?`,
+        [
+          homeResult === 'win' ? 1 : 0,
+          homeResult === 'loss' ? 1 : 0,
+          homeResult === 'draw' ? 1 : 0,
+          homeScore, awayScore,
+          isRanked ? 1 : 0,
+          newHRating, newHRating,
+          JSON.stringify([...parseForm(homeClub.form), homeResult[0].toUpperCase()].slice(-5)),
+          homeClub.id,
+        ]
+      );
+      await EXECUTESQL(
+        `UPDATE clubs SET
+          wins = IFNULL(wins,0)+?, losses = IFNULL(losses,0)+?, draws = IFNULL(draws,0)+?,
+          goals_scored = IFNULL(goals_scored,0)+?, goals_conceded = IFNULL(goals_conceded,0)+?,
+          matches_ranked = IFNULL(matches_ranked,0)+?,
+          rating = ?, peak_rating = GREATEST(IFNULL(peak_rating,1500), ?),
+          form = ?, updated_date = NOW()
+         WHERE id = ?`,
+        [
+          awayResult === 'win' ? 1 : 0,
+          awayResult === 'loss' ? 1 : 0,
+          awayResult === 'draw' ? 1 : 0,
+          awayScore, homeScore,
+          isRanked ? 1 : 0,
+          newARating, newARating,
+          JSON.stringify([...parseForm(awayClub.form), awayResult[0].toUpperCase()].slice(-5)),
+          awayClub.id,
+        ]
+      );
+      if (isRanked) {
+        await EXECUTESQL(
+          `INSERT INTO rating_history
+           (id, club_id, club_name, opponent_club_id, opponent_club_name, match_id, competition_type, result, home_score, away_score, points_before, points_after, points_change, played_at, created_date)
+           VALUES (?, ?, ?, ?, ?, ?, 'ranked', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [uuidv4(), homeClub.id, homeClub.name || null, awayClub.id, awayClub.name || null, record.id, homeResult === 'win' ? 'W' : (homeResult === 'draw' ? 'D' : 'L'), homeScore, awayScore, Number(homeClub.rating || 1500), newHRating, hDelta]
+        ).catch(() => {});
+        await EXECUTESQL(
+          `INSERT INTO rating_history
+           (id, club_id, club_name, opponent_club_id, opponent_club_name, match_id, competition_type, result, home_score, away_score, points_before, points_after, points_change, played_at, created_date)
+           VALUES (?, ?, ?, ?, ?, ?, 'ranked', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [uuidv4(), awayClub.id, awayClub.name || null, homeClub.id, homeClub.name || null, record.id, awayResult === 'win' ? 'W' : (awayResult === 'draw' ? 'D' : 'L'), awayScore, homeScore, Number(awayClub.rating || 1500), newARating, aDelta]
+        ).catch(() => {});
+      }
+    }
+  }
+
+  await EXECUTESQL('UPDATE matches SET stats_processed = 1, updated_date = NOW() WHERE id = ?', [record.id]);
 }
 
 async function enrichMatchRows(rows) {
@@ -211,6 +343,7 @@ router.post('/', async (req, res) => {
     const created = await match.selectOne(match.id);
     const record  = created[0];
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
+    socketEmit(SOCKET_CHANNELS.MATCH, record);
     res.status(201).json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -238,12 +371,21 @@ router.patch('/:id', async (req, res) => {
         record.away_club_id === userClubId;
       if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
     }
-    const payloadWithNames = await attachMatchNames({ ...existing[0], ...req.body });
+    const previous = existing[0];
+    const payloadWithNames = await attachMatchNames({ ...previous, ...req.body });
     const match = new Match(payloadWithNames);
     await match.update(id);
     const updated = await match.selectOne(id);
     const record  = updated[0];
+    if (previous.status !== 'confirmed' && record.status === 'confirmed') {
+      await runPostConfirmProcessing(record);
+      const refreshed = await match.selectOne(id);
+      if (refreshed.length) {
+        Object.assign(record, refreshed[0]);
+      }
+    }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
+    socketEmit(SOCKET_CHANNELS.MATCH, record);
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -273,6 +415,7 @@ router.delete('/:id', async (req, res) => {
     }
     await new Match().delete(id);
     socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.MATCH), { deleted: true, id });
+    socketEmit(SOCKET_CHANNELS.MATCH, { deleted: true, id });
     res.json({ success: true });
   } catch (err) {
     console.error(err);

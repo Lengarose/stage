@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,12 @@ function toMysqlDateTime(value) {
 }
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
+  const accountMode = localStorage.getItem("stage-account-mode") || "player";
+  const isOwnerMode = accountMode === "club";
+  const forcedSearchType = isOwnerMode ? "club" : "player";
   const [step, setStep] = useState("search");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState("player"); // "club" | "player" — default to player
+  const [searchType, setSearchType] = useState(forcedSearchType); // "club" | "player"
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -30,12 +33,20 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState("");
 
+  useEffect(() => {
+    if (!open) return;
+    setSearchType(forcedSearchType);
+    setResults([]);
+    setSearchQuery("");
+  }, [open, forcedSearchType]);
+
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
 
   function reset() {
     setStep("search");
     setSearchQuery("");
+    setSearchType(forcedSearchType);
     setResults([]);
     setSelected(null);
     setDate("");
@@ -50,7 +61,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
-      if (searchType === "club") {
+      if ((isOwnerMode ? "club" : searchType) === "club") {
         const all = await stageClient.entities.Club.list("-rating", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(c =>
@@ -79,8 +90,9 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const localDateTime = new Date(`${date}T${time}:00`);
       const scheduledDate = toMysqlDateTime(localDateTime);
 
-      const senderIsClub   = searchType === "club";
-      const recipientIsClub = searchType === "club";
+      const activeType = isOwnerMode ? "club" : "player";
+      const senderIsClub   = activeType === "club";
+      const recipientIsClub = activeType === "club";
 
       const senderName   = senderIsClub ? `${myClub?.name} [${myClub?.tag}]` : myPlayer?.gamertag || "Unknown";
       const senderClubId = senderIsClub ? (myClub?.id || null) : null;
@@ -183,8 +195,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           </div>
         ) : step === "search" ? (
           <div className="space-y-4">
-            {/* Type toggle — only show Club tab if user owns a club */}
-            {myClub && (
+            {/* Type toggle — only when user can truly switch context */}
+            {!isOwnerMode && myClub && (
               <div className="flex rounded-lg border border-border overflow-hidden">
                 <button
                   onClick={() => { setSearchType("player"); setResults([]); setSearchQuery(""); }}
@@ -205,7 +217,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             {/* Context hint */}
             <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
-              {searchType === "player"
+              {(isOwnerMode ? "club" : searchType) === "player"
                 ? <><span className="text-primary font-semibold">Player match</span> — you play as <span className="text-foreground font-medium">{myPlayer?.gamertag}</span>. The invite goes to the opponent player's personal inbox.</>
                 : <><span className="text-primary font-semibold">Club match</span> — <span className="text-foreground font-medium">{myClub?.name}</span> challenges another club. The invite goes to the opponent club's owner inbox.</>
               }
@@ -218,7 +230,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
-                  placeholder={searchType === "club" ? "Search clubs..." : "Search players..."}
+                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? "Search clubs..." : "Search players..."}
                   className="pl-9 bg-secondary border-border text-sm"
                 />
               </div>
@@ -238,7 +250,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                     <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {r.logo_url || r.avatar_url
                         ? <img src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
-                        : searchType === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
+                        : (isOwnerMode ? "club" : searchType) === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">

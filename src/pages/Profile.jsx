@@ -380,7 +380,11 @@ export default function Profile() {
                     <StatBox label="Losses" value={player.losses_count || 0} accent="destructive" />
                     <StatBox label="Goals" value={player.goals || 0} accent="success" />
                     <StatBox label="Assists" value={player.assists || 0} accent="accent" />
-                    <StatBox label="Avg Rating" value={(player.avg_match_rating || 6).toFixed(1)} accent="warning" />
+                    <StatBox
+                      label="Avg Rating"
+                      value={(Number(player.avg_match_rating ?? 6) || 6).toFixed(1)}
+                      accent="warning"
+                    />
                     <StatBox label="MOTM" value={player.man_of_the_match || 0} />
                     <StatBox label="Clean Sheets" value={player.clean_sheets || 0} />
                     <StatBox label="Matches" value={player.matches_played || 0} />

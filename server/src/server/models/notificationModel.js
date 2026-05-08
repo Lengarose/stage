@@ -11,6 +11,7 @@ class Notification {
     // MySQL column is named `read` (reserved keyword) — store as 0/1.
     this.read            = body.read === true || body.read === 1 || body.read === "1" ? 1 : 0;
     this.link            = body.link;
+    this.related_id      = body.related_id;
   }
 
   selectAll(page = 1) {
@@ -37,22 +38,22 @@ class Notification {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO notifications
-      (id, recipient_email, type, title, body, \`read\`, link)
-      VALUES (?,?,?,?,?,?,?)`;
+      (id, recipient_email, type, title, body, \`read\`, link, related_id)
+      VALUES (?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.recipient_email, this.type, this.title,
-      this.body, this.read, this.link,
+      this.body, this.read, this.link, this.related_id,
     ];
     return EXECUTESQL(sql, values);
   }
 
   update(id) {
     const sql = `UPDATE notifications SET
-      recipient_email=?, type=?, title=?, body=?, \`read\`=?, link=?
+      recipient_email=?, type=?, title=?, body=?, \`read\`=?, link=?, related_id=?
       WHERE id=?`;
     const values = [
       this.recipient_email, this.type, this.title, this.body,
-      this.read, this.link,
+      this.read, this.link, this.related_id,
       id,
     ];
     return EXECUTESQL(sql, values);

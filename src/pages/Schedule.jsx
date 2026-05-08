@@ -7,6 +7,7 @@ import ArrangeGameDialog from "../components/schedule/ArrangeGameDialog";
 import { CalendarDays, Plus, X, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
+import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
 export default function Schedule() {
   const [user, setUser] = useState(null);
@@ -21,6 +22,20 @@ export default function Schedule() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    let reloadTimer = null;
+    setSocketListeners(CHANNELS.MATCH, () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
+      reloadTimer = window.setTimeout(() => {
+        load();
+      }, 120);
+    });
+    return () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
+      offSocketListeners(CHANNELS.MATCH);
+    };
   }, []);
 
   async function load() {

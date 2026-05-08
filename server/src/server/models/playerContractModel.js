@@ -11,10 +11,16 @@ class PlayerContract {
     this.offered_by          = body.offered_by;
     this.max_games           = body.max_games;
     this.max_days            = body.max_days;
+    this.games_played        = body.games_played;
     this.weekly_salary_stc   = body.weekly_salary_stc;
+    this.salary_per_game_stc = body.salary_per_game_stc;
     this.signing_bonus_stc   = body.signing_bonus_stc;
     this.transfer_fee_stc    = body.transfer_fee_stc;
     this.offer_note          = body.offer_note;
+    this.transfer_window_id  = body.transfer_window_id;
+    this.is_loan             = body.is_loan;
+    this.loan_return_date    = body.loan_return_date;
+    this.last_salary_paid_at = body.last_salary_paid_at;
     this.captaincy_offered   = body.captaincy_offered;
     this.last_negotiated_by  = body.last_negotiated_by;
     this.negotiation_round   = body.negotiation_round;
@@ -60,15 +66,18 @@ class PlayerContract {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO player_contracts
-      (id, team_id, user_id, contract_type, status, offered_by, max_games,
-       max_days, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
-       offer_note, captaincy_offered, last_negotiated_by, negotiation_round,
+      (id, team_id, user_id, contract_type, status, offered_by,
+       max_games, max_days, games_played,
+       weekly_salary_stc, salary_per_game_stc, signing_bonus_stc, transfer_fee_stc,
+       offer_note, transfer_window_id, is_loan, loan_return_date, last_salary_paid_at,
+       captaincy_offered, last_negotiated_by, negotiation_round,
        start_date, end_date, performance_targets)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.team_id, this.user_id, this.contract_type, this.status,
-      this.offered_by, this.max_games, this.max_days, this.weekly_salary_stc,
-      this.signing_bonus_stc, this.transfer_fee_stc, this.offer_note,
+      this.id, this.team_id, this.user_id, this.contract_type, this.status, this.offered_by,
+      this.max_games, this.max_days, this.games_played,
+      this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
+      this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,
       this.captaincy_offered, this.last_negotiated_by, this.negotiation_round,
       this.start_date, this.end_date, this.performance_targets,
     ];
@@ -78,15 +87,17 @@ class PlayerContract {
   update(id) {
     const sql = `UPDATE player_contracts SET
       team_id=?, user_id=?, contract_type=?, status=?, offered_by=?,
-      max_games=?, max_days=?, weekly_salary_stc=?, signing_bonus_stc=?,
-      transfer_fee_stc=?, offer_note=?, captaincy_offered=?,
-      last_negotiated_by=?, negotiation_round=?, start_date=?, end_date=?,
-      performance_targets=?
+      max_games=?, max_days=?, games_played=?,
+      weekly_salary_stc=?, salary_per_game_stc=?, signing_bonus_stc=?, transfer_fee_stc=?,
+      offer_note=?, transfer_window_id=?, is_loan=?, loan_return_date=?, last_salary_paid_at=?,
+      captaincy_offered=?, last_negotiated_by=?, negotiation_round=?,
+      start_date=?, end_date=?, performance_targets=?
       WHERE id=?`;
     const values = [
-      this.team_id, this.user_id, this.contract_type, this.status,
-      this.offered_by, this.max_games, this.max_days, this.weekly_salary_stc,
-      this.signing_bonus_stc, this.transfer_fee_stc, this.offer_note,
+      this.team_id, this.user_id, this.contract_type, this.status, this.offered_by,
+      this.max_games, this.max_days, this.games_played,
+      this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
+      this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,
       this.captaincy_offered, this.last_negotiated_by, this.negotiation_round,
       this.start_date, this.end_date, this.performance_targets,
       id,

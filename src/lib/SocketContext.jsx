@@ -37,8 +37,9 @@ export const makeChannel = (id, channel) =>
 
 // ── Singleton socket client ────────────────────────────────────────────────────
 export const SOCKET_CLIENT = io(SOCKET_URL, {
-  // Polling-first is more reliable on shared hosts/proxies.
-  transports: ['polling', 'websocket'],
+  // WebSocket-first for near-instant updates; polling remains fallback.
+  transports: ['websocket', 'polling'],
+  rememberUpgrade: true,
   upgrade: true,
   auth: { token: localStorage.getItem(ACCESS_KEY) },
   reconnectionAttempts: 10,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/momentDate";
 import { Inbox, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 

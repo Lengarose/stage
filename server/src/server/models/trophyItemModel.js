@@ -6,7 +6,7 @@ class TrophyItemModel {
     let sql = 'SELECT * FROM trophy_items WHERE 1=1';
     const params = [];
     if (rarity) { sql += ' AND rarity = ?'; params.push(rarity); }
-    sql += ' ORDER BY created_date DESC LIMIT ? OFFSET ?';
+    sql += ' ORDER BY sort_order ASC, created_date DESC LIMIT ? OFFSET ?';
     params.push(Number(limit), Number(offset));
     return EXECUTESQL(sql, params);
   }
@@ -19,9 +19,25 @@ class TrophyItemModel {
   static async create(data) {
     const id = uuidv4();
     await EXECUTESQL(
-      `INSERT INTO trophy_items (id, name, description, image_url, rarity, price, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [id, data.name, data.description, data.image_url, data.rarity || 'common', data.price || 0]
+      `INSERT INTO trophy_items
+        (id, name, description, image_url,
+         competition_name, tournament_id, tournament_type,
+         is_official, rarity, admin_only, sort_order, price, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        id,
+        data.name,
+        data.description || null,
+        data.image_url || null,
+        data.competition_name || null,
+        data.tournament_id || null,
+        data.tournament_type || null,
+        data.is_official ? 1 : 0,
+        data.rarity || 'common',
+        data.admin_only ? 1 : 0,
+        data.sort_order ?? 0,
+        data.price || 0,
+      ]
     );
     return this.getById(id);
   }
@@ -29,11 +45,17 @@ class TrophyItemModel {
   static async update(id, data) {
     const fields = [];
     const params = [];
-    if (data.name        !== undefined) { fields.push('name = ?');        params.push(data.name); }
-    if (data.description !== undefined) { fields.push('description = ?'); params.push(data.description); }
-    if (data.image_url   !== undefined) { fields.push('image_url = ?');   params.push(data.image_url); }
-    if (data.rarity      !== undefined) { fields.push('rarity = ?');      params.push(data.rarity); }
-    if (data.price       !== undefined) { fields.push('price = ?');       params.push(data.price); }
+    const updatable = [
+      'name', 'description', 'image_url',
+      'competition_name', 'tournament_id', 'tournament_type',
+      'is_official', 'rarity', 'admin_only', 'sort_order', 'price',
+    ];
+    for (const key of updatable) {
+      if (data[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        params.push(data[key]);
+      }
+    }
     if (!fields.length) return this.getById(id);
     params.push(id);
     await EXECUTESQL(`UPDATE trophy_items SET ${fields.join(', ')} WHERE id = ?`, params);

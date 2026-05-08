@@ -161,15 +161,19 @@ function getAdminGroups() {
 const TEAL = "#00E5BD";
 const headingFont = { fontFamily: "var(--font-heading), 'Barlow Condensed', sans-serif", fontStyle: "italic" };
 
-const EAFC_DD = {
-  background: "linear-gradient(160deg, #0c1426 0%, #080f1d 100%)",
+const getEafcDropdownStyle = (isWhiteTheme = false) => ({
+  background: isWhiteTheme
+    ? "linear-gradient(160deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)"
+    : "linear-gradient(160deg, #0c1426 0%, #080f1d 100%)",
   border: "1px solid rgba(0,229,189,0.14)",
   borderTop: "2px solid #00E5BD",
   borderRadius: "0 0 3px 3px",
-  boxShadow: "0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,229,189,0.05)",
-};
+  boxShadow: isWhiteTheme
+    ? "0 20px 50px rgba(15,23,42,0.14), 0 0 24px rgba(0,229,189,0.05)"
+    : "0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,229,189,0.05)",
+});
 
-function EafcNavLink({ to, onClick, isActive, icon: Icon, children }) {
+function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme = false }) {
   return (
     <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
       <Link
@@ -177,7 +181,7 @@ function EafcNavLink({ to, onClick, isActive, icon: Icon, children }) {
         onClick={onClick}
         className={cn(
           "relative flex cursor-pointer select-none items-center gap-2.5 px-3 py-2.5 outline-none transition-colors",
-          isActive ? "text-[#00E5BD]" : "text-white/55 hover:text-white"
+          isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/75 hover:text-slate-900" : "text-white/55 hover:text-white")
         )}
         style={{
           ...headingFont,
@@ -189,14 +193,14 @@ function EafcNavLink({ to, onClick, isActive, icon: Icon, children }) {
         }}
       >
         {isActive && <span className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: TEAL }} />}
-        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[#00E5BD]" : "text-white/30")} />
+        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/30"))} />
         {children}
       </Link>
     </DropdownMenuItem>
   );
 }
 
-function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "sidebar" }) {
+function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "sidebar", isWhiteTheme = false }) {
   const isHeader = variant === "header";
 
   if (!isHeader) {
@@ -219,7 +223,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-45" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="start" sideOffset={8} className="z-[70] max-h-[min(70vh,28rem)] min-w-[12rem] overflow-y-auto p-1 text-white shadow-xl" style={EAFC_DD}>
+          <DropdownMenuContent side="right" align="start" sideOffset={8} className={cn("z-[70] max-h-[min(70vh,28rem)] min-w-[12rem] overflow-y-auto p-1 shadow-xl", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
             {groups.map((group, gi) => (
               <div key={group.label}>
                 {gi > 0 && <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />}
@@ -227,7 +231,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                   {group.label}
                 </DropdownMenuLabel>
                 {group.items.map((item) => (
-                  <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon}>
+                  <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon} isWhiteTheme={isWhiteTheme}>
                     {item.label}
                   </EafcNavLink>
                 ))}
@@ -261,17 +265,17 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                 }}
               >
                 <span
-                  className={cn("select-none text-[12px] sm:text-[14px] uppercase", anyActive ? "text-[#00E5BD]" : "text-white/40")}
+                  className={cn("select-none text-[12px] sm:text-[14px] uppercase", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/65" : "text-white/40"))}
                   style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.14em", transition: "color 0.12s" }}
                 >
                   {group.label}
                 </span>
-                <ChevronDown className={cn("shrink-0 h-3 w-3", anyActive ? "text-[#00E5BD]" : "text-white/25")} />
+                <ChevronDown className={cn("shrink-0 h-3 w-3", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/25"))} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="start" sideOffset={0} className="z-[70] min-w-[12.5rem] p-1 text-white shadow-2xl" style={EAFC_DD}>
+            <DropdownMenuContent side="bottom" align="start" sideOffset={0} className={cn("z-[70] min-w-[12.5rem] p-1 shadow-2xl", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
               {group.items.map((item) => (
-                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon}>
+                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon} isWhiteTheme={isWhiteTheme}>
                   {item.label}
                 </EafcNavLink>
               ))}
@@ -291,6 +295,7 @@ function HeaderIdentityMenu({
   accountMode,
   switchMode,
   subscriptionTier,
+  isWhiteTheme = false,
 }) {
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsOwner = accountMode === "club" && canUseClubIdentity;
@@ -346,7 +351,7 @@ function HeaderIdentityMenu({
             />
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-white" style={{ ...headingFont, fontWeight: 900, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 900, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
             </p>
             <div className="mt-0.5 flex items-center gap-1">
@@ -362,10 +367,10 @@ function HeaderIdentityMenu({
               )}
             </div>
           </div>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isWhiteTheme ? "text-slate-900/55" : "text-white/40")} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="z-[80] w-52 p-1 text-white" style={EAFC_DD}>
+      <DropdownMenuContent align="start" sideOffset={6} className={cn("z-[80] w-52 p-1", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
         {canSwitchRole && (
           <>
             <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 700, color: "rgba(0,229,189,0.5)" }}>
@@ -374,14 +379,14 @@ function HeaderIdentityMenu({
             <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
               <DropdownMenuRadioItem
                 value="player"
-                className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-blue-600/20 focus:text-white"
+                className={cn("cursor-pointer gap-2 py-2.5 focus:bg-blue-600/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 <User className="h-4 w-4 shrink-0 text-blue-400" /> Player
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem
                 value="club"
-                className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
+                className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 <Shield className="h-4 w-4 shrink-0 text-amber-400" /> Owner
@@ -390,10 +395,10 @@ function HeaderIdentityMenu({
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
           </>
         )}
-        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+        <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
           <Link
             to="/settings"
-            className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+            className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
             style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
             <Settings className="h-4 w-4 shrink-0 text-[#00E5BD]" />
@@ -1029,12 +1034,14 @@ export default function Layout() {
       <header
         className="relative z-50 shrink-0 overflow-visible hidden md:block"
         style={{
-          background: "linear-gradient(180deg, #0b1024 0%, #080d1b 100%)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
+          background: isWhiteTheme
+            ? "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.74) 100%)"
+            : "linear-gradient(180deg, #0b1024 0%, #080d1b 100%)",
+          boxShadow: isWhiteTheme ? "0 4px 24px rgba(15,23,42,0.15)" : "0 4px 24px rgba(0,0,0,0.55)",
         }}
       >
-        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: 0.65 }} />
-        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: 0.65 }} />
+        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
+        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
 
         <div className="flex min-h-[3.75rem] h-16 items-stretch">
 
@@ -1053,6 +1060,7 @@ export default function Layout() {
                   accountMode={accountMode}
                   switchMode={switchMode}
                   subscriptionTier={subscriptionTier}
+                  isWhiteTheme={isWhiteTheme}
                 />
               </div>
             )}
@@ -1062,13 +1070,13 @@ export default function Layout() {
                 {myClubId && !myPlayer && (
                   <>
                     <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>Owner</span>
-                    <Link to="/profile" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Player profile</Link>
+                    <Link to="/profile" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Player profile</Link>
                   </>
                 )}
                 {myPlayer && !myClubId && (
                   <>
                     <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#60a5fa" }}>Player</span>
-                    <Link to="/clubs" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Create club</Link>
+                    <Link to="/clubs" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Create club</Link>
                   </>
                 )}
               </div>
@@ -1085,6 +1093,7 @@ export default function Layout() {
                   variant="header"
                   groups={adminGroups}
                   pathname={location.pathname}
+                  isWhiteTheme={isWhiteTheme}
                 />
               </>
             ) : (
@@ -1092,11 +1101,12 @@ export default function Layout() {
                 variant="header"
                 groups={accountMode === "club" ? ownerGroups : playerGroups}
                 pathname={location.pathname}
+                isWhiteTheme={isWhiteTheme}
               />
             )}
 
             <div className="hidden sm:flex shrink-0 items-center px-3 self-stretch">
-              <span style={{ ...headingFont, fontWeight: 700, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(0,229,189,0.22)" }}>
+              <span style={{ ...headingFont, fontWeight: 700, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
                 STAGE v2.0
               </span>
             </div>
@@ -1106,7 +1116,7 @@ export default function Layout() {
             <Link
               to={isAdminRoute ? "/" : "/search"}
               className="rounded p-2 transition-all"
-              style={{ color: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? TEAL : "rgba(255,255,255,0.35)", background: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
+              style={{ color: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
             >
               {isAdminRoute ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
             </Link>
@@ -1143,18 +1153,18 @@ export default function Layout() {
             <Link
               to="/settings"
               className="rounded p-2 transition-all"
-              style={{ color: location.pathname === "/settings" ? TEAL : "rgba(255,255,255,0.35)", background: location.pathname === "/settings" ? "rgba(0,229,189,0.1)" : "transparent" }}
+              style={{ color: location.pathname === "/settings" ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: location.pathname === "/settings" ? "rgba(0,229,189,0.1)" : "transparent" }}
             >
               <Settings className="h-4 w-4" />
             </Link>
 
-            <div className="flex items-center gap-1 px-2 py-1 ml-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(0,229,189,0.12)", borderRadius: 2 }}>
-              <Palette className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(0,229,189,0.5)" }} />
+            <div className="flex items-center gap-1 px-2 py-1 ml-1" style={{ background: isWhiteTheme ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(0,229,189,0.12)", borderRadius: 2 }}>
+              <Palette className="h-3.5 w-3.5 shrink-0" style={{ color: isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(0,229,189,0.5)" }} />
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
                 className="cursor-pointer bg-transparent outline-none max-w-[5rem] sm:max-w-none"
-                style={{ ...headingFont, fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)" }}
+                style={{ ...headingFont, fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.75)" : "rgba(255,255,255,0.55)" }}
               >
                 {THEMES.map((t) => (
                   <option key={t.id} value={t.id} className="bg-[#080f1c] text-white normal-case">{t.label}</option>

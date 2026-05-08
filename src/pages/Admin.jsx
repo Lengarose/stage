@@ -3085,7 +3085,17 @@ export default function Admin(props) {
                   <div className="flex gap-2 shrink-0 flex-wrap">
                     <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
                     <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(0); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
-                    {p.club_id && <Button size="sm" variant="outline" onClick={() => kickFromClub(p.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Ban className="w-3.5 h-3.5" /> Kick</Button>}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => p.club_id && kickFromClub(p.id)}
+                      disabled={!p.club_id}
+                      title={!p.club_id ? "Player is not linked to a club" : "Remove player from current club"}
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Ban className="w-3.5 h-3.5" /> {p.club_id ? "Kick" : "No Club"}
+                    </Button>
                   </div>
                 </div>
               ))}

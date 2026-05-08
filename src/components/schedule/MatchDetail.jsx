@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Shield, User, Trophy, AlertTriangle, FileText, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 

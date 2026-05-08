@@ -19,7 +19,8 @@ class InboxMessage {
       ? (typeof body.metadata === 'string' ? body.metadata : JSON.stringify(body.metadata))
       : null;
     this.related_entity_id   = body.related_entity_id;
-    this.related_entity_type = body.related_entity_type; 
+    this.related_entity_type = body.related_entity_type;
+    this.is_system           = body.is_system;
   }
 
   selectAll(page = 1) {
@@ -43,12 +44,12 @@ class InboxMessage {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO inbox_messages
       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
-       subject, body, message_type, action_type, status, is_read, metadata,
+       subject, body, message_type, action_type, status, is_read, is_system, metadata,
        related_entity_id, related_entity_type)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.recipient_email, this.sender_email, this.sender_gamertag, this.sender_avatar_url, this.sender_club_name,
-      this.subject, this.body, this.message_type, this.action_type, this.status, this.is_read, this.metadata,
+      this.subject, this.body, this.message_type, this.action_type, this.status, this.is_read, this.is_system, this.metadata,
       this.related_entity_id, this.related_entity_type,
     ];
     return EXECUTESQL(sql, values);
@@ -58,12 +59,12 @@ class InboxMessage {
     const sql = `UPDATE inbox_messages SET
       recipient_email=?, sender_email=?, sender_gamertag=?, sender_avatar_url=?, sender_club_name=?,
       subject=?, body=?, message_type=?, action_type=?,
-      status=?, is_read=?, metadata=?, related_entity_id=?, related_entity_type=?
+      status=?, is_read=?, is_system=?, metadata=?, related_entity_id=?, related_entity_type=?
       WHERE id=?`;
     const values = [
       this.recipient_email, this.sender_email, this.sender_gamertag, this.sender_avatar_url, this.sender_club_name,
       this.subject, this.body, this.message_type, this.action_type,
-      this.status, this.is_read, this.metadata,
+      this.status, this.is_read, this.is_system, this.metadata,
       this.related_entity_id, this.related_entity_type,
       id,
     ];

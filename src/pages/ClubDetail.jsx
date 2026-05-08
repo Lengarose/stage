@@ -33,6 +33,7 @@ import { notify } from "@/lib/notify";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
+import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -307,16 +308,38 @@ export default function ClubDetail() {
 
   useEffect(() => {
     let stopped = false;
+    const channel = makeChannel(CLUB_CHAT_CHANNEL, CHANNELS.CHAT_MESSAGE);
+
+    setSocketListeners(channel, (payload) => {
+      if (!payload) return;
+      if (payload.deleted) {
+        setClubChatMessages((prev) => prev.filter((m) => m.id !== payload.id));
+        return;
+      }
+      setClubChatMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === payload.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...payload };
+          return next;
+        }
+        return [...prev, payload].sort(
+          (a, b) => new Date(a.created_date || 0).getTime() - new Date(b.created_date || 0).getTime()
+        );
+      });
+    });
+
     const intervalId = window.setInterval(async () => {
       if (stopped) return;
       const latest = await stageClient.entities.ChatMessage
         .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
         .catch(() => null);
       if (latest) setClubChatMessages(latest);
-    }, 8000);
+    }, 30000);
     return () => {
       stopped = true;
       window.clearInterval(intervalId);
+      offSocketListeners(channel);
     };
   }, [CLUB_CHAT_CHANNEL]);
 
