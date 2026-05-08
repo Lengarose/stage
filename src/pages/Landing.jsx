@@ -4,6 +4,7 @@ import BannerImg from '@/assets/Name logo.png';
 import LogoImg from '@/assets/Stadium Logo.png';
 import TrophiesImg from '@/assets/Trophies.PNG';
 import CoachLuisImg from '@/assets/Coach Luis.PNG';
+import DDZImg from '@/assets/DDZ.PNG';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -170,7 +171,7 @@ const DEFAULT_PICTURE_SECTIONS = [
     text: 'Create a player profile, get scouted, and sign for a club that fits your ambitions. Every goal, assist, and rating update is tracked. Climb the free agent board, negotiate your next contract, and spend your earnings on lifestyle items that show off your status off the pitch.',
     flip: false,
     accent: '#10b981',
-    imageUrl: null,
+    imageUrl: DDZImg,
     objectPosition: 'center',
   },
 ];
