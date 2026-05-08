@@ -366,6 +366,12 @@ async function runStartupMigrations() {
     INDEX idx_aal_created (created_date)
   )`).catch(() => {});
 
+  // Trophy items — add missing columns
+  await addCol('trophy_items', 'description', 'TEXT NULL');
+  await addCol('trophy_items', 'image_url',   'VARCHAR(500) NULL');
+  await addCol('trophy_items', 'rarity',      "VARCHAR(50) DEFAULT 'common'");
+  await addCol('trophy_items', 'price',       'DECIMAL(12,2) DEFAULT 0');
+
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
   await addCol('lifestyle_purchases', 'price_paid_stc',          'BIGINT DEFAULT 0');
