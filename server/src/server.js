@@ -127,6 +127,15 @@ app.get('/api/stage/health', (_req, res) => {
   res.status(200).json({ ok: true, service: 'stage-server' });
 });
 
+// Public landing page content — no auth, served to logged-out visitors
+app.get('/api/stage/public/landing-content', async (_req, res) => {
+  try {
+    const LPC = require('./server/models/landingPageContentModel');
+    const rows = await new LPC().selectAll(1);
+    res.json(rows[0] || {});
+  } catch { res.json({}); }
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -365,6 +374,12 @@ async function runStartupMigrations() {
     INDEX idx_aal_admin   (admin_user_id),
     INDEX idx_aal_created (created_date)
   )`).catch(() => {});
+
+  // Landing page content — extra fields for dynamic sections
+  await addCol('landing_page_contents', 'stats_json',   'TEXT NULL');
+  await addCol('landing_page_contents', 'section1_tag', 'VARCHAR(100) NULL');
+  await addCol('landing_page_contents', 'section2_tag', 'VARCHAR(100) NULL');
+  await addCol('landing_page_contents', 'section3_tag', 'VARCHAR(100) NULL');
 
   // Trophy items table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_items (
