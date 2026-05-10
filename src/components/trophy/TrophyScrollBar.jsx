@@ -12,7 +12,7 @@ const RARITY_GLOW = {
   legendary: "rgba(251,191,36,0.5)",
 };
 
-export default function TrophyScrollBar({ allTrophies, unlockedIds, onDragStart }) {
+export default function TrophyScrollBar({ allTrophies, unlockedIds, onDragStart, canEdit = false }) {
   return (
     <div className="mt-4">
       <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 px-1">
@@ -20,7 +20,8 @@ export default function TrophyScrollBar({ allTrophies, unlockedIds, onDragStart 
       </p>
       <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin">
         {allTrophies.map(trophy => {
-          const unlocked = unlockedIds.has(trophy.id);
+          const unlocked = canEdit || unlockedIds.has(trophy.id);
+          const earned   = unlockedIds.has(trophy.id);
           const glow = RARITY_GLOW[trophy.rarity] || RARITY_GLOW.common;
           return (
             <div
@@ -56,6 +57,9 @@ export default function TrophyScrollBar({ allTrophies, unlockedIds, onDragStart 
               </p>
               {!unlocked && (
                 <p className="text-[8px] text-muted-foreground/50">Locked</p>
+              )}
+              {canEdit && !earned && (
+                <p className="text-[8px] text-blue-400/70">Admin</p>
               )}
             </div>
           );

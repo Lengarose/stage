@@ -26,13 +26,18 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   useEffect(() => {
     if (!ownerId) return;
     async function load() {
-      const [lib, placed] = await Promise.all([
-        stageClient.entities.TrophyItem.list("sort_order", 200),
-        stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
-      ]);
-      setAllTrophies(lib);
-      setPlacements(placed);
-      setLoading(false);
+      try {
+        const [lib, placed] = await Promise.all([
+          stageClient.entities.TrophyItem.list("sort_order", 200),
+          stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
+        ]);
+        setAllTrophies(lib || []);
+        setPlacements(placed || []);
+      } catch {
+        // Tables may not exist yet on server — show empty cabinet gracefully
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [ownerId, ownerType]);
@@ -157,6 +162,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
           allTrophies={allTrophies}
           unlockedIds={unlockedIds}
           onDragStart={handleDragStart}
+          canEdit={canEdit}
         />
       )}
 
@@ -169,23 +175,18 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   );
 }
 
-/**
- * Build a map: trophy_item_id → Tournament[]
- * A trophy is unlocked ONLY if:
- *   1. trophy.tournament_id matches the specific tournament id, OR
- *   2. trophy.competition_name matches the tournament name exactly (case-insensitive)
- *
- * Type-based matching is intentionally removed to prevent wrong trophies
- * from unlocking for custom tournaments.
- */
 function buildUnlockedMap(wonTournaments, allTrophies) {
   const map = {};
   for (const tournament of wonTournaments) {
     for (const trophy of allTrophies) {
+      // Tournament directly references this trophy item (primary link)
+      const matchesTrophyItemId = tournament.trophy_item_id && tournament.trophy_item_id === trophy.id;
+      // Legacy: trophy has a back-reference to the tournament
       const matchesTournamentId = trophy.tournament_id && trophy.tournament_id === tournament.id;
+      // Legacy: trophy competition_name matches tournament name
       const matchesCompetitionName = trophy.competition_name &&
         trophy.competition_name.trim().toLowerCase() === (tournament.name || "").trim().toLowerCase();
-      if (matchesTournamentId || matchesCompetitionName) {
+      if (matchesTrophyItemId || matchesTournamentId || matchesCompetitionName) {
         if (!map[trophy.id]) map[trophy.id] = [];
         map[trophy.id].push(tournament);
       }
