@@ -379,9 +379,19 @@ CREATE TABLE IF NOT EXISTS user_purchases (
 
 -- ── trophy_items ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS trophy_items (
-  id         VARCHAR(36) PRIMARY KEY,
-  name       VARCHAR(200),
-  sort_order INT         DEFAULT 0
+  id               VARCHAR(36) PRIMARY KEY,
+  name             VARCHAR(200),
+  description      TEXT         NULL,
+  image_url        TEXT         NULL,
+  competition_name VARCHAR(255) NULL,
+  tournament_id    VARCHAR(36)  NULL,
+  tournament_type  VARCHAR(30)  NULL,
+  is_official      TINYINT(1)   NULL DEFAULT 0,
+  rarity           VARCHAR(20)  NULL DEFAULT 'common',
+  admin_only       TINYINT(1)   NULL DEFAULT 0,
+  sort_order       INT          NULL DEFAULT 0,
+  price            INT          NULL DEFAULT 0,
+  created_date     DATETIME     NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── trophy_placements ─────────────────────────────────────────
@@ -1179,6 +1189,11 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_official'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN is_official TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='admin_only'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN admin_only TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='sort_order'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN sort_order INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='description'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN description TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='image_url'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN image_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='rarity'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN rarity VARCHAR(20) NULL DEFAULT ''common''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='price'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN price INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='created_date'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN created_date DATETIME NULL DEFAULT CURRENT_TIMESTAMP')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='trophy_placements'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='trophy_image_url'),'SELECT 1','ALTER TABLE trophy_placements ADD COLUMN trophy_image_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='trophy_name'),'SELECT 1','ALTER TABLE trophy_placements ADD COLUMN trophy_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='x_percent'),'SELECT 1','ALTER TABLE trophy_placements ADD COLUMN x_percent DECIMAL(6,2) NULL DEFAULT 50')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
