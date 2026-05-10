@@ -84,7 +84,7 @@ export default function TrophyCabinetCanvas({
     <div
       ref={cabinetRef}
       className="relative w-full rounded-2xl overflow-hidden border border-border/50 select-none"
-      style={{ aspectRatio: "4/3", background: "#070d1a" }}
+      style={{ aspectRatio: "4/3" }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -93,7 +93,6 @@ export default function TrophyCabinetCanvas({
         src={CabinetImg}
         alt="Trophy Cabinet"
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ mixBlendMode: "darken" }}
         draggable={false}
       />
 
