@@ -8,8 +8,7 @@
  */
 import { useRef, useState, useEffect } from "react";
 import PlacedTrophy from "./PlacedTrophy";
-
-const CABINET_IMAGE = "https://media.stageClient.com/images/public/69d77ebfc021efa72e236f84/87227ed51_IMG_6919.png";
+import CabinetImg from "@/assets/Trophy Cabinet.PNG";
 
 export default function TrophyCabinetCanvas({
   placements,
@@ -85,15 +84,16 @@ export default function TrophyCabinetCanvas({
     <div
       ref={cabinetRef}
       className="relative w-full rounded-2xl overflow-hidden border border-border/50 select-none"
-      style={{ aspectRatio: "4/3" }}
+      style={{ aspectRatio: "4/3", background: "#070d1a" }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* Cabinet image */}
+      {/* Cabinet image — mix-blend-mode:darken removes the white background */}
       <img
-        src={CABINET_IMAGE}
+        src={CabinetImg}
         alt="Trophy Cabinet"
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ mixBlendMode: "darken" }}
         draggable={false}
       />
 
