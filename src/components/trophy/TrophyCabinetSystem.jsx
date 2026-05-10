@@ -162,7 +162,6 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
           allTrophies={allTrophies}
           unlockedIds={unlockedIds}
           onDragStart={handleDragStart}
-          canEdit={canEdit}
         />
       )}
 

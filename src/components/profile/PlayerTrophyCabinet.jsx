@@ -10,8 +10,8 @@ export default function PlayerTrophyCabinet({ player, currentUserEmail }) {
   useEffect(() => {
     async function load() {
       try {
-        const all = await stageClient.entities.Tournament.filter({ status: "completed" }, "-updated_date", 200);
-        setWonTournaments((all || []).filter(t => t.winner_player_id === player.id));
+        const won = await stageClient.entities.Tournament.filter({ winner_player_id: player.id });
+        setWonTournaments(won || []);
       } catch {
       } finally {
         setLoading(false);
@@ -48,8 +48,13 @@ export function ClubTrophyCabinetDisplay({ clubId, currentUserEmail, club, canEd
   useEffect(() => {
     async function load() {
       try {
-        const won = await stageClient.entities.Tournament.filter({ winner_club_id: clubId, status: "completed" });
-        setWonTournaments(won || []);
+        // Fetch wins from all three sources — each has winner_club_id + trophy_item_id
+        const [tournaments, compSeasons, leagues] = await Promise.all([
+          stageClient.entities.Tournament.filter({ winner_club_id: clubId }).catch(() => []),
+          stageClient.entities.CompetitionSeason.filter({ winner_club_id: clubId }).catch(() => []),
+          stageClient.entities.RegionalLeague.filter({ winner_club_id: clubId }).catch(() => []),
+        ]);
+        setWonTournaments([...(tournaments || []), ...(compSeasons || []), ...(leagues || [])]);
       } catch {
       } finally {
         setLoading(false);
