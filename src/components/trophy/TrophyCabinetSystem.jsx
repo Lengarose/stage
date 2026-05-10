@@ -26,13 +26,18 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   useEffect(() => {
     if (!ownerId) return;
     async function load() {
-      const [lib, placed] = await Promise.all([
-        stageClient.entities.TrophyItem.list("sort_order", 200),
-        stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
-      ]);
-      setAllTrophies(lib);
-      setPlacements(placed);
-      setLoading(false);
+      try {
+        const [lib, placed] = await Promise.all([
+          stageClient.entities.TrophyItem.list("sort_order", 200),
+          stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
+        ]);
+        setAllTrophies(lib || []);
+        setPlacements(placed || []);
+      } catch {
+        // Tables may not exist yet on server — show empty cabinet gracefully
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [ownerId, ownerType]);
