@@ -408,19 +408,32 @@ async function runStartupMigrations() {
 
   // Trophy items table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_items (
-    id           VARCHAR(36)   NOT NULL PRIMARY KEY,
-    name         VARCHAR(255)  NOT NULL,
-    description  TEXT          NULL,
-    image_url    VARCHAR(500)  NULL,
-    rarity       VARCHAR(50)   DEFAULT 'common',
-    price        DECIMAL(12,2) DEFAULT 0,
-    created_date DATETIME      DEFAULT CURRENT_TIMESTAMP,
-    updated_date DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    id               VARCHAR(36)   NOT NULL PRIMARY KEY,
+    name             VARCHAR(255)  NOT NULL,
+    description      TEXT          NULL,
+    image_url        VARCHAR(500)  NULL,
+    competition_name VARCHAR(255)  NULL,
+    tournament_id    VARCHAR(36)   NULL,
+    tournament_type  VARCHAR(100)  NULL,
+    is_official      TINYINT(1)    DEFAULT 0,
+    admin_only       TINYINT(1)    DEFAULT 0,
+    rarity           VARCHAR(50)   DEFAULT 'common',
+    sort_order       INT           DEFAULT 0,
+    price            DECIMAL(12,2) DEFAULT 0,
+    created_date     DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_date     DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] trophy_items:', err.message));
-  await addCol('trophy_items', 'description', 'TEXT NULL');
-  await addCol('trophy_items', 'image_url',   'VARCHAR(500) NULL');
-  await addCol('trophy_items', 'rarity',      "VARCHAR(50) DEFAULT 'common'");
-  await addCol('trophy_items', 'price',       'DECIMAL(12,2) DEFAULT 0');
+  // addCol guards for tables that existed before this migration was updated
+  await addCol('trophy_items', 'description',      'TEXT NULL');
+  await addCol('trophy_items', 'image_url',         'VARCHAR(500) NULL');
+  await addCol('trophy_items', 'competition_name',  'VARCHAR(255) NULL');
+  await addCol('trophy_items', 'tournament_id',     'VARCHAR(36) NULL');
+  await addCol('trophy_items', 'tournament_type',   'VARCHAR(100) NULL');
+  await addCol('trophy_items', 'is_official',       'TINYINT(1) DEFAULT 0');
+  await addCol('trophy_items', 'admin_only',        'TINYINT(1) DEFAULT 0');
+  await addCol('trophy_items', 'rarity',            "VARCHAR(50) DEFAULT 'common'");
+  await addCol('trophy_items', 'sort_order',        'INT DEFAULT 0');
+  await addCol('trophy_items', 'price',             'DECIMAL(12,2) DEFAULT 0');
 
   // Trophy placements table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_placements (
