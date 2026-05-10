@@ -434,6 +434,8 @@ async function runStartupMigrations() {
   await addCol('trophy_items', 'rarity',            "VARCHAR(50) DEFAULT 'common'");
   await addCol('trophy_items', 'sort_order',        'INT DEFAULT 0');
   await addCol('trophy_items', 'price',             'DECIMAL(12,2) DEFAULT 0');
+  await addCol('trophy_items', 'created_date',      'DATETIME NULL DEFAULT CURRENT_TIMESTAMP');
+  await addCol('trophy_items', 'updated_date',      'DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
   // Trophy placements table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_placements (

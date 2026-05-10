@@ -22,22 +22,28 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Load trophy library + existing placements
+  // Load trophy library + existing placements. Each call is independent so a
+  // failure in one (e.g. legacy schema, 404) does NOT wipe out the other.
   useEffect(() => {
     if (!ownerId) return;
     async function load() {
-      try {
-        const [lib, placed] = await Promise.all([
-          stageClient.entities.TrophyItem.list("sort_order", 200),
-          stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
-        ]);
-        setAllTrophies(lib || []);
-        setPlacements(placed || []);
-      } catch {
-        // Tables may not exist yet on server — show empty cabinet gracefully
-      } finally {
-        setLoading(false);
+      const [libRes, placedRes] = await Promise.allSettled([
+        stageClient.entities.TrophyItem.list("sort_order", 200),
+        stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
+      ]);
+      if (libRes.status === "fulfilled") {
+        setAllTrophies(libRes.value || []);
+      } else {
+        console.error("[TrophyCabinet] failed to load trophy library:", libRes.reason);
+        setAllTrophies([]);
       }
+      if (placedRes.status === "fulfilled") {
+        setPlacements(placedRes.value || []);
+      } else {
+        console.error("[TrophyCabinet] failed to load placements:", placedRes.reason);
+        setPlacements([]);
+      }
+      setLoading(false);
     }
     load();
   }, [ownerId, ownerType]);
@@ -156,14 +162,14 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
         wonTournamentsMap={wonTournamentsMap}
       />
 
-      {/* Trophy scroll bar */}
-      {(editMode || allTrophies.length > 0) && (
-        <TrophyScrollBar
-          allTrophies={allTrophies}
-          unlockedIds={unlockedIds}
-          onDragStart={handleDragStart}
-        />
-      )}
+      {/* Trophy scroll bar — always rendered so visitors see the collection
+          section, even when no trophies are unlocked yet. */}
+      <TrophyScrollBar
+        allTrophies={allTrophies}
+        unlockedIds={unlockedIds}
+        onDragStart={handleDragStart}
+      />
+
 
       {editMode && (
         <p className="text-[10px] text-muted-foreground">

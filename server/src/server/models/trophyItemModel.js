@@ -2,11 +2,13 @@ const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
 class TrophyItemModel {
-  static async getAll({ limit = 25, offset = 0, rarity } = {}) {
+  static async getAll({ limit = 200, offset = 0, rarity } = {}) {
     let sql = 'SELECT * FROM trophy_items WHERE 1=1';
     const params = [];
     if (rarity) { sql += ' AND rarity = ?'; params.push(rarity); }
-    sql += ' ORDER BY sort_order ASC, created_date DESC LIMIT ? OFFSET ?';
+    // Order only by sort_order — keeps the query resilient against legacy
+    // databases that don't yet have a created_date column.
+    sql += ' ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?';
     params.push(Number(limit), Number(offset));
     return EXECUTESQL(sql, params);
   }
