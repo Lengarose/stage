@@ -150,6 +150,14 @@ pages/admin/    Thin route wrappers that pass `forcedSection` prop to <Admin />
 - **Don't put seed business data in `schema.sql`**. Seeds for `market_value_config`,
   `shirt_sales_config`, `stadium_config` live in startup migrations (only-if-empty inserts).
   Only the `roles` table has its enum seeded in `schema.sql` because it's a system table.
+- **Datetime values**: `EXECUTESQL` automatically coerces parameter values that
+  match the strict ISO 8601 pattern (`YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM]`)
+  into MySQL `DATETIME` format (`YYYY-MM-DD HH:MM:SS`). UUIDs, names, JSON
+  payloads, and other strings are never touched. See
+  `server/src/server/utils/datetime.js`. Do **not** add per-model `toMysqlDateTime`
+  helpers; the DB layer handles it. If you need a `Date` instance converted in
+  controller-level code (e.g. before building a JSON payload), use the helper
+  directly.
 
 ---
 
