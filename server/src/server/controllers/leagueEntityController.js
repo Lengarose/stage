@@ -56,16 +56,36 @@ function extractIndexed(obj) {
   return cols;
 }
 
-// Build the safe filter WHERE clause from query params (only INDEXED + entity_type).
+// Build the safe filter WHERE clause from query params.
+//
+// Strategy:
+//   • INDEXED columns + `id` use a direct `\`col\` = ?` comparison (uses indexes,
+//     fast path).
+//   • Any other column the frontend asks to filter on falls back to
+//     `JSON_EXTRACT(data_json, '$.<key>') = ?` so filters on JSON-only fields
+//     (e.g. owner_email, club_name) work instead of being SILENTLY DROPPED —
+//     which previously caused entities like season_registration to leak rows
+//     of OTHER users to the requester when the only filter was owner_email.
+//   • Unknown keys are rejected with a strict identifier regex to prevent
+//     SQL/JSON-path injection. Reserved query params (limit, orderBy, offset,
+//     entity_type) are skipped.
 function buildWhere(entityType, queryParams) {
   const wheres = ['entity_type = ?'];
   const vals   = [entityType];
-  const ALLOWED = new Set([...INDEXED, 'id']);
+  const FAST   = new Set([...INDEXED, 'id']);
+  const RESERVED = new Set(['limit', 'offset', 'orderBy', 'order_by', 'entity_type']);
+  const SAFE_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
+
   for (const [k, v] of Object.entries(queryParams)) {
-    if (k === 'limit') continue;
-    if (!ALLOWED.has(k)) continue;
-    wheres.push(`\`${k}\` = ?`);
-    vals.push(v);
+    if (RESERVED.has(k)) continue;
+    if (!SAFE_KEY.test(k)) continue;
+    if (FAST.has(k)) {
+      wheres.push(`\`${k}\` = ?`);
+      vals.push(v);
+    } else {
+      wheres.push(`JSON_EXTRACT(data_json, '$.${k}') = ?`);
+      vals.push(v);
+    }
   }
   return { where: wheres.join(' AND '), vals };
 }

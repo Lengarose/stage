@@ -49,7 +49,16 @@ export default function SeasonRegistrations() {
       ]);
 
       setLeagues(allLeagues);
-      setMyApps(apps);
+      // Defense-in-depth: only keep applications that actually belong to the
+      // signed-in user. Backends prior to the leagueEntityController JSON-filter
+      // fix silently ignored ?owner_email=… and returned other users' rows;
+      // this guard makes sure we never render someone else's application
+      // even against a stale/older backend.
+      const myEmail = (u?.email || "").toLowerCase();
+      const ownedApps = myEmail
+        ? apps.filter(a => String(a.owner_email || "").toLowerCase() === myEmail)
+        : [];
+      setMyApps(ownedApps);
 
       if (u) {
         const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
