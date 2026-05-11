@@ -24,8 +24,10 @@ class TrophyItemModel {
       `INSERT INTO trophy_items
         (id, name, description, image_url,
          competition_name, tournament_id, tournament_type,
-         is_official, rarity, admin_only, sort_order, price, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+         is_official, rarity, admin_only, sort_order, price,
+         linked_source_type, linked_source_id, linked_source_name,
+         created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         id,
         data.name,
@@ -39,6 +41,9 @@ class TrophyItemModel {
         data.admin_only ? 1 : 0,
         data.sort_order ?? 0,
         data.price || 0,
+        data.linked_source_type || null,
+        data.linked_source_id || null,
+        data.linked_source_name || null,
       ]
     );
     return this.getById(id);
@@ -51,6 +56,7 @@ class TrophyItemModel {
       'name', 'description', 'image_url',
       'competition_name', 'tournament_id', 'tournament_type',
       'is_official', 'rarity', 'admin_only', 'sort_order', 'price',
+      'linked_source_type', 'linked_source_id', 'linked_source_name',
     ];
     for (const key of updatable) {
       if (data[key] !== undefined) {

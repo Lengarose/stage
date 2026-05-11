@@ -18,6 +18,7 @@ export default function LeaguesTab({
   setCompEditForm,
   saveCompRules,
   savingComp,
+  trophyItems = [],
   newSeasonForm,
   setNewSeasonForm,
   createCompetitionSeason,
@@ -111,7 +112,7 @@ export default function LeaguesTab({
                 className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                 onClick={() => {
                   if (isEditing) { setEditingComp(null); }
-                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 36, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, playoff_spots: comp.playoff_spots ?? 16, trophy_image_url: comp.trophy_image_url || "" }); }
+                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 36, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, playoff_spots: comp.playoff_spots ?? 16 }); }
                 }}>
                 {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                 {isEditing ? "Cancel" : "Edit Rules"}
@@ -133,13 +134,22 @@ export default function LeaguesTab({
                     </div>
                   ))}
                 </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground mb-1 block">Trophy Image URL</label>
-                  <Input value={compEditForm.trophy_image_url ?? ""}
-                    onChange={e => setCompEditForm(f => ({ ...f, trophy_image_url: e.target.value }))}
-                    placeholder="https://… trophy PNG"
-                    className="bg-secondary border-border text-xs h-8" />
-                </div>
+                {(() => {
+                  const linked = trophyItems.find(t => t.linked_source_id === comp.id);
+                  return linked ? (
+                    <div className="flex items-center gap-2 p-2 bg-warning/5 border border-warning/20 rounded">
+                      {linked.image_url
+                        ? <img src={linked.image_url} alt={linked.name} className="w-8 h-8 object-contain" />
+                        : <div className="w-8 h-8" />}
+                      <div>
+                        <p className="text-[10px] font-bold text-warning">{linked.name}</p>
+                        <p className="text-[9px] text-muted-foreground">Linked trophy — manage in Trophies tab</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">No trophy linked — go to Trophies tab to link one</p>
+                  );
+                })()}
                 <Button size="sm" onClick={saveCompRules} disabled={savingComp}
                   className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
                   {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
@@ -597,7 +607,7 @@ export default function LeaguesTab({
                           className={cn("h-7 w-7 p-0 rounded shrink-0", isEditingL ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                           onClick={() => {
                             if (isEditingL) { setEditingLeague(null); }
-                            else { setEditingLeague(league.id); setLeagueEditForm({ max_clubs: league.max_clubs ?? 16, promoted_slots: league.promoted_slots ?? 2, trophy_image_url: league.trophy_image_url || "" }); }
+                            else { setEditingLeague(league.id); setLeagueEditForm({ max_clubs: league.max_clubs ?? 16, promoted_slots: league.promoted_slots ?? 2 }); }
                           }}>
                           {isEditingL ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                         </Button>
@@ -652,13 +662,22 @@ export default function LeaguesTab({
                                 className="bg-secondary border-border text-xs h-8" />
                             </div>
                           </div>
-                          <div className="col-span-2">
-                            <label className="text-[10px] text-muted-foreground mb-1 block">Trophy Image URL</label>
-                            <Input value={leagueEditForm.trophy_image_url ?? ""}
-                              onChange={e => setLeagueEditForm(f => ({ ...f, trophy_image_url: e.target.value }))}
-                              placeholder="https://… trophy PNG"
-                              className="bg-secondary border-border text-xs h-8" />
-                          </div>
+                          {(() => {
+                            const linked = trophyItems.find(t => t.linked_source_id === league.id);
+                            return linked ? (
+                              <div className="flex items-center gap-2 p-2 bg-warning/5 border border-warning/20 rounded col-span-2">
+                                {linked.image_url
+                                  ? <img src={linked.image_url} alt={linked.name} className="w-8 h-8 object-contain" />
+                                  : <div className="w-8 h-8" />}
+                                <div>
+                                  <p className="text-[10px] font-bold text-warning">{linked.name}</p>
+                                  <p className="text-[9px] text-muted-foreground">Linked trophy — manage in Trophies tab</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-muted-foreground col-span-2">No trophy linked — go to Trophies tab to link one</p>
+                            );
+                          })()}
                           <Button size="sm" onClick={saveLeagueRules} disabled={savingLeague}
                             className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
                             {savingLeague ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}

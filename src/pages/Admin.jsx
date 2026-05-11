@@ -93,6 +93,7 @@ export default function Admin(props) {
   const [newTrophyName, setNewTrophyName] = useState("");
   const [newTrophyFile, setNewTrophyFile] = useState(null);
   const [newTrophyAdminOnly, setNewTrophyAdminOnly] = useState(false);
+  const [newTrophyLinkedSource, setNewTrophyLinkedSource] = useState(null);
   const [uploadingTrophy, setUploadingTrophy] = useState(false);
   const [trophyUploadError, setTrophyUploadError] = useState(null);
   const trophyFileRef = useRef(null);
@@ -245,18 +246,31 @@ export default function Admin(props) {
     try {
       const uploadResult = await base44.integrations.Core.UploadFile({ file: newTrophyFile });
       if (!uploadResult?.file_url) throw new Error("Upload succeeded but no URL was returned.");
+      const linked = newTrophyLinkedSource?.id ? newTrophyLinkedSource : null;
       await base44.entities.TrophyItem.create({
         name: newTrophyName.trim(),
         image_url: uploadResult.file_url,
-        is_official: true,
+        is_official: !!linked || newTrophyAdminOnly,
         admin_only: newTrophyAdminOnly,
         sort_order: trophyItems.length,
+        linked_source_type: linked?.type || null,
+        linked_source_id: linked?.id || null,
+        linked_source_name: linked?.name || null,
       });
+      // Sync trophy_image_url on the linked competition/league
+      if (linked?.id) {
+        if (linked.type === "competition") {
+          await base44.entities.Competition.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
+        } else if (linked.type === "regional_league") {
+          await base44.entities.RegionalLeague.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
+        }
+      }
       setNewTrophyName("");
       setNewTrophyFile(null);
       setNewTrophyAdminOnly(false);
+      setNewTrophyLinkedSource(null);
       if (trophyFileRef.current) trophyFileRef.current.value = "";
-      const updated = await base44.entities.TrophyItem.list("sort_order", 100).catch(() => []);
+      const updated = await base44.entities.TrophyItem.list("sort_order", 200).catch(() => []);
       setTrophyItems(updated);
     } catch (err) {
       setTrophyUploadError(err?.message || JSON.stringify(err) || "Failed to add trophy. Check console.");
@@ -264,6 +278,36 @@ export default function Admin(props) {
     } finally {
       setUploadingTrophy(false);
     }
+  }
+
+  async function updateTrophyItem(id, editForm, replaceFile) {
+    let imageUrl = null;
+    if (replaceFile) {
+      const res = await base44.integrations.Core.UploadFile({ file: replaceFile });
+      if (!res?.file_url) throw new Error("Image upload failed.");
+      imageUrl = res.file_url;
+    }
+    const linked = editForm.source?.id ? editForm.source : null;
+    const patch = {
+      name: editForm.name,
+      admin_only: editForm.admin_only ? 1 : 0,
+      linked_source_type: linked?.type || null,
+      linked_source_id: linked?.id || null,
+      linked_source_name: linked?.name || null,
+    };
+    if (imageUrl) patch.image_url = imageUrl;
+    await base44.entities.TrophyItem.update(id, patch);
+    // Sync trophy_image_url on linked source
+    const syncUrl = imageUrl || trophyItems.find(t => t.id === id)?.image_url;
+    if (linked?.id && syncUrl) {
+      if (linked.type === "competition") {
+        await base44.entities.Competition.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
+      } else if (linked.type === "regional_league") {
+        await base44.entities.RegionalLeague.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
+      }
+    }
+    const updated = await base44.entities.TrophyItem.list("sort_order", 200).catch(() => []);
+    setTrophyItems(updated);
   }
 
   async function deleteTrophyItem(id) {
@@ -597,7 +641,6 @@ export default function Admin(props) {
         promotion_spots:                0,
         relegation_spots:               0,
         playoff_spots:                  Number(compEditForm.playoff_spots) || 16,
-        trophy_image_url:               compEditForm.trophy_image_url || "",
       });
       await loadAll();
       setEditingComp(null);
@@ -615,7 +658,6 @@ export default function Admin(props) {
       await base44.entities.RegionalLeague.update(editingLeague, {
         max_clubs:        Number(leagueEditForm.max_clubs) || 16,
         promoted_slots:   Number(leagueEditForm.promoted_slots) || 2,
-        trophy_image_url: leagueEditForm.trophy_image_url || "",
       });
       await loadAll();
       setEditingLeague(null);
@@ -1163,6 +1205,7 @@ export default function Admin(props) {
               seedingComps={seedingComps}
               competitions={competitions}
               compSeasons={compSeasons}
+              trophyItems={trophyItems}
               editingComp={editingComp}
               setEditingComp={setEditingComp}
               compEditForm={compEditForm}
@@ -1283,12 +1326,17 @@ export default function Admin(props) {
               setNewTrophyFile={setNewTrophyFile}
               newTrophyAdminOnly={newTrophyAdminOnly}
               setNewTrophyAdminOnly={setNewTrophyAdminOnly}
+              newTrophyLinkedSource={newTrophyLinkedSource}
+              setNewTrophyLinkedSource={setNewTrophyLinkedSource}
               uploadingTrophy={uploadingTrophy}
               trophyUploadError={trophyUploadError}
               trophyFileRef={trophyFileRef}
               createTrophyItem={createTrophyItem}
               deleteTrophyItem={deleteTrophyItem}
+              updateTrophyItem={updateTrophyItem}
               trophyItems={trophyItems}
+              competitions={competitions}
+              regionalLeagues={regionalLeagues}
             />
           )}
 

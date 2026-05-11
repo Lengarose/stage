@@ -379,19 +379,22 @@ CREATE TABLE IF NOT EXISTS user_purchases (
 
 -- ── trophy_items ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS trophy_items (
-  id               VARCHAR(36) PRIMARY KEY,
-  name             VARCHAR(200),
-  description      TEXT         NULL,
-  image_url        TEXT         NULL,
-  competition_name VARCHAR(255) NULL,
-  tournament_id    VARCHAR(36)  NULL,
-  tournament_type  VARCHAR(30)  NULL,
-  is_official      TINYINT(1)   NULL DEFAULT 0,
-  rarity           VARCHAR(20)  NULL DEFAULT 'common',
-  admin_only       TINYINT(1)   NULL DEFAULT 0,
-  sort_order       INT          NULL DEFAULT 0,
-  price            INT          NULL DEFAULT 0,
-  created_date     DATETIME     NULL DEFAULT CURRENT_TIMESTAMP
+  id                  VARCHAR(36)  PRIMARY KEY,
+  name                VARCHAR(200),
+  description         TEXT         NULL,
+  image_url           TEXT         NULL,
+  competition_name    VARCHAR(255) NULL,
+  tournament_id       VARCHAR(36)  NULL,
+  tournament_type     VARCHAR(30)  NULL,
+  is_official         TINYINT(1)   NULL DEFAULT 0,
+  rarity              VARCHAR(20)  NULL DEFAULT 'common',
+  admin_only          TINYINT(1)   NULL DEFAULT 0,
+  sort_order          INT          NULL DEFAULT 0,
+  price               INT          NULL DEFAULT 0,
+  linked_source_type  VARCHAR(50)  NULL,
+  linked_source_id    VARCHAR(36)  NULL,
+  linked_source_name  VARCHAR(255) NULL,
+  created_date        DATETIME     NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── trophy_placements ─────────────────────────────────────────

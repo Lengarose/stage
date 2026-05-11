@@ -10,15 +10,23 @@ export default function PlayerTrophyCabinet({ player, currentUserEmail }) {
   useEffect(() => {
     async function load() {
       try {
-        const won = await stageClient.entities.Tournament.filter({ winner_player_id: player.id });
-        setWonTournaments(won || []);
+        const [won, clubCompWins, clubLeagueWins] = await Promise.all([
+          stageClient.entities.Tournament.filter({ winner_player_id: player.id }).catch(() => []),
+          player.club_id
+            ? stageClient.entities.CompetitionSeason.filter({ winner_club_id: player.club_id }).catch(() => [])
+            : [],
+          player.club_id
+            ? stageClient.entities.RegionalLeague.filter({ winner_club_id: player.club_id }).catch(() => [])
+            : [],
+        ]);
+        setWonTournaments([...(won || []), ...(clubCompWins || []), ...(clubLeagueWins || [])]);
       } catch {
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [player.id]);
+  }, [player.id, player.club_id]);
 
   if (loading) {
     return (

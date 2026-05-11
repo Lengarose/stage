@@ -182,18 +182,23 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
 
 function buildUnlockedMap(wonTournaments, allTrophies) {
   const map = {};
-  for (const tournament of wonTournaments) {
+  for (const win of wonTournaments) {
     for (const trophy of allTrophies) {
-      // Tournament directly references this trophy item (primary link)
-      const matchesTrophyItemId = tournament.trophy_item_id && tournament.trophy_item_id === trophy.id;
-      // Legacy: trophy has a back-reference to the tournament
-      const matchesTournamentId = trophy.tournament_id && trophy.tournament_id === tournament.id;
-      // Legacy: trophy competition_name matches tournament name
+      // Primary: win record directly references this trophy
+      const matchesTrophyItemId = win.trophy_item_id && win.trophy_item_id === trophy.id;
+      // Legacy: trophy back-references the win
+      const matchesTournamentId = trophy.tournament_id && trophy.tournament_id === win.id;
+      // Legacy: name match
       const matchesCompetitionName = trophy.competition_name &&
-        trophy.competition_name.trim().toLowerCase() === (tournament.name || "").trim().toLowerCase();
-      if (matchesTrophyItemId || matchesTournamentId || matchesCompetitionName) {
+        trophy.competition_name.trim().toLowerCase() === (win.name || "").trim().toLowerCase();
+      // New: linked_source_id — competition trophy links via win.competition_id, league trophy via win.id
+      const matchesLinkedSource = trophy.linked_source_id && (
+        (trophy.linked_source_type === "competition" && win.competition_id && win.competition_id === trophy.linked_source_id) ||
+        (trophy.linked_source_type === "regional_league" && win.id === trophy.linked_source_id)
+      );
+      if (matchesTrophyItemId || matchesTournamentId || matchesCompetitionName || matchesLinkedSource) {
         if (!map[trophy.id]) map[trophy.id] = [];
-        map[trophy.id].push(tournament);
+        map[trophy.id].push(win);
       }
     }
   }

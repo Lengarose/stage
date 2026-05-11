@@ -494,6 +494,9 @@ async function runStartupMigrations() {
   await addCol('trophy_items', 'price',             'DECIMAL(12,2) DEFAULT 0');
   await addCol('trophy_items', 'created_date',      'DATETIME NULL DEFAULT CURRENT_TIMESTAMP');
   await addCol('trophy_items', 'updated_date',      'DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await addCol('trophy_items', 'linked_source_type', "VARCHAR(50) NULL");
+  await addCol('trophy_items', 'linked_source_id',   "VARCHAR(36) NULL");
+  await addCol('trophy_items', 'linked_source_name', "VARCHAR(255) NULL");
 
   // Trophy placements table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_placements (

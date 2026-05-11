@@ -468,26 +468,31 @@ export default function Tournaments() {
             </div>
 
             {/* ── Trophy Selection ─────────────────── */}
-            <div>
-              <label className="label-xs">Trophy</label>
-              <p className="text-[10px] text-muted-foreground mb-2">Select a trophy from the library — awarded to the winner's cabinet.</p>
-              {trophyItems.length > 0 ? (
-                <TrophyCarousel
-                  trophies={trophyItems}
-                  selected={form.trophy_item_id}
-                  onSelect={id => setForm(f => ({ ...f, trophy_item_id: id || "" }))}
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded">
-                  No trophies yet — admin can add them via Admin → Trophies
+            {(() => {
+              const availableTrophies = trophyItems.filter(t => !t.admin_only);
+              return (
+                <div>
+                  <label className="label-xs">Trophy</label>
+                  <p className="text-[10px] text-muted-foreground mb-2">Select a trophy from the library — awarded to the winner's cabinet.</p>
+                  {availableTrophies.length > 0 ? (
+                    <TrophyCarousel
+                      trophies={availableTrophies}
+                      selected={form.trophy_item_id}
+                      onSelect={id => setForm(f => ({ ...f, trophy_item_id: id || "" }))}
+                    />
+                  ) : (
+                    <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded">
+                      No trophies available — admin can add them via Admin → Trophies
+                    </div>
+                  )}
+                  {form.trophy_item_id && (
+                    <p className="text-[10px] text-warning mt-1.5">
+                      ✓ Trophy selected — will be awarded to the winner
+                    </p>
+                  )}
                 </div>
-              )}
-              {form.trophy_item_id && (
-                <p className="text-[10px] text-warning mt-1.5">
-                  ✓ Trophy selected — will be awarded to the winner
-                </p>
-              )}
-            </div>
+              );
+            })()}
 
             {/* ── Banner ───────────────────────────── */}
             <div>
