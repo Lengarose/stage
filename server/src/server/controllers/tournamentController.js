@@ -7,11 +7,15 @@ const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/consta
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { status, page } = req.query;
+    const { page, limit, ...filters } = req.query;
     const tournament = new Tournament();
+    const FILTER_KEYS = ['id', 'status', 'winner_club_id', 'winner_player_id',
+                         'organizer_email', 'creator_email', 'participant_type',
+                         'type', 'platform', 'region', 'country_code'];
+    const hasFilter = FILTER_KEYS.some(k => filters[k] !== undefined && filters[k] !== '');
     let result;
-    if (status) {
-      result = await tournament.selectByStatus(status);
+    if (hasFilter) {
+      result = await tournament.selectByFilters(filters, limit || 200);
     } else {
       result = await tournament.selectAll(Number(page) || 1);
     }
