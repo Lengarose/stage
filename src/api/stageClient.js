@@ -3,6 +3,12 @@
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
+// Default is a RELATIVE path so:
+//   • dev: Vite proxies /api/* to VITE_API_PROXY_TARGET (vite.config.js) — no CORS
+//   • prod: frontend and backend share the stageleagues.com origin — no CORS
+// Override only for edge cases (e.g. running the frontend on a different host
+// than the backend, or pointing dev at the production API on purpose) by
+// setting VITE_API_BASE in your .env. Do NOT hardcode an absolute URL here.
 const API_BASE = (viteEnv && viteEnv.VITE_API_BASE) || '/api/stage';
 const ACCESS_KEY  = 'stage_access_token';
 const REFRESH_KEY = 'stage_refresh_token';

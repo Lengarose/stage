@@ -125,7 +125,8 @@ class LifestylePurchase {
       this.location_city, this.location_country, this.location_emoji, this.custom_name,
       this.weekly_maintenance_stc, this.last_maintenance_paid_at, this.is_defaulted, this.upgrade_slots,
       id,
-    ]);
+    ];
+    return EXECUTESQL(sql, values);
   }
 
   delete(id) {

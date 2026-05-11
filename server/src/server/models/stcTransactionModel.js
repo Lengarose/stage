@@ -64,7 +64,8 @@ class StcTransaction {
       this.player_id, this.player_email, this.club_id,
       this.amount, this.type, this.description, this.reference_id,
       id,
-    ]);
+    ];
+    return EXECUTESQL(sql, values);
   }
 
   delete(id) {

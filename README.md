@@ -1,39 +1,184 @@
-**Welcome to your Base44 project** 
+# Stage League
 
-**About**
+A football-management web app: leagues, matches, transfers, finances, trophies, news, and live social around competitive eFootball clubs. Frontend in React + Vite, backend in Express + MySQL, realtime via socket.io.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+> **AI agents**: read `AGENTS.md` in this folder before editing code. It contains the project conventions and known pitfalls.
 
-This project contains everything you need to run your app locally.
+---
 
-**Edit the code in your local development environment**
+## Stack
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+| Concern | Tech |
+|---|---|
+| Frontend | Vite, React 18, Tailwind CSS, Radix UI / shadcn-ui, react-router-dom v6, react-query |
+| Backend (REST) | Node.js + Express, MySQL (mysql2) |
+| Auth | JWT (access + refresh), Passport for Google / Microsoft / Apple OAuth |
+| Realtime | socket.io (separate `socket-server/` process) |
+| File uploads | multer, static `/uploads/*` |
+| Hosting (current) | Gandi Simple Hosting Node.js at `https://stageleagues.com` |
 
-**Prerequisites:** 
+---
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+## Repository layout
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+.
+├── AGENTS.md                  # conventions for AI agents (read first)
+├── CLAUDE.md                  # symlink to AGENTS.md (Claude Code reads this)
+├── .cursor/rules/stage.mdc    # always-applied Cursor rule (top 5 rules)
+├── src/                       # frontend
+│   ├── api/stageClient.js     # API client + entity factory + auth + socket
+│   ├── components/            # UI (admin/, trophy/, ui/ …)
+│   ├── lib/                   # SocketContext, scheduleEngine, hooks
+│   ├── pages/                 # one file per route
+│   └── pages/admin/           # admin route wrappers
+├── server/                    # backend
+│   ├── schema.sql             # full DB schema for fresh installs
+│   ├── src/server.js          # entry point + startup migrations
+│   └── src/server/
+│       ├── models/            # SQL access (class per table)
+│       ├── controllers/       # express routers (REST + functions)
+│       ├── middleware/        # errorHandler, notFoundHandler
+│       ├── oauth/             # Passport strategies
+│       └── express/index.js   # express app + cors + socketEmit forwarder
+├── socket-server/             # separate socket.io process
+└── vite.config.js             # frontend dev proxy → backend
 ```
 
-Run the app: `npm run dev`
+---
 
-**Publish your changes**
+## Quick start (local dev)
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+### Prerequisites
 
-**Docs & Support**
+- Node.js ≥ 20
+- MySQL 8 (local or remote — set credentials in `server/.env`)
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+### 1. Install dependencies
 
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+```bash
+npm install
+cd server && npm install && cd ..
+cd socket-server && npm install && cd ..
+```
+
+### 2. Configure environment
+
+**Frontend** — create `.env` in the repo root (or copy from existing):
+
+```bash
+# Where Vite proxies /api/* during dev. Point this at your local backend,
+# or at https://stageleagues.com if you want dev to hit production.
+VITE_API_PROXY_TARGET=http://127.0.0.1:8080
+
+# Where the socket.io client connects. localhost:3001 = run socket-server/ locally.
+VITE_SOCKET_URL=http://localhost:3001
+```
+
+**Backend** — create `server/.env` from `server/.env.example` and set at minimum:
+
+```bash
+PORT=8080
+DB_HOST=localhost          # NOT https:// — MySQL hostname only
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=...
+DB_NAME=stage_league
+ACCESS_TOKEN_SECRET=<random-secret>
+REFRESH_TOKEN_SECRET=<random-secret>
+```
+
+OAuth keys (`GOOGLE_*`, `MICROSOFT_*`, `APPLE_*`) are optional — set them if you need the corresponding provider, otherwise that flow is disabled at boot.
+
+### 3. Initialize the database
+
+```bash
+mysql -u root -p < server/schema.sql
+```
+
+The server also runs idempotent migrations on every boot (see `server/src/server.js`), so an existing DB self-upgrades when you pull new schema columns.
+
+### 4. Start everything
+
+Three processes in three terminals:
+
+```bash
+# Terminal 1 — backend (port 8080)
+cd server && npm run dev
+
+# Terminal 2 — socket-server (port 3001)
+cd socket-server && PORT=3001 ACCESS_TOKEN_SECRET=<same-as-backend> EMIT_SECRET=<random> node server.js
+
+# Terminal 3 — frontend (port 5173)
+npm run dev
+```
+
+Open <http://localhost:5173>.
+
+---
+
+## Build & deploy
+
+```bash
+npm run build           # produces dist/ for the frontend
+```
+
+Backend is deployed manually to Gandi:
+
+```bash
+ssh <user>@stageleagues.com
+cd <app>/server && git pull && npm install --omit=dev
+pm2 restart stage-server   # or your process manager
+```
+
+DB migrations run at boot, no manual SQL step required.
+
+**Pre-deploy checklist** (from `AGENTS.md` §8):
+
+```bash
+npm run lint
+npm run typecheck
+cd server && find src -name "*.js" -exec node --check {} +
+```
+
+---
+
+## Scripts
+
+Frontend (root `package.json`):
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Vite dev server (port 5173) |
+| `npm run build` | Production build → `dist/` |
+| `npm run preview` | Serve the built bundle |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc` against `jsconfig.json` |
+
+Backend (`server/package.json`):
+
+| Script | Purpose |
+|---|---|
+| `npm start` | Production start |
+| `npm run dev` | Nodemon, hot reload |
+
+---
+
+## Adding a new persisted entity (TL;DR)
+
+Six steps — full reference in `AGENTS.md` §2:
+
+1. `CREATE TABLE` in `server/schema.sql` **and** idempotent migration in `server/src/server.js`
+2. Model in `server/src/server/models/<entity>Model.js`
+3. Controller (express router) in `server/src/server/controllers/<entity>Controller.js`
+4. Mount in `server/src/server.js` under `/api/stage/<kebab-plural>`, wrapped by `verifyToken`
+5. Add the PascalCase name to `ENTITY_NAMES` in `src/api/stageClient.js`
+6. Use via `stageClient.entities.<Name>` — never hand-write per-entity clients
+
+---
+
+## Documentation
+
+- [`AGENTS.md`](./AGENTS.md) — full conventions for AI agents and humans alike
+- [`.cursor/rules/stage.mdc`](./.cursor/rules/stage.mdc) — top-5 distilled rules, always applied in Cursor
+- `src/IMPLEMENTATION_REFERENCE.md`, `src/SYSTEM_VERIFICATION_SUMMARY.md`, and the other `src/*.md` files — feature-specific design notes

@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: process.env.VITE_API_PROXY_TARGET || 'https://stageleagues.com',
+        target:'https://stageleagues.com',
         changeOrigin: true,
         secure: false,
       },

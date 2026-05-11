@@ -1,0 +1,56 @@
+---
+description: Core conventions for Stage League — MVC pattern, verification, and known deploy-killers
+alwaysApply: true
+---
+
+# Stage League — Top 5 rules
+
+See `AGENTS.md` in the project root for the full reference.
+
+## 1. New entity → 6-step MVC recipe (don't skip any step)
+
+When adding a persisted entity:
+
+1. `CREATE TABLE` in `server/schema.sql` **AND** idempotent migration in `server/src/server.js`
+2. Model in `server/src/server/models/<entity>Model.js`
+3. Controller in `server/src/server/controllers/<entity>Controller.js` (router with GET/POST/PATCH/DELETE)
+4. Mount in `server/src/server.js` under `/api/stage/<kebab-plural>`, wrapped by `verifyToken`
+5. Add the PascalCase entity name to `ENTITY_NAMES` in `src/api/stageClient.js`
+6. Consume via `stageClient.entities.<Name>` — never hand-write per-entity clients
+
+Skipping step 5 produces `Cannot read properties of undefined (reading 'filter')` at runtime.
+
+## 2. Model `update()` MUST return the SQL call
+
+Copy/paste mistake that has crashed production: forgetting the call after `const values = [...];`.
+
+```js
+// ❌ BAD — Node won't even parse this file
+const values = [..., id,]);
+
+// ✅ GOOD — same shape as create()
+const values = [..., id];
+return EXECUTESQL(sql, values);
+```
+
+## 3. Verify before claiming "done"
+
+Run these and confirm they pass before reporting completion:
+
+```bash
+npm run lint                                # frontend
+npm run typecheck                           # frontend
+cd server && find src -name "*.js" -exec node --check {} +   # backend syntax
+```
+
+Never claim an API endpoint works without hitting it once with curl.
+
+## 4. Don't bypass the audit-log
+
+Admin mutations on fixtures go through dedicated POST endpoints on `/api/stage/fixture-admin-actions/*`, NOT via `entity.update()`. They write to `fixture_admin_actions`. Other admin actions write to `admin_audit_log`. Never accept `admin_user_id` from request body — always derive from `req.user`.
+
+## 5. Vite dev proxies to PRODUCTION by default
+
+`vite.config.js` proxies `/api/*` to `https://stageleagues.com` unless `VITE_API_PROXY_TARGET` is set. 404s on dev are usually "the route doesn't exist on Gandi yet" (you forgot to deploy). 503s mean the Gandi backend process is down. Don't be confused by `localhost:5173` in error URLs.
+
+For singleton config (`market_value_config`, `shirt_sales_config`, `stadium_config`) and transactional admin actions: use `functionsController.js` / dedicated POST endpoints, NOT plain CRUD.
