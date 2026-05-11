@@ -227,6 +227,21 @@ const ENTITY_NAMES = [
   'LandingConfig',
   // Legacy/compat entities used in some screens
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
+  // Post-login home page editor (separate from LandingPageContent)
+  'HomePageContent',
+  // Global transfer windows (admin manages open/close periods).
+  // Business actions (open/close/execute_pending) still go through the
+  // `transferWindowActions` server function for transactional behaviour.
+  'TransferWindow',
+  // Audit log of admin interventions on expired fixtures (force-schedule,
+  // declare-forfeit, flag-review). Mutating actions go through dedicated
+  // POST endpoints on /api/stage/fixture-admin-actions; this entity exposes
+  // the audit history for read access.
+  'FixtureAdminAction',
+  // Per-player wallet ledger. Backend route /api/stage/player-stc-transactions
+  // supports ?player_id=, ?player_email=, ?limit=, ?offset=. Used by Admin.jsx
+  // to show recent transactions on a player's economy tab.
+  'PlayerStcTransaction',
 ];
 
 const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));
@@ -342,6 +357,25 @@ const functions = {
   },
 };
 
-export const stageClient = { entities, auth, integrations, functions };
+// ── Raw HTTP helpers ──────────────────────────────────────────────────────────
+// Path is relative to API_BASE (e.g. '/fixture-admin-actions/force-schedule').
+// Bodies are JSON-serialized automatically; auth header + 401-refresh are
+// handled by apiFetch.
+const http = {
+  get:    (path, query)        => apiFetch(`${path}${buildQuery(query)}`, { method: 'GET' }),
+  post:   (path, body)         => apiFetch(path, { method: 'POST',   body: JSON.stringify(body || {}) }),
+  patch:  (path, body)         => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body || {}) }),
+  delete: (path)               => apiFetch(path, { method: 'DELETE' }),
+};
+
+function buildQuery(q) {
+  if (!q || typeof q !== 'object') return '';
+  const params = Object.entries(q)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return params.length ? `?${params.join('&')}` : '';
+}
+
+export const stageClient = { entities, auth, integrations, functions, http };
 // Backward-compat alias during migration
 export const base44 = stageClient;

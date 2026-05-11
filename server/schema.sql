@@ -1292,6 +1292,192 @@ CREATE TABLE IF NOT EXISTS landing_page_contents (
 );
 -- END inlined: landing_page_content_migration.sql
 
+-- Pre-login landing page config. Edited via LandingPageEditor.jsx.
+-- Kept separate from home_page_contents so the marketing site can evolve independently.
+CREATE TABLE IF NOT EXISTS landing_config (
+  id                 VARCHAR(36)  NOT NULL PRIMARY KEY,
+  hero_title         VARCHAR(255) NULL,
+  hero_description   TEXT         NULL,
+  hero_image_url     VARCHAR(500) NULL,
+  stats_json         TEXT         NULL,
+  section1_tag       VARCHAR(100) NULL,
+  section1_title     VARCHAR(255) NULL,
+  section1_text      TEXT         NULL,
+  section1_image_url VARCHAR(500) NULL,
+  section2_tag       VARCHAR(100) NULL,
+  section2_title     VARCHAR(255) NULL,
+  section2_text      TEXT         NULL,
+  section2_image_url VARCHAR(500) NULL,
+  section3_tag       VARCHAR(100) NULL,
+  section3_title     VARCHAR(255) NULL,
+  section3_text      TEXT         NULL,
+  section3_image_url VARCHAR(500) NULL,
+  footer_tagline     VARCHAR(255) NULL,
+  created_date       DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Home page content (post-login). Edited via HomePageEditor.jsx. Mirrors landing_page_contents
+-- but stays independent so admins can change the home page without touching the marketing site.
+CREATE TABLE IF NOT EXISTS home_page_contents (
+  id                 VARCHAR(64)  PRIMARY KEY,
+  hero_title         VARCHAR(255) NULL,
+  hero_subtitle      VARCHAR(255) NULL,
+  hero_description   TEXT         NULL,
+  hero_image_url     VARCHAR(500) NULL,
+  hero_cta_1_label   VARCHAR(255) NULL,
+  hero_cta_1_url     VARCHAR(500) NULL,
+  hero_cta_2_label   VARCHAR(255) NULL,
+  hero_cta_2_url     VARCHAR(500) NULL,
+  hero_cta_3_label   VARCHAR(255) NULL,
+  hero_cta_3_url     VARCHAR(500) NULL,
+  section1_title     VARCHAR(255) NULL,
+  section1_text      TEXT         NULL,
+  section1_image_url VARCHAR(500) NULL,
+  section2_title     VARCHAR(255) NULL,
+  section2_text      TEXT         NULL,
+  section2_image_url VARCHAR(500) NULL,
+  section3_title     VARCHAR(255) NULL,
+  section3_text      TEXT         NULL,
+  section3_image_url VARCHAR(500) NULL,
+  faq_items          LONGTEXT     NULL,
+  contact_email      VARCHAR(255) NULL,
+  footer_tagline     TEXT         NULL,
+  created_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Fixture admin actions — audit log for admin interventions on expired fixtures
+-- (force-schedule, forfeit declaration, flag for review). Written by
+-- fixtureAdminActionController.js POST endpoints; consumed by the disputes tab
+-- via the FixtureAdminAction entity.
+CREATE TABLE IF NOT EXISTS fixture_admin_actions (
+  id                 VARCHAR(36)   NOT NULL PRIMARY KEY,
+  fixture_id         VARCHAR(36)   NOT NULL,
+  fixture_type       VARCHAR(30)   NOT NULL,
+  action_type        VARCHAR(30)   NOT NULL,
+  performed_by       VARCHAR(36)   NULL,
+  performed_by_name  VARCHAR(150)  NULL,
+  home_club_id       VARCHAR(36)   NULL,
+  away_club_id       VARCHAR(36)   NULL,
+  payload            LONGTEXT      NULL,
+  admin_note         TEXT          NULL,
+  created_date       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_fixture (fixture_id),
+  INDEX idx_action (action_type),
+  INDEX idx_performed_by (performed_by),
+  INDEX idx_created (created_date)
+);
+
+-- ── runtime-migrated tables (mirrored here for fresh installs) ──────────────
+-- The tables below are also created idempotently at server startup via
+-- migrations in server/src/server.js. They are duplicated here so a clean
+-- `mysql < schema.sql` install reaches the same shape as a running database.
+-- Keep both copies in sync when adding columns.
+
+-- Player wallet ledger — append-only transaction history per player wallet
+CREATE TABLE IF NOT EXISTS player_stc_transactions (
+  id            VARCHAR(36)   PRIMARY KEY,
+  player_id     VARCHAR(36)   NOT NULL,
+  player_email  VARCHAR(255),
+  amount        DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2),
+  type          VARCHAR(20),
+  category      VARCHAR(100),
+  source        VARCHAR(255),
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pst_player  (player_id),
+  INDEX idx_pst_created (created_date)
+);
+
+-- Competition & league entity store — single flexible table that backs every
+-- /api/stage/* route exposed via leagueEntityController.makeRouter(): competitions,
+-- competition_seasons, competition_fixtures, competition_standings, regional_leagues,
+-- regional_league_fixtures, regional_league_standings, qualification_entries,
+-- ranking_configs, season_registrations. The `entity_type` discriminator selects
+-- which logical entity a row represents; remaining structured data lives in `data_json`.
+CREATE TABLE IF NOT EXISTS league_entities (
+  id                VARCHAR(36)  NOT NULL PRIMARY KEY,
+  entity_type       VARCHAR(50)  NOT NULL,
+  data_json         MEDIUMTEXT,
+  status            VARCHAR(50)  DEFAULT NULL,
+  scheduling_status VARCHAR(50)  DEFAULT NULL,
+  slug              VARCHAR(100) DEFAULT NULL,
+  league_id         VARCHAR(36)  DEFAULT NULL,
+  season_id         VARCHAR(36)  DEFAULT NULL,
+  competition_id    VARCHAR(36)  DEFAULT NULL,
+  club_id           VARCHAR(36)  DEFAULT NULL,
+  is_active         TINYINT(1)   DEFAULT NULL,
+  tier              INT          DEFAULT NULL,
+  division          INT          DEFAULT NULL,
+  region            VARCHAR(100) DEFAULT NULL,
+  platform          VARCHAR(50)  DEFAULT NULL,
+  season_number     INT          DEFAULT NULL,
+  created_date      DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_le_type        (entity_type),
+  INDEX idx_le_type_status (entity_type, status),
+  INDEX idx_le_slug        (entity_type, slug),
+  INDEX idx_le_league      (entity_type, league_id),
+  INDEX idx_le_season      (entity_type, season_id),
+  INDEX idx_le_comp        (entity_type, competition_id)
+);
+
+-- Admin audit log — records moderation/admin actions across all entities.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id            VARCHAR(36)  PRIMARY KEY,
+  admin_user_id VARCHAR(36),
+  admin_email   VARCHAR(255),
+  action        VARCHAR(100),
+  entity_type   VARCHAR(50),
+  entity_id     VARCHAR(36),
+  entity_name   VARCHAR(255),
+  old_value     TEXT,
+  new_value     TEXT,
+  reason        TEXT,
+  created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_aal_entity  (entity_type, entity_id),
+  INDEX idx_aal_admin   (admin_user_id),
+  INDEX idx_aal_created (created_date)
+);
+
+-- Market value config — admin-tunable weights for the player market-value engine.
+-- Seeded with a default row by the startup migration in server.js.
+CREATE TABLE IF NOT EXISTS market_value_config (
+  id           VARCHAR(36)  PRIMARY KEY,
+  name         VARCHAR(100) DEFAULT 'default',
+  weights      JSON,
+  is_active    TINYINT(1)   DEFAULT 1,
+  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Shirt sales config — admin-tunable demand/price weights for shirt-sales economy.
+-- Seeded with a default row by the startup migration in server.js.
+CREATE TABLE IF NOT EXISTS shirt_sales_config (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  name         VARCHAR(100) DEFAULT 'default',
+  weights      JSON,
+  is_active    TINYINT(1)   DEFAULT 1,
+  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Stadium config — per-tier stadium settings (capacity, ticket price, upgrade cost).
+-- Seeded with tiers 0–3 by the startup migration in server.js.
+CREATE TABLE IF NOT EXISTS stadium_config (
+  id               INT          AUTO_INCREMENT PRIMARY KEY,
+  level            INT          NOT NULL UNIQUE,
+  name             VARCHAR(100),
+  capacity         INT          DEFAULT 5000,
+  ticket_price_stc DECIMAL(8,2) DEFAULT 15,
+  upgrade_cost_stc BIGINT       DEFAULT 0,
+  description      TEXT,
+  updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ── relational integrity (safe/idempotent foreign keys) ─────────────────────
 -- Adds FK constraints only when:
 -- 1) constraint does not already exist

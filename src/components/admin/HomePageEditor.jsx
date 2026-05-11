@@ -89,7 +89,7 @@ export default function HomePageEditor() {
   const [saved, setSaved]   = useState(false);
 
   useEffect(() => {
-    (base44.entities.LandingPageContent?.filter({}, null, 1) ?? Promise.resolve([]))
+    (base44.entities.HomePageContent?.filter({}, null, 1) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
         const r = rows[0] || {};
@@ -147,9 +147,9 @@ export default function HomePageEditor() {
     setSaving(true);
     try {
       if (record?.id) {
-        await base44.entities.LandingPageContent.update(record.id, form);
+        await base44.entities.HomePageContent.update(record.id, form);
       } else {
-        const created = await base44.entities.LandingPageContent.create(form);
+        const created = await base44.entities.HomePageContent.create(form);
         setRecord(created);
       }
       setSaved(true);

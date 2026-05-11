@@ -51,7 +51,13 @@ app.use('/api/stage/chat-messages',     verifyToken, require('./server/controlle
 app.use('/api/stage/news-items',        verifyToken, require('./server/controllers/newsItemController'));
 app.use('/api/stage/live-matches',              verifyToken, require('./server/controllers/liveMatchController'));
 app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
+app.use('/api/stage/home-page-contents',        verifyToken, require('./server/controllers/homePageContentController'));
 app.use('/api/stage/landing-configs',           verifyToken, require('./server/controllers/landingConfigController'));
+app.use('/api/stage/transfer-windows',          verifyToken, require('./server/controllers/transferWindowController'));
+app.use('/api/stage/fixture-admin-actions',     verifyToken, require('./server/controllers/fixtureAdminActionController'));
+app.use('/api/stage/reward-configs',             verifyToken, require('./server/controllers/rewardConfigController'));
+app.use('/api/stage/club-achievements',          verifyToken, require('./server/controllers/clubAchievementController'));
+app.use('/api/stage/player-achievements',        verifyToken, require('./server/controllers/playerAchievementController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 
 // Competition & league entity stack (generic CRUD via single league_entities table)
@@ -405,6 +411,58 @@ async function runStartupMigrations() {
   await addCol('landing_page_contents', 'section1_tag', 'VARCHAR(100) NULL');
   await addCol('landing_page_contents', 'section2_tag', 'VARCHAR(100) NULL');
   await addCol('landing_page_contents', 'section3_tag', 'VARCHAR(100) NULL');
+
+  // Home page content — post-login home page editor (HomePageEditor.jsx)
+  // Kept separate from landing_page_contents so the two pages can be edited independently.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS home_page_contents (
+    id                 VARCHAR(64)  PRIMARY KEY,
+    hero_title         VARCHAR(255) NULL,
+    hero_subtitle      VARCHAR(255) NULL,
+    hero_description   TEXT         NULL,
+    hero_image_url     VARCHAR(500) NULL,
+    hero_cta_1_label   VARCHAR(255) NULL,
+    hero_cta_1_url     VARCHAR(500) NULL,
+    hero_cta_2_label   VARCHAR(255) NULL,
+    hero_cta_2_url     VARCHAR(500) NULL,
+    hero_cta_3_label   VARCHAR(255) NULL,
+    hero_cta_3_url     VARCHAR(500) NULL,
+    section1_title     VARCHAR(255) NULL,
+    section1_text      TEXT         NULL,
+    section1_image_url VARCHAR(500) NULL,
+    section2_title     VARCHAR(255) NULL,
+    section2_text      TEXT         NULL,
+    section2_image_url VARCHAR(500) NULL,
+    section3_title     VARCHAR(255) NULL,
+    section3_text      TEXT         NULL,
+    section3_image_url VARCHAR(500) NULL,
+    faq_items          LONGTEXT     NULL,
+    contact_email      VARCHAR(255) NULL,
+    footer_tagline     TEXT         NULL,
+    created_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] home_page_contents:', err.message));
+
+  // Fixture admin actions — audit log for admin interventions on expired
+  // fixtures (force schedule, forfeit declaration, flag for review). Each row
+  // captures who did what, when, and on which fixture, with a JSON payload of
+  // the action-specific parameters. See fixtureAdminActionController.js.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS fixture_admin_actions (
+    id                 VARCHAR(36)   NOT NULL PRIMARY KEY,
+    fixture_id         VARCHAR(36)   NOT NULL,
+    fixture_type       VARCHAR(30)   NOT NULL,
+    action_type        VARCHAR(30)   NOT NULL,
+    performed_by       VARCHAR(36)   NULL,
+    performed_by_name  VARCHAR(150)  NULL,
+    home_club_id       VARCHAR(36)   NULL,
+    away_club_id       VARCHAR(36)   NULL,
+    payload            LONGTEXT      NULL,
+    admin_note         TEXT          NULL,
+    created_date       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_fixture (fixture_id),
+    INDEX idx_action (action_type),
+    INDEX idx_performed_by (performed_by),
+    INDEX idx_created (created_date)
+  )`).catch(err => console.error('[migration] fixture_admin_actions:', err.message));
 
   // Trophy items table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_items (

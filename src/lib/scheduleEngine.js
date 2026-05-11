@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { base44, stageClient } from "@/api/base44Client";
 import { notify } from "./notify";
 import { addDays, format } from "@/lib/momentDate";
 
@@ -219,16 +219,18 @@ export async function checkAndExpire(fixture, fixtureType) {
 }
 
 // ─── Admin: force-schedule a fixture ─────────────────────────────────────────
+// The fixture update + audit log are written server-side via the dedicated
+// /fixture-admin-actions/force-schedule endpoint. Notifications stay
+// client-side so we don't have to re-implement the email pipeline on the
+// server for this one action.
 
 export async function forceSchedule({ fixture, fixtureType, date, adminNote = "" }) {
   const formattedDate = format(new Date(date), "EEEE d MMMM yyyy 'at' HH:mm");
-  await entity(fixtureType).update(fixture.id, {
-    scheduling_status: "confirmed",
-    confirmed_date:    date,
-    status:            "scheduled",
-    ...(fixtureType === "competition" ? { scheduled_date: date } : {}),
-    admin_notes: [fixture.admin_notes, `Admin force-scheduled: ${formattedDate}${adminNote ? " — " + adminNote : ""}`]
-      .filter(Boolean).join("\n"),
+  const res = await stageClient.http.post("/fixture-admin-actions/force-schedule", {
+    fixture_id:   fixture.id,
+    fixture_type: fixtureType,
+    date,
+    admin_note:   adminNote || null,
   });
 
   // Auto-create a Match record so this fixture appears on Game Day
@@ -244,26 +246,31 @@ export async function forceSchedule({ fixture, fixtureType, date, adminNote = ""
   ]);
   if (homeEmail) await notify(homeEmail, "schedule_confirmed", `✅ Match Scheduled: ${fixtureName}`, msg, "/schedule");
   if (awayEmail) await notify(awayEmail, "schedule_confirmed", `✅ Match Scheduled: ${fixtureName}`, msg, "/schedule");
+
+  return res?.fixture || null;
 }
 
 // ─── Admin: flag for review ───────────────────────────────────────────────────
 
-export async function flagForAdminReview(fixture, fixtureType) {
-  await entity(fixtureType).update(fixture.id, { scheduling_status: "admin_review" });
+export async function flagForAdminReview(fixture, fixtureType, adminNote = "") {
+  const res = await stageClient.http.post("/fixture-admin-actions/flag-review", {
+    fixture_id:   fixture.id,
+    fixture_type: fixtureType,
+    admin_note:   adminNote || null,
+  });
+  return res?.fixture || null;
 }
 
 // ─── Admin: declare forfeit ───────────────────────────────────────────────────
 
 export async function declareForfeit({ fixture, fixtureType, forfeitingClubId, adminNote = "" }) {
-  const isHomeForfeit = forfeitingClubId === fixture.home_club_id;
-  await entity(fixtureType).update(fixture.id, {
-    scheduling_status: "confirmed",
-    status:            "forfeit",
-    winner_club_id:    isHomeForfeit ? fixture.away_club_id   : fixture.home_club_id,
-    winner_club_name:  isHomeForfeit ? fixture.away_club_name : fixture.home_club_name,
-    admin_notes: [fixture.admin_notes, `Forfeit declared: ${forfeitingClubId === fixture.home_club_id ? fixture.home_club_name : fixture.away_club_name} forfeited.${adminNote ? " " + adminNote : ""}`]
-      .filter(Boolean).join("\n"),
+  const res = await stageClient.http.post("/fixture-admin-actions/declare-forfeit", {
+    fixture_id:          fixture.id,
+    fixture_type:        fixtureType,
+    forfeiting_club_id:  forfeitingClubId,
+    admin_note:          adminNote || null,
   });
+  return res?.fixture || null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
