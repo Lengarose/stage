@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
+import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown, ChevronRight as Next } from "lucide-react";
 import BannerPreviewEditor from "../components/BannerPreviewEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,6 +31,8 @@ export default function Tournaments() {
   const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [modalStep, setModalStep] = useState(1);
+  const [trophyPickerOpen, setTrophyPickerOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rulesType, setRulesType] = useState("knockout");
   const [canCreate, setCanCreate] = useState(false);
@@ -155,6 +157,8 @@ export default function Tournaments() {
     setBannerPreview(null);
     setBannerFile(null);
     setEntryType("free");
+    setModalStep(1);
+    setTrophyPickerOpen(false);
   }
 
   const now = new Date();
@@ -273,266 +277,345 @@ export default function Tournaments() {
 
       {/* ── Create Tournament Dialog ─────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) resetForm(); setDialogOpen(open); }}>
-        <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" /> Create Tournament
+        <DialogContent className="bg-card border-border max-w-2xl p-0 gap-0 flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
+            <DialogTitle className="font-heading text-lg uppercase tracking-tight flex items-center gap-2 m-0">
+              <Trophy className="w-4 h-4 text-primary" /> Create Tournament
             </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 mt-2">
+            <button type="button" onClick={() => { resetForm(); setDialogOpen(false); }}
+              className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-            {/* Participant type */}
-            <div>
-              <label className="label-xs">Tournament For</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { v: "club", label: "🏟️ Club", sub: "Clubs register & compete" },
-                  { v: "player", label: "👤 Player", sub: "Individual players register" },
-                ].map(opt => (
-                  <button key={opt.v} type="button"
-                    onClick={() => setForm(f => ({ ...f, participant_type: opt.v }))}
-                    className={cn("text-left px-3 py-2.5 rounded border transition-all",
-                      form.participant_type === opt.v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
-                    )}>
-                    <p className="text-sm font-bold">{opt.label}</p>
-                    <p className="text-[10px] mt-0.5 opacity-70">{opt.sub}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Step tabs */}
+          <div className="flex border-b border-border shrink-0 px-6">
+            {[
+              { n: 1, label: "Setup" },
+              { n: 2, label: "Rules & Entry" },
+              { n: 3, label: "Look & Feel" },
+            ].map(({ n, label }) => (
+              <button key={n} type="button" onClick={() => setModalStep(n)}
+                className={cn(
+                  "pb-3 pt-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors -mb-px",
+                  modalStep === n
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}>
+                <span className={cn(
+                  "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] mr-1.5 font-black",
+                  modalStep === n ? "bg-primary text-black" : "bg-secondary text-muted-foreground"
+                )}>{n}</span>
+                {label}
+              </button>
+            ))}
+          </div>
 
-            {/* Name */}
-            <div>
-              <label className="label-xs">Name</label>
-              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border rounded" placeholder="Tournament name" />
-            </div>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
-            {/* Description */}
-            <div>
-              <label className="label-xs">Description</label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border rounded" rows={2} placeholder="Details..." />
-            </div>
-
-            {/* Type + Max Teams */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-xs">Format</label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v, max_teams: v === "swiss_ucl" ? "36" : f.max_teams }))}>
-                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="knockout">Knockout</SelectItem>
-                    <SelectItem value="league">League</SelectItem>
-                    <SelectItem value="group_stage">Group Stage</SelectItem>
-                    <SelectItem value="double_elimination">Double Elim.</SelectItem>
-                    <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="label-xs">Max Teams</label>
-                <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
-                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["4","8","16","20","32","36","64"].map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Platform + Start Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-xs">Platform</label>
-                <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
-                  <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PlayStation">PlayStation</SelectItem>
-                    <SelectItem value="Xbox">Xbox</SelectItem>
-                    <SelectItem value="PC">PC</SelectItem>
-                    <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="label-xs">Start Date</label>
-                <Input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary border-border rounded" />
-              </div>
-            </div>
-
-            {/* Region */}
-            <div>
-              <label className="label-xs">Region</label>
-              <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
-                <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v, e]) => (
-                    <SelectItem key={v} value={v}>{e} {v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ── Entry Fee ────────────────────────── */}
-            <div>
-              <label className="label-xs">Entry Fee</label>
-              <div className="flex gap-2 mb-3">
-                {[["free","Free"], ["stc","STC Fee"]].map(([v, label]) => (
-                  <button key={v} type="button"
-                    onClick={() => setEntryType(v)}
-                    className={cn("flex-1 py-2 rounded border text-sm font-bold transition-all",
-                      entryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
-                    )}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {entryType === "stc" && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number" min="100" max="1000000"
-                      value={form.entry_fee_stc}
-                      onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                      className="bg-secondary border-border rounded"
-                      placeholder="STC per entry"
-                    />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
+            {/* ── Step 1: Setup ── */}
+            {modalStep === 1 && (
+              <>
+                <div>
+                  <label className="label-xs">Tournament For</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { v: "club", label: "🏟️ Club", sub: "Clubs register & compete" },
+                      { v: "player", label: "👤 Player", sub: "Individual players register" },
+                    ].map(opt => (
+                      <button key={opt.v} type="button"
+                        onClick={() => setForm(f => ({ ...f, participant_type: opt.v }))}
+                        className={cn("text-left px-3 py-2.5 rounded border transition-all",
+                          form.participant_type === opt.v ? "border-primary bg-primary/10" : "border-border bg-secondary hover:border-primary/40"
+                        )}>
+                        <p className={cn("text-sm font-bold", form.participant_type === opt.v ? "text-primary" : "text-foreground")}>{opt.label}</p>
+                        <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.sub}</p>
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  {feeSTC > 0 && (
-                    <div className="border border-warning/20 bg-warning/5 rounded p-4">
-                      <p className="text-xs font-bold text-warning uppercase tracking-widest mb-3">Winner Takes All</p>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Entry fee</span>
-                          <span className="font-bold">{feeSTC.toLocaleString()} STC</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Max teams</span>
-                          <span className="font-bold">{form.max_teams}</span>
-                        </div>
-                        <div className="h-px bg-warning/20" />
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Prize pool (full)</span>
-                          <span className="font-black text-warning text-base">{prizePool.toLocaleString()} STC</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <div className="flex items-center gap-1.5">
-                            <Crown className="w-3.5 h-3.5 text-yellow-400" />
-                            <span className="text-xs text-yellow-400 font-bold">1st Place — 100%</span>
+                <div>
+                  <label className="label-xs">Name <span className="text-destructive">*</span></label>
+                  <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="bg-secondary border-border" placeholder="Tournament name" />
+                </div>
+
+                <div>
+                  <label className="label-xs">Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    className="bg-secondary border-border" rows={2} placeholder="What makes this special..." />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-xs">Format</label>
+                    <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v, max_teams: v === "swiss_ucl" ? "36" : f.max_teams }))}>
+                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="knockout">Knockout</SelectItem>
+                        <SelectItem value="league">League</SelectItem>
+                        <SelectItem value="group_stage">Group Stage</SelectItem>
+                        <SelectItem value="double_elimination">Double Elim.</SelectItem>
+                        <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="label-xs">Max Teams</label>
+                    <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
+                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["4","8","16","20","32","36","64"].map(n => <SelectItem key={n} value={n}>{n} teams</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-xs">Platform</label>
+                    <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
+                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PlayStation">PlayStation</SelectItem>
+                        <SelectItem value="Xbox">Xbox</SelectItem>
+                        <SelectItem value="PC">PC</SelectItem>
+                        <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="label-xs">Start Date <span className="text-destructive">*</span></label>
+                    <Input type="datetime-local" value={form.start_date}
+                      onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                      className="bg-secondary border-border" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-xs">Region</label>
+                  <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
+                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v,e]) => (
+                        <SelectItem key={v} value={v}>{e} {v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {/* ── Step 2: Rules & Entry ── */}
+            {modalStep === 2 && (
+              <>
+                <div>
+                  <label className="label-xs">Entry Fee</label>
+                  <div className="flex gap-2 mb-3">
+                    {[["free","Free"], ["stc","STC Fee"]].map(([v, label]) => (
+                      <button key={v} type="button" onClick={() => setEntryType(v)}
+                        className={cn("flex-1 py-2 rounded border text-sm font-bold transition-all",
+                          entryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                        )}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {entryType === "stc" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min="100" max="1000000"
+                          value={form.entry_fee_stc}
+                          onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
+                          className="bg-secondary border-border" placeholder="STC per entry" />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
+                      </div>
+                      {feeSTC > 0 && (
+                        <div className="border border-warning/20 bg-warning/5 rounded p-3 text-sm space-y-1.5">
+                          <p className="text-[10px] font-bold text-warning uppercase tracking-widest">Winner Takes All</p>
+                          <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry fee</span><span className="font-bold text-xs">{feeSTC.toLocaleString()} STC</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{form.max_teams}</span></div>
+                          <div className="h-px bg-warning/20" />
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">1st Place</span></div>
+                            <span className="font-black text-warning">{prizePool.toLocaleString()} STC</span>
                           </div>
-                          <span className="font-black text-yellow-400">{prizePool.toLocaleString()} STC</span>
                         </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="label-xs">Prize Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))}
+                    className="bg-secondary border-border" placeholder="e.g. Custom badge + bragging rights" />
+                </div>
+
+                <div>
+                  <label className="label-xs">Custom Rules <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))}
+                    className="bg-secondary border-border" rows={3} placeholder="Specific rules for this tournament..." />
+                  <div className="mt-2">
+                    {form.rules_file_url ? (
+                      <div className="flex items-center gap-2 bg-secondary/60 border border-border rounded px-3 py-2">
+                        <span className="text-xs text-success flex-1">✓ Rules file attached</span>
+                        <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View</a>
+                        <button type="button" onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => rulesFileRef.current?.click()} disabled={uploadingRules}
+                          className="w-full h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors">
+                          {uploadingRules ? <><div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-3.5 h-3.5" /> Attach rules file (PDF/image)</>}
+                        </button>
+                        <input ref={rulesFileRef} type="file" accept="image/*,.pdf" className="hidden"
+                          onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingRules(true);
+                            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                            setForm(f => ({ ...f, rules_file_url: file_url }));
+                            setUploadingRules(false);
+                            e.target.value = "";
+                          }} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Step 3: Look & Feel ── */}
+            {modalStep === 3 && (
+              <>
+                {/* Trophy */}
+                <div>
+                  <label className="label-xs">Trophy <span className="font-normal lowercase text-muted-foreground">(optional — awarded to winner)</span></label>
+                  {(() => {
+                    const available = trophyItems.filter(t => !t.admin_only);
+                    const selected = available.find(t => t.id === form.trophy_item_id);
+                    return (
+                      <div className="space-y-2">
+                        <button type="button" onClick={() => setTrophyPickerOpen(o => !o)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded border px-3 py-2.5 text-sm transition-colors",
+                            trophyPickerOpen ? "border-primary bg-primary/5" : "border-border bg-secondary hover:border-primary/40"
+                          )}>
+                          {selected ? (
+                            <>
+                              {selected.image_url
+                                ? <img src={selected.image_url} alt={selected.name} className="w-8 h-8 object-contain shrink-0" />
+                                : <Trophy className="w-6 h-6 text-warning/40 shrink-0" />}
+                              <span className="flex-1 text-left font-medium text-foreground text-sm">{selected.name}</span>
+                              <button type="button" onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, trophy_item_id: "" })); }}
+                                className="text-muted-foreground hover:text-destructive shrink-0"><X className="w-3.5 h-3.5" /></button>
+                            </>
+                          ) : (
+                            <>
+                              <Trophy className="w-5 h-5 text-muted-foreground/30 shrink-0" />
+                              <span className="flex-1 text-left text-muted-foreground">Select a trophy…</span>
+                              <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", trophyPickerOpen && "rotate-180")} />
+                            </>
+                          )}
+                        </button>
+                        {trophyPickerOpen && (
+                          available.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded">No trophies available — admin adds them via Admin → Trophies</p>
+                          ) : (
+                            <div className="border border-border rounded overflow-hidden">
+                              <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-border max-h-52 overflow-y-auto">
+                                {available.map(t => (
+                                  <button key={t.id} type="button"
+                                    onClick={() => { setForm(f => ({ ...f, trophy_item_id: t.id })); setTrophyPickerOpen(false); }}
+                                    className={cn(
+                                      "flex flex-col items-center gap-1 p-3 text-center transition-colors hover:bg-primary/5",
+                                      form.trophy_item_id === t.id && "bg-warning/10"
+                                    )}>
+                                    {t.image_url
+                                      ? <img src={t.image_url} alt={t.name} className="w-10 h-10 object-contain drop-shadow" />
+                                      : <Trophy className="w-8 h-8 text-warning/20" />}
+                                    <span className="text-[9px] text-muted-foreground leading-tight line-clamp-2 w-full">{t.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Banner */}
+                <div>
+                  <label className="label-xs">Banner</label>
+                  {(bannerPreview || form.banner_url) ? (
+                    <div className="relative rounded overflow-hidden" style={{ height: 90 }}>
+                      <div className="w-full h-full"
+                        style={{ backgroundImage: `url(${bannerPreview || form.banner_url})`, backgroundSize: "cover", backgroundPosition: form.banner_position }} />
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+                      <button type="button"
+                        onClick={() => { setBannerPreview(null); setBannerFile(null); setForm(f => ({ ...f, banner_url: "", banner_position: "50% 50%" })); }}
+                        className="absolute top-2 right-2 w-6 h-6 rounded bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      {uploadingBanner && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <button type="button" onClick={() => bannerInputRef.current?.click()}
+                        className="w-full h-14 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors">
+                        <Upload className="w-3.5 h-3.5" /> Upload banner image
+                      </button>
+                      <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
+                        onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <p className="w-full text-[10px] text-muted-foreground">Or pick a colour:</p>
+                        {BANNER_COLORS.map(c => (
+                          <button key={c} type="button"
+                            onClick={() => setForm(f => ({ ...f, banner_color: c, banner_url: "" }))}
+                            className="w-7 h-7 rounded border-2 transition-all"
+                            style={{ background: c, borderColor: form.banner_color === c && !form.banner_url ? "white" : "transparent" }} />
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
-              )}
+              </>
+            )}
+          </div>
+
+          {/* Sticky footer */}
+          <div className="shrink-0 border-t border-border px-6 py-4 flex items-center justify-between gap-3">
+            <button type="button"
+              onClick={() => setModalStep(s => Math.max(1, s - 1))}
+              disabled={modalStep === 1}
+              className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-1 transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5" /> Back
+            </button>
+            <div className="flex items-center gap-1.5">
+              {[1,2,3].map(n => (
+                <div key={n} className={cn("h-1.5 rounded-full transition-all", modalStep === n ? "w-5 bg-primary" : "w-1.5 bg-border")} />
+              ))}
             </div>
-
-            {/* Prize description */}
-            <div>
-              <label className="label-xs">Prize Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
-              <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} className="bg-secondary border-border rounded" placeholder="e.g. Custom badge + bragging rights" />
-            </div>
-
-            {/* Custom rules */}
-            <div>
-              <label className="label-xs">Custom Rules <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
-              <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))} className="bg-secondary border-border rounded" rows={2} placeholder="Specific rules..." />
-              {form.rules_file_url ? (
-                <div className="flex items-center gap-2 mt-2 bg-secondary/60 border border-border rounded px-3 py-2">
-                  <span className="text-xs text-success flex-1 truncate">✓ Rules file uploaded</span>
-                  <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View</a>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <>
-                  <button type="button" onClick={() => rulesFileRef.current?.click()} disabled={uploadingRules}
-                    className="w-full h-10 mt-2 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors">
-                    {uploadingRules ? <><div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-3.5 h-3.5" /> Upload rules PDF / image</>}
-                  </button>
-                  <input ref={rulesFileRef} type="file" accept="image/*,.pdf" className="hidden"
-                    onChange={async e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setUploadingRules(true);
-                      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-                      setForm(f => ({ ...f, rules_file_url: file_url }));
-                      setUploadingRules(false);
-                      e.target.value = "";
-                    }} />
-                </>
-              )}
-            </div>
-
-            {/* ── Trophy Selection ─────────────────── */}
-            {(() => {
-              const availableTrophies = trophyItems.filter(t => !t.admin_only);
-              return (
-                <div>
-                  <label className="label-xs">Trophy</label>
-                  <p className="text-[10px] text-muted-foreground mb-2">Select a trophy from the library — awarded to the winner's cabinet.</p>
-                  {availableTrophies.length > 0 ? (
-                    <TrophyCarousel
-                      trophies={availableTrophies}
-                      selected={form.trophy_item_id}
-                      onSelect={id => setForm(f => ({ ...f, trophy_item_id: id || "" }))}
-                    />
-                  ) : (
-                    <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded">
-                      No trophies available — admin can add them via Admin → Trophies
-                    </div>
-                  )}
-                  {form.trophy_item_id && (
-                    <p className="text-[10px] text-warning mt-1.5">
-                      ✓ Trophy selected — will be awarded to the winner
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* ── Banner ───────────────────────────── */}
-            <div>
-              <label className="label-xs">Banner</label>
-              {(bannerPreview || form.banner_url) ? (
-                <div className="relative rounded overflow-hidden mb-2" style={{ height: 80 }}>
-                  <div className="w-full h-full"
-                    style={{ backgroundImage: `url(${bannerPreview || form.banner_url})`, backgroundSize: "cover", backgroundPosition: form.banner_position }} />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
-                  <button type="button"
-                    onClick={() => { setBannerPreview(null); setBannerFile(null); setForm(f => ({ ...f, banner_url: "", banner_position: "50% 50%" })); }}
-                    className="absolute top-2 right-2 w-6 h-6 rounded bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  {uploadingBanner && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
-                </div>
-              ) : (
-                <>
-                  <button type="button" onClick={() => bannerInputRef.current?.click()}
-                    className="w-full h-16 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors mb-2">
-                    <Upload className="w-3.5 h-3.5" /> Upload banner image
-                  </button>
-                  <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
-                  <div className="flex flex-wrap gap-1.5">
-                    {BANNER_COLORS.map(c => (
-                      <button key={c} type="button"
-                        onClick={() => setForm(f => ({ ...f, banner_color: c, banner_url: "" }))}
-                        className="w-6 h-6 rounded-sm border-2 transition-all"
-                        style={{ background: c, borderColor: form.banner_color === c && !form.banner_url ? "white" : "transparent" }} />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <Button onClick={createTournament} disabled={creating || !form.name} className="w-full bg-primary text-primary-foreground rounded gap-2">
-              <Trophy className="w-4 h-4" />
-              {creating ? "Creating..." : "Create Tournament"}
-            </Button>
+            {modalStep < 3 ? (
+              <button type="button"
+                onClick={() => setModalStep(s => Math.min(3, s + 1))}
+                disabled={modalStep === 1 && !form.name}
+                className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-30 flex items-center gap-1 transition-colors">
+                Next <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <Button onClick={createTournament} disabled={creating || !form.name || !form.start_date}
+                className="bg-primary text-primary-foreground gap-2 h-9 text-xs font-bold rounded">
+                <Trophy className="w-3.5 h-3.5" />
+                {creating ? "Creating…" : "Create Tournament"}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
