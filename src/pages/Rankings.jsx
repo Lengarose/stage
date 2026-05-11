@@ -37,7 +37,7 @@ function ClubRow({ club, rank, showRegion }) {
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800" />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/65 to-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
         <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[hsl(189,100%,52%)]/0 group-hover:bg-[hsl(189,100%,52%)]/80 transition-all duration-300 rounded-l-2xl" />
         <div className="absolute inset-0 rounded-2xl border border-white/8 group-hover:border-[hsl(189,100%,52%)]/35 transition-colors duration-300" />
 

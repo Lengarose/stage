@@ -13,15 +13,15 @@ function ratingStyle(r) {
   if (!r) return { cls: "text-white/50", shadow: "" };
   if (r >= 90) return { cls: "text-yellow-300", shadow: "0 0 18px rgba(253,224,71,0.7)" };
   if (r >= 85) return { cls: "text-yellow-400", shadow: "0 0 14px rgba(234,179,8,0.5)" };
-  if (r >= 80) return { cls: "text-slate-200",  shadow: "0 0 10px rgba(226,232,240,0.4)" };
-  if (r >= 75) return { cls: "text-amber-500",  shadow: "0 0 8px rgba(245,158,11,0.3)"  };
+  if (r >= 80) return { cls: "text-slate-200", shadow: "0 0 10px rgba(226,232,240,0.4)" };
+  if (r >= 75) return { cls: "text-amber-500", shadow: "0 0 8px rgba(245,158,11,0.3)" };
   return { cls: "text-[hsl(189,100%,52%)]", shadow: "0 0 8px hsl(189 100% 52% / 0.4)" };
 }
 
 export default function ClubCard({ club, rank }) {
   const totalGames = (club.wins || 0) + (club.losses || 0) + (club.draws || 0);
-  const winRate    = totalGames > 0 ? Math.round(((club.wins || 0) / totalGames) * 100) : 0;
-  const rs         = ratingStyle(club.rating);
+  const winRate = totalGames > 0 ? Math.round(((club.wins || 0) / totalGames) * 100) : 0;
+  const rs = ratingStyle(club.rating);
 
   return (
     <Link to={`/clubs/${club.id}`} className="block group">
@@ -32,8 +32,8 @@ export default function ClubCard({ club, rank }) {
           <div
             className="absolute inset-0 scale-105 group-hover:scale-110 transition-transform duration-700"
             style={{
-              backgroundImage:    `url(${club.banner_url})`,
-              backgroundSize:     `${club.banner_zoom || 150}%`,
+              backgroundImage: `url(${club.banner_url})`,
+              backgroundSize: `${club.banner_zoom || 150}%`,
               backgroundPosition: club.banner_position || "50% 50%",
             }}
           />
@@ -41,8 +41,8 @@ export default function ClubCard({ club, rank }) {
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800" />
         )}
 
-        {/* Dark gradient for readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/65 to-black/25" />
+        {/* Dark overlay for readability — min 50% opacity on the right where stats sit */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
         {/* Left accent line */}
         <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[hsl(189,100%,52%)]/0 group-hover:bg-[hsl(189,100%,52%)]/80 transition-all duration-300 rounded-l-2xl" />
         {/* Border */}
@@ -58,18 +58,7 @@ export default function ClubCard({ club, rank }) {
             </div>
           )}
 
-          {/* Rating */}
-          {club.rating != null && (
-            <div className="shrink-0 text-center w-10">
-              <div
-                className={cn("font-heading font-black text-2xl leading-none", rs.cls)}
-                style={{ textShadow: rs.shadow }}
-              >
-                {club.rating}
-              </div>
-              <div className="text-white/30 text-[8px] uppercase tracking-widest mt-0.5">RTG</div>
-            </div>
-          )}
+
 
           {/* Logo */}
           <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/15 shrink-0 bg-black/40 flex items-center justify-center group-hover:border-white/30 transition-colors">
@@ -82,8 +71,8 @@ export default function ClubCard({ club, rank }) {
 
           {/* Name + meta */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-heading font-black text-base text-white uppercase tracking-wide group-hover:text-[hsl(189,100%,52%)] transition-colors truncate">
+            <div className="flex items-center gap-5 flex-wrap">
+              <span className="font-heading font-black text-base text-white uppercase tracking-wide group-hover:text-[hsl(189,100%,52%)] transition-colors">
                 {club.name}
               </span>
               {club.tag && (
@@ -94,9 +83,22 @@ export default function ClubCard({ club, rank }) {
             </div>
             <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
               {club.platform && <span>{club.platform}</span>}
-              {club.region   && <><span>·</span><span>{club.region}</span></>}
+              {club.region && <><span>·</span><span>{club.region}</span></>}
             </div>
           </div>
+
+          {/* Rating */}
+          {club.rating != null && (
+            <div className="shrink-0 text-center w-10 mr-8">
+              <div
+                className={cn("font-heading font-black text-2xl leading-none", rs.cls)}
+                style={{ textShadow: rs.shadow }}
+              >
+                {club.rating}
+              </div>
+              <div className="text-white/30 text-[8px] uppercase tracking-widest mt-0.5">RTG</div>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="hidden sm:flex items-center gap-6 shrink-0 pr-1">
@@ -113,7 +115,7 @@ export default function ClubCard({ club, rank }) {
             </div>
             <div className="text-center w-10">
               <div className={cn("font-black text-sm leading-none",
-                winRate >= 60 ? "text-emerald-400" : winRate >= 40 ? "text-yellow-400" : "text-white/40"
+                winRate >= 60 ? "text-emerald-400" : winRate >= 40 ? "text-yellow-400" : "text-white/60"
               )}>{winRate}%</div>
               <div className="text-white/25 text-[8px] uppercase tracking-widest mt-0.5">WR</div>
             </div>

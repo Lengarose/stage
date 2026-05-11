@@ -150,8 +150,8 @@ export default function Players() {
                       <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800" />
                     )}
 
-                    {/* Dark gradient for readability */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/65 to-black/25" />
+                    {/* Dark overlay for readability — min 50% opacity on the right where stats sit */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
                     {/* Subtle left accent line */}
                     <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[hsl(189,100%,52%)]/0 group-hover:bg-[hsl(189,100%,52%)]/80 transition-all duration-300 rounded-l-2xl" />
                     {/* Border */}
@@ -198,7 +198,7 @@ export default function Players() {
                       {/* Name + meta */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-heading font-black text-base text-white uppercase tracking-wide group-hover:text-[hsl(189,100%,52%)] transition-colors truncate">
+                          <span className="font-heading font-black text-base text-white uppercase tracking-wide group-hover:text-[hsl(189,100%,52%)] transition-colors">
                             {player.gamertag}
                           </span>
                           {player.position && (
