@@ -75,58 +75,71 @@ export default function TournamentDetail() {
 
   useEffect(() => {
     async function load() {
-      const isAuthed = await stageClient.auth.isAuthenticated();
-      if (!isAuthed) { setLoading(false); return; }
-      const u = await stageClient.auth.me();
-      setUser(u);
-      const [tData, clubData, matchData, plData] = await Promise.all([
-        stageClient.entities.Tournament.filter({ id }, null, 1),
-        stageClient.entities.Club.list("-rating", 200),
-        stageClient.entities.Match.filter({ tournament_id: id }, "round"),
-        stageClient.entities.Player.filter({ email: u.email }),
-      ]);
-      const t = tData[0] || null;
-      setTournament(t);
-      setAllClubs(clubData);
-      console.log("setAllClubs",clubData);
-      setMatches(matchData);
-      if (t) {
-        setClubs(clubData.filter(c => t.registered_clubs?.includes(c.id)));
-      }
-      if (plData.length > 0) {
-        setMyPlayer(plData[0]);
-        const clubPlayers = await stageClient.entities.Player.filter({ club_id: plData[0].club_id });
-        setMyClubPlayers(clubPlayers);
-      }
+      try {
+        const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
+        if (!isAuthed) return;
+        const u = await stageClient.auth.me().catch(() => null);
+        if (!u) return;
+        setUser(u);
 
-      console.log('clubs: ',myClubPlayers)
-
-      const subs = await stageClient.entities.UserPurchase.filter({ buyer_email: u.email, item_type: "subscription" });
-      const subIds = subs.map(s => s.item_id);
-      const isElite = subIds.includes("sub_elite");
-      const isPro = subIds.includes("sub_pro") || isElite;
-      setIsBasic(u.role === "admin" || isPro);
-      const cost = u.role === "admin" ? 0 : isElite ? 30 : isPro ? 40 : 50;
-      setTournamentEntryCost(cost);
-      setIsAdmin(u.role === "admin");
-      setIsCreator(t?.creator_email === u.email);
-      // Check if winner press conference already done
-      if (t?.status === 'completed' && t?.winner_club_id) {
-        const existingConfs = await stageClient.entities.PressConference.filter({ match_id: t.id });
-        setWinnerConferenceDone(existingConfs.some(c => c.context === 'tournament_winner'));
-      }
-      if (u.role === "admin") {
-        const tcId = localStorage.getItem('admin_takeover_club_id');
-        if (tcId) {
-          const tcArr = await stageClient.entities.Club.filter({ id: tcId });
-          if (tcArr.length > 0) {
-            setTakeoverClub(tcArr[0]);
-            const tcPlayers = await stageClient.entities.Player.filter({ club_id: tcId });
-            setMyClubPlayers(tcPlayers);
+        // Each call gets its own fallback so a single failure can never block
+        // the rest of the page from rendering — the spinner used to stick
+        // forever when (for example) the tournament id was stale and the
+        // backend returned a non-2xx the SDK didn't recover from.
+        const [tData, clubData, matchData, plData] = await Promise.all([
+          stageClient.entities.Tournament.filter({ id }, null, 1).catch(() => []),
+          stageClient.entities.Club.list("-rating", 200).catch(() => []),
+          stageClient.entities.Match.filter({ tournament_id: id }, "round").catch(() => []),
+          stageClient.entities.Player.filter({ email: u.email }).catch(() => []),
+        ]);
+        const t = tData[0] || null;
+        setTournament(t);
+        setAllClubs(clubData);
+        setMatches(matchData);
+        if (t) {
+          setClubs(clubData.filter(c => t.registered_clubs?.includes(c.id)));
+        }
+        if (plData.length > 0) {
+          setMyPlayer(plData[0]);
+          if (plData[0].club_id) {
+            const clubPlayers = await stageClient.entities.Player.filter({ club_id: plData[0].club_id }).catch(() => []);
+            setMyClubPlayers(clubPlayers);
           }
         }
+
+        const subs = await stageClient.entities.UserPurchase
+          .filter({ buyer_email: u.email, item_type: "subscription" })
+          .catch(() => []);
+        const subIds = subs.map(s => s.item_id);
+        const isElite = subIds.includes("sub_elite");
+        const isPro = subIds.includes("sub_pro") || isElite;
+        setIsBasic(u.role === "admin" || isPro);
+        const cost = u.role === "admin" ? 0 : isElite ? 30 : isPro ? 40 : 50;
+        setTournamentEntryCost(cost);
+        setIsAdmin(u.role === "admin");
+        setIsCreator(t?.creator_email === u.email);
+        if (t?.status === 'completed' && t?.winner_club_id) {
+          const existingConfs = await stageClient.entities.PressConference
+            .filter({ match_id: t.id })
+            .catch(() => []);
+          setWinnerConferenceDone(existingConfs.some(c => c.context === 'tournament_winner'));
+        }
+        if (u.role === "admin") {
+          const tcId = localStorage.getItem('admin_takeover_club_id');
+          if (tcId) {
+            const tcArr = await stageClient.entities.Club.filter({ id: tcId }).catch(() => []);
+            if (tcArr.length > 0) {
+              setTakeoverClub(tcArr[0]);
+              const tcPlayers = await stageClient.entities.Player.filter({ club_id: tcId }).catch(() => []);
+              setMyClubPlayers(tcPlayers);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[TournamentDetail.load]', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
 
