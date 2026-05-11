@@ -369,63 +369,68 @@ export default function Admin(props) {
 
   async function createTournament() {
     setSaving(true);
-    const user = adminProfile;
-    let rules_file_url = "";
-    let banner_url = "";
-    if (rulesFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: rulesFile });
-      rules_file_url = res.file_url;
-    }
-    if (bannerFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
-      banner_url = res.file_url;
-    }
-    let trophy_url = "";
-    if (adminTrophyFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: adminTrophyFile });
-      trophy_url = res.file_url;
-      // Auto-create TrophyItem in library from uploaded file
-      if (!adminTrophyItemId && tournamentForm.name) {
-        const created = await base44.entities.TrophyItem.create({
-          name: `By STAGE · ${tournamentForm.name}`,
-          image_url: trophy_url,
-          is_official: true,
-          sort_order: trophyItems.length,
-        }).catch(() => null);
-        if (created?.id) setAdminTrophyItemId(created.id);
+    try {
+      const user = adminProfile;
+      let rules_file_url = "";
+      let banner_url = "";
+      if (rulesFile) {
+        const res = await stageClient.integrations.Core.UploadFile({ file: rulesFile });
+        rules_file_url = res.file_url;
       }
+      if (bannerFile) {
+        const res = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
+        banner_url = res.file_url;
+      }
+      let trophy_url = "";
+      let resolvedTrophyItemId = adminTrophyItemId || null;
+      if (adminTrophyFile) {
+        const res = await stageClient.integrations.Core.UploadFile({ file: adminTrophyFile });
+        trophy_url = res.file_url;
+        if (!adminTrophyItemId && tournamentForm.name) {
+          const created = await base44.entities.TrophyItem.create({
+            name: `By STAGE · ${tournamentForm.name}`,
+            image_url: trophy_url,
+            is_official: true,
+            sort_order: trophyItems.length,
+          }).catch(() => null);
+          if (created?.id) resolvedTrophyItemId = created.id;
+        }
+      }
+      const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
+
+      await base44.entities.Tournament.create({
+        ...tournamentForm,
+        max_teams: Number(tournamentForm.max_teams),
+        entry_credits: 0,
+        entry_fee_stc: adminEntryType === "stc" ? (Number(tournamentForm.entry_fee_stc) || 0) : 0,
+        prize_winner_stc: Number(tournamentForm.prize_winner_stc) || 0,
+        prize_runner_up_stc: Number(tournamentForm.prize_runner_up_stc) || 0,
+        prize_semi_final_stc: Number(tournamentForm.prize_semi_final_stc) || 0,
+        prize_participation_stc: Number(tournamentForm.prize_participation_stc) || 0,
+        start_date: new Date(tournamentForm.start_date).toISOString(),
+        organizer_email: user.email,
+        creator_email: user.email,
+        status: "registration",
+        current_round: 1,
+        registered_clubs: [],
+        registered_players: [],
+        rules_file_url,
+        banner_url: banner_url || "",
+        banner_color: !banner_url ? bannerColor : "",
+        trophy_url: resolvedTrophyUrl,
+        trophy_item_id: resolvedTrophyItemId,
+      });
+      setCreateTournamentOpen(false);
+      setTournamentForm({ name: "", type: "knockout", participant_type: "club", platform: "PlayStation", region: "Global", country_code: "", max_teams: 8, start_date: "", description: "", prize_description: "", entry_fee_stc: 0, custom_rules: "", prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "" });
+      setRulesFile(null); setBannerFile(null); setBannerColor("#1e2a3a"); setAdminTrophyFile(null);
+      setAdminTrophyItemId(""); setAdminEntryType("free"); setAdminModalStep(1);
+      loadAll();
+    } catch (err) {
+      console.error("createTournament error:", err);
+      alert("Failed to create tournament: " + (err?.message || "Unknown error"));
+    } finally {
+      setSaving(false);
     }
-    const resolvedTrophyItemId = adminTrophyItemId || null;
-    const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
-    
-    await base44.entities.Tournament.create({
-      ...tournamentForm,
-      max_teams: Number(tournamentForm.max_teams),
-      entry_credits: 0,
-      entry_fee_stc: adminEntryType === "stc" ? (Number(tournamentForm.entry_fee_stc) || 0) : 0,
-      prize_winner_stc: Number(tournamentForm.prize_winner_stc) || 0,
-      prize_runner_up_stc: Number(tournamentForm.prize_runner_up_stc) || 0,
-      prize_semi_final_stc: Number(tournamentForm.prize_semi_final_stc) || 0,
-      prize_participation_stc: Number(tournamentForm.prize_participation_stc) || 0,
-      start_date: new Date(tournamentForm.start_date).toISOString(),
-      organizer_email: user.email,
-      creator_email: user.email,
-      status: "registration",
-      current_round: 1,
-      registered_clubs: [],
-      registered_players: [],
-      rules_file_url,
-      banner_url: banner_url || "",
-      banner_color: !banner_url ? bannerColor : "",
-      trophy_url: resolvedTrophyUrl,
-      trophy_item_id: resolvedTrophyItemId,
-    });
-    setCreateTournamentOpen(false);
-    setTournamentForm({ name: "", type: "knockout", participant_type: "club", platform: "PlayStation", region: "Global", country_code: "", max_teams: 8, start_date: "", description: "", prize_description: "", entry_fee_stc: 0, custom_rules: "", prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "" });
-    setRulesFile(null); setBannerFile(null); setBannerColor("#1e2a3a"); setAdminTrophyFile(null);
-    setAdminTrophyItemId(""); setAdminEntryType("free"); setAdminModalStep(1);
-    setSaving(false);
-    await loadAll();
   }
 
   async function seedCompetitions() {

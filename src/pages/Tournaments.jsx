@@ -144,9 +144,12 @@ export default function Tournaments() {
         trophy_item_id: form.trophy_item_id || null,
         trophy_url: selectedTrophy?.image_url || "",
       });
-      await load();
       setDialogOpen(false);
       resetForm();
+      load();
+    } catch (err) {
+      console.error("createTournament error:", err);
+      alert("Failed to create tournament: " + (err?.message || "Unknown error"));
     } finally {
       setCreating(false);
     }
