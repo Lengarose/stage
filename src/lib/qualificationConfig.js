@@ -95,3 +95,10 @@ export const RELEGATION_SPOTS = 2;
 
 // How many clubs at the top of Div 2 get promoted to Div 1
 export const PROMOTION_SPOTS = 2;
+
+// Cross-competition qualification: winner of tier N season qualifies for tier N-1 next season.
+// positions are 1-indexed final standings within the competition season.
+export const CROSS_COMPETITION_QUALIFICATION_RULES = [
+  { fromSlug: "elite",      toSlug: "supreme",    toName: "STAGE Supreme League",    positions: [1] },
+  { fromSlug: "challenger", toSlug: "elite",      toName: "STAGE Elite League",      positions: [1] },
+];

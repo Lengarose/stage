@@ -111,7 +111,7 @@ export default function Admin(props) {
   const [compSeasons, setCompSeasons] = useState([]);
   const [qualEntries, setQualEntries] = useState([]);
   const [seedingComps, setSeedingComps] = useState(false);
-  const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "" });
+  const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "", num_clubs: 36, num_league_matchdays: 8 });
   const [expiredFixtures, setExpiredFixtures] = useState([]);
   const [schedulingAdminBusy, setSchedulingAdminBusy] = useState(null);
   const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
@@ -388,9 +388,9 @@ export default function Admin(props) {
     setSeedingComps(true);
     try {
       const defs = [
-        { name: "STAGE Supreme League",    slug: "supreme",    tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.",          max_clubs_per_season: 16, promotion_spots: 0, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-        { name: "STAGE Elite League",      slug: "elite",      tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.",           max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 2, playoff_spots: 4, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-        { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.",             max_clubs_per_season: 16, promotion_spots: 2, relegation_spots: 0, playoff_spots: 4, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Supreme League",    slug: "supreme",    tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.",          max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Elite League",      slug: "elite",      tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.",           max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.",             max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
       ];
       const existing = new Set(competitions.map(c => c.slug));
       const toCreate = defs.filter(d => !existing.has(d.slug));
@@ -423,6 +423,7 @@ export default function Admin(props) {
     if (!comp) { setCreatingLeagueSeason(false); return; }
     const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
     const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
+    const numMatchdays = parseInt(newSeasonForm.num_league_matchdays) || 8;
     await base44.entities.CompetitionSeason.create({
       competition_id: comp.id,
       competition_name: comp.name,
@@ -435,11 +436,11 @@ export default function Admin(props) {
       status: "draft",
       format: "league_36_8md",
       playoff_format: "9_24_bracket",
-      num_league_matchdays: 8,
-      league_matchday_total: 8,
+      num_league_matchdays: numMatchdays,
+      league_matchday_total: numMatchdays,
       fixtures_generated: false,
       registered_club_ids: [],
-      num_clubs: 0,
+      num_clubs: parseInt(newSeasonForm.num_clubs) || 36,
       current_matchday: 1,
       prize_pool_stc: parseInt(newSeasonForm.prize_pool_stc) || 0,
     });
@@ -591,11 +592,11 @@ export default function Admin(props) {
     setSavingComp(true);
     try {
       await base44.entities.Competition.update(editingComp, {
-        max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || 16,
+        max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || 36,
         qualification_spots_per_region: Number(compEditForm.qualification_spots_per_region) || 2,
-        promotion_spots:                Number(compEditForm.promotion_spots) || 0,
-        relegation_spots:               Number(compEditForm.relegation_spots) || 0,
-        playoff_spots:                  Number(compEditForm.playoff_spots) || 4,
+        promotion_spots:                0,
+        relegation_spots:               0,
+        playoff_spots:                  Number(compEditForm.playoff_spots) || 16,
         trophy_image_url:               compEditForm.trophy_image_url || "",
       });
       await loadAll();

@@ -34,7 +34,20 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
 
   const ops = [];
 
-  // Create one QualificationEntry per qualifying position per rule
+  // Build a dedup set: fetch all existing pending entries for clubs in this league
+  const clubIds = sorted.map(s => s.club_id);
+  const existingEntries = await Promise.all(
+    clubIds.map(id =>
+      base44.entities.QualificationEntry.filter({ club_id: id, status: "pending" }, null, 10).catch(() => [])
+    )
+  );
+  // Map: clubId → Set of target_competition_id strings already pending
+  const pendingMap = {};
+  existingEntries.forEach((entries, i) => {
+    pendingMap[clubIds[i]] = new Set((entries || []).map(e => e.target_competition_id));
+  });
+
+  // Create one QualificationEntry per qualifying position per rule (skip duplicates)
   for (const rule of STAGE_QUALIFICATION_RULES) {
     const comp = competitions.find(c => c.slug === rule.competitionSlug);
     if (!comp) continue;
@@ -42,6 +55,10 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
     for (const pos of rule.positions) {
       if (pos > total) continue;
       const s = sorted[pos - 1];
+
+      // Skip if club already has a pending entry for this competition
+      if (pendingMap[s.club_id]?.has(comp.id)) continue;
+
       ops.push(
         base44.entities.QualificationEntry.create({
           source_type: "regional_league",

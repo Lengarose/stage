@@ -700,6 +700,61 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
   });
 }
 
+// ─── Cross-competition season-end qualification ────────────────────────────────
+
+/**
+ * Called when a competition season is marked completed.
+ * Creates QualificationEntry records for the season winner(s) per
+ * CROSS_COMPETITION_QUALIFICATION_RULES (e.g. Elite winner → Supreme).
+ * Skips if the club already has a pending/confirmed entry for the target competition.
+ */
+export async function processCompetitionSeasonEnd(season, standings, competitions) {
+  const { CROSS_COMPETITION_QUALIFICATION_RULES } = await import("./qualificationConfig");
+  const rule = CROSS_COMPETITION_QUALIFICATION_RULES.find(r => r.fromSlug === season.competition_slug);
+  if (!rule) return; // Supreme has no upward path
+
+  const targetComp = competitions.find(c => c.slug === rule.toSlug);
+  if (!targetComp) return;
+
+  const sorted = sortStandings(standings);
+  const ops = [];
+
+  for (const pos of rule.positions) {
+    if (pos > sorted.length) continue;
+    const s = sorted[pos - 1];
+
+    // Deduplication: skip if an entry already exists for this club → target competition
+    const existing = await base44.entities.QualificationEntry.filter(
+      { club_id: s.club_id, target_competition_id: targetComp.id, status: "pending" }, null, 1
+    ).catch(() => []);
+    if (existing.length > 0) continue;
+
+    ops.push(
+      base44.entities.QualificationEntry.create({
+        source_type: "competition_season",
+        regional_league_id: null,
+        regional_league_name: null,
+        regional_finish_position: pos,
+        target_competition_id: targetComp.id,
+        target_competition_name: targetComp.name,
+        target_competition_tier: targetComp.tier,
+        target_season_id: null,
+        target_season_number: null,
+        club_id: s.club_id,
+        club_name: s.club_name,
+        club_logo_url: s.club_logo_url || "",
+        club_tag: s.club_tag || "",
+        club_region: s.region || "",
+        club_platform: s.platform || "",
+        status: "pending",
+      })
+    );
+  }
+
+  await Promise.all(ops);
+  return { qualified: ops.length };
+}
+
 // ─── Regional league fixture generation (full round-robin, both legs) ─────────
 
 /**

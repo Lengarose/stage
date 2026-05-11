@@ -588,6 +588,7 @@ export default function CompetitionDetail() {
                 { value: "fixtures", label: `Fixtures (${completedFixtures.length}/${fixtures.length})` },
                 { value: "upcoming", label: `Upcoming (${upcomingFixtures.length})` },
                 { value: "qualification", label: `Qualification (${qualEntries.length})` },
+                { value: "format", label: "Format" },
               ].map(tab => (
                 <TabsTrigger key={tab.value} value={tab.value}
                   className="rounded-none border-b-2 border-transparent px-5 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent">
@@ -623,6 +624,72 @@ export default function CompetitionDetail() {
 
             <TabsContent value="qualification">
               <QualificationPanel entries={qualEntries} />
+            </TabsContent>
+
+            <TabsContent value="format">
+              <div className="space-y-4 max-w-xl">
+                {[
+                  {
+                    label: "League Phase",
+                    color: "border-primary/40 bg-primary/5",
+                    badge: `${selectedSeason?.num_clubs || 36} teams`,
+                    lines: [
+                      `Each team plays ${selectedSeason?.num_league_matchdays || 8} matches (${Math.floor((selectedSeason?.num_league_matchdays || 8) / 2)} home, ${Math.ceil((selectedSeason?.num_league_matchdays || 8) / 2)} away).`,
+                      "All teams share one league table.",
+                      "Top 8 advance directly to the Round of 16.",
+                      "Teams ranked 9th–24th enter the Playoff Round.",
+                      "Teams ranked 25th and below are eliminated.",
+                    ],
+                  },
+                  {
+                    label: "Playoff Round",
+                    color: "border-yellow-400/40 bg-yellow-400/5",
+                    badge: "8 ties · 2 legs",
+                    lines: [
+                      "16 teams (positions 9–24) compete in two-legged ties.",
+                      "Seeding: 9 vs 24, 10 vs 23, … 16 vs 17.",
+                      "8 winners complete the Round of 16.",
+                    ],
+                  },
+                  {
+                    label: "Knockout Rounds",
+                    color: "border-violet-400/40 bg-violet-400/5",
+                    badge: "R16 → QF → SF → Final",
+                    lines: [
+                      "Round of 16: 8 direct qualifiers vs 8 playoff winners.",
+                      "Quarter-Finals: 8 winners, two-legged ties.",
+                      "Semi-Finals: 4 winners, two-legged ties.",
+                      "Final: single match, neutral venue.",
+                    ],
+                  },
+                  {
+                    label: "Qualification",
+                    color: "border-muted-foreground/20 bg-secondary",
+                    badge: "No relegation",
+                    lines: [
+                      "Regional league Div 1 top finishers earn entry via Qualification Entries.",
+                      "Elite League winner qualifies for the next Supreme League season.",
+                      "Challenger League winner qualifies for the next Elite League season.",
+                      "There is no promotion or relegation between Supreme, Elite, and Challenger.",
+                    ],
+                  },
+                ].map(({ label, color, badge, lines }) => (
+                  <div key={label} className={`border rounded-lg p-4 ${color}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-bold text-foreground">{label}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-current text-muted-foreground uppercase tracking-wider">{badge}</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {lines.map((line, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex gap-2">
+                          <span className="text-primary shrink-0">·</span>
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </TabsContent>
           </Tabs>
           </>

@@ -39,7 +39,22 @@ export default function SeasonCard({ season: s, onRefresh }) {
 
       } else if (action === "complete") {
         await base44.entities.CompetitionSeason.update(s.id, { status: "completed" });
-        alert("Season marked as completed.");
+        // Trigger cross-competition qualification (e.g. Elite winner → Supreme)
+        try {
+          const { processCompetitionSeasonEnd } = await import("@/lib/competitionUtils");
+          const [standings, competitions] = await Promise.all([
+            base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
+            base44.entities.Competition.filter({}, null, 10).catch(() => []),
+          ]);
+          const result = await processCompetitionSeasonEnd(s, standings, competitions);
+          if (result?.qualified > 0) {
+            alert(`Season marked as completed.\n\n${result.qualified} cross-competition qualification entr${result.qualified === 1 ? "y" : "ies"} created (check Qualification Entries).`);
+          } else {
+            alert("Season marked as completed.");
+          }
+        } catch {
+          alert("Season marked as completed.");
+        }
 
       } else if (action === "open_registration") {
         await base44.entities.CompetitionSeason.update(s.id, { status: "registration" });

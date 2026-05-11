@@ -79,7 +79,7 @@ export default function LeaguesTab({
     <div className="flex items-center justify-between gap-3">
       <div>
         <h3 className="font-heading text-base uppercase tracking-tight text-foreground">STAGE Competitions</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions. Click Edit Rules to adjust spots, club limits and playoff format.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions (Champions League format). No promotion/relegation. Click Edit Rules to adjust club limits and playoff spots.</p>
       </div>
       <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
         {seedingComps ? "Seeding..." : competitions.length >= 3 ? "✓ Seeded" : "Seed Competitions"}
@@ -104,14 +104,14 @@ export default function LeaguesTab({
                   Tier {comp.tier} · {seasons.length} season{seasons.length !== 1 ? "s" : ""} · Max {comp.max_clubs_per_season || 16} clubs · {comp.qualification_spots_per_region || 2} spots/region
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  ↑ {comp.promotion_spots || 0} promoted · ↓ {comp.relegation_spots || 0} relegated · {comp.playoff_spots || 4} playoff spots
+                  {comp.playoff_spots || 16} playoff spots · Top 8 direct R16 · 9-24 play-in · No relegation
                 </p>
               </div>
               <Button size="sm" variant="outline"
                 className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                 onClick={() => {
                   if (isEditing) { setEditingComp(null); }
-                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 16, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, promotion_spots: comp.promotion_spots ?? 0, relegation_spots: comp.relegation_spots ?? 0, playoff_spots: comp.playoff_spots ?? 4, trophy_image_url: comp.trophy_image_url || "" }); }
+                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 36, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, playoff_spots: comp.playoff_spots ?? 16, trophy_image_url: comp.trophy_image_url || "" }); }
                 }}>
                 {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                 {isEditing ? "Cancel" : "Edit Rules"}
@@ -123,9 +123,7 @@ export default function LeaguesTab({
                   {[
                     { key: "max_clubs_per_season",           label: "Max Clubs/Season" },
                     { key: "qualification_spots_per_region", label: "Qual. Spots/Region" },
-                    { key: "promotion_spots",                label: "Promotion Spots" },
-                    { key: "relegation_spots",               label: "Relegation Spots" },
-                    { key: "playoff_spots",                  label: "Playoff Spots" },
+                    { key: "playoff_spots",                  label: "Playoff Spots (9-24)" },
                   ].map(({ key, label }) => (
                     <div key={key}>
                       <label className="text-[10px] text-muted-foreground mb-1 block">{label}</label>
@@ -192,6 +190,20 @@ export default function LeaguesTab({
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
             {["Global","Europe","North America"].map(r => <option key={r} value={r}>{r}</option>)}
           </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label-xs">Number of Clubs</label>
+          <input type="number" min="4" max="128" value={newSeasonForm.num_clubs ?? 36}
+            onChange={e => setNewSeasonForm(f => ({ ...f, num_clubs: e.target.value }))}
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
+        </div>
+        <div>
+          <label className="label-xs">League Matchdays</label>
+          <input type="number" min="2" max="20" value={newSeasonForm.num_league_matchdays ?? 8}
+            onChange={e => setNewSeasonForm(f => ({ ...f, num_league_matchdays: e.target.value }))}
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
         </div>
       </div>
       <div>
