@@ -59,7 +59,7 @@ class Tournament {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM tournaments LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL('SELECT * FROM tournaments ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
   selectOne(id) {
@@ -68,6 +68,26 @@ class Tournament {
 
   selectByStatus(status) {
     return EXECUTESQL('SELECT * FROM tournaments WHERE status = ?', [status]);
+  }
+
+  selectByFilters(filters = {}, limit = 200) {
+    const ALLOWED = ['id', 'status', 'winner_club_id', 'winner_player_id',
+                     'organizer_email', 'creator_email', 'participant_type',
+                     'type', 'platform', 'region', 'country_code'];
+    const clauses = [];
+    const values  = [];
+    for (const key of ALLOWED) {
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+        clauses.push(`\`${key}\` = ?`);
+        values.push(filters[key]);
+      }
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    values.push(Math.min(Number(limit) || 200, 500));
+    return EXECUTESQL(
+      `SELECT * FROM tournaments ${where} ORDER BY created_date DESC LIMIT ?`,
+      values
+    );
   }
 
   create() {
