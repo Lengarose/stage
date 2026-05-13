@@ -60,6 +60,14 @@ app.use('/api/stage/club-achievements',          verifyToken, require('./server/
 app.use('/api/stage/player-achievements',        verifyToken, require('./server/controllers/playerAchievementController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 
+// EAFC-inspired modules
+app.use('/api/stage/objective-definitions',     verifyToken, require('./server/controllers/objectiveDefinitionController'));
+app.use('/api/stage/objective-progresses',      verifyToken, require('./server/controllers/objectiveProgressController'));
+app.use('/api/stage/archetypes',                verifyToken, require('./server/controllers/archetypeController'));
+app.use('/api/stage/chemistry-links',           verifyToken, require('./server/controllers/chemistryLinkController'));
+app.use('/api/stage/sbcs',                      verifyToken, require('./server/controllers/sbcController'));
+app.use('/api/stage/sbc-submissions',           verifyToken, require('./server/controllers/sbcSubmissionController'));
+
 // Competition & league entity stack (generic CRUD via single league_entities table)
 const { makeRouter: makeLeagueRouter } = require('./server/controllers/leagueEntityController');
 app.use('/api/stage/competitions',               verifyToken, makeLeagueRouter('competition'));
@@ -179,6 +187,52 @@ async function runStartupMigrations() {
   await addCol('matches', 'away_submission', 'TEXT NULL');
   await addCol('matches', 'stats_processed', 'TINYINT(1) DEFAULT 0');
   await addCol('matches', 'competition_context', 'VARCHAR(255) NULL');
+
+  // Submitted-score reconciliation (used when home and away submit separately
+  // and need to agree before the match is finalised).
+  await addCol('matches', 'home_submitted_score',  'VARCHAR(20) NULL');
+  await addCol('matches', 'away_submitted_score',  'VARCHAR(20) NULL');
+  await addCol('matches', 'first_submission_at',   'DATETIME NULL');
+  await addCol('matches', 'first_submitter_club_id', 'VARCHAR(36) NULL');
+
+  // Winner / loser denormalisation — populated when the match finishes so
+  // standings / rankings can read without an extra join.
+  await addCol('matches', 'winner_club_id',     'VARCHAR(36) NULL');
+  await addCol('matches', 'winner_club_name',   'VARCHAR(150) NULL');
+  await addCol('matches', 'winner_player_id',   'VARCHAR(36) NULL');
+  await addCol('matches', 'winner_player_name', 'VARCHAR(150) NULL');
+  await addCol('matches', 'loser_club_id',      'VARCHAR(36) NULL');
+  await addCol('matches', 'loser_club_name',    'VARCHAR(150) NULL');
+  await addCol('matches', 'loser_player_id',    'VARCHAR(36) NULL');
+  await addCol('matches', 'loser_player_name',  'VARCHAR(150) NULL');
+
+  // Tournament bracket bookkeeping
+  await addCol('matches', 'group_number', 'INT NULL');
+  await addCol('matches', 'bracket_side', 'VARCHAR(20) NULL');
+
+  // Media / proof / streaming
+  await addCol('matches', 'video_url',         'TEXT NULL');
+  await addCol('matches', 'proof_url',         'TEXT NULL');
+  await addCol('matches', 'home_stream_url',   'TEXT NULL');
+  await addCol('matches', 'away_stream_url',   'TEXT NULL');
+
+  // Forfeit workflow
+  await addCol('matches', 'forfeit_claimed_by', 'VARCHAR(255) NULL');
+  await addCol('matches', 'forfeit_proof_url',  'TEXT NULL');
+  await addCol('matches', 'forfeit_status',     'VARCHAR(50) NULL');
+
+  // Admin / note fields
+  await addCol('matches', 'admin_notes', 'TEXT NULL');
+  await addCol('matches', 'notes',       'TEXT NULL');
+
+  // Wager identity (which players staked each side, separate from the
+  // match itself which can be club-level).
+  await addCol('matches', 'wager_home_player_id', 'VARCHAR(36) NULL');
+  await addCol('matches', 'wager_away_player_id', 'VARCHAR(36) NULL');
+
+  // Where this match came from (league fixture, knockout tie, friendly, …)
+  await addCol('matches', 'source_fixture_id',   'VARCHAR(36) NULL');
+  await addCol('matches', 'source_fixture_type', 'VARCHAR(50) NULL');
 
   // match_player_stats — add player_id and gamertag (schema v2)
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
@@ -469,7 +523,7 @@ async function runStartupMigrations() {
     id               VARCHAR(36)   NOT NULL PRIMARY KEY,
     name             VARCHAR(255)  NOT NULL,
     description      TEXT          NULL,
-    image_url        VARCHAR(500)  NULL,
+    image_url        TEXT          NULL,
     competition_name VARCHAR(255)  NULL,
     tournament_id    VARCHAR(36)   NULL,
     tournament_type  VARCHAR(100)  NULL,
@@ -497,6 +551,10 @@ async function runStartupMigrations() {
   await addCol('trophy_items', 'linked_source_type', "VARCHAR(50) NULL");
   await addCol('trophy_items', 'linked_source_id',   "VARCHAR(36) NULL");
   await addCol('trophy_items', 'linked_source_name', "VARCHAR(255) NULL");
+  // Legacy installs used VARCHAR(500) for image URLs; long CDN/signed URLs caused PATCH 500s.
+  await EXECUTESQL(
+    'ALTER TABLE trophy_items MODIFY COLUMN image_url TEXT NULL'
+  ).catch((err) => console.error('[migration] trophy_items.image_url→TEXT:', err.message));
 
   // Trophy placements table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_placements (
@@ -523,6 +581,170 @@ async function runStartupMigrations() {
   await addCol('lifestyle_purchases', 'upgrade_level',           'INT DEFAULT 0');
   await addCol('lifestyle_purchases', 'last_passive_collected',  'DATETIME NULL');
   await addCol('lifestyle_purchases', 'base_upgrade_cost_stc',   'BIGINT DEFAULT 0');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  EAFC-inspired modules: Daily/Weekly Objectives, Archetypes, Chemistry, SBC
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // 1) Daily / Weekly Objectives — catalogue + per-player progress
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS objective_definitions (
+    id            VARCHAR(36)  NOT NULL PRIMARY KEY,
+    scope         VARCHAR(20)  NOT NULL DEFAULT 'daily',
+    code          VARCHAR(100) NULL,
+    title         VARCHAR(255) NOT NULL,
+    description   TEXT         NULL,
+    metric        VARCHAR(50)  NOT NULL,
+    target_value  INT          NOT NULL DEFAULT 1,
+    reward_stc    DECIMAL(12,2) DEFAULT 0,
+    reward_xp     INT          DEFAULT 0,
+    active_from   DATETIME     NULL,
+    active_until  DATETIME     NULL,
+    is_active     TINYINT(1)   DEFAULT 1,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_obj_scope_active (scope, is_active),
+    INDEX idx_obj_metric (metric),
+    INDEX idx_obj_code (code)
+  )`).catch(err => console.error('[migration] objective_definitions:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS objective_progress (
+    id            VARCHAR(36)  NOT NULL PRIMARY KEY,
+    player_id     VARCHAR(36)  NOT NULL,
+    player_email  VARCHAR(255) NULL,
+    objective_id  VARCHAR(36)  NOT NULL,
+    scope         VARCHAR(20)  NULL,
+    current_value INT          DEFAULT 0,
+    target_value  INT          NULL,
+    completed_at  DATETIME     NULL,
+    claimed_at    DATETIME     NULL,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_op_player_obj (player_id, objective_id),
+    INDEX idx_op_player (player_id),
+    INDEX idx_op_objective (objective_id),
+    INDEX idx_op_unclaimed (player_id, completed_at, claimed_at)
+  )`).catch(err => console.error('[migration] objective_progress:', err.message));
+
+  // 2) Archetypes — catalogue + players.archetype column + sacrificed_at (used by SBC)
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS archetypes (
+    id                    VARCHAR(36)  NOT NULL PRIMARY KEY,
+    code                  VARCHAR(64)  NOT NULL UNIQUE,
+    name                  VARCHAR(100) NOT NULL,
+    position              VARCHAR(20)  NULL,
+    description           TEXT         NULL,
+    base_modifiers        JSON         NULL,
+    signature_playstyles  JSON         NULL,
+    icon_inspiration      VARCHAR(100) NULL,
+    sort_order            INT          DEFAULT 0,
+    is_active             TINYINT(1)   DEFAULT 1,
+    created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_arch_position (position),
+    INDEX idx_arch_active (is_active)
+  )`).catch(err => console.error('[migration] archetypes:', err.message));
+
+  await addCol('players', 'archetype', 'VARCHAR(64) NULL');
+  await addCol('players', 'sacrificed_at', 'DATETIME NULL');
+
+  // Seed default archetypes (only if empty) — 13 archetypes inspired by EAFC 26 Clubs Pro
+  const archCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM archetypes', []).catch(() => [{ n: 1 }]);
+  if (Number(archCount[0]?.n || 0) === 0) {
+    const { v4: _uuid } = require('uuid');
+    const SEED = [
+      ['poacher',       'Poacher',              'ST',  'Inzaghi',     'Penalty-box predator, lives off through-balls.',
+        { shooting: 1.08, positioning: 1.10, pace: 1.04 }, ['Finesse Shot', 'Power Header']],
+      ['target_man',    'Target Man',           'ST',  'Crouch',      'Aerial pivot who holds up play for runners.',
+        { physical: 1.10, heading: 1.12, shooting: 1.05 }, ['Aerial Threat', 'Press Proven']],
+      ['false_nine',    'False Nine',           'ST',  'Messi',       'Drops deep to dribble and create.',
+        { dribbling: 1.08, passing: 1.07, agility: 1.05 }, ['Trickster', 'Incisive Pass']],
+      ['speedster',     'Speedster',            'LW',  'Mbappé',      'Pure pace and direct running.',
+        { pace: 1.12, dribbling: 1.05, shooting: 1.03 }, ['Quickstep', 'Rapid']],
+      ['wing_wizard',   'Wing Wizard',          'RW',  'Ronaldinho',  'Trickster wide forward with flair.',
+        { dribbling: 1.10, flair: 1.10, shooting: 1.04 }, ['Flair', 'Trivela', 'Trickster']],
+      ['playmaker',     'Playmaker',            'CAM', 'Iniesta',     'Vision-led tempo controller.',
+        { passing: 1.10, vision: 1.10, dribbling: 1.05 }, ['Incisive Pass', 'Tiki Taka']],
+      ['box_to_box',    'Box-to-Box',           'CM',  'Vieira',      'Engine that covers both boxes.',
+        { physical: 1.07, passing: 1.05, stamina: 1.10 }, ['Press Proven', 'Long Ball Pass']],
+      ['deep_lying',    'Deep-Lying Playmaker', 'CDM', 'Pirlo',       'Deep conductor, long-range distribution.',
+        { passing: 1.10, vision: 1.10, defending: 1.03 }, ['Long Ball Pass', 'Pinged Pass']],
+      ['anchor',        'Anchor',               'CDM', 'Makelele',    'Defensive shield in front of the back four.',
+        { defending: 1.10, physical: 1.08, interceptions: 1.10 }, ['Intercept', 'Block', 'Bruiser']],
+      ['ball_player_cb','Ball-Playing CB',      'CB',  'Beckenbauer', 'CB comfortable bringing it out.',
+        { defending: 1.05, passing: 1.08, composure: 1.10 }, ['Long Ball Pass', 'Anticipate']],
+      ['stopper',       'Stopper',              'CB',  'Maldini',     'Old-school defender, wins his duels.',
+        { defending: 1.12, heading: 1.10, physical: 1.06 }, ['Aerial Threat', 'Slide Tackle', 'Bruiser']],
+      ['attacking_fb',  'Attacking Full-Back',  'LB',  'Cafu',        'Modern overlapping full-back.',
+        { pace: 1.08, dribbling: 1.05, crossing: 1.08 }, ['Whipped Pass', 'Quickstep']],
+      ['shot_stopper',  'Shot Stopper',         'GK',  'Buffon',      'Pure goalkeeping reflexes.',
+        { reflexes: 1.12, diving: 1.08, handling: 1.05 }, ['Acrobatic', 'Far Throw']],
+    ];
+    let order = 0;
+    for (const [code, name, position, icon, description, mods, playstyles] of SEED) {
+      await EXECUTESQL(
+        `INSERT IGNORE INTO archetypes
+           (id, code, name, position, description, base_modifiers, signature_playstyles, icon_inspiration, sort_order, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [_uuid(), code, name, position, description, JSON.stringify(mods), JSON.stringify(playstyles), icon, order++]
+      ).catch(() => {});
+    }
+  }
+
+  // 3) Chemistry links — pairwise relationships
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS chemistry_links (
+    id            VARCHAR(36)  NOT NULL PRIMARY KEY,
+    player_a_id   VARCHAR(36)  NOT NULL,
+    player_b_id   VARCHAR(36)  NOT NULL,
+    link_type     VARCHAR(30)  NOT NULL,
+    bonus_factor  DECIMAL(4,3) DEFAULT 1.000,
+    source        VARCHAR(100) NULL,
+    description   VARCHAR(255) NULL,
+    is_active     TINYINT(1)   DEFAULT 1,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_chem_pair_type (player_a_id, player_b_id, link_type),
+    INDEX idx_chem_player_a (player_a_id),
+    INDEX idx_chem_player_b (player_b_id),
+    INDEX idx_chem_type (link_type)
+  )`).catch(err => console.error('[migration] chemistry_links:', err.message));
+
+  // 4) Squad Building Challenges + submissions
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS sbcs (
+    id              VARCHAR(36)  NOT NULL PRIMARY KEY,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT         NULL,
+    category        VARCHAR(50)  DEFAULT 'general',
+    requirements    JSON         NULL,
+    reward          JSON         NULL,
+    image_url       VARCHAR(500) NULL,
+    max_completions INT          NULL,
+    expires_at      DATETIME     NULL,
+    is_active       TINYINT(1)   DEFAULT 1,
+    created_date    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sbc_active (is_active, expires_at),
+    INDEX idx_sbc_category (category)
+  )`).catch(err => console.error('[migration] sbcs:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS sbc_submissions (
+    id                    VARCHAR(36)  NOT NULL PRIMARY KEY,
+    sbc_id                VARCHAR(36)  NOT NULL,
+    player_id             VARCHAR(36)  NOT NULL,
+    player_email          VARCHAR(255) NULL,
+    player_gamertag       VARCHAR(150) NULL,
+    club_id               VARCHAR(36)  NULL,
+    sacrificed_player_ids JSON         NULL,
+    reward_payload        JSON         NULL,
+    stc_credited          DECIMAL(12,2) DEFAULT 0,
+    status                VARCHAR(20)  DEFAULT 'pending',
+    failure_reason        TEXT         NULL,
+    submitted_at          DATETIME     NULL,
+    completed_at          DATETIME     NULL,
+    created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sbcsub_sbc (sbc_id),
+    INDEX idx_sbcsub_player (player_id),
+    INDEX idx_sbcsub_status (status, created_date)
+  )`).catch(err => console.error('[migration] sbc_submissions:', err.message));
 }
 
 runStartupMigrations().catch(err => console.error('[migration] startup error:', err));

@@ -103,31 +103,75 @@ CREATE TABLE IF NOT EXISTS clubs (
 
 -- ── matches ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS matches (
-  id                  VARCHAR(36)  PRIMARY KEY,
-  home_club_id        VARCHAR(36),
-  away_club_id        VARCHAR(36),
-  home_player_id      VARCHAR(36),
-  away_player_id      VARCHAR(36),
-  home_club_name      VARCHAR(150),
-  away_club_name      VARCHAR(150),
-  home_player_name    VARCHAR(150),
-  away_player_name    VARCHAR(150),
-  home_score          INT          DEFAULT 0,
-  away_score          INT          DEFAULT 0,
-  status              VARCHAR(50)  DEFAULT 'scheduled',
-  mode                VARCHAR(50),
-  type                VARCHAR(50),
-  round               INT,
-  tournament_id       VARCHAR(36),
-  scheduled_date      DATETIME,
-  wager_stc           DECIMAL(12,2) DEFAULT 0,
-  wager_status        VARCHAR(50),
-  wager_home_locked   TINYINT(1)   DEFAULT 0,
-  wager_away_locked   TINYINT(1)   DEFAULT 0,
-  stream_url          TEXT,
-  stream_embed_html   TEXT,
-  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  id                     VARCHAR(36)  PRIMARY KEY,
+  home_club_id           VARCHAR(36),
+  away_club_id           VARCHAR(36),
+  home_player_id         VARCHAR(36),
+  away_player_id         VARCHAR(36),
+  home_club_name         VARCHAR(150),
+  away_club_name         VARCHAR(150),
+  home_player_name       VARCHAR(150),
+  away_player_name       VARCHAR(150),
+  home_player_email      VARCHAR(255),
+  away_player_email      VARCHAR(255),
+  home_score             INT          DEFAULT 0,
+  away_score             INT          DEFAULT 0,
+  status                 VARCHAR(50)  DEFAULT 'scheduled',
+  mode                   VARCHAR(50),
+  type                   VARCHAR(50),
+  round                  INT,
+  group_number           INT,
+  bracket_side           VARCHAR(20),
+  tournament_id          VARCHAR(36),
+  scheduled_date         DATETIME,
+  -- result submission
+  home_goal_events       TEXT,
+  away_goal_events       TEXT,
+  home_submission        TEXT,
+  away_submission        TEXT,
+  result_home_submitted  TINYINT(1)   DEFAULT 0,
+  result_away_submitted  TINYINT(1)   DEFAULT 0,
+  home_submitted_score   VARCHAR(20),
+  away_submitted_score   VARCHAR(20),
+  first_submission_at    DATETIME,
+  first_submitter_club_id VARCHAR(36),
+  stats_processed        TINYINT(1)   DEFAULT 0,
+  competition_context    VARCHAR(255),
+  -- winner / loser
+  winner_club_id         VARCHAR(36),
+  winner_club_name       VARCHAR(150),
+  winner_player_id       VARCHAR(36),
+  winner_player_name     VARCHAR(150),
+  loser_club_id          VARCHAR(36),
+  loser_club_name        VARCHAR(150),
+  loser_player_id        VARCHAR(36),
+  loser_player_name      VARCHAR(150),
+  -- media / proof / streaming
+  video_url              TEXT,
+  proof_url              TEXT,
+  stream_url             TEXT,
+  home_stream_url        TEXT,
+  away_stream_url        TEXT,
+  stream_embed_html      TEXT,
+  -- forfeit workflow
+  forfeit_claimed_by     VARCHAR(255),
+  forfeit_proof_url      TEXT,
+  forfeit_status         VARCHAR(50),
+  -- notes
+  admin_notes            TEXT,
+  notes                  TEXT,
+  -- wagers
+  wager_stc              DECIMAL(12,2) DEFAULT 0,
+  wager_status           VARCHAR(50),
+  wager_home_locked      TINYINT(1)   DEFAULT 0,
+  wager_away_locked      TINYINT(1)   DEFAULT 0,
+  wager_home_player_id   VARCHAR(36),
+  wager_away_player_id   VARCHAR(36),
+  -- origin (which league fixture / cup tie / friendly produced this match)
+  source_fixture_id      VARCHAR(36),
+  source_fixture_type    VARCHAR(50),
+  created_date           DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date           DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ── tournaments ───────────────────────────────────────────────
@@ -1479,6 +1523,119 @@ CREATE TABLE IF NOT EXISTS stadium_config (
   upgrade_cost_stc BIGINT       DEFAULT 0,
   description      TEXT,
   updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── EAFC-inspired modules ──────────────────────────────────────────────────
+-- Mirrored in server/src/server.js startup migrations. Keep both in sync.
+
+CREATE TABLE IF NOT EXISTS objective_definitions (
+  id            VARCHAR(36)   NOT NULL PRIMARY KEY,
+  scope         VARCHAR(20)   NOT NULL DEFAULT 'daily',
+  code          VARCHAR(100)  NULL,
+  title         VARCHAR(255)  NOT NULL,
+  description   TEXT          NULL,
+  metric        VARCHAR(50)   NOT NULL,
+  target_value  INT           NOT NULL DEFAULT 1,
+  reward_stc    DECIMAL(12,2) DEFAULT 0,
+  reward_xp     INT           DEFAULT 0,
+  active_from   DATETIME      NULL,
+  active_until  DATETIME      NULL,
+  is_active     TINYINT(1)    DEFAULT 1,
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_obj_scope_active (scope, is_active),
+  INDEX idx_obj_metric (metric),
+  INDEX idx_obj_code (code)
+);
+
+CREATE TABLE IF NOT EXISTS objective_progress (
+  id            VARCHAR(36)  NOT NULL PRIMARY KEY,
+  player_id     VARCHAR(36)  NOT NULL,
+  player_email  VARCHAR(255) NULL,
+  objective_id  VARCHAR(36)  NOT NULL,
+  scope         VARCHAR(20)  NULL,
+  current_value INT          DEFAULT 0,
+  target_value  INT          NULL,
+  completed_at  DATETIME     NULL,
+  claimed_at    DATETIME     NULL,
+  created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_op_player_obj (player_id, objective_id),
+  INDEX idx_op_player (player_id),
+  INDEX idx_op_objective (objective_id),
+  INDEX idx_op_unclaimed (player_id, completed_at, claimed_at)
+);
+
+CREATE TABLE IF NOT EXISTS archetypes (
+  id                    VARCHAR(36)  NOT NULL PRIMARY KEY,
+  code                  VARCHAR(64)  NOT NULL UNIQUE,
+  name                  VARCHAR(100) NOT NULL,
+  position              VARCHAR(20)  NULL,
+  description           TEXT         NULL,
+  base_modifiers        JSON         NULL,
+  signature_playstyles  JSON         NULL,
+  icon_inspiration      VARCHAR(100) NULL,
+  sort_order            INT          DEFAULT 0,
+  is_active             TINYINT(1)   DEFAULT 1,
+  created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_arch_position (position),
+  INDEX idx_arch_active (is_active)
+);
+
+CREATE TABLE IF NOT EXISTS chemistry_links (
+  id            VARCHAR(36)  NOT NULL PRIMARY KEY,
+  player_a_id   VARCHAR(36)  NOT NULL,
+  player_b_id   VARCHAR(36)  NOT NULL,
+  link_type     VARCHAR(30)  NOT NULL,
+  bonus_factor  DECIMAL(4,3) DEFAULT 1.000,
+  source        VARCHAR(100) NULL,
+  description   VARCHAR(255) NULL,
+  is_active     TINYINT(1)   DEFAULT 1,
+  created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_chem_pair_type (player_a_id, player_b_id, link_type),
+  INDEX idx_chem_player_a (player_a_id),
+  INDEX idx_chem_player_b (player_b_id),
+  INDEX idx_chem_type (link_type)
+);
+
+CREATE TABLE IF NOT EXISTS sbcs (
+  id              VARCHAR(36)  NOT NULL PRIMARY KEY,
+  name            VARCHAR(255) NOT NULL,
+  description     TEXT         NULL,
+  category        VARCHAR(50)  DEFAULT 'general',
+  requirements    JSON         NULL,
+  reward          JSON         NULL,
+  image_url       VARCHAR(500) NULL,
+  max_completions INT          NULL,
+  expires_at      DATETIME     NULL,
+  is_active       TINYINT(1)   DEFAULT 1,
+  created_date    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sbc_active (is_active, expires_at),
+  INDEX idx_sbc_category (category)
+);
+
+CREATE TABLE IF NOT EXISTS sbc_submissions (
+  id                    VARCHAR(36)   NOT NULL PRIMARY KEY,
+  sbc_id                VARCHAR(36)   NOT NULL,
+  player_id             VARCHAR(36)   NOT NULL,
+  player_email          VARCHAR(255)  NULL,
+  player_gamertag       VARCHAR(150)  NULL,
+  club_id               VARCHAR(36)   NULL,
+  sacrificed_player_ids JSON          NULL,
+  reward_payload        JSON          NULL,
+  stc_credited          DECIMAL(12,2) DEFAULT 0,
+  status                VARCHAR(20)   DEFAULT 'pending',
+  failure_reason        TEXT          NULL,
+  submitted_at          DATETIME      NULL,
+  completed_at          DATETIME      NULL,
+  created_date          DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  updated_date          DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sbcsub_sbc (sbc_id),
+  INDEX idx_sbcsub_player (player_id),
+  INDEX idx_sbcsub_status (status, created_date)
 );
 
 -- ── relational integrity (safe/idempotent foreign keys) ─────────────────────

@@ -1117,18 +1117,35 @@ function resetUI() {
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <Button onClick={async () => {
                 const entryCost = tournament.entry_credits ?? 50;
+                const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const currentCredits = myPlayer.credits ?? 500;
                 if (currentCredits < entryCost) { alert("Not enough credits."); return; }
-                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
-                const updated = [...(tournament.registered_players || []), myPlayer.id];
-                if (entryCost > 0) {
-                  const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
-                  setMyPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
+                if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
+                  alert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
+                  return;
                 }
-                await stageClient.entities.Tournament.update(tournament.id, { registered_players: updated });
-                setTournament(prev => ({ ...prev, registered_players: updated }));
-              }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}>
-                <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits)</span>
+                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
+                try {
+                  const res = await stageClient.functions.invoke('tournamentRegistration', {
+                    tournament_id: tournament.id,
+                    player_id: myPlayer.id,
+                  });
+                  if (!res.data.success) {
+                    alert(res.data.error || 'Registration failed');
+                    return;
+                  }
+                  const updated = [...(tournament.registered_players || []), myPlayer.id];
+                  setMyPlayer(prev => ({
+                    ...prev,
+                    credits: res.data.new_player_credits ?? prev.credits,
+                    stc: res.data.new_player_stc ?? prev.stc,
+                  }));
+                  setTournament(prev => ({ ...prev, registered_players: updated }));
+                } catch (err) {
+                  alert('Registration failed: ' + (err?.message || 'Unknown error'));
+                }
+              }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
               </Button>
             )}
 

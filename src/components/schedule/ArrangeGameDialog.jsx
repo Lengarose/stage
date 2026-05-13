@@ -6,15 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
 
 const STEPS = ["search", "details", "confirm"];
-
-function toMysqlDateTime(value) {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
@@ -87,7 +81,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     setSendError("");
 
     try {
-      const localDateTime = new Date(`${date}T${time}:00`);
+      const localDateTime = combineDateTime(date, time);
       const scheduledDate = toMysqlDateTime(localDateTime);
 
       const activeType = isOwnerMode ? "club" : "player";

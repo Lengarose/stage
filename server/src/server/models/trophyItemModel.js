@@ -1,6 +1,13 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+/** Avoid MySQL "Data too long" / strict-mode errors on VARCHAR columns. */
+function clipStr(val, maxLen) {
+  if (val == null) return val;
+  const s = String(val);
+  return s.length <= maxLen ? s : s.slice(0, maxLen);
+}
+
 class TrophyItemModel {
   static async getAll({ limit = 200, offset = 0, rarity } = {}) {
     let sql = 'SELECT * FROM trophy_items WHERE 1=1';
@@ -30,20 +37,20 @@ class TrophyItemModel {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         id,
-        data.name,
+        clipStr(data.name, 200),
         data.description || null,
         data.image_url || null,
-        data.competition_name || null,
-        data.tournament_id || null,
-        data.tournament_type || null,
+        clipStr(data.competition_name, 255) || null,
+        clipStr(data.tournament_id, 36) || null,
+        clipStr(data.tournament_type, 30) || null,
         data.is_official ? 1 : 0,
-        data.rarity || 'common',
+        clipStr(data.rarity, 20) || 'common',
         data.admin_only ? 1 : 0,
         data.sort_order ?? 0,
         data.price || 0,
-        data.linked_source_type || null,
-        data.linked_source_id || null,
-        data.linked_source_name || null,
+        clipStr(data.linked_source_type, 50) || null,
+        clipStr(data.linked_source_id, 36) || null,
+        clipStr(data.linked_source_name, 255) || null,
       ]
     );
     return this.getById(id);
@@ -58,10 +65,23 @@ class TrophyItemModel {
       'is_official', 'rarity', 'admin_only', 'sort_order', 'price',
       'linked_source_type', 'linked_source_id', 'linked_source_name',
     ];
+    const clipLen = {
+      name: 200,
+      competition_name: 255,
+      tournament_id: 36,
+      tournament_type: 30,
+      rarity: 20,
+      linked_source_type: 50,
+      linked_source_id: 36,
+      linked_source_name: 255,
+    };
     for (const key of updatable) {
       if (data[key] !== undefined) {
         fields.push(`${key} = ?`);
-        params.push(data[key]);
+        const max = clipLen[key];
+        let val = data[key];
+        if (max != null && typeof val === 'string') val = clipStr(val, max);
+        params.push(val);
       }
     }
     if (!fields.length) return this.getById(id);
