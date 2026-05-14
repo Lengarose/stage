@@ -6,7 +6,6 @@ import { stageClient } from "@/api/stageClient";
 import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
@@ -71,7 +70,7 @@ export default function TournamentDetail() {
   const [winnerPressRoomOpen, setWinnerPressRoomOpen] = useState(false);
   const [winnerConferenceDone, setWinnerConferenceDone] = useState(false);
   const [takeoverClub, setTakeoverClub] = useState(null);
-
+  const [activeTab, setActiveTab] = useState("bracket");
 
   useEffect(() => {
     async function load() {
@@ -976,369 +975,420 @@ function resetUI() {
     return incomplete ?? rounds[rounds.length - 1] ?? null;
   })();
 
+  const TYPE_COLOR = {
+    knockout: "#ef4444",
+    league: "#3b82f6",
+    group_stage: "#22c55e",
+    swiss_ucl: "#f59e0b",
+    double_elimination: "#a855f7",
+  };
+  const accentColor = TYPE_COLOR[tournament.type] || "#3b82f6";
+  const heroStyle = tournament.banner_url
+    ? { backgroundImage: `url(${tournament.banner_url})`, backgroundSize: "cover", backgroundPosition: tournament.banner_position || "50% 50%" }
+    : { background: `linear-gradient(135deg, ${tournament.banner_color || "#0f1923"} 0%, ${accentColor}22 100%)` };
+
+  const tabs = [
+    { value: "bracket", label: "Bracket / Matches" },
+    ...(tournament.type === "group_stage" ? [{ value: "standings", label: "Group Standings" }] : []),
+    ...(tournament.type === "league" ? [{ value: "league_standings", label: "League Table" }] : []),
+    ...(tournament.type === "swiss_ucl" ? [{ value: "ucl_standings", label: "SL Table" }] : []),
+    { value: "leaderboard", label: "Stats" },
+    { value: "teams", label: isPlayerTournament ? "Players" : "Teams" },
+    ...(isAdmin && matches.some(m => m.status === "disputed")
+      ? [{ value: "admin", label: `Disputes (${matches.filter(m => m.status === "disputed").length})`, danger: true }]
+      : []),
+  ];
+
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
+    <div className="min-h-screen">
+      {/* ── HERO ─────────────────────────────────────── */}
+      <div className="relative w-full overflow-hidden" style={heroStyle}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-black/85 pointer-events-none" />
 
-      {/* Header */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden relative">
-        {/* Banner */}
-        <div className="h-96 w-full relative" style={tournament.banner_url
-          ? { backgroundImage: `url(${tournament.banner_url})`, backgroundSize: "cover", backgroundPosition: tournament.banner_position || "50% 50%" }
-          : { background: tournament.banner_color || "#1a2a4a" }
-        }>
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70" />
-          {tournament.trophy_url && (
-            <div className="absolute bottom-6 right-6 flex flex-col items-center gap-1 pointer-events-none">
-              <img
-                src={tournament.trophy_url}
-                alt="Tournament Trophy"
-                className="w-32 h-32 object-contain drop-shadow-[0_0_30px_rgba(251,191,36,0.7)] animate-pulse-glow"
-              />
-              <span className="text-[9px] text-warning/70 uppercase tracking-widest font-semibold bg-black/40 px-2 py-0.5 rounded-full">{tournament.name} Trophy</span>
-            </div>
-          )}
-        </div>
-        <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="p-8 pt-5">
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <Trophy className="w-5 h-5 text-accent" />
-            <span className="text-xs uppercase tracking-wider text-accent font-medium">{tournament.type?.replace("_", " ")}</span>
-            <span className={cn("text-xs px-2 py-0.5 rounded-full ml-2",
-              tournament.status === "registration" ? "bg-success/10 text-success" :
-              tournament.status === "in_progress" ? "bg-primary/10 text-primary" :
-              tournament.status === "completed" ? "bg-warning/10 text-warning" :
-              "bg-muted text-muted-foreground"
-            )}>{tournament.status?.replace("_", " ")}</span>
-          </div>
-          <h1 className="leading-relaxed text-3xl sm:text-4xl font-bold text-foreground">{tournament.name}</h1>
-          {tournament.description && <p className="text-sm text-muted-foreground mt-3 max-w-2xl">{tournament.description}</p>}
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
+          <button type="button" onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/90 transition-colors pt-4 pb-2">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Tournaments
+          </button>
 
-
-
-          <div className="flex flex-wrap items-center gap-6 mt-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><Users className="w-4 h-4" />{registeredCount}/{tournament.max_teams} {isPlayerTournament ? "players" : "teams"}</div>
-            {isAdmin && (
-              <Link to={isPlayerTournament ? `/tournaments/${id}/players` : `/tournaments/${id}/clubs`}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors">
-                <Users className="w-3 h-3" /> {isPlayerTournament ? "Registered Players" : "Registered Clubs"}
-              </Link>
+          <div className="flex flex-col sm:flex-row items-end gap-5 pb-8 pt-2">
+            {tournament.trophy_url && (
+              <div className="shrink-0 hidden sm:block">
+                <img src={tournament.trophy_url} alt="Trophy"
+                  className="w-24 h-24 object-contain drop-shadow-[0_0_24px_rgba(251,191,36,0.8)] animate-pulse-glow" />
+              </div>
             )}
-            <div className="flex items-center gap-2"><Calendar className="w-4 h-4" />{tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "TBD"}</div>
-            <span>{tournament.platform}</span>
-            {tournament.region && <span>{tournament.region}</span>}
-            {tournament.country_code && (
-              <span className="px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20 text-xs font-semibold">
-                🌍 {COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code} only
-              </span>
-            )}
-          </div>
 
-          {/* Prize pool info */}
-          {tournament.entry_fee_stc > 0 && (
-            <div className="mt-4 p-3 rounded-lg bg-success/5 border border-success/20 inline-flex items-center gap-2">
-              <Coins className="w-4 h-4 text-success" />
-              <span className="text-sm text-success font-medium">
-                Prize Pool: {tournament.prize_pool_stc ? `${(tournament.prize_pool_stc || 0).toLocaleString()} STC` : `${(tournament.entry_fee_stc * ((tournament.registered_clubs?.length || tournament.registered_players?.length) || 0)).toLocaleString()} STC`}
-                {tournament.prize_pool_stc && <span className="text-xs text-success/70 ml-2">(1st: {(tournament.prize_winner_stc || 0).toLocaleString()} | 2nd: {(tournament.prize_runner_up_stc || 0).toLocaleString()})</span>}
-              </span>
-            </div>
-          )}
-
-          {tournament.prize_description && (
-            <div className="mt-4 p-3 rounded-lg bg-warning/5 border border-warning/20 inline-flex items-center gap-2">
-              <Crown className="w-4 h-4 text-warning" />
-              <span className="text-sm text-warning font-medium">{tournament.prize_description}</span>
-            </div>
-          )}
-
-          {/* Countdown */}
-          {tournament.status !== "completed" && tournament.start_date && new Date(tournament.start_date) > new Date() && (
-            <TournamentCountdown startDate={tournament.start_date} />
-          )}
-
-          {/* Club credits + STC info */}
-          {!isPlayerTournament && myPlayer?.club_id && (() => {
-            const myClubData = allClubs.find(c => c.id === myPlayer.club_id);
-            const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-            return myClubData ? (
-              <div className="mt-4 space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20 text-xs text-warning">
-                  <Shield className="w-3.5 h-3.5" /> Club credits: <strong>{(myClubData.credits ?? 0).toLocaleString()}</strong>
-                </div>
-                {entryFeeSTC > 0 && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-success/10 border border-success/20 text-xs text-success ml-2">
-                    <Coins className="w-3.5 h-3.5" /> Club STC: <strong>{(myClubData.stc ?? 0).toLocaleString()}</strong>
-                  </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
+                  style={{ borderColor: `${accentColor}60`, color: accentColor, backgroundColor: `${accentColor}18` }}>
+                  {tournament.type?.replace(/_/g, " ")}
+                </span>
+                <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
+                  tournament.status === "registration" ? "border-success/50 text-success bg-success/10" :
+                  tournament.status === "in_progress" ? "border-primary/50 text-primary bg-primary/10" :
+                  tournament.status === "completed" ? "border-warning/50 text-warning bg-warning/10" :
+                  "border-white/20 text-white/50 bg-white/5"
+                )}>
+                  {tournament.status?.replace(/_/g, " ")}
+                </span>
+                {tournament.platform && <span className="text-[10px] text-white/40 uppercase tracking-widest">{tournament.platform}</span>}
+                {tournament.region && <span className="text-[10px] text-white/40 uppercase tracking-widest">{tournament.region}</span>}
+                {tournament.country_code && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-warning/40 text-warning bg-warning/10">
+                    🌍 {COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code}
+                  </span>
                 )}
               </div>
-            ) : null;
-          })()}
 
-          {(tournament.custom_rules || tournament.rules_file_url) && (
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (tournament.rules_file_url && !tournament.custom_rules) {
-                    window.open(tournament.rules_file_url, '_blank');
-                  } else {
-                    setRulesModalOpen(true);
-                  }
-                }}
-                className="border-primary/30 text-primary hover:bg-primary/10"
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                {tournament.rules_file_url && !tournament.custom_rules ? 'Download Rules' : 'View Rules'}
-              </Button>
+              <h1 className="font-heading font-black text-3xl sm:text-5xl lg:text-6xl uppercase text-white leading-none tracking-tight"
+                style={{ transform: "skewX(-6deg)", textShadow: "0 2px 32px rgba(0,0,0,0.9)" }}>
+                {tournament.name}
+              </h1>
+              {tournament.description && (
+                <p className="text-sm text-white/55 mt-2 max-w-xl line-clamp-2">{tournament.description}</p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-white/55">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  {registeredCount}/{tournament.max_teams} {isPlayerTournament ? "players" : "teams"}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "TBD"}
+                </span>
+                {isAdmin && (
+                  <Link to={isPlayerTournament ? `/tournaments/${id}/players` : `/tournaments/${id}/clubs`}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/25 border border-primary/40 text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-primary/35 transition-colors">
+                    <Users className="w-3 h-3" /> {isPlayerTournament ? "Registered Players" : "Registered Clubs"}
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
 
-          <div className="flex flex-wrap gap-3 mt-6">
-            {/* Club tournament registration */}
-            {!isPlayerTournament && tournament.status === "registration" && (myPlayer?.club_id || takeoverClub) && !myClubRegistered && !isFull && (() => {
-              const clubData = takeoverClub || allClubs.find(c => c.id === myPlayer?.club_id);
-              const clubCredits = clubData?.credits ?? 0;
-              const clubStc = clubData?.stc ?? 0;
-              const entryCost = tournament.entry_credits ?? 50;
-              const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-              const canAfford = clubCredits >= entryCost && clubStc >= entryFeeSTC;
-              return (
-                <Button onClick={registerClub} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={!takeoverClub && !canAfford}>
-                  <Shield className="w-4 h-4 mr-2" /> {takeoverClub ? `Register ${takeoverClub.name}` : "Register My Club"} <span className="ml-1 opacity-70 text-xs">({entryCost}✧ {entryFeeSTC > 0 ? `+ ${entryFeeSTC.toLocaleString()}STC` : ''})</span>
+            <div className="shrink-0 flex flex-col gap-2 items-stretch sm:items-end">
+              {!isPlayerTournament && tournament.status === "registration" && (myPlayer?.club_id || takeoverClub) && !myClubRegistered && !isFull && (() => {
+                const clubData = takeoverClub || allClubs.find(c => c.id === myPlayer?.club_id);
+                const entryCost = tournament.entry_credits ?? 50;
+                const entryFeeSTC = tournament.entry_fee_stc ?? 0;
+                const canAfford = (clubData?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
+                return (
+                  <Button onClick={registerClub} disabled={!takeoverClub && !canAfford}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                    <Shield className="w-4 h-4 mr-2" />
+                    {takeoverClub ? `Register ${takeoverClub.name}` : "Register My Club"}
+                    <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
+                  </Button>
+                );
+              })()}
+
+              {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
+                <Button onClick={async () => {
+                  const entryCost = tournament.entry_credits ?? 50;
+                  if ((myPlayer.credits ?? 500) < entryCost) { alert("Not enough credits."); return; }
+                  if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
+                  const updated = [...(tournament.registered_players || []), myPlayer.id];
+                  if (entryCost > 0) {
+                    const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
+                    setMyPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
+                  }
+                  await stageClient.entities.Tournament.update(tournament.id, { registered_players: updated });
+                  setTournament(prev => ({ ...prev, registered_players: updated }));
+                }} disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}
+                className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                  <Users className="w-4 h-4 mr-2" /> Register as Player
+                  <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
                 </Button>
+              )}
+
+              {!isPlayerTournament && myClubRegistered && tournament.status === "registration" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-success flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> {takeoverClub ? `${takeoverClub.name} registered` : "Registered"}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={withdrawFromTournament}
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 bg-transparent text-xs h-7">
+                    Withdraw
+                  </Button>
+                </div>
+              )}
+              {isPlayerTournament && myPlayerRegistered && tournament.status === "registration" && (
+                <span className="text-xs text-success flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Registered</span>
+              )}
+
+              {(tournament.custom_rules || tournament.rules_file_url) && (
+                <Button type="button" variant="outline" size="sm" onClick={() => {
+                  if (tournament.rules_file_url && !tournament.custom_rules) window.open(tournament.rules_file_url, '_blank');
+                  else setRulesModalOpen(true);
+                }} className="border-white/20 text-white/60 hover:bg-white/10 bg-transparent text-xs">
+                  <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                  {tournament.rules_file_url && !tournament.custom_rules ? "Download Rules" : "View Rules"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── INFO STRIP ────────────────────────────────── */}
+      {(tournament.prize_description || tournament.entry_fee_stc > 0 || (!isPlayerTournament && myPlayer?.club_id)) && (
+        <div className="border-b border-border bg-card/60">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center gap-5">
+            {tournament.entry_fee_stc > 0 && (
+              <span className="flex items-center gap-1.5 text-xs text-success">
+                <Coins className="w-3.5 h-3.5" />
+                Prize: {tournament.prize_pool_stc
+                  ? `${tournament.prize_pool_stc.toLocaleString()} STC`
+                  : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}
+                {tournament.prize_winner_stc && (
+                  <span className="text-success/55 ml-1">
+                    (1st: {tournament.prize_winner_stc.toLocaleString()} | 2nd: {(tournament.prize_runner_up_stc || 0).toLocaleString()})
+                  </span>
+                )}
+              </span>
+            )}
+            {tournament.prize_description && (
+              <span className="flex items-center gap-1.5 text-xs text-warning">
+                <Crown className="w-3.5 h-3.5" /> {tournament.prize_description}
+              </span>
+            )}
+            {!isPlayerTournament && myPlayer?.club_id && (() => {
+              const myClubData = allClubs.find(c => c.id === myPlayer.club_id);
+              if (!myClubData) return null;
+              return (
+                <>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Shield className="w-3 h-3 text-warning" /> Credits: <strong className="text-warning">{(myClubData.credits ?? 0).toLocaleString()}</strong>
+                  </span>
+                  {(tournament.entry_fee_stc ?? 0) > 0 && (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Coins className="w-3 h-3 text-success" /> STC: <strong className="text-success">{(myClubData.stc ?? 0).toLocaleString()}</strong>
+                    </span>
+                  )}
+                </>
               );
             })()}
-            {/* Player tournament registration */}
-            {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-              <Button onClick={async () => {
-                const entryCost = tournament.entry_credits ?? 50;
-                const currentCredits = myPlayer.credits ?? 500;
-                if (currentCredits < entryCost) { alert("Not enough credits."); return; }
-                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
-                const updated = [...(tournament.registered_players || []), myPlayer.id];
-                if (entryCost > 0) {
-                  const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
-                  setMyPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
-                }
-                await stageClient.entities.Tournament.update(tournament.id, { registered_players: updated });
-                setTournament(prev => ({ ...prev, registered_players: updated }));
-              }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}>
-                <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits)</span>
-              </Button>
-            )}
+          </div>
+        </div>
+      )}
 
-            {!isPlayerTournament && myClubRegistered && tournament.status === "registration" && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 text-sm text-success">
-                  <Check className="w-4 h-4" /> {takeoverClub ? `${takeoverClub.name} is registered` : "Your club is registered"}
-                </div>
-                <Button size="sm" variant="outline" onClick={withdrawFromTournament}
-                  className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs">
-                  Withdraw
-                </Button>
-              </div>
-            )}
-            {isPlayerTournament && myPlayerRegistered && tournament.status === "registration" && (
-              <div className="flex items-center gap-2 text-sm text-success">
-                <Check className="w-4 h-4" /> You are registered
-              </div>
-            )}
+      {/* ── COUNTDOWN ─────────────────────────────────── */}
+      {tournament.status !== "completed" && tournament.start_date && new Date(tournament.start_date) > new Date() && (
+        <div className="border-b border-border bg-card/30">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3">
+            <TournamentCountdown startDate={tournament.start_date} />
+          </div>
+        </div>
+      )}
+
+      {/* ── ORGANIZER CONTROLS ────────────────────────── */}
+      {(isOrganizer || isCreator) && (
+        <div className="border-b border-border bg-secondary/30">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mr-1">Organizer</span>
+
             {isCreator && tournament.status === "in_progress" && (tournament.type === "knockout" || tournament.type === "double_elimination") && (() => {
-              const currentRoundMatches = matches.filter(m => m.round === tournament.current_round);
-              const allCompleted = currentRoundMatches.length > 0 && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
-              return allCompleted && (
-                <Button onClick={advanceRound} className="bg-success/10 text-success border border-success/30 leading-relaxed animate-pulse" style={{ boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), 0 0 60px rgba(34, 197, 94, 0.2)' }}>
+              const crm = matches.filter(m => m.round === tournament.current_round);
+              const allDone = crm.length > 0 && crm.every(m => m.status === "completed" || m.status === "forfeit");
+              return allDone && (
+                <Button type="button" onClick={advanceRound} size="sm"
+                  className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
                   ⬆️ Advance to Round {tournament.current_round + 1}
                 </Button>
               );
             })()}
 
             {isCreator && ["registration", "in_progress"].includes(tournament.status) && (tournament.registered_clubs?.length || 0) >= 2 && matches.length === 0 && (
-              <Button onClick={generateDraw} className="bg-primary/10 text-primary border border-primary/30 leading-relaxed hover:bg-primary/20">
-                 Generate Draw
+              <Button type="button" onClick={generateDraw} size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs hover:bg-primary/20">
+                🎲 Generate Draw
               </Button>
             )}
+
             {isCreator && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && (
-              <Button onClick={clearDraw} variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 leading-relaxed">
+              <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
                 🔄 Regenerate Draw
               </Button>
             )}
+
             {isOrganizer && tournament.status === "registration" && isFull && (
-              <Button onClick={() => initializeTournament(tournament, registeredClubs)} className="bg-primary text-primary-foreground leading-relaxed">
-                <Play className="w-4 h-4 mr-2" /> Start Tournament
+              <Button type="button" onClick={() => initializeTournament(tournament, registeredClubs)} size="sm"
+                className="bg-primary text-primary-foreground text-xs">
+                <Play className="w-3 h-3 mr-1.5" /> Start Tournament
               </Button>
             )}
+
             {isOrganizer && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
-              <Button onClick={cancelTournament} variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 leading-relaxed">
-                Cancel Tournament
+              <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
+                Cancel
               </Button>
             )}
+
             {isCreator && !allMatchesPlayed && (
-              <Button onClick={() => setEditDialogOpen(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 leading-relaxed">
-                Edit Tournament
+              <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 text-xs">
+                Edit
               </Button>
             )}
-            {/* Champion Showcase */}
-            {allMatchesPlayed && winnerClub && (
-              <div className="w-full mt-4 rounded-2xl overflow-hidden border border-warning/40 bg-gradient-to-br from-warning/10 via-warning/5 to-transparent relative">
-                <div className="absolute inset-0 fc-stripe opacity-30 pointer-events-none" />
-                <div className="relative p-6 flex flex-col sm:flex-row items-center gap-6">
-                  {/* Trophy */}
-                  {tournament.trophy_url && (
-                    <div className="shrink-0 flex flex-col items-center gap-1">
-                      <img src={tournament.trophy_url} alt="Trophy" className="w-24 h-24 object-contain drop-shadow-[0_0_20px_rgba(251,191,36,0.9)] animate-pulse-glow" />
-                      <span className="text-[10px] uppercase tracking-widest text-warning/60 font-medium">Champion</span>
-                    </div>
-                  )}
-                  {/* Club Logo */}
-                  <div className="shrink-0 w-16 h-16 rounded-xl border-2 border-warning/50 overflow-hidden bg-secondary flex items-center justify-center shadow-[0_0_24px_rgba(251,191,36,0.4)]">
-                    {winnerClub.logo_url
-                      ? <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-full h-full object-cover" style={{ objectPosition: winnerClub.logo_position || '50% 50%' }} />
-                      : <Shield className="w-8 h-8 text-warning" />}
-                  </div>
-                  {/* Info */}
-                  <div className="flex-1 text-center sm:text-left">
-                    <p className="text-xs uppercase tracking-widest text-warning/60 font-medium mb-1">🏆 {tournament.name} Champion</p>
-                    <h2 className="text-2xl sm:text-3xl font-heading text-warning leading-tight text-glow">{winnerClub.name}</h2>
-                    <p className="text-sm text-warning/70 mt-1"><span className="font-bold text-warning">{winnerPoints} pts</span> · {winnerClub.platform} · {winnerClub.region}</p>
-                    <p className="mt-3 text-sm text-foreground/70 italic font-body">"One league. One throne. One champion — and they made it look inevitable."</p>
-                    {(winnerClub.owner_email === user?.email || (takeoverClub && takeoverClub.id === tournament.winner_club_id)) && !winnerConferenceDone && (
-                      <Button onClick={() => setWinnerPressRoomOpen(true)} className="mt-4 bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 text-sm">
-                         Give Press Conference
-                      </Button>
-                    )}
-                  </div>
-                  {/* Points badge */}
-                  <div className="shrink-0 flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 border-warning/60 bg-warning/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]">
-                    <span className="text-2xl font-heading text-warning">{winnerPoints}</span>
-                    <span className="text-[9px] uppercase tracking-widest text-warning/60">Points</span>
-                  </div>
-                </div>
-              </div>
-            )}
+
             {isOrganizer && ["cancelled", "registration"].includes(tournament.status) && (
-              <Button onClick={deleteTournament} variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 leading-relaxed">
-                Delete Tournament
+              <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
+                Delete
               </Button>
             )}
           </div>
         </div>
+      )}
+
+      {/* ── CHAMPION BANNER ───────────────────────────── */}
+      {allMatchesPlayed && winnerClub && (
+        <div className="border-b border-warning/25 bg-gradient-to-r from-warning/8 via-warning/12 to-transparent">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-4">
+            {tournament.trophy_url && (
+              <img src={tournament.trophy_url} alt="Trophy"
+                className="w-12 h-12 object-contain shrink-0 drop-shadow-[0_0_16px_rgba(251,191,36,0.9)] animate-pulse-glow" />
+            )}
+            <div className="w-11 h-11 rounded-xl border-2 border-warning/40 overflow-hidden bg-secondary shrink-0">
+              {winnerClub.logo_url
+                ? <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-full h-full object-cover" style={{ objectPosition: winnerClub.logo_position || "50% 50%" }} />
+                : <Shield className="w-5 h-5 text-warning m-3" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-warning/50 font-black">Champion</p>
+              <h2 className="font-heading text-lg font-black text-warning uppercase leading-tight truncate"
+                style={{ transform: "skewX(-4deg)" }}>
+                {winnerClub.name}
+              </h2>
+              {winnerPoints !== null && <p className="text-xs text-warning/55">{winnerPoints} points · {winnerClub.platform}</p>}
+            </div>
+            {(winnerClub.owner_email === user?.email || (takeoverClub && takeoverClub.id === tournament.winner_club_id)) && !winnerConferenceDone && (
+              <Button type="button" onClick={() => setWinnerPressRoomOpen(true)} size="sm"
+                className="shrink-0 bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 text-xs">
+                🎙️ Press Conference
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB NAVIGATION ────────────────────────────── */}
+      <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8">
+          <div className="flex gap-0 overflow-x-auto">
+            {tabs.map(tab => (
+              <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  "shrink-0 px-4 pb-3 pt-2.5 text-[11px] uppercase tracking-widest font-bold border-b-2 transition-all whitespace-nowrap",
+                  activeTab === tab.value
+                    ? tab.danger ? "border-destructive text-destructive" : "border-primary text-primary"
+                    : tab.danger
+                      ? "border-transparent text-destructive/70 hover:text-destructive"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                )}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* UCL Phase Advance Controls */}
-      {tournament?.type === "swiss_ucl" && isOrganizer && tournament.status === "in_progress" && (() => {
-        const leagueMatchdays = [...new Set(matches.filter(m => m.type === "ucl_league").map(m => m.round))];
-        const allLeagueDone = leagueMatchdays.length === 8 && matches.filter(m => m.type === "ucl_league").every(m => m.status === "completed" || m.status === "forfeit");
-        const playoffExists = matches.some(m => m.type === "ucl_playoff");
-        const allPlayoffDone = playoffExists && matches.filter(m => m.type === "ucl_playoff").every(m => m.status === "completed" || m.status === "forfeit");
-        const r16Exists = matches.some(m => m.type === "ucl_r16");
-        const allR16Done = r16Exists && matches.filter(m => m.type === "ucl_r16").every(m => m.status === "completed" || m.status === "forfeit");
-        const qfExists = matches.some(m => m.type === "ucl_qf");
-        const allQFDone = qfExists && matches.filter(m => m.type === "ucl_qf").every(m => m.status === "completed" || m.status === "forfeit");
-        const sfExists = matches.some(m => m.type === "ucl_sf");
-        const allSFDone = sfExists && matches.filter(m => m.type === "ucl_sf").every(m => m.status === "completed" || m.status === "forfeit");
-        const finalExists = matches.some(m => m.type === "final");
-        return (
-          <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-wrap items-center gap-3">
-            <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">⭐ UCL Controls</span>
-            {/* 3rd game generator for any tied 2-legged ties */}
-            {["ucl_playoff","ucl_r16","ucl_qf","ucl_sf"].map(mType => {
-              const byTie = {};
-              matches.filter(m => m.type === mType).forEach(m => {
-                if (!byTie[m.group]) byTie[m.group] = [];
-                byTie[m.group].push(m);
-              });
-              return Object.entries(byTie).map(([group, legs]) => {
-                const sorted = legs.sort((a, b) => a.round - b.round);
-                const leg1 = sorted[0], leg2 = sorted[1], leg3 = sorted[2];
-                if (!leg1 || !leg2) return null;
-                if (leg1.status !== "completed" || leg2.status !== "completed") return null;
-                if (leg3) return null; // 3rd game already exists
-                const agg_A = (leg1.home_score||0)+(leg2.away_score||0);
-                const agg_B = (leg1.away_score||0)+(leg2.home_score||0);
-                if (agg_A !== agg_B) return null; // not a draw
-                const maxRound = Math.max(...matches.map(m => m.round));
-                return (
-                  <Button key={`${mType}-${group}-leg3`}
-                    onClick={async () => {
-                      // Ask organizer which team is home for leg3
-                      const choice = window.confirm(`Tie! ${leg1.home_club_name} vs ${leg1.away_club_name} (agg ${agg_A}-${agg_B}).\n\nClick OK if ${leg1.home_club_name} hosts leg 3.\nClick Cancel if ${leg1.away_club_name} hosts leg 3.`);
-                      const homeClub = choice ? { id: leg1.home_club_id, name: leg1.home_club_name } : { id: leg1.away_club_id, name: leg1.away_club_name };
-                      const awayClub = choice ? { id: leg1.away_club_id, name: leg1.away_club_name } : { id: leg1.home_club_id, name: leg1.home_club_name };
-                      await stageClient.entities.Match.create({
-                        home_club_id: homeClub.id, home_club_name: homeClub.name,
-                        away_club_id: awayClub.id, away_club_name: awayClub.name,
-                        round: maxRound + 1, type: mType, group: parseInt(group),
-                        status: "scheduled", home_score: 0, away_score: 0, tournament_id: id,
-                        notes: "Leg 3 (tie-breaker)",
-                      });
-                      const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-                      setMatches(refreshed);
-                    }}
-                    className="bg-warning/10 text-warning border border-warning/30 text-xs leading-relaxed animate-pulse">
-                    ⚖️ {leg1.home_club_name} vs {leg1.away_club_name} — Tied! Schedule Leg 3
-                  </Button>
-                );
-              });
-            })}
-            {allLeagueDone && !playoffExists && (
-              <Button onClick={generateUCLPlayoff} className="bg-primary/10 text-primary border border-primary/30 text-xs leading-relaxed animate-pulse">
-                🎲 Generate Playoff Draw (9–24)
-              </Button>
-            )}
-            {allPlayoffDone && !r16Exists && (
-              <Button onClick={generateUCLR16} className="bg-primary/10 text-primary border border-primary/30 text-xs leading-relaxed animate-pulse">
-                🎲 Generate Round of 16
-              </Button>
-            )}
-            {allR16Done && !qfExists && (
-              <Button onClick={() => generateUCLNextKnockoutPhase("qf", Math.max(...matches.map(m=>m.round))+1, "ucl_qf", "ucl_r16")} className="bg-primary/10 text-primary border border-primary/30 text-xs leading-relaxed animate-pulse">
-                🎲 Generate Quarter-Finals
-              </Button>
-            )}
-            {allQFDone && !sfExists && (
-              <Button onClick={() => generateUCLNextKnockoutPhase("sf", Math.max(...matches.map(m=>m.round))+1, "ucl_sf", "ucl_qf")} className="bg-primary/10 text-primary border border-primary/30 text-xs leading-relaxed animate-pulse">
-                🎲 Generate Semi-Finals
-              </Button>
-            )}
-            {allSFDone && !finalExists && (
-              <Button onClick={generateUCLFinal} className="bg-warning/10 text-warning border border-warning/30 text-xs leading-relaxed animate-pulse">
-                🏆 Generate Final
-              </Button>
-            )}
-            <span className="text-xs text-muted-foreground ml-auto">
-              Phase: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
-            </span>
-          </div>
-        );
-      })()}
+      {/* ── MAIN CONTENT ──────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-5">
 
-      <Tabs defaultValue="bracket" className="w-full">
-        <TabsList className="bg-secondary border border-border mb-6 flex-wrap h-auto gap-1">
-          <TabsTrigger value="bracket" className="leading-relaxed">Bracket / Matches</TabsTrigger>
-          {tournament?.type === "group_stage" && <TabsTrigger value="standings" className="leading-relaxed">Group Standings</TabsTrigger>}
-          {tournament?.type === "league" && <TabsTrigger value="league_standings" className="leading-relaxed">League Table</TabsTrigger>}
-          {tournament?.type === "swiss_ucl" && <TabsTrigger value="ucl_standings" className="leading-relaxed">SL Table</TabsTrigger>}
-          <TabsTrigger value="leaderboard" className="leading-relaxed">Stats</TabsTrigger>
-          <TabsTrigger value="teams" className="leading-relaxed">{isPlayerTournament ? "Players" : "Teams"}</TabsTrigger>
-          {isAdmin && matches.some(m => m.status === "disputed") && (
-          <TabsTrigger value="admin" className="leading-relaxed text-destructive">Disputes ({matches.filter(m => m.status === "disputed").length})</TabsTrigger>
-          )}
-        </TabsList>
+        {/* UCL Controls */}
+        {tournament.type === "swiss_ucl" && isOrganizer && tournament.status === "in_progress" && activeTab === "bracket" && (() => {
+          const leagueMatchdays = [...new Set(matches.filter(m => m.type === "ucl_league").map(m => m.round))];
+          const allLeagueDone = leagueMatchdays.length === 8 && matches.filter(m => m.type === "ucl_league").every(m => m.status === "completed" || m.status === "forfeit");
+          const playoffExists = matches.some(m => m.type === "ucl_playoff");
+          const allPlayoffDone = playoffExists && matches.filter(m => m.type === "ucl_playoff").every(m => m.status === "completed" || m.status === "forfeit");
+          const r16Exists = matches.some(m => m.type === "ucl_r16");
+          const allR16Done = r16Exists && matches.filter(m => m.type === "ucl_r16").every(m => m.status === "completed" || m.status === "forfeit");
+          const qfExists = matches.some(m => m.type === "ucl_qf");
+          const allQFDone = qfExists && matches.filter(m => m.type === "ucl_qf").every(m => m.status === "completed" || m.status === "forfeit");
+          const sfExists = matches.some(m => m.type === "ucl_sf");
+          const allSFDone = sfExists && matches.filter(m => m.type === "ucl_sf").every(m => m.status === "completed" || m.status === "forfeit");
+          const finalExists = matches.some(m => m.type === "final");
+          return (
+            <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">⭐ UCL Controls</span>
+              {["ucl_playoff","ucl_r16","ucl_qf","ucl_sf"].map(mType => {
+                const byTie = {};
+                matches.filter(m => m.type === mType).forEach(m => {
+                  if (!byTie[m.group]) byTie[m.group] = [];
+                  byTie[m.group].push(m);
+                });
+                return Object.entries(byTie).map(([group, legs]) => {
+                  const sorted = legs.sort((a, b) => a.round - b.round);
+                  const leg1 = sorted[0], leg2 = sorted[1], leg3 = sorted[2];
+                  if (!leg1 || !leg2) return null;
+                  if (leg1.status !== "completed" || leg2.status !== "completed") return null;
+                  if (leg3) return null;
+                  const agg_A = (leg1.home_score||0)+(leg2.away_score||0);
+                  const agg_B = (leg1.away_score||0)+(leg2.home_score||0);
+                  if (agg_A !== agg_B) return null;
+                  const maxRound = Math.max(...matches.map(m => m.round));
+                  return (
+                    <Button key={`${mType}-${group}-leg3`} type="button"
+                      onClick={async () => {
+                        const choice = window.confirm(`Tie! ${leg1.home_club_name} vs ${leg1.away_club_name} (agg ${agg_A}-${agg_B}).\n\nOK = ${leg1.home_club_name} hosts leg 3. Cancel = ${leg1.away_club_name} hosts.`);
+                        const homeClub = choice ? { id: leg1.home_club_id, name: leg1.home_club_name } : { id: leg1.away_club_id, name: leg1.away_club_name };
+                        const awayClub = choice ? { id: leg1.away_club_id, name: leg1.away_club_name } : { id: leg1.home_club_id, name: leg1.home_club_name };
+                        await stageClient.entities.Match.create({
+                          home_club_id: homeClub.id, home_club_name: homeClub.name,
+                          away_club_id: awayClub.id, away_club_name: awayClub.name,
+                          round: maxRound + 1, type: mType, group: parseInt(group),
+                          status: "scheduled", home_score: 0, away_score: 0, tournament_id: id,
+                        });
+                        const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+                        setMatches(refreshed);
+                      }}
+                      className="bg-warning/10 text-warning border border-warning/30 text-xs animate-pulse">
+                      ⚖️ {leg1.home_club_name} vs {leg1.away_club_name} — Tied! Schedule Leg 3
+                    </Button>
+                  );
+                });
+              })}
+              {allLeagueDone && !playoffExists && (
+                <Button type="button" onClick={generateUCLPlayoff} className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
+                  🎲 Generate Playoff Draw (9–24)
+                </Button>
+              )}
+              {allPlayoffDone && !r16Exists && (
+                <Button type="button" onClick={generateUCLR16} className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
+                  🎲 Generate Round of 16
+                </Button>
+              )}
+              {allR16Done && !qfExists && (
+                <Button type="button" onClick={() => generateUCLNextKnockoutPhase("qf", Math.max(...matches.map(m=>m.round))+1, "ucl_qf", "ucl_r16")}
+                  className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
+                  🎲 Generate Quarter-Finals
+                </Button>
+              )}
+              {allQFDone && !sfExists && (
+                <Button type="button" onClick={() => generateUCLNextKnockoutPhase("sf", Math.max(...matches.map(m=>m.round))+1, "ucl_sf", "ucl_qf")}
+                  className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
+                  🎲 Generate Semi-Finals
+                </Button>
+              )}
+              {allSFDone && !finalExists && (
+                <Button type="button" onClick={generateUCLFinal} className="bg-warning/10 text-warning border border-warning/30 text-xs animate-pulse">
+                  🏆 Generate Final
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                Phase: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
+              </span>
+            </div>
+          );
+        })()}
 
-        {/* Bracket */}
-        <TabsContent value="bracket">
-          {matches.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-8 text-center">
+        {/* ── BRACKET TAB ─── */}
+        {activeTab === "bracket" && (
+          matches.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-10 text-center">
               <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               {tournament.status === "registration" && isCreator && (tournament.registered_clubs?.length || 0) >= 2
-                ? <p className="text-muted-foreground text-sm">Use the <span className="text-primary font-semibold"> Generate Draw</span> button above to preview the matchups.</p>
+                ? <p className="text-muted-foreground text-sm">Use the <span className="text-primary font-semibold">Generate Draw</span> button above to preview matchups.</p>
                 : <p className="text-muted-foreground text-sm">Bracket will appear once the tournament starts.</p>
               }
             </div>
@@ -1346,7 +1396,7 @@ function resetUI() {
             <div className="bg-card border border-border rounded-2xl p-6">
               {tournament.status === "registration" && matches.length > 0 && (
                 <div className="mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
-                   Draw preview — tournament has not started yet. Teams can see their upcoming fixtures.
+                  Draw preview — tournament has not started yet.
                 </div>
               )}
               <KnockoutBracket
@@ -1356,15 +1406,15 @@ function resetUI() {
                 onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(match.scheduled_date ? new Date(match.scheduled_date).toISOString().slice(0,16) : ""); setScheduleDialogOpen(true); }}
                 onViewStats={(match) => { setStatsMatch(match); setStatsModalOpen(true); }}
                 onAddStream={(match) => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
-                  onForfeit={(match) => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
-                  onDressingRoom={(match) => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
+                onForfeit={(match) => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
+                onDressingRoom={(match) => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
               />
             </div>
           ) : (
-            <div className="space-y-4 overflow-y-auto">
+            <div className="space-y-4">
               {tournament.status === "registration" && matches.length > 0 && (
                 <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
-                   Draw preview — tournament has not started yet. Teams can see their upcoming fixtures.
+                  Draw preview — tournament has not started yet.
                 </div>
               )}
 
@@ -1378,7 +1428,7 @@ function resetUI() {
                     const hasMyMatch = rm.some(m => m.home_club_id === myClubId || m.away_club_id === myClubId);
                     const allDone = rm.every(m => m.status === "completed" || m.status === "forfeit");
                     return (
-                      <button key={round} onClick={() => setVisibleRound(round)} className={cn(
+                      <button type="button" key={round} onClick={() => setVisibleRound(round)} className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
                         isActive ? "bg-primary text-primary-foreground border-primary"
                           : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-foreground",
@@ -1398,251 +1448,256 @@ function resetUI() {
                 const roundMatches = matches.filter(m => m.round === activeRound);
                 return (
                   <div>
-                    <h3 className="leading-relaxed text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">{activeRound}</span>
-                      {getRoundLabel(activeRound, roundMatches[0]?.type).toUpperCase()}
+                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] flex items-center justify-center font-black">{activeRound}</span>
+                      {getRoundLabel(activeRound, roundMatches[0]?.type)}
                     </h3>
-                    <div className="space-y-3">
-                    {roundMatches.map(match => {
-                      const isMyMatch = match.home_club_id === myClubId || match.away_club_id === myClubId;
-                      return (
-                        <div key={match.id} className={cn(
-                          "bg-card border rounded-xl p-4 transition-all",
-                          isMyMatch ? "border-primary/30" : "border-border",
-                          match.status === "completed" && "opacity-80"
-                        )}>
-                          {(() => {
-                              const homeClubData = allClubs.find(c => c.id === match.home_club_id);
-                              const awayClubData = allClubs.find(c => c.id === match.away_club_id);
-                              return (
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-1 flex items-center gap-2 min-w-0">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
-                                      {homeClubData?.logo_url
-                                        ? <img src={homeClubData.logo_url} alt={match.home_club_name} className="w-full h-full object-cover" style={{ objectPosition: homeClubData.logo_position || "50% 50%" }} />
-                                        : <Shield className="w-4 h-4 text-primary" />}
-                                    </div>
-                                    <p className={cn("leading-relaxed font-bold text-sm truncate",
-                                      match.status === "completed" && match.winner_club_id === match.home_club_id ? "text-success" :
-                                      match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.home_club_id ? "text-muted-foreground" :
-                                      "text-foreground"
-                                    )}>{match.home_club_name}</p>
-                                  </div>
-                                  <div className="shrink-0 flex items-center gap-2 leading-relaxed font-bold text-2xl">
-                                    {match.status === "completed" ? (
-                                      <span className="text-foreground">{match.home_score} – {match.away_score}</span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-sm">vs</span>
-                                    )}
-                                  </div>
-                                  <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
-                                    <p className={cn("leading-relaxed font-bold text-sm truncate text-right",
-                                      match.status === "completed" && match.winner_club_id === match.away_club_id ? "text-success" :
-                                      match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.away_club_id ? "text-muted-foreground" :
-                                      "text-foreground"
-                                    )}>{match.away_club_name}</p>
-                                    <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                                      {awayClubData?.logo_url
-                                        ? <img src={awayClubData.logo_url} alt={match.away_club_name} className="w-full h-full object-cover" style={{ objectPosition: awayClubData.logo_position || "50% 50%" }} />
-                                        : <Shield className="w-4 h-4 text-muted-foreground" />}
-                                    </div>
-                                  </div>
+                    <div className="space-y-2">
+                      {roundMatches.map(match => {
+                        const isMyMatch = match.home_club_id === myClubId || match.away_club_id === myClubId;
+                        const homeClubData = allClubs.find(c => c.id === match.home_club_id);
+                        const awayClubData = allClubs.find(c => c.id === match.away_club_id);
+                        return (
+                          <div key={match.id} className={cn(
+                            "bg-card border rounded-xl px-4 py-3 transition-all",
+                            isMyMatch ? "border-primary/25" : "border-border",
+                            match.status === "completed" && "opacity-80"
+                          )}>
+                            {/* EA FC-style match row */}
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-9 h-9 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                                  {homeClubData?.logo_url
+                                    ? <img src={homeClubData.logo_url} alt={match.home_club_name} className="w-full h-full object-cover" style={{ objectPosition: homeClubData.logo_position || "50% 50%" }} />
+                                    : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
                                 </div>
-                              );
-                            })()}
-                          {isMyMatch && (match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
-                                            <div className="mt-3 pt-3 border-t border-border flex justify-end gap-2 flex-wrap">
-                                              <Button size="sm" variant="outline" onClick={() => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
-                                                className="border-primary/20 text-primary/80 hover:bg-primary/5 text-xs">Dressing Room</Button>
-                                              <Button size="sm" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(match.scheduled_date ? new Date(match.scheduled_date).toISOString().slice(0,16) : ""); setScheduleDialogOpen(true); }}
-                                               className="border-border text-xs text-muted-foreground">Schedule</Button>
-                                              {match.status !== "awaiting_confirmation" && (
-                                                <Button size="sm" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
-                                                  className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs">
-                                                  Submit Result
-                                                </Button>
-                                              )}
-                                              {match.status === "awaiting_confirmation" && !(
-                                                (match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)
-                                              ) && (
-                                                <Button size="sm" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
-                                                  className="bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30 text-xs">
-                                                  Confirm Score
-                                                </Button>
-                                              )}
-                                              <Button size="sm" variant="outline" onClick={() => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
-                                               className="border-primary/30 text-primary hover:bg-primary/5 text-xs">Add Stream Link
-                                              </Button>
-                                              <Button size="sm" variant="outline" onClick={() => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
-                                                className="border-destructive/30 text-destructive text-xs">
-                                                <Flag className="w-3 h-3 mr-1" /> Claim Forfeit
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {match.status === "awaiting_confirmation" && (
-                                            <div className="mt-2 text-xs text-warning flex items-center gap-1">
-                                              <AlertTriangle className="w-3 h-3" /> Awaiting opponent confirmation (24h timeout)
-                                            </div>
-                                          )}
-                                          {match.status === "disputed" && (
-                                            <div className="mt-3 pt-3 border-t border-destructive/20 flex items-center gap-2">
-                                              <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
-                                              {isAdmin && <Button size="sm" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }} className="bg-destructive/10 text-destructive text-xs border border-destructive/30">Resolve</Button>}
-                                            </div>
-                                          )}
-                                          {match.status === "forfeit" && (
-                                            <div className="mt-2 text-xs text-warning flex items-center gap-1">
-                                              <Flag className="w-3 h-3" /> Decided by forfeit
-                                            </div>
-                                          )}
-                                          {match.status === "completed" && (
-                            <div className="mt-3 pt-3 border-t border-border/50 flex justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => { setStatsMatch(match); setStatsModalOpen(true); }}
-                                className="border-border text-xs text-muted-foreground">📊 Stats</Button>
+                                <p className={cn("font-bold text-sm truncate",
+                                  match.status === "completed" && match.winner_club_id === match.home_club_id ? "text-success" :
+                                  match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.home_club_id ? "text-muted-foreground" :
+                                  "text-foreground"
+                                )}>{match.home_club_name}</p>
+                              </div>
+
+                              <div className="shrink-0 text-center min-w-[64px] px-2">
+                                {match.status === "completed" || match.status === "forfeit" ? (
+                                  <span className="font-heading font-black text-lg tabular-nums text-foreground">{match.home_score} – {match.away_score}</span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">vs</span>
+                                )}
+                                {match.scheduled_date && match.status === "scheduled" && (
+                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(match.scheduled_date).toLocaleDateString()}</p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2.5 justify-end min-w-0">
+                                <p className={cn("font-bold text-sm truncate text-right",
+                                  match.status === "completed" && match.winner_club_id === match.away_club_id ? "text-success" :
+                                  match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.away_club_id ? "text-muted-foreground" :
+                                  "text-foreground"
+                                )}>{match.away_club_name}</p>
+                                <div className="w-9 h-9 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                                  {awayClubData?.logo_url
+                                    ? <img src={awayClubData.logo_url} alt={match.away_club_name} className="w-full h-full object-cover" style={{ objectPosition: awayClubData.logo_position || "50% 50%" }} />
+                                    : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
+                                </div>
+                              </div>
                             </div>
-                          )}
-                          {match.stream_url && (match.status === "scheduled" || match.status === "in_progress") && (
-                          <a href={match.stream_url} target="_blank" rel="noreferrer" className="mt-3 pt-3 border-t border-primary/20 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Watch Live
-                          </a>
-                          )}
-                          {match.status === "completed" && match.video_url && (
-                          <a href={match.video_url} target="_blank" rel="noreferrer" className="mt-2 text-xs text-primary flex items-center gap-1 hover:underline">
-                          <Play className="w-3 h-3" /> Watch match
-                          </a>
-                          )}
-                          {isAdmin && match.status !== "completed" && match.status !== "forfeit" && (
-                            <div className="mt-3 pt-3 border-t border-border/50 flex justify-end">
-                              <Button size="sm" onClick={() => simulateScore(match)}
-                                className="bg-accent/10 text-accent border border-accent/30 text-xs">
-                                Simulate Score
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+
+                            {/* Status / action strip */}
+                            {match.status === "awaiting_confirmation" && (
+                              <div className="mt-2 text-xs text-warning flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Awaiting opponent confirmation (24h timeout)
+                              </div>
+                            )}
+                            {match.status === "disputed" && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
+                                {isAdmin && (
+                                  <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
+                                    className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">Resolve</Button>
+                                )}
+                              </div>
+                            )}
+                            {match.status === "forfeit" && (
+                              <div className="mt-2 text-xs text-warning flex items-center gap-1">
+                                <Flag className="w-3 h-3" /> Decided by forfeit
+                              </div>
+                            )}
+
+                            {isMyMatch && (match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
+                              <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
+                                  className="border-primary/20 text-primary/80 hover:bg-primary/5 text-xs h-7">Dressing Room</Button>
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(match.scheduled_date ? new Date(match.scheduled_date).toISOString().slice(0,16) : ""); setScheduleDialogOpen(true); }}
+                                  className="border-border text-xs text-muted-foreground h-7">Schedule</Button>
+                                {match.status !== "awaiting_confirmation" && (
+                                  <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
+                                    className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs h-7">
+                                    Submit Result
+                                  </Button>
+                                )}
+                                {match.status === "awaiting_confirmation" && !((match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)) && (
+                                  <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
+                                    className="bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30 text-xs h-7">
+                                    Confirm Score
+                                  </Button>
+                                )}
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
+                                  className="border-primary/30 text-primary hover:bg-primary/5 text-xs h-7">Stream</Button>
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
+                                  className="border-destructive/30 text-destructive text-xs h-7">
+                                  <Flag className="w-3 h-3 mr-1" /> Forfeit
+                                </Button>
+                              </div>
+                            )}
+
+                            {match.status === "completed" && (
+                              <div className="mt-2.5 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  {match.stream_url && (
+                                    <a href={match.stream_url} target="_blank" rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary" /> Watch Live
+                                    </a>
+                                  )}
+                                  {match.video_url && (
+                                    <a href={match.video_url} target="_blank" rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                                      <Play className="w-3 h-3" /> Match Video
+                                    </a>
+                                  )}
+                                </div>
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setStatsMatch(match); setStatsModalOpen(true); }}
+                                  className="border-border text-xs text-muted-foreground h-7">📊 Stats</Button>
+                              </div>
+                            )}
+
+                            {isAdmin && match.status !== "completed" && match.status !== "forfeit" && (
+                              <div className="mt-2.5 pt-2.5 border-t border-border/40 flex justify-end">
+                                <Button size="sm" type="button" onClick={() => simulateScore(match)}
+                                  className="bg-accent/10 text-accent border border-accent/30 text-xs h-7">
+                                  Simulate Score
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
                 );
               })()}
             </div>
-          )}
-        </TabsContent>
+          )
+        )}
 
-        {/* Standings (league, group_stage, swiss_ucl) */}
-        <TournamentStandingsTabs
-          tournament={tournament}
-          matches={matches}
-          registeredClubs={registeredClubs}
-          groupStandingsData={groupStandingsData}
-        />
+        {/* ── STANDINGS TABS ─── */}
+        {(activeTab === "standings" || activeTab === "league_standings" || activeTab === "ucl_standings") && (
+          <TournamentStandingsTabs
+            tournament={tournament}
+            matches={matches}
+            registeredClubs={registeredClubs}
+            groupStandingsData={groupStandingsData}
+            activeTab={activeTab}
+          />
+        )}
 
-
-
-        {/* Leaderboard */}
-        <TabsContent value="leaderboard">
+        {/* ── LEADERBOARD TAB ─── */}
+        {activeTab === "leaderboard" && (
           <TournamentLeaderboard tournamentId={id} />
-        </TabsContent>
+        )}
 
-        {/* Teams / Players */}
-        <TabsContent value="teams">
-          {isPlayerTournament ? (
+        {/* ── TEAMS TAB ─── */}
+        {activeTab === "teams" && (
+          isPlayerTournament ? (
             (() => {
-              const _regPlayers = allClubs.length >= 0 ? [] : []; // placeholder
               const registeredPlayerIds = tournament.registered_players || [];
               if (registeredPlayerIds.length === 0) return (
-                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                <div className="bg-card border border-border rounded-xl p-10 text-center">
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground text-sm">No players registered yet.</p>
                 </div>
               );
-              return (
-                <PlayerRegistrantList playerIds={registeredPlayerIds} />
-              );
+              return <PlayerRegistrantList playerIds={registeredPlayerIds} />;
             })()
           ) : (
             registeredClubs.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-8 text-center">
+              <div className="bg-card border border-border rounded-xl p-10 text-center">
                 <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground text-sm">No teams registered yet.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {registeredClubs.map((club, i) => (
                   <Link key={club.id} to={`/clubs/${club.id}`} className="block group">
-                    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-all">
-                      <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center leading-relaxed font-bold text-sm text-muted-foreground">{i + 1}</div>
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-                        {club.logo_url ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" /> : <Shield className="w-5 h-5 text-primary" />}
+                    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/30 transition-all">
+                      <span className="w-7 h-7 rounded bg-secondary flex items-center justify-center text-xs font-black text-muted-foreground shrink-0">{i + 1}</span>
+                      <div className="w-10 h-10 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                        {club.logo_url
+                          ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                          : <Shield className="w-5 h-5 text-muted-foreground m-2.5" />}
                       </div>
-                      <div>
-                        <p className="leading-relaxed font-bold text-foreground">{club.name} <span className="text-xs text-primary font-mono">[{club.tag}]</span></p>
-                        <p className="text-xs text-muted-foreground">{club.platform} • Rating: {club.rating || 0}</p>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-foreground truncate">{club.name} <span className="text-xs text-primary font-mono">[{club.tag}]</span></p>
+                        <p className="text-xs text-muted-foreground">{club.platform} · Rating: {club.rating || 0}</p>
                       </div>
                     </div>
                   </Link>
                 ))}
               </div>
             )
-          )}
-        </TabsContent>
-
-
-
-        {/* Admin: Disputed Matches + Forfeit Requests */}
-        {isAdmin && (
-          <TabsContent value="admin">
-            <div className="space-y-4">
-              <h3 className="leading-relaxed text-lg font-bold text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" /> Admin Panel
-              </h3>
-              {matches.filter(m => m.status === "disputed").length === 0 ? (
-                <div className="bg-card border border-border rounded-xl p-8 text-center">
-                  <Check className="w-10 h-10 text-success mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No disputed matches. All clear!</p>
-                </div>
-              ) : (
-                matches.filter(m => m.status === "disputed").map(match => (
-                  <div key={match.id} className="bg-card border border-destructive/30 rounded-xl p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="leading-relaxed font-bold text-foreground">{match.home_club_name} vs {match.away_club_name}</p>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-bold">
-                        {match.forfeit_claimed_by ? "FORFEIT CLAIM" : "DISPUTED"}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {match.home_submitted_score && <p>🏠 {match.home_club_name}: <span className="text-foreground font-mono font-bold">{match.home_submitted_score}</span></p>}
-                      {match.away_submitted_score && <p>✈️ {match.away_club_name}: <span className="text-foreground font-mono font-bold">{match.away_submitted_score}</span></p>}
-                      {match.forfeit_claimed_by && (
-                        <p>🚩 Forfeit claimed by: <span className="text-foreground font-bold">{match.forfeit_claimed_by === match.home_club_id ? match.home_club_name : match.away_club_name}</span></p>
-                      )}
-                      {(match.proof_url || match.forfeit_proof_url) && (
-                        <a href={match.proof_url || match.forfeit_proof_url} target="_blank" rel="noreferrer"
-                          className="text-primary underline flex items-center gap-1">📎 View Proof</a>
-                      )}
-                      {match.admin_notes && <p className="italic text-muted-foreground">{match.admin_notes}</p>}
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {match.forfeit_claimed_by && (
-                        <Button size="sm" onClick={() => approveForfeit(match)}
-                          className="bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30 text-xs">
-                          ✅ Approve Forfeit
-                        </Button>
-                      )}
-                      <Button size="sm" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
-                        className="bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/30 text-xs">
-                        Set Final Score
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </TabsContent>
+          )
         )}
-      </Tabs>
 
+        {/* ── ADMIN TAB ─── */}
+        {isAdmin && activeTab === "admin" && (
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-destructive flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" /> Disputes & Forfeit Requests
+            </h3>
+            {matches.filter(m => m.status === "disputed").length === 0 ? (
+              <div className="bg-card border border-border rounded-xl p-10 text-center">
+                <Check className="w-10 h-10 text-success mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">No disputed matches. All clear!</p>
+              </div>
+            ) : (
+              matches.filter(m => m.status === "disputed").map(match => (
+                <div key={match.id} className="bg-card border border-destructive/30 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-foreground">{match.home_club_name} vs {match.away_club_name}</p>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-black uppercase tracking-widest">
+                      {match.forfeit_claimed_by ? "Forfeit Claim" : "Disputed"}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1 bg-destructive/5 border border-destructive/15 rounded-lg p-3">
+                    {match.home_submitted_score && <p>🏠 {match.home_club_name}: <strong className="text-foreground font-mono">{match.home_submitted_score}</strong></p>}
+                    {match.away_submitted_score && <p>✈️ {match.away_club_name}: <strong className="text-foreground font-mono">{match.away_submitted_score}</strong></p>}
+                    {match.forfeit_claimed_by && (
+                      <p>🚩 Claimed by: <strong className="text-foreground">{match.forfeit_claimed_by === match.home_club_id ? match.home_club_name : match.away_club_name}</strong></p>
+                    )}
+                    {(match.proof_url || match.forfeit_proof_url) && (
+                      <a href={match.proof_url || match.forfeit_proof_url} target="_blank" rel="noreferrer"
+                        className="text-primary underline flex items-center gap-1">📎 View Proof</a>
+                    )}
+                    {match.admin_notes && <p className="italic">{match.admin_notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {match.forfeit_claimed_by && (
+                      <Button size="sm" type="button" onClick={() => approveForfeit(match)}
+                        className="bg-warning/10 text-warning border border-warning/30 text-xs">✅ Approve Forfeit</Button>
+                    )}
+                    <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
+                      className="bg-destructive/10 text-destructive border border-destructive/30 text-xs">Set Final Score</Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+      </div>
+
+      {/* ── DIALOGS (all unchanged) ────────────────────── */}
       <MatchStatsModal match={statsMatch} open={statsModalOpen} onClose={() => { setStatsModalOpen(false); setStatsMatch(null); }} />
 
       {winnerPressRoomOpen && winnerClub && (
@@ -1655,11 +1710,10 @@ function resetUI() {
         />
       )}
 
-      {/* Rules Modal */}
       <Dialog open={rulesModalOpen} onOpenChange={setRulesModalOpen}>
         <DialogContent className="bg-card border-border max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="leading-relaxed text-xl flex items-center gap-2">
+            <DialogTitle className="text-xl flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" /> {tournament.name} — Rules
             </DialogTitle>
           </DialogHeader>
@@ -1670,12 +1724,8 @@ function resetUI() {
               </div>
             )}
             {tournament.rules_file_url && (
-              <a
-                href={tournament.rules_file_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-medium text-sm"
-              >
+              <a href={tournament.rules_file_url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-medium text-sm">
                 <Download className="w-4 h-4" /> Download Rules Document
               </a>
             )}
@@ -1692,25 +1742,24 @@ function resetUI() {
         />
       )}
 
-      {/* Forfeit Claim Dialog */}
       <Dialog open={forfeitDialogOpen} onOpenChange={setForfeitDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="leading-relaxed text-xl text-warning">Claim Forfeit Win</DialogTitle>
+            <DialogTitle className="text-xl text-warning">Claim Forfeit Win</DialogTitle>
           </DialogHeader>
           {forfeitMatch && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">{forfeitMatch.home_club_name} vs {forfeitMatch.away_club_name}</p>
               <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 text-xs text-warning">
-                ⚠️ Only claim a forfeit if your opponent is a genuine no-show. False claims may result in penalties.
+                ⚠️ Only claim a forfeit if your opponent is a genuine no-show.
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Proof URL (optional — screenshot, clip, etc.)</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Proof URL (optional)</label>
                 <Input value={forfeitProof} onChange={e => setForfeitProof(e.target.value)}
                   className="bg-secondary border-border text-xs" placeholder="https://..." />
               </div>
-              <Button onClick={() => claimForfeit(forfeitMatch, forfeitProof)}
-                className="w-full bg-warning/10 text-warning border border-warning/30 leading-relaxed">
+              <Button type="button" onClick={() => claimForfeit(forfeitMatch, forfeitProof)}
+                className="w-full bg-warning/10 text-warning border border-warning/30">
                 <Flag className="w-4 h-4 mr-2" /> Submit Forfeit Claim
               </Button>
             </div>
@@ -1718,11 +1767,10 @@ function resetUI() {
         </DialogContent>
       </Dialog>
 
-      {/* Dispute Resolution Dialog (Admin) */}
       <Dialog open={disputeDialogOpen} onOpenChange={setDisputeDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="leading-relaxed text-xl text-destructive">Resolve Disputed Match</DialogTitle>
+            <DialogTitle className="text-xl text-destructive">Resolve Disputed Match</DialogTitle>
           </DialogHeader>
           {activeDispute && (
             <div className="space-y-4 mt-2">
@@ -1732,72 +1780,62 @@ function resetUI() {
                 {activeDispute.away_submitted_score && <p>✈️ {activeDispute.away_club_name}: <strong>{activeDispute.away_submitted_score}</strong></p>}
                 {(activeDispute.proof_url || activeDispute.forfeit_proof_url) && (
                   <a href={activeDispute.proof_url || activeDispute.forfeit_proof_url} target="_blank" rel="noreferrer"
-                    className="text-primary underline flex items-center gap-1 mt-1">📎 View Attached Proof</a>
+                    className="text-primary underline flex items-center gap-1 mt-1">📎 View Proof</a>
                 )}
               </div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Enter the correct final score:</p>
               <div className="flex items-center gap-4">
                 <div className="flex-1 text-center">
-                  <p className="leading-relaxed font-bold text-foreground text-sm mb-1">{activeDispute.home_club_name}</p>
+                  <p className="font-bold text-foreground text-sm mb-1">{activeDispute.home_club_name}</p>
                   <Input type="number" min="0" value={disputeForm.home_score}
                     onChange={e => setDisputeForm(f => ({ ...f, home_score: e.target.value }))}
-                    className="bg-secondary border-border text-center text-xl leading-relaxed font-bold" placeholder="0" />
+                    className="bg-secondary border-border text-center text-xl font-bold" placeholder="0" />
                 </div>
-                <span className="leading-relaxed text-2xl text-muted-foreground font-bold">–</span>
+                <span className="text-2xl text-muted-foreground font-bold">–</span>
                 <div className="flex-1 text-center">
-                  <p className="leading-relaxed font-bold text-foreground text-sm mb-1">{activeDispute.away_club_name}</p>
+                  <p className="font-bold text-foreground text-sm mb-1">{activeDispute.away_club_name}</p>
                   <Input type="number" min="0" value={disputeForm.away_score}
                     onChange={e => setDisputeForm(f => ({ ...f, away_score: e.target.value }))}
-                    className="bg-secondary border-border text-center text-xl leading-relaxed font-bold" placeholder="0" />
+                    className="bg-secondary border-border text-center text-xl font-bold" placeholder="0" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Admin Notes (optional)</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Admin Notes</label>
                 <Input value={disputeForm.admin_notes} onChange={e => setDisputeForm(f => ({ ...f, admin_notes: e.target.value }))}
                   className="bg-secondary border-border text-xs" placeholder="Reason for decision..." />
               </div>
-              <Button onClick={() => resolveDispute(activeDispute, disputeForm.home_score, disputeForm.away_score)}
+              <Button type="button" onClick={() => resolveDispute(activeDispute, disputeForm.home_score, disputeForm.away_score)}
                 disabled={disputeForm.home_score === "" || disputeForm.away_score === ""}
-                className="w-full bg-destructive text-destructive-foreground leading-relaxed">
-                Confirm Admin Decision & Notify Clubs
+                className="w-full bg-destructive text-destructive-foreground">
+                Confirm Admin Decision
               </Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Stream Link Dialog */}
       <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="leading-relaxed text-xl">Add Live Stream Link</DialogTitle>
+            <DialogTitle className="text-xl">Add Live Stream Link</DialogTitle>
           </DialogHeader>
           {streamMatch && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">{streamMatch.home_club_name} vs {streamMatch.away_club_name}</p>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider leading-relaxed block mb-1">Stream URL</label>
-                <Input
-                  value={streamUrl}
-                  onChange={e => setStreamUrl(e.target.value)}
-                  placeholder="https://twitch.tv/... or https://youtube.com/... or https://kick.com/..."
-                  className="bg-secondary border-border text-xs"
-                />
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Stream URL</label>
+                <Input value={streamUrl} onChange={e => setStreamUrl(e.target.value)}
+                  placeholder="https://twitch.tv/... or https://youtube.com/..."
+                  className="bg-secondary border-border text-xs" />
               </div>
-              <p className="text-xs text-muted-foreground">Supported platforms: Twitch, YouTube, Kick</p>
-              <Button
-                onClick={async () => {
-                  if (streamUrl.trim()) {
-                    await stageClient.entities.Match.update(streamMatch.id, { stream_url: streamUrl });
-                    setMatches(prev => prev.map(m => m.id === streamMatch.id ? { ...m, stream_url: streamUrl } : m));
-                  }
-                  setStreamDialogOpen(false);
-                  setStreamMatch(null);
-                  setStreamUrl("");
-                }}
-                disabled={!streamUrl.trim()}
-                className="w-full bg-primary text-primary-foreground leading-relaxed"
-              >
+              <p className="text-xs text-muted-foreground">Supported: Twitch, YouTube, Kick</p>
+              <Button type="button" onClick={async () => {
+                if (streamUrl.trim()) {
+                  await stageClient.entities.Match.update(streamMatch.id, { stream_url: streamUrl });
+                  setMatches(prev => prev.map(m => m.id === streamMatch.id ? { ...m, stream_url: streamUrl } : m));
+                }
+                setStreamDialogOpen(false); setStreamMatch(null); setStreamUrl("");
+              }} disabled={!streamUrl.trim()} className="w-full bg-primary text-primary-foreground">
                 Save Stream Link
               </Button>
             </div>
@@ -1805,23 +1843,16 @@ function resetUI() {
         </DialogContent>
       </Dialog>
 
-      {/* Dressing Room Dialog */}
       <Dialog open={dressingRoomOpen} onOpenChange={setDressingRoomOpen}>
         <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="leading-relaxed text-xl">🪑 Dressing Room</DialogTitle>
+            <DialogTitle className="text-xl">🪑 Dressing Room</DialogTitle>
           </DialogHeader>
           {dressingRoomMatch && (
-            <DressingRoom
-              clubId={myClubId}
-              currentPlayerEmail={user?.email}
-              isAdmin={isAdmin}
-            />
+            <DressingRoom clubId={myClubId} currentPlayerEmail={user?.email} isAdmin={isAdmin} />
           )}
         </DialogContent>
       </Dialog>
-
-
 
       <TournamentResultDialog
         open={resultDialogOpen}

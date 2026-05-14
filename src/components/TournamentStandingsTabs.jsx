@@ -1,15 +1,9 @@
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
-import { TabsContent } from "@/components/ui/tabs";
 import UCLStandings from "./UCLStandings";
 import { calculateLeagueStandings } from "../lib/tournamentEngine";
 
-/**
- * Renders the standings tab content for league, group_stage, and swiss_ucl tournaments.
- * Highlights zones (champion / qualify / eliminated) once all matches are complete.
- * Mobile-friendly: compact padding, smaller fonts, scrollable container.
- */
-export default function TournamentStandingsTabs({ tournament, matches, registeredClubs, groupStandingsData }) {
+export default function TournamentStandingsTabs({ tournament, matches, registeredClubs, groupStandingsData, activeTab }) {
   const type = tournament?.type;
 
   // ── League Standings ──────────────────────────────────────────────────────
@@ -163,21 +157,11 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
 
   return (
     <>
-      {type === "league" && (
-        <TabsContent value="league_standings">
-          <LeagueStandings />
-        </TabsContent>
+      {type === "league" && activeTab === "league_standings" && <LeagueStandings />}
+      {type === "swiss_ucl" && activeTab === "ucl_standings" && (
+        <UCLStandings matches={matches} registeredClubs={registeredClubs} />
       )}
-      {type === "swiss_ucl" && (
-        <TabsContent value="ucl_standings">
-          <UCLStandings matches={matches} registeredClubs={registeredClubs} />
-        </TabsContent>
-      )}
-      {type === "group_stage" && (
-        <TabsContent value="standings">
-          <GroupStandings />
-        </TabsContent>
-      )}
+      {type === "group_stage" && activeTab === "standings" && <GroupStandings />}
     </>
   );
 }
