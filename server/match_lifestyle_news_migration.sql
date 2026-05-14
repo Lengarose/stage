@@ -1,3 +1,5 @@
+$
+
 -- Migration: Match, LiveMatch, LifestyleItem, LifestylePurchase, NewsItem alignment
 -- All statements are idempotent (safe to run multiple times)
 

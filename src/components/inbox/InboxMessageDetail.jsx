@@ -2,7 +2,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format } from "@/lib/momentDate";
+import { format, toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -21,13 +21,6 @@ const STATUS_COLORS = {
   date_change_requested: "text-warning bg-warning/10 border-warning/20",
   pending:               "text-muted-foreground bg-muted border-border",
 };
-
-function toMysqlDateTime(value) {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}
 
 export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
   const [loading, setLoading] = useState(null);
@@ -64,12 +57,23 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         const senderPlayer = senderPlayers?.[0] || null;
         const recipientPlayer = recipientPlayers?.[0] || null;
 
-        const home_player_id = meta.challenger_player_id || senderPlayer?.id || null;
-        const away_player_id = meta.opponent_player_id || recipientPlayer?.id || null;
-        const home_club_id = meta.challenger_club_id || senderPlayer?.club_id || null;
-        const away_club_id = meta.opponent_club_id || recipientPlayer?.club_id || null;
+        // Determine match kind from invitation_type (single source of truth set
+        // by ArrangeGameDialog). Only fall back to "both have an explicit club id
+        // in metadata" for legacy invites that pre-date the invitation_type field;
+        // we deliberately do NOT count senderPlayer.club_id / recipientPlayer.club_id
+        // as evidence of a club match because every player has a club, which would
+        // misclassify every player_vs_player invite as a club match.
+        const isClub = meta.invitation_type
+          ? meta.invitation_type === "club_vs_club"
+          : (!!meta.challenger_club_id && !!meta.opponent_club_id);
 
-        const isClub = meta.invitation_type === "club_vs_club" || (!!home_club_id && !!away_club_id);
+        // Only populate ids for the side that matches the match kind. Leaking
+        // the "other" side's ids was the cause of player matches being saved
+        // with home_club_name = a gamertag and showing up as Club-vs-Player.
+        const home_player_id = isClub ? null : (meta.challenger_player_id || senderPlayer?.id || null);
+        const away_player_id = isClub ? null : (meta.opponent_player_id || recipientPlayer?.id || null);
+        const home_club_id   = isClub ? (meta.challenger_club_id || senderPlayer?.club_id || null) : null;
+        const away_club_id   = isClub ? (meta.opponent_club_id || recipientPlayer?.club_id || null) : null;
 
         const [homeClubRows, awayClubRows] = await Promise.all([
           home_club_id ? stageClient.entities.Club.filter({ id: home_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
@@ -147,7 +151,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
       if (action === "date_change_requested" && message.sender_email) {
         const newDate = rescheduleDate && rescheduleTime
-          ? toMysqlDateTime(new Date(`${rescheduleDate}T${rescheduleTime}:00`))
+          ? toMysqlDateTime(combineDateTime(rescheduleDate, rescheduleTime))
           : null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,

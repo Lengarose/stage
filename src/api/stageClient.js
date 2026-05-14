@@ -1,6 +1,7 @@
 // Drop-in replacement for the Base44 SDK — mirrors the same API surface
 // so zero changes are needed in any component file.
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
+import { toMysqlDateTime } from "@/lib/momentDate";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 // Default is a RELATIVE path so:
@@ -86,14 +87,6 @@ function entityToPath(name) {
   return `/${kebab}s`;
 }
 
-function toMysqlDateTime(value) {
-  if (!value) return null;
-  const s = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return s;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toISOString().slice(0, 19).replace('T', ' ');
-}
 
 // ── Entity CRUD factory ────────────────────────────────────────────────────────
 function makeEntity(name) {
@@ -248,6 +241,19 @@ const ENTITY_NAMES = [
   // supports ?player_id=, ?player_email=, ?limit=, ?offset=. Used by Admin.jsx
   // to show recent transactions on a player's economy tab.
   'PlayerStcTransaction',
+  // EAFC-inspired modules — see server/src/server.js for routes and AGENTS.md §7.2.
+  // ObjectiveDefinition: catalogue of Daily/Weekly objectives (admin-managed).
+  // ObjectiveProgress:   per-player progress; rewards claimed via
+  //                      stageClient.functions.invoke('claimObjectiveReward', { progress_id }).
+  // Archetype:           catalogue of 13 player archetypes (seeded at boot).
+  // ChemistryLink:       pairwise relationships used by the chemistry service.
+  // Sbc / SbcSubmission: SBC catalogue + submission log. Submissions go through
+  //                      stageClient.functions.invoke('submitSbc',
+  //                        { sbc_id, sacrificed_player_ids, cornerstone_player_id? }).
+  'ObjectiveDefinition', 'ObjectiveProgress',
+  'Archetype',
+  'ChemistryLink',
+  'Sbc', 'SbcSubmission',
 ];
 
 const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));

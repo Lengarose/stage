@@ -119,3 +119,29 @@ export function isToday(value) {
   const m = toMoment(value);
   return m.isValid() ? m.isSame(moment(), "day") : false;
 }
+
+// ── Saving helpers ──────────────────────────────────────────────────────────
+// Single source of truth for serialising a Date / string / moment / number into
+// the format MySQL DATETIME accepts. Backend EXECUTESQL also coerces ISO 8601,
+// so this is a defence-in-depth — every value sent over the wire is already in
+// `YYYY-MM-DD HH:mm:ss` UTC. Keeping behaviour identical to the legacy
+// `toISOString().slice(0,19).replace("T"," ")` so existing rows stay aligned.
+export function toMysqlDateTime(value) {
+  if (value === null || value === undefined || value === "") return null;
+  // Pass through values that are already in MySQL format so we don't double-convert.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
+    return value;
+  }
+  const m = toMoment(value);
+  if (!m.isValid()) return null;
+  return m.utc().format("YYYY-MM-DD HH:mm:ss");
+}
+
+// Combine a `<input type="date">` value (YYYY-MM-DD) with a
+// `<input type="time">` value (HH:mm) into a moment in the user's LOCAL
+// timezone — which is what the user just picked on screen.
+export function combineDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const m = moment(`${dateStr}T${timeStr}:00`);
+  return m.isValid() ? m.toDate() : null;
+}

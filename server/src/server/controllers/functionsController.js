@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { EXECUTESQL } = require('../db/database');
+const { EXECUTESQL, pool } = require('../db/database');
 const axios = require('axios').default;
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -106,6 +106,25 @@ async function createNotificationIfEnabled({
     [id, recipientEmail, type, title, body, 0, link || '', relatedId]
   );
   return { success: true, id };
+}
+
+async function withTransaction(callback) {
+  const conn = await pool.promise().getConnection();
+  try {
+    await conn.beginTransaction();
+    const query = async (sql, values = []) => {
+      const [rows] = await conn.query(sql, values);
+      return rows;
+    };
+    const result = await callback(query);
+    await conn.commit();
+    return result;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 function messageTypeToNotificationType(messageType) {
@@ -3353,6 +3372,577 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown economyTests action: ${action}`);
+  },
+
+  // ── Tournament registration (STC + optional club credits + JSON roster) ──
+  // Mirrors base44/functions/tournamentRegistration — frontend expects:
+  //   { data: { success, error?, ... } }
+  async tournamentRegistration({
+    tournament_id, club_id, player_id, _auth_user_id,
+  }) {
+    const MIN_STC = 100;
+    const MAX_STC = 1_000_000;
+    const fail = (msg) => ({ data: { success: false, error: msg } });
+
+    if (!_auth_user_id) return fail('Not authenticated');
+    if (!tournament_id) return fail('tournament_id required');
+
+    const users = await EXECUTESQL(
+      'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
+      [_auth_user_id],
+    );
+    if (!users.length) return fail('User not found');
+    const user = users[0];
+    const isAdmin = Number(user.role_id) === 2;
+
+    const parseIds = (raw) => {
+      if (raw == null) return [];
+      if (Array.isArray(raw)) return raw.map(String);
+      try {
+        const j = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return Array.isArray(j) ? j.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+
+    return withTransaction(async (query) => {
+      const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      if (!tRows.length) return fail('Tournament not found');
+      const tournament = tRows[0];
+
+      if (String(tournament.status || '') !== 'registration') {
+        return fail('Tournament registration is closed');
+      }
+      if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
+        return fail('Tournament registration is closed');
+      }
+
+      const entryFee = Number(tournament.entry_fee_stc || 0);
+      if (entryFee > 0 && (entryFee < MIN_STC || entryFee > MAX_STC)) {
+        return fail(`Invalid tournament entry fee. Must be between ${MIN_STC} and ${MAX_STC.toLocaleString()} STC`);
+      }
+
+      const requiredCredits = Number(tournament.entry_credits ?? 0);
+
+      const participantType = String(tournament.participant_type || 'club').toLowerCase();
+      const isClubTourney = participantType !== 'player';
+
+      if (isClubTourney) {
+        if (!club_id) return fail('club_id required for club tournament');
+
+        const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
+        if (!clubs.length) return fail('Club not found');
+        const club = clubs[0];
+
+        const ownerOk = isAdmin
+          || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+          || String(club.user_id || '') === String(_auth_user_id);
+
+        if (!ownerOk) return fail('Only the club owner can register this club');
+
+        if (tournament.country_code && club.country_code !== tournament.country_code) {
+          return fail('This tournament is restricted to clubs from another country');
+        }
+
+        let registered = parseIds(tournament.registered_clubs);
+        if (registered.includes(String(club_id))) {
+          return fail('Club already registered for this tournament');
+        }
+
+        const maxTeams = Number(tournament.max_teams || 0);
+        if (maxTeams > 0 && registered.length >= maxTeams) {
+          return fail('Tournament is full');
+        }
+
+        const clubStc = Number(club.stc || 0);
+        if (entryFee > 0 && clubStc < entryFee) {
+          return fail(`Insufficient STC. Need ${entryFee.toLocaleString()}, have ${clubStc.toLocaleString()}`);
+        }
+
+        const clubCredits = Number(club.credits ?? 0);
+        if (!isAdmin && requiredCredits > 0 && clubCredits < requiredCredits) {
+          return fail(`Insufficient credits. Need ${requiredCredits}, have ${clubCredits}`);
+        }
+
+        let newClubStc = clubStc;
+        if (entryFee > 0) {
+          newClubStc = clubStc - entryFee;
+          await query('UPDATE clubs SET stc = ? WHERE id = ?', [newClubStc, club_id]);
+
+          const txId = uuidv4();
+          await query(
+            `INSERT INTO stc_transactions (id, club_id, amount, type, category, description, reference_id, balance_after)
+             VALUES (?,?,?,?,?,?,?,?)`,
+            [
+              txId,
+              club_id,
+              -entryFee,
+              'tournament_entry',
+              'tournament_entry',
+              `Tournament entry fee: ${tournament.name}`,
+              tournament_id,
+              newClubStc,
+            ],
+          );
+        }
+
+        let creditsSpent = 0;
+        let newClubCredits = clubCredits;
+        if (!isAdmin && requiredCredits > 0) {
+          creditsSpent = requiredCredits;
+          newClubCredits = clubCredits - requiredCredits;
+          await query('UPDATE clubs SET credits = ? WHERE id = ?', [newClubCredits, club_id]);
+        }
+
+        registered = [...registered, String(club_id)];
+        await query(
+          'UPDATE tournaments SET registered_clubs = ?, updated_date = NOW() WHERE id = ?',
+          [JSON.stringify(registered), tournament_id],
+        );
+
+        return {
+          data: {
+            success: true,
+            message: 'Club registered successfully',
+            stc_locked: entryFee,
+            new_club_stc: newClubStc,
+            credits_spent: creditsSpent,
+            new_club_credits: newClubCredits,
+          },
+        };
+      }
+
+      if (!player_id) return fail('player_id required for player tournament');
+
+      const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [player_id]);
+      if (!players.length) return fail('Player not found');
+      const player = players[0];
+
+      const playerOk = isAdmin
+        || String(player.user_id || '') === String(_auth_user_id)
+        || String(player.email || '').toLowerCase() === String(user.email || '').toLowerCase();
+
+      if (!playerOk) return fail('You can only register your own player');
+
+      if (tournament.country_code && player.country_code !== tournament.country_code) {
+        return fail('This tournament is restricted to players from another country');
+      }
+
+      let registeredPl = parseIds(tournament.registered_players);
+      if (registeredPl.includes(String(player_id))) {
+        return fail('Player already registered for this tournament');
+      }
+
+      const maxTeamsP = Number(tournament.max_teams || 0);
+      if (maxTeamsP > 0 && registeredPl.length >= maxTeamsP) {
+        return fail('Tournament is full');
+      }
+
+      const playerStc = Number(player.stc || 0);
+      if (entryFee > 0 && playerStc < entryFee) {
+        return fail(`Insufficient STC. Need ${entryFee.toLocaleString()}, have ${playerStc.toLocaleString()}`);
+      }
+
+      const playerCredits = Number(player.credits ?? 0);
+      if (!isAdmin && requiredCredits > 0 && playerCredits < requiredCredits) {
+        return fail(`Insufficient credits. Need ${requiredCredits}, have ${playerCredits}`);
+      }
+
+      let newPlayerStc = playerStc;
+      if (entryFee > 0) {
+        newPlayerStc = playerStc - entryFee;
+        await query('UPDATE players SET stc = ? WHERE id = ?', [newPlayerStc, player_id]);
+
+        const txId = uuidv4();
+        await query(
+          `INSERT INTO player_stc_transactions (id, player_id, player_email, amount, balance_after, type, category, description, reference_id)
+           VALUES (?,?,?,?,?,?,?,?,?)`,
+          [
+            txId,
+            player_id,
+            player.email,
+            -entryFee,
+            newPlayerStc,
+            'tournament_entry',
+            'tournament_entry',
+            `Tournament entry fee: ${tournament.name}`,
+            tournament_id,
+          ],
+        );
+      }
+
+      let newPlayerCredits = playerCredits;
+      if (!isAdmin && requiredCredits > 0) {
+        newPlayerCredits = playerCredits - requiredCredits;
+        await query('UPDATE players SET credits = ? WHERE id = ?', [newPlayerCredits, player_id]);
+      }
+
+      registeredPl = [...registeredPl, String(player_id)];
+      await query(
+        'UPDATE tournaments SET registered_players = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(registeredPl), tournament_id],
+      );
+
+      return {
+        data: {
+          success: true,
+          message: 'Player registered successfully',
+          stc_locked: entryFee,
+          new_player_stc: newPlayerStc,
+          new_player_credits: newPlayerCredits,
+        },
+      };
+    });
+  },
+
+  /** Notify all players in a club when their club registers for a tournament. */
+  async tournamentRegistrationNotify({ action, tournament_id, club_id, _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (action !== 'register') {
+      return { success: false, error: 'Only action=register is implemented' };
+    }
+    if (!tournament_id || !club_id) throw new Error('tournament_id and club_id required');
+
+    const tRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournament_id]);
+    if (!tRows.length) throw new Error('Tournament not found');
+    const tournament = tRows[0];
+    const registeredClubs = parseMaybeJson(tournament.registered_clubs, []);
+    if (!Array.isArray(registeredClubs) || !registeredClubs.map(String).includes(String(club_id))) {
+      throw new Error('Club is not registered for this tournament');
+    }
+
+    const users = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!users.length) throw new Error('User not found');
+    const user = users[0];
+    const clubs = await EXECUTESQL('SELECT id, owner_email, user_id FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+    if (!clubs.length) throw new Error('Club not found');
+    const club = clubs[0];
+    const ownerOk = Number(user.role_id) === 2
+      || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+      || String(club.user_id || '') === String(_auth_user_id);
+    if (!ownerOk) throw new Error('Only the club owner can notify players for this registration');
+
+    const clubPlayers = await EXECUTESQL(
+      'SELECT email FROM players WHERE club_id = ? AND email IS NOT NULL AND email <> \'\'',
+      [club_id],
+    );
+
+    const startLabel = tournament.start_date
+      ? new Date(tournament.start_date).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      : 'TBD';
+
+    let notified = 0;
+    for (const row of clubPlayers) {
+      const email = row.email;
+      if (!email) continue;
+      const result = await createNotificationIfEnabled({
+        recipientEmail: email,
+        type: 'tournament_start',
+        title: `Your club registered for ${tournament.name}`,
+        body: `Your club has signed up for ${tournament.name}.\nStart: ${startLabel}\nPlatform: ${tournament.platform || 'TBD'}\nMake sure you're ready!`,
+        link: `/tournaments/${tournament_id}`,
+        relatedId: tournament_id,
+      });
+      if (!result.skipped) notified++;
+    }
+
+    return { success: true, notified };
+  },
+
+  // ── Claim a Daily/Weekly Objective reward ──────────────────────────────────
+  //
+  // Body: { progress_id } — the objective_progress row to claim.
+  // Verifies the row belongs to the caller, is completed, and not yet claimed,
+  // then credits STC, writes a player_stc_transactions ledger entry, marks the
+  // progress as claimed, and writes admin_audit_log for traceability.
+  async claimObjectiveReward({ _auth_user_id, progress_id }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (!progress_id)   throw new Error('progress_id required');
+
+    return withTransaction(async (query) => {
+      const progRows = await query(
+        'SELECT * FROM objective_progress WHERE id = ? LIMIT 1 FOR UPDATE',
+        [progress_id]
+      );
+      if (!progRows.length) throw new Error('Objective progress not found');
+      const prog = progRows[0];
+
+      const myPlayer = await query(
+        'SELECT id, email, gamertag, stc FROM players WHERE user_id = ? LIMIT 1',
+        [_auth_user_id]
+      );
+      if (!myPlayer.length) throw new Error('Player profile not found');
+      const player = myPlayer[0];
+      if (String(player.id) !== String(prog.player_id)) {
+        throw new Error('Not allowed: progress belongs to another player');
+      }
+      if (!prog.completed_at) throw new Error('Objective not completed yet');
+      if (prog.claimed_at)    throw new Error('Already claimed');
+
+      const defRows = await query(
+        'SELECT * FROM objective_definitions WHERE id = ? LIMIT 1',
+        [prog.objective_id]
+      );
+      if (!defRows.length) throw new Error('Objective definition not found');
+      const def = defRows[0];
+
+      const rewardStc = Number(def.reward_stc || 0);
+      const oldStc    = Number(player.stc || 0);
+      const newStc    = oldStc + rewardStc;
+
+      if (rewardStc > 0) {
+        await query('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newStc, player.id]);
+        const txId = uuidv4();
+        await query(
+          `INSERT INTO player_stc_transactions
+             (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+           VALUES (?, ?, ?, ?, ?, 'credit', 'objective_reward', 'Objectives', ?, ?, NOW())`,
+          [txId, player.id, player.email || null, rewardStc, newStc,
+            `Objective reward — ${def.title || def.code || def.id}`, prog.id]
+        );
+      }
+
+      await query(
+        'UPDATE objective_progress SET claimed_at = NOW(), updated_date = NOW() WHERE id = ?',
+        [prog.id]
+      );
+
+      const auditId = uuidv4();
+      await query(
+        `INSERT INTO admin_audit_log
+           (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+         VALUES (?, ?, ?, 'claim_objective_reward', 'objective_progress', ?, ?, ?, ?, ?, NOW())`,
+        [
+          auditId,
+          _auth_user_id,
+          player.email || null,
+          prog.id,
+          def.title || def.code || null,
+          JSON.stringify({ stc: oldStc, claimed_at: null }),
+          JSON.stringify({ stc: newStc, claimed_at: 'now', reward_stc: rewardStc, reward_xp: Number(def.reward_xp || 0) }),
+          `Player ${player.gamertag || player.email} claimed objective '${def.title || def.code}'`,
+        ]
+      ).catch(() => {});
+
+      return {
+        success: true,
+        data: {
+          progress_id: prog.id,
+          reward_stc: rewardStc,
+          reward_xp: Number(def.reward_xp || 0),
+          new_balance: newStc,
+        },
+      };
+    });
+  },
+
+  // ── Submit a Squad Building Challenge ──────────────────────────────────────
+  //
+  // Body: { sbc_id, sacrificed_player_ids: string[], cornerstone_player_id? }
+  //
+  // Atomically:
+  //   1. Validates SBC is active and within max_completions.
+  //   2. Validates the sacrificed squad matches `sbcs.requirements`.
+  //   3. Soft-deletes the sacrificed players (sets `sacrificed_at`).
+  //   4. Credits STC + tracks the reward.
+  //   5. Logs sbc_submissions + admin_audit_log.
+  //
+  // If any step fails, the transaction is rolled back and a 'failed' sbc_submissions
+  // row is written (best-effort, outside the txn) for traceability.
+  async submitSbc({ _auth_user_id, sbc_id, sacrificed_player_ids, cornerstone_player_id }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (!sbc_id)        throw new Error('sbc_id required');
+    if (!Array.isArray(sacrificed_player_ids) || sacrificed_player_ids.length < 1) {
+      throw new Error('sacrificed_player_ids must be a non-empty array');
+    }
+    if (new Set(sacrificed_player_ids.map(String)).size !== sacrificed_player_ids.length) {
+      throw new Error('sacrificed_player_ids must be unique');
+    }
+
+    const me = await getMe(_auth_user_id);
+    const player = me.player;
+    if (!player) throw new Error('Player profile not found');
+
+    // Pre-flight (outside txn so we can write a 'failed' row on validation error).
+    const sbcRows = await EXECUTESQL('SELECT * FROM sbcs WHERE id = ? LIMIT 1', [sbc_id]);
+    if (!sbcRows.length) throw new Error('SBC not found');
+    const sbc = sbcRows[0];
+    if (!Number(sbc.is_active)) throw new Error('SBC is not active');
+    if (sbc.expires_at && new Date(sbc.expires_at).getTime() < Date.now()) {
+      throw new Error('SBC has expired');
+    }
+
+    const requirements = parseMaybeJson(sbc.requirements, {});
+    const reward       = parseMaybeJson(sbc.reward, {});
+
+    // Completion-count check
+    if (sbc.max_completions != null) {
+      const countRows = await EXECUTESQL(
+        "SELECT COUNT(*) AS n FROM sbc_submissions WHERE sbc_id = ? AND player_id = ? AND status = 'completed'",
+        [sbc_id, player.id]
+      );
+      const done = Number(countRows[0]?.n || 0);
+      if (done >= Number(sbc.max_completions)) {
+        throw new Error(`Max completions reached for this SBC (${sbc.max_completions})`);
+      }
+    }
+
+    // Load sacrificed players and validate ownership
+    const ph = sacrificed_player_ids.map(() => '?').join(',');
+    const sacrificed = await EXECUTESQL(
+      `SELECT id, club_id, gamertag, overall_rating, country, country_code, archetype
+         FROM players WHERE id IN (${ph})`,
+      sacrificed_player_ids
+    );
+    if (sacrificed.length !== sacrificed_player_ids.length) {
+      throw new Error('One or more sacrificed players not found');
+    }
+    // All sacrificed players must belong to the submitter's club
+    if (!player.club_id) throw new Error('Submitter must belong to a club to sacrifice players');
+    for (const sp of sacrificed) {
+      if (String(sp.club_id) !== String(player.club_id)) {
+        throw new Error(`Player ${sp.gamertag || sp.id} is not in your club`);
+      }
+    }
+
+    // Constraint validation
+    const failures = [];
+    if (requirements.squad_size && sacrificed.length !== Number(requirements.squad_size)) {
+      failures.push(`squad_size: required ${requirements.squad_size}, got ${sacrificed.length}`);
+    }
+    if (requirements.min_rating) {
+      const avg = sacrificed.reduce((s, p) => s + Number(p.overall_rating || 0), 0) / sacrificed.length;
+      if (avg < Number(requirements.min_rating)) {
+        failures.push(`min_rating: average ${avg.toFixed(2)} below required ${requirements.min_rating}`);
+      }
+    }
+    if (requirements.nationality) {
+      const all = sacrificed.every(p =>
+        (p.country_code && p.country_code === requirements.nationality) ||
+        (p.country && p.country === requirements.nationality)
+      );
+      if (!all) failures.push(`nationality: all players must be ${requirements.nationality}`);
+    }
+    if (requirements.archetype) {
+      const all = sacrificed.every(p => p.archetype === requirements.archetype);
+      if (!all) failures.push(`archetype: all players must be ${requirements.archetype}`);
+    }
+    if (requirements.min_chem) {
+      const { computeChemistry } = require('../services/chemistryService');
+      const chem = await computeChemistry(
+        sacrificed.map(p => p.id),
+        { cornerstonePlayerId: cornerstone_player_id || null }
+      );
+      // Convert multiplier (1..1.15) to a 0..100 "chem score" for UX parity with FUT
+      const chemScore = Math.round((chem.multiplier - 1) / 0.15 * 100);
+      if (chemScore < Number(requirements.min_chem)) {
+        failures.push(`min_chem: ${chemScore} below required ${requirements.min_chem}`);
+      }
+    }
+
+    if (failures.length) {
+      // Log failed submission for audit
+      const failedId = uuidv4();
+      await EXECUTESQL(
+        `INSERT INTO sbc_submissions
+           (id, sbc_id, player_id, player_email, player_gamertag, club_id,
+            sacrificed_player_ids, reward_payload, stc_credited,
+            status, failure_reason, submitted_at, created_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'failed', ?, NOW(), NOW())`,
+        [
+          failedId, sbc_id, player.id, player.email || null,
+          player.gamertag || null, player.club_id || null,
+          JSON.stringify(sacrificed_player_ids), JSON.stringify(reward),
+          failures.join('; '),
+        ]
+      ).catch(() => {});
+      throw new Error(`Requirements not met: ${failures.join('; ')}`);
+    }
+
+    // Atomic execution
+    return withTransaction(async (query) => {
+      // 1) Soft-delete sacrificed players (also detach from club)
+      await query(
+        `UPDATE players SET club_id = NULL, sacrificed_at = NOW(), updated_date = NOW()
+          WHERE id IN (${ph})`,
+        sacrificed_player_ids
+      );
+
+      // 2) Credit STC reward
+      const rewardStc = Number(reward.stc || 0);
+      const oldStc    = Number(player.stc || 0);
+      const newStc    = oldStc + rewardStc;
+      if (rewardStc > 0) {
+        await query('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newStc, player.id]);
+        const txId = uuidv4();
+        await query(
+          `INSERT INTO player_stc_transactions
+             (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+           VALUES (?, ?, ?, ?, ?, 'credit', 'sbc_reward', 'SBC', ?, ?, NOW())`,
+          [txId, player.id, player.email || null, rewardStc, newStc,
+            `SBC reward — ${sbc.name}`, sbc.id]
+        );
+      }
+
+      // 3) Optionally place a trophy item
+      if (reward.trophy_item_id) {
+        const tpId = uuidv4();
+        await query(
+          `INSERT INTO trophy_placements (id, owner_id, owner_type, trophy_item_id, position, created_date)
+           VALUES (?, ?, 'player', ?, 0, NOW())`,
+          [tpId, player.id, reward.trophy_item_id]
+        ).catch(() => {});
+      }
+
+      // 4) Submission record
+      const subId = uuidv4();
+      await query(
+        `INSERT INTO sbc_submissions
+           (id, sbc_id, player_id, player_email, player_gamertag, club_id,
+            sacrificed_player_ids, reward_payload, stc_credited,
+            status, failure_reason, submitted_at, completed_at, created_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', NULL, NOW(), NOW(), NOW())`,
+        [
+          subId, sbc_id, player.id, player.email || null,
+          player.gamertag || null, player.club_id || null,
+          JSON.stringify(sacrificed_player_ids), JSON.stringify(reward), rewardStc,
+        ]
+      );
+
+      // 5) Audit log
+      const auditId = uuidv4();
+      await query(
+        `INSERT INTO admin_audit_log
+           (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+         VALUES (?, ?, ?, 'submit_sbc', 'sbc_submission', ?, ?, ?, ?, ?, NOW())`,
+        [
+          auditId, _auth_user_id, player.email || null,
+          subId, sbc.name,
+          JSON.stringify({ stc: oldStc, sacrificed_count: sacrificed_player_ids.length }),
+          JSON.stringify({ stc: newStc, reward_stc: rewardStc, reward }),
+          `Player ${player.gamertag || player.email} completed SBC '${sbc.name}'`,
+        ]
+      ).catch(() => {});
+
+      return {
+        success: true,
+        data: {
+          submission_id: subId,
+          sbc_id,
+          sacrificed_count: sacrificed_player_ids.length,
+          reward_stc: rewardStc,
+          new_balance: newStc,
+          reward,
+        },
+      };
+    });
   },
 
   // ── Delete account ────────────────────────────────────────────────────────
