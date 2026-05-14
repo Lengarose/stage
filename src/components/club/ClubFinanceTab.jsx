@@ -18,9 +18,12 @@ const TX_CATEGORIES = {
   wager_loss:      { label: "Wager Loss",       color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: TrendingDown },
   wager_refund:    { label: "Wager Refund",     color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: RefreshCw },
   wager_stake:     { label: "Wager Stake",      color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: ArrowLeftRight },
-  comp_reward:     { label: "Competition",      color: "text-primary",      bg: "bg-primary/10",      border: "border-primary/20",      icon: Gift },
-  adjustment:      { label: "Adjustment",       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
-  admin_adjustment:{ label: "Admin Adj.",       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
+  comp_reward:        { label: "Competition",       color: "text-primary",      bg: "bg-primary/10",      border: "border-primary/20",      icon: Gift },
+  tournament_entry:   { label: "Tournament Entry", color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: Trophy },
+  tournament_prize:   { label: "Tournament Prize", color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Trophy },
+  tournament_refund:  { label: "Tournament Refund",color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: Trophy },
+  adjustment:         { label: "Adjustment",       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
+  admin_adjustment:   { label: "Admin Adj.",       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
 };
 
 function getCategoryMeta(tx) {
@@ -184,8 +187,9 @@ const CATEGORY_FILTERS = [
   { key: "wager_win",       label: "Wager Win" },
   { key: "wager_loss",      label: "Wager Loss" },
   { key: "wager_refund",    label: "Refund" },
-  { key: "comp_reward",     label: "Competition" },
-  { key: "adjustment",      label: "Adjustment" },
+  { key: "comp_reward",       label: "Competition" },
+  { key: "tournament_entry", label: "Tournament" },
+  { key: "adjustment",       label: "Adjustment" },
 ];
 
 export default function ClubFinanceTab({ club, isAdmin = false }) {

@@ -220,6 +220,13 @@ export default function TournamentDetail() {
         return;
       }
 
+      const { new_club_stc, new_club_credits } = res.data;
+      setAllClubs(prev => prev.map(c =>
+        c.id === effectiveId
+          ? { ...c, stc: new_club_stc ?? c.stc, credits: new_club_credits ?? c.credits }
+          : c
+      ));
+
       const updated = [...current, effectiveId];
       setTournament(prev => ({ ...prev, registered_clubs: updated }));
       setClubs(allClubs.filter(c => updated.includes(c.id)));
