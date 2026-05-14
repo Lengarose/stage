@@ -266,27 +266,47 @@ const auth = {
   },
 
   async loginViaEmailPassword(identifier, password) {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw data;
-    storeTokens(data);
-    return { access_token: data.accessToken };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw data;
+      storeTokens(data);
+      return { access_token: data.accessToken };
+    } catch (err) {
+      if (err.name === 'AbortError') throw { message: 'Request timed out. Please check your connection and try again.' };
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
   },
 
   async registerViaEmailPassword({ email, password }) {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw data;
-    storeTokens(data);
-    return { access_token: data.accessToken };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw data;
+      storeTokens(data);
+      return { access_token: data.accessToken };
+    } catch (err) {
+      if (err.name === 'AbortError') throw { message: 'Request timed out. Please check your connection and try again.' };
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
   },
 
   setToken(token) {

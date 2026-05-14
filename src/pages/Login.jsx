@@ -81,13 +81,15 @@ export default function Login() {
       if (access_token) {
         stageClient.auth.setToken(access_token);
         await checkUserAuth();
+      } else {
+        setError('Sign-in failed. Please try again.');
       }
     } catch (err) {
       const serverError = err?.error || err?.message || '';
       if (isSignup && String(serverError).toLowerCase().includes('this user with this email exist')) {
-        setError('this user with this email exist');
+        setError('An account with this email already exists.');
       } else {
-        setError(serverError || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email, gamertag, club name, or password.'));
+        setError(serverError || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email, gamertag, or password.'));
       }
     } finally {
       setIsLoading(false);
