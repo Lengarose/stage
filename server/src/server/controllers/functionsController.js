@@ -3656,6 +3656,120 @@ const HANDLERS = {
     return { success: true, notified };
   },
 
+  /**
+   * Cancel a tournament and refund entry fees (STC + credits) to all registered
+   * clubs/players. Admin or organizer only. Runs inside a transaction so either
+   * all refunds land or none do.
+   *
+   * Returns: { data: { success, refunded_count } }
+   */
+  async tournamentCancellation({ tournament_id, _auth_user_id }) {
+    const fail = (msg) => ({ data: { success: false, error: msg } });
+
+    if (!_auth_user_id) return fail('Not authenticated');
+    if (!tournament_id) return fail('tournament_id required');
+
+    const users = await EXECUTESQL(
+      'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
+      [_auth_user_id],
+    );
+    if (!users.length) return fail('User not found');
+    const user = users[0];
+    const isAdmin = Number(user.role_id) === 2;
+
+    return withTransaction(async (query) => {
+      const tRows = await query(
+        'SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE',
+        [tournament_id],
+      );
+      if (!tRows.length) return fail('Tournament not found');
+      const tournament = tRows[0];
+
+      const isOrganizer = String(tournament.organizer_email || '').toLowerCase()
+        === String(user.email || '').toLowerCase();
+
+      if (!isAdmin && !isOrganizer) return fail('Only the organizer or an admin can cancel this tournament');
+      if (String(tournament.status || '') === 'cancelled') return fail('Tournament is already cancelled');
+
+      const entryFee    = Number(tournament.entry_fee_stc || 0);
+      const entryCost   = Number(tournament.entry_credits ?? 0);
+      const isClubTourney = String(tournament.participant_type || 'club').toLowerCase() !== 'player';
+
+      // ── Refund clubs ────────────────────────────────────────────────────────
+      let refundedCount = 0;
+      if (isClubTourney) {
+        const registered = parseMaybeJson(tournament.registered_clubs, []);
+        for (const clubId of registered) {
+          const clubs = await query('SELECT id, stc, credits FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+          if (!clubs.length) continue;
+          const club = clubs[0];
+
+          if (entryFee > 0) {
+            const newStc = Number(club.stc || 0) + entryFee;
+            await query('UPDATE clubs SET stc = ? WHERE id = ?', [newStc, clubId]);
+            await query(
+              `INSERT INTO stc_transactions
+                 (id, club_id, amount, type, category, description, reference_id, balance_after)
+               VALUES (?,?,?,?,?,?,?,?)`,
+              [
+                uuidv4(), clubId, entryFee,
+                'tournament_refund', 'tournament_refund',
+                `Tournament cancellation refund: ${tournament.name}`,
+                tournament_id, newStc,
+              ],
+            );
+          }
+
+          if (entryCost > 0) {
+            const newCredits = Number(club.credits || 0) + entryCost;
+            await query('UPDATE clubs SET credits = ? WHERE id = ?', [newCredits, clubId]);
+          }
+
+          refundedCount++;
+        }
+      } else {
+        // ── Refund players ──────────────────────────────────────────────────
+        const registered = parseMaybeJson(tournament.registered_players, []);
+        for (const playerId of registered) {
+          const players = await query('SELECT id, email, stc, credits FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
+          if (!players.length) continue;
+          const player = players[0];
+
+          if (entryFee > 0) {
+            const newStc = Number(player.stc || 0) + entryFee;
+            await query('UPDATE players SET stc = ? WHERE id = ?', [newStc, playerId]);
+            await query(
+              `INSERT INTO player_stc_transactions
+                 (id, player_id, player_email, amount, balance_after, type, category, description, reference_id)
+               VALUES (?,?,?,?,?,?,?,?,?)`,
+              [
+                uuidv4(), playerId, player.email, entryFee, newStc,
+                'tournament_refund', 'tournament_refund',
+                `Tournament cancellation refund: ${tournament.name}`,
+                tournament_id,
+              ],
+            );
+          }
+
+          if (entryCost > 0) {
+            const newCredits = Number(player.credits || 0) + entryCost;
+            await query('UPDATE players SET credits = ? WHERE id = ?', [newCredits, playerId]);
+          }
+
+          refundedCount++;
+        }
+      }
+
+      // ── Mark cancelled ──────────────────────────────────────────────────────
+      await query(
+        "UPDATE tournaments SET status = 'cancelled', updated_date = NOW() WHERE id = ?",
+        [tournament_id],
+      );
+
+      return { data: { success: true, refunded_count: refundedCount } };
+    });
+  },
+
   // ── Claim a Daily/Weekly Objective reward ──────────────────────────────────
   //
   // Body: { progress_id } — the objective_progress row to claim.
