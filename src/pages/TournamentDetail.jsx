@@ -901,13 +901,47 @@ function resetUI() {
     
     setTournament(prev => ({ ...prev, registered_clubs: updated }));
     setClubs(allClubs.filter(c => updated.includes(c.id)));
+    if (clubData) {
+      setAllClubs(prev => prev.map(c =>
+        c.id === effectiveId
+          ? { ...c, stc: (c.stc || 0) + (entryFeeSTC || 0), credits: (c.credits || 0) + (tournament.entry_credits ?? 50) }
+          : c
+      ));
+    }
   }
 
   async function cancelTournament() {
     if (!window.confirm("Are you sure you want to cancel this tournament? This cannot be undone.")) return;
     await stageClient.entities.Tournament.update(id, { status: "cancelled" });
-    setTournament(prev => ({ ...prev, status: "cancelled" }));
 
+    // Refund all registered clubs
+    const entryFeeSTC = tournament.entry_fee_stc ?? 0;
+    const entryCost   = tournament.entry_credits ?? 50;
+    const registered  = tournament.registered_clubs || [];
+    if (registered.length > 0) {
+      await Promise.all(registered.map(async (clubId) => {
+        const clubData = allClubs.find(c => c.id === clubId);
+        if (!clubData) return;
+        const newCredits = (clubData.credits || 0) + entryCost;
+        const newStc     = (clubData.stc || 0) + entryFeeSTC;
+        await stageClient.entities.Club.update(clubId, { credits: newCredits, stc: newStc });
+        if (entryFeeSTC > 0) {
+          await stageClient.entities.STCTransaction.create({
+            club_id: clubId,
+            amount: entryFeeSTC,
+            type: 'tournament_refund',
+            category: 'tournament_refund',
+            description: `Tournament cancellation refund: ${tournament.name}`,
+            reference_id: tournament.id,
+          }).catch(() => {});
+        }
+      }));
+      // Reload clubs so the info strip reflects the refunded balances
+      const freshClubs = await stageClient.entities.Club.list("-rating", 200).catch(() => allClubs);
+      setAllClubs(freshClubs);
+    }
+
+    setTournament(prev => ({ ...prev, status: "cancelled" }));
   }
 
   async function deleteTournament() {
