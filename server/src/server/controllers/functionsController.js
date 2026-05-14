@@ -2106,33 +2106,180 @@ const HANDLERS = {
   },
 
   async seedLifestyleItems() {
+    // Prices calibrated to real-world values (1 STC ≈ $1 USD / £1).
+    // Sources: Edmunds, Rightmove, WatchCharts, Robb Report, YATCO, HomeGuide (May 2026).
     const seed = [
-      // Houses & Apartments
-      { name: 'Studio Apartment',  category: 'houses', tier: 'standard', sort_order: 1,  price_stc: 800000,    rent_price_stc: 35000,   rent_duration_days: 30, invest_price_stc: 800000,    invest_return_rate: 8,  invest_duration_days: 30, passive_income_stc: 10000, passive_income_interval_days: 7, weekly_maintenance_stc: 5000,  can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 70, allows_multiple: 1, description: 'A compact modern studio in the city centre. Good starter investment.' },
-      { name: 'City Apartment',    category: 'houses', tier: 'premium',  sort_order: 2,  price_stc: 2500000,   rent_price_stc: 100000,  rent_duration_days: 30, invest_price_stc: 2500000,   invest_return_rate: 10, invest_duration_days: 30, passive_income_stc: 30000, passive_income_interval_days: 7, weekly_maintenance_stc: 15000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 75, allows_multiple: 1, description: 'Stylish apartment with city views. Strong rental yield.' },
-      { name: 'Penthouse Suite',   category: 'houses', tier: 'elite',    sort_order: 3,  price_stc: 12000000,  rent_price_stc: 500000,  rent_duration_days: 30, invest_price_stc: 12000000,  invest_return_rate: 12, invest_duration_days: 30, passive_income_stc: 150000, passive_income_interval_days: 7, weekly_maintenance_stc: 80000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 80, allows_multiple: 1, description: 'Top-floor penthouse with panoramic views and private terrace.' },
-      { name: 'Luxury Villa',      category: 'houses', tier: 'legendary',sort_order: 4,  price_stc: 50000000,  rent_price_stc: 2000000, rent_duration_days: 30, invest_price_stc: 50000000,  invest_return_rate: 15, invest_duration_days: 30, passive_income_stc: 600000, passive_income_interval_days: 7, weekly_maintenance_stc: 250000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1, sell_value_percent: 85, allows_multiple: 1, description: 'Stunning private villa with pool and landscaped grounds.' },
-      // Cars
-      { name: 'Hatchback',         category: 'cars',   tier: 'standard', sort_order: 10, price_stc: 250000,    rent_price_stc: 12000,   rent_duration_days: 30, invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 3000,  can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 55, allows_multiple: 0, description: 'A reliable daily driver. Gets you from A to B in style.' },
-      { name: 'SUV',               category: 'cars',   tier: 'premium',  sort_order: 11, price_stc: 900000,    rent_price_stc: 40000,   rent_duration_days: 30, invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 8000,  can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 60, allows_multiple: 0, description: 'Premium large SUV with luxury interior and all-terrain capability.' },
-      { name: 'Sports Car',        category: 'cars',   tier: 'elite',    sort_order: 12, price_stc: 3500000,   rent_price_stc: 140000,  rent_duration_days: 7,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 25000, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 65, allows_multiple: 0, description: 'Sleek two-door performance machine. Turn heads everywhere.' },
-      { name: 'Hypercar',          category: 'cars',   tier: 'legendary',sort_order: 13, price_stc: 15000000,  rent_price_stc: 600000,  rent_duration_days: 3,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 100000,can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1, sell_value_percent: 70, allows_multiple: 0, description: 'The pinnacle of automotive engineering. Pure performance and prestige.' },
-      // Watches
-      { name: 'Steel Sport Watch', category: 'watches',tier: 'standard', sort_order: 20, price_stc: 300000,    rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 300000,    invest_return_rate: 5,  invest_duration_days: 60, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 65, allows_multiple: 1, description: 'A precision-engineered sport timepiece. Quality and durability.' },
-      { name: 'Luxury Watch',      category: 'watches',tier: 'premium',  sort_order: 21, price_stc: 1500000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 1500000,   invest_return_rate: 8,  invest_duration_days: 60, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 75, allows_multiple: 1, description: 'Hand-crafted Swiss precision timepiece. A statement of status.' },
-      { name: 'Diamond Watch',     category: 'watches',tier: 'legendary',sort_order: 22, price_stc: 8000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 8000000,   invest_return_rate: 12, invest_duration_days: 90, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1, sell_value_percent: 80, allows_multiple: 1, description: 'Diamond-encrusted masterpiece. The ultimate collector\'s statement.' },
-      // Fashion
-      { name: 'Designer Outfit',   category: 'fashion',tier: 'standard', sort_order: 30, price_stc: 150000,    rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Premium tailored fashion for match days and press conferences.' },
-      { name: 'Luxury Collection', category: 'fashion',tier: 'elite',    sort_order: 31, price_stc: 2000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Full wardrobe from the most prestigious fashion houses.' },
-      { name: 'Exclusive Drops',   category: 'fashion',tier: 'legendary',sort_order: 32, price_stc: 5000000,   rent_price_stc: 0,       rent_duration_days: 0,  invest_price_stc: 0,         invest_return_rate: 0,  invest_duration_days: 0,  passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Ultra-rare limited edition streetwear. Only for the elite.' },
-      // VIP Experiences
-      { name: 'VIP Match Day',     category: 'vip_experiences', tier: 'standard', sort_order: 40, price_stc: 500000,  rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Executive box seat and VIP hospitality at any STAGE match.' },
-      { name: 'Award Show Access', category: 'vip_experiences', tier: 'premium',  sort_order: 41, price_stc: 3000000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Attend the prestigious STAGE annual awards ceremony.' },
-      { name: 'Private Yacht Day', category: 'vip_experiences', tier: 'elite',    sort_order: 42, price_stc: 8000000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 1, description: 'Exclusive private yacht charter for a day on the water.' },
-      // Personal Services
-      { name: 'Personal Trainer',  category: 'personal_services', tier: 'standard', sort_order: 50, price_stc: 400000,    rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Elite personal trainer dedicated to your fitness and performance.' },
-      { name: 'Private Chef',      category: 'personal_services', tier: 'premium',  sort_order: 51, price_stc: 1200000,   rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Michelin-star-trained private chef preparing all your meals.' },
-      { name: 'Media Team',        category: 'personal_services', tier: 'elite',    sort_order: 52, price_stc: 5000000,   rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0, passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0, sell_value_percent: 0, allows_multiple: 0, description: 'Dedicated media and PR team managing your public image.' },
+      // ── Houses & Apartments ──────────────────────────────────────────────
+      // Studio: London zone-2 ~£250–350K buy / ~£1,800–2,200/mo rent
+      { name: 'Studio Apartment', category: 'houses', tier: 'standard', sort_order: 1,
+        price_stc: 280_000, rent_price_stc: 2_200, rent_duration_days: 30,
+        invest_price_stc: 280_000, invest_return_rate: 7, invest_duration_days: 30,
+        passive_income_stc: 2_500, passive_income_interval_days: 7,
+        weekly_maintenance_stc: 800, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+        sell_value_percent: 80, allows_multiple: 1,
+        description: 'A compact modern studio in the city centre. Good starter investment.' },
+      // City apartment: prime zone ~£600–900K / ~£3,500–5,000/mo rent
+      { name: 'City Apartment', category: 'houses', tier: 'premium', sort_order: 2,
+        price_stc: 750_000, rent_price_stc: 4_500, rent_duration_days: 30,
+        invest_price_stc: 750_000, invest_return_rate: 9, invest_duration_days: 30,
+        passive_income_stc: 7_000, passive_income_interval_days: 7,
+        weekly_maintenance_stc: 2_000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+        sell_value_percent: 82, allows_multiple: 1,
+        description: 'Stylish city apartment with modern finishes. Strong rental yield.' },
+      // Penthouse: London/Dubai $5–15M / $30–50K/mo rent
+      { name: 'Penthouse Suite', category: 'houses', tier: 'elite', sort_order: 3,
+        price_stc: 8_000_000, rent_price_stc: 35_000, rent_duration_days: 30,
+        invest_price_stc: 8_000_000, invest_return_rate: 11, invest_duration_days: 30,
+        passive_income_stc: 75_000, passive_income_interval_days: 7,
+        weekly_maintenance_stc: 22_000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+        sell_value_percent: 85, allows_multiple: 1,
+        description: 'Top-floor penthouse with panoramic views and private terrace.' },
+      // Luxury villa: Ibiza/Marbella €10–25M / €70–100K/mo rental
+      { name: 'Luxury Villa', category: 'houses', tier: 'legendary', sort_order: 4,
+        price_stc: 18_000_000, rent_price_stc: 80_000, rent_duration_days: 30,
+        invest_price_stc: 18_000_000, invest_return_rate: 13, invest_duration_days: 30,
+        passive_income_stc: 175_000, passive_income_interval_days: 7,
+        weekly_maintenance_stc: 48_000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+        sell_value_percent: 88, allows_multiple: 1,
+        description: 'Stunning private villa with pool and landscaped grounds.' },
+
+      // ── Cars ─────────────────────────────────────────────────────────────
+      // VW Golf GTI / Honda Civic: $28–35K new / ~$800/mo lease
+      { name: 'Hatchback', category: 'cars', tier: 'standard', sort_order: 10,
+        price_stc: 28_000, rent_price_stc: 800, rent_duration_days: 30,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 200, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+        sell_value_percent: 60, allows_multiple: 0,
+        description: 'A reliable daily driver. Gets you from A to B in style.' },
+      // Range Rover Sport / BMW X5: $80–130K / ~$3,500/mo lease
+      { name: 'SUV', category: 'cars', tier: 'premium', sort_order: 11,
+        price_stc: 95_000, rent_price_stc: 3_500, rent_duration_days: 30,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 550, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+        sell_value_percent: 62, allows_multiple: 0,
+        description: 'Premium large SUV with luxury interior and all-terrain capability.' },
+      // Porsche 911 GT3 / Ferrari 296 GTB: $225–350K / ~$9,000/wk charter
+      { name: 'Sports Car', category: 'cars', tier: 'elite', sort_order: 12,
+        price_stc: 260_000, rent_price_stc: 9_000, rent_duration_days: 7,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 2_000, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+        sell_value_percent: 65, allows_multiple: 0,
+        description: 'Sleek two-door performance machine. Turn heads everywhere.' },
+      // Lamborghini Huracán / McLaren 720S: $280–400K / ~$18K/3-day charter
+      { name: 'Hypercar', category: 'cars', tier: 'legendary', sort_order: 13,
+        price_stc: 350_000, rent_price_stc: 18_000, rent_duration_days: 3,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 4_500, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+        sell_value_percent: 68, allows_multiple: 0,
+        description: 'The pinnacle of automotive engineering. Pure performance and prestige.' },
+
+      // ── Watches ───────────────────────────────────────────────────────────
+      // Rolex Submariner / TAG Heuer: $8–12K retail
+      { name: 'Steel Sport Watch', category: 'watches', tier: 'standard', sort_order: 20,
+        price_stc: 9_500, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 9_500, invest_return_rate: 4, invest_duration_days: 60,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+        sell_value_percent: 70, allows_multiple: 1,
+        description: 'A precision-engineered sport timepiece. Quality and durability.' },
+      // AP Royal Oak / Rolex Daytona: $30–56K retail, grey market 2–3×
+      { name: 'Luxury Watch', category: 'watches', tier: 'premium', sort_order: 21,
+        price_stc: 38_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 38_000, invest_return_rate: 7, invest_duration_days: 60,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+        sell_value_percent: 78, allows_multiple: 1,
+        description: 'Hand-crafted Swiss precision timepiece. A statement of status.' },
+      // Diamond Patek / Hublot Big Bang diamond: $80–200K
+      { name: 'Diamond Watch', category: 'watches', tier: 'legendary', sort_order: 22,
+        price_stc: 120_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 120_000, invest_return_rate: 10, invest_duration_days: 90,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+        sell_value_percent: 82, allows_multiple: 1,
+        description: "Diamond-encrusted masterpiece. The ultimate collector's statement." },
+
+      // ── Fashion ───────────────────────────────────────────────────────────
+      // Gucci/LV full outfit: $2,500–8,000
+      { name: 'Designer Outfit', category: 'fashion', tier: 'standard', sort_order: 30,
+        price_stc: 5_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Premium tailored fashion for match days and press conferences.' },
+      // Full seasonal luxury wardrobe — Gucci/Dior/Off-White: $50–150K
+      { name: 'Luxury Collection', category: 'fashion', tier: 'elite', sort_order: 31,
+        price_stc: 80_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Full seasonal wardrobe from Gucci, Dior, and Off-White.' },
+      // Supreme/Fear of God/Off-White seasonal haul: $5–30K
+      { name: 'Exclusive Drops', category: 'fashion', tier: 'legendary', sort_order: 32,
+        price_stc: 22_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Limited edition streetwear haul. Off-White, Fear of God, Supreme.' },
+
+      // ── VIP Experiences ───────────────────────────────────────────────────
+      // F1 Paddock Club / VIP match hospitality: $6–15K per event
+      { name: 'VIP Match Day', category: 'vip_experiences', tier: 'standard', sort_order: 40,
+        price_stc: 12_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Executive box seat and VIP hospitality at any STAGE match.' },
+      // Black-tie gala / awards night: styling + PR ~$50–100K
+      { name: 'Award Show Access', category: 'vip_experiences', tier: 'premium', sort_order: 41,
+        price_stc: 65_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Attend the prestigious STAGE annual awards ceremony.' },
+      // Private yacht charter 1 day (35–50m): $150–300K per day
+      { name: 'Private Yacht Day', category: 'vip_experiences', tier: 'elite', sort_order: 42,
+        price_stc: 200_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 1,
+        description: 'Exclusive private yacht charter for a day on the Mediterranean.' },
+
+      // ── Personal Services ─────────────────────────────────────────────────
+      // Elite full-time S&C coach: $120–200K/year
+      { name: 'Personal Trainer', category: 'personal_services', tier: 'standard', sort_order: 50,
+        price_stc: 120_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 0,
+        description: 'Elite personal trainer dedicated to your fitness and performance.' },
+      // Michelin-trained private chef: $150–250K/year
+      { name: 'Private Chef', category: 'personal_services', tier: 'premium', sort_order: 51,
+        price_stc: 200_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 0,
+        description: 'Michelin-trained private chef preparing nutritionally optimised meals.' },
+      // PR / media / social team: $300–600K/year
+      { name: 'Media Team', category: 'personal_services', tier: 'elite', sort_order: 52,
+        price_stc: 450_000, rent_price_stc: 0, rent_duration_days: 0,
+        invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+        passive_income_stc: 0, passive_income_interval_days: 0,
+        weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+        sell_value_percent: 0, allows_multiple: 0,
+        description: 'Dedicated media and PR team managing your public image and brand.' },
     ];
     let inserted = 0;
     let updated = 0;
