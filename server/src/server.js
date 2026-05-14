@@ -277,6 +277,7 @@ async function runStartupMigrations() {
   await addCol('lifestyle_items', 'can_sell',                    'TINYINT(1) DEFAULT 1');
   await addCol('lifestyle_items', 'sell_value_percent',          'INT DEFAULT 60');
   await addCol('lifestyle_items', 'allows_multiple',             'TINYINT(1) DEFAULT 1');
+  await addCol('lifestyle_items', 'emoji',                       "VARCHAR(10) DEFAULT ''");
 
   // Club finance: enrich stc_transactions
   await addCol('stc_transactions', 'category',      'VARCHAR(100)');
