@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 
 function EditorSection({ title, children, defaultOpen = false }) {
@@ -35,17 +36,22 @@ function Field({ label, children }) {
 export default function HomePageEditor() {
   const [record, setRecord] = useState(null);
   const [form, setForm]     = useState(null);
+  const [faqItems, setFaqItems] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [savingFaq, setSavingFaq] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [faqSaved, setFaqSaved] = useState(false);
 
   useEffect(() => {
-    stageClient.entities.HomePageContent.filter({}, null, 1)
-      .catch(() => [])
-      .then(rows => {
-        const r = rows[0] || {};
-        setRecord(r);
-        setForm(buildForm(r));
-      });
+    Promise.all([
+      stageClient.entities.HomePageContent.filter({}, null, 1).catch(() => []),
+      stageClient.entities.FaqItem.filter({}, "sort_order", 100).catch(() => []),
+    ]).then(([rows, faqs]) => {
+      const r = rows[0] || {};
+      setRecord(r);
+      setForm(buildForm(r));
+      setFaqItems(faqs || []);
+    });
   }, []);
 
   function buildForm(r) {
@@ -69,7 +75,6 @@ export default function HomePageEditor() {
       section3_title:     r.section3_title     ?? "Built for Competitors",
       section3_text:      r.section3_text      ?? "",
       section3_image_url: r.section3_image_url ?? "",
-      faq_items:          r.faq_items          ?? [],
       contact_email:      r.contact_email      ?? "contact@stage.gg",
       footer_tagline:     r.footer_tagline     ?? "",
     };
@@ -80,16 +85,64 @@ export default function HomePageEditor() {
   }
 
   function addFaq() {
-    setForm(f => ({ ...f, faq_items: [...(f.faq_items || []), { question: "", answer: "" }] }));
+    setFaqItems(items => [
+      ...items,
+      { id: null, question: "", answer: "", sort_order: items.length + 1, is_active: 1 },
+    ]);
   }
+
   function removeFaq(i) {
-    setForm(f => ({ ...f, faq_items: f.faq_items.filter((_, idx) => idx !== i) }));
+    setFaqItems(items => items.filter((_, idx) => idx !== i));
   }
+
   function setFaq(i, field, value) {
-    setForm(f => ({
-      ...f,
-      faq_items: f.faq_items.map((item, idx) => idx === i ? { ...item, [field]: value } : item),
-    }));
+    setFaqItems(items => items.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+  }
+
+  async function handleSaveFaq() {
+    setSavingFaq(true);
+    try {
+      const existing = await stageClient.entities.FaqItem.filter({}, "sort_order", 200).catch(() => []);
+      const keepIds = new Set();
+
+      for (let i = 0; i < faqItems.length; i++) {
+        const item = faqItems[i];
+        const question = String(item.question || "").trim();
+        const answer = String(item.answer || "").trim();
+        if (!question && !answer) continue;
+        if (!question || !answer) {
+          throw new Error(`FAQ item ${i + 1} needs both a question and an answer.`);
+        }
+        const payload = {
+          question,
+          answer,
+          sort_order: i + 1,
+          is_active: item.is_active != null ? Number(item.is_active) : 1,
+        };
+        if (item.id) {
+          await stageClient.entities.FaqItem.update(item.id, payload);
+          keepIds.add(item.id);
+        } else {
+          const created = await stageClient.entities.FaqItem.create(payload);
+          keepIds.add(created.id);
+        }
+      }
+
+      for (const row of existing) {
+        if (row.id && !keepIds.has(row.id)) {
+          await stageClient.entities.FaqItem.delete(row.id);
+        }
+      }
+
+      const refreshed = await stageClient.entities.FaqItem.filter({}, "sort_order", 100);
+      setFaqItems(refreshed || []);
+      setFaqSaved(true);
+      setTimeout(() => setFaqSaved(false), 2500);
+    } catch (err) {
+      await swalAlert(`FAQ save failed: ${err?.message || "Unknown error."}`);
+    } finally {
+      setSavingFaq(false);
+    }
   }
 
   async function handleSave() {
@@ -105,7 +158,7 @@ export default function HomePageEditor() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSaving(false);
     }
@@ -178,11 +231,14 @@ export default function HomePageEditor() {
         </EditorSection>
       ))}
 
-      {/* FAQ */}
+      {/* FAQ — stored in faq_items table */}
       <EditorSection title="FAQ">
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Questions shown on the home page FAQ accordion. Saved to the database separately from other home content.
+        </p>
         <div className="space-y-3">
-          {(form.faq_items || []).map((item, i) => (
-            <div key={i} className="border border-border rounded-lg p-3 space-y-2 bg-secondary/20">
+          {faqItems.map((item, i) => (
+            <div key={item.id || `new-${i}`} className="border border-border rounded-lg p-3 space-y-2 bg-secondary/20">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold">Question {i + 1}</p>
                 <button type="button" onClick={() => removeFaq(i)} className="text-muted-foreground hover:text-destructive transition-colors">
@@ -193,9 +249,20 @@ export default function HomePageEditor() {
               <Textarea value={item.answer} onChange={e => setFaq(i, "answer", e.target.value)} className="text-xs resize-none" rows={2} placeholder="Answer…" />
             </div>
           ))}
-          <Button type="button" size="sm" variant="outline" onClick={addFaq} className="h-7 text-[10px] gap-1.5">
-            <Plus className="w-3 h-3" /> Add Question
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={addFaq} className="h-7 text-[10px] gap-1.5">
+              <Plus className="w-3 h-3" /> Add Question
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSaveFaq}
+              disabled={savingFaq}
+              className={cn("h-7 text-[10px] gap-1.5", faqSaved ? "bg-success text-white" : "")}
+            >
+              {savingFaq ? "Saving FAQ…" : faqSaved ? "FAQ Saved!" : "Save FAQ"}
+            </Button>
+          </div>
         </div>
       </EditorSection>
 

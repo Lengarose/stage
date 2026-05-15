@@ -4,7 +4,7 @@ const { EXECUTESQL, pool } = require('../db/database');
 const axios = require('axios').default;
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const UserModel = require('../models/userModel');
+const { deleteUserAccount } = require('../services/accountDeletion');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -18,15 +18,7 @@ const EA_ENDPOINTS = {
   playoffMatches:   (p) => `clubs/matches?platform=${p.platform}&clubIds=${p.clubId}&matchType=playoffMatch`,
 };
 
-const MYSQL_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
-
-function toMysqlDateTime(value) {
-  if (!value) return null;
-  if (MYSQL_DATETIME_RE.test(String(value))) return String(value);
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19).replace('T', ' ');
-}
+const { toMysqlDateTime } = require('../utils/datetime');
 
 async function getMe(_auth_user_id) {
   if (!_auth_user_id) throw new Error('not authenticated');
@@ -4402,23 +4394,59 @@ const HANDLERS = {
     });
   },
 
-  // ── Delete account ────────────────────────────────────────────────────────
+  // ── Delete account (self-service, authenticated user) ───────────────────────
   async deleteAccount({ _auth_user_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    const ownedClubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ?', [_auth_user_id]);
-    for (const club of ownedClubs) {
-      // Detach players from clubs owned by this user before club deletion.
-      await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club.id]);
-      await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club.id]);
+    await deleteUserAccount(_auth_user_id, 'hard');
+    return { success: true };
+  },
+
+  // ── Admin: delete another user's account by player row (Players tab) ────────
+  async adminDeleteUserAccount({ _auth_user_id, player_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) {
+      throw new Error('Admin access required');
+    }
+    if (!player_id) throw new Error('player_id required');
+
+    const plRows = await EXECUTESQL(
+      'SELECT id, user_id, email FROM players WHERE id = ? LIMIT 1',
+      [player_id]
+    );
+    if (!plRows.length) throw new Error('Player not found');
+    const pl = plRows[0];
+
+    let targetUserId = pl.user_id;
+    if (!targetUserId && pl.email) {
+      const byEmail = await EXECUTESQL(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
+        [pl.email]
+      );
+      if (byEmail.length) targetUserId = byEmail[0].id;
+    }
+    if (!targetUserId) {
+      const byPlayerCol = await EXECUTESQL(
+        'SELECT id FROM users WHERE player_id = ? LIMIT 1',
+        [player_id]
+      );
+      if (byPlayerCol.length) targetUserId = byPlayerCol[0].id;
+    }
+    if (!targetUserId) {
+      throw new Error('No login account linked to this player');
     }
 
-    const rows = await EXECUTESQL('SELECT id FROM players WHERE user_id = ?', [_auth_user_id]);
-    if (rows.length) {
-      const { id: player_id } = rows[0];
-      await EXECUTESQL('DELETE FROM players WHERE id = ?', [player_id]);
+    if (targetUserId === _auth_user_id) {
+      throw new Error('Delete your own account from Settings → Danger Zone');
     }
-    await new UserModel().delete(_auth_user_id);
-    return { success: true };
+
+    const targetRows = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [targetUserId]);
+    if (targetRows.length && Number(targetRows[0].role_id) === 0) {
+      throw new Error('Cannot delete admin accounts');
+    }
+
+    await deleteUserAccount(targetUserId, 'hard', { alsoDeletePlayerId: player_id });
+    return { success: true, deleted_user_id: targetUserId };
   },
 };
 

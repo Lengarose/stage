@@ -15,9 +15,10 @@ import {
   playNotificationSound,
 } from "@/lib/notificationSound";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialog, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 
 
 
@@ -240,6 +241,7 @@ const LANGUAGES = [
 
 export default function Settings() {
   const { language, setLanguage: setContextLanguage } = useTranslation();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [localLanguage, setLocalLanguage] = useState(language);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -300,6 +302,22 @@ export default function Settings() {
       applyCustomTheme(customPrimaryColor, customGradientColor, customBackgroundColor, customBackgroundOpacity, customTextColor, customPrimaryTextColor, customSecondaryTextColor);
     }
   }, [theme, customPrimaryColor, customGradientColor, customBackgroundColor, customBackgroundOpacity, customTextColor, customPrimaryTextColor, customSecondaryTextColor, backgroundImage]);
+
+  async function handleConfirmDeleteAccount() {
+    if (deleteConfirm !== "DELETE" || deleting) return;
+    setDeleting(true);
+    try {
+      await stageClient.functions.invoke("deleteAccount", {});
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
+      await stageClient.auth.logout("/");
+    } catch (err) {
+      const msg = err?.message || err?.data?.error || "Could not delete your account. Please try again.";
+      toast({ title: "Delete failed", description: String(msg), variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function handleImageUpload(e) {
     const file = e.target.files[0];
@@ -873,14 +891,23 @@ export default function Settings() {
         </div>
       </div>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteConfirm("");
+            setDeleting(false);
+          }
+        }}
+      >
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" /> Delete Account
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground space-y-2">
-              <span className="block">This will permanently delete your player profile, contracts, purchases, and all associated data. <strong className="text-foreground">This cannot be undone.</strong></span>
+              <span className="block">This permanently deletes your login, linked player profile, clubs tied to this account, contracts, purchases, and related data. <strong className="text-foreground">This cannot be undone.</strong></span>
               <span className="block pt-2">Type <strong className="text-foreground">DELETE</strong> to confirm:</span>
               <input
                 value={deleteConfirm}
@@ -891,18 +918,15 @@ export default function Settings() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-border">Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel type="button" className="border-border">Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
               disabled={deleteConfirm !== "DELETE" || deleting}
-              onClick={async () => {
-                setDeleting(true);
-                await stageClient.functions.invoke("deleteAccount", {});
-                await stageClient.auth.logout("/");
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              onClick={() => void handleConfirmDeleteAccount()}
             >
               {deleting ? "Deleting..." : "Delete My Account"}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

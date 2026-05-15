@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Wand2, Check, Loader2, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 const STYLES = [
   { id: "realistic", label: "Realistic", emoji: "📸" },
@@ -187,7 +188,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
       const blobUrl = await generateWithPollinations(prompt);
       setGenerated(blobUrl);
     } catch (err) {
-      alert("Generation failed. Please try again.");
+      await swalAlert("Generation failed. Please try again.");
     }
     setLoading(false);
   }
@@ -203,7 +204,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
       setGenerated(null);
       onClose();
     } catch {
-      alert("Failed to save image. Please try again.");
+      await swalAlert("Failed to save image. Please try again.");
     }
     setSaving(false);
   }

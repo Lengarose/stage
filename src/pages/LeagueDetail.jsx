@@ -13,6 +13,7 @@ import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { LEAGUE_DEFINITIONS } from "@/lib/qualificationConfig";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { openMatchdayWindows } from "@/lib/scheduleEngine";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 
 const SCHEDULING_BADGE = {
   open:          { label: "Awaiting",   cls: "text-muted-foreground border-border"           },
@@ -93,8 +94,8 @@ export default function LeagueDetail() {
 
   async function handleGenerateFixtures() {
     if (!league) return;
-    if (!standings.length) { alert("Add clubs to the league before generating fixtures."); return; }
-    if (!confirm(`Generate home-and-away fixtures for all ${standings.length} clubs? This cannot be undone.`)) return;
+    if (!standings.length) { await swalAlert("Add clubs to the league before generating fixtures."); return; }
+    if (!(await swalConfirm(`Generate home-and-away fixtures for all ${standings.length} clubs? This cannot be undone.`))) return;
     setGenerating(true);
     try {
       const clubs = standings.map(s => ({
@@ -108,7 +109,7 @@ export default function LeagueDetail() {
         setFixtureEntityMissing(true);
         setTab("fixtures");
       } else {
-        alert(`Error: ${msg}`);
+        await swalAlert(`Error: ${msg}`);
       }
     } finally { setGenerating(false); }
   }
@@ -121,7 +122,7 @@ export default function LeagueDetail() {
       await openMatchdayWindows(mdFixtures, "regional_league");
       await load();
     } catch (err) {
-      alert(`Could not open windows: ${err?.message || "Unknown error"}`);
+      await swalAlert(`Could not open windows: ${err?.message || "Unknown error"}`);
     } finally { setOpeningWindows(null); }
   }
 

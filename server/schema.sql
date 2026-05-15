@@ -1564,6 +1564,19 @@ CREATE TABLE IF NOT EXISTS home_page_contents (
   updated_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Platform FAQ (home page accordion). Managed via FaqItem entity / admin Home Page Editor.
+CREATE TABLE IF NOT EXISTS faq_items (
+  id           VARCHAR(36)  NOT NULL PRIMARY KEY,
+  question     VARCHAR(500) NOT NULL,
+  answer       TEXT         NOT NULL,
+  sort_order   INT          NOT NULL DEFAULT 0,
+  is_active    TINYINT(1)   NOT NULL DEFAULT 1,
+  created_date DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_faq_sort (sort_order),
+  INDEX idx_faq_active (is_active)
+);
+
 -- Fixture admin actions — audit log for admin interventions on expired fixtures
 -- (force-schedule, forfeit declaration, flag for review). Written by
 -- fixtureAdminActionController.js POST endpoints; consumed by the disputes tab

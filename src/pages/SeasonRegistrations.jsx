@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { REGIONS } from "@/lib/qualificationConfig";
 import { applyForLeague } from "@/lib/registrationEngine";
+import { swalAlert } from "@/lib/swal";
 
 const STATUS_CONFIG = {
   pending:    { label: "Pending",     cls: "text-warning border-warning/30 bg-warning/5",                icon: Clock         },
@@ -99,7 +100,7 @@ export default function SeasonRegistrations() {
       setApplyDialog(null);
       await load();
     } catch (err) {
-      alert(err.message);
+      await swalAlert(err.message);
     } finally {
       setApplying(false);
     }

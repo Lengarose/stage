@@ -52,6 +52,7 @@ app.use('/api/stage/news-items',        verifyToken, require('./server/controlle
 app.use('/api/stage/live-matches',              verifyToken, require('./server/controllers/liveMatchController'));
 app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
 app.use('/api/stage/home-page-contents',        verifyToken, require('./server/controllers/homePageContentController'));
+app.use('/api/stage/faq-items',                 verifyToken, require('./server/controllers/faqItemController'));
 app.use('/api/stage/landing-configs',           verifyToken, require('./server/controllers/landingConfigController'));
 app.use('/api/stage/transfer-windows',          verifyToken, require('./server/controllers/transferWindowController'));
 app.use('/api/stage/fixture-admin-actions',     verifyToken, require('./server/controllers/fixtureAdminActionController'));
@@ -675,6 +676,62 @@ async function runStartupMigrations() {
     created_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] home_page_contents:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS faq_items (
+    id           VARCHAR(36)  NOT NULL PRIMARY KEY,
+    question     VARCHAR(500) NOT NULL,
+    answer       TEXT         NOT NULL,
+    sort_order   INT          NOT NULL DEFAULT 0,
+    is_active    TINYINT(1)   NOT NULL DEFAULT 1,
+    created_date DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_faq_sort (sort_order),
+    INDEX idx_faq_active (is_active)
+  )`).catch(err => console.error('[migration] faq_items:', err.message));
+
+  const faqCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM faq_items', []).catch(() => [{ n: 1 }]);
+  if (Number(faqCount[0]?.n) === 0) {
+    const seed = [
+      {
+        id: 'faq-seed-join-stage',
+        question: 'How do I join STAGE?',
+        answer: 'Create your account, complete your player profile, and either create a club or join an existing one. From there you can register for leagues and competitions.',
+        sort_order: 1,
+      },
+      {
+        id: 'faq-seed-game',
+        question: 'What game does STAGE support?',
+        answer: 'STAGE is built around EA FC (formerly FIFA). We support all major platforms including PlayStation and Xbox.',
+        sort_order: 2,
+      },
+      {
+        id: 'faq-seed-leagues',
+        question: 'How do leagues and competitions work?',
+        answer: 'Leagues are seasonal competitions where clubs compete over multiple rounds. Competitions include knockout-style cups. Results are tracked and standings update in real time.',
+        sort_order: 3,
+      },
+      {
+        id: 'faq-seed-stc',
+        question: 'What are STC points?',
+        answer: 'STC (STAGE Coins) are the platform currency. Earn them through match rewards, seasonal prizes, and achievements. Use them in the Lifestyle store or on premium features.',
+        sort_order: 4,
+      },
+      {
+        id: 'faq-seed-free',
+        question: 'Is STAGE free to use?',
+        answer: 'Yes — STAGE is free to join. Some premium features and store items require STC, which can be earned through gameplay.',
+        sort_order: 5,
+      },
+    ];
+    for (const row of seed) {
+      await EXECUTESQL(
+        `INSERT INTO faq_items (id, question, answer, sort_order, is_active)
+         VALUES (?,?,?,?,1)`,
+        [row.id, row.question, row.answer, row.sort_order]
+      ).catch(err => console.error('[migration] faq_items seed:', err.message));
+    }
+    console.log('[migration] faq_items: seeded default FAQ');
+  }
 
   // Fixture admin actions — audit log for admin interventions on expired
   // fixtures (force schedule, forfeit declaration, flag for review). Each row

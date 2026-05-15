@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrophyCarousel from "../components/tournament/TrophyCarousel";
 import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
+import { stageClient } from "@/api/stageClient";
+import { swalAlert } from "@/lib/swal";
 
 const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
@@ -120,10 +122,10 @@ export default function Tournaments() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
       const tier = myPlayer?.subscription || "rookie";
-      if (!["pro", "elite"].includes(tier)) { alert("Pro/Elite required to create tournaments."); return; }
+      if (!["pro", "elite"].includes(tier)) { await swalAlert("Pro/Elite required to create tournaments."); return; }
       const limit = tier === "elite" ? 6 : 3;
       const active = tournaments.filter(t => t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)).length;
-      if (active >= limit) { alert(`Limit of ${limit} active tournaments reached.`); return; }
+      if (active >= limit) { await swalAlert(`Limit of ${limit} active tournaments reached.`); return; }
     }
     setCreating(true);
     try {
@@ -149,7 +151,7 @@ export default function Tournaments() {
       load();
     } catch (err) {
       console.error("createTournament error:", err);
-      alert("Failed to create tournament: " + (err?.message || "Unknown error"));
+      await swalAlert("Failed to create tournament: " + (err?.message || "Unknown error"));
     } finally {
       setCreating(false);
     }

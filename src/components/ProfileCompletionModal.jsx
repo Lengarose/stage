@@ -8,6 +8,7 @@ import { stageClient } from "@/api/stageClient";
 import { Loader2 } from "lucide-react";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import { COUNTRIES } from "@/lib/countries";
+import { swalAlert } from "@/lib/swal";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["PlayStation", "Xbox", "PC"];
@@ -26,7 +27,7 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
 
   async function handleSave() {
     if (!gamertag.trim() || !position || !platform) {
-      alert("Please fill in required fields: Gamertag, Position, and Platform");
+      await swalAlert("Please fill in required fields: Gamertag, Position, and Platform");
       return;
     }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { notify, postContractNews } from "@/lib/notify";
+import { swalConfirm } from "@/lib/swal";
 
 function buildContractOfferBody({ clubName, playerGamertag, contractType, typeMeta, weeklySalary, signingBonus, transferFee, captaincy, targets, offerNote }) {
   const fmt = (n) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
@@ -274,7 +275,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function terminateContract(contract) {
-    if (!confirm("Are you sure you want to terminate this contract?")) return;
+    if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
     const player = playerMap[contract.user_id];
     notify(player?.email, "contract_terminated",

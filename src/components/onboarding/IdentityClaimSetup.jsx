@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BadgeCheck, Loader2, Send } from "lucide-react";
+import ImageUploadField from "@/components/admin/shared/ImageUploadField";
 
 const inputCls = "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
@@ -98,6 +99,7 @@ export default function IdentityClaimSetup({ player, onComplete }) {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-4">
       <div className="flex items-start gap-3">
         <div className="p-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-300 shrink-0">
           <BadgeCheck className="w-5 h-5" />
@@ -108,7 +110,9 @@ export default function IdentityClaimSetup({ player, onComplete }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Platform *</label>
           <Select value={platform} onValueChange={setPlatform}>
@@ -136,15 +140,26 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           <label className={labelCls}>Discord</label>
           <input value={discordHandle} onChange={e => setDiscordHandle(e.target.value)} className={inputCls} placeholder="Optional" />
         </div>
-      </div>
+          </div>
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} className={`${inputCls} min-h-24 resize-none`} placeholder="Anything admins should know?" />
+          </div>
+        </div>
 
-      <div>
-        <label className={labelCls}>Proof Link</label>
-        <input value={proofUrl} onChange={e => setProofUrl(e.target.value)} className={inputCls} placeholder="Screenshot, clip, or profile URL" />
-      </div>
-      <div>
-        <label className={labelCls}>Notes</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} className={`${inputCls} min-h-20 resize-none`} placeholder="Anything admins should know?" />
+        <div className="space-y-2">
+          <ImageUploadField
+            variant="glass"
+            label="Proof (screenshot or link)"
+            value={proofUrl}
+            onChange={setProofUrl}
+            placeholder="Paste a link, or drop / upload a screenshot"
+            preview="landscape"
+          />
+          <p className="text-white/30 text-[10px] leading-relaxed">
+            Upload saves to Stage and stores the image URL on your claim for admins to review.
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -152,9 +167,11 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           {error}
         </p>
       )}
+      </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 pt-3 border-t border-white/10">
         <button
+          type="button"
           onClick={submitClaim}
           disabled={saving || !platformHandle.trim()}
           className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 disabled:opacity-40 transition-all shadow-lg"
@@ -170,6 +187,7 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           )}
         </button>
         <button
+          type="button"
           onClick={() => onComplete?.(null)}
           className="w-full text-white/35 hover:text-white/65 text-[10px] uppercase tracking-widest transition-colors"
         >
@@ -179,3 +197,4 @@ export default function IdentityClaimSetup({ player, onComplete }) {
     </div>
   );
 }
+

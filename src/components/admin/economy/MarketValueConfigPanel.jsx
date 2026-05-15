@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalConfirm } from "@/lib/swal";
 
 export default function MarketValueConfigPanel() {
   const [cfg, setCfg] = useState(null);
@@ -29,7 +30,7 @@ export default function MarketValueConfigPanel() {
   }
 
   async function recalcAll() {
-    if (!confirm("Recalculate market value for all players? This may take a moment.")) return;
+    if (!(await swalConfirm("Recalculate market value for all players? This may take a moment."))) return;
     setRecalcBusy(true);
     try {
       const res = await stageClient.functions.invoke("playerMarketValue", { action: "recalculate_all" });

@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
+import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 
 /** @param {{ forcedSection?: string }} [props] */
 export default function Admin(props) {
@@ -250,7 +251,10 @@ export default function Admin(props) {
   async function reviewIdentityClaim(claim, status) {
     if (!claim?.id) return;
     const reason = status === "rejected"
-      ? prompt(`Reason for rejecting ${claim.gamertag || "this player"}'s identity claim?`) || ""
+      ? ((await swalPrompt(`Reason for rejecting ${claim.gamertag || "this player"}'s identity claim?`, {
+          title: "Reject identity claim",
+          placeholder: "Reason (shown to the player)",
+        })) ?? "")
       : "";
     await stageClient.identityClaims.review(claim.id, {
       status,
@@ -332,7 +336,7 @@ export default function Admin(props) {
   }
 
   async function deleteTrophyItem(id) {
-    if (!confirm("Delete this trophy from the library? It will no longer appear in carousels.")) return;
+    if (!(await swalConfirm("Delete this trophy from the library? It will no longer appear in carousels."))) return;
     await base44.entities.TrophyItem.delete(id);
     setTrophyItems(prev => prev.filter(t => t.id !== id));
   }
@@ -377,7 +381,7 @@ export default function Admin(props) {
   }
 
   async function deleteClub(clubId) {
-    if (!confirm("Are you sure you want to delete this club? This cannot be undone.")) return;
+    if (!(await swalConfirm("Are you sure you want to delete this club? This cannot be undone."))) return;
     await stageClient.entities.Club.delete(clubId);
     setClubs(prev => prev.filter(c => c.id !== clubId));
   }
@@ -447,14 +451,14 @@ export default function Admin(props) {
       loadAll();
     } catch (err) {
       console.error("createTournament error:", err);
-      alert("Failed to create tournament: " + (err?.message || "Unknown error"));
+      await swalAlert("Failed to create tournament: " + (err?.message || "Unknown error"));
     } finally {
       setSaving(false);
     }
   }
 
   async function seedCompetitions() {
-    if (competitions.length >= 3) { alert("Competitions already seeded."); return; }
+    if (competitions.length >= 3) { await swalAlert("Competitions already seeded."); return; }
     setSeedingComps(true);
     try {
       const defs = [
@@ -466,11 +470,11 @@ export default function Admin(props) {
       const toCreate = defs.filter(d => !existing.has(d.slug));
       await Promise.all(toCreate.map(d => base44.entities.Competition.create(d)));
       await loadAll();
-      alert(`Competitions seeded! (${toCreate.length} created)`);
+      await swalAlert(`Competitions seeded! (${toCreate.length} created)`);
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("not found in app") || msg.includes("schema")) {
-        alert(
+        await swalAlert(
           "⚠️ Competition entity not published yet.\n\n" +
           "To fix this:\n" +
           "1. Go to app.base44.com\n" +
@@ -479,7 +483,7 @@ export default function Admin(props) {
           "Once published, come back and click Seed Competitions again."
         );
       } else {
-        alert(`Seed failed: ${msg || "Unknown error."}`);
+        await swalAlert(`Seed failed: ${msg || "Unknown error."}`);
       }
     } finally {
       setSeedingComps(false);
@@ -487,7 +491,7 @@ export default function Admin(props) {
   }
 
   async function createCompetitionSeason() {
-    if (!newSeasonForm.competition_id) { alert("Select a competition."); return; }
+    if (!newSeasonForm.competition_id) { await swalAlert("Select a competition."); return; }
     setCreatingLeagueSeason(true);
     const comp = competitions.find(c => c.id === newSeasonForm.competition_id);
     if (!comp) { setCreatingLeagueSeason(false); return; }
@@ -518,16 +522,16 @@ export default function Admin(props) {
     setNewSeasonForm(f => ({ ...f, competition_id: "" }));
     await loadAll();
     setCreatingLeagueSeason(false);
-    alert(`Season ${nextSeason} created for ${comp.name}!`);
+    await swalAlert(`Season ${nextSeason} created for ${comp.name}!`);
   }
 
   async function confirmQualEntry(entry) {
     const season = compSeasons.find(s => s.competition_id === entry.target_competition_id && s.status === "registration");
-    if (!season) { alert("No open registration season found for this competition. Create a season first."); return; }
+    if (!season) { await swalAlert("No open registration season found for this competition. Create a season first."); return; }
     const { confirmQualificationEntry } = await import("@/lib/competitionUtils");
     await confirmQualificationEntry(entry, season, adminProfile.email);
     setQualEntries(prev => prev.filter(e => e.id !== entry.id));
-    alert(`${entry.club_name} confirmed for ${entry.target_competition_name}`);
+    await swalAlert(`${entry.club_name} confirmed for ${entry.target_competition_name}`);
   }
 
   async function rejectQualEntry(entry) {
@@ -553,11 +557,11 @@ export default function Admin(props) {
         }));
       await Promise.all(toCreate.map(d => base44.entities.RegionalLeague.create(d)));
       await loadAll();
-      alert(`Regional leagues seeded! (${toCreate.length} created)`);
+      await swalAlert(`Regional leagues seeded! (${toCreate.length} created)`);
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("not found in app") || msg.includes("schema")) {
-        alert(
+        await swalAlert(
           "⚠️ RegionalLeague entity not published yet.\n\n" +
           "To fix this:\n" +
           "1. Go to app.base44.com\n" +
@@ -566,7 +570,7 @@ export default function Admin(props) {
           "Once published, come back and click Seed All Leagues again."
         );
       } else {
-        alert(`Seed failed: ${msg || "Unknown error."}`);
+        await swalAlert(`Seed failed: ${msg || "Unknown error."}`);
       }
     } finally {
       setSeedingRegionalLeagues(false);
@@ -578,19 +582,19 @@ export default function Admin(props) {
     try {
       const standings = await base44.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
       if (!standings.length) {
-        alert("No standings found. Add clubs and record results before processing season end.");
+        await swalAlert("No standings found. Add clubs and record results before processing season end.");
         return;
       }
       const { processLeagueSeasonEnd } = await import("@/lib/regionalLeagueEngine");
       const result = await processLeagueSeasonEnd(league, standings, competitions, regionalLeagues);
       await loadAll();
       if (result.type === "div1") {
-        alert(`Season processed! ${result.qualified} qualification entries created for STAGE competitions. ${result.relegated} clubs relegated.`);
+        await swalAlert(`Season processed! ${result.qualified} qualification entries created for STAGE competitions. ${result.relegated} clubs relegated.`);
       } else {
-        alert(`Season processed! ${result.promoted} clubs promoted to Division 1.`);
+        await swalAlert(`Season processed! ${result.promoted} clubs promoted to Division 1.`);
       }
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      await swalAlert(`Error: ${err.message}`);
     } finally {
       setProcessingLeagueEnd(null);
     }
@@ -603,19 +607,19 @@ export default function Admin(props) {
         await openLeagueRegistration(league);
         await loadAll();
       } else if (action === "archive") {
-        if (!confirm(`Archive ${league.name} Season ${league.season_number}? This will lock final standings and award the winner achievement. Make sure "End Season" has been run first.`)) return;
+        if (!(await swalConfirm(`Archive ${league.name} Season ${league.season_number}? This will lock final standings and award the winner achievement. Make sure "End Season" has been run first.`))) return;
         const { archiveLeague } = await import("@/lib/seasonLifecycle");
         await archiveLeague(league);
         await loadAll();
-        alert(`Season ${league.season_number} archived.`);
+        await swalAlert(`Season ${league.season_number} archived.`);
       } else if (action === "create_next") {
         const { createNextLeagueSeason } = await import("@/lib/seasonLifecycle");
         const next = await createNextLeagueSeason(league);
         await loadAll();
-        alert(`${next.name} Season ${next.season_number} created as Draft. Open Registration when ready.`);
+        await swalAlert(`${next.name} Season ${next.season_number} created as Draft. Open Registration when ready.`);
       }
     } catch (err) {
-      alert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
     }
   }
 
@@ -631,7 +635,7 @@ export default function Admin(props) {
       setApproveTargetId("");
       await loadAll();
     } catch (err) {
-      alert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
     } finally {
       setProcessingReg(false);
     }
@@ -651,7 +655,7 @@ export default function Admin(props) {
       setRejectNotes("");
       await loadAll();
     } catch (err) {
-      alert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
     } finally {
       setProcessingReg(false);
     }
@@ -671,7 +675,7 @@ export default function Admin(props) {
       await loadAll();
       setEditingComp(null);
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSavingComp(false);
     }
@@ -688,7 +692,7 @@ export default function Admin(props) {
       await loadAll();
       setEditingLeague(null);
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSavingLeague(false);
     }
@@ -734,7 +738,7 @@ export default function Admin(props) {
     const home = parseInt(resultForm.home_score);
     const away = parseInt(resultForm.away_score);
     if (isNaN(home) || isNaN(away) || home < 0 || away < 0) {
-      alert("Enter valid scores (0 or above).");
+      await swalAlert("Enter valid scores (0 or above).");
       return;
     }
     setSavingResult(true);
@@ -798,7 +802,7 @@ export default function Admin(props) {
       setResultForm({ home_score: "", away_score: "" });
       if (fixturesPanel) await loadFixturesForPanel(fixturesPanel);
     } catch (err) {
-      alert(`Error: ${err?.message || "Failed."}`);
+      await swalAlert(`Error: ${err?.message || "Failed."}`);
     } finally {
       setSavingResult(false);
     }
@@ -822,13 +826,13 @@ export default function Admin(props) {
     setNewsForm({ title: "", body: "", type: "app_update", image_url: "" });
     setNewsImageFile(null);
     setUploadingNews(false);
-    alert("News posted successfully!");
+    await swalAlert("News posted successfully!");
   }
 
   async function seedPressQuestions() {
     setSaving(true);
     const existing = await stageClient.entities.PressQuestion.list(null, 1);
-    if (existing.length > 0) { alert("Press questions already seeded!"); setSaving(false); return; }
+    if (existing.length > 0) { await swalAlert("Press questions already seeded!"); setSaving(false); return; }
     const questions = [
       { question: "How do you rate your team's performance today?", answer_a: "Outstanding — we gave 100%", answer_b: "Decent, but we can improve", answer_c: "Disappointing overall", answer_d: "The result doesn't reflect the game", category: "performance" },
       { question: "What was the key moment of the match?", answer_a: "Our first goal changed everything", answer_b: "A great defensive block in the second half", answer_c: "The red card shifted the momentum", answer_d: "The penalty decision was crucial", category: "match" },
@@ -838,7 +842,7 @@ export default function Admin(props) {
       { question: "How would you describe the atmosphere in the dressing room?", answer_a: "Buzzing — everyone is pumped!", answer_b: "Calm and focused", answer_c: "Disappointed but determined", answer_d: "United — we face it together", category: "team" },
     ];
     await stageClient.entities.PressQuestion.bulkCreate(questions);
-    alert("Press questions seeded successfully!");
+    await swalAlert("Press questions seeded successfully!");
     setSaving(false);
   }
 
@@ -909,12 +913,12 @@ export default function Admin(props) {
       setLifestyleDialog(null);
       const fresh = await stageClient.entities.LifestyleItem.list('sort_order', 300).catch(() => []);
       setLifestyleItems(fresh);
-    } catch (e) { alert(e.message); }
+    } catch (e) { await swalAlert(e.message); }
     setLifestyleSaving(false);
   }
 
   async function deleteLifestyleAsset(item) {
-    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    if (!(await swalConfirm(`Delete "${item.name}"? This cannot be undone.`))) return;
     await stageClient.functions.invoke('lifestyleAdmin', { action: 'delete', asset_id: item.id }).catch(() => {});
     setLifestyleItems(prev => prev.filter(i => i.id !== item.id));
   }
@@ -960,7 +964,7 @@ export default function Admin(props) {
       setWalletAdjustAmount("");
       setWalletAdjustNote("");
     } catch (err) {
-      alert(err?.message || "Failed");
+      await swalAlert(err?.message || "Failed");
     }
     setSaving(false);
   }
@@ -984,7 +988,7 @@ export default function Admin(props) {
         ...(clubStcNote ? { note: clubStcNote } : {}),
       });
     } catch (err) {
-      alert(err?.message || "Failed to save club finance");
+      await swalAlert(err?.message || "Failed to save club finance");
       setSaving(false);
       return;
     }
@@ -995,7 +999,7 @@ export default function Admin(props) {
   }
 
   async function reseedLifestyle() {
-    if (!window.confirm("This will DELETE all existing lifestyle items and replace them with correctly priced defaults. Continue?")) return;
+    if (!(await swalConfirm("This will DELETE all existing lifestyle items and replace them with correctly priced defaults. Continue?"))) return;
     setSaving(true);
     try {
       // 1. Delete all existing items
@@ -1037,9 +1041,9 @@ export default function Admin(props) {
       // 3. Reload the list
       const fresh = await stageClient.entities.LifestyleItem.list('sort_order', 300).catch(() => []);
       setLifestyleItems(fresh);
-      alert(`✓ Reseeded ${DEFAULTS.length} lifestyle items with realistic pricing.`);
+      await swalAlert(`✓ Reseeded ${DEFAULTS.length} lifestyle items with realistic pricing.`);
     } catch (err) {
-      alert('Reseed failed: ' + (err?.message || 'Unknown error'));
+      await swalAlert('Reseed failed: ' + (err?.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
@@ -1057,7 +1061,7 @@ export default function Admin(props) {
   const [recalcMsg,  setRecalcMsg]            = useState("");
 
   async function resetAllRankings() {
-    if (!confirm("This will zero out all club ranking data (ranking points, global/regional rank, form, win/loss streak) for ALL clubs. This cannot be undone. Continue?")) return;
+    if (!(await swalConfirm("This will zero out all club ranking data (ranking points, global/regional rank, form, win/loss streak) for ALL clubs. This cannot be undone. Continue?"))) return;
     setResettingRankings(true);
     try {
       const allClubs = await base44.entities.Club.list(null, 500);
@@ -1071,9 +1075,9 @@ export default function Admin(props) {
           loss_streak:      0,
         })
       ));
-      alert(`Rankings reset for ${allClubs.length} club${allClubs.length !== 1 ? "s" : ""}.`);
+      await swalAlert(`Rankings reset for ${allClubs.length} club${allClubs.length !== 1 ? "s" : ""}.`);
     } catch (err) {
-      alert(`Reset failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Reset failed: ${err?.message || "Unknown error."}`);
     } finally {
       setResettingRankings(false);
     }
@@ -1092,7 +1096,7 @@ export default function Admin(props) {
       payload.is_active = true;
 
       if (!base44.entities.RankingConfig) {
-        alert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.base44.com, then come back to save.");
+        await swalAlert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.base44.com, then come back to save.");
         return;
       }
       if (rankingConfigId) {
@@ -1101,9 +1105,9 @@ export default function Admin(props) {
         const created = await base44.entities.RankingConfig.create(payload);
         setRankingConfigId(created.id);
       }
-      alert("Ranking config saved.");
+      await swalAlert("Ranking config saved.");
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSavingConfig(false);
     }
@@ -1129,7 +1133,7 @@ export default function Admin(props) {
   }
 
   async function migrateClubBalances() {
-    if (!confirm("This will add +20M STC, +5M transfer budget, and +4M wage budget to ALL existing clubs. Continue?")) return;
+    if (!(await swalConfirm("This will add +20M STC, +5M transfer budget, and +4M wage budget to ALL existing clubs. Continue?"))) return;
     setMigrating(true);
     setMigrateResult(null);
     try {
@@ -1237,6 +1241,7 @@ export default function Admin(props) {
               openPlayerWallet={openPlayerWallet}
               kickFromClub={kickFromClub}
               reviewIdentityClaim={reviewIdentityClaim}
+              onPlayerAccountDeleted={(playerId) => setPlayers((prev) => prev.filter((p) => p.id !== playerId))}
             />
           )}
 

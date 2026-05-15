@@ -23,14 +23,7 @@ const FIXTURE_TABLES = {
   regional_league: 'regional_league_fixtures',
 };
 
-function toMysqlDateTime(val) {
-  if (!val) return null;
-  const s = String(val).trim();
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return s;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19).replace('T', ' ');
-}
+const { toMysqlDateTime } = require('../utils/datetime');
 
 async function getUserContext(req) {
   const userId = req.user?.id;

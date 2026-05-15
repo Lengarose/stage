@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SEASON_STATUS_LABEL } from "../shared/adminConstants";
+import { swalAlert } from "@/lib/swal";
 
 export default function SeasonCard({ season: s, onRefresh }) {
   const [busy, setBusy] = useState(false);
@@ -14,14 +15,14 @@ export default function SeasonCard({ season: s, onRefresh }) {
 
       if (action === "generate_fixtures") {
         const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
-        if (!standings.length) { alert("No clubs registered yet. Confirm qualification entries first."); return; }
+        if (!standings.length) { await swalAlert("No clubs registered yet. Confirm qualification entries first."); return; }
         await generateLeaguePhaseFixtures(s, standings);
-        alert(`League phase fixtures generated! ${standings.length} clubs, 8 matchdays.`);
+        await swalAlert(`League phase fixtures generated! ${standings.length} clubs, 8 matchdays.`);
 
       } else if (action === "playoff_round") {
         const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
         await generatePlayoffRound(s, standings);
-        alert("Playoff round generated! Positions 9-24 play off. Positions 25-36 eliminated.");
+        await swalAlert("Playoff round generated! Positions 9-24 play off. Positions 25-36 eliminated.");
 
       } else if (action === "knockout_r16") {
         const [standings, fixtures] = await Promise.all([
@@ -29,13 +30,13 @@ export default function SeasonCard({ season: s, onRefresh }) {
           base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: "playoff_round" }, null, 30).catch(() => []),
         ]);
         await generateKnockoutR16(s, standings, fixtures);
-        alert("Round of 16 generated!");
+        await swalAlert("Round of 16 generated!");
 
       } else if (["knockout_qf", "knockout_sf", "knockout_final"].includes(action)) {
         const prevPhase = { knockout_qf: "knockout_r16", knockout_sf: "knockout_qf", knockout_final: "knockout_sf" }[action];
         const fixtures = await base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: prevPhase }, null, 30).catch(() => []);
         await generateNextKnockoutRound(s, fixtures, prevPhase);
-        alert(`${SEASON_STATUS_LABEL[action]} fixtures generated!`);
+        await swalAlert(`${SEASON_STATUS_LABEL[action]} fixtures generated!`);
 
       } else if (action === "complete") {
         await base44.entities.CompetitionSeason.update(s.id, { status: "completed" });
@@ -48,34 +49,34 @@ export default function SeasonCard({ season: s, onRefresh }) {
           ]);
           const result = await processCompetitionSeasonEnd(s, standings, competitions);
           if (result?.qualified > 0) {
-            alert(`Season marked as completed.\n\n${result.qualified} cross-competition qualification entr${result.qualified === 1 ? "y" : "ies"} created (check Qualification Entries).`);
+            await swalAlert(`Season marked as completed.\n\n${result.qualified} cross-competition qualification entr${result.qualified === 1 ? "y" : "ies"} created (check Qualification Entries).`);
           } else {
-            alert("Season marked as completed.");
+            await swalAlert("Season marked as completed.");
           }
         } catch {
-          alert("Season marked as completed.");
+          await swalAlert("Season marked as completed.");
         }
 
       } else if (action === "open_registration") {
         await base44.entities.CompetitionSeason.update(s.id, { status: "registration" });
-        alert("Registration is now open.");
+        await swalAlert("Registration is now open.");
 
       } else if (action === "archive") {
         const { archiveCompetitionSeason } = await import("@/lib/seasonLifecycle");
         const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
         await archiveCompetitionSeason(s, comps[0] || null);
-        alert(`Season ${s.season_number} archived. Standings and winner locked.`);
+        await swalAlert(`Season ${s.season_number} archived. Standings and winner locked.`);
 
       } else if (action === "create_next") {
         const { createNextCompetitionSeason } = await import("@/lib/seasonLifecycle");
         const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
         const next = await createNextCompetitionSeason(s, comps[0] || null);
-        alert(`Season ${next.season_number} created as Draft. Open Registration when ready.`);
+        await swalAlert(`Season ${next.season_number} created as Draft. Open Registration when ready.`);
       }
 
       await onRefresh();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      await swalAlert(`Error: ${err.message}`);
     } finally {
       setBusy(false);
     }

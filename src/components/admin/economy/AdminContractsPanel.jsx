@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Coins, Pencil, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalConfirm } from "@/lib/swal";
 
 export default function AdminContractsPanel() {
   const [contracts, setContracts] = useState(null);
@@ -45,7 +46,7 @@ export default function AdminContractsPanel() {
   }
 
   async function cancelContract(c) {
-    if (!confirm(`Cancel contract for ${c.gamertag || c.full_name}?`)) return;
+    if (!(await swalConfirm(`Cancel contract for ${c.gamertag || c.full_name}?`))) return;
     try {
       await stageClient.functions.invoke("contractManagement", { action: "admin_cancel", contract_id: c.id });
       setMsg({ type: "success", text: "Contract cancelled" });

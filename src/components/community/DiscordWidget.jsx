@@ -23,8 +23,10 @@ async function checkWidgetAvailable(serverId) {
   }
 }
 
-export default function DiscordWidget({ theme = "dark", className = "" }) {
+export default function DiscordWidget({ theme = "dark", className = "", compact = false }) {
   const src = discordWidgetSrc(theme);
+  const minH = compact ? "min-h-[200px]" : "min-h-[320px]";
+  const iframeH = compact ? 300 : 500;
   const [status, setStatus] = useState(/** @type {'loading' | 'ready' | 'disabled' | 'error'} */ ("loading"));
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function DiscordWidget({ theme = "dark", className = "" }) {
 
   if (status === "loading") {
     return (
-      <div className={cn("flex items-center justify-center min-h-[320px] bg-[#2f3136] text-white/50 text-sm", className)}>
+      <div className={cn("flex items-center justify-center bg-[#2f3136] text-white/50 text-sm", minH, className)}>
         <div className="flex flex-col items-center gap-3">
           <div className="flex gap-1">
             <span className="w-2 h-2 rounded-sm bg-[#5865F2] animate-pulse" />
@@ -57,7 +59,7 @@ export default function DiscordWidget({ theme = "dark", className = "" }) {
 
   if (status === "disabled" || status === "error") {
     return (
-      <div className={cn("flex flex-col items-center justify-center min-h-[320px] bg-[#2f3136] p-6 text-center", className)}>
+      <div className={cn("flex flex-col items-center justify-center bg-[#2f3136] p-6 text-center", minH, className)}>
         <DiscordMark className="w-12 h-12 text-[#5865F2] mb-4 opacity-80" />
         <p className="text-white font-semibold text-sm mb-2">
           {status === "disabled" ? "Discord widget is turned off" : "Could not load server preview"}
@@ -94,7 +96,7 @@ export default function DiscordWidget({ theme = "dark", className = "" }) {
       title="Discord Server"
       className={className}
       width="100%"
-      height="500"
+      height={iframeH}
       allowTransparency
       frameBorder="0"
       sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"

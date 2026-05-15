@@ -3,7 +3,14 @@ import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfig
 import AdminContractsPanel from "@/components/admin/economy/AdminContractsPanel";
 import AdminShirtSalesPanel from "@/components/admin/economy/AdminShirtSalesPanel";
 import { Button } from "@/components/ui/button";
-import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink } from "lucide-react";
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
+import { stageClient } from "@/api/stageClient";
+import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
+import { useState } from "react";
 
 export default function PlayersTab({
   players,
@@ -15,7 +22,30 @@ export default function PlayersTab({
   openPlayerWallet,
   kickFromClub,
   reviewIdentityClaim,
+  onPlayerAccountDeleted,
 }) {
+  const { toast } = useToast();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirmDeleteAccount() {
+    if (!deleteTarget || deleteConfirm !== "DELETE" || deleting) return;
+    setDeleting(true);
+    try {
+      await stageClient.functions.invoke("adminDeleteUserAccount", { player_id: deleteTarget.id });
+      onPlayerAccountDeleted?.(deleteTarget.id);
+      setDeleteTarget(null);
+      setDeleteConfirm("");
+      toast({ title: "Account deleted", description: `${deleteTarget.gamertag || deleteTarget.email} removed.` });
+    } catch (err) {
+      const msg = err?.message || err?.data?.error || "Delete failed";
+      toast({ title: "Delete failed", description: String(msg), variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <>
       <BackfillStcButton />
@@ -104,10 +134,65 @@ export default function PlayersTab({
               >
                 <Ban className="w-3.5 h-3.5" /> {p.club_id ? "Kick" : "No Club"}
               </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                title="Permanently delete this player’s login account, owned clubs, and profile"
+                onClick={() => { setDeleteTarget(p); setDeleteConfirm(""); }}
+                className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 text-xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </div>
         ))}
       </div>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteConfirm("");
+            setDeleting(false);
+          }
+        }}
+      >
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Delete player account
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground space-y-2">
+              <span className="block">
+                Permanently deletes the login for{" "}
+                <strong className="text-foreground">{deleteTarget?.gamertag || deleteTarget?.email}</strong>, their owned clubs, contracts, and profile (same as Settings Danger Zone).
+                <strong className="text-foreground"> Cannot be undone.</strong>
+              </span>
+              <span className="block pt-2">Type <strong className="text-foreground">DELETE</strong> to confirm:</span>
+              <input
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="Type DELETE"
+                className="w-full mt-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+              />
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" className="border-border">Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteConfirm !== "DELETE" || deleting}
+              onClick={() => void handleConfirmDeleteAccount()}
+            >
+              {deleting ? "Deleting..." : "Delete account"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

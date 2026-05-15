@@ -8,6 +8,7 @@ import { CalendarDays, CheckCircle, XCircle, Play, Loader2, AlertCircle, Zap } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 
 export default function TransferWindowPanel() {
   const [currentWindow, setCurrentWindow] = useState(null);
@@ -52,7 +53,7 @@ export default function TransferWindowPanel() {
 
   async function closeWindow() {
     if (!currentWindow) return;
-    if (!confirm("Close the transfer window? Players will no longer transfer until the next window.")) return;
+    if (!(await swalConfirm("Close the transfer window? Players will no longer transfer until the next window."))) return;
     setSaving(true);
     await stageClient.functions.invoke("transferWindowActions", {
       action: "close_window",
@@ -65,7 +66,7 @@ export default function TransferWindowPanel() {
   async function executePending() {
     setSaving(true);
     const res = await stageClient.functions.invoke("transferWindowActions", { action: "execute_pending" });
-    alert(`Executed ${res.data.transfers_executed} pending transfer(s).`);
+    await swalAlert(`Executed ${res.data.transfers_executed} pending transfer(s).`);
     await load();
     setSaving(false);
   }

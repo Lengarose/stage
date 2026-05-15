@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Plus, Trash2, Check, Trophy, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 const BADGE_OPTIONS = [
   { value: "winner",        label: "Winner (Gold)"      },
@@ -85,7 +86,7 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
       await saveRewardConfigs(sourceId, sourceType, sourceName, cleaned);
       setDirty(false);
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSaving(false);
     }
@@ -100,7 +101,7 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
       setTrophyUrl(file_url);
       if (onTrophyUrlChange) onTrophyUrlChange(file_url);
     } catch {
-      alert("Upload failed. Paste the URL manually.");
+      await swalAlert("Upload failed. Paste the URL manually.");
     } finally {
       setUploading(false);
       e.target.value = "";

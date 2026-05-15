@@ -1,10 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
-
-function toMysqlDateTime(val) {
-  if (!val) return null;
-  return new Date(val).toISOString().slice(0, 19).replace('T', ' ');
-}
+const { toMysqlDateTime } = require('../utils/datetime');
 
 class RegionalLeagueFixtureModel {
   constructor(body = {}) {

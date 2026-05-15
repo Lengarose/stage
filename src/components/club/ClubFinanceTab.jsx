@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
 import { formatSTC, calculatePlayerValue } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 import {
   TrendingUp, TrendingDown, Wallet, Users, Trophy, Coins,
   AlertTriangle, ChevronLeft, ChevronRight, SlidersHorizontal,
@@ -248,20 +249,20 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       });
       await load();
     } catch (err) {
-      alert(err?.message || "Failed to adjust budgets");
+      await swalAlert(err?.message || "Failed to adjust budgets");
     }
     setSliderSaving(false);
   }
 
   async function handleDeleteTx(txId) {
-    if (!confirm("Delete this transaction? This cannot be undone.")) return;
+    if (!(await swalConfirm("Delete this transaction? This cannot be undone."))) return;
     try {
       await stageClient.functions.invoke("clubFinance", {
         action: "delete_transaction", club_id: club.id, transaction_id: txId,
       });
       await load();
     } catch (err) {
-      alert(err?.message || "Failed");
+      await swalAlert(err?.message || "Failed");
     }
   }
 

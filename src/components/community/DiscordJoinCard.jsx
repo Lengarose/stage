@@ -150,75 +150,90 @@ export default function DiscordJoinCard({
 
   if (variant === "onboarding") {
     return (
-      <div className={cn("space-y-6", className)}>
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-[#5865F2]/25 border border-[#5865F2]/40 flex items-center justify-center text-[#5865F2] mx-auto">
-            <DiscordMark className="w-8 h-8" />
+      <div className={cn("space-y-5", className)}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+          <div className="space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#5865F2]/25 border border-[#5865F2]/40 flex items-center justify-center text-[#5865F2] shrink-0">
+                <DiscordMark className="w-8 h-8" />
+              </div>
+              <div>
+                <h2
+                  style={{ fontFamily: "'Anton', sans-serif" }}
+                  className="text-2xl italic uppercase tracking-tight text-white mb-1"
+                >
+                  Join the community
+                </h2>
+                <p className="text-white/50 text-xs leading-relaxed">
+                  Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.
+                </p>
+              </div>
+            </div>
+
+            <ul className="space-y-2.5">
+              {BENEFITS.map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-white/70 text-xs">
+                  <Icon className="w-4 h-4 text-[#5865F2] shrink-0" />
+                  {text}
+                </li>
+              ))}
+            </ul>
           </div>
-          <h2
-            style={{ fontFamily: "'Anton', sans-serif" }}
-            className="text-2xl italic uppercase tracking-tight text-white"
-          >
-            Join the community
-          </h2>
-          <p className="text-white/50 text-xs leading-relaxed max-w-sm mx-auto">
-            Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.
-          </p>
+
+          {hasWidget && (
+            <div className="rounded-xl overflow-hidden border border-white/15 bg-[#2f3136]">
+              <div className="px-4 py-2 border-b border-white/10 bg-black/20">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
+                  Server preview
+                </p>
+              </div>
+              <DiscordWidget compact className="w-full block" />
+            </div>
+          )}
         </div>
 
-        <ul className="space-y-2">
-          {BENEFITS.map(({ icon: Icon, text }) => (
-            <li key={text} className="flex items-center gap-3 text-white/70 text-xs">
-              <Icon className="w-4 h-4 text-[#5865F2] shrink-0" />
-              {text}
-            </li>
-          ))}
-        </ul>
-
-        {hasWidget && (
-          <div className="rounded-xl overflow-hidden border border-white/15 mx-auto max-w-[320px]">
-            <DiscordWidget className="w-full block min-h-[400px]" />
+        <div className="space-y-2 pt-3 border-t border-white/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {hasInvite && (
+              <Button
+                type="button"
+                onClick={handleJoin}
+                className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-black uppercase tracking-widest gap-2 h-11"
+              >
+                <DiscordMark className="w-5 h-5" />
+                Join Discord
+                <ExternalLink className="w-4 h-4 opacity-80" />
+              </Button>
+            )}
+            {onContinue && (
+              <Button
+                type="button"
+                onClick={onContinue}
+                className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest h-11 hover:bg-gray-100"
+              >
+                Continue to STAGE →
+              </Button>
+            )}
           </div>
-        )}
-
-        <div className="space-y-2 pt-2">
-          {hasInvite && (
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <Button
               type="button"
-              onClick={handleJoin}
-              className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-black uppercase tracking-widest gap-2 h-12"
+              variant="ghost"
+              onClick={handleAlreadyJoined}
+              className="text-white/50 hover:text-white hover:bg-white/10 text-[10px] uppercase tracking-widest h-8 px-2"
             >
-              <DiscordMark className="w-5 h-5" />
-              Join Discord server
-              <ExternalLink className="w-4 h-4 opacity-80" />
+              I already joined
             </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAlreadyJoined}
-            className="w-full border-white/20 text-white hover:bg-white/10 text-xs"
-          >
-            I already joined
-          </Button>
-          {showSkip && (
-            <button
-              type="button"
-              onClick={handleSkip}
-              className="w-full text-white/35 hover:text-white/60 text-[10px] uppercase tracking-widest py-2 transition-colors"
-            >
-              Skip for now
-            </button>
-          )}
-          {onContinue && (
-            <Button
-              type="button"
-              onClick={onContinue}
-              className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100"
-            >
-              Continue to STAGE →
-            </Button>
-          )}
+            {showSkip && (
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="text-white/35 hover:text-white/60 text-[10px] uppercase tracking-widest py-1 transition-colors"
+              >
+                Skip for now
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

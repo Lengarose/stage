@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { stageClient } from "@/api/stageClient";
 import { Shield, Search, Plus, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 
@@ -98,7 +99,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
       setOwnerContractPrompt({ club, player, contractId: club.owner_contract_id });
     } catch (err) {
       console.error("Club creation failed:", err);
-      alert("Failed to create club: " + (err?.message || err));
+      await swalAlert("Failed to create club: " + (err?.message || err));
     } finally {
       setCreating(false);
     }

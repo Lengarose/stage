@@ -25,6 +25,8 @@ import TournamentCountdown from "../components/TournamentCountdown";
 import PlayerRegistrantList from "../components/PlayerRegistrantList";
 import DressingRoom from "../components/DressingRoom";
 import TournamentWinnerPressRoomDialog from "../components/TournamentWinnerPressRoomDialog";
+import { toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 
 export default function TournamentDetail() {
   const { id } = useParams();
@@ -176,7 +178,7 @@ export default function TournamentDetail() {
     const effectiveId = takeoverClub ? takeoverClub.id : myPlayer?.club_id;
     if (!effectiveId || !tournament) return;
     if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
-      alert("Registration is closed. This tournament's start date has already passed.");
+      await swalAlert("Registration is closed. This tournament's start date has already passed.");
       return;
     }
     const current = tournament.registered_clubs || [];
@@ -191,20 +193,20 @@ export default function TournamentDetail() {
     if (tournament.country_code) {
       if (!clubData?.country_code || clubData.country_code !== tournament.country_code) {
         const countryName = COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code;
-        alert(`This tournament is restricted to clubs from ${countryName}. Your club's country does not match.`);
+        await swalAlert(`This tournament is restricted to clubs from ${countryName}. Your club's country does not match.`);
         return;
       }
     }
 
     // Check credits
     if (!takeoverClub && (clubData?.credits ?? 0) < entryCost) {
-      alert(`Your club doesn't have enough credits to join this tournament. Need ${entryCost} club credits.`);
+      await swalAlert(`Your club doesn't have enough credits to join this tournament. Need ${entryCost} club credits.`);
       return;
     }
 
     // Check STC
     if (entryFeeSTC > 0 && (clubData?.stc ?? 0) < entryFeeSTC) {
-      alert(`Your club doesn't have enough STC to join this tournament. Need ${entryFeeSTC.toLocaleString()} STC, have ${(clubData?.stc ?? 0).toLocaleString()} STC.`);
+      await swalAlert(`Your club doesn't have enough STC to join this tournament. Need ${entryFeeSTC.toLocaleString()} STC, have ${(clubData?.stc ?? 0).toLocaleString()} STC.`);
       return;
     }
 
@@ -216,7 +218,7 @@ export default function TournamentDetail() {
       });
       
       if (!res.data.success) {
-        alert(res.data.error || 'Registration failed');
+        await swalAlert(res.data.error || 'Registration failed');
         return;
       }
 
@@ -242,7 +244,7 @@ export default function TournamentDetail() {
         await initializeTournament({ ...tournament, registered_clubs: updated }, allClubs.filter(c => updated.includes(c.id)));
       }
     } catch (err) {
-      alert('Registration failed: ' + (err?.message || 'Unknown error'));
+      await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
     }
   }
 
@@ -250,7 +252,7 @@ export default function TournamentDetail() {
     if (!tournament) return;
     const t = tournament;
     const seededClubs = seedClubs(allClubs.filter(c => t.registered_clubs?.includes(c.id)));
-    if (seededClubs.length < 2) { alert("Need at least 2 registered teams to generate a draw."); return; }
+    if (seededClubs.length < 2) { await swalAlert("Need at least 2 registered teams to generate a draw."); return; }
     let generatedMatches = [];
     const type = t.type;
     const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(seededClubs.length / 4)) : (t.num_groups || 2);
@@ -266,7 +268,7 @@ export default function TournamentDetail() {
   }
 
   async function clearDraw() {
-    if (!window.confirm("Clear the current draw? This will delete all generated matchups.")) return;
+    if (!(await swalConfirm("Clear the current draw? This will delete all generated matchups."))) return;
     await Promise.all(matches.map(m => stageClient.entities.Match.delete(m.id)));
     setMatches([]);
   }
@@ -314,7 +316,7 @@ export default function TournamentDetail() {
     if (!isOrganizer || !tournament) return;
     const unscheduledMatches = matches.filter(m => !m.scheduled_date);
     if (unscheduledMatches.length === 0) {
-      alert("All matches are already scheduled.");
+      await swalAlert("All matches are already scheduled.");
       return;
     }
     const baseDate = new Date(tournament.start_date || new Date());
@@ -322,17 +324,16 @@ export default function TournamentDetail() {
     const timeStep = 2 * 60 * 60 * 1000;
     for (let i = 0; i < shuffled.length; i++) {
       const schedDate = new Date(baseDate.getTime() + i * timeStep);
-      await stageClient.entities.Match.update(shuffled[i].id, { scheduled_date: schedDate.toISOString() });
+      await stageClient.entities.Match.update(shuffled[i].id, { scheduled_date: toMysqlDateTime(schedDate) });
     }
     const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
-    alert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
+    await swalAlert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
   }
 
   async function _proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
-    const schedDate = new Date(scheduleDate);
-    await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: schedDate.toISOString() });
+    await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: toMysqlDateTime(scheduleDate) });
     const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(refreshed);
     setScheduleDialogOpen(false);
@@ -370,7 +371,7 @@ export default function TournamentDetail() {
     const isHome = activeMatch.home_club_id === myPlayer?.club_id;
     const myScore = isHome ? hs : as_;
     if (myGoals > myScore) {
-      alert(`Total goals entered (${myGoals}) exceeds your team's score (${myScore}). Please check the stats.`);
+      await swalAlert(`Total goals entered (${myGoals}) exceeds your team's score (${myScore}). Please check the stats.`);
       return;
     }
 
@@ -466,7 +467,7 @@ export default function TournamentDetail() {
             });
           }
         }
-        alert(`Score disputed! You submitted ${submittedScore}, opponent submitted ${otherScore}. An admin will resolve this.`);
+        await swalAlert(`Score disputed! You submitted ${submittedScore}, opponent submitted ${otherScore}. An admin will resolve this.`);
         const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
         setMatches(updatedMatches);
       }
@@ -489,7 +490,7 @@ export default function TournamentDetail() {
           link: `/tournaments/${id}`, related_id: activeMatch.id, read: false,
         });
       }
-      alert("Result submitted! Your opponent has 24 hours to confirm the score.");
+      await swalAlert("Result submitted! Your opponent has 24 hours to confirm the score.");
       const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
       setMatches(updatedMatches);
     }
@@ -510,7 +511,7 @@ export default function TournamentDetail() {
   const submittedScore = `${hs}-${as_}`;
   const now = new Date().toISOString();
 
-  if (!validatePlayerGoals(hs, as_, isHome)) return;
+  if (!(await validatePlayerGoals(hs, as_, isHome))) return;
 
   const context = buildSubmissionContext({
     hs,
@@ -534,7 +535,7 @@ export default function TournamentDetail() {
   resetUI();
 }
 
-function validatePlayerGoals(hs, as_, isHome) {
+async function validatePlayerGoals(hs, as_, isHome) {
   const myGoals = Object.values(playerStats).reduce(
     (sum, s) => sum + (s.goals || 0),
     0
@@ -542,7 +543,7 @@ function validatePlayerGoals(hs, as_, isHome) {
   const myScore = isHome ? hs : as_;
 
   if (myGoals > myScore) {
-    alert(
+    await swalAlert(
       `Total goals entered (${myGoals}) exceeds your team's score (${myScore}).`
     );
     return false;
@@ -617,7 +618,7 @@ async function handleDispute(ctx) {
     `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Scores don't match.`
   );
 
-  alert(
+  await swalAlert(
     `Score disputed! You submitted ${ctx.submittedScore}, opponent submitted ${ctx.otherScore}.`
   );
 }
@@ -642,7 +643,7 @@ async function handleFirstSubmission(ctx) {
     "Opponent Submitted Match Result",
     `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: ${ctx.submittedScore}`
   );
-  alert("Result submitted! Opponent has 24h to confirm.");
+  await swalAlert("Result submitted! Opponent has 24h to confirm.");
 }
 
 async function savePlayerStats() {
@@ -748,7 +749,7 @@ function resetUI() {
     setForfeitDialogOpen(false);
     setForfeitMatch(null);
     setForfeitProof("");
-    alert("Forfeit claim submitted. An admin will review and approve.");
+    await swalAlert("Forfeit claim submitted. An admin will review and approve.");
   }
 
   async function approveForfeit(match) {
@@ -769,7 +770,7 @@ function resetUI() {
     const leagueMatches = matches.filter(m => m.type === "ucl_league");
     const standings = calculateUCLStandings(leagueMatches);
     const clubs9to24 = standings.slice(8, 24).map(s => ({ id: s.id, name: s.name }));
-    if (clubs9to24.length < 16) { alert("Not enough teams ranked 9-24 yet."); return; }
+    if (clubs9to24.length < 16) { await swalAlert("Not enough teams ranked 9-24 yet."); return; }
     const playoffMatches = generateUCLPlayoffMatches(clubs9to24);
     for (const m of playoffMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
     await stageClient.entities.Tournament.update(id, { current_round: 9, ucl_phase: "playoff" });
@@ -843,7 +844,7 @@ function resetUI() {
       const winner = getAggregateWinner(sorted[0], sorted[1], sorted[2]);
       if (winner) finalists.push(winner);
     }
-    if (finalists.length < 2) { alert("Not enough finalists determined yet."); return; }
+    if (finalists.length < 2) { await swalAlert("Not enough finalists determined yet."); return; }
     const finalRound = Math.max(...matches.map(m => m.round)) + 1;
     await stageClient.entities.Match.create({
       home_club_id: finalists[0].id, home_club_name: finalists[0].name,
@@ -875,7 +876,7 @@ function resetUI() {
     const confirmMsg = entryFeeSTC > 0
       ? `Withdraw from the tournament? Entry credits + ${entryFeeSTC.toLocaleString()} STC will be refunded.`
       : "Withdraw from the tournament? Entry credits will be refunded.";
-    if (!window.confirm(confirmMsg)) return;
+    if (!(await swalConfirm(confirmMsg))) return;
     
     const updated = (tournament.registered_clubs || []).filter(cid => cid !== effectiveId);
     await stageClient.entities.Tournament.update(tournament.id, { registered_clubs: updated });
@@ -911,10 +912,10 @@ function resetUI() {
   }
 
   async function cancelTournament() {
-    if (!window.confirm("Are you sure you want to cancel this tournament? This cannot be undone.")) return;
+    if (!(await swalConfirm("Are you sure you want to cancel this tournament? This cannot be undone."))) return;
     const res = await stageClient.functions.invoke('tournamentCancellation', { tournament_id: id });
     if (!res?.data?.success) {
-      alert(res?.data?.error || 'Cancellation failed');
+      await swalAlert(res?.data?.error || 'Cancellation failed');
       return;
     }
     // Reload clubs so the info strip reflects the refunded balances
@@ -924,7 +925,7 @@ function resetUI() {
   }
 
   async function deleteTournament() {
-    if (!window.confirm("Permanently DELETE this tournament and all its matches? This cannot be undone.")) return;
+    if (!(await swalConfirm("Permanently DELETE this tournament and all its matches? This cannot be undone."))) return;
     await stageClient.entities.Tournament.delete(id);
     window.location.href = "/tournaments";
   }
@@ -1107,8 +1108,8 @@ function resetUI() {
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <Button onClick={async () => {
                   const entryCost = tournament.entry_credits ?? 50;
-                  if ((myPlayer.credits ?? 500) < entryCost) { alert("Not enough credits."); return; }
-                  if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
+                  if ((myPlayer.credits ?? 500) < entryCost) { await swalAlert("Not enough credits."); return; }
+                  if (tournament.start_date && new Date(tournament.start_date) < new Date()) { await swalAlert("Registration is closed."); return; }
                   const updated = [...(tournament.registered_players || []), myPlayer.id];
                   if (entryCost > 0) {
                     const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
@@ -1196,19 +1197,19 @@ function resetUI() {
                 const entryCost = tournament.entry_credits ?? 50;
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const currentCredits = myPlayer.credits ?? 500;
-                if (currentCredits < entryCost) { alert("Not enough credits."); return; }
+                if (currentCredits < entryCost) { await swalAlert("Not enough credits."); return; }
                 if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
-                  alert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
+                  await swalAlert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
                   return;
                 }
-                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { alert("Registration is closed."); return; }
+                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { await swalAlert("Registration is closed."); return; }
                 try {
                   const res = await stageClient.functions.invoke('tournamentRegistration', {
                     tournament_id: tournament.id,
                     player_id: myPlayer.id,
                   });
                   if (!res.data.success) {
-                    alert(res.data.error || 'Registration failed');
+                    await swalAlert(res.data.error || 'Registration failed');
                     return;
                   }
                   const updated = [...(tournament.registered_players || []), myPlayer.id];
@@ -1219,7 +1220,7 @@ function resetUI() {
                   }));
                   setTournament(prev => ({ ...prev, registered_players: updated }));
                 } catch (err) {
-                  alert('Registration failed: ' + (err?.message || 'Unknown error'));
+                  await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
                 }
               }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                 <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
@@ -1367,7 +1368,15 @@ function resetUI() {
                   return (
                     <Button key={`${mType}-${group}-leg3`} type="button"
                       onClick={async () => {
-                        const choice = window.confirm(`Tie! ${leg1.home_club_name} vs ${leg1.away_club_name} (agg ${agg_A}-${agg_B}).\n\nOK = ${leg1.home_club_name} hosts leg 3. Cancel = ${leg1.away_club_name} hosts.`);
+                        const choice = await swalConfirm(
+                          `Tie on aggregate (${agg_A}-${agg_B}). Pick the host for leg 3.`,
+                          {
+                            title: `${leg1.home_club_name} vs ${leg1.away_club_name}`,
+                            confirmText: `${leg1.home_club_name} hosts`,
+                            cancelText: `${leg1.away_club_name} hosts`,
+                            icon: "question",
+                          }
+                        );
                         const homeClub = choice ? { id: leg1.home_club_id, name: leg1.home_club_name } : { id: leg1.away_club_id, name: leg1.away_club_name };
                         const awayClub = choice ? { id: leg1.away_club_id, name: leg1.away_club_name } : { id: leg1.home_club_id, name: leg1.home_club_name };
                         await stageClient.entities.Match.create({
@@ -1440,7 +1449,7 @@ function resetUI() {
                 matches={matches}
                 myClubId={myClubId}
                 onSubmit={(match) => { setActiveMatch(match); setResultDialogOpen(true); }}
-                onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(match.scheduled_date ? new Date(match.scheduled_date).toISOString().slice(0,16) : ""); setScheduleDialogOpen(true); }}
+                onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
                 onViewStats={(match) => { setStatsMatch(match); setStatsModalOpen(true); }}
                 onAddStream={(match) => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
                 onForfeit={(match) => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
@@ -1565,7 +1574,7 @@ function resetUI() {
                               <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
                                   className="border-primary/20 text-primary/80 hover:bg-primary/5 text-xs h-7">Dressing Room</Button>
-                                <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(match.scheduled_date ? new Date(match.scheduled_date).toISOString().slice(0,16) : ""); setScheduleDialogOpen(true); }}
+                                <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
                                   className="border-border text-xs text-muted-foreground h-7">Schedule</Button>
                                 {match.status !== "awaiting_confirmation" && (
                                   <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}

@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@base44/sdk": "^0.8.26",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/anton": "^5.2.7",
+    "@fontsource/barlow": "^5.2.8",
+    "@fontsource/barlow-condensed": "^5.2.8",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -74,6 +78,7 @@
     "recharts": "^2.15.4",
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.1",
+    "sweetalert2": "^11.26.24",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.171.0",

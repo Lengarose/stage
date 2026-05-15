@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 const DEFAULT_STATS = [
   { value: "2 000+",  label: "Active Players" },
@@ -123,7 +124,7 @@ export default function LandingPageEditor() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      alert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
     } finally {
       setSaving(false);
     }

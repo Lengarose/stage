@@ -1,19 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
-
-function toMysqlDateTime(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 19).replace('T', ' ');
-  }
-  const asString = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(asString)) return asString;
-  const parsed = new Date(asString);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 19).replace('T', ' ');
-  }
-  return null;
-}
+const { toMysqlDateTime } = require('../utils/datetime');
 
 class Match {
   constructor(body = {}) {

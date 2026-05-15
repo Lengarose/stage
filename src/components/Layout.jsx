@@ -228,7 +228,7 @@ function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme
         style={{
           ...headingFont,
           fontSize: 14,
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           background: isActive ? "rgba(0,229,189,0.08)" : "transparent",
@@ -261,7 +261,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                   ? "border-[#00E5BD]/25 bg-[#00E5BD]/10 text-white"
                   : "border-white/6 bg-white/[0.02] text-white/40 hover:border-white/10 hover:bg-white/[0.06] hover:text-white/80"
               )}
-              style={{ ...headingFont, fontWeight: 700 }}
+              style={{ ...headingFont, fontWeight: 600 }}
             >
               <span>{triggerLabel}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-45" />
@@ -271,7 +271,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
             {groups.map((group, gi) => (
               <div key={group.label}>
                 {gi > 0 && <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />}
-                <DropdownMenuLabel className="px-3 py-1 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 700, color: "rgba(0,229,189,0.5)" }}>
+                <DropdownMenuLabel className="px-3 py-1 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
                   {group.label}
                 </DropdownMenuLabel>
                 {group.items.map((item) => (
@@ -312,7 +312,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
               >
                 <span
                   className={cn("select-none text-[12px] sm:text-[14px] uppercase", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/65" : "text-white/40"))}
-                  style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.14em", transition: "color 0.12s" }}
+                  style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", transition: "color 0.12s" }}
                 >
                   {triggerLabel}
                 </span>
@@ -365,7 +365,7 @@ function HeaderIdentityMenu({
   const primaryLine =
     showAsOwner && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
 
-  const subLabelStyle = { ...headingFont, fontWeight: 700, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL };
+  const subLabelStyle = { ...headingFont, fontWeight: 600, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL };
 
   return (
     <DropdownMenu>
@@ -397,7 +397,7 @@ function HeaderIdentityMenu({
             />
           )}
           <div className="min-w-0 flex-1">
-            <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 900, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
             </p>
             <div className="mt-0.5 flex items-center gap-1">
@@ -419,21 +419,21 @@ function HeaderIdentityMenu({
       <DropdownMenuContent align="start" sideOffset={6} className={cn("z-[80] w-52 p-1", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
         {canSwitchRole && (
           <>
-            <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 700, color: "rgba(0,229,189,0.5)" }}>
+            <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
               Account
             </DropdownMenuLabel>
             <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
               <DropdownMenuRadioItem
                 value="player"
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-blue-600/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
-                style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
+                style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 <User className="h-4 w-4 shrink-0 text-blue-400" /> Player
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem
                 value="club"
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
-                style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
+                style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 <Shield className="h-4 w-4 shrink-0 text-amber-400" /> Owner
               </DropdownMenuRadioItem>
@@ -445,7 +445,7 @@ function HeaderIdentityMenu({
           <Link
             to="/settings"
             className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-            style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
             <Settings className="h-4 w-4 shrink-0 text-[#00E5BD]" />
             Settings
@@ -454,7 +454,7 @@ function HeaderIdentityMenu({
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
         <DropdownMenuItem
           className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
-          style={{ ...headingFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           onClick={() => stageClient.auth.logout()}
         >
           <LogOut className="h-4 w-4 shrink-0" />
@@ -552,7 +552,7 @@ function MobileMoreSheet({ open, onClose, pathname }) {
             <div key={group.label} className="mb-4">
               <p
                 className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
-                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 700, color: "rgba(0,229,189,0.45)" }}
+                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 600, color: "rgba(0,229,189,0.45)" }}
               >
                 {group.label}
               </p>
@@ -579,7 +579,7 @@ function MobileMoreSheet({ open, onClose, pathname }) {
                         className="text-[9px] text-center leading-tight"
                         style={{
                           fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-                          fontWeight: 700,
+                          fontWeight: 600,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
                           color: isActive ? "#00E5BD" : "rgba(255,255,255,0.45)",
@@ -650,7 +650,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
                   className="text-[9px] transition-colors"
                   style={{
                     fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-                    fontWeight: 700,
+                    fontWeight: 600,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
                     color: isActive ? "#00E5BD" : "rgba(255,255,255,0.3)",
@@ -697,7 +697,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
               className="text-[9px] transition-colors"
               style={{
                 fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-                fontWeight: 700,
+                fontWeight: 600,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
                 color: (moreOpen || inMore) ? "#00E5BD" : "rgba(255,255,255,0.3)",
@@ -737,7 +737,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
       {activePageLabel && (
         <span
           className="absolute left-1/2 -translate-x-1/2 text-[11px] uppercase truncate max-w-[42vw] pointer-events-none"
-          style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.14em", color: TEAL }}
+          style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", color: TEAL }}
         >
           {activePageLabel}
         </span>
@@ -750,7 +750,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
           className="bg-transparent outline-none border border-white/10 rounded-lg px-2 py-1 text-[10px] uppercase"
           style={{
             fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: "0.1em",
             color: "rgba(255,255,255,0.5)",
             background: "rgba(255,255,255,0.05)",
@@ -774,7 +774,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
             className="ml-0.5 flex items-center gap-1 rounded-lg border border-amber-500/45 bg-amber-500/10 px-2 py-1"
             style={{
               fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-              fontWeight: 800,
+              fontWeight: 600,
               fontSize: 9,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -836,7 +836,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
           <img src={LogoImg} alt="STAGE" className="h-8 w-auto object-contain" />
           <span
             className="text-[10px] uppercase truncate max-w-[9rem]"
-            style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.16em", color: "#f87171" }}
+            style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.16em", color: "#f87171" }}
           >
             {headerTitle}
           </span>
@@ -852,7 +852,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             className="bg-transparent outline-none border border-white/10 rounded px-1.5 py-1 text-[10px] uppercase"
             style={{
               fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: "0.08em",
               color: "rgba(255,255,255,0.55)",
               background: "rgba(255,255,255,0.04)",
@@ -882,7 +882,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
                 }}
               >
                 <Icon className="w-3.5 h-3.5" />
-                <span style={{ ...headingFont, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                <span style={{ ...headingFont, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   {tab.label}
                 </span>
               </Link>
@@ -1140,13 +1140,13 @@ export default function Layout() {
               <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
                 {myClubId && !myPlayer && (
                   <>
-                    <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>Owner</span>
+                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>Owner</span>
                     <Link to="/profile" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Player profile</Link>
                   </>
                 )}
                 {myPlayer && !myClubId && (
                   <>
-                    <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#60a5fa" }}>Player</span>
+                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#60a5fa" }}>Player</span>
                     <Link to="/clubs" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Create club</Link>
                   </>
                 )}
@@ -1156,7 +1156,7 @@ export default function Layout() {
             {showAdminHeader ? (
               <>
                 <div className="hidden sm:flex shrink-0 items-center px-3">
-                  <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#f87171" }}>
+                  <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#f87171" }}>
                     Stage Control Panel
                   </span>
                 </div>
@@ -1177,7 +1177,7 @@ export default function Layout() {
             )}
 
             <div className="hidden sm:flex shrink-0 items-center px-3 self-stretch">
-              <span style={{ ...headingFont, fontWeight: 700, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
+              <span style={{ ...headingFont, fontWeight: 500, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
                 STAGE v2.0
               </span>
             </div>
@@ -1204,7 +1204,7 @@ export default function Layout() {
                 style={{
                   ...headingFont,
                   fontSize: 11,
-                  fontWeight: 800,
+                  fontWeight: 600,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   color: "#fbbf24",
@@ -1235,7 +1235,7 @@ export default function Layout() {
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
                 className="cursor-pointer bg-transparent outline-none max-w-[5rem] sm:max-w-none"
-                style={{ ...headingFont, fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.75)" : "rgba(255,255,255,0.55)" }}
+                style={{ ...headingFont, fontWeight: 600, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.75)" : "rgba(255,255,255,0.55)" }}
               >
                 {THEMES.map((t) => (
                   <option key={t.id} value={t.id} className="bg-[#080f1c] text-white normal-case">{t.label}</option>
@@ -1247,7 +1247,7 @@ export default function Layout() {
               <Link
                 to="/admin"
                 className="flex items-center gap-1 px-2 py-1.5 transition-colors hover:bg-red-500/10 ml-0.5"
-                style={{ ...headingFont, fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f87171", borderRadius: 2 }}
+                style={{ ...headingFont, fontSize: 12, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f87171", borderRadius: 2 }}
                 title="Admin"
               >
                 <ShieldAlert className="h-4 w-4 shrink-0" />

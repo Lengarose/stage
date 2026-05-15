@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { forceSchedule, flagForAdminReview, declareForfeit } from "@/lib/scheduleEngine";
+import { combineDateTime, toMysqlDateTime } from "@/lib/momentDate";
+import { swalConfirm } from "@/lib/swal";
 
 export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }) {
   const [forceDate, setForceDate] = useState("");
@@ -13,14 +15,14 @@ export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }
     if (!forceDate || !forceTime) return;
     setBusy(id);
     try {
-      const date = new Date(`${forceDate}T${forceTime}:00`).toISOString();
+      const date = toMysqlDateTime(combineDateTime(forceDate, forceTime));
       await forceSchedule({ fixture, fixtureType: fixture._fixtureType, date, adminNote: "Admin override after deadline." });
       onResolved();
     } finally { setBusy(null); }
   }
 
   async function handleForfeit(side) {
-    if (!confirm(`Declare ${side === "home" ? fixture.home_club_name : fixture.away_club_name} as forfeiting?`)) return;
+    if (!(await swalConfirm(`Declare ${side === "home" ? fixture.home_club_name : fixture.away_club_name} as forfeiting?`))) return;
     setBusy(id);
     try {
       const forfeitingClubId = side === "home" ? fixture.home_club_id : fixture.away_club_id;

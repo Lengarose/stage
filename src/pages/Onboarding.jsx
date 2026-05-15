@@ -7,6 +7,7 @@ import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
+import { cn } from "@/lib/utils";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
@@ -91,9 +92,13 @@ export default function Onboarding({ onComplete }) {
 
   const meta = STEPS[step] || STEPS.choose;
   const progress = ((meta.index) / (meta.total - 1)) * 100;
+  const isWideStep = step === "identity" || step === "discord";
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-background">
+    <motion.div className={cn(
+      "fixed inset-0 bg-background",
+      isWideStep ? "overflow-y-auto" : "overflow-hidden"
+    )}>
       <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover blur-sm scale-105" />
       <div className="absolute inset-0 bg-gradient-to-b from-background/65 via-background/50 to-background/85" />
 
@@ -103,7 +108,10 @@ export default function Onboarding({ onComplete }) {
       </nav>
 
       {/* Card */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-24">
+      <div className={cn(
+        "relative z-10 flex justify-center min-h-screen px-4",
+        isWideStep ? "items-start py-14 md:py-16 pb-10" : "items-center py-24"
+      )}>
         {loading ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
@@ -114,13 +122,21 @@ export default function Onboarding({ onComplete }) {
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: "easeOut" }}
-            className="w-full max-w-md"
+            className={cn(
+              "w-full transition-[max-width] duration-300",
+              isWideStep ? "max-w-3xl my-2" : "max-w-md max-h-[calc(100vh-5rem)]"
+            )}
           >
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
+            <div className={cn(
+              "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl",
+              isWideStep
+                ? "p-6 md:p-8"
+                : "flex flex-col max-h-[calc(100vh-5rem)] min-h-0 overflow-hidden p-8"
+            )}>
 
               {/* Step header */}
               {step !== "choose" && step !== "discord" && (
-                <div className="mb-7">
+                <div className="mb-7 shrink-0">
                   <p className="text-white/40 text-[10px] uppercase tracking-[0.3em] mb-2">
                     Step {meta.index} of {meta.total - 1} — {meta.label}
                   </p>
@@ -135,6 +151,7 @@ export default function Onboarding({ onComplete }) {
                 </div>
               )}
 
+              <div className={cn(!isWideStep && "flex-1 min-h-0 overflow-y-auto overscroll-contain -mx-1 px-1")}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
@@ -256,12 +273,14 @@ export default function Onboarding({ onComplete }) {
 
                 </motion.div>
               </AnimatePresence>
+              </div>
 
               {/* Back to choose */}
               {step !== "choose" && step !== "club" && step !== "owner_club" && step !== "discord" && (
                 <button
+                  type="button"
                   onClick={() => setStep("choose")}
-                  className="mt-5 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1"
+                  className="mt-5 shrink-0 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1"
                 >
                   ← Back
                 </button>
@@ -272,6 +291,6 @@ export default function Onboarding({ onComplete }) {
       </div>
 
       <TutorialPopup open={tutorialOpen} onClose={handleTutorialClose} />
-    </div>
+    </motion.div>
   );
 }

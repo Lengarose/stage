@@ -49,4 +49,28 @@ const EXECUTESQL = (p_sql, p_values) =>
     });
   });
 
-module.exports = { EXECUTESQL, pool };
+/**
+ * Run queries on one connection with COMMIT / ROLLBACK.
+ * Callback receives exec(sql, params) returning mysql2 execute result rows.
+ */
+async function withTransaction(fn) {
+  const promisePool = pool.promise();
+  const conn = await promisePool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const exec = async (sql, vals = []) => {
+      const params = coerceParams(vals);
+      const [rows] = await conn.execute(sql, params);
+      return rows;
+    };
+    await fn(exec);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+module.exports = { EXECUTESQL, pool, withTransaction };

@@ -25,9 +25,13 @@ function convertDateFnsPattern(pattern = "") {
   return converted;
 }
 
+const PARSE_FORMATS = [moment.ISO_8601, "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"];
+
 export function parseISO(value) {
-  const m = moment(value, moment.ISO_8601, true);
-  return m.isValid() ? m.toDate() : new Date("invalid");
+  const m = moment(value, PARSE_FORMATS, true);
+  if (m.isValid()) return m.toDate();
+  const loose = moment(value);
+  return loose.isValid() ? loose.toDate() : new Date("invalid");
 }
 
 export function isValid(value) {
@@ -121,20 +125,25 @@ export function isToday(value) {
 }
 
 // ── Saving helpers ──────────────────────────────────────────────────────────
-// Single source of truth for serialising a Date / string / moment / number into
-// the format MySQL DATETIME accepts. Backend EXECUTESQL also coerces ISO 8601,
-// so this is a defence-in-depth — every value sent over the wire is already in
-// `YYYY-MM-DD HH:mm:ss` UTC. Keeping behaviour identical to the legacy
-// `toISOString().slice(0,19).replace("T"," ")` so existing rows stay aligned.
+// MySQL DATETIME is timezone-naive: store the wall-clock time the user picked
+// (local), not UTC — otherwise displayed times shift by the browser offset.
 export function toMysqlDateTime(value) {
   if (value === null || value === undefined || value === "") return null;
-  // Pass through values that are already in MySQL format so we don't double-convert.
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
-    return value;
+  const trimmed = typeof value === "string" ? value.trim() : value;
+  if (typeof trimmed === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed;
   }
-  const m = toMoment(value);
+  const m = toMoment(trimmed);
   if (!m.isValid()) return null;
-  return m.utc().format("YYYY-MM-DD HH:mm:ss");
+  return m.format("YYYY-MM-DD HH:mm:ss");
+}
+
+/** Value for `<input type="datetime-local" />` from a stored schedule datetime. */
+export function toDatetimeLocalValue(value) {
+  if (!value) return "";
+  const m = moment(value, PARSE_FORMATS, true);
+  if (!m.isValid()) return "";
+  return m.format("YYYY-MM-DDTHH:mm");
 }
 
 // Combine a `<input type="date">` value (YYYY-MM-DD) with a

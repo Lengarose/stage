@@ -241,6 +241,7 @@ const ENTITY_NAMES = [
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
   // Post-login home page editor (separate from LandingPageContent)
   'HomePageContent',
+  'FaqItem',
   // Global transfer windows (admin manages open/close periods).
   // Business actions (open/close/execute_pending) still go through the
   // `transferWindowActions` server function for transactional behaviour.

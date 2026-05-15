@@ -2,16 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import HeroImg from "@/assets/WIS.PNG";
-import StageDeskImg from "@/assets/Stage Desk.png";
+import CoachLuisImg from "@/assets/Coach Luis.PNG";
 import BFCHomeImg from "@/assets/BFC Home.PNG";
 import HIWImg from "@/assets/HIW.PNG";
 import {
   Trophy, Zap, ShoppingBag, Shield, Users, Gamepad2, Award,
   ArrowRight, Mail, ChevronDown, ChevronUp, Calendar, Inbox,
-  Newspaper, Clock, CheckCircle2, Circle,
+  Newspaper, CheckCircle2, Circle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import IntroVideoImage from "@/components/shared/IntroVideoImage";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { shouldShowDiscordPrompt } from "@/lib/discordJoin";
 import { COMPETITIONS } from "@/lib/competitionUtils";
@@ -33,7 +34,7 @@ const DEFAULTS = {
   section1_image_url: HIWImg,
   section2_title:    "How It Works",
   section2_text:     "Register your club, sign players to contracts, and enter league seasons or knockout tournaments. Every match is tracked, every goal counts, and every season crowns a champion.",
-  section2_image_url: StageDeskImg,
+  section2_image_url: CoachLuisImg,
   section3_title:    "Built for Competitors",
   section3_text:     "From transfer markets and player contracts to STC rewards and custom trophies — STAGE gives serious players the structure and recognition their game deserves.",
   section3_image_url: BFCHomeImg,
@@ -94,9 +95,23 @@ function FaqItem({ question, answer }) {
 }
 
 /* ── Alternating image / text section ───────────────────── */
-function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center" }) {
+function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center", introVideo }) {
   const img = imageUrl ? (
-    <img src={imageUrl} alt={title} className="w-full h-56 sm:h-72 object-cover rounded-2xl border border-border" style={{ objectPosition }} />
+    introVideo ? (
+      <IntroVideoImage
+        src={imageUrl}
+        alt={title}
+        objectPosition={objectPosition}
+        imgClassName="h-56 sm:h-72"
+      />
+    ) : (
+      <img
+        src={imageUrl}
+        alt={title}
+        className="w-full h-56 sm:h-72 object-cover rounded-2xl border border-border"
+        style={{ objectPosition }}
+      />
+    )
   ) : (
     <div className="w-full h-56 sm:h-72 rounded-2xl bg-secondary/40 border border-border flex items-center justify-center">
       <Icon className="w-12 h-12 text-muted-foreground/20" />
@@ -487,6 +502,7 @@ function InboxPanel({ messages, user }) {
    ══════════════════════════════════════════════════════════ */
 export default function Home() {
   const [cms,        setCms]        = useState(null);
+  const [faqItems,   setFaqItems]   = useState([]);
   const [seasons,    setSeasons]    = useState([]);
   const [newsItems,  setNewsItems]  = useState([]);
   const [matches,    setMatches]    = useState([]);
@@ -506,6 +522,9 @@ export default function Home() {
 
     safe(stageClient.entities.HomePageContent.filter({}, null, 1))
       .then(rows => setCms(rows?.[0] || null));
+
+    safe(stageClient.entities.FaqItem.filter({ is_active: 1 }, "sort_order", 50))
+      .then(rows => setFaqItems(rows || []));
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
       .then(rows => setSeasons(rows || []));
@@ -636,7 +655,7 @@ export default function Home() {
           FEATURE SECTION 2 — How It Works
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} />
+        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition="center top" introVideo />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -648,7 +667,7 @@ export default function Home() {
           FEATURE SECTION 3 — Built for Competitors
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition="center top" />
+        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition="center top" introVideo />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -693,7 +712,9 @@ export default function Home() {
         <h2 className="font-heading font-black uppercase text-foreground text-center mb-2" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>FAQ</h2>
         <p className="text-muted-foreground text-sm text-center mb-8">Common questions about the platform.</p>
         <div className="space-y-2">
-          {(Array.isArray(c.faq_items) && c.faq_items.length ? c.faq_items : DEFAULTS.faq_items).map((item, i) => <FaqItem key={i} question={item.question} answer={item.answer} />)}
+          {(faqItems.length ? faqItems : DEFAULTS.faq_items).map((item) => (
+            <FaqItem key={item.id || item.question} question={item.question} answer={item.answer} />
+          ))}
         </div>
       </section>
 

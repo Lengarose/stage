@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 export default function ClubsRegistered() {
   const { id } = useParams();
@@ -58,7 +59,7 @@ export default function ClubsRegistered() {
     await stageClient.entities.Tournament.update(id, { registered_clubs: [...selected] });
     setTournament(prev => ({ ...prev, registered_clubs: [...selected] }));
     setSaving(false);
-    alert("Participants saved!");
+    await swalAlert("Participants saved!");
   }
 
   const regions = [...new Set(allClubs.map(c => c.region).filter(Boolean))];

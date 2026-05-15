@@ -6,6 +6,7 @@ import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { swalAlert } from "@/lib/swal";
 
 const TYPE_LABELS = { credits: "Credits", subscription: "Subscriptions" };
 const SUB_PRICES = {
@@ -105,7 +106,7 @@ export default function Store() {
 
   async function handleCreditPurchase(pack) {
     if (!player) { showNotif("Create a player profile first!", "error"); return; }
-    if (window.self !== window.top) { alert("Checkout is only available from the published app, not the preview."); return; }
+    if (window.self !== window.top) { await swalAlert("Checkout is only available from the published app, not the preview."); return; }
     setPurchasing(pack.id);
     try {
       const res = await stageClient.functions.invoke('stripeCheckout', {
@@ -123,7 +124,7 @@ export default function Store() {
   }
 
   async function handleSubscription(tier) {
-    if (window.self !== window.top) { alert('Checkout is only available from the published app.'); return; }
+    if (window.self !== window.top) { await swalAlert('Checkout is only available from the published app.'); return; }
     if (player?.subscription !== 'rookie' && player?.subscription_expires_at) {
       const expires = new Date(player.subscription_expires_at);
       if (expires > new Date()) {

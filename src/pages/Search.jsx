@@ -6,6 +6,7 @@ import { Search as SearchIcon, User, Shield, Swords, UserPlus, Trophy, Users, Ex
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { swalAlert } from "@/lib/swal";
 
 export default function Search() {
   const [query, setQuery] = useState("");
@@ -47,7 +48,10 @@ export default function Search() {
   }
 
   async function sendChallenge(opponentClubId, opponentClubName) {
-    if (!myPlayer?.club_id) return alert("You need to be in a club to challenge.");
+    if (!myPlayer?.club_id) {
+      await swalAlert("You need to be in a club to challenge.");
+      return;
+    }
     const myClub = await stageClient.entities.Club.filter({ id: myPlayer.club_id });
     const liveMatch = await stageClient.entities.LiveMatch.create({
       home_club_id: myPlayer.club_id,
@@ -76,11 +80,14 @@ export default function Search() {
         read: false,
       });
     }
-    alert(`Challenge sent to ${opponentClubName}! A live match room has been created.`);
+    await swalAlert(`Challenge sent to ${opponentClubName}! A live match room has been created.`);
   }
 
   async function challengePlayer(player) {
-    if (!myPlayer) return alert("You need a player profile to challenge.");
+    if (!myPlayer) {
+      await swalAlert("You need a player profile to challenge.");
+      return;
+    }
     if (player.email === myPlayer.email) return;
     const liveMatch = await stageClient.entities.LiveMatch.create({
       home_player_id: myPlayer.id,
@@ -103,7 +110,7 @@ export default function Search() {
       link: `/live/${liveMatch.id}`,
       read: false,
     });
-    alert(`Challenge sent to ${player.gamertag}! They'll see it in Live Matches.`);
+    await swalAlert(`Challenge sent to ${player.gamertag}! They'll see it in Live Matches.`);
   }
 
   async function inviteToClub(playerEmail, playerGamertag) {
@@ -117,7 +124,7 @@ export default function Search() {
       related_id: myPlayer.club_id,
       read: false,
     });
-    alert(`Invite sent to ${playerGamertag}!`);
+    await swalAlert(`Invite sent to ${playerGamertag}!`);
   }
 
   return (

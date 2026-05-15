@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Share2 } from "lucide-react";
+import { swalAlert } from "@/lib/swal";
 
 const LINE = "rgba(0, 220, 255, 0.7)";
 const LINE_BRIGHT = "rgba(0, 220, 255, 0.95)";
@@ -220,7 +221,7 @@ export default function FormationPitch({ club, players, canEdit, onUpdate, curre
       club_name: club.name,
       tags: ["lineup", "formation"],
     });
-    alert("Lineup posted to the club feed!");
+    await swalAlert("Lineup posted to the club feed!");
   }
 
   // Find popup position for selected slot
