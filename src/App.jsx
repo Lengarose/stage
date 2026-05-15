@@ -8,7 +8,7 @@ import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
 import { stageClient } from '@/api/stageClient';
-import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin } from '@/lib/adminAuth';
+import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import BannerImg from '@/assets/Name logo.png';
 
 import PageNotFound from './lib/PageNotFound';
@@ -70,6 +70,7 @@ import Competitions from './pages/Competitions';
 import CompetitionDetail from './pages/CompetitionDetail';
 import LeagueDetail from './pages/LeagueDetail';
 import SeasonRegistrations from './pages/SeasonRegistrations';
+import Community from './pages/Community';
 
 // Handles redirect from OAuth backend: /auth/callback?accessToken=&refreshToken=&playerId=
 const OAuthCallback = () => {
@@ -168,12 +169,7 @@ const AuthenticatedApp = () => {
     Boolean(takeoverClubId) &&
     (location.pathname === `/clubs/${takeoverClubId}` ||
       location.pathname.startsWith(`/clubs/${takeoverClubId}/`));
-  const isAdminAllowedGlobalRoute =
-    location.pathname === '/clubs' ||
-    location.pathname.startsWith('/clubs/') ||
-    location.pathname === '/search' ||
-    location.pathname === '/notifications' ||
-    location.pathname === '/settings';
+  const isAdminAllowedGlobalRoute = isAdminGlobalRoute(location.pathname);
   if (
     isAdmin &&
     !location.pathname.startsWith('/admin') &&
@@ -200,6 +196,7 @@ const AuthenticatedApp = () => {
         <Route path="/tournaments/:id" element={<TournamentDetail />} />
         <Route path="/rankings" element={<Rankings />} />
         <Route path="/social" element={<Social />} />
+        <Route path="/community" element={<Community />} />
         <Route path="/search" element={<Search />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/store" element={<Store />} />

@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { stageClient } from '@/api/stageClient';
 import { useAuth } from '@/lib/AuthContext';
 import { ensureAdminPanelMode, isAppAdminUser } from '@/lib/adminAuth';
+import { isDiscordConfigured } from '@/lib/discordConfig';
+import { openDiscordInvite } from '@/lib/discordJoin';
+import { DISCORD_INVITE_URL } from '@/lib/discordConfig';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Stadium Logo.png';
 
@@ -242,6 +245,20 @@ export default function Login() {
             >
               {isSignup ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
             </button>
+
+            {isSignup && isDiscordConfigured() && DISCORD_INVITE_URL && (
+              <div className="mt-4 pt-4 border-t border-white/15 text-center space-y-2">
+                <p className="text-white/45 text-[10px] uppercase tracking-widest">After you sign up</p>
+                <button
+                  type="button"
+                  onClick={() => openDiscordInvite(DISCORD_INVITE_URL)}
+                  className="w-full py-2.5 rounded-xl bg-[#5865F2]/90 hover:bg-[#5865F2] text-white text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  Join our Discord community
+                </button>
+                <p className="text-white/35 text-[10px]">You can also join anytime from Community in the app</p>
+              </div>
+            )}
           </form>
         </div>
       </motion.div>
