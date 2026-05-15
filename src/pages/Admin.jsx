@@ -380,6 +380,34 @@ export default function Admin(props) {
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" } : p));
   }
 
+  async function deleteUserCompletely(emailOrPlayer) {
+    const email = typeof emailOrPlayer === "string" ? emailOrPlayer : emailOrPlayer?.email;
+    const playerId = typeof emailOrPlayer === "object" ? emailOrPlayer?.id : null;
+    const label = email || playerId;
+    if (!label) return;
+    const typed = prompt(`This permanently deletes the user reset data for ${label}. Type the email to confirm.`);
+    if (!typed || (email && typed.trim().toLowerCase() !== email.trim().toLowerCase())) return;
+    const reason = prompt("Reason for audit log?", `Admin reset/delete requested for ${label}`) || "";
+    try {
+      const result = await stageClient.functions.invoke("adminDeleteUserCompletely", {
+        email,
+        player_id: playerId,
+        confirm_email: typed.trim(),
+        reason,
+      });
+      const deleted = result?.data?.deleted || {};
+      const deletedTotal = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
+      setPlayers(prev => prev.filter(p => p.id !== playerId && (!email || String(p.email || "").toLowerCase() !== email.toLowerCase())));
+      setIdentityClaims(prev => prev.filter(c => (!email || String(c.email || "").toLowerCase() !== email.toLowerCase()) && (!playerId || c.player_id !== playerId)));
+      alert(`Delete user reset completed for ${label}. Deleted/updated ${deletedTotal} records.`);
+      await loadAll();
+    } catch (err) {
+      const message = err?.message || err?.data?.error || "Delete user reset failed";
+      alert(`Delete user reset failed: ${message}`);
+      throw err;
+    }
+  }
+
   async function deleteClub(clubId) {
     if (!(await swalConfirm("Are you sure you want to delete this club? This cannot be undone."))) return;
     await stageClient.entities.Club.delete(clubId);
@@ -1241,7 +1269,6 @@ export default function Admin(props) {
               openPlayerWallet={openPlayerWallet}
               kickFromClub={kickFromClub}
               reviewIdentityClaim={reviewIdentityClaim}
-              onPlayerAccountDeleted={(playerId) => setPlayers((prev) => prev.filter((p) => p.id !== playerId))}
             />
           )}
 

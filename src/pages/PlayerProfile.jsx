@@ -23,6 +23,42 @@ import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 
+function normalizeClubRoles(roles) {
+  if (Array.isArray(roles)) return roles;
+  if (typeof roles === "string") {
+    try {
+      const parsed = JSON.parse(roles);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return roles.split(",").map((role) => role.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function getVisibleClubRole(player, club, contracts = []) {
+  const roles = normalizeClubRoles(player?.club_roles);
+  const hasOwnershipContract = contracts.some((contract) => (
+    contract?.contract_type === "ownership" &&
+    ["active", "pending", "pending_window", "negotiating"].includes(contract?.status)
+  ));
+  const isClubCreator = Boolean(
+    player && (
+      roles.includes("president") ||
+      roles.includes("owner") ||
+      player.role === "president" ||
+      player.role === "owner" ||
+      hasOwnershipContract ||
+      (club && player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
+      (club && player.user_id && club.user_id && player.user_id === club.user_id)
+    )
+  );
+  if (isClubCreator) return "president";
+  if (roles.includes("captain") || player?.role === "captain") return "captain";
+  if (roles.includes("vice-captain") || player?.role === "vice-captain") return "vice-captain";
+  return player?.role && !["manager", "member", "owner"].includes(player.role) ? player.role : "";
+}
+
 export default function PlayerProfile() {
   const { id } = useParams();
   const [player, setPlayer] = useState(null);
@@ -51,6 +87,7 @@ export default function PlayerProfile() {
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
+  const visibleClubRole = getVisibleClubRole(player, club, playerContracts);
 
   useEffect(() => {
     async function load() {
@@ -82,7 +119,7 @@ export default function PlayerProfile() {
         setPlayer(p);
         if (p.club_id) {
           const [clubs, tmHome, tmAway] = await Promise.all([
-            stageClient.entities.Club.filter({ id: p.club_id }),
+            stageClient.entities.Club.get(p.club_id).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: p.club_id })),
             stageClient.entities.Match.filter({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
             stageClient.entities.Match.filter({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
           ]);
@@ -338,11 +375,13 @@ export default function PlayerProfile() {
               </span>
             )}
           </div>
-          {player.role && (
+          {visibleClubRole && (
             <span className={cn("inline-block text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest",
-              player.role === "captain" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-white/10 text-white/60 border border-white/10"
+              visibleClubRole === "president" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
+              visibleClubRole === "captain" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+              "bg-white/10 text-white/60 border border-white/10"
             )}>
-              {player.role}
+              {visibleClubRole}
             </span>
           )}
           <div className="flex items-center gap-3 text-xs text-white/50 flex-wrap font-medium uppercase tracking-wider">

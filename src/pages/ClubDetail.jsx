@@ -105,11 +105,40 @@ export default function ClubDetail() {
       const user = await stageClient.auth.me();
       setCurrentUser(user);
 
-      const [clubRecord, playerData, myPl] = await Promise.all([
+      const [clubRecord, initialPlayerData, myPl] = await Promise.all([
         stageClient.entities.Club.get(id),
         stageClient.entities.Player.filter({ club_id: id }),
         stageClient.entities.Player.filter({ email: user.email }),
       ]);
+      let playerData = initialPlayerData || [];
+      const playerIds = new Set(playerData.map((p) => p.id).filter(Boolean));
+
+      const ownershipContracts = await stageClient.entities.PlayerContract
+        .filter({ team_id: id, contract_type: "ownership" }, "-created_date", 20)
+        .catch(() => []);
+      const liveOwnershipContracts = (ownershipContracts || []).filter((contract) =>
+        ["pending", "pending_window", "negotiating", "active"].includes(contract.status)
+      );
+      if (liveOwnershipContracts.length > 0) {
+        const ownershipPlayers = await Promise.all(
+          liveOwnershipContracts
+            .filter((contract) => contract.user_id && !playerIds.has(contract.user_id))
+            .map((contract) => stageClient.entities.Player.get(contract.user_id).catch(() => null))
+        );
+        const normalizedOwners = ownershipPlayers
+          .filter(Boolean)
+          .map((ownerPlayer) => ({
+            ...ownerPlayer,
+            club_id: ownerPlayer.club_id || id,
+            club_roles: Array.isArray(ownerPlayer.club_roles) && ownerPlayer.club_roles.includes("president")
+              ? ownerPlayer.club_roles
+              : ["president"],
+            role: ownerPlayer.role === "captain" || ownerPlayer.role === "owner" || !ownerPlayer.role
+              ? "president"
+              : ownerPlayer.role,
+          }));
+        playerData = [...playerData, ...normalizedOwners];
+      }
 
       const [matchesHome, matchesAway, followData, allFollowersData] = await Promise.all([
         stageClient.entities.Match.filter({ home_club_id: id, status: "completed" }, "round", 30),
@@ -1272,9 +1301,9 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
   const playerRoles = Array.isArray(player.club_roles) ? player.club_roles : [];
-  const isOwnerRole = player.role === "owner" || playerRoles.includes("owner");
-  const isCaptainRole = !isOwnerRole && (player.role === "captain" || playerRoles.includes("captain"));
-  const roleLabel = isOwnerRole ? "Owner" : isCaptainRole ? "Captain" : player.role === "manager" ? "Member" : (player.role || "Member");
+  const isPresidentRole = player.role === "president" || player.role === "owner" || playerRoles.includes("president") || playerRoles.includes("owner");
+  const isCaptainRole = !isPresidentRole && (player.role === "captain" || playerRoles.includes("captain"));
+  const roleLabel = isPresidentRole ? "President" : isCaptainRole ? "Captain" : player.role === "manager" ? "Member" : (player.role || "Member");
 
   async function _toggleFollow(e) {
     e.preventDefault();
@@ -1309,14 +1338,14 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]",
-                isOwnerRole
+                isPresidentRole
                   ? "border border-blue-300/40 bg-blue-400/10 text-blue-200"
                   : isCaptainRole
                     ? "border border-amber-300/40 bg-amber-400/10 text-amber-200"
                     : "text-white/40"
               )}
             >
-              {isOwnerRole && <Shield className="h-3 w-3" />}
+              {isPresidentRole && <Shield className="h-3 w-3" />}
               {roleLabel}
             </span>
           </div>

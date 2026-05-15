@@ -427,11 +427,35 @@ async function runStartupMigrations() {
   await EXECUTESQL(`
     UPDATE players p
     JOIN clubs c ON p.club_id = c.id
-    SET p.role = 'owner',
-        p.club_roles = JSON_ARRAY('owner', 'president')
+    SET p.role = 'president',
+        p.club_roles = JSON_ARRAY('president')
     WHERE (LOWER(p.email) = LOWER(c.owner_email) OR (p.user_id IS NOT NULL AND p.user_id = c.user_id))
-      AND (p.role = 'captain' OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain')))
-  `).catch(err => console.error('[migration] owner_not_captain_cleanup:', err.message));
+      AND (
+        p.role IN ('captain', 'owner')
+        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain'))
+        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('owner'))
+      )
+  `).catch(err => console.error('[migration] creator_role_cleanup:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN player_contracts pc ON pc.user_id = p.id
+    JOIN clubs c ON c.id = pc.team_id
+    SET p.club_id = c.id,
+        p.role = 'president',
+        p.club_roles = JSON_ARRAY('president'),
+        p.status = 'active'
+    WHERE pc.contract_type = 'ownership'
+      AND pc.status IN ('pending', 'pending_window', 'negotiating', 'active')
+      AND (
+        p.club_id IS NULL
+        OR p.club_id = ''
+        OR p.club_id <> c.id
+        OR p.role IN ('captain', 'owner')
+        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain'))
+        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('owner'))
+      )
+  `).catch(err => console.error('[migration] ownership_contract_squad_link:', err.message));
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');
