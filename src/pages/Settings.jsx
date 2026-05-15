@@ -7,6 +7,7 @@ import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut } fro
 import { useTranslation } from "@/hooks/useTranslation";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
+import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import {
   NOTIFICATION_SOUNDS,
   NOTIFICATION_SOUND_STORAGE_KEY,
@@ -795,6 +796,15 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Community / Discord */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg leading-relaxed font-bold text-foreground">Community</h3>
+            <p className="text-sm text-muted-foreground">Join the official Discord — new members and veterans welcome</p>
+          </div>
+          <DiscordJoinCard variant="compact" />
         </div>
 
         {/* Notification Settings */}

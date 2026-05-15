@@ -1364,7 +1364,11 @@ export default function Admin(props) {
           )}
 
           {adminTab === "press-conferences" && (
-            <PressConferencesTab pressConferences={pressConferences} />
+            <PressConferencesTab
+              pressConferences={pressConferences}
+              seedPressQuestions={seedPressQuestions}
+              saving={saving}
+            />
           )}
 
           {adminTab === "lifestyles" && (

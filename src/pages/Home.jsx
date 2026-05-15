@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import DiscordJoinCard from "@/components/community/DiscordJoinCard";
+import { shouldShowDiscordPrompt } from "@/lib/discordJoin";
 import { COMPETITIONS } from "@/lib/competitionUtils";
 
 /* ── Defaults ──────────────────────────────────────────────── */
@@ -490,6 +492,7 @@ export default function Home() {
   const [matches,    setMatches]    = useState([]);
   const [messages,   setMessages]   = useState([]);
   const [user,       setUser]       = useState(null);
+  const [showDiscordBanner, setShowDiscordBanner] = useState(() => shouldShowDiscordPrompt());
   const pageRef = useRef(null);
   const [isLiveDarkTheme, setIsLiveDarkTheme] = useState(() =>
     typeof document !== "undefined" && document.documentElement.classList.contains("theme-video")
@@ -607,6 +610,15 @@ export default function Home() {
         isLiveDarkTheme={isLiveDarkTheme}
         isLiveWhiteTheme={isLiveWhiteTheme}
       />
+
+      {showDiscordBanner && user && (
+        <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-6xl mx-auto">
+          <DiscordJoinCard
+            variant="banner"
+            onSkip={() => setShowDiscordBanner(false)}
+          />
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════
           FEATURE SECTION 1 — What is STAGE?

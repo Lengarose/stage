@@ -4,13 +4,13 @@ import {
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
-  AlertTriangle, Flag,
+  AlertTriangle, Flag, MessagesSquare,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { stageClient } from "@/api/stageClient";
-import { isAppAdminUser } from "@/lib/adminAuth";
+import { isAppAdminUser, shouldShowAdminHeader } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
@@ -93,6 +93,7 @@ function getPlayerGroups(_clubPath) {
         { path: "/players-list", icon: UsersRound, label: "Players" },
         { path: "/recruitment",  icon: Handshake,  label: "Recruitment" },
         { path: "/social",       icon: Rss,        label: "Feed" },
+        { path: "/community",    icon: MessagesSquare, label: "Discord" },
         { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
       ],
     },
@@ -145,6 +146,7 @@ function getOwnerGroups(clubPath) {
       label: "Discover",
       items: [
         { path: "/news",  icon: Newspaper,   label: "News" },
+        { path: "/community", icon: MessagesSquare, label: "Discord" },
         { path: "/store", icon: ShoppingBag, label: "Store" },
       ],
     },
@@ -179,6 +181,12 @@ function getAdminGroups() {
         { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
         { path: "/admin/home", icon: Palette, label: "Home Page" },
         { path: "/admin/landing", icon: Palette, label: "Landing Page" },
+      ],
+    },
+    {
+      label: "Community",
+      items: [
+        { path: "/community", icon: MessagesSquare, label: "Discord" },
       ],
     },
   ];
@@ -455,8 +463,8 @@ const MOBILE_PRIMARY = [
   { path: "/",             icon: Home,   label: "Home"    },
   { path: "/competitions", icon: Trophy, label: "Compete" },
   { path: "/search",       icon: Search, label: "Search"  },
-  { path: "/social",       icon: Rss,    label: "Social"  },
-  { path: "/profile",      icon: User,   label: "Profile" },
+      { path: "/social",       icon: Rss,    label: "Social"  },
+      { path: "/profile",      icon: User,   label: "Profile" },
 ];
 
 const MOBILE_MORE_GROUPS = [
@@ -472,6 +480,7 @@ const MOBILE_MORE_GROUPS = [
   {
     label: "Community",
     items: [
+      { path: "/community",       icon: MessagesSquare, label: "Discord"       },
       { path: "/clubs",           icon: Shield,        label: "Clubs"         },
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
       { path: "/follow-back",     icon: Heart,         label: "Follow Back"   },
@@ -882,6 +891,7 @@ export default function Layout() {
   const location  = useLocation();
   const navigate  = useNavigate();
   const [isAdmin,          setIsAdmin]          = useState(false);
+  const [authUser,         setAuthUser]         = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
   const [myClubId,         setMyClubId]         = useState(null);
   const [myClub,           setMyClub]           = useState(null);
@@ -910,6 +920,7 @@ export default function Layout() {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
       const u = await stageClient.auth.me();
+      setAuthUser(u);
       if (isAppAdminUser(u)) setIsAdmin(true);
     })();
   }, []);
@@ -992,16 +1003,16 @@ export default function Layout() {
 
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const showAdminHeader = shouldShowAdminHeader(location.pathname, authUser, isAdmin);
   const adminTakeoverClubId =
     typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverChip =
-    isAdmin && adminTakeoverClubId && !isAdminRoute;
+    isAdmin && adminTakeoverClubId && !showAdminHeader;
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
   const playerGroups = getPlayerGroups(clubPath);
   const ownerGroups = getOwnerGroups(clubPath);
   const adminGroups = getAdminGroups();
-  const headerNavGroups = isAdminRoute
+  const headerNavGroups = showAdminHeader
     ? adminGroups
     : (accountMode === "club" ? ownerGroups : playerGroups);
   const activeHeaderNav = findActiveInGroups(headerNavGroups, location.pathname);
@@ -1064,7 +1075,7 @@ export default function Layout() {
       )}
 
       {/* ── MOBILE TOP BAR (phone only) ───────────────────────── */}
-      {isAdminRoute ? (
+      {showAdminHeader ? (
         <AdminMobileTopBar pathname={location.pathname} theme={theme} setTheme={setTheme} />
       ) : (
         <MobileTopBar
@@ -1103,7 +1114,7 @@ export default function Layout() {
 
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-            {!isAdminRoute && (myPlayer || myClubId) && (
+            {!showAdminHeader && (myPlayer || myClubId) && (
               <div className="flex shrink-0 items-center px-3 sm:px-4">
                 <HeaderIdentityMenu
                   myPlayer={myPlayer}
@@ -1117,7 +1128,7 @@ export default function Layout() {
               </div>
             )}
 
-            {!isAdminRoute && !(myPlayer && myClubId) && (myClubId || myPlayer) && (
+            {!showAdminHeader && !(myPlayer && myClubId) && (myClubId || myPlayer) && (
               <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
                 {myClubId && !myPlayer && (
                   <>
@@ -1134,7 +1145,7 @@ export default function Layout() {
               </div>
             )}
 
-            {isAdminRoute ? (
+            {showAdminHeader ? (
               <>
                 <div className="hidden sm:flex shrink-0 items-center px-3">
                   <span style={{ ...headingFont, fontWeight: 900, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#f87171" }}>
@@ -1166,11 +1177,11 @@ export default function Layout() {
 
           <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3">
             <Link
-              to={isAdminRoute ? "/admin" : "/search"}
+              to={showAdminHeader ? "/admin" : "/search"}
               className="rounded p-2 transition-all"
-              style={{ color: (isAdminRoute ? location.pathname === "/admin" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (isAdminRoute ? location.pathname === "/admin" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
+              style={{ color: (showAdminHeader ? location.pathname === "/admin" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (showAdminHeader ? location.pathname === "/admin" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
             >
-              {isAdminRoute ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
+              {showAdminHeader ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
             </Link>
             <NotificationBell />
             {showAdminTakeoverChip && (
@@ -1258,7 +1269,7 @@ export default function Layout() {
       </div>
 
       {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
-      {!isAdminRoute && (
+      {!showAdminHeader && (
         <MobileBottomBar
           pathname={location.pathname}
           myPlayer={myPlayer}

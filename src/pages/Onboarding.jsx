@@ -5,6 +5,8 @@ import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
+import DiscordJoinCard from "@/components/community/DiscordJoinCard";
+import { isDiscordConfigured } from "@/lib/discordConfig";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
@@ -80,7 +82,11 @@ export default function Onboarding({ onComplete }) {
     }
   };
 
-  const finishOnboarding = () => setTutorialOpen(true);
+  const finishOnboarding = () => {
+    if (isDiscordConfigured()) setStep("discord");
+    else setTutorialOpen(true);
+  };
+  const finishDiscordStep = () => setTutorialOpen(true);
   const handleTutorialClose = () => { setTutorialOpen(false); onComplete?.(); };
 
   const meta = STEPS[step] || STEPS.choose;
@@ -113,7 +119,7 @@ export default function Onboarding({ onComplete }) {
             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
 
               {/* Step header */}
-              {step !== "choose" && (
+              {step !== "choose" && step !== "discord" && (
                 <div className="mb-7">
                   <p className="text-white/40 text-[10px] uppercase tracking-[0.3em] mb-2">
                     Step {meta.index} of {meta.total - 1} — {meta.label}
@@ -240,11 +246,19 @@ export default function Onboarding({ onComplete }) {
                     />
                   )}
 
+                  {step === "discord" && (
+                    <DiscordJoinCard
+                      variant="onboarding"
+                      onSkip={finishDiscordStep}
+                      onContinue={finishDiscordStep}
+                    />
+                  )}
+
                 </motion.div>
               </AnimatePresence>
 
               {/* Back to choose */}
-              {step !== "choose" && step !== "club" && step !== "owner_club" && (
+              {step !== "choose" && step !== "club" && step !== "owner_club" && step !== "discord" && (
                 <button
                   onClick={() => setStep("choose")}
                   className="mt-5 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1"
