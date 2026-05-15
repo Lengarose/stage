@@ -36,16 +36,21 @@ function normalizeClubRoles(roles) {
   return [];
 }
 
-function getVisibleClubRole(player, club) {
+function getVisibleClubRole(player, club, contracts = []) {
   const roles = normalizeClubRoles(player?.club_roles);
+  const hasOwnershipContract = contracts.some((contract) => (
+    contract?.contract_type === "ownership" &&
+    ["active", "pending", "pending_window", "negotiating"].includes(contract?.status)
+  ));
   const isClubCreator = Boolean(
-    club && player && (
+    player && (
       roles.includes("president") ||
       roles.includes("owner") ||
       player.role === "president" ||
       player.role === "owner" ||
-      (player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
-      (player.user_id && club.user_id && player.user_id === club.user_id)
+      hasOwnershipContract ||
+      (club && player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
+      (club && player.user_id && club.user_id && player.user_id === club.user_id)
     )
   );
   if (isClubCreator) return "president";
@@ -82,7 +87,7 @@ export default function PlayerProfile() {
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
-  const visibleClubRole = getVisibleClubRole(player, club);
+  const visibleClubRole = getVisibleClubRole(player, club, playerContracts);
 
   useEffect(() => {
     async function load() {
@@ -114,7 +119,7 @@ export default function PlayerProfile() {
         setPlayer(p);
         if (p.club_id) {
           const [clubs, tmHome, tmAway] = await Promise.all([
-            stageClient.entities.Club.filter({ id: p.club_id }),
+            stageClient.entities.Club.get(p.club_id).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: p.club_id })),
             stageClient.entities.Match.filter({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
             stageClient.entities.Match.filter({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
           ]);
