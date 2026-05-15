@@ -1,3 +1,4 @@
+// @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs.
 import { useState } from "react";
 import BackfillStcButton from "@/components/admin/economy/BackfillStcButton";
 import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfigPanel";
@@ -13,7 +14,7 @@ import { stageClient } from "@/api/stageClient";
 import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
 
 export default function PlayersTab({
-  players,
+  players = [],
   identityClaims = [],
   playerSearch,
   setPlayerSearch,
@@ -22,12 +23,23 @@ export default function PlayersTab({
   openPlayerWallet,
   kickFromClub,
   reviewIdentityClaim,
+  deleteUserCompletely,
   onPlayerAccountDeleted,
 }) {
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState("");
+
+  const q = String(playerSearch || "").trim().toLowerCase();
+  const filteredPlayers = !q
+    ? players
+    : players.filter((p) =>
+        String(p.gamertag || "").toLowerCase().includes(q)
+        || String(p.email || "").toLowerCase().includes(q)
+        || String(p.platform || "").toLowerCase().includes(q)
+      );
 
   async function handleConfirmDeleteAccount() {
     if (!deleteTarget || deleteConfirm !== "DELETE" || deleting) return;
@@ -148,7 +160,7 @@ export default function PlayersTab({
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
               <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
-              <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(0); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
+              <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(""); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
               <Button size="sm" variant="outline" onClick={() => deleteUserCompletely?.(p)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> Delete User</Button>
 
               <Button
