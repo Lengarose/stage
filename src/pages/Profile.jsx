@@ -30,6 +30,42 @@ function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
 }
 
+function normalizeClubRoles(roles) {
+  if (Array.isArray(roles)) return roles;
+  if (typeof roles === "string") {
+    try {
+      const parsed = JSON.parse(roles);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return roles.split(",").map((role) => role.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function getProfileRoleBadges(player, club, user) {
+  const rawRoles = normalizeClubRoles(player?.club_roles).filter((role) => role && role !== "manager" && role !== "member");
+  const isClubCreator = Boolean(
+    club && player && (
+      rawRoles.includes("owner") ||
+      rawRoles.includes("president") ||
+      player.role === "owner" ||
+      player.role === "president" ||
+      (player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
+      (player.user_id && club.user_id && player.user_id === club.user_id) ||
+      (user?.id && club.user_id && user.id === club.user_id)
+    )
+  );
+  const roles = isClubCreator
+    ? ["president", ...rawRoles.filter((role) => role !== "owner" && role !== "president" && role !== "captain")]
+    : rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
+  const visibleRoles = roles.includes("president")
+    ? roles.filter((role) => role !== "captain" && role !== "owner")
+    : roles.filter((role) => role !== "owner");
+
+  return Array.from(new Set(visibleRoles.filter((role) => role && role !== "manager" && role !== "member")));
+}
+
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
 export default function Profile() {
   const _navigate = useNavigate();
@@ -287,6 +323,7 @@ export default function Profile() {
   const unreadCount = notifications.filter(n => !n.read).length;
   const latestIdentityClaim = identityClaims[0] || null;
   const pendingIdentityClaim = identityClaims.find(c => c.status === "pending");
+  const profileRoleBadges = getProfileRoleBadges(player, myClub, user);
 
   const OUTCOME_STYLE = {
     W: "bg-success/15 text-success border-success/30",
@@ -378,9 +415,9 @@ export default function Profile() {
                 </span>
               )}
             </div>
-            {(player?.club_roles?.length > 0 || player?.role) && (
+            {profileRoleBadges.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {(player?.club_roles?.length > 0 ? player.club_roles : [player?.role]).filter(r => r !== 'manager').map(r => (
+                {profileRoleBadges.map(r => (
                   <span key={r} className={cn("text-xs px-2 py-0.5 rounded-full font-medium capitalize",
                     r === "president" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
                     r === "captain" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :

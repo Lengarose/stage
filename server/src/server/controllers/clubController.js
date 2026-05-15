@@ -91,9 +91,9 @@ router.post('/', async (req, res) => {
     if (creator?.id) {
       await EXECUTESQL(
         `UPDATE players
-         SET club_id = ?, club_roles = ?, role = 'owner', status = 'active'
+         SET club_id = ?, club_roles = ?, role = 'president', status = 'active'
          WHERE id = ?`,
-        [record.id, JSON.stringify(['owner', 'president']), creator.id]
+        [record.id, JSON.stringify(['president']), creator.id]
       ).catch(() => {});
       const existingOwnerContract = await EXECUTESQL(
         "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','active') LIMIT 1",

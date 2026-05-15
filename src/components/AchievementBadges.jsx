@@ -24,8 +24,7 @@ const BADGES = [
   { id: "clean_sheet", label: "Wall", emoji: "🧱", desc: "50+ clean sheets", check: p => (p.clean_sheets || 0) >= 50 },
   { id: "motm", label: "MOTM Hero", emoji: "🌟", desc: "100+ man of the match", check: p => (p.man_of_the_match || 0) >= 100 },
   { id: "high_rating", label: "Elite", emoji: "💎", desc: "Avg rating 8.5+", check: p => (p.avg_match_rating || 0) >= 8.5 },
-  { id: "owner", label: "Owner", emoji: "🏛️", desc: "Club owner", check: p => hasRole(p, "owner") },
-  { id: "captain", label: "Captain", emoji: "🅒", desc: "Club captain", check: p => !hasRole(p, "owner") && hasRole(p, "captain") },
+  { id: "captain", label: "Captain", emoji: "🅒", desc: "Club captain", check: p => !hasRole(p, "president") && !hasRole(p, "owner") && hasRole(p, "captain") },
 ];
 
 export default function AchievementBadges({ player }) {
