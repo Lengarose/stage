@@ -1,9 +1,17 @@
 const express = require('express');
 const router  = express.Router();
 const Club    = require('../models/clubModel');
+const ClubStaffRole = require('../models/clubStaffRoleModel');
+const ClubFixtureLineup = require('../models/clubFixtureLineupModel');
 const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const {
+  ALL_PERMISSIONS,
+  ROLE_PERMISSIONS,
+  requireClubPermission,
+  writeClubAudit,
+} = require('../services/clubOperationsService');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -123,6 +131,85 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /:id/staff — assign a club operations role
+router.post('/:id/staff', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user } = await requireClubPermission(req, id, 'manage_staff');
+    const role = req.body?.role;
+    if (!ROLE_PERMISSIONS[role]) return res.status(400).json({ error: 'Invalid role' });
+    const playerId = req.body?.player_id;
+    if (!playerId) return res.status(400).json({ error: 'player_id is required' });
+    const players = await EXECUTESQL('SELECT id, user_id FROM players WHERE id = ? AND club_id = ? LIMIT 1', [playerId, id]);
+    if (!players.length) return res.status(404).json({ error: 'Player is not in this club' });
+    const permissions = (req.body?.permissions || ROLE_PERMISSIONS[role] || []).filter((p) => ALL_PERMISSIONS.includes(p));
+    const model = new ClubStaffRole({
+      club_id: id,
+      player_id: playerId,
+      user_id: players[0].user_id || null,
+      role,
+      permissions,
+      assigned_by_user_id: user.id,
+    });
+    await model.create();
+    const created = (await model.selectOne(model.id))[0];
+    await writeClubAudit({ clubId: id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: model.id, newValue: created });
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// POST /:id/staff/:playerId/remove — remove staff roles for a player
+router.post('/:id/staff/:playerId/remove', async (req, res) => {
+  try {
+    const { id, playerId } = req.params;
+    const { user } = await requireClubPermission(req, id, 'manage_staff');
+    const oldRows = await EXECUTESQL('SELECT * FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => []);
+    await EXECUTESQL('DELETE FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => {});
+    await writeClubAudit({ clubId: id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: playerId, oldValue: oldRows, reason: req.body?.reason });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// POST /:id/staff/:playerId/permissions — replace staff permissions for a player
+router.post('/:id/staff/:playerId/permissions', async (req, res) => {
+  try {
+    const { id, playerId } = req.params;
+    const { user } = await requireClubPermission(req, id, 'manage_staff');
+    const permissions = (req.body?.permissions || []).filter((p) => ALL_PERMISSIONS.includes(p));
+    const oldRows = await EXECUTESQL('SELECT * FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => []);
+    await EXECUTESQL(
+      'UPDATE club_staff_roles SET permissions = ?, updated_date = NOW() WHERE club_id = ? AND player_id = ?',
+      [JSON.stringify(permissions), id, playerId]
+    ).catch(() => {});
+    const newRows = await EXECUTESQL('SELECT * FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => []);
+    await writeClubAudit({ clubId: id, user, action: 'staff_permission_changed', entityType: 'club_staff_role', entityId: playerId, oldValue: oldRows, newValue: newRows });
+    res.json({ success: true, permissions });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// POST /:id/lineups/:fixtureId/publish — publish fixture lineup
+router.post('/:id/lineups/:fixtureId/publish', async (req, res) => {
+  try {
+    const { id, fixtureId } = req.params;
+    const { user } = await requireClubPermission(req, id, 'manage_lineup');
+    const rows = await new ClubFixtureLineup().selectAll({ club_id: id, fixture_id: fixtureId, limit: 1 });
+    if (!rows.length) return res.status(404).json({ error: 'Lineup not found' });
+    const existing = rows[0];
+    await new ClubFixtureLineup({ ...existing, status: 'published', created_by_user_id: existing.created_by_user_id || user.id }).update(existing.id);
+    const updated = (await new ClubFixtureLineup().selectOne(existing.id))[0];
+    await writeClubAudit({ clubId: id, user, action: 'lineup_published', entityType: 'club_fixture_lineup', entityId: existing.id, oldValue: existing, newValue: updated });
+    res.json(updated);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

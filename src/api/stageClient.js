@@ -249,6 +249,10 @@ const ENTITY_NAMES = [
   'PlayerIdentityClaim',
   // Lightweight recruitment/LFG board that feeds contract and transfer flows.
   'RecruitmentPost', 'RecruitmentInterest',
+  // Private club operations: applicant pipeline, staff permissions, fixture availability,
+  // fixture lineups, and read-only operations audit history.
+  'ClubApplicant', 'ClubStaffRole', 'ClubFixtureAvailability', 'ClubFixtureLineup',
+  'ClubOperationAuditLog',
   // EAFC-inspired modules — see server/src/server.js for routes and AGENTS.md §7.2.
   // ObjectiveDefinition: catalogue of Daily/Weekly objectives (admin-managed).
   // ObjectiveProgress:   per-player progress; rewards claimed via

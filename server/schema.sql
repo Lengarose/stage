@@ -459,6 +459,86 @@ CREATE TABLE IF NOT EXISTS recruitment_interests (
   updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- ── club_applicants ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_applicants (
+  id                 VARCHAR(36) PRIMARY KEY,
+  club_id            VARCHAR(36) NOT NULL,
+  player_id          VARCHAR(36),
+  user_id            VARCHAR(36),
+  source_type        VARCHAR(40) DEFAULT 'manual',
+  source_id          VARCHAR(36),
+  status             VARCHAR(40) DEFAULT 'new',
+  preferred_position VARCHAR(40),
+  platform           VARCHAR(50),
+  message            TEXT,
+  notes              TEXT,
+  created_date       DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ca_source (source_type, source_id)
+);
+
+-- ── club_staff_roles ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_staff_roles (
+  id                  VARCHAR(36) PRIMARY KEY,
+  club_id             VARCHAR(36) NOT NULL,
+  player_id           VARCHAR(36) NOT NULL,
+  user_id             VARCHAR(36),
+  role                VARCHAR(40) NOT NULL,
+  permissions         JSON,
+  assigned_by_user_id VARCHAR(36),
+  created_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_csr_role (club_id, player_id, role)
+);
+
+-- ── club_fixture_availability ────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_fixture_availability (
+  id           VARCHAR(36) PRIMARY KEY,
+  club_id      VARCHAR(36) NOT NULL,
+  fixture_id   VARCHAR(36) NOT NULL,
+  fixture_type VARCHAR(50),
+  player_id    VARCHAR(36) NOT NULL,
+  user_id      VARCHAR(36),
+  status       VARCHAR(30) DEFAULT 'no_response',
+  note         TEXT,
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cfa_player_fixture (club_id, fixture_id, player_id)
+);
+
+-- ── club_fixture_lineups ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_fixture_lineups (
+  id                 VARCHAR(36) PRIMARY KEY,
+  club_id            VARCHAR(36) NOT NULL,
+  fixture_id         VARCHAR(36) NOT NULL,
+  fixture_type       VARCHAR(50),
+  formation          VARCHAR(50),
+  starting_players   JSON,
+  bench_players      JSON,
+  captain_player_id  VARCHAR(36),
+  notes              TEXT,
+  status             VARCHAR(30) DEFAULT 'draft',
+  created_by_user_id VARCHAR(36),
+  created_date       DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cfl_fixture (club_id, fixture_id)
+);
+
+-- ── club_operation_audit_logs ────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_operation_audit_logs (
+  id            VARCHAR(36) PRIMARY KEY,
+  club_id       VARCHAR(36) NOT NULL,
+  actor_user_id VARCHAR(36),
+  actor_email   VARCHAR(255),
+  action        VARCHAR(100) NOT NULL,
+  entity_type   VARCHAR(100),
+  entity_id     VARCHAR(36),
+  old_value     JSON,
+  new_value     JSON,
+  reason        TEXT,
+  created_date  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ── lifestyle_items ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lifestyle_items (
   id         VARCHAR(36)  PRIMARY KEY,
@@ -590,6 +670,14 @@ CREATE INDEX idx_ri_post             ON recruitment_interests(recruitment_post_i
 CREATE INDEX idx_ri_sender_user      ON recruitment_interests(sender_user_id);
 CREATE INDEX idx_ri_recipient_user   ON recruitment_interests(recipient_user_id);
 CREATE INDEX idx_ri_status           ON recruitment_interests(status);
+CREATE INDEX idx_ca_club_status      ON club_applicants(club_id, status);
+CREATE INDEX idx_ca_player           ON club_applicants(player_id);
+CREATE INDEX idx_csr_club            ON club_staff_roles(club_id);
+CREATE INDEX idx_csr_player          ON club_staff_roles(player_id);
+CREATE INDEX idx_cfa_fixture         ON club_fixture_availability(club_id, fixture_id);
+CREATE INDEX idx_cfa_player          ON club_fixture_availability(player_id);
+CREATE INDEX idx_cfl_fixture         ON club_fixture_lineups(club_id, fixture_id);
+CREATE INDEX idx_coal_club_created   ON club_operation_audit_logs(club_id, created_date);
 
 -- ── model/schema alignment migrations ──────────────────────────
 -- Keep schema.sql aligned with all model files in server/src/server/models.

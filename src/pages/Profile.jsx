@@ -1030,16 +1030,14 @@ export default function Profile() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{req.player_gamertag}</p>
                 {req.message && <p className="text-xs text-muted-foreground truncate">"{req.message}"</p>}
+                <p className="text-[11px] text-primary mt-1">Approvals now happen through contract offers in Club Operations.</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button size="sm" onClick={async () => {
-                  await stageClient.entities.JoinRequest.update(req.id, { status: "approved" });
-                  await stageClient.entities.Player.update(req.player_id, { club_id: req.club_id, role: "member", club_roles: ["member"], status: "active" });
-                  await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_approved", title: `Welcome to ${req.club_name}!`, body: "Your join request was approved.", link: `/clubs/${req.club_id}`, read: false });
-                  setJoinRequests(prev => prev.filter(r => r.id !== req.id));
-                }} className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
-                  <Check className="w-3 h-3 mr-1" /> Accept
-                </Button>
+                <Link to={`/clubs/${req.club_id}`}>
+                  <Button size="sm" className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
+                    <Check className="w-3 h-3 mr-1" /> Operations
+                  </Button>
+                </Link>
                 <Button size="sm" onClick={async () => {
                   await stageClient.entities.JoinRequest.update(req.id, { status: "rejected" });
                   await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });
