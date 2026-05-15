@@ -54,6 +54,7 @@ export default function Admin(props) {
   const [disputes, setDisputes] = useState([]);
   const [forfeits, setForfeits] = useState([]);
   const [players, setPlayers] = useState([]);
+  const [identityClaims, setIdentityClaims] = useState([]);
   const [clubs, setClubs] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [playerSearch, setPlayerSearch] = useState("");
@@ -189,7 +190,7 @@ export default function Admin(props) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems] = await Promise.all([
+      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
         base44.entities.Player.list("-created_date", 100).catch(() => []),
         base44.entities.Tournament.list("-created_date", 200).catch(() => []),
@@ -204,11 +205,13 @@ export default function Admin(props) {
         (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.PressConference.list("-created_date", 200).catch(() => []),
         stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
+        stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
       ]);
       const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
       setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
       setForfeits(forfeitMatches);
       setPlayers(allPlayers);
+      setIdentityClaims(pendingIdentityClaims);
       setClubs(allClubs);
       setTournaments(allTournaments);
       setTrophyItems(allTrophies);
@@ -238,6 +241,19 @@ export default function Admin(props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function reviewIdentityClaim(claim, status) {
+    if (!claim?.id) return;
+    const reason = status === "rejected"
+      ? prompt(`Reason for rejecting ${claim.gamertag || "this player"}'s identity claim?`) || ""
+      : "";
+    await stageClient.identityClaims.review(claim.id, {
+      status,
+      review_notes: status === "approved" ? "Verified by admin review" : "",
+      rejection_reason: status === "rejected" ? reason : null,
+    });
+    await loadAll();
   }
 
   async function createTrophyItem() {
@@ -1209,12 +1225,14 @@ export default function Admin(props) {
           {adminTab === "players" && (
             <PlayersTab
               players={players}
+              identityClaims={identityClaims}
               playerSearch={playerSearch}
               setPlayerSearch={setPlayerSearch}
               setCreditsDialog={setCreditsDialog}
               setCreditsAmount={setCreditsAmount}
               openPlayerWallet={openPlayerWallet}
               kickFromClub={kickFromClub}
+              reviewIdentityClaim={reviewIdentityClaim}
             />
           )}
 

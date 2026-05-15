@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { stageClient } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
+import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
@@ -27,8 +28,9 @@ const ChevronRight = () => (
 /* ── step meta ─────────────────────────────────────────────── */
 const STEPS = {
   choose:     { label: "Choose Role",     index: 0, total: 2 },
-  player:     { label: "Player Profile",  index: 1, total: 3 },
-  club:       { label: "Club Setup",      index: 2, total: 3 },
+  player:     { label: "Player Profile",  index: 1, total: 4 },
+  identity:   { label: "Verify Identity", index: 2, total: 4 },
+  club:       { label: "Club Setup",      index: 3, total: 4 },
   owner_club: { label: "Club Setup",      index: 1, total: 2 },
 };
 
@@ -68,12 +70,12 @@ export default function Onboarding({ onComplete }) {
       } else if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
       }
-      setStep("club");
+      setStep("identity");
     } catch (err) {
       console.error(err);
       if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
-        setStep("club");
+        setStep("identity");
       }
     }
   };
@@ -199,16 +201,24 @@ export default function Onboarding({ onComplete }) {
                       <div>
                         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Player Profile Ready</h2>
                         <p className="text-white/40 text-xs">
-                          Your player profile already exists ({player.gamertag || user?.email}). Continue to club setup.
+                          Your player profile already exists ({player.gamertag || user?.email}). Continue to identity verification.
                         </p>
                       </div>
                       <button
-                        onClick={() => setStep("club")}
+                        onClick={() => setStep("identity")}
                         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
                       >
-                        Continue to Club Setup →
+                        Continue to Verification →
                       </button>
                     </div>
+                  )}
+
+                  {/* ── IDENTITY CLAIM ─────────────────────── */}
+                  {step === "identity" && player && (
+                    <IdentityClaimSetup
+                      player={player}
+                      onComplete={() => setStep("club")}
+                    />
                   )}
 
                   {/* ── OPTIONAL CLUB (player path) ─────────── */}

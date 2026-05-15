@@ -6,7 +6,7 @@ import { stageClient } from "@/api/stageClient";
 import {
   ArrowLeft, User, Shield, Target, Swords,
   Gamepad2, Flag, Settings,
-  Coins, FileText, Clock
+  Coins, FileText, Clock, BadgeCheck
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -327,6 +327,11 @@ export default function PlayerProfile() {
             <h1 className="font-heading text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-none" style={{ letterSpacing: "-0.02em" }}>
               {player.gamertag}
             </h1>
+            {Number(player.is_verified) === 1 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                <BadgeCheck className="w-3.5 h-3.5" /> Verified
+              </span>
+            )}
             {player.shirt_number && (
               <span className="font-heading text-2xl font-black text-white/30 border border-white/15 rounded-lg px-2.5 py-0.5 shrink-0">
                 #{player.shirt_number}
@@ -341,7 +346,7 @@ export default function PlayerProfile() {
             </span>
           )}
           <div className="flex items-center gap-3 text-xs text-white/50 flex-wrap font-medium uppercase tracking-wider">
-            {player.position && <span className="flex items-center gap-1.5"><Target className="w-3 h-3" />{player.position}</span>}
+            {player.position && <span className="flex items-center gap-1.5"><Target className="w-3 h-3" />{[player.position, player.secondary_position].filter(Boolean).join(" / ")}</span>}
             {player.platform && <span className="flex items-center gap-1.5"><Gamepad2 className="w-3 h-3" />{player.platform}</span>}
             {player.country && <span className="flex items-center gap-1.5"><Flag className="w-3 h-3" />{player.country}</span>}
             {club && (
@@ -351,6 +356,11 @@ export default function PlayerProfile() {
             )}
           </div>
           {player.bio && <p className="text-sm text-white/60 leading-relaxed break-words">{player.bio}</p>}
+          {Number(player.is_verified) === 1 && player.verified_platform_handle && (
+            <p className="text-xs text-blue-300/80">
+              Verified {player.verified_platform || "platform"} identity: <span className="font-semibold">{player.verified_platform_handle}</span>
+            </p>
+          )}
 
           {/* Active contract info — visible to all */}
           {activeContract && (() => {

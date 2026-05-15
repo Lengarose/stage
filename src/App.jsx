@@ -121,9 +121,8 @@ const AuthenticatedApp = () => {
     if (!user) return;
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     const userScopedDone = localStorage.getItem(userScopedKey) === '1';
-    const legacyDone = localStorage.getItem('stage_onboarding_completed') === '1';
-    const hasProfileData = Boolean(user.player_id || user.owner_id);
-    setPlayerSetupComplete(userScopedDone || legacyDone || hasProfileData);
+    const hasClubOnlySetup = Boolean(user.owner_id && !user.player_id);
+    setPlayerSetupComplete(userScopedDone || hasClubOnlySetup);
   }, [user]);
 
   // Run automated contract maintenance once per session
@@ -182,7 +181,6 @@ const AuthenticatedApp = () => {
   const isDatabaseAdmin = dbRoleId === 0;
   if (!isAdmin && !isDatabaseAdmin && !playerSetupComplete) {
     return <Onboarding onComplete={() => {
-      localStorage.setItem('stage_onboarding_completed', '1');
       if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
       setPlayerSetupComplete(true);
     }} />;

@@ -5,9 +5,44 @@ const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 
+let secondaryPositionColumnReady = null;
+
+function normalizePlayerPayload(body = {}) {
+  const payload = { ...body };
+  if ('secondary_position' in payload) {
+    payload.secondary_position =
+      payload.secondary_position && payload.secondary_position !== 'none'
+        ? payload.secondary_position
+        : null;
+    if (payload.secondary_position && payload.secondary_position === payload.position) {
+      payload.secondary_position = null;
+    }
+  }
+  return payload;
+}
+
+async function ensureSecondaryPositionColumn() {
+  if (!secondaryPositionColumnReady) {
+    secondaryPositionColumnReady = (async () => {
+      const rows = await EXECUTESQL(
+        'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1',
+        ['players', 'secondary_position']
+      );
+      if (!rows.length) {
+        await EXECUTESQL('ALTER TABLE players ADD COLUMN secondary_position VARCHAR(50) NULL');
+      }
+    })().catch((err) => {
+      secondaryPositionColumnReady = null;
+      throw err;
+    });
+  }
+  return secondaryPositionColumnReady;
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
+    await ensureSecondaryPositionColumn();
     const { email, user_id, club_id, gamertag, page } = req.query;
     const player = new Player();
     let result;
@@ -32,6 +67,7 @@ router.get('/', async (req, res) => {
 // GET /:id
 router.get('/:id', async (req, res) => {
   try {
+    await ensureSecondaryPositionColumn();
     const player = new Player();
     const result = await player.selectOne(req.params.id);
     if (!result.length) return res.status(404).json({ error: 'Not found' });
@@ -45,7 +81,9 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
-    const { gamertag } = req.body || {};
+    await ensureSecondaryPositionColumn();
+    const body = normalizePlayerPayload(req.body);
+    const { gamertag } = body || {};
     if (gamertag) {
       const existingByGamertag = await EXECUTESQL(
         'SELECT id FROM players WHERE LOWER(gamertag) = LOWER(?) LIMIT 1',
@@ -56,7 +94,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const player = new Player(req.body);
+    const player = new Player(body);
     await player.create();
     const created = await player.selectOne(player.id);
     const record  = created[0];
@@ -103,19 +141,21 @@ router.post('/', async (req, res) => {
 // PATCH /:id
 router.patch('/:id', async (req, res) => {
   try {
+    await ensureSecondaryPositionColumn();
     const { id } = req.params;
+    const body = normalizePlayerPayload(req.body);
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    if (req.body?.gamertag) {
+    if (body?.gamertag) {
       const existingByGamertag = await EXECUTESQL(
         'SELECT id FROM players WHERE LOWER(gamertag) = LOWER(?) AND id <> ? LIMIT 1',
-        [req.body.gamertag, id]
+        [body.gamertag, id]
       );
       if (existingByGamertag.length) {
         return res.status(409).json({ error: 'A player with this gamertag already exists' });
       }
     }
-    const player = new Player({ ...existing[0], ...req.body });
+    const player = new Player({ ...existing[0], ...body });
     await player.update(id);
     const updated = await player.selectOne(id);
     const record  = updated[0];

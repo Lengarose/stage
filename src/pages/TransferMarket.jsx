@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { stageClient } from "@/api/stageClient";
 import { TrendingUp, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
@@ -103,7 +102,7 @@ export default function TransferMarket() {
   const filteredEntries = useMemo(() => {
     return allEntries.filter(({ player, badgeType }) => {
       if (search && !player.gamertag?.toLowerCase().includes(search.toLowerCase())) return false;
-      if (positionFilter && player.position !== positionFilter) return false;
+      if (positionFilter && player.position !== positionFilter && player.secondary_position !== positionFilter) return false;
       if (platformFilter && player.platform !== platformFilter) return false;
       if (statusFilter === "free_agent" && badgeType !== "free_agent") return false;
       if (statusFilter === "expiring" && badgeType !== "expiring" && badgeType !== "expiring_soon") return false;

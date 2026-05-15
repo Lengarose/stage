@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Shield, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,9 +45,9 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
                 <TransferBadge type={badgeType} daysLeft={days_left} />
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {player.position && (
+                {(player.position || player.secondary_position) && (
                   <span className="text-[11px] font-semibold text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded">
-                    {player.position}
+                    {[player.position, player.secondary_position].filter(Boolean).join(" / ")}
                   </span>
                 )}
                 {player.overall_rating && (

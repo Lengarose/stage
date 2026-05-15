@@ -8,6 +8,7 @@ class Player {
     this.email                   = body.email;
     this.gamertag                = body.gamertag;
     this.position                = body.position;
+    this.secondary_position      = body.secondary_position;
     this.platform                = body.platform;
     this.country                 = body.country;
     this.country_code            = body.country_code;
@@ -39,6 +40,9 @@ class Player {
     this.stripe_subscription_id  = body.stripe_subscription_id;
     this.stripe_customer_id      = body.stripe_customer_id;
     this.is_verified             = body.is_verified;
+    this.verified_platform       = body.verified_platform;
+    this.verified_platform_handle = body.verified_platform_handle;
+    this.identity_verified_at    = body.identity_verified_at;
     this.role                    = body.role;
     this.status                  = body.status;
     this.dressing_room_seat      = body.dressing_room_seat;
@@ -84,7 +88,7 @@ class Player {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO players
-      (id, user_id, email, gamertag, position, platform, country, country_code, bio,
+      (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
        avatar_url, avatar_zoom, avatar_position, shirt_number, overall_rating,
        goals, goals_player, assists,
        matches_played, matches_played_club,
@@ -92,12 +96,13 @@ class Player {
        draws_count, draws_club, clean_sheets, man_of_the_match, avg_match_rating,
        credits, stc, subscription, subscription_expires_at, subscription_billing,
        stripe_subscription_id, stripe_customer_id, is_verified,
+       verified_platform, verified_platform_handle, identity_verified_at,
        role, status, dressing_room_seat, is_ready,
        club_id, notification_settings, club_roles,
        banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.user_id, this.email, this.gamertag, this.position, this.platform,
+      this.id, this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
       this.avatar_url, this.avatar_zoom, this.avatar_position, this.shirt_number,
       this.overall_rating,
@@ -107,6 +112,7 @@ class Player {
       this.draws_count, this.draws_club, this.clean_sheets, this.man_of_the_match, this.avg_match_rating,
       this.credits, this.stc, this.subscription, this.subscription_expires_at, this.subscription_billing,
       this.stripe_subscription_id, this.stripe_customer_id, this.is_verified,
+      this.verified_platform, this.verified_platform_handle, this.identity_verified_at,
       this.role, this.status, this.dressing_room_seat, this.is_ready,
       this.club_id, this.notification_settings, this.club_roles,
       this.banner_url, this.banner_position, this.banner_zoom,
@@ -116,7 +122,7 @@ class Player {
 
   update(id) {
     const sql = `UPDATE players SET
-      user_id=?, email=?, gamertag=?, position=?, platform=?, country=?, country_code=?,
+      user_id=?, email=?, gamertag=?, position=?, secondary_position=?, platform=?, country=?, country_code=?,
       bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, shirt_number=?,
       overall_rating=?,
       goals=?, goals_player=?, assists=?,
@@ -125,12 +131,13 @@ class Player {
       draws_count=?, draws_club=?, clean_sheets=?, man_of_the_match=?, avg_match_rating=?,
       credits=?, stc=?, subscription=?, subscription_expires_at=?, subscription_billing=?,
       stripe_subscription_id=?, stripe_customer_id=?, is_verified=?,
+      verified_platform=?, verified_platform_handle=?, identity_verified_at=?,
       role=?, status=?, dressing_room_seat=?, is_ready=?,
       club_id=?, notification_settings=?, club_roles=?,
       banner_url=?, banner_position=?, banner_zoom=?
       WHERE id=?`;
     const values = [
-      this.user_id, this.email, this.gamertag, this.position, this.platform,
+      this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
       this.avatar_url, this.avatar_zoom, this.avatar_position, this.shirt_number,
       this.overall_rating,
@@ -140,6 +147,7 @@ class Player {
       this.draws_count, this.draws_club, this.clean_sheets, this.man_of_the_match, this.avg_match_rating,
       this.credits, this.stc, this.subscription, this.subscription_expires_at, this.subscription_billing,
       this.stripe_subscription_id, this.stripe_customer_id, this.is_verified,
+      this.verified_platform, this.verified_platform_handle, this.identity_verified_at,
       this.role, this.status, this.dressing_room_seat, this.is_ready,
       this.club_id, this.notification_settings, this.club_roles,
       this.banner_url, this.banner_position, this.banner_zoom,

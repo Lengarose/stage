@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS players (
   email                 VARCHAR(255) NOT NULL UNIQUE,
   gamertag              VARCHAR(100),
   position              VARCHAR(50),
+  secondary_position    VARCHAR(50),
   platform              VARCHAR(50),
   country               VARCHAR(100),
   country_code          VARCHAR(10),
@@ -51,6 +52,10 @@ CREATE TABLE IF NOT EXISTS players (
   assists               INT          DEFAULT 0,
   credits               INT          DEFAULT 0,
   subscription          VARCHAR(50)  DEFAULT 'rookie',
+  is_verified           TINYINT(1)   DEFAULT 0,
+  verified_platform     VARCHAR(50),
+  verified_platform_handle VARCHAR(150),
+  identity_verified_at  DATETIME,
   role                  VARCHAR(50),
   dressing_room_seat    INT,
   is_ready              TINYINT(1)   DEFAULT 0,
@@ -263,6 +268,29 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   start_date            DATETIME,
   end_date              DATETIME,
   performance_targets   JSON,
+  created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── player_identity_claims ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS player_identity_claims (
+  id                    VARCHAR(36)  PRIMARY KEY,
+  player_id             VARCHAR(36)  NOT NULL,
+  user_id               VARCHAR(36),
+  email                 VARCHAR(255),
+  gamertag              VARCHAR(150),
+  platform              VARCHAR(50)  NOT NULL,
+  platform_handle       VARCHAR(150) NOT NULL,
+  ea_id                 VARCHAR(150),
+  discord_handle        VARCHAR(150),
+  proof_url             TEXT,
+  notes                 TEXT,
+  status                VARCHAR(30)  NOT NULL DEFAULT 'pending',
+  review_notes          TEXT,
+  rejection_reason      TEXT,
+  reviewed_by           VARCHAR(36),
+  reviewed_by_email     VARCHAR(255),
+  reviewed_at           DATETIME,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -507,6 +535,10 @@ CREATE INDEX idx_notifications_rcpt  ON notifications(recipient_email);
 CREATE INDEX idx_inbox_rcpt          ON inbox_messages(recipient_email);
 CREATE INDEX idx_contracts_team      ON player_contracts(team_id);
 CREATE INDEX idx_contracts_user      ON player_contracts(user_id);
+CREATE INDEX idx_pic_player          ON player_identity_claims(player_id);
+CREATE INDEX idx_pic_user            ON player_identity_claims(user_id);
+CREATE INDEX idx_pic_status          ON player_identity_claims(status);
+CREATE INDEX idx_pic_created         ON player_identity_claims(created_date);
 CREATE INDEX idx_chat_match          ON chat_messages(match_id);
 CREATE INDEX idx_stats_match         ON match_player_stats(match_id);
 CREATE INDEX idx_follows_email       ON follows(follower_email);
@@ -655,6 +687,9 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='avg_match_rating'),'SELECT 1','ALTER TABLE players ADD COLUMN avg_match_rating DECIMAL(4,2) NULL DEFAULT 6.00')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='status'),'SELECT 1','ALTER TABLE players ADD COLUMN status VARCHAR(20) NULL DEFAULT ''active''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_verified'),'SELECT 1','ALTER TABLE players ADD COLUMN is_verified TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform_handle'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform_handle VARCHAR(150) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='identity_verified_at'),'SELECT 1','ALTER TABLE players ADD COLUMN identity_verified_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_expires_at'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_expires_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_billing'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_billing VARCHAR(20) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stripe_subscription_id'),'SELECT 1','ALTER TABLE players ADD COLUMN stripe_subscription_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -1851,4 +1886,3 @@ SET @sql = IF(
   'ALTER TABLE inbox_messages ADD CONSTRAINT chk_inbox_is_read_bool CHECK (is_read IN (0,1))',
   'SELECT 1'
 ); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-

@@ -4,7 +4,7 @@ import {
   User, Shield, Save, Plus, LogOut,
   Camera, Loader2, Edit2, Check, X,
   Swords, Bell, UserCheck, ExternalLink,
-  ArrowLeft, Settings, Move
+  ArrowLeft, Settings, Move, BadgeCheck, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -25,6 +25,10 @@ import { COUNTRIES } from "../lib/countries";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
+function formatPositions(player) {
+  return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
+}
+
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
 export default function Profile() {
   const _navigate = useNavigate();
@@ -35,8 +39,10 @@ export default function Profile() {
   const [_clubs, setClubs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
+  const [identityClaims, setIdentityClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
   const [savingClub, setSavingClub] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
@@ -48,8 +54,17 @@ export default function Profile() {
   const avatarInputRef = useRef();
 
   const [playerForm, setPlayerForm] = useState({
-    gamertag: "", position: "CM", platform: "PlayStation",
+    gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
     overall_rating: 70, country: "", country_code: "", bio: "", shirt_number: "",
+  });
+
+  const [claimForm, setClaimForm] = useState({
+    platform: "PlayStation",
+    platform_handle: "",
+    ea_id: "",
+    discord_handle: "",
+    proof_url: "",
+    notes: "",
   });
 
   const [clubForm, setClubForm] = useState({
@@ -74,9 +89,14 @@ export default function Profile() {
       if (pl.length > 0) {
         const p = pl[0];
         setPlayer(p);
+        stageClient.identityClaims
+          .list({ player_id: p.id }, "-created_date", 20)
+          .then(setIdentityClaims)
+          .catch(() => setIdentityClaims([]));
         setPlayerForm({
           gamertag: p.gamertag || "",
           position: p.position || "CM",
+          secondary_position: p.secondary_position || "none",
           platform: p.platform || "PlayStation",
           overall_rating: p.overall_rating || 70,
           country: p.country || "",
@@ -133,11 +153,16 @@ export default function Profile() {
     setSaving(true);
     const formToSave = {
       ...playerForm,
+      secondary_position: playerForm.secondary_position === "none" ? null : playerForm.secondary_position,
       shirt_number: playerForm.shirt_number !== "" ? Number(playerForm.shirt_number) : null,
     };
     if (player) {
-      await stageClient.entities.Player.update(player.id, formToSave);
-      setPlayer(prev => ({ ...prev, ...formToSave }));
+      const saved = await stageClient.entities.Player.update(player.id, formToSave);
+      setPlayer(saved || ((prev) => ({ ...prev, ...formToSave })));
+      setPlayerForm(f => ({
+        ...f,
+        secondary_position: (saved?.secondary_position || formToSave.secondary_position) || "none",
+      }));
     } else {
       const created = await stageClient.entities.Player.create({
         ...formToSave,
@@ -147,9 +172,33 @@ export default function Profile() {
         subscription: "rookie",
       });
       setPlayer(created);
+      setPlayerForm(f => ({
+        ...f,
+        secondary_position: created?.secondary_position || "none",
+      }));
     }
     setSaving(false);
     setView("profile");
+  }
+
+  async function submitIdentityClaim() {
+    if (!player || !claimForm.platform_handle.trim()) return;
+    setSubmittingClaim(true);
+    try {
+      const created = await stageClient.identityClaims.submit({
+        player_id: player.id,
+        platform: claimForm.platform,
+        platform_handle: claimForm.platform_handle.trim(),
+        ea_id: claimForm.ea_id.trim() || null,
+        discord_handle: claimForm.discord_handle.trim() || null,
+        proof_url: claimForm.proof_url.trim() || null,
+        notes: claimForm.notes.trim() || null,
+      });
+      setIdentityClaims(prev => [created, ...prev]);
+      setClaimForm(f => ({ ...f, proof_url: "", notes: "" }));
+    } finally {
+      setSubmittingClaim(false);
+    }
   }
 
   async function saveClub() {
@@ -238,6 +287,8 @@ export default function Profile() {
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const latestIdentityClaim = identityClaims[0] || null;
+  const pendingIdentityClaim = identityClaims.find(c => c.status === "pending");
 
   const OUTCOME_STYLE = {
     W: "bg-success/15 text-success border-success/30",
@@ -307,6 +358,11 @@ export default function Profile() {
               <h1 className="font-heading text-2xl sm:text-3xl font-black text-white uppercase tracking-tight" style={{ letterSpacing: "-0.02em" }}>
                 {player?.gamertag || user?.full_name || "New Player"}
               </h1>
+              {Number(player?.is_verified) === 1 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                  <BadgeCheck className="w-3.5 h-3.5" /> Verified
+                </span>
+              )}
               {player?.shirt_number && (
                 <span className="font-heading text-xl font-black text-white/30 border border-white/15 rounded-lg px-2 py-0.5 shrink-0">
                   #{player.shirt_number}
@@ -325,7 +381,7 @@ export default function Profile() {
               </div>
             )}
             <div className="flex items-center gap-3 text-[11px] text-white/50 uppercase tracking-wider flex-wrap">
-              {player?.position && <span>{player.position}</span>}
+              {player?.position && <span>{formatPositions(player)}</span>}
               {player?.platform && <span>{player.platform}</span>}
               {player?.country && <span>{player.country}</span>}
               {myClub && (
@@ -335,8 +391,83 @@ export default function Profile() {
               )}
             </div>
             {player?.bio && <p className="text-sm text-white/70 mt-1 break-words">{player.bio}</p>}
+            {Number(player?.is_verified) === 1 && player?.verified_platform_handle && (
+              <p className="text-xs text-blue-300/80">
+                Verified {player.verified_platform || "platform"} identity: <span className="font-semibold">{player.verified_platform_handle}</span>
+              </p>
+            )}
           </div>
         </div>
+
+        {player && (
+          <div className="max-w-5xl mx-auto px-3 sm:px-4 mb-4">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              {Number(player.is_verified) === 1 ? (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
+                    <BadgeCheck className="w-5 h-5 text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Identity verified</p>
+                    <p className="text-xs text-white/50">
+                      This profile has been reviewed by STAGE staff and linked to {player.verified_platform_handle || "a platform identity"}.
+                    </p>
+                  </div>
+                </div>
+              ) : pendingIdentityClaim ? (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-warning/15 border border-warning/30 flex items-center justify-center shrink-0">
+                    <UserCheck className="w-5 h-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Identity claim under review</p>
+                    <p className="text-xs text-white/50">
+                      {pendingIdentityClaim.platform} · {pendingIdentityClaim.platform_handle}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
+                      <BadgeCheck className="w-5 h-5 text-blue-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">Claim your player identity</p>
+                      <p className="text-xs text-white/50">Link your STAGE profile to your console or EA identity so clubs know this is really you.</p>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <Select value={claimForm.platform} onValueChange={v => setClaimForm(f => ({ ...f, platform: v }))}>
+                      <SelectTrigger className="bg-black/20 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PlayStation">PlayStation</SelectItem>
+                        <SelectItem value="Xbox">Xbox</SelectItem>
+                        <SelectItem value="PC">PC</SelectItem>
+                        <SelectItem value="EA">EA</SelectItem>
+                        <SelectItem value="Discord">Discord</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input value={claimForm.platform_handle} onChange={e => setClaimForm(f => ({ ...f, platform_handle: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="PSN / Xbox / EA handle" />
+                    <Input value={claimForm.ea_id} onChange={e => setClaimForm(f => ({ ...f, ea_id: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="EA ID (optional)" />
+                    <Input value={claimForm.discord_handle} onChange={e => setClaimForm(f => ({ ...f, discord_handle: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="Discord handle (optional)" />
+                    <Input value={claimForm.proof_url} onChange={e => setClaimForm(f => ({ ...f, proof_url: e.target.value }))} className="bg-black/20 border-white/10 text-white sm:col-span-2" placeholder="Proof link: screenshot, clip, or profile URL (optional)" />
+                    <Textarea value={claimForm.notes} onChange={e => setClaimForm(f => ({ ...f, notes: e.target.value }))} className="bg-black/20 border-white/10 text-white sm:col-span-2 resize-none" rows={2} placeholder="Anything admins should know?" />
+                  </div>
+                  {latestIdentityClaim?.status === "rejected" && (
+                    <p className="text-xs text-destructive">
+                      Last claim rejected{latestIdentityClaim.rejection_reason ? `: ${latestIdentityClaim.rejection_reason}` : "."}
+                    </p>
+                  )}
+                  <Button size="sm" onClick={submitIdentityClaim} disabled={submittingClaim || !claimForm.platform_handle.trim()} className="gap-1.5 bg-blue-600 hover:bg-blue-500 text-white">
+                    {submittingClaim ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    Submit Claim
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         {player && (
@@ -372,7 +503,7 @@ export default function Profile() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-white truncate">{player.gamertag}</p>
-                      <p className="text-xs text-white/50">{player.position} · {player.platform}</p>
+                      <p className="text-xs text-white/50">{formatPositions(player)} · {player.platform}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -564,11 +695,21 @@ export default function Profile() {
               <Input value={playerForm.gamertag} onChange={e => setPlayerForm(f => ({ ...f, gamertag: e.target.value }))} className="bg-secondary border-border" placeholder="Your gamertag" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Position</label>
-              <Select value={playerForm.position} onValueChange={v => setPlayerForm(f => ({ ...f, position: v }))}>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Main Position</label>
+              <Select value={playerForm.position} onValueChange={v => setPlayerForm(f => ({ ...f, position: v, secondary_position: f.secondary_position === v ? "none" : f.secondary_position }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Second Position</label>
+              <Select value={playerForm.secondary_position} onValueChange={v => setPlayerForm(f => ({ ...f, secondary_position: v }))}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {POSITIONS.filter(p => p !== playerForm.position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

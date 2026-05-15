@@ -13,6 +13,7 @@ const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block
 export default function PlayerSetup({ onComplete, user }) {
   const [gamertag, setGamertag] = useState("");
   const [position, setPosition] = useState("ST");
+  const [secondaryPosition, setSecondaryPosition] = useState("none");
   const [country, setCountry] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarPosition, setAvatarPosition] = useState("50% 50%");
@@ -44,6 +45,7 @@ export default function PlayerSetup({ onComplete, user }) {
         gamertag,
         email: user.email,
         position,
+        secondary_position: secondaryPosition === "none" ? null : secondaryPosition,
         country,
         country_code: foundCountry?.code || "",
         avatar_url: avatarUrl || undefined,
@@ -66,22 +68,23 @@ export default function PlayerSetup({ onComplete, user }) {
         );
       };
 
+      let savedPlayer = null;
       if (existing?.length) {
         try {
-          await stageClient.entities.Player.update(existing[0].id, payload);
+          savedPlayer = await stageClient.entities.Player.update(existing[0].id, payload);
         } catch (e) {
           if (!isBenignSaveError(e)) throw e;
         }
       } else {
         try {
-          await stageClient.entities.Player.create(payload);
+          savedPlayer = await stageClient.entities.Player.create(payload);
         } catch (e) {
           if (!isBenignSaveError(e)) throw e;
         }
       }
 
       setSaving(false);
-      onComplete?.({
+      onComplete?.(savedPlayer || {
         ...payload,
         id: existing?.[0]?.id || null,
       });
@@ -128,13 +131,28 @@ export default function PlayerSetup({ onComplete, user }) {
             />
           </div>
           <div>
-            <label className={labelCls}>Position *</label>
-            <Select value={position} onValueChange={setPosition}>
+            <label className={labelCls}>Main Position *</label>
+            <Select value={position} onValueChange={value => {
+              setPosition(value);
+              if (secondaryPosition === value) setSecondaryPosition("none");
+            }}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className={labelCls}>Second Position</label>
+            <Select value={secondaryPosition} onValueChange={setSecondaryPosition}>
+              <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {POSITIONS.filter(p => p !== position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

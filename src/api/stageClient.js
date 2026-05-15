@@ -69,7 +69,7 @@ async function apiFetch(path, opts = {}, _isRetry = false) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw { status: res.status, message: err.error || res.statusText, data: err };
+    throw { status: res.status, message: err.error || err.message || res.statusText, data: err };
   }
 
   const text = await res.text();
@@ -241,6 +241,9 @@ const ENTITY_NAMES = [
   // supports ?player_id=, ?player_email=, ?limit=, ?offset=. Used by Admin.jsx
   // to show recent transactions on a player's economy tab.
   'PlayerStcTransaction',
+  // Player identity claiming and admin verification workflow. Approval marks
+  // players.is_verified and stores the verified platform handle.
+  'PlayerIdentityClaim',
   // EAFC-inspired modules — see server/src/server.js for routes and AGENTS.md §7.2.
   // ObjectiveDefinition: catalogue of Daily/Weekly objectives (admin-managed).
   // ObjectiveProgress:   per-player progress; rewards claimed via
@@ -389,6 +392,67 @@ const functions = {
   },
 };
 
+// ── Identity claims ───────────────────────────────────────────────────────────
+// Prefer the proper entity route, but fall back to server functions so older
+// process managers or partially deployed backends still have a working path.
+const identityClaims = {
+  async submit(body = {}) {
+    try {
+      return await entities.PlayerIdentityClaim.create(body);
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+      try {
+        const result = await functions.invoke('submitPlayerIdentityClaim', body);
+        return result?.data || result;
+      } catch (fallbackErr) {
+        if (fallbackErr?.status === 404) {
+          throw {
+            ...fallbackErr,
+            message: 'Identity verification is not available on this server yet. Deploy or restart the backend, then try again.',
+          };
+        }
+        throw fallbackErr;
+      }
+    }
+  },
+
+  async list(filters = {}, orderBy = '-created_date', limit = 50) {
+    try {
+      return await entities.PlayerIdentityClaim.filter(filters, orderBy, limit);
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+      try {
+        const result = await functions.invoke('listPlayerIdentityClaims', { ...filters, limit });
+        const rows = result?.data || result?.claims || [];
+        return Array.isArray(rows) ? rows : [];
+      } catch (fallbackErr) {
+        if (fallbackErr?.status === 404) return [];
+        throw fallbackErr;
+      }
+    }
+  },
+
+  async review(id, body = {}) {
+    try {
+      return await entities.PlayerIdentityClaim.update(id, body);
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+      try {
+        const result = await functions.invoke('reviewPlayerIdentityClaim', { id, ...body });
+        return result?.data || result;
+      } catch (fallbackErr) {
+        if (fallbackErr?.status === 404) {
+          throw {
+            ...fallbackErr,
+            message: 'Identity verification is not available on this server yet. Deploy or restart the backend, then try again.',
+          };
+        }
+        throw fallbackErr;
+      }
+    }
+  },
+};
+
 // ── Raw HTTP helpers ──────────────────────────────────────────────────────────
 // Path is relative to API_BASE (e.g. '/fixture-admin-actions/force-schedule').
 // Bodies are JSON-serialized automatically; auth header + 401-refresh are
@@ -408,6 +472,6 @@ function buildQuery(q) {
   return params.length ? `?${params.join('&')}` : '';
 }
 
-export const stageClient = { entities, auth, integrations, functions, http };
+export const stageClient = { entities, auth, integrations, functions, http, identityClaims };
 // Backward-compat alias during migration
 export const base44 = stageClient;

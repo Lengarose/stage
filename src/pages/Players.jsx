@@ -50,7 +50,7 @@ export default function Players() {
   const filtered = players.filter(p => {
     const matchSearch   = !search   || (p.gamertag || "").toLowerCase().includes(search.toLowerCase());
     const matchPlatform = platform === "All Platforms" || p.platform === platform;
-    const matchPosition = position === "All Positions"  || p.position === position;
+    const matchPosition = position === "All Positions" || p.position === position || p.secondary_position === position;
     return matchSearch && matchPlatform && matchPosition;
   });
 
@@ -201,9 +201,9 @@ export default function Players() {
                           <span className="font-heading font-black text-base text-white uppercase tracking-wide group-hover:text-[hsl(189,100%,52%)] transition-colors">
                             {player.gamertag}
                           </span>
-                          {player.position && (
+                          {(player.position || player.secondary_position) && (
                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[hsl(189,100%,52%)]/15 text-[hsl(189,100%,52%)] border border-[hsl(189,100%,52%)]/25 uppercase tracking-wider shrink-0">
-                              {player.position}
+                              {[player.position, player.secondary_position].filter(Boolean).join(" / ")}
                             </span>
                           )}
                         </div>

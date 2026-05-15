@@ -59,6 +59,7 @@ app.use('/api/stage/reward-configs',             verifyToken, require('./server/
 app.use('/api/stage/club-achievements',          verifyToken, require('./server/controllers/clubAchievementController'));
 app.use('/api/stage/player-achievements',        verifyToken, require('./server/controllers/playerAchievementController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
+app.use('/api/stage/player-identity-claims',    verifyToken, require('./server/controllers/playerIdentityClaimController'));
 
 // EAFC-inspired modules
 app.use('/api/stage/objective-definitions',     verifyToken, require('./server/controllers/objectiveDefinitionController'));
@@ -174,6 +175,11 @@ async function runStartupMigrations() {
   };
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
+  await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
+  await addCol('players', 'verified_platform', 'VARCHAR(50) NULL');
+  await addCol('players', 'verified_platform_handle', 'VARCHAR(150) NULL');
+  await addCol('players', 'identity_verified_at', 'DATETIME NULL');
   await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
@@ -252,6 +258,33 @@ async function runStartupMigrations() {
     reference_id  VARCHAR(36),
     created_date  DATETIME       DEFAULT CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] player_stc_transactions:', err.message));
+
+  // Player identity claiming / verification workflow.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_identity_claims (
+    id                    VARCHAR(36)  PRIMARY KEY,
+    player_id             VARCHAR(36)  NOT NULL,
+    user_id               VARCHAR(36)  NULL,
+    email                 VARCHAR(255) NULL,
+    gamertag              VARCHAR(150) NULL,
+    platform              VARCHAR(50)  NOT NULL,
+    platform_handle       VARCHAR(150) NOT NULL,
+    ea_id                 VARCHAR(150) NULL,
+    discord_handle        VARCHAR(150) NULL,
+    proof_url             TEXT         NULL,
+    notes                 TEXT         NULL,
+    status                VARCHAR(30)  NOT NULL DEFAULT 'pending',
+    review_notes          TEXT         NULL,
+    rejection_reason      TEXT         NULL,
+    reviewed_by           VARCHAR(36)  NULL,
+    reviewed_by_email     VARCHAR(255) NULL,
+    reviewed_at           DATETIME     NULL,
+    created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pic_player  (player_id),
+    INDEX idx_pic_user    (user_id),
+    INDEX idx_pic_status  (status),
+    INDEX idx_pic_created (created_date)
+  )`).catch(err => console.error('[migration] player_identity_claims:', err.message));
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');

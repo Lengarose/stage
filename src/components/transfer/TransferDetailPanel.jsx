@@ -64,7 +64,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         {/* Stats grid */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
-            { label: "Position", value: player.position || "—" },
+            { label: "Position", value: [player.position, player.secondary_position].filter(Boolean).join(" / ") || "—" },
             { label: "OVR", value: player.overall_rating || "—" },
             { label: "Platform", value: player.platform || "—" },
           ].map(s => (

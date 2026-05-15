@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
-import { User, Shield, Star, Send } from "lucide-react";
+import { User, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 const POSITIONS = ["All", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["All", "PlayStation", "Xbox", "PC"];
@@ -59,7 +58,7 @@ export default function FreeAgents() {
   const filtered = players.filter(p => {
     if (search && !p.gamertag?.toLowerCase().includes(search.toLowerCase())) return false;
     if (platform !== "All" && p.platform !== platform) return false;
-    if (position !== "All" && p.position !== position) return false;
+    if (position !== "All" && p.position !== position && p.secondary_position !== position) return false;
     return true;
   });
 
@@ -119,7 +118,7 @@ export default function FreeAgents() {
                   {player.gamertag}
                 </Link>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-xs text-primary leading-relaxed font-bold">{player.position}</span>
+                  <span className="text-xs text-primary leading-relaxed font-bold">{[player.position, player.secondary_position].filter(Boolean).join(" / ")}</span>
                   <span className="text-xs text-muted-foreground">{player.platform}</span>
                   {player.overall_rating && (
                     <span className="flex items-center gap-0.5 text-xs text-warning leading-relaxed font-bold">

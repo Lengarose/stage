@@ -15,6 +15,7 @@ const PLATFORMS = ["PlayStation", "Xbox", "PC"];
 export default function ProfileCompletionModal({ open, player, onComplete }) {
   const [gamertag, setGamertag] = useState(player?.gamertag || "");
   const [position, setPosition] = useState(player?.position || "");
+  const [secondaryPosition, setSecondaryPosition] = useState(player?.secondary_position || "none");
   const [platform, setPlatform] = useState(player?.platform || "");
   const [country, setCountry] = useState(player?.country || "");
   const [countryCode, setCountryCode] = useState(player?.country_code || "");
@@ -30,16 +31,26 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
     }
 
     setLoading(true);
-    await stageClient.entities.Player.update(player.id, {
+    const saved = await stageClient.entities.Player.update(player.id, {
       gamertag: gamertag.trim(),
       position,
+      secondary_position: secondaryPosition === "none" ? null : secondaryPosition,
       platform,
       country: country || null,
       country_code: countryCode || null,
       bio: bio.trim() || null,
     });
     localStorage.setItem("profile-completed", "true");
-    const updatedPlayer = { ...player, gamertag: gamertag.trim(), position, platform, country, country_code: countryCode, bio };
+    const updatedPlayer = saved || {
+      ...player,
+      gamertag: gamertag.trim(),
+      position,
+      secondary_position: secondaryPosition === "none" ? null : secondaryPosition,
+      platform,
+      country,
+      country_code: countryCode,
+      bio,
+    };
     setSavedPlayer(updatedPlayer);
     setLoading(false);
 
@@ -86,11 +97,24 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Position *</label>
-              <Select value={position} onValueChange={setPosition}>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Main Position *</label>
+              <Select value={position} onValueChange={value => {
+                setPosition(value);
+                if (secondaryPosition === value) setSecondaryPosition("none");
+              }}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
                   {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Second Position</label>
+              <Select value={secondaryPosition} onValueChange={setSecondaryPosition}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {POSITIONS.filter(p => p !== position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

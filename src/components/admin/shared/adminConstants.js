@@ -5,6 +5,9 @@
 // URL aliases — accepts a few non-canonical section names from old links.
 export const ADMIN_SECTION_ALIASES = {
   players: "players",
+  "identity-claims": "players",
+  identity: "players",
+  verification: "players",
   clubs: "clubs",
   lifestyles: "lifestyles",
   transfers: "transfers",

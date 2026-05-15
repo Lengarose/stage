@@ -136,7 +136,203 @@ function messageTypeToNotificationType(messageType) {
   return 'message';
 }
 
+async function ensureIdentityClaimsTable() {
+  const addCol = async (table, column, definition) => {
+    const rows = await EXECUTESQL(
+      'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1',
+      [table, column]
+    );
+    if (!rows.length) await EXECUTESQL(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  };
+  await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0').catch(() => {});
+  await addCol('players', 'verified_platform', 'VARCHAR(50) NULL').catch(() => {});
+  await addCol('players', 'verified_platform_handle', 'VARCHAR(150) NULL').catch(() => {});
+  await addCol('players', 'identity_verified_at', 'DATETIME NULL').catch(() => {});
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_identity_claims (
+    id                    VARCHAR(36)  PRIMARY KEY,
+    player_id             VARCHAR(36)  NOT NULL,
+    user_id               VARCHAR(36)  NULL,
+    email                 VARCHAR(255) NULL,
+    gamertag              VARCHAR(150) NULL,
+    platform              VARCHAR(50)  NOT NULL,
+    platform_handle       VARCHAR(150) NOT NULL,
+    ea_id                 VARCHAR(150) NULL,
+    discord_handle        VARCHAR(150) NULL,
+    proof_url             TEXT         NULL,
+    notes                 TEXT         NULL,
+    status                VARCHAR(30)  NOT NULL DEFAULT 'pending',
+    review_notes          TEXT         NULL,
+    rejection_reason      TEXT         NULL,
+    reviewed_by           VARCHAR(36)  NULL,
+    reviewed_by_email     VARCHAR(255) NULL,
+    reviewed_at           DATETIME     NULL,
+    created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pic_player  (player_id),
+    INDEX idx_pic_user    (user_id),
+    INDEX idx_pic_status  (status),
+    INDEX idx_pic_created (created_date)
+  )`);
+}
+
+async function notifyAdminsOfIdentityClaim(claim) {
+  const admins = await EXECUTESQL('SELECT email FROM users WHERE role_id = 0 AND email IS NOT NULL', [])
+    .catch(() => []);
+  for (const admin of admins) {
+    await EXECUTESQL(
+      `INSERT INTO notifications
+         (id, recipient_email, type, title, body, link, created_date)
+       VALUES (?, ?, 'identity_claim', ?, ?, '/admin/identity-claims', NOW())`,
+      [
+        uuidv4(),
+        admin.email,
+        'New identity claim',
+        `${claim.gamertag || claim.email || 'A player'} submitted a ${claim.platform} identity claim.`,
+      ]
+    ).catch(() => {});
+  }
+}
+
 const HANDLERS = {
+  async submitPlayerIdentityClaim({
+    _auth_user_id,
+    player_id,
+    platform,
+    platform_handle,
+    ea_id,
+    discord_handle,
+    proof_url,
+    notes,
+  }) {
+    await ensureIdentityClaimsTable();
+    const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!userRows.length) throw new Error('User not found');
+    const user = userRows[0];
+    if (!player_id) throw new Error('player_id required');
+    if (!platform || !platform_handle) throw new Error('platform and platform_handle are required');
+
+    const players = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+    if (!players.length) throw new Error('Player not found');
+    const player = players[0];
+    const ownsPlayer =
+      player.user_id === user.id ||
+      String(player.email || '').toLowerCase() === String(user.email || '').toLowerCase() ||
+      Number(user.role_id) === 0;
+    if (!ownsPlayer) throw new Error('You can only claim your own player identity');
+    if (Number(player.is_verified) === 1) throw new Error('Player is already verified');
+
+    const pending = await EXECUTESQL(
+      "SELECT id FROM player_identity_claims WHERE player_id = ? AND status = 'pending' LIMIT 1",
+      [player.id]
+    );
+    if (pending.length) throw new Error('You already have a pending identity claim');
+
+    const id = uuidv4();
+    await EXECUTESQL(
+      `INSERT INTO player_identity_claims
+         (id, player_id, user_id, email, gamertag, platform, platform_handle,
+          ea_id, discord_handle, proof_url, notes, status, created_date, updated_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+      [
+        id,
+        player.id,
+        player.user_id || user.id,
+        player.email || user.email,
+        player.gamertag || null,
+        String(platform).trim(),
+        String(platform_handle).trim(),
+        ea_id ? String(ea_id).trim() : null,
+        discord_handle ? String(discord_handle).trim() : null,
+        proof_url ? String(proof_url).trim() : null,
+        notes ? String(notes).trim() : null,
+      ]
+    );
+    const rows = await EXECUTESQL('SELECT * FROM player_identity_claims WHERE id = ? LIMIT 1', [id]);
+    await notifyAdminsOfIdentityClaim(rows[0]);
+    return { success: true, data: rows[0] };
+  },
+
+  async listPlayerIdentityClaims({ _auth_user_id, player_id, status, limit = 50 }) {
+    await ensureIdentityClaimsTable();
+    const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!userRows.length) throw new Error('User not found');
+    const user = userRows[0];
+    const isAdmin = Number(user.role_id) === 0;
+    const wheres = [];
+    const vals = [];
+    if (player_id) {
+      wheres.push('player_id = ?');
+      vals.push(player_id);
+    }
+    if (status) {
+      if (!isAdmin) throw new Error('Admin access required');
+      wheres.push('status = ?');
+      vals.push(status);
+    }
+    if (!isAdmin) {
+      wheres.push('(user_id = ? OR LOWER(email) = LOWER(?))');
+      vals.push(user.id, user.email);
+    }
+    const clause = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
+    const rows = await EXECUTESQL(
+      `SELECT * FROM player_identity_claims ${clause} ORDER BY created_date DESC LIMIT ?`,
+      [...vals, Math.min(Number(limit) || 50, 200)]
+    );
+    return { success: true, data: rows };
+  },
+
+  async reviewPlayerIdentityClaim({ _auth_user_id, id, status, review_notes, rejection_reason }) {
+    await ensureIdentityClaimsTable();
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminRows.length || Number(adminRows[0].role_id) !== 0) throw new Error('Admin access required');
+    if (!id || !['approved', 'rejected'].includes(status)) throw new Error('id and approved/rejected status required');
+    const rows = await EXECUTESQL('SELECT * FROM player_identity_claims WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) throw new Error('Claim not found');
+    const claim = rows[0];
+
+    await EXECUTESQL(
+      `UPDATE player_identity_claims
+       SET status = ?, review_notes = ?, rejection_reason = ?, reviewed_by = ?,
+           reviewed_by_email = ?, reviewed_at = NOW(), updated_date = NOW()
+       WHERE id = ?`,
+      [status, review_notes || null, rejection_reason || null, adminRows[0].id, adminRows[0].email, id]
+    );
+
+    if (status === 'approved') {
+      await EXECUTESQL(
+        `UPDATE players
+         SET is_verified = 1,
+             verified_platform = ?,
+             verified_platform_handle = ?,
+             identity_verified_at = NOW(),
+             updated_date = NOW()
+         WHERE id = ?`,
+        [claim.platform, claim.platform_handle, claim.player_id]
+      );
+    }
+
+    await EXECUTESQL(
+      `INSERT INTO admin_audit_log
+         (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name,
+          old_value, new_value, reason, created_date)
+       VALUES (?, ?, ?, ?, 'player_identity_claim', ?, ?, ?, ?, ?, NOW())`,
+      [
+        uuidv4(),
+        adminRows[0].id,
+        adminRows[0].email,
+        status === 'approved' ? 'approve_player_identity_claim' : 'reject_player_identity_claim',
+        claim.player_id,
+        claim.gamertag || null,
+        JSON.stringify(claim),
+        JSON.stringify({ ...claim, status }),
+        review_notes || rejection_reason || null,
+      ]
+    ).catch(() => {});
+
+    const updated = await EXECUTESQL('SELECT * FROM player_identity_claims WHERE id = ? LIMIT 1', [id]);
+    return { success: true, data: updated[0] };
+  },
+
   async sendNotification({ recipient_email, type, title, body, link, related_id, dedup_key }) {
     if (!recipient_email || !type || !title) throw new Error('Missing required fields: recipient_email, type, title');
     if (dedup_key) {

@@ -135,6 +135,7 @@ function getAdminGroups() {
         { path: "/admin/disputes", icon: AlertTriangle, label: "Disputes" },
         { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
         { path: "/admin/players", icon: UsersRound, label: "Players" },
+        { path: "/admin/identity-claims", icon: User, label: "Identity Claims" },
         { path: "/admin/clubs", icon: Shield, label: "Clubs" },
         { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
         { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
