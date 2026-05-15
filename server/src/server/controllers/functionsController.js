@@ -4403,6 +4403,183 @@ const HANDLERS = {
   },
 
   // ── Delete account ────────────────────────────────────────────────────────
+  async adminDeleteUserCompletely({ _auth_user_id, email, user_id, player_id, confirm_email, reason }) {
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!adminRows.length || Number(adminRows[0].role_id) !== 0) throw new Error('Admin access required');
+    const admin = adminRows[0];
+
+    const requestedEmail = String(email || confirm_email || '').trim().toLowerCase();
+    if (!requestedEmail && !user_id && !player_id) throw new Error('email, user_id, or player_id required');
+    if (requestedEmail && String(confirm_email || '').trim().toLowerCase() !== requestedEmail) {
+      throw new Error('confirm_email must match email');
+    }
+
+    return withTransaction(async (query) => {
+      const targetUsers = user_id
+        ? await query('SELECT * FROM users WHERE id = ? LIMIT 1', [user_id])
+        : requestedEmail
+          ? await query('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [requestedEmail])
+          : [];
+      let targetUser = targetUsers[0] || null;
+
+      const seedPlayers = player_id
+        ? await query('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id])
+        : requestedEmail
+          ? await query('SELECT * FROM players WHERE LOWER(email) = LOWER(?) LIMIT 50', [requestedEmail])
+          : [];
+      if (!targetUser && seedPlayers[0]?.user_id) {
+        const rows = await query('SELECT * FROM users WHERE id = ? LIMIT 1', [seedPlayers[0].user_id]);
+        targetUser = rows[0] || null;
+      }
+
+      const targetEmail = String(targetUser?.email || seedPlayers[0]?.email || requestedEmail || '').trim().toLowerCase();
+      if (!targetEmail && !player_id) throw new Error('Target user/player not found');
+      if (targetUser?.id === admin.id) throw new Error('Admins cannot delete their own account here');
+
+      const playerRows = await query(
+        `SELECT * FROM players
+         WHERE ${[
+           targetUser?.id ? 'user_id = ?' : null,
+           targetEmail ? 'LOWER(email) = LOWER(?)' : null,
+           player_id ? 'id = ?' : null,
+         ].filter(Boolean).join(' OR ')}`,
+        [
+          ...(targetUser?.id ? [targetUser.id] : []),
+          ...(targetEmail ? [targetEmail] : []),
+          ...(player_id ? [player_id] : []),
+        ]
+      );
+      const playerIds = [...new Set(playerRows.map((p) => p.id).filter(Boolean))];
+      const emails = [...new Set([targetEmail, targetUser?.email, ...playerRows.map((p) => p.email)].filter(Boolean).map((v) => String(v).toLowerCase()))];
+
+      const clubRows = await query(
+        `SELECT * FROM clubs
+         WHERE ${[
+           targetUser?.id ? 'user_id = ?' : null,
+           emails.length ? `LOWER(owner_email) IN (${emails.map(() => 'LOWER(?)').join(',')})` : null,
+         ].filter(Boolean).join(' OR ') || '1 = 0'}`,
+        [
+          ...(targetUser?.id ? [targetUser.id] : []),
+          ...emails,
+        ]
+      );
+      const clubIds = [...new Set(clubRows.map((c) => c.id).filter(Boolean))];
+
+      const summary = {
+        user: targetUser ? { id: targetUser.id, email: targetUser.email } : null,
+        players: playerRows.map((p) => ({ id: p.id, email: p.email, gamertag: p.gamertag })),
+        clubs: clubRows.map((c) => ({ id: c.id, name: c.name, owner_email: c.owner_email })),
+        deleted: {},
+      };
+
+      const countResult = (result) => Number(result?.affectedRows || 0);
+      const addCount = (key, result) => { summary.deleted[key] = (summary.deleted[key] || 0) + countResult(result); };
+      const safe = async (key, sql, params = []) => {
+        try {
+          const result = await query(sql, params);
+          addCount(key, result);
+        } catch (err) {
+          if (!['ER_NO_SUCH_TABLE', 'ER_BAD_FIELD_ERROR'].includes(err?.code)) throw err;
+        }
+      };
+      const inClause = (values) => values.map(() => '?').join(',');
+
+      if (emails.length) {
+        await safe('auth_tokens', `DELETE FROM auth_tokens WHERE LOWER(email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('notifications', `DELETE FROM notifications WHERE LOWER(recipient_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('inbox_messages', `DELETE FROM inbox_messages WHERE LOWER(recipient_email) IN (${emails.map(() => 'LOWER(?)').join(',')}) OR LOWER(sender_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, [...emails, ...emails]);
+        await safe('direct_messages', `DELETE FROM direct_messages WHERE LOWER(sender_email) IN (${emails.map(() => 'LOWER(?)').join(',')}) OR LOWER(recipient_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, [...emails, ...emails]);
+        await safe('chat_messages', `DELETE FROM chat_messages WHERE LOWER(sender_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('posts', `DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE LOWER(author_email) IN (${emails.map(() => 'LOWER(?)').join(',')}))`, emails);
+        await safe('comments', `DELETE FROM comments WHERE LOWER(author_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('posts', `DELETE FROM posts WHERE LOWER(author_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('predictions', `DELETE FROM predictions WHERE LOWER(predictor_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('user_purchases', `DELETE FROM user_purchases WHERE LOWER(buyer_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('shirt_sales', `DELETE FROM shirt_sales WHERE LOWER(buyer_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('match_player_stats', `DELETE FROM match_player_stats WHERE LOWER(player_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+        await safe('follows', `DELETE FROM follows WHERE LOWER(follower_email) IN (${emails.map(() => 'LOWER(?)').join(',')})`, emails);
+      }
+
+      if (playerIds.length) {
+        const pIn = inClause(playerIds);
+        await safe('player_identity_claims', `DELETE FROM player_identity_claims WHERE player_id IN (${pIn})`, playerIds);
+        await safe('player_contracts', `DELETE FROM player_contracts WHERE user_id IN (${pIn}) OR offered_by IN (${pIn})`, [...playerIds, ...playerIds]);
+        await safe('join_requests', `DELETE FROM join_requests WHERE player_id IN (${pIn})`, playerIds);
+        await safe('follows', `DELETE FROM follows WHERE follower_player_id IN (${pIn}) OR (target_type = 'player' AND target_id IN (${pIn}))`, [...playerIds, ...playerIds]);
+        await safe('recruitment_posts', `DELETE FROM recruitment_posts WHERE author_player_id IN (${pIn})`, playerIds);
+        await safe('recruitment_interests', `DELETE FROM recruitment_interests WHERE sender_player_id IN (${pIn}) OR recipient_player_id IN (${pIn})`, [...playerIds, ...playerIds]);
+        await safe('club_applicants', `DELETE FROM club_applicants WHERE player_id IN (${pIn})`, playerIds);
+        await safe('club_staff_roles', `DELETE FROM club_staff_roles WHERE player_id IN (${pIn})`, playerIds);
+        await safe('club_fixture_availability', `DELETE FROM club_fixture_availability WHERE player_id IN (${pIn})`, playerIds);
+        await safe('club_fixture_lineups', `UPDATE club_fixture_lineups SET captain_player_id = NULL WHERE captain_player_id IN (${pIn})`, playerIds);
+        await safe('lifestyle_purchases', `DELETE FROM lifestyle_purchases WHERE player_id IN (${pIn})`, playerIds);
+        await safe('shirt_sales', `DELETE FROM shirt_sales WHERE player_id IN (${pIn})`, playerIds);
+        await safe('trophy_placements', `DELETE FROM trophy_placements WHERE owner_type = 'player' AND owner_id IN (${pIn})`, playerIds);
+        await safe('matches', `UPDATE matches SET home_player_id = NULL, home_player_email = NULL WHERE home_player_id IN (${pIn})`, playerIds);
+        await safe('matches', `UPDATE matches SET away_player_id = NULL, away_player_email = NULL WHERE away_player_id IN (${pIn})`, playerIds);
+        await safe('matches', `UPDATE matches SET winner_player_id = NULL WHERE winner_player_id IN (${pIn})`, playerIds);
+        await safe('matches', `UPDATE matches SET loser_player_id = NULL WHERE loser_player_id IN (${pIn})`, playerIds);
+      }
+
+      if (targetUser?.id) {
+        await safe('player_identity_claims', 'DELETE FROM player_identity_claims WHERE user_id = ?', [targetUser.id]);
+        await safe('recruitment_posts', 'DELETE FROM recruitment_posts WHERE author_user_id = ?', [targetUser.id]);
+        await safe('recruitment_interests', 'DELETE FROM recruitment_interests WHERE sender_user_id = ? OR recipient_user_id = ?', [targetUser.id, targetUser.id]);
+        await safe('club_applicants', 'DELETE FROM club_applicants WHERE user_id = ?', [targetUser.id]);
+        await safe('club_staff_roles', 'DELETE FROM club_staff_roles WHERE user_id = ? OR assigned_by_user_id = ?', [targetUser.id, targetUser.id]);
+        await safe('club_fixture_availability', 'DELETE FROM club_fixture_availability WHERE user_id = ?', [targetUser.id]);
+        await safe('club_fixture_lineups', 'DELETE FROM club_fixture_lineups WHERE created_by_user_id = ?', [targetUser.id]);
+      }
+
+      if (clubIds.length) {
+        const cIn = inClause(clubIds);
+        await safe('players', `UPDATE players SET club_id = NULL, role = 'member', club_roles = JSON_ARRAY('member'), status = 'free_agent' WHERE club_id IN (${cIn})`, clubIds);
+        await safe('player_contracts', `DELETE FROM player_contracts WHERE team_id IN (${cIn})`, clubIds);
+        await safe('recruitment_posts', `DELETE FROM recruitment_posts WHERE author_club_id IN (${cIn})`, clubIds);
+        await safe('recruitment_interests', `DELETE FROM recruitment_interests WHERE sender_club_id IN (${cIn}) OR recipient_club_id IN (${cIn})`, [...clubIds, ...clubIds]);
+        await safe('club_applicants', `DELETE FROM club_applicants WHERE club_id IN (${cIn})`, clubIds);
+        await safe('club_staff_roles', `DELETE FROM club_staff_roles WHERE club_id IN (${cIn})`, clubIds);
+        await safe('club_fixture_availability', `DELETE FROM club_fixture_availability WHERE club_id IN (${cIn})`, clubIds);
+        await safe('club_fixture_lineups', `DELETE FROM club_fixture_lineups WHERE club_id IN (${cIn})`, clubIds);
+        await safe('club_operation_audit_logs', `DELETE FROM club_operation_audit_logs WHERE club_id IN (${cIn})`, clubIds);
+        await safe('stc_transactions', `DELETE FROM stc_transactions WHERE club_id IN (${cIn})`, clubIds);
+        await safe('shirt_sales', `DELETE FROM shirt_sales WHERE club_id IN (${cIn})`, clubIds);
+        await safe('trophy_placements', `DELETE FROM trophy_placements WHERE owner_type = 'club' AND owner_id IN (${cIn})`, clubIds);
+        await safe('follows', `DELETE FROM follows WHERE target_type = 'club' AND target_id IN (${cIn})`, clubIds);
+        await safe('posts', `DELETE FROM posts WHERE club_id IN (${cIn})`, clubIds);
+        await safe('matches', `UPDATE matches SET home_club_id = NULL WHERE home_club_id IN (${cIn})`, clubIds);
+        await safe('matches', `UPDATE matches SET away_club_id = NULL WHERE away_club_id IN (${cIn})`, clubIds);
+        await safe('clubs', `DELETE FROM clubs WHERE id IN (${cIn})`, clubIds);
+      }
+
+      if (playerIds.length) {
+        await safe('players', `DELETE FROM players WHERE id IN (${inClause(playerIds)})`, playerIds);
+      }
+      if (targetUser?.id) {
+        await safe('users', 'UPDATE users SET player_id = NULL, owner_id = NULL WHERE id = ?', [targetUser.id]);
+        await safe('users', 'DELETE FROM users WHERE id = ?', [targetUser.id]);
+      }
+
+      await query(
+        `INSERT INTO admin_audit_log
+           (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+         VALUES (?, ?, ?, 'delete_user_completely', 'user', ?, ?, ?, ?, ?, NOW())`,
+        [
+          uuidv4(),
+          admin.id,
+          admin.email,
+          targetUser?.id || playerIds[0] || targetEmail,
+          targetEmail,
+          JSON.stringify(summary),
+          JSON.stringify({ deleted: true }),
+          reason || `Deleted user reset for ${targetEmail}`,
+        ]
+      ).catch(() => {});
+
+      return { success: true, data: summary };
+    });
+  },
+
   async deleteAccount({ _auth_user_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const ownedClubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ?', [_auth_user_id]);

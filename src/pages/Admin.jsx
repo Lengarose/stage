@@ -376,6 +376,23 @@ export default function Admin(props) {
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" } : p));
   }
 
+  async function deleteUserCompletely(emailOrPlayer) {
+    const email = typeof emailOrPlayer === "string" ? emailOrPlayer : emailOrPlayer?.email;
+    const playerId = typeof emailOrPlayer === "object" ? emailOrPlayer?.id : null;
+    const label = email || playerId;
+    if (!label) return;
+    const typed = prompt(`This permanently deletes the user reset data for ${label}. Type the email to confirm.`);
+    if (!typed || (email && typed.trim().toLowerCase() !== email.trim().toLowerCase())) return;
+    const reason = prompt("Reason for audit log?", `Admin reset/delete requested for ${label}`) || "";
+    await stageClient.functions.invoke("adminDeleteUserCompletely", {
+      email,
+      player_id: playerId,
+      confirm_email: typed.trim(),
+      reason,
+    });
+    await loadAll();
+  }
+
   async function deleteClub(clubId) {
     if (!confirm("Are you sure you want to delete this club? This cannot be undone.")) return;
     await stageClient.entities.Club.delete(clubId);
@@ -1237,6 +1254,7 @@ export default function Admin(props) {
               openPlayerWallet={openPlayerWallet}
               kickFromClub={kickFromClub}
               reviewIdentityClaim={reviewIdentityClaim}
+              deleteUserCompletely={deleteUserCompletely}
             />
           )}
 

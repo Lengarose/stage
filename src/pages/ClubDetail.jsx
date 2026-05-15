@@ -105,11 +105,40 @@ export default function ClubDetail() {
       const user = await stageClient.auth.me();
       setCurrentUser(user);
 
-      const [clubRecord, playerData, myPl] = await Promise.all([
+      const [clubRecord, initialPlayerData, myPl] = await Promise.all([
         stageClient.entities.Club.get(id),
         stageClient.entities.Player.filter({ club_id: id }),
         stageClient.entities.Player.filter({ email: user.email }),
       ]);
+      let playerData = initialPlayerData || [];
+      const playerIds = new Set(playerData.map((p) => p.id).filter(Boolean));
+
+      const ownershipContracts = await stageClient.entities.PlayerContract
+        .filter({ team_id: id, contract_type: "ownership" }, "-created_date", 20)
+        .catch(() => []);
+      const liveOwnershipContracts = (ownershipContracts || []).filter((contract) =>
+        ["pending", "pending_window", "negotiating", "active"].includes(contract.status)
+      );
+      if (liveOwnershipContracts.length > 0) {
+        const ownershipPlayers = await Promise.all(
+          liveOwnershipContracts
+            .filter((contract) => contract.user_id && !playerIds.has(contract.user_id))
+            .map((contract) => stageClient.entities.Player.get(contract.user_id).catch(() => null))
+        );
+        const normalizedOwners = ownershipPlayers
+          .filter(Boolean)
+          .map((ownerPlayer) => ({
+            ...ownerPlayer,
+            club_id: ownerPlayer.club_id || id,
+            club_roles: Array.isArray(ownerPlayer.club_roles) && ownerPlayer.club_roles.includes("president")
+              ? ownerPlayer.club_roles
+              : ["president"],
+            role: ownerPlayer.role === "captain" || ownerPlayer.role === "owner" || !ownerPlayer.role
+              ? "president"
+              : ownerPlayer.role,
+          }));
+        playerData = [...playerData, ...normalizedOwners];
+      }
 
       const [matchesHome, matchesAway, followData, allFollowersData] = await Promise.all([
         stageClient.entities.Match.filter({ home_club_id: id, status: "completed" }, "round", 30),

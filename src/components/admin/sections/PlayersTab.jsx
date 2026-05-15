@@ -1,9 +1,10 @@
+import { useState } from "react";
 import BackfillStcButton from "@/components/admin/economy/BackfillStcButton";
 import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfigPanel";
 import AdminContractsPanel from "@/components/admin/economy/AdminContractsPanel";
 import AdminShirtSalesPanel from "@/components/admin/economy/AdminShirtSalesPanel";
 import { Button } from "@/components/ui/button";
-import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink } from "lucide-react";
+import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
 
 export default function PlayersTab({
   players,
@@ -15,7 +16,18 @@ export default function PlayersTab({
   openPlayerWallet,
   kickFromClub,
   reviewIdentityClaim,
+  deleteUserCompletely,
 }) {
+  const [deleteEmail, setDeleteEmail] = useState("");
+  const filteredPlayers = players.filter((p) => {
+    const needle = playerSearch.toLowerCase();
+    return (
+      p.gamertag?.toLowerCase().includes(needle) ||
+      p.email?.toLowerCase().includes(needle) ||
+      p.platform?.toLowerCase().includes(needle)
+    );
+  });
+
   return (
     <>
       <BackfillStcButton />
@@ -69,10 +81,36 @@ export default function PlayersTab({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
           className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-          placeholder="Search by gamertag..." />
+          placeholder="Search by gamertag, email, or platform..." />
+      </div>
+      <div className="mb-4 rounded border border-destructive/25 bg-destructive/5 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-4 h-4 text-destructive" />
+          <h2 className="text-sm font-bold text-foreground">Delete user reset</h2>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Permanently removes a user, player profile, identity claims, inbox/notifications, contracts, recruitment records, follows, and owned club links.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={deleteEmail}
+            onChange={(e) => setDeleteEmail(e.target.value)}
+            className="flex-1 bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-destructive/50"
+            placeholder="email@example.com"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!deleteEmail.trim()}
+            onClick={() => deleteUserCompletely?.(deleteEmail.trim())}
+            className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete User
+          </Button>
+        </div>
       </div>
       <div className="space-y-2">
-        {players.filter(p => p.gamertag?.toLowerCase().includes(playerSearch.toLowerCase())).map(p => (
+        {filteredPlayers.map(p => (
           <div key={p.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
             <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
               {p.avatar_url ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
@@ -93,6 +131,7 @@ export default function PlayersTab({
             <div className="flex gap-2 shrink-0 flex-wrap">
               <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
               <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(0); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
+              <Button size="sm" variant="outline" onClick={() => deleteUserCompletely?.(p)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> Delete User</Button>
 
               <Button
                 size="sm"
