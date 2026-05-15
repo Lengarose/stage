@@ -8,6 +8,7 @@ import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
 import { stageClient } from '@/api/stageClient';
+import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin } from '@/lib/adminAuth';
 import BannerImg from '@/assets/Name logo.png';
 
 import PageNotFound from './lib/PageNotFound';
@@ -77,7 +78,15 @@ const OAuthCallback = () => {
   React.useEffect(() => {
     const ok = stageClient.auth.handleOAuthCallback();
     if (ok) {
-      checkUserAuth().then(() => navigate('/', { replace: true }));
+      checkUserAuth().then(async () => {
+        const u = await stageClient.auth.me().catch(() => null);
+        if (isAppAdminUser(u)) {
+          ensureAdminPanelMode();
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
+      });
     } else {
       navigate('/', { replace: true });
     }
@@ -119,6 +128,7 @@ const AuthenticatedApp = () => {
 
   React.useEffect(() => {
     if (!user) return;
+    if (isAppAdminUser(user)) ensureAdminPanelMode();
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     const userScopedDone = localStorage.getItem(userScopedKey) === '1';
     const legacyDone = localStorage.getItem('stage_onboarding_completed') === '1';
@@ -151,12 +161,7 @@ const AuthenticatedApp = () => {
     return <Landing onSignIn={() => setShowLogin(true)} />;
   }
 
-  const roleOverrideRaw =
-    typeof window !== 'undefined' ? localStorage.getItem('stage_admin_effective_role_id') : null;
-  const dbRoleId = Number(user.role_id);
-  const effectiveRoleId =
-    dbRoleId === 0 && roleOverrideRaw !== null ? Number(roleOverrideRaw) : dbRoleId;
-  const isAdmin = effectiveRoleId === 0;
+  const isAdmin = isEffectiveAdmin(user);
   const takeoverClubId =
     typeof window !== 'undefined' ? localStorage.getItem('admin_takeover_club_id') : null;
   const isAdminTakeoverClubRoute =
@@ -164,7 +169,6 @@ const AuthenticatedApp = () => {
     (location.pathname === `/clubs/${takeoverClubId}` ||
       location.pathname.startsWith(`/clubs/${takeoverClubId}/`));
   const isAdminAllowedGlobalRoute =
-    location.pathname === '/' ||
     location.pathname === '/clubs' ||
     location.pathname.startsWith('/clubs/') ||
     location.pathname === '/search' ||
@@ -179,8 +183,7 @@ const AuthenticatedApp = () => {
     return <Navigate to="/admin" replace />;
   }
 
-  const isDatabaseAdmin = dbRoleId === 0;
-  if (!isAdmin && !isDatabaseAdmin && !playerSetupComplete) {
+  if (!isAppAdminUser(user) && !playerSetupComplete) {
     return <Onboarding onComplete={() => {
       localStorage.setItem('stage_onboarding_completed', '1');
       if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
@@ -191,7 +194,7 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <Home />} />
         <Route path="/clubs" element={<Clubs />} />
         <Route path="/clubs/:id" element={<ClubDetail />} />
         <Route path="/tournaments" element={<Tournaments />} />

@@ -49,7 +49,10 @@ async function apiFetch(path, opts = {}, _isRetry = false) {
   // Auto-refresh on 401
   if (res.status === 401 && !_isRetry) {
     const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (!refreshToken) { clearTokens(); return; }
+    if (!refreshToken) {
+      clearTokens();
+      throw { status: 401, message: 'Authentication required' };
+    }
 
     if (!_refreshPromise) {
       _refreshPromise = fetch(`${API_BASE}/auth/refresh`, {

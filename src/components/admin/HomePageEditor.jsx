@@ -1,62 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { useState, useEffect } from "react";
+import { stageClient } from "@/api/stageClient";
+import ImageUploadField from "@/components/admin/shared/ImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Upload, Check, Image, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/* ── image upload ─────────────────────────────────────────────── */
-function ImageUploadField({ value, onChange, label }) {
-  const ref = useRef(null);
-  const [uploading, setUploading] = useState(false);
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      onChange(file_url);
-    } catch {
-      alert("Upload failed. Paste the URL manually.");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {label && <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</p>}
-      {value && <img src={value} alt="" className="w-full h-32 rounded-xl object-cover border border-border mb-2" />}
-      {!value && (
-        <div className="w-full h-32 rounded-xl border border-dashed border-border bg-muted/30 flex items-center justify-center mb-2">
-          <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
-            <Image className="w-6 h-6" />
-            <p className="text-[10px] uppercase tracking-widest">No image</p>
-          </div>
-        </div>
-      )}
-      <div className="flex gap-2 items-center">
-        <Input value={value} onChange={e => onChange(e.target.value)} placeholder="https://…" className="h-8 text-xs flex-1" />
-        <label className="cursor-pointer shrink-0">
-          <input type="file" accept="image/*" className="hidden" onChange={handleFile} ref={ref} />
-          <Button type="button" size="sm" variant="outline" className="h-8 text-[10px] gap-1.5 px-3"
-            onClick={() => ref.current?.click()} disabled={uploading}>
-            <Upload className="w-3 h-3" />{uploading ? "Uploading…" : "Upload"}
-          </Button>
-        </label>
-        {value && (
-          <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground hover:text-destructive"
-            onClick={() => onChange("")}>
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function EditorSection({ title, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -89,7 +39,7 @@ export default function HomePageEditor() {
   const [saved, setSaved]   = useState(false);
 
   useEffect(() => {
-    (base44.entities.HomePageContent?.filter({}, null, 1) ?? Promise.resolve([]))
+    stageClient.entities.HomePageContent.filter({}, null, 1)
       .catch(() => [])
       .then(rows => {
         const r = rows[0] || {};
@@ -147,9 +97,9 @@ export default function HomePageEditor() {
     setSaving(true);
     try {
       if (record?.id) {
-        await base44.entities.HomePageContent.update(record.id, form);
+        await stageClient.entities.HomePageContent.update(record.id, form);
       } else {
-        const created = await base44.entities.HomePageContent.create(form);
+        const created = await stageClient.entities.HomePageContent.create(form);
         setRecord(created);
       }
       setSaved(true);
@@ -193,7 +143,13 @@ export default function HomePageEditor() {
         <Field label="Description">
           <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} />
         </Field>
-        <ImageUploadField label="Background image" value={form.hero_image_url} onChange={v => set("hero_image_url", v)} />
+        <ImageUploadField
+          label="Background image"
+          value={form.hero_image_url}
+          onChange={v => set("hero_image_url", v)}
+          preview="hero"
+          placeholder="https://… or drop image above"
+        />
         <div className="grid grid-cols-3 gap-2 pt-1">
           {[1, 2, 3].map(n => (
             <div key={n} className="space-y-1.5 border border-border rounded-lg p-2">

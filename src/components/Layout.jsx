@@ -10,6 +10,7 @@ import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { stageClient } from "@/api/stageClient";
+import { isAppAdminUser } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
@@ -25,8 +26,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-function isAppAdminUser(u) {
-  return u?.role === "admin" || Number(u?.role_id) === 0;
+/** Paths that only match exactly (never as a prefix for child routes). */
+const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
+
+function isNavItemActive(itemPath, pathname) {
+  if (pathname === itemPath) return true;
+  if (NAV_ROOT_PATHS.has(itemPath)) return false;
+  return pathname.startsWith(`${itemPath}/`);
+}
+
+function findActiveNavItem(items, pathname) {
+  let best = null;
+  for (const item of items) {
+    if (!isNavItemActive(item.path, pathname)) continue;
+    if (!best || item.path.length > best.path.length) best = item;
+  }
+  return best;
+}
+
+function findActiveInGroups(groups, pathname) {
+  for (const group of groups) {
+    const item = findActiveNavItem(group.items, pathname);
+    if (item) return { group, item };
+  }
+  return null;
 }
 
 /* ── constants ─────────────────────────────────────────────── */
@@ -204,7 +227,9 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
   const isHeader = variant === "header";
 
   if (!isHeader) {
-    const anyActive = groups.some((g) => g.items.some((i) => pathname === i.path));
+    const activeNav = findActiveInGroups(groups, pathname);
+    const anyActive = Boolean(activeNav);
+    const triggerLabel = activeNav?.item.label ?? "Navigate";
     return (
       <div className="flex flex-1 flex-col px-3 py-2">
         <DropdownMenu>
@@ -219,7 +244,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
               )}
               style={{ ...headingFont, fontWeight: 700 }}
             >
-              <span>Navigate</span>
+              <span>{triggerLabel}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-45" />
             </button>
           </DropdownMenuTrigger>
@@ -231,7 +256,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                   {group.label}
                 </DropdownMenuLabel>
                 {group.items.map((item) => (
-                  <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon} isWhiteTheme={isWhiteTheme}>
+                  <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={isNavItemActive(item.path, pathname)} icon={item.icon} isWhiteTheme={isWhiteTheme}>
                     {item.label}
                   </EafcNavLink>
                 ))}
@@ -246,7 +271,9 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
   return (
     <nav className="flex flex-row items-stretch gap-px shrink-0 self-stretch">
       {groups.map((group) => {
-        const anyActive = group.items.some((i) => pathname === i.path);
+        const activeItem = findActiveNavItem(group.items, pathname);
+        const anyActive = Boolean(activeItem);
+        const triggerLabel = activeItem?.label ?? group.label;
         return (
           <DropdownMenu key={group.label}>
             <DropdownMenuTrigger asChild>
@@ -268,14 +295,14 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                   className={cn("select-none text-[12px] sm:text-[14px] uppercase", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/65" : "text-white/40"))}
                   style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.14em", transition: "color 0.12s" }}
                 >
-                  {group.label}
+                  {triggerLabel}
                 </span>
                 <ChevronDown className={cn("shrink-0 h-3 w-3", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/25"))} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="bottom" align="start" sideOffset={0} className={cn("z-[70] min-w-[12.5rem] p-1 shadow-2xl", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
               {group.items.map((item) => (
-                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={pathname === item.path} icon={item.icon} isWhiteTheme={isWhiteTheme}>
+                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={isNavItemActive(item.path, pathname)} icon={item.icon} isWhiteTheme={isWhiteTheme}>
                   {item.label}
                 </EafcNavLink>
               ))}
@@ -510,7 +537,7 @@ function MobileMoreSheet({ open, onClose, pathname }) {
               </p>
               <div className="grid grid-cols-4 gap-2">
                 {group.items.map((item) => {
-                  const isActive = pathname === item.path;
+                  const isActive = isNavItemActive(item.path, pathname);
                   const Icon = item.icon;
                   return (
                     <Link
@@ -554,7 +581,10 @@ function MobileMoreSheet({ open, onClose, pathname }) {
 function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const inMore = !MOBILE_PRIMARY.some((t) => t.path === pathname);
+  const primaryActive = MOBILE_PRIMARY.find((t) => isNavItemActive(t.path, pathname));
+  const moreActive = findActiveInGroups(MOBILE_MORE_GROUPS, pathname);
+  const inMore = !primaryActive && Boolean(moreActive);
+  const moreLabel = moreActive?.item.label ?? "More";
 
   return (
     <>
@@ -573,7 +603,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
       >
         <div className="flex w-full">
           {MOBILE_PRIMARY.map((tab) => {
-            const isActive = pathname === tab.path;
+            const isActive = isNavItemActive(tab.path, pathname);
             const Icon = tab.icon;
             return (
               <Link
@@ -652,7 +682,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
                 color: (moreOpen || inMore) ? "#00E5BD" : "rgba(255,255,255,0.3)",
               }}
             >
-              More
+              {moreLabel}
             </span>
           </button>
         </div>
@@ -661,7 +691,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
   );
 }
 
-function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin }) {
+function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin, activePageLabel }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
@@ -672,18 +702,27 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
       style={{
         paddingTop: "calc(var(--safe-top) + 10px)",
         paddingBottom: 10,
+        position: "relative",
         background: "linear-gradient(180deg, #090d1c 0%, rgba(9,13,28,0.92) 100%)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(0,229,189,0.1)",
       }}
     >
-      <Link to="/">
+      <Link to="/" className="shrink-0">
         <img src={LogoImg} alt="STAGE" className="h-9 w-auto object-contain" />
       </Link>
 
-      <div className="flex items-center gap-1">
-        {/* Theme mini-picker */}
+      {activePageLabel && (
+        <span
+          className="absolute left-1/2 -translate-x-1/2 text-[11px] uppercase truncate max-w-[42vw] pointer-events-none"
+          style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.14em", color: TEAL }}
+        >
+          {activePageLabel}
+        </span>
+      )}
+
+      <div className="flex items-center gap-1 shrink-0">
         <select
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
@@ -701,7 +740,6 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
           ))}
         </select>
 
-        {/* Notification bell */}
         <NotificationBell />
 
         {showAdminTakeoverExit && (
@@ -749,6 +787,10 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
 }
 
 function AdminMobileTopBar({ pathname, theme, setTheme }) {
+  const adminGroups = getAdminGroups();
+  const activeNav = findActiveInGroups(adminGroups, pathname);
+  const headerTitle = activeNav?.item.label ?? "Admin";
+
   const adminTabs = [
     { path: "/admin", label: "Dash", icon: ShieldAlert },
     { path: "/admin/players", label: "Players", icon: UsersRound },
@@ -772,15 +814,15 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
         <Link to="/admin" className="flex items-center gap-2">
           <img src={LogoImg} alt="STAGE" className="h-8 w-auto object-contain" />
           <span
-            className="text-[10px] uppercase"
+            className="text-[10px] uppercase truncate max-w-[9rem]"
             style={{ ...headingFont, fontWeight: 900, letterSpacing: "0.16em", color: "#f87171" }}
           >
-            Admin
+            {headerTitle}
           </span>
         </Link>
         <div className="flex items-center gap-1">
           <NotificationBell />
-          <Link to="/" className="rounded p-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+          <Link to="/admin" className="rounded p-1.5" style={{ color: isNavItemActive("/admin", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}>
             <Home className="w-4 h-4" />
           </Link>
           <select
@@ -805,7 +847,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
       <div className="mt-2 px-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex items-center gap-1.5 min-w-max">
           {adminTabs.map((tab) => {
-            const isActive = pathname === tab.path;
+            const isActive = isNavItemActive(tab.path, pathname);
             const Icon = tab.icon;
             return (
               <Link
@@ -955,6 +997,11 @@ export default function Layout() {
   const playerGroups = getPlayerGroups(clubPath);
   const ownerGroups = getOwnerGroups(clubPath);
   const adminGroups = getAdminGroups();
+  const headerNavGroups = isAdminRoute
+    ? adminGroups
+    : (accountMode === "club" ? ownerGroups : playerGroups);
+  const activeHeaderNav = findActiveInGroups(headerNavGroups, location.pathname);
+  const activePageLabel = activeHeaderNav?.item.label ?? null;
   const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
@@ -1027,6 +1074,7 @@ export default function Layout() {
           setTheme={setTheme}
           pathname={location.pathname}
           isAdmin={isAdmin}
+          activePageLabel={activePageLabel}
         />
       )}
 
@@ -1114,9 +1162,9 @@ export default function Layout() {
 
           <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3">
             <Link
-              to={isAdminRoute ? "/" : "/search"}
+              to={isAdminRoute ? "/admin" : "/search"}
               className="rounded p-2 transition-all"
-              style={{ color: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (isAdminRoute ? location.pathname === "/" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
+              style={{ color: (isAdminRoute ? location.pathname === "/admin" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (isAdminRoute ? location.pathname === "/admin" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
             >
               {isAdminRoute ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
             </Link>
