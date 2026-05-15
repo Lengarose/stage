@@ -4404,8 +4404,18 @@ const HANDLERS = {
 
   // ── Delete account ────────────────────────────────────────────────────────
   async adminDeleteUserCompletely({ _auth_user_id, email, user_id, player_id, confirm_email, reason }) {
-    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
-    if (!adminRows.length || Number(adminRows[0].role_id) !== 0) throw new Error('Admin access required');
+    const adminRows = await EXECUTESQL(
+      `SELECT u.id, u.email, u.role_id, r.name AS role_name
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ? LIMIT 1`,
+      [_auth_user_id]
+    );
+    const adminRoleId = Number(adminRows[0]?.role_id);
+    const adminRoleName = String(adminRows[0]?.role_name || '').toLowerCase();
+    if (!adminRows.length || (adminRoleId !== 0 && adminRoleId !== 2 && adminRoleName !== 'admin')) {
+      throw new Error('Admin access required');
+    }
     const admin = adminRows[0];
 
     const requestedEmail = String(email || confirm_email || '').trim().toLowerCase();
@@ -4464,6 +4474,9 @@ const HANDLERS = {
         ]
       );
       const clubIds = [...new Set(clubRows.map((c) => c.id).filter(Boolean))];
+      if (!targetUser && playerRows.length === 0 && clubRows.length === 0) {
+        throw new Error(`No user, player, or club found for ${targetEmail || player_id || user_id}`);
+      }
 
       const summary = {
         user: targetUser ? { id: targetUser.id, email: targetUser.email } : null,

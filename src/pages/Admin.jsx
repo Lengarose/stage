@@ -384,13 +384,24 @@ export default function Admin(props) {
     const typed = prompt(`This permanently deletes the user reset data for ${label}. Type the email to confirm.`);
     if (!typed || (email && typed.trim().toLowerCase() !== email.trim().toLowerCase())) return;
     const reason = prompt("Reason for audit log?", `Admin reset/delete requested for ${label}`) || "";
-    await stageClient.functions.invoke("adminDeleteUserCompletely", {
-      email,
-      player_id: playerId,
-      confirm_email: typed.trim(),
-      reason,
-    });
-    await loadAll();
+    try {
+      const result = await stageClient.functions.invoke("adminDeleteUserCompletely", {
+        email,
+        player_id: playerId,
+        confirm_email: typed.trim(),
+        reason,
+      });
+      const deleted = result?.data?.deleted || {};
+      const deletedTotal = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
+      setPlayers(prev => prev.filter(p => p.id !== playerId && (!email || String(p.email || "").toLowerCase() !== email.toLowerCase())));
+      setIdentityClaims(prev => prev.filter(c => (!email || String(c.email || "").toLowerCase() !== email.toLowerCase()) && (!playerId || c.player_id !== playerId)));
+      alert(`Delete user reset completed for ${label}. Deleted/updated ${deletedTotal} records.`);
+      await loadAll();
+    } catch (err) {
+      const message = err?.message || err?.data?.error || "Delete user reset failed";
+      alert(`Delete user reset failed: ${message}`);
+      throw err;
+    }
   }
 
   async function deleteClub(clubId) {
