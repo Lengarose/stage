@@ -22,6 +22,7 @@ import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
 import { getBannerStyle } from "@/lib/storeItems";
 import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
+import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -51,6 +52,7 @@ export default function Profile() {
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const [pvpMatches, setPvpMatches] = useState([]);
   const [profileTab, setProfileTab] = useState("posts");
+  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
   const avatarInputRef = useRef();
 
   const [playerForm, setPlayerForm] = useState({
@@ -252,13 +254,9 @@ export default function Profile() {
       wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
       stadium_level: 0, stadium_capacity: 5000,
       tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
+      creator_player_id: player.id,
     });
     if (!club?.id) return;
-    await stageClient.entities.Player.update(player.id, {
-      club_id: club.id,
-      club_roles: ["president", "captain"],
-      role: "captain",
-    });
     const refreshed = await stageClient.entities.Player.filter({ email: user.email });
     if (refreshed[0]) setPlayer(refreshed[0]);
     setMyClub(club);
@@ -271,7 +269,7 @@ export default function Profile() {
       country_code: club.country_code || "",
     });
     setClubDialogOpen(false);
-    setView("club");
+    setOwnerContractPrompt({ club, player: refreshed[0] || player, contractId: club.owner_contract_id });
   }
 
   async function leaveClub() {
@@ -300,6 +298,17 @@ export default function Profile() {
   if (view === "profile") {
     return (
       <div className="min-h-screen bg-background text-foreground">
+        <OwnerContractDialog
+          open={!!ownerContractPrompt}
+          club={ownerContractPrompt?.club}
+          player={ownerContractPrompt?.player}
+          contractId={ownerContractPrompt?.contractId}
+          onSigned={() => {
+            setOwnerContractPrompt(null);
+            setView("club");
+          }}
+          onClose={() => setOwnerContractPrompt(null)}
+        />
         {/* Banner */}
         <div className="relative h-48 sm:h-64 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)]" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
           <div className="w-full h-full" style={getBannerStyle(player?.banner_url, player?.banner_position)} />
@@ -1030,16 +1039,14 @@ export default function Profile() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{req.player_gamertag}</p>
                 {req.message && <p className="text-xs text-muted-foreground truncate">"{req.message}"</p>}
+                <p className="text-[11px] text-primary mt-1">Approvals now happen through contract offers in Club Operations.</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button size="sm" onClick={async () => {
-                  await stageClient.entities.JoinRequest.update(req.id, { status: "approved" });
-                  await stageClient.entities.Player.update(req.player_id, { club_id: req.club_id, role: "member", club_roles: ["member"], status: "active" });
-                  await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_approved", title: `Welcome to ${req.club_name}!`, body: "Your join request was approved.", link: `/clubs/${req.club_id}`, read: false });
-                  setJoinRequests(prev => prev.filter(r => r.id !== req.id));
-                }} className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
-                  <Check className="w-3 h-3 mr-1" /> Accept
-                </Button>
+                <Link to={`/clubs/${req.club_id}`}>
+                  <Button size="sm" className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
+                    <Check className="w-3 h-3 mr-1" /> Operations
+                  </Button>
+                </Link>
                 <Button size="sm" onClick={async () => {
                   await stageClient.entities.JoinRequest.update(req.id, { status: "rejected" });
                   await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });

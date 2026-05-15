@@ -14,18 +14,18 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import { getBannerStyle } from "@/lib/storeItems";
-import FormationPitch from "../components/FormationPitch";
 import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
 import ClubPlayerStats from "../components/ClubPlayerStats";
 import ContractsTab from "../components/contracts/ContractsTab";
 import ClubFinanceTab from "../components/club/ClubFinanceTab";
+import ClubOperations from "@/components/club/ClubOperations";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
@@ -94,7 +94,9 @@ export default function ClubDetail() {
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwner = (club?.owner_email === currentUser?.email && accountMode === "club") || isAdminTakeover;
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
+  const isViceCaptain = isMember && (myPlayer?.role === "vice-captain" || myPlayer?.club_roles?.includes("vice-captain"));
   const canEdit = isOwner || isCaptain;
+  const canOpenOperations = isOwner || isPresident || isCaptain || isViceCaptain || isAdminTakeover;
   const CLUB_CHAT_CHANNEL = `club:${id}`;
 
   useEffect(() => {
@@ -379,15 +381,11 @@ export default function ClubDetail() {
     setPlayers(updated);
   }
 
-  async function handleJoinRequest(reqId, action) {
+  async function declineJoinRequest(reqId) {
     const req = joinRequests.find(r => r.id === reqId);
     if (!req) return;
-    await stageClient.entities.JoinRequest.update(reqId, { status: action });
+    await stageClient.entities.JoinRequest.update(reqId, { status: "rejected" });
     setJoinRequests(prev => prev.filter(r => r.id !== reqId));
-    if (action === "approved") {
-      await stageClient.entities.Player.update(req.player_id, { club_id: id, role: "member", club_roles: ["member"] });
-      setPlayers(prev => [...prev, { id: req.player_id, email: req.player_email, gamertag: req.player_gamertag, club_id: id, role: "member", club_roles: ["member"] }]);
-    }
   }
 
   function uploadLogo(e) {
@@ -488,6 +486,34 @@ export default function ClubDetail() {
     L: "bg-destructive/15 text-destructive border-destructive/30",
     D: "bg-warning/15 text-warning border-warning/30",
   };
+  const tabLabels = {
+    posts: "Posts",
+    stats: "Stats",
+    matches: "Matches",
+    chat: "Chat",
+    squad: "Squad",
+    trophies: "Trophies",
+    history: "History",
+    operations: "Operations",
+    requests: `Requests (${joinRequests.length})`,
+    stadium: "Stadium",
+    contracts: "Contracts",
+    finance: "Finance",
+    shirts: "Shirts",
+  };
+  const tabGroups = [
+    { label: "Profile", tabs: ["posts", "stats", "matches", "chat"] },
+    { label: "Squad", tabs: ["squad", "trophies", "history"] },
+    { label: "Operations", tabs: [
+      ...(canOpenOperations ? ["operations"] : []),
+      ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : []),
+    ] },
+    { label: "Club Office", tabs: isOwner ? ["stadium", "contracts", "finance", "shirts"] : [] },
+  ].filter(group => group.tabs.length > 0);
+  function changeClubTab(tab) {
+    setActiveTab(tab);
+    if (tab === "history") loadHistory();
+  }
 
   return (
     <div className="min-h-screen bg-[#06091a] text-white">
@@ -742,25 +768,50 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
       {/* ── Tabs ── */}
       <div className="max-w-5xl mx-auto mt-0">
-        <Tabs value={activeTab} onValueChange={t => { setActiveTab(t); if (t === "history") loadHistory(); }} className="w-full">
-          <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0 flex-wrap">
-            {[
-              "posts", "stats", "matches", "chat", "squad", "formation", "trophies", "history",
-              ...(isOwner ? ["stadium", "contracts", "finance", "shirts"] : []),
-              ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : [])
-            ].map(tab => (
-              <TabsTrigger
-                key={tab}
-                value={tab}
-                className={cn(
-                  "flex-1 min-w-fit rounded-none border-b-2 border-transparent pb-3 pt-3 text-xs uppercase tracking-widest font-bold text-white/40 transition-colors",
-                  "data-[state=active]:border-blue-400 data-[state=active]:text-blue-400 data-[state=active]:bg-transparent"
-                )}
-              >
-                {tab === "requests" ? `Requests (${joinRequests.length})` : tab}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={changeClubTab} className="w-full">
+          <div className="border-b border-white/10 px-4 pt-2">
+            <div className="flex items-end gap-8 overflow-x-auto">
+              {tabGroups.map(group => {
+                const isActiveGroup = group.tabs.includes(activeTab);
+                return (
+                  <button
+                    key={group.label}
+                    type="button"
+                    onClick={() => changeClubTab(group.tabs[0])}
+                    className={cn(
+                      "relative shrink-0 pb-3 text-[13px] font-black uppercase tracking-[0.22em] transition-colors",
+                      "text-white/42 hover:text-white/80",
+                      isActiveGroup && "text-blue-300"
+                    )}
+                  >
+                    {group.label}
+                    <span
+                      className={cn(
+                        "absolute bottom-0 left-0 h-[3px] w-full origin-left scale-x-0 bg-blue-400 transition-transform",
+                        isActiveGroup && "scale-x-100"
+                      )}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-5 overflow-x-auto py-3">
+              {(tabGroups.find(group => group.tabs.includes(activeTab))?.tabs || []).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => changeClubTab(tab)}
+                  className={cn(
+                    "shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors",
+                    activeTab === tab ? "text-white" : "text-white/35 hover:text-white/70"
+                  )}
+                >
+                  {tabLabels[tab]}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Posts */}
           <TabsContent value="posts" className="mt-0 px-4 pt-4">
@@ -946,17 +997,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             )}
           </TabsContent>
 
-          {/* Formation */}
-          <TabsContent value="formation" className="px-4 pt-4">
-            <FormationPitch
-              club={club}
-              players={players}
-              canEdit={canEdit}
-              currentUserEmail={currentUser?.email}
-              onUpdate={(data) => setClub(prev => ({ ...prev, ...data }))}
-            />
-          </TabsContent>
-
           {/* Trophies & Achievements */}
           <TabsContent value="trophies" className="px-4 pt-4 pb-6">
             <div className="space-y-6">
@@ -964,6 +1004,20 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               <ClubTrophyCabinetDisplay clubId={id} currentUserEmail={currentUser?.email} club={club} canEditOverride={canEdit} />
             </div>
           </TabsContent>
+
+          {/* Club Operations — private staff workspace */}
+          {canOpenOperations && (
+            <TabsContent value="operations" className="px-4 pt-4 pb-6">
+              <ClubOperations
+                club={club}
+                players={players}
+                currentUser={currentUser}
+                myPlayer={myPlayer}
+                upcomingFixtures={tournamentMatches}
+                defaultFormation={club.formation}
+              />
+            </TabsContent>
+          )}
 
           {/* Season History */}
           <TabsContent value="history" className="px-4 pt-4 pb-6">
@@ -1049,12 +1103,13 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                       <p className="font-bold text-white">{req.player_gamertag}</p>
                       <p className="text-xs text-white/40">{req.player_email}</p>
                       {req.message && <p className="text-sm text-white/40 mt-2 italic">"{req.message}"</p>}
+                      <p className="text-xs text-primary/80 mt-2">Approvals now go through contracts. Use Operations to offer a trial or full contract.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => handleJoinRequest(req.id, "approved")} className="bg-success/20 text-success hover:bg-success/30 border-0">
-                        <Check className="w-4 h-4 mr-1" /> Approve
+                      <Button size="sm" onClick={() => setActiveTab("operations")} className="bg-success/20 text-success hover:bg-success/30 border-0">
+                        <Check className="w-4 h-4 mr-1" /> Open Operations
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleJoinRequest(req.id, "rejected")} className="border-destructive/30 text-destructive hover:bg-destructive/10">
+                      <Button size="sm" variant="outline" onClick={() => declineJoinRequest(req.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10">
                         <X className="w-4 h-4 mr-1" /> Decline
                       </Button>
                     </div>
@@ -1216,6 +1271,10 @@ function deriveCompetitionLabel(match, tournamentMap = {}) {
 function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
+  const playerRoles = Array.isArray(player.club_roles) ? player.club_roles : [];
+  const isOwnerRole = player.role === "owner" || playerRoles.includes("owner");
+  const isCaptainRole = !isOwnerRole && (player.role === "captain" || playerRoles.includes("captain"));
+  const roleLabel = isOwnerRole ? "Owner" : isCaptainRole ? "Captain" : player.role === "manager" ? "Member" : (player.role || "Member");
 
   async function _toggleFollow(e) {
     e.preventDefault();
@@ -1246,7 +1305,21 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-white truncate">{player.gamertag}</p>
-          <p className="text-xs text-white/40 capitalize">{player.role === 'manager' ? 'member' : (player.role || 'member')}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]",
+                isOwnerRole
+                  ? "border border-blue-300/40 bg-blue-400/10 text-blue-200"
+                  : isCaptainRole
+                    ? "border border-amber-300/40 bg-amber-400/10 text-amber-200"
+                    : "text-white/40"
+              )}
+            >
+              {isOwnerRole && <Shield className="h-3 w-3" />}
+              {roleLabel}
+            </span>
+          </div>
         </div>
         <div className="text-right">
           <p className="font-bold text-lg text-primary">{player.overall_rating}</p>

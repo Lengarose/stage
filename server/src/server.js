@@ -62,6 +62,12 @@ app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/c
 app.use('/api/stage/player-identity-claims',    verifyToken, require('./server/controllers/playerIdentityClaimController'));
 app.use('/api/stage/recruitment-posts',         verifyToken, require('./server/controllers/recruitmentPostController'));
 app.use('/api/stage/recruitment-interests',     verifyToken, require('./server/controllers/recruitmentInterestController'));
+app.use('/api/stage/club-applicants',           verifyToken, require('./server/controllers/clubApplicantController'));
+app.use('/api/stage/club-staff-roles',          verifyToken, require('./server/controllers/clubStaffRoleController'));
+app.use('/api/stage/club-fixture-availability', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
+app.use('/api/stage/club-fixture-availabilities', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
+app.use('/api/stage/club-fixture-lineups',      verifyToken, require('./server/controllers/clubFixtureLineupController'));
+app.use('/api/stage/club-operation-audit-logs', verifyToken, require('./server/controllers/clubOperationAuditLogController'));
 
 // EAFC-inspired modules
 app.use('/api/stage/objective-definitions',     verifyToken, require('./server/controllers/objectiveDefinitionController'));
@@ -333,6 +339,98 @@ async function runStartupMigrations() {
     INDEX idx_ri_recipient_user (recipient_user_id),
     INDEX idx_ri_status (status)
   )`).catch(err => console.error('[migration] recruitment_interests:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_applicants (
+    id                 VARCHAR(36) PRIMARY KEY,
+    club_id            VARCHAR(36) NOT NULL,
+    player_id          VARCHAR(36) NULL,
+    user_id            VARCHAR(36) NULL,
+    source_type        VARCHAR(40) DEFAULT 'manual',
+    source_id          VARCHAR(36) NULL,
+    status             VARCHAR(40) DEFAULT 'new',
+    preferred_position VARCHAR(40) NULL,
+    platform           VARCHAR(50) NULL,
+    message            TEXT NULL,
+    notes              TEXT NULL,
+    created_date       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_ca_source (source_type, source_id),
+    INDEX idx_ca_club_status (club_id, status),
+    INDEX idx_ca_player (player_id)
+  )`).catch(err => console.error('[migration] club_applicants:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_staff_roles (
+    id                  VARCHAR(36) PRIMARY KEY,
+    club_id             VARCHAR(36) NOT NULL,
+    player_id           VARCHAR(36) NOT NULL,
+    user_id             VARCHAR(36) NULL,
+    role                VARCHAR(40) NOT NULL,
+    permissions         JSON NULL,
+    assigned_by_user_id VARCHAR(36) NULL,
+    created_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_csr_role (club_id, player_id, role),
+    INDEX idx_csr_club (club_id),
+    INDEX idx_csr_player (player_id)
+  )`).catch(err => console.error('[migration] club_staff_roles:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_fixture_availability (
+    id           VARCHAR(36) PRIMARY KEY,
+    club_id      VARCHAR(36) NOT NULL,
+    fixture_id   VARCHAR(36) NOT NULL,
+    fixture_type VARCHAR(50) NULL,
+    player_id    VARCHAR(36) NOT NULL,
+    user_id      VARCHAR(36) NULL,
+    status       VARCHAR(30) DEFAULT 'no_response',
+    note         TEXT NULL,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_cfa_player_fixture (club_id, fixture_id, player_id),
+    INDEX idx_cfa_fixture (club_id, fixture_id),
+    INDEX idx_cfa_player (player_id)
+  )`).catch(err => console.error('[migration] club_fixture_availability:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_fixture_lineups (
+    id                 VARCHAR(36) PRIMARY KEY,
+    club_id            VARCHAR(36) NOT NULL,
+    fixture_id         VARCHAR(36) NOT NULL,
+    fixture_type       VARCHAR(50) NULL,
+    formation          VARCHAR(50) NULL,
+    starting_players   JSON NULL,
+    bench_players      JSON NULL,
+    captain_player_id  VARCHAR(36) NULL,
+    notes              TEXT NULL,
+    status             VARCHAR(30) DEFAULT 'draft',
+    created_by_user_id VARCHAR(36) NULL,
+    created_date       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_cfl_fixture (club_id, fixture_id),
+    INDEX idx_cfl_fixture (club_id, fixture_id)
+  )`).catch(err => console.error('[migration] club_fixture_lineups:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_operation_audit_logs (
+    id            VARCHAR(36) PRIMARY KEY,
+    club_id       VARCHAR(36) NOT NULL,
+    actor_user_id VARCHAR(36) NULL,
+    actor_email   VARCHAR(255) NULL,
+    action        VARCHAR(100) NOT NULL,
+    entity_type   VARCHAR(100) NULL,
+    entity_id     VARCHAR(36) NULL,
+    old_value     JSON NULL,
+    new_value     JSON NULL,
+    reason        TEXT NULL,
+    created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_coal_club_created (club_id, created_date)
+  )`).catch(err => console.error('[migration] club_operation_audit_logs:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN clubs c ON p.club_id = c.id
+    SET p.role = 'owner',
+        p.club_roles = JSON_ARRAY('owner', 'president')
+    WHERE (LOWER(p.email) = LOWER(c.owner_email) OR (p.user_id IS NOT NULL AND p.user_id = c.user_id))
+      AND (p.role = 'captain' OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain')))
+  `).catch(err => console.error('[migration] owner_not_captain_cleanup:', err.message));
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');

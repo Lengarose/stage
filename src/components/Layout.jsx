@@ -91,7 +91,6 @@ function getPlayerGroups(_clubPath) {
       items: [
         { path: "/clubs",        icon: Shield,     label: "Clubs" },
         { path: "/players-list", icon: UsersRound, label: "Players" },
-        { path: "/recruitment",  icon: Handshake,  label: "Recruitment" },
         { path: "/social",       icon: Rss,        label: "Feed" },
         { path: "/community",    icon: MessagesSquare, label: "Discord" },
         { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
@@ -100,6 +99,7 @@ function getPlayerGroups(_clubPath) {
     {
       label: "Market",
       items: [
+        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
         { path: "/wallet",          icon: Zap,            label: "Wallet" },
@@ -128,9 +128,16 @@ function getOwnerGroups(clubPath) {
       label: "Squad",
       items: [
         { path: "/players-list",    icon: UsersRound,     label: "Players" },
+        { path: "/game-day",        icon: Zap,            label: "Game Day" },
+      ],
+    },
+    {
+      label: "Market",
+      items: [
         { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
-        { path: "/game-day",        icon: Zap,            label: "Game Day" },
+        { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
+        { path: "/wallet",          icon: Zap,            label: "Wallet" },
       ],
     },
     {
@@ -490,6 +497,7 @@ const MOBILE_MORE_GROUPS = [
   {
     label: "Market",
     items: [
+      { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
       { path: "/lifestyle",       icon: Coins,           label: "Lifestyle"  },
       { path: "/store",           icon: ShoppingBag,     label: "Store"      },

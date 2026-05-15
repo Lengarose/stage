@@ -1,4 +1,20 @@
-import { cn } from "@/lib/utils";
+function getClubRoles(player) {
+  const roles = player?.club_roles;
+  if (Array.isArray(roles)) return roles;
+  if (typeof roles === "string") {
+    try {
+      const parsed = JSON.parse(roles);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return roles.split(",").map((role) => role.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function hasRole(player, role) {
+  return getClubRoles(player).includes(role) || player?.role === role;
+}
 
 const BADGES = [
   { id: "top_scorer", label: "Top Scorer", emoji: "⚽", desc: "450+ career goals", check: p => (p.goals || 0) >= 450 },
@@ -8,7 +24,8 @@ const BADGES = [
   { id: "clean_sheet", label: "Wall", emoji: "🧱", desc: "50+ clean sheets", check: p => (p.clean_sheets || 0) >= 50 },
   { id: "motm", label: "MOTM Hero", emoji: "🌟", desc: "100+ man of the match", check: p => (p.man_of_the_match || 0) >= 100 },
   { id: "high_rating", label: "Elite", emoji: "💎", desc: "Avg rating 8.5+", check: p => (p.avg_match_rating || 0) >= 8.5 },
-  { id: "captain", label: "Captain", emoji: "🅒", desc: "Club captain", check: p => p.club_roles?.includes("captain") || p.role === "captain" },
+  { id: "owner", label: "Owner", emoji: "🏛️", desc: "Club owner", check: p => hasRole(p, "owner") },
+  { id: "captain", label: "Captain", emoji: "🅒", desc: "Club captain", check: p => !hasRole(p, "owner") && hasRole(p, "captain") },
 ];
 
 export default function AchievementBadges({ player }) {
