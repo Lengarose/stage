@@ -4401,39 +4401,53 @@ const HANDLERS = {
     return { success: true };
   },
 
-  // ── Admin: delete another user's account by player row (Players tab) ────────
-  async adminDeleteUserAccount({ _auth_user_id, player_id }) {
+  // ── Admin: delete another user's account by player row or login email ────────
+  async adminDeleteUserAccount({ _auth_user_id, player_id, email }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
     if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) {
       throw new Error('Admin access required');
     }
-    if (!player_id) throw new Error('player_id required');
+    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+    if (!player_id && !trimmedEmail) throw new Error('player_id or email required');
 
-    const plRows = await EXECUTESQL(
-      'SELECT id, user_id, email FROM players WHERE id = ? LIMIT 1',
-      [player_id]
-    );
-    if (!plRows.length) throw new Error('Player not found');
-    const pl = plRows[0];
+    let targetUserId = null;
+    /** Extra profile row to delete when it might not match `users.player_id`. */
+    let alsoDeletePlayerId = null;
 
-    let targetUserId = pl.user_id;
-    if (!targetUserId && pl.email) {
-      const byEmail = await EXECUTESQL(
-        'SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
-        [pl.email]
-      );
-      if (byEmail.length) targetUserId = byEmail[0].id;
-    }
-    if (!targetUserId) {
-      const byPlayerCol = await EXECUTESQL(
-        'SELECT id FROM users WHERE player_id = ? LIMIT 1',
+    if (player_id) {
+      const plRows = await EXECUTESQL(
+        'SELECT id, user_id, email FROM players WHERE id = ? LIMIT 1',
         [player_id]
       );
-      if (byPlayerCol.length) targetUserId = byPlayerCol[0].id;
-    }
-    if (!targetUserId) {
-      throw new Error('No login account linked to this player');
+      if (!plRows.length) throw new Error('Player not found');
+      const pl = plRows[0];
+
+      targetUserId = pl.user_id;
+      if (!targetUserId && pl.email) {
+        const byEmail = await EXECUTESQL(
+          'SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+          [pl.email]
+        );
+        if (byEmail.length) targetUserId = byEmail[0].id;
+      }
+      if (!targetUserId) {
+        const byPlayerCol = await EXECUTESQL(
+          'SELECT id FROM users WHERE player_id = ? LIMIT 1',
+          [player_id]
+        );
+        if (byPlayerCol.length) targetUserId = byPlayerCol[0].id;
+      }
+      if (!targetUserId) throw new Error('No login account linked to this player');
+      alsoDeletePlayerId = player_id;
+    } else {
+      const uRows = await EXECUTESQL(
+        'SELECT id, player_id, role_id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+        [trimmedEmail]
+      );
+      if (!uRows.length) throw new Error('No login account with that email');
+      targetUserId = uRows[0].id;
+      alsoDeletePlayerId = uRows[0].player_id || null;
     }
 
     if (targetUserId === _auth_user_id) {
@@ -4445,7 +4459,7 @@ const HANDLERS = {
       throw new Error('Cannot delete admin accounts');
     }
 
-    await deleteUserAccount(targetUserId, 'hard', { alsoDeletePlayerId: player_id });
+    await deleteUserAccount(targetUserId, 'hard', { alsoDeletePlayerId });
     return { success: true, deleted_user_id: targetUserId };
   },
 };
