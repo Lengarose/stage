@@ -30,6 +30,16 @@ export const clearTokens = () => {
   [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY].forEach(k => localStorage.removeItem(k));
 };
 
+/** Keep localStorage ids aligned with /auth/me (e.g. after refresh or admin login). */
+function syncSessionFromMe(me) {
+  if (!me || typeof me !== 'object') return;
+  if (me.id) localStorage.setItem(USER_KEY, String(me.id));
+  if (me.player_id) localStorage.setItem(PLAYER_KEY, String(me.player_id));
+  else localStorage.removeItem(PLAYER_KEY);
+  if (me.owner_id) localStorage.setItem(OWNER_KEY, String(me.owner_id));
+  else localStorage.removeItem(OWNER_KEY);
+}
+
 // ── Core fetch with auto token-refresh ────────────────────────────────────────
 let _refreshPromise = null;
 
@@ -274,7 +284,9 @@ const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));
 const auth = {
   async me() {
     if (!localStorage.getItem(ACCESS_KEY)) throw { status: 401, message: 'Not authenticated' };
-    return apiFetch('/auth/me');
+    const me = await apiFetch('/auth/me');
+    syncSessionFromMe(me);
+    return me;
   },
 
   async loginViaEmailPassword(identifier, password) {
@@ -364,8 +376,18 @@ const auth = {
   },
 
   async updateMe(data) {
-    const playerId = localStorage.getItem(PLAYER_KEY);
-    if (!playerId) throw { status: 401, message: 'Not authenticated' };
+    if (!localStorage.getItem(ACCESS_KEY)) throw { status: 401, message: 'Not authenticated' };
+
+    let playerId = localStorage.getItem(PLAYER_KEY);
+    if (!playerId) {
+      const me = await apiFetch('/auth/me');
+      syncSessionFromMe(me);
+      playerId = me?.player_id || null;
+    }
+
+    // System admins and other accounts without a player profile have nothing to PATCH.
+    if (!playerId) return null;
+
     return apiFetch(`/players/${playerId}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
 

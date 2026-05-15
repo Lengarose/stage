@@ -311,20 +311,27 @@ export default function Settings() {
 
   async function handleSave() {
     setLoading(true);
-    await stageClient.auth.updateMe({
-      language: localLanguage,
-      customPrimaryColor,
-      customGradientColor,
-      customBackgroundColor,
-      customBackgroundOpacity,
-      customTextColor,
-      customPrimaryTextColor,
-      customSecondaryTextColor,
-      backgroundImage,
-    });
-    localStorage.setItem(NOTIFICATION_SOUND_STORAGE_KEY, notificationSound);
-    
-    setLoading(false);
+    try {
+      localStorage.setItem(NOTIFICATION_SOUND_STORAGE_KEY, notificationSound);
+      localStorage.setItem("language", localLanguage);
+      localStorage.setItem("stage-theme", theme);
+
+      await stageClient.auth.updateMe({
+        language: localLanguage,
+        customPrimaryColor,
+        customGradientColor,
+        customBackgroundColor,
+        customBackgroundOpacity,
+        customTextColor,
+        customPrimaryTextColor,
+        customSecondaryTextColor,
+        backgroundImage,
+      });
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleChangePassword() {

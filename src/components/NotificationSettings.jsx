@@ -44,10 +44,15 @@ export default function NotificationSettings() {
 
     if (!player?.id) return;
     setSaving(true);
-    await stageClient.entities.Player.update(player.id, { notification_settings: updated });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await stageClient.entities.Player.update(player.id, { notification_settings: updated });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save notification settings:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const settingsByKey = {};
