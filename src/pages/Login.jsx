@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { stageClient } from '@/api/stageClient';
 import { useAuth } from '@/lib/AuthContext';
+import { ensureAdminPanelMode, isAppAdminUser } from '@/lib/adminAuth';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Stadium Logo.png';
 
@@ -81,6 +82,8 @@ export default function Login() {
       if (access_token) {
         stageClient.auth.setToken(access_token);
         await checkUserAuth();
+        const u = await stageClient.auth.me().catch(() => null);
+        if (isAppAdminUser(u)) ensureAdminPanelMode();
       } else {
         setError('Sign-in failed. Please try again.');
       }

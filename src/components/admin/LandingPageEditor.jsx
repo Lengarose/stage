@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import ImageUploadField from "@/components/admin/shared/ImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Upload, Check, Image, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_STATS = [
@@ -13,77 +14,6 @@ const DEFAULT_STATS = [
   { value: "10 000+", label: "Matches Recorded" },
 ];
 
-/* ── image upload field ───────────────────────────────────────── */
-function ImageUploadField({ value, onChange, label, preview = "landscape" }) {
-  const ref = useRef(null);
-  const [uploading, setUploading] = useState(false);
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      onChange(file_url);
-    } catch {
-      alert("Upload failed. Paste the URL manually.");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {label && <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</p>}
-      {value && (
-        <img
-          src={value}
-          alt=""
-          className={cn(
-            "w-full rounded-xl object-cover border border-border mb-2",
-            preview === "landscape" ? "h-36" : "h-20"
-          )}
-        />
-      )}
-      {!value && (
-        <div className={cn("w-full rounded-xl border border-dashed border-border bg-muted/30 flex items-center justify-center mb-2", preview === "landscape" ? "h-36" : "h-20")}>
-          <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
-            <Image className="w-6 h-6" />
-            <p className="text-[10px] uppercase tracking-widest">No image</p>
-          </div>
-        </div>
-      )}
-      <div className="flex gap-2 items-center">
-        <Input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="https://… or upload below"
-          className="h-8 text-xs flex-1"
-        />
-        <label className="cursor-pointer shrink-0">
-          <input type="file" accept="image/*" className="hidden" onChange={handleFile} ref={ref} />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 text-[10px] gap-1.5 px-3"
-            onClick={() => ref.current?.click()}
-            disabled={uploading}
-          >
-            <Upload className="w-3 h-3" />
-            {uploading ? "Uploading…" : "Upload"}
-          </Button>
-        </label>
-        {value && (
-          <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground hover:text-destructive" onClick={() => onChange("")}>
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ── collapsible section ──────────────────────────────────────── */
 function EditorSection({ title, children, defaultOpen = false, badge }) {
@@ -237,7 +167,8 @@ export default function LandingPageEditor() {
           label="Hero background image (full-screen, blurred)"
           value={form.hero_image_url}
           onChange={v => set("hero_image_url", v)}
-          preview="landscape"
+          preview="hero"
+          placeholder="https://… or drop image above"
         />
       </EditorSection>
 

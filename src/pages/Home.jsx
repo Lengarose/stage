@@ -484,6 +484,7 @@ function InboxPanel({ messages, user }) {
    PAGE
    ══════════════════════════════════════════════════════════ */
 export default function Home() {
+  const [cms,        setCms]        = useState(null);
   const [seasons,    setSeasons]    = useState([]);
   const [newsItems,  setNewsItems]  = useState([]);
   const [matches,    setMatches]    = useState([]);
@@ -499,6 +500,9 @@ export default function Home() {
 
   useEffect(() => {
     const safe = (p) => Promise.resolve(p).catch(() => []);
+
+    safe(stageClient.entities.HomePageContent.filter({}, null, 1))
+      .then(rows => setCms(rows?.[0] || null));
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
       .then(rows => setSeasons(rows || []));
@@ -545,7 +549,8 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const c = DEFAULTS;
+  const c = cms ? { ...DEFAULTS, ...cms } : DEFAULTS;
+  const heroBg = textOrDefault(c.hero_image_url, DEFAULTS.hero_image_url);
 
   return (
     <div ref={pageRef} className="min-h-screen relative">
@@ -561,7 +566,7 @@ export default function Home() {
         className="relative flex items-center overflow-hidden"
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", minHeight: "88vh" }}
       >
-        <div className="absolute inset-0" style={{ backgroundImage: `url(${HeroImg})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
+        <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBg})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
         <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
