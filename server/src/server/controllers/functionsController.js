@@ -119,6 +119,277 @@ async function withTransaction(callback) {
   }
 }
 
+const DEFAULT_SHIRT_WEIGHTS = {
+  base_per_mv_1m: 0.5,
+  goal_demand: 4,
+  assist_demand: 2,
+  rating_demand_per_point: 1.5,
+  motm_demand: 6,
+  clean_sheet_demand: 2,
+  max_per_match: 40,
+  price_base: 25,
+  price_goal_bonus: 5,
+  price_rating_bonus: 2,
+};
+
+let _shirtConfigCache = null;
+
+function parseSubmission(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+async function getStadiumConfig() {
+  const rows = await EXECUTESQL('SELECT * FROM stadium_config ORDER BY level ASC', []).catch(() => []);
+  if (rows.length) return rows;
+  return [
+    { level: 0, name: 'Local Ground', capacity: 5000, ticket_price_stc: 15 },
+    { level: 1, name: 'Community Stadium', capacity: 10000, ticket_price_stc: 25 },
+    { level: 2, name: 'Pro Arena', capacity: 25000, ticket_price_stc: 40 },
+    { level: 3, name: 'Elite Stadium', capacity: 50000, ticket_price_stc: 60 },
+  ];
+}
+
+async function getShirtWeights() {
+  if (_shirtConfigCache) return _shirtConfigCache;
+  const rows = await EXECUTESQL('SELECT weights FROM shirt_sales_config WHERE is_active = 1 LIMIT 1', []).catch(() => []);
+  const saved = rows.length ? parseMaybeJson(rows[0].weights, {}) : {};
+  _shirtConfigCache = { ...DEFAULT_SHIRT_WEIGHTS, ...saved };
+  return _shirtConfigCache;
+}
+
+async function createClubTx({ clubId, amount, type = 'adjustment', category = type, description = '', referenceId = null }) {
+  return withTransaction(async (query) => {
+    const rows = await query('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+    if (!rows.length) throw new Error('Club not found');
+    const newBalance = Number(rows[0].stc || 0) + Number(amount || 0);
+    await query('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, clubId]);
+    const txId = uuidv4();
+    await query(
+      `INSERT INTO stc_transactions
+       (id, club_id, amount, balance_after, type, category, description, reference_id, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [txId, clubId, Number(amount || 0), newBalance, type, category, description, referenceId]
+    );
+    return { transaction_id: txId, new_balance: newBalance };
+  });
+}
+
+async function createPlayerTx({
+  playerId, playerEmail = null, amount, type = null, category = 'adjustment',
+  source = null, description = '', referenceId = null,
+}) {
+  return withTransaction(async (query) => {
+    const rows = await query('SELECT id, email, stc FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
+    if (!rows.length) throw new Error('Player not found');
+    const player = rows[0];
+    const newBalance = Number(player.stc || 0) + Number(amount || 0);
+    await query('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, playerId]);
+    const txId = uuidv4();
+    await query(
+      `INSERT INTO player_stc_transactions
+       (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        txId, playerId, playerEmail || player.email || null, Number(amount || 0), newBalance,
+        type || (Number(amount || 0) >= 0 ? 'income' : 'expense'), category, source, description, referenceId,
+      ]
+    );
+    return { transaction_id: txId, new_balance: newBalance };
+  });
+}
+
+async function generateShirtSalesForMatch(match, stats) {
+  if (!match?.id || !match.home_club_id || !Array.isArray(stats) || !stats.length) return { skipped: true };
+  const existing = await EXECUTESQL('SELECT id FROM shirt_sales WHERE match_id = ? LIMIT 1', [match.id]).catch(() => []);
+  if (existing.length) return { skipped: true, reason: 'already_generated' };
+
+  const weights = await getShirtWeights();
+  const ratings = stats.map((s) => Number(s.rating || 0));
+  const maxRating = ratings.length ? Math.max(...ratings) : 0;
+  let totalRevenue = 0;
+  let totalQuantity = 0;
+
+  for (const stat of stats) {
+    if (!stat.player_email && !stat.player_id) continue;
+    const players = stat.player_id
+      ? await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [stat.player_id]).catch(() => [])
+      : await EXECUTESQL('SELECT * FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1', [stat.player_email]).catch(() => []);
+    const player = players[0];
+    if (!player) continue;
+    const playerClubId = stat.club_id || player.club_id || null;
+    if (!playerClubId) continue;
+
+    const goals = Number(stat.goals || 0);
+    const assists = Number(stat.assists || 0);
+    const rating = Number(stat.rating || 0);
+    const marketMillions = Math.max(0, Number(player.market_value_stc || player.market_value || 0) / 1_000_000);
+    const demand = Math.max(1, Math.round(
+      (marketMillions * Number(weights.base_per_mv_1m || 0)) +
+      (goals * Number(weights.goal_demand || 0)) +
+      (assists * Number(weights.assist_demand || 0)) +
+      (Math.max(0, rating - 6) * Number(weights.rating_demand_per_point || 0)) +
+      (rating === maxRating ? Number(weights.motm_demand || 0) : 0)
+    ));
+    const quantity = Math.min(Number(weights.max_per_match || 40), demand);
+    const unitPrice = Number(weights.price_base || 25) +
+      (goals * Number(weights.price_goal_bonus || 0)) +
+      (Math.max(0, rating - 6) * Number(weights.price_rating_bonus || 0));
+    const revenue = Math.round(quantity * unitPrice);
+    if (revenue <= 0) continue;
+
+    await EXECUTESQL(
+      `INSERT INTO shirt_sales
+       (id, player_id, player_gamertag, shirt_number, club_id, buyer_email, price_stc, match_id, quantity, created_date)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, NOW())`,
+      [
+        uuidv4(), player.id, player.gamertag || stat.player_gamertag || null,
+        player.shirt_number || null, playerClubId, revenue, match.id, quantity,
+      ]
+    );
+    totalRevenue += revenue;
+    totalQuantity += quantity;
+  }
+
+  if (totalRevenue > 0) {
+    await createClubTx({
+      clubId: match.home_club_id,
+      amount: totalRevenue,
+      type: 'shirt_revenue',
+      category: 'shirt_revenue',
+      description: `Shirt sales after ${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`,
+      referenceId: match.id,
+    });
+  }
+
+  return { total_revenue: totalRevenue, total_quantity: totalQuantity };
+}
+
+async function settleActiveClubWager(match, winner) {
+  const wagerEach = Number(match.wager_stc || 0);
+  if (!wagerEach || match.wager_status !== 'active') return { skipped: true };
+  const claim = await EXECUTESQL(
+    "UPDATE matches SET wager_status = 'settling', updated_date = NOW() WHERE id = ? AND wager_status = 'active'",
+    [match.id]
+  ).catch(() => ({ affectedRows: 0 }));
+  if (!claim.affectedRows) return { skipped: true };
+
+  const label = `${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`;
+  if (winner === 'draw') {
+    if (match.home_club_id) await createClubTx({ clubId: match.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: match.id }).catch(() => {});
+    if (match.away_club_id) await createClubTx({ clubId: match.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: match.id }).catch(() => {});
+    await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match.id]);
+    return { result: 'refunded' };
+  }
+
+  const pot = wagerEach * 2;
+  const winnerClubId = winner === 'home' ? match.home_club_id : match.away_club_id;
+  const loserClubId = winner === 'home' ? match.away_club_id : match.home_club_id;
+  const winnerName = winner === 'home' ? (match.home_club_name || 'Home') : (match.away_club_name || 'Away');
+  const loserName = winner === 'home' ? (match.away_club_name || 'Away') : (match.home_club_name || 'Home');
+  if (winnerClubId) await createClubTx({ clubId: winnerClubId, amount: pot, type: 'wager_win', category: 'wager_win', description: `Wager won vs ${loserName} — ${label}`, referenceId: match.id }).catch(() => {});
+  if (loserClubId) await createClubTx({ clubId: loserClubId, amount: 0, type: 'wager_loss', category: 'wager_loss', description: `Wager lost vs ${winnerName} — ${label}`, referenceId: match.id }).catch(() => {});
+  await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match.id]);
+  return { result: 'settled' };
+}
+
+async function processMatchCompletion(match, acceptedSubmission) {
+  const matchId = match.id;
+  const homeScore = Number(acceptedSubmission.home_score || 0);
+  const awayScore = Number(acceptedSubmission.away_score || 0);
+  const playerStats = Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : [];
+  const goalEvents = Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : [];
+
+  const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
+  const fresh = freshRows[0] || match;
+  if (Number(fresh.stats_processed || 0) === 1) {
+    return { data: { status: 'completed', skipped: true } };
+  }
+
+  await EXECUTESQL(
+    `UPDATE matches SET status='completed', home_score=?, away_score=?, home_goal_events=?,
+       away_goal_events=?, updated_date=NOW() WHERE id=?`,
+    [homeScore, awayScore, JSON.stringify(goalEvents), JSON.stringify([]), matchId]
+  );
+
+  for (const stat of playerStats) {
+    await EXECUTESQL(
+      `INSERT INTO match_player_stats
+       (id, match_id, tournament_id, club_id, player_email, player_gamertag, goals, assists, rating, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        uuidv4(), matchId, fresh.tournament_id || null, stat.club_id || null,
+        stat.player_email || '', stat.player_gamertag || null, Number(stat.goals || 0),
+        Number(stat.assists || 0), Number(stat.rating || 0),
+      ]
+    ).catch(() => {});
+  }
+
+  const isClubMatch = fresh.mode === 'club' && fresh.home_club_id && fresh.away_club_id;
+  if (isClubMatch) {
+    const [homeRows, awayRows] = await Promise.all([
+      EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [fresh.home_club_id]),
+      EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [fresh.away_club_id]),
+    ]);
+    const homeClub = homeRows[0];
+    const awayClub = awayRows[0];
+    if (homeClub && awayClub) {
+      const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
+      const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+      const cfg = await getStadiumConfig();
+      const level = Number(homeClub.stadium_level ?? 0);
+      const stadium = cfg.find((s) => Number(s.level) === level) || cfg[0];
+      const capacity = Number(stadium.capacity || homeClub.stadium_capacity || 5000);
+      const ticketPrice = Number(stadium.ticket_price_stc || 15);
+      const attendancePct = Math.max(45, Math.min(100, 70 + (homeResult === 'win' ? 10 : homeResult === 'draw' ? 2 : -8)));
+      const attendance = Math.floor(capacity * attendancePct / 100);
+      const ticketRevenue = Math.round(attendance * ticketPrice);
+      const transferAdd = Math.floor(ticketRevenue * 0.15);
+      const wageAdd = Math.floor(ticketRevenue * 0.05);
+
+      const priorTicket = await EXECUTESQL(
+        "SELECT id FROM stc_transactions WHERE club_id = ? AND category = 'ticket_revenue' AND reference_id = ? LIMIT 1",
+        [homeClub.id, matchId]
+      ).catch(() => []);
+      if (!priorTicket.length && ticketRevenue > 0) {
+        await createClubTx({
+          clubId: homeClub.id,
+          amount: ticketRevenue,
+          type: 'ticket_revenue',
+          category: 'ticket_revenue',
+          description: `Ticket sales (${attendance.toLocaleString()} fans @ ${ticketPrice} STC)`,
+          referenceId: matchId,
+        });
+        await EXECUTESQL(
+          'UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ?, wage_budget_stc = wage_budget_stc + ? WHERE id = ?',
+          [transferAdd, wageAdd, homeClub.id]
+        );
+      }
+
+      await EXECUTESQL(
+        `UPDATE matches SET home_ticket_revenue=?, home_ticket_attendance=?, home_ticket_pct=?,
+           home_ticket_capacity=?, home_ticket_price=? WHERE id=?`,
+        [ticketRevenue, attendance, attendancePct, capacity, ticketPrice, matchId]
+      ).catch(() => {});
+    }
+  }
+
+  await EXECUTESQL('UPDATE matches SET stats_processed = 1, updated_date = NOW() WHERE id = ?', [matchId]);
+
+  if (isClubMatch) {
+    const [completed] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
+    if (completed?.wager_stc && completed.wager_status === 'active') {
+      const winner = homeScore === awayScore ? 'draw' : (homeScore > awayScore ? 'home' : 'away');
+      await settleActiveClubWager(completed, winner).catch(() => {});
+    }
+    const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [matchId]).catch(() => []);
+    await generateShirtSalesForMatch(completed, stats).catch(() => {});
+  }
+
+  return { data: { status: 'completed' } };
+}
+
 function messageTypeToNotificationType(messageType) {
   const key = String(messageType || 'general');
   if (key === 'match_invite') return 'match_reminder';
@@ -1249,7 +1520,11 @@ const HANDLERS = {
     };
   },
 
-  async matchKickoff({ action, match_id }) {
+  async matchKickoff({
+    action, match_id, is_home_team, home_score, away_score,
+    player_stats, goal_events, proof_url, admin_resolve_winner,
+    admin_home_score, admin_away_score,
+  }) {
     if (!match_id) throw new Error('match_id required');
 
     if (action === 'kickoff') {
@@ -1327,17 +1602,31 @@ const HANDLERS = {
 
     if (action === 'accept_wager') {
       const wagerEach = Number(m.wager_stc || 0);
+      if (wagerEach <= 0) throw new Error('No wager amount on this match');
+      if (m.wager_status === 'active' && Number(m.wager_home_locked) === 1 && Number(m.wager_away_locked) === 1) {
+        return { success: true, data: { skipped: true, _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
+      }
+      const existingLocks = isClub
+        ? await EXECUTESQL(
+          "SELECT club_id FROM stc_transactions WHERE reference_id = ? AND category = 'wager_stake'",
+          [match_id]
+        ).catch(() => [])
+        : await EXECUTESQL(
+          "SELECT player_id FROM player_stc_transactions WHERE reference_id = ? AND category = 'wager_stake'",
+          [match_id]
+        ).catch(() => []);
+      if (existingLocks.length) throw new Error('Wager is partially locked. Ask an admin to review this match before retrying.');
       if (wagerEach > 0) {
         if (isClub) {
           if (m.home_club_id) {
             const [hc] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.home_club_id]);
             if (!hc || Number(hc.stc || 0) < wagerEach) throw new Error('Home club has insufficient STC for this wager');
-            await createClubTx({ clubId: m.home_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_loss', description: `Wager stake locked — match vs ${m.away_club_name || 'Away'}`, referenceId: m.id });
+            await createClubTx({ clubId: m.home_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_stake', description: `Wager stake locked — match vs ${m.away_club_name || 'Away'}`, referenceId: m.id });
           }
           if (m.away_club_id) {
             const [ac] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.away_club_id]);
             if (!ac || Number(ac.stc || 0) < wagerEach) throw new Error('Your club has insufficient STC for this wager');
-            await createClubTx({ clubId: m.away_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_loss', description: `Wager stake locked — match vs ${m.home_club_name || 'Home'}`, referenceId: m.id });
+            await createClubTx({ clubId: m.away_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_stake', description: `Wager stake locked — match vs ${m.home_club_name || 'Home'}`, referenceId: m.id });
           }
         } else {
           if (m.home_player_id) {
@@ -2970,7 +3259,7 @@ const HANDLERS = {
       if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
       if (!club_id || amount == null) throw new Error('club_id and amount required');
       const result = await createClubTx({
-        clubId: club_id, amount: Number(amount), type: 'shirt_revenue', category: 'merchandise',
+        clubId: club_id, amount: Number(amount), type: 'shirt_revenue', category: 'shirt_revenue',
         description: note || 'Admin shirt revenue correction',
       });
       return { success: true, data: result };

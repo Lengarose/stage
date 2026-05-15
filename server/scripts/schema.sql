@@ -172,6 +172,12 @@ CREATE TABLE IF NOT EXISTS matches (
   wager_away_locked      TINYINT(1)   DEFAULT 0,
   wager_home_player_id   VARCHAR(36),
   wager_away_player_id   VARCHAR(36),
+  -- home match revenue
+  home_ticket_revenue    DECIMAL(12,2) DEFAULT 0,
+  home_ticket_attendance INT          DEFAULT 0,
+  home_ticket_capacity   INT          DEFAULT 0,
+  home_ticket_price      DECIMAL(8,2) DEFAULT 0,
+  home_ticket_pct        TINYINT      DEFAULT 0,
   -- origin (which league fixture / cup tie / friendly produced this match)
   source_fixture_id      VARCHAR(36),
   source_fixture_type    VARCHAR(50),
@@ -229,7 +235,9 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   match_id       VARCHAR(36)  NOT NULL,
   tournament_id  VARCHAR(36),
   club_id        VARCHAR(36),
+  player_id      VARCHAR(36),
   player_email   VARCHAR(255) NOT NULL,
+  player_gamertag VARCHAR(255),
   goals          INT          DEFAULT 0,
   assists        INT          DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
@@ -384,6 +392,8 @@ CREATE TABLE IF NOT EXISTS shirt_sales (
   club_id         VARCHAR(36),
   buyer_email     VARCHAR(255),
   price_stc       DECIMAL(12,2) DEFAULT 0,
+  match_id        VARCHAR(36),
+  quantity        INT           DEFAULT 1,
   created_date    DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 

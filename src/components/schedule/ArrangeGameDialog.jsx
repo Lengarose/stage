@@ -8,8 +8,6 @@ import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
 
-const STEPS = ["search", "details", "confirm"];
-
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwnerMode = accountMode === "club";
@@ -36,6 +34,20 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
+  const activeSearchType = isOwnerMode ? "club" : searchType;
+  const availableWagerBalance = activeSearchType === "club"
+    ? Number(myClub?.stc || 0)
+    : Number(myPlayer?.stc || 0);
+  const wagerNumber = wagerStc ? Number(wagerStc) : 0;
+  const wagerError = wagerStc && (
+    wagerNumber < MIN_BET
+      ? `Minimum bet is ${MIN_BET.toLocaleString()} STC`
+      : wagerNumber > MAX_BET
+        ? `Maximum bet is ${MAX_BET.toLocaleString()} STC`
+        : wagerNumber > availableWagerBalance
+          ? `You only have ${availableWagerBalance.toLocaleString()} STC available`
+          : ""
+  );
 
   function reset() {
     setStep("search");
@@ -119,11 +131,16 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         return;
       }
 
+      if (wagerError) {
+        setSendError(wagerError);
+        return;
+      }
+
       const wagerAmount = wagerStc && Number(wagerStc) >= MIN_BET && Number(wagerStc) <= MAX_BET
         ? Number(wagerStc) : 0;
 
       const wagerLine = wagerAmount
-        ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds will be locked from your balance on acceptance.`
+        ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds are locked from both balances when this invite is accepted.`
         : "";
 
       await stageClient.entities.InboxMessage.create({
@@ -327,17 +344,15 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 />
               </div>
               {wagerStc && (
-                <p className="text-[10px] text-warning mt-1">
-                  {Number(wagerStc) < MIN_BET ? `⚠️ Minimum bet is ${MIN_BET.toLocaleString()} STC` :
-                   Number(wagerStc) > MAX_BET ? `⚠️ Maximum bet is ${MAX_BET.toLocaleString()} STC` :
-                   `Pot: ${(Number(wagerStc) * 2).toLocaleString()} STC total — loser forfeits their stake`}
+                <p className={cn("text-[10px] mt-1", wagerError ? "text-destructive" : "text-warning")}>
+                  {wagerError || `Pot: ${(Number(wagerStc) * 2).toLocaleString()} STC total. Your ${Number(wagerStc).toLocaleString()} STC stake will lock on acceptance.`}
                 </p>
               )}
             </div>
 
             <Button
               onClick={() => setStep("confirm")}
-              disabled={!date || !time}
+              disabled={!date || !time || !!wagerError}
               className="w-full bg-primary text-primary-foreground"
             >
               Continue
@@ -381,6 +396,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 ? `A player match invitation will be sent to ${selected?.gamertag}'s personal inbox.`
                 : `A club match invitation will be sent to the owner of ${selected?.name}'s inbox.`
               } They can accept, decline, or request a different date.
+              {wagerNumber > 0 && !wagerError ? " The wager stake will appear in finances as locked STC when accepted." : ""}
             </p>
 
             {sendError && (
@@ -391,7 +407,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             <Button
               onClick={handleSend}
-              disabled={sending}
+              disabled={sending || !!wagerError}
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               {sending

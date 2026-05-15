@@ -27,6 +27,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
+  const [actionError, setActionError] = useState("");
 
   async function handleAction(action) {
     if (action === "date_change_requested" && !showDatePicker) {
@@ -34,13 +35,16 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       return;
     }
     setLoading(action);
+    setActionError("");
     try {
-      // Update this message's status
-      await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
-
       const meta = typeof message.metadata === "string"
         ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
         : (message.metadata || {});
+      const delayStatusUpdate = action === "accepted" && message.message_type === "match_invite";
+
+      if (!delayStatusUpdate) {
+        await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
+      }
 
       if (action === "accepted" && message.message_type === "match_invite") {
         notify(message.sender_email, "match_scheduled",
@@ -87,7 +91,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           throw new Error("Cannot schedule match: invitation is missing challenger/opponent ids.");
         }
 
-        await stageClient.entities.Match.create({
+        const createdMatch = await stageClient.entities.Match.create({
           status:           "scheduled",
           mode:             isClub ? "club" : "solo",
           scheduled_date:   toMysqlDateTime(meta.scheduled_date),
@@ -101,8 +105,25 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           away_player_name: !isClub ? (meta.opponent_name || recipientPlayer?.gamertag || null) : null,
           wager_stc:        meta.wager_stc || 0,
           wager_status:     (meta.wager_stc || 0) > 0 ? "pending_acceptance" : null,
-          wager_home_locked: (meta.wager_stc || 0) > 0,
+          wager_home_locked: false,
+          wager_away_locked: false,
         });
+
+        if (Number(meta.wager_stc || 0) > 0 && createdMatch?.id) {
+          await stageClient.functions.invoke("wagerMatchActions", {
+            action: "accept_wager",
+            match_id: createdMatch.id,
+          });
+        }
+
+        await stageClient.entities.InboxMessage.update(message.id, {
+          status: action,
+          is_read: true,
+          related_entity_id: createdMatch?.id || message.related_entity_id || null,
+          related_entity_type: "match",
+          metadata: { ...meta, created_match_id: createdMatch?.id || null },
+        });
+
         // Notify the challenger that their invite was accepted
         if (message.sender_email) {
           const responderName = myGamertag || recipientPlayer?.gamertag || message.recipient_email || "Player";
@@ -171,6 +192,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       onStatusChanged(message.id, action);
     } catch (err) {
       console.error("[InboxMessageDetail] action failed:", err);
+      setActionError(err?.response?.data?.error || err?.message || "Action failed. Please try again.");
     }
     setLoading(null);
     setShowDatePicker(false);
@@ -292,6 +314,12 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         <div className="mx-5 mt-4 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-warning/10 border border-warning/30">
           <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
           <p className="text-xs font-semibold text-warning">This message requires your response. See options below.</p>
+        </div>
+      )}
+      {actionError && (
+        <div className="mx-5 mt-3 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-destructive/10 border border-destructive/30">
+          <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+          <p className="text-xs font-semibold text-destructive">{actionError}</p>
         </div>
       )}
 
