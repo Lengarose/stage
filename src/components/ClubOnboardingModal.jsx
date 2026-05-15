@@ -8,6 +8,7 @@ import { stageClient } from "@/api/stageClient";
 import { Shield, Search, Plus, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
+import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -19,6 +20,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
   const [clubs, setClubs] = useState([]);
   const [search, setSearch] = useState("");
   const [loadingClubs, setLoadingClubs] = useState(false);
+  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
 
   const [form, setForm] = useState({
     name: "", tag: "", platform: player?.platform || "PlayStation",
@@ -90,16 +92,10 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
         stadium_level: 0, stadium_capacity: 5000,
         tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
+        creator_player_id: player?.id,
       });
       if (!club?.id) throw new Error("Server returned no club ID");
-      if (player?.id) {
-        await stageClient.entities.Player.update(player.id, {
-          club_id: club.id,
-          club_roles: ["president", "captain"],
-          role: "captain",
-        });
-      }
-      onComplete?.(club);
+      setOwnerContractPrompt({ club, player, contractId: club.owner_contract_id });
     } catch (err) {
       console.error("Club creation failed:", err);
       alert("Failed to create club: " + (err?.message || err));
@@ -150,6 +146,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     : clubs;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={e => e.preventDefault()}>
         <DialogHeader>
@@ -305,5 +302,18 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         )}
       </DialogContent>
     </Dialog>
+    <OwnerContractDialog
+      open={!!ownerContractPrompt}
+      club={ownerContractPrompt?.club}
+      player={ownerContractPrompt?.player}
+      contractId={ownerContractPrompt?.contractId}
+      onSigned={() => {
+        const club = ownerContractPrompt?.club;
+        setOwnerContractPrompt(null);
+        onComplete?.(club);
+      }}
+      onClose={() => setOwnerContractPrompt(null)}
+    />
+    </>
   );
 }

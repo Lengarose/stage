@@ -423,6 +423,15 @@ async function runStartupMigrations() {
     INDEX idx_coal_club_created (club_id, created_date)
   )`).catch(err => console.error('[migration] club_operation_audit_logs:', err.message));
 
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN clubs c ON p.club_id = c.id
+    SET p.role = 'owner',
+        p.club_roles = JSON_ARRAY('owner', 'president')
+    WHERE (LOWER(p.email) = LOWER(c.owner_email) OR (p.user_id IS NOT NULL AND p.user_id = c.user_id))
+      AND (p.role = 'captain' OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain')))
+  `).catch(err => console.error('[migration] owner_not_captain_cleanup:', err.message));
+
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');
 

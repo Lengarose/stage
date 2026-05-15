@@ -12,6 +12,7 @@ const {
   requireClubPermission,
   writeClubAudit,
 } = require('../services/clubOperationsService');
+const { v4: uuidv4 } = require('uuid');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -72,14 +73,54 @@ router.post('/', async (req, res) => {
     await club.create();
     const created = await club.selectOne(club.id);
     const record  = created[0];
+    let ownerContractId = null;
     if (record?.user_id) {
       await EXECUTESQL(
         'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
         [record.id, record.user_id]
       );
     }
+    const creatorRows = await EXECUTESQL(
+      `SELECT * FROM players
+       WHERE id = ? OR user_id = ? OR LOWER(email)=LOWER(?)
+       ORDER BY id = ? DESC
+       LIMIT 1`,
+      [body.creator_player_id || '', record?.user_id || req.user?.id || '', record?.owner_email || req.user?.email || '', body.creator_player_id || '']
+    ).catch(() => []);
+    const creator = creatorRows[0] || null;
+    if (creator?.id) {
+      await EXECUTESQL(
+        `UPDATE players
+         SET club_id = ?, club_roles = ?, role = 'owner', status = 'active'
+         WHERE id = ?`,
+        [record.id, JSON.stringify(['owner', 'president']), creator.id]
+      ).catch(() => {});
+      const existingOwnerContract = await EXECUTESQL(
+        "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','active') LIMIT 1",
+        [record.id, creator.id]
+      ).catch(() => []);
+      if (existingOwnerContract[0]?.id) {
+        ownerContractId = existingOwnerContract[0].id;
+      } else {
+        ownerContractId = uuidv4();
+        await EXECUTESQL(
+          `INSERT INTO player_contracts (
+             id, team_id, user_id, contract_type, status, offered_by,
+             max_games, max_days, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
+             offer_note, captaincy_offered, negotiation_round, created_date, updated_date
+           ) VALUES (?, ?, ?, 'ownership', 'pending', ?, 999, 3650, 0, 0, 0, ?, 0, 0, NOW(), NOW())`,
+          [
+            ownerContractId,
+            record.id,
+            creator.id,
+            record.owner_email || req.user?.email || 'Stage',
+            `Ownership contract for ${record.name}`,
+          ]
+        ).catch(() => { ownerContractId = null; });
+      }
+    }
     socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.CLUB), record);
-    res.status(201).json(record);
+    res.status(201).json({ ...record, owner_contract_id: ownerContractId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

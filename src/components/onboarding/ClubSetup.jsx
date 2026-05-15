@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
+import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -25,6 +26,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
   const logoInputRef = useRef();
 
   async function uploadLogo(e) {
@@ -72,20 +74,13 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         win_streak: 0,
         loss_streak: 0,
         status: "active",
+        creator_player_id: player?.id,
       });
 
       if (!club?.id) throw new Error("Server returned no club ID");
 
-      if (player?.id) {
-        await stageClient.entities.Player.update(player.id, {
-          club_id: club.id,
-          club_roles: ["president", "captain"],
-          role: "captain",
-        });
-      }
-
       setSaving(false);
-      onComplete(club);
+      setOwnerContractPrompt({ club, player, contractId: club.owner_contract_id });
     } catch (err) {
       console.error("Failed to create club:", err);
       setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
@@ -142,6 +137,18 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
 
   return (
     <div className="space-y-4">
+      <OwnerContractDialog
+        open={!!ownerContractPrompt}
+        club={ownerContractPrompt?.club}
+        player={ownerContractPrompt?.player}
+        contractId={ownerContractPrompt?.contractId}
+        onSigned={() => {
+          const club = ownerContractPrompt?.club;
+          setOwnerContractPrompt(null);
+          onComplete(club);
+        }}
+        onClose={() => setOwnerContractPrompt(null)}
+      />
       <button
         onClick={() => setStep("choice")}
         className="flex items-center gap-1 text-white/40 hover:text-white text-xs uppercase tracking-widest transition-colors mb-1"
