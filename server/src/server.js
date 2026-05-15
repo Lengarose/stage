@@ -60,6 +60,8 @@ app.use('/api/stage/club-achievements',          verifyToken, require('./server/
 app.use('/api/stage/player-achievements',        verifyToken, require('./server/controllers/playerAchievementController'));
 app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/controllers/playerStcTransactionController'));
 app.use('/api/stage/player-identity-claims',    verifyToken, require('./server/controllers/playerIdentityClaimController'));
+app.use('/api/stage/recruitment-posts',         verifyToken, require('./server/controllers/recruitmentPostController'));
+app.use('/api/stage/recruitment-interests',     verifyToken, require('./server/controllers/recruitmentInterestController'));
 
 // EAFC-inspired modules
 app.use('/api/stage/objective-definitions',     verifyToken, require('./server/controllers/objectiveDefinitionController'));
@@ -285,6 +287,52 @@ async function runStartupMigrations() {
     INDEX idx_pic_status  (status),
     INDEX idx_pic_created (created_date)
   )`).catch(err => console.error('[migration] player_identity_claims:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS recruitment_posts (
+    id                  VARCHAR(36) PRIMARY KEY,
+    author_user_id      VARCHAR(36) NULL,
+    author_player_id    VARCHAR(36) NULL,
+    author_club_id      VARCHAR(36) NULL,
+    post_type           VARCHAR(30) NOT NULL,
+    title               VARCHAR(255) NOT NULL,
+    body                TEXT NULL,
+    positions_needed    JSON NULL,
+    preferred_positions JSON NULL,
+    platform            VARCHAR(50) NULL,
+    region              VARCHAR(100) NULL,
+    availability_text   VARCHAR(255) NULL,
+    discord_handle      VARCHAR(150) NULL,
+    mic_required        TINYINT(1) DEFAULT 0,
+    verified_only       TINYINT(1) DEFAULT 0,
+    status              VARCHAR(30) DEFAULT 'open',
+    expires_at          DATETIME NULL,
+    created_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_rp_type_status (post_type, status),
+    INDEX idx_rp_player (author_player_id),
+    INDEX idx_rp_club (author_club_id),
+    INDEX idx_rp_platform_region (platform, region),
+    INDEX idx_rp_created (created_date)
+  )`).catch(err => console.error('[migration] recruitment_posts:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS recruitment_interests (
+    id                   VARCHAR(36) PRIMARY KEY,
+    recruitment_post_id  VARCHAR(36) NOT NULL,
+    sender_user_id       VARCHAR(36) NULL,
+    sender_player_id     VARCHAR(36) NULL,
+    sender_club_id       VARCHAR(36) NULL,
+    recipient_user_id    VARCHAR(36) NULL,
+    recipient_player_id  VARCHAR(36) NULL,
+    recipient_club_id    VARCHAR(36) NULL,
+    message              TEXT NULL,
+    status               VARCHAR(30) DEFAULT 'pending',
+    created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ri_post (recruitment_post_id),
+    INDEX idx_ri_sender_user (sender_user_id),
+    INDEX idx_ri_recipient_user (recipient_user_id),
+    INDEX idx_ri_status (status)
+  )`).catch(err => console.error('[migration] recruitment_interests:', err.message));
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');

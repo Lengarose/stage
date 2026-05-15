@@ -13,6 +13,7 @@ import NewsTab from "@/components/admin/sections/NewsTab";
 import PressConferencesTab from "@/components/admin/sections/PressConferencesTab";
 import LifestylesTab from "@/components/admin/sections/LifestylesTab";
 import TransfersTab from "@/components/admin/sections/TransfersTab";
+import RecruitmentTab from "@/components/admin/sections/RecruitmentTab";
 import TrophiesTab from "@/components/admin/sections/TrophiesTab";
 import RewardsTab from "@/components/admin/sections/RewardsTab";
 import LandingTab from "@/components/admin/sections/LandingTab";
@@ -55,6 +56,7 @@ export default function Admin(props) {
   const [forfeits, setForfeits] = useState([]);
   const [players, setPlayers] = useState([]);
   const [identityClaims, setIdentityClaims] = useState([]);
+  const [recruitmentPosts, setRecruitmentPosts] = useState([]);
   const [clubs, setClubs] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [playerSearch, setPlayerSearch] = useState("");
@@ -190,7 +192,7 @@ export default function Admin(props) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
+      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems, pendingIdentityClaims, allRecruitmentPosts] = await Promise.all([
         base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
         base44.entities.Player.list("-created_date", 100).catch(() => []),
         base44.entities.Tournament.list("-created_date", 200).catch(() => []),
@@ -206,12 +208,14 @@ export default function Admin(props) {
         stageClient.entities.PressConference.list("-created_date", 200).catch(() => []),
         stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
+        stageClient.entities.RecruitmentPost.filter({}, "-created_date", 300).catch(() => []),
       ]);
       const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
       setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
       setForfeits(forfeitMatches);
       setPlayers(allPlayers);
       setIdentityClaims(pendingIdentityClaims);
+      setRecruitmentPosts(allRecruitmentPosts);
       setClubs(allClubs);
       setTournaments(allTournaments);
       setTrophyItems(allTrophies);
@@ -1384,6 +1388,10 @@ export default function Admin(props) {
 
           {adminTab === "transfers" && (
             <TransfersTab />
+          )}
+
+          {adminTab === "recruitment" && (
+            <RecruitmentTab posts={recruitmentPosts} onRefresh={loadAll} />
           )}
 
           {adminTab === "trophies" && (

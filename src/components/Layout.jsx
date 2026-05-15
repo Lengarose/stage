@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Search, Rss, ShoppingBag, Video, UsersRound,
+  Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag,
@@ -91,6 +91,7 @@ function getPlayerGroups(_clubPath) {
       items: [
         { path: "/clubs",        icon: Shield,     label: "Clubs" },
         { path: "/players-list", icon: UsersRound, label: "Players" },
+        { path: "/recruitment",  icon: Handshake,  label: "Recruitment" },
         { path: "/social",       icon: Rss,        label: "Feed" },
         { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
       ],
@@ -126,6 +127,7 @@ function getOwnerGroups(clubPath) {
       label: "Squad",
       items: [
         { path: "/players-list",    icon: UsersRound,     label: "Players" },
+        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
         { path: "/game-day",        icon: Zap,            label: "Game Day" },
       ],
@@ -163,6 +165,7 @@ function getAdminGroups() {
         { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
         { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
         { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
+        { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
       ],
     },
     {

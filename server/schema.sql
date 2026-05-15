@@ -420,6 +420,45 @@ CREATE TABLE IF NOT EXISTS join_requests (
   created_date DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ── recruitment_posts ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS recruitment_posts (
+  id                  VARCHAR(36) PRIMARY KEY,
+  author_user_id      VARCHAR(36),
+  author_player_id    VARCHAR(36),
+  author_club_id      VARCHAR(36),
+  post_type           VARCHAR(30) NOT NULL,
+  title               VARCHAR(255) NOT NULL,
+  body                TEXT,
+  positions_needed    JSON,
+  preferred_positions JSON,
+  platform            VARCHAR(50),
+  region              VARCHAR(100),
+  availability_text   VARCHAR(255),
+  discord_handle      VARCHAR(150),
+  mic_required        TINYINT(1) DEFAULT 0,
+  verified_only       TINYINT(1) DEFAULT 0,
+  status              VARCHAR(30) DEFAULT 'open',
+  expires_at          DATETIME,
+  created_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── recruitment_interests ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS recruitment_interests (
+  id                   VARCHAR(36) PRIMARY KEY,
+  recruitment_post_id  VARCHAR(36) NOT NULL,
+  sender_user_id       VARCHAR(36),
+  sender_player_id     VARCHAR(36),
+  sender_club_id       VARCHAR(36),
+  recipient_user_id    VARCHAR(36),
+  recipient_player_id  VARCHAR(36),
+  recipient_club_id    VARCHAR(36),
+  message              TEXT,
+  status               VARCHAR(30) DEFAULT 'pending',
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ── lifestyle_items ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lifestyle_items (
   id         VARCHAR(36)  PRIMARY KEY,
@@ -543,6 +582,14 @@ CREATE INDEX idx_chat_match          ON chat_messages(match_id);
 CREATE INDEX idx_stats_match         ON match_player_stats(match_id);
 CREATE INDEX idx_follows_email       ON follows(follower_email);
 CREATE INDEX idx_stc_club            ON stc_transactions(club_id);
+CREATE INDEX idx_rp_type_status      ON recruitment_posts(post_type, status);
+CREATE INDEX idx_rp_player           ON recruitment_posts(author_player_id);
+CREATE INDEX idx_rp_club             ON recruitment_posts(author_club_id);
+CREATE INDEX idx_rp_platform_region  ON recruitment_posts(platform, region);
+CREATE INDEX idx_ri_post             ON recruitment_interests(recruitment_post_id);
+CREATE INDEX idx_ri_sender_user      ON recruitment_interests(sender_user_id);
+CREATE INDEX idx_ri_recipient_user   ON recruitment_interests(recipient_user_id);
+CREATE INDEX idx_ri_status           ON recruitment_interests(status);
 
 -- ── model/schema alignment migrations ──────────────────────────
 -- Keep schema.sql aligned with all model files in server/src/server/models.

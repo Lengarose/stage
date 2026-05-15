@@ -247,6 +247,8 @@ const ENTITY_NAMES = [
   // Player identity claiming and admin verification workflow. Approval marks
   // players.is_verified and stores the verified platform handle.
   'PlayerIdentityClaim',
+  // Lightweight recruitment/LFG board that feeds contract and transfer flows.
+  'RecruitmentPost', 'RecruitmentInterest',
   // EAFC-inspired modules — see server/src/server.js for routes and AGENTS.md §7.2.
   // ObjectiveDefinition: catalogue of Daily/Weekly objectives (admin-managed).
   // ObjectiveProgress:   per-player progress; rewards claimed via

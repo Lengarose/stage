@@ -62,6 +62,7 @@ import InboxPage from './pages/Inbox';
 import Schedule from './pages/Schedule';
 import GameDay from './pages/GameDay';
 import TransferMarket from './pages/TransferMarket';
+import Recruitment from './pages/Recruitment';
 import Lifestyle from './pages/Lifestyle';
 import Wallet from './pages/Wallet';
 import FollowBack from './pages/FollowBack';
@@ -236,6 +237,7 @@ const AuthenticatedApp = () => {
         <Route path="/schedule" element={<Schedule />} />
         <Route path="/game-day" element={<GameDay />} />
         <Route path="/transfer-market" element={<TransferMarket />} />
+        <Route path="/recruitment" element={<Recruitment />} />
         <Route path="/lifestyle" element={<Lifestyle />} />
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/follow-back" element={<FollowBack />} />
