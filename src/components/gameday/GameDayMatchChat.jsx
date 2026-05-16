@@ -62,8 +62,13 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
       });
     });
 
+    const pollId = window.setInterval(() => {
+      if (!stopped) loadMessages();
+    }, 5000);
+
     return () => {
       stopped = true;
+      window.clearInterval(pollId);
       offSocketListeners(socketChannel);
     };
   }, [game.id, loadMessages]);

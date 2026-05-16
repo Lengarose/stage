@@ -21,6 +21,21 @@ function parseDate(d) {
   return isValid(p) ? p : null;
 }
 
+/** MySQL JSON/TEXT goal columns may arrive as a JSON string — never call .map on raw value. */
+function asJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null || value === "") return [];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 const STATUS_COLORS = {
   scheduled: "bg-primary/10 text-primary",
   in_progress: "bg-success/10 text-success",
@@ -47,6 +62,32 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   // Update game when parent passes new data
   useEffect(() => { setGame(initialGame); }, [initialGame]);
+
+  const isClubMatchEarly = game?.mode === "club";
+
+  useEffect(() => {
+    if (!game?.id) return;
+    async function load() {
+      if (game.tournament_id && game.tournament_id !== "ranked") {
+        const tournaments = await base44.entities.Tournament.filter({ id: game.tournament_id });
+        if (tournaments.length > 0) setTournament(tournaments[0]);
+      }
+      const matchStats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
+      setStats(matchStats || []);
+      setIsHomeClub(
+        isClubMatchEarly ? (myClub ? game.home_club_id === myClub.id : false) : false
+      );
+    }
+    load();
+  }, [game?.id, game?.tournament_id, myClub, isClubMatchEarly]);
+
+  if (!game?.id) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
+        Match not found.
+      </div>
+    );
+  }
 
   const date = parseDate(game.scheduled_date);
   const now = new Date();
@@ -80,19 +121,6 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   const home = isClubMatch ? game.home_club_name : game.home_player_name;
   const away = isClubMatch ? game.away_club_name : game.away_player_name;
-
-  useEffect(() => {
-    async function load() {
-      if (game.tournament_id && game.tournament_id !== "ranked") {
-        const tournaments = await base44.entities.Tournament.filter({ id: game.tournament_id });
-        if (tournaments.length > 0) setTournament(tournaments[0]);
-      }
-      const matchStats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
-      setStats(matchStats || []);
-      setIsHomeClub(isClubMatch ? (myClub ? game.home_club_id === myClub.id : false) : false);
-    }
-    load();
-  }, [game.id, game.tournament_id, myClub]);
 
   async function handleKickoff() {
     setKickoffLoading(true);
@@ -136,8 +164,8 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   const statusCls = STATUS_COLORS[game.status] || "bg-secondary text-muted-foreground";
 
   const allGoalEvents = [
-    ...(game.home_goal_events || []).map(ev => ({ ...ev, teamName: home })),
-    ...(game.away_goal_events || []).map(ev => ({ ...ev, teamName: away })),
+    ...asJsonArray(game.home_goal_events).map((ev) => ({ ...ev, teamName: home })),
+    ...asJsonArray(game.away_goal_events).map((ev) => ({ ...ev, teamName: away })),
   ].sort((a, b) => (Number(a.minute) || 0) - (Number(b.minute) || 0));
   const hasGoalTimeline = allGoalEvents.length > 0;
 
@@ -349,7 +377,11 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
       {/* Tabs — home and away participants; chat for club + solo, dressing/press club-only */}
       {isMyMatch && (
-        <Tabs defaultValue={isClubMatch && myClub ? "dressing_room" : "chat"} className="border-0">
+        <Tabs
+          key={game.id}
+          defaultValue={isClubMatch && myClub ? "dressing_room" : "chat"}
+          className="border-0"
+        >
           <TabsList className="w-full rounded-none border-b border-border bg-secondary/20 justify-start h-auto p-0 overflow-x-auto">
             {isClubMatch && myClub && (
               <TabsTrigger value="dressing_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">

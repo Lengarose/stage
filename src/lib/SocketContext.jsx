@@ -49,11 +49,34 @@ export const SOCKET_CLIENT = io(SOCKET_URL, {
 
 // Internal listener registry: Map<channel, callback>
 const _listeners = new Map();
+const _joinedChannels = new Set();
+
+function joinChannel(channel) {
+  if (!channel) return;
+  _joinedChannels.add(channel);
+  if (SOCKET_CLIENT.connected) {
+    SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'join', channel });
+  }
+}
+
+function leaveChannel(channel) {
+  if (!channel) return;
+  _joinedChannels.delete(channel);
+  if (SOCKET_CLIENT.connected) {
+    SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'leave', channel });
+  }
+}
 
 SOCKET_CLIENT.on('update', (data) => {
   const { _channel, ...payload } = data || {};
   if (!_channel) return;
   _listeners.get(_channel)?.(payload);
+});
+
+SOCKET_CLIENT.on('connect', () => {
+  for (const channel of _joinedChannels) {
+    SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'join', channel });
+  }
 });
 
 /**
@@ -66,14 +89,14 @@ SOCKET_CLIENT.on('update', (data) => {
  */
 export const setSocketListeners = (channel, callback) => {
   _listeners.set(channel, callback);
-  SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'join', channel });
+  joinChannel(channel);
 };
 
 /**
  * Leave a room and remove its callback.
  */
 export const offSocketListeners = (channel) => {
-  SOCKET_CLIENT.emit('JOINLEAVEROOM', { action: 'leave', channel });
+  leaveChannel(channel);
   _listeners.delete(channel);
 };
 
