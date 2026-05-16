@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Coins, TrendingUp, ShoppingBag, Package, CalendarClock, Zap, Tag, Check,
-  Clock, ArrowUpRight, RefreshCw,
+  Clock, ArrowUpRight,
 } from 'lucide-react';
 import LifestyleAssetCard from '@/components/lifestyle/LifestyleAssetCard';
 import LifestyleActionModal from '@/components/lifestyle/LifestyleActionModal';
@@ -59,18 +59,18 @@ export default function Lifestyle() {
     setModal({ action, item, purchase });
   }
 
-  async function handleConfirm() {
+  async function handleConfirm(actionPayload = {}) {
     if (!modal) return;
     const { action, item, purchase } = modal;
     setActLoad(true);
     try {
       let res;
       if (action === 'buy') {
-        res = await stageClient.functions.invoke('buyLifestyleItem', { item_id: item.id });
+        res = await stageClient.functions.invoke('buyLifestyleItem', { item_id: item.id, ...actionPayload });
       } else if (action === 'rent') {
-        res = await stageClient.functions.invoke('rentLifestyleItem', { item_id: item.id });
+        res = await stageClient.functions.invoke('rentLifestyleItem', { item_id: item.id, ...actionPayload });
       } else if (action === 'invest') {
-        res = await stageClient.functions.invoke('investInLifestyleItem', { item_id: item.id });
+        res = await stageClient.functions.invoke('investInLifestyleItem', { item_id: item.id, ...actionPayload });
       } else if (action === 'sell') {
         res = await stageClient.functions.invoke('sellLifestyleAsset', { purchase_id: purchase.id });
       }
@@ -296,6 +296,7 @@ export default function Lifestyle() {
                         </div>
                         <div className="p-3">
                           <p className="font-bold text-foreground text-sm">{item.name}</p>
+                          <LocationLine purchase={purch} />
                           <p className="text-xs text-muted-foreground mt-0.5">Paid: {formatSTC(purch.price_paid_stc)} STC</p>
                           {endDate && (
                             <p className="text-xs text-muted-foreground">Expires: {endDate.toLocaleDateString()}</p>
@@ -339,6 +340,7 @@ export default function Lifestyle() {
                         </div>
                         <div className="p-3 space-y-2">
                           <p className="font-bold text-foreground text-sm">{item.name}</p>
+                          <LocationLine purchase={purch} />
                           <div className="text-xs space-y-1">
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Principal</span>
@@ -468,6 +470,7 @@ function OwnedCard({ purch, item, img, tier, canCollect, sellPrice, onSell }) {
       </div>
       <div className="p-3 space-y-2">
         <p className="font-bold text-foreground text-sm">{item.name}</p>
+        <LocationLine purchase={purch} />
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Paid</span>
@@ -493,5 +496,15 @@ function OwnedCard({ purch, item, img, tier, canCollect, sellPrice, onSell }) {
         )}
       </div>
     </div>
+  );
+}
+
+function LocationLine({ purchase }) {
+  if (!purchase?.location_city && !purchase?.location_country) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground mt-0.5">
+      {purchase.location_emoji ? `${purchase.location_emoji} ` : ''}
+      {purchase.location_city}{purchase.location_city && purchase.location_country ? ', ' : ''}{purchase.location_country}
+    </p>
   );
 }

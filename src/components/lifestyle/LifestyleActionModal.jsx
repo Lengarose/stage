@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils';
-import { getAssetImage, formatSTC, LIFESTYLE_TIER_STYLES } from '@/lib/lifestyleItems';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getAssetImage, formatSTC, LIFESTYLE_TIER_STYLES, parseLifestyleCities } from '@/lib/lifestyleItems';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, CalendarClock, TrendingUp, Tag, ArrowRight, Coins, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, CalendarClock, TrendingUp, Tag, ArrowRight, Coins, AlertTriangle, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 const ACTION_META = {
   buy:    { label: 'Buy Asset',          icon: ShoppingCart, color: 'emerald', priceKey: 'price_stc' },
@@ -12,6 +13,13 @@ const ACTION_META = {
 };
 
 export default function LifestyleActionModal({ open, onClose, action, item, purchase, playerStc, loading, onConfirm }) {
+  const locations = useMemo(() => parseLifestyleCities(item?.available_cities), [item?.available_cities]);
+  const [locationKey, setLocationKey] = useState('');
+
+  useEffect(() => {
+    setLocationKey(locations[0] ? `${locations[0].city}|${locations[0].country || ''}` : '');
+  }, [locations]);
+
   if (!item || !action) return null;
 
   const meta = ACTION_META[action];
@@ -75,6 +83,8 @@ export default function LifestyleActionModal({ open, onClose, action, item, purc
     rose:    { btn: 'bg-rose-500 hover:bg-rose-600 text-white',       badge: 'bg-rose-500/15 text-rose-400 border-rose-500/30' },
   };
   const c = colorMap[meta.color];
+  const selectedLocation = locations.find(loc => `${loc.city}|${loc.country || ''}` === locationKey) || locations[0] || null;
+  const needsLocation = ['buy', 'rent', 'invest'].includes(action) && locations.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -114,6 +124,25 @@ export default function LifestyleActionModal({ open, onClose, action, item, purc
             ))}
           </div>
 
+          {needsLocation && (
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <MapPin className="w-3.5 h-3.5" /> Location
+              </label>
+              <select
+                value={locationKey}
+                onChange={e => setLocationKey(e.target.value)}
+                className="w-full h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-foreground outline-none focus:border-primary/50"
+              >
+                {locations.map(loc => (
+                  <option key={`${loc.city}|${loc.country || ''}`} value={`${loc.city}|${loc.country || ''}`} className="bg-card text-foreground">
+                    {loc.emoji ? `${loc.emoji} ` : ''}{loc.city}{loc.country ? `, ${loc.country}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Balance summary */}
           <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs">
             <Coins className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -144,7 +173,11 @@ export default function LifestyleActionModal({ open, onClose, action, item, purc
             </Button>
             <Button
               className={cn('flex-1 font-bold gap-2', c.btn)}
-              onClick={onConfirm}
+              onClick={() => onConfirm?.(selectedLocation ? {
+                location_city: selectedLocation.city,
+                location_country: selectedLocation.country,
+                location_emoji: selectedLocation.emoji,
+              } : {})}
               disabled={loading || !canAfford}
             >
               {loading

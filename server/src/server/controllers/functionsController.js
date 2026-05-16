@@ -57,6 +57,163 @@ function parseMaybeJson(value, fallback = {}) {
   try { return JSON.parse(String(value)); } catch { return fallback; }
 }
 
+function normalizeLifestyleCities(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'object') return [value];
+  const raw = String(value).trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    if (parsed && typeof parsed === 'object') return [parsed];
+  } catch {}
+  return raw.split('\n').map(line => {
+    const [city, country, emoji] = line.split(',').map(part => String(part || '').trim());
+    return city ? { city, country: country || null, emoji: emoji || null } : null;
+  }).filter(Boolean);
+}
+
+function serializeLifestyleCities(value) {
+  const cities = normalizeLifestyleCities(value);
+  return cities.length ? JSON.stringify(cities) : null;
+}
+
+function resolveLifestyleLocation(item, params = {}) {
+  const requestedCity = params.location_city || params.city;
+  const requestedCountry = params.location_country || params.country;
+  const requestedEmoji = params.location_emoji || params.emoji;
+  if (requestedCity || requestedCountry || requestedEmoji) {
+    return {
+      city: requestedCity || null,
+      country: requestedCountry || null,
+      emoji: requestedEmoji || null,
+    };
+  }
+  const [fallback] = normalizeLifestyleCities(item?.available_cities);
+  return {
+    city: fallback?.city || null,
+    country: fallback?.country || null,
+    emoji: fallback?.emoji || null,
+  };
+}
+
+function getDefaultLifestyleItems() {
+  const city = (cityName, country, emoji) => [{ city: cityName, country, emoji }];
+  return [
+    { name: 'London Canary Wharf Apartment', category: 'houses', subcategory: 'apartment', emoji: '🏙️', tier: 'premium', sort_order: 1,
+      price_stc: 850_000, rent_price_stc: 4_800, rent_duration_days: 30, invest_price_stc: 850_000, invest_return_rate: 0.55, invest_duration_days: 30,
+      passive_income_stc: 4_250, passive_income_interval_days: 30, weekly_maintenance_stc: 900, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 84, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=900&q=80', available_cities: city('London', 'United Kingdom', '🇬🇧'),
+      description: 'Modern docklands apartment priced around prime London new-build values. Buy to live in, rent monthly, or invest for monthly yield.' },
+    { name: 'Manchester City Apartment', category: 'houses', subcategory: 'apartment', emoji: '🏢', tier: 'standard', sort_order: 2,
+      price_stc: 320_000, rent_price_stc: 1_650, rent_duration_days: 30, invest_price_stc: 320_000, invest_return_rate: 0.52, invest_duration_days: 30,
+      passive_income_stc: 1_550, passive_income_interval_days: 30, weekly_maintenance_stc: 350, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 82, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1515263487990-61b07816b324?w=900&q=80', available_cities: city('Manchester', 'United Kingdom', '🇬🇧'),
+      description: 'Central Manchester apartment with realistic city rent and investment yield.' },
+    { name: 'Brussels Ixelles Apartment', category: 'houses', subcategory: 'apartment', emoji: '🏘️', tier: 'standard', sort_order: 3,
+      price_stc: 410_000, rent_price_stc: 1_850, rent_duration_days: 30, invest_price_stc: 410_000, invest_return_rate: 0.45, invest_duration_days: 30,
+      passive_income_stc: 1_750, passive_income_interval_days: 30, weekly_maintenance_stc: 420, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 82, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1494526585095-c41746248156?w=900&q=80', available_cities: city('Brussels', 'Belgium', '🇧🇪'),
+      description: 'Well-located Brussels apartment for players who want a European base.' },
+    { name: 'Paris 16th Apartment', category: 'houses', subcategory: 'apartment', emoji: '🏛️', tier: 'elite', sort_order: 4,
+      price_stc: 1_300_000, rent_price_stc: 5_500, rent_duration_days: 30, invest_price_stc: 1_300_000, invest_return_rate: 0.42, invest_duration_days: 30,
+      passive_income_stc: 5_200, passive_income_interval_days: 30, weekly_maintenance_stc: 1_250, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 85, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1501183638710-841dd1904471?w=900&q=80', available_cities: city('Paris', 'France', '🇫🇷'),
+      description: 'Prestige Paris apartment with high purchase price and steady monthly rental income.' },
+    { name: 'Barcelona Beach Apartment', category: 'houses', subcategory: 'apartment', emoji: '🌊', tier: 'premium', sort_order: 5,
+      price_stc: 650_000, rent_price_stc: 3_000, rent_duration_days: 30, invest_price_stc: 650_000, invest_return_rate: 0.48, invest_duration_days: 30,
+      passive_income_stc: 2_900, passive_income_interval_days: 30, weekly_maintenance_stc: 700, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 83, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=900&q=80', available_cities: city('Barcelona', 'Spain', '🇪🇸'),
+      description: 'Beach-side Barcelona apartment with lifestyle appeal and tourist rental upside.' },
+    { name: 'Dubai Marina Apartment', category: 'houses', subcategory: 'apartment', emoji: '🌆', tier: 'elite', sort_order: 6,
+      price_stc: 900_000, rent_price_stc: 4_200, rent_duration_days: 30, invest_price_stc: 900_000, invest_return_rate: 0.62, invest_duration_days: 30,
+      passive_income_stc: 5_300, passive_income_interval_days: 30, weekly_maintenance_stc: 950, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 84, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=900&q=80', available_cities: city('Dubai', 'United Arab Emirates', '🇦🇪'),
+      description: 'High-rise Dubai Marina apartment with strong monthly investment return.' },
+    { name: 'New York Tribeca Loft', category: 'houses', subcategory: 'loft', emoji: '🗽', tier: 'legendary', sort_order: 7,
+      price_stc: 2_800_000, rent_price_stc: 12_000, rent_duration_days: 30, invest_price_stc: 2_800_000, invest_return_rate: 0.43, invest_duration_days: 30,
+      passive_income_stc: 11_500, passive_income_interval_days: 30, weekly_maintenance_stc: 2_900, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 86, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=900&q=80', available_cities: city('New York', 'United States', '🇺🇸'),
+      description: 'Tribeca-style loft for elite players who want a US flagship property.' },
+    { name: 'Miami Beach Condo', category: 'houses', subcategory: 'condo', emoji: '🏖️', tier: 'elite', sort_order: 8,
+      price_stc: 1_200_000, rent_price_stc: 6_500, rent_duration_days: 30, invest_price_stc: 1_200_000, invest_return_rate: 0.58, invest_duration_days: 30,
+      passive_income_stc: 6_400, passive_income_interval_days: 30, weekly_maintenance_stc: 1_450, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 84, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=900&q=80', available_cities: city('Miami', 'United States', '🇺🇸'),
+      description: 'Miami condo with beach positioning and healthy short-let economics.' },
+    { name: 'Marbella Villa', category: 'houses', subcategory: 'villa', emoji: '🏡', tier: 'legendary', sort_order: 9,
+      price_stc: 3_500_000, rent_price_stc: 18_000, rent_duration_days: 30, invest_price_stc: 3_500_000, invest_return_rate: 0.60, invest_duration_days: 30,
+      passive_income_stc: 19_500, passive_income_interval_days: 30, weekly_maintenance_stc: 5_000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 87, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=900&q=80', available_cities: city('Marbella', 'Spain', '🇪🇸'),
+      description: 'Large Marbella villa with pool, staff costs, and premium rental yield.' },
+    { name: 'Monaco Harbour Penthouse', category: 'houses', subcategory: 'penthouse', emoji: '🛥️', tier: 'legendary', sort_order: 10,
+      price_stc: 18_000_000, rent_price_stc: 85_000, rent_duration_days: 30, invest_price_stc: 18_000_000, invest_return_rate: 0.47, invest_duration_days: 30,
+      passive_income_stc: 82_000, passive_income_interval_days: 30, weekly_maintenance_stc: 22_000, can_buy: 1, can_rent: 1, can_invest: 1, can_sell: 1,
+      sell_value_percent: 90, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=900&q=80', available_cities: city('Monaco', 'Monaco', '🇲🇨'),
+      description: 'Ultra-prime Monaco penthouse. Expensive to maintain, powerful to own.' },
+    { name: 'Volkswagen Golf GTI', category: 'cars', subcategory: 'hot_hatch', emoji: '🚗', tier: 'standard', sort_order: 20,
+      price_stc: 42_000, rent_price_stc: 1_200, rent_duration_days: 30, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 120, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 62, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=80', description: 'Realistic premium hot hatch pricing with everyday running costs.' },
+    { name: 'Mercedes-AMG A45 S', category: 'cars', subcategory: 'performance_hatch', emoji: '🚙', tier: 'premium', sort_order: 21,
+      price_stc: 78_000, rent_price_stc: 2_800, rent_duration_days: 30, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 220, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 64, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=900&q=80', description: 'Compact performance car with high-end monthly rental cost.' },
+    { name: 'Range Rover Sport', category: 'cars', subcategory: 'suv', emoji: '🚙', tier: 'premium', sort_order: 22,
+      price_stc: 115_000, rent_price_stc: 4_500, rent_duration_days: 30, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 420, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 63, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=900&q=80', description: 'Luxury SUV asset with higher upkeep and rental demand.' },
+    { name: 'Porsche 911 Carrera GTS', category: 'cars', subcategory: 'sports_car', emoji: '🏎️', tier: 'elite', sort_order: 23,
+      price_stc: 165_000, rent_price_stc: 7_500, rent_duration_days: 30, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 700, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 68, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=900&q=80', description: 'Driver-focused sports car with strong retained value.' },
+    { name: 'Mercedes-AMG G 63', category: 'cars', subcategory: 'luxury_suv', emoji: '🚜', tier: 'elite', sort_order: 24,
+      price_stc: 190_000, rent_price_stc: 9_000, rent_duration_days: 30, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 900, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 70, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=900&q=80', description: 'High-status SUV with high running costs and strong resale.' },
+    { name: 'Ferrari 296 GTB', category: 'cars', subcategory: 'supercar', emoji: '🏎️', tier: 'legendary', sort_order: 25,
+      price_stc: 340_000, rent_price_stc: 18_000, rent_duration_days: 7, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 2_500, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 72, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1592198084033-aade902d1aae?w=900&q=80', description: 'Modern Ferrari supercar priced like the real market.' },
+    { name: 'Lamborghini Revuelto', category: 'cars', subcategory: 'hypercar', emoji: '🏁', tier: 'legendary', sort_order: 26,
+      price_stc: 610_000, rent_price_stc: 35_000, rent_duration_days: 7, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 4_000, can_buy: 1, can_rent: 1, can_invest: 0, can_sell: 1,
+      sell_value_percent: 73, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=900&q=80', description: 'Flagship hypercar purchase for players with serious STC.' },
+    { name: 'Rolex Submariner Date', category: 'watches', subcategory: 'watch', emoji: '⌚', tier: 'premium', sort_order: 30,
+      price_stc: 10_250, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 10_250, invest_return_rate: 0.25, invest_duration_days: 30,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+      sell_value_percent: 82, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=900&q=80', description: 'Iconic steel sports watch with modest monthly collector return.' },
+    { name: 'Audemars Piguet Royal Oak 15500', category: 'watches', subcategory: 'watch', emoji: '⌚', tier: 'elite', sort_order: 31,
+      price_stc: 55_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 55_000, invest_return_rate: 0.35, invest_duration_days: 30,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+      sell_value_percent: 84, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1509048191080-d2984bad6ae5?w=900&q=80', description: 'High-demand integrated bracelet watch for collectors.' },
+    { name: 'Patek Philippe Nautilus 5711', category: 'watches', subcategory: 'watch', emoji: '⌚', tier: 'legendary', sort_order: 32,
+      price_stc: 135_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 135_000, invest_return_rate: 0.45, invest_duration_days: 30,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 1, can_sell: 1,
+      sell_value_percent: 86, allows_multiple: 1, image_url: 'https://images.unsplash.com/photo-1539874754764-5a96559165b0?w=900&q=80', description: 'Blue-chip collector watch with high entry price.' },
+    { name: 'Nike Mercurial Boot Deal', category: 'fashion', subcategory: 'boot_deal', emoji: '👟', tier: 'elite', sort_order: 40,
+      price_stc: 25_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 4_000, passive_income_interval_days: 30, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+      sell_value_percent: 0, allows_multiple: 0, image_url: 'https://images.unsplash.com/photo-1511886929837-354d827aae26?w=900&q=80', description: 'Football boot endorsement setup cost with monthly brand income.' },
+    { name: 'adidas Predator Boot Deal', category: 'fashion', subcategory: 'boot_deal', emoji: '👟', tier: 'premium', sort_order: 41,
+      price_stc: 20_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 3_250, passive_income_interval_days: 30, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+      sell_value_percent: 0, allows_multiple: 0, image_url: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=900&q=80', description: 'Adidas boot deal asset with recurring monthly sponsorship income.' },
+    { name: 'PUMA Ultra Boot Deal', category: 'fashion', subcategory: 'boot_deal', emoji: '👟', tier: 'premium', sort_order: 42,
+      price_stc: 15_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 2_500, passive_income_interval_days: 30, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+      sell_value_percent: 0, allows_multiple: 0, image_url: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=900&q=80', description: 'PUMA boot endorsement for rising players.' },
+    { name: 'New Balance Furon Boot Deal', category: 'fashion', subcategory: 'boot_deal', emoji: '👟', tier: 'standard', sort_order: 43,
+      price_stc: 12_500, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 2_000, passive_income_interval_days: 30, weekly_maintenance_stc: 0, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+      sell_value_percent: 0, allows_multiple: 0, image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=900&q=80', description: 'Entry-level boot deal with realistic monthly endorsement payout.' },
+    { name: 'Personal Performance Team', category: 'personal_services', subcategory: 'staff', emoji: '💼', tier: 'elite', sort_order: 50,
+      price_stc: 250_000, rent_price_stc: 0, rent_duration_days: 0, invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
+      passive_income_stc: 0, passive_income_interval_days: 0, weekly_maintenance_stc: 20_000, can_buy: 1, can_rent: 0, can_invest: 0, can_sell: 0,
+      sell_value_percent: 0, allows_multiple: 0, image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=900&q=80', description: 'Private trainer, chef, physio, and content support team with weekly upkeep.' },
+  ];
+}
+
 function getNotificationSettingKey(type) {
   const map = {
     contract_offer: 'contract_offers',
@@ -2558,7 +2715,7 @@ const HANDLERS = {
     return { success: true, data: stats };
   },
 
-  async buyLifestyleItem({ _auth_user_id, item_id }) {
+  async buyLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!item_id) throw new Error('item_id required');
     const { user, player } = await getMe(_auth_user_id);
@@ -2571,15 +2728,23 @@ const HANDLERS = {
     if (!price) throw new Error('No buy price set for this asset');
     if (price > Number(player.stc || 0)) throw new Error('Insufficient STC');
     const purchaseId = uuidv4();
+    const loc = resolveLifestyleLocation(item, { location_city, location_country, location_emoji });
+    const isProperty = item.category === 'real_estate' || item.category === 'houses';
     await EXECUTESQL(
       `INSERT INTO lifestyle_purchases
-         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
-          purchase_type, price_paid_stc, current_value_stc, status, created_date)
-       VALUES (?,?,?,?,?,?,0,?,  'buy',?,?,'active',NOW())`,
-      [purchaseId, player.id, user.email, item_id,
+         (id, player_id, player_email, player_gamertag,
+          item_id, item_name, item_category, item_subcategory, item_emoji, item_type, item_tier,
+          rent_active, is_residence, purchase_type, price_paid_stc, current_value_stc,
+          monthly_rent_stc, weekly_maintenance_stc, location_city, location_country, location_emoji,
+          status, created_date)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,'buy',?,?,?,?,?,?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, player.gamertag || null,
+       item_id, item.name || null, item.category || null, item.subcategory || null, item.emoji || null,
        item.category || null, item.tier || null,
-       (item.category === 'real_estate' || item.category === 'houses') ? 1 : 0,
-       price, price]
+       isProperty ? 1 : 0,
+       price, price,
+       Number(item.passive_income_stc || 0), Number(item.weekly_maintenance_stc || 0),
+       loc.city, loc.country, loc.emoji]
     );
     const { new_balance: new_stc_balance } = await createPlayerTx({
       playerId: player.id, playerEmail: user.email, amount: -price,
@@ -2589,7 +2754,7 @@ const HANDLERS = {
     return { success: true, data: { new_stc_balance, purchase_id: purchaseId } };
   },
 
-  async rentLifestyleItem({ _auth_user_id, item_id }) {
+  async rentLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!item_id) throw new Error('item_id required');
     const { user, player } = await getMe(_auth_user_id);
@@ -2605,14 +2770,23 @@ const HANDLERS = {
     const rentEndDate = new Date();
     rentEndDate.setDate(rentEndDate.getDate() + durationDays);
     const purchaseId = uuidv4();
+    const loc = resolveLifestyleLocation(item, { location_city, location_country, location_emoji });
+    const isProperty = item.category === 'real_estate' || item.category === 'houses';
     await EXECUTESQL(
       `INSERT INTO lifestyle_purchases
-         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
-          purchase_type, price_paid_stc, rent_end_date, status, created_date)
-       VALUES (?,?,?,?,?,?,1,0,  'rent',?,?,'active',NOW())`,
-      [purchaseId, player.id, user.email, item_id,
+         (id, player_id, player_email, player_gamertag,
+          item_id, item_name, item_category, item_subcategory, item_emoji, item_type, item_tier,
+          rent_active, is_residence, purchase_type, price_paid_stc, rent_end_date,
+          monthly_rent_stc, weekly_maintenance_stc, location_city, location_country, location_emoji,
+          status, created_date)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?,'rent',?,?,?,?,?,?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, player.gamertag || null,
+       item_id, item.name || null, item.category || null, item.subcategory || null, item.emoji || null,
        item.category || null, item.tier || null,
-       rent, rentEndDate.toISOString().slice(0, 19).replace('T', ' ')]
+       isProperty ? 1 : 0,
+       rent, rentEndDate.toISOString().slice(0, 19).replace('T', ' '),
+       rent, Number(item.weekly_maintenance_stc || 0),
+       loc.city, loc.country, loc.emoji]
     );
     const { new_balance: new_stc_balance } = await createPlayerTx({
       playerId: player.id, playerEmail: user.email, amount: -rent,
@@ -2623,7 +2797,7 @@ const HANDLERS = {
     return { success: true, data: { new_stc_balance, purchase_id: purchaseId, rent_end_date: rentEndDate } };
   },
 
-  async investInLifestyleItem({ _auth_user_id, item_id }) {
+  async investInLifestyleItem({ _auth_user_id, item_id, location_city, location_country, location_emoji }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!item_id) throw new Error('item_id required');
     const { user, player } = await getMe(_auth_user_id);
@@ -2641,16 +2815,22 @@ const HANDLERS = {
     const investEndDate = new Date();
     investEndDate.setDate(investEndDate.getDate() + durationDays);
     const purchaseId = uuidv4();
+    const loc = resolveLifestyleLocation(item, { location_city, location_country, location_emoji });
     await EXECUTESQL(
       `INSERT INTO lifestyle_purchases
-         (id, player_id, player_email, item_id, item_type, item_tier, rent_active, is_residence,
-          purchase_type, price_paid_stc, invest_end_date, invest_return_amount, status, created_date)
-       VALUES (?,?,?,?,?,?,0,0,  'invest',?,?,?,'active',NOW())`,
-      [purchaseId, player.id, user.email, item_id,
+         (id, player_id, player_email, player_gamertag,
+          item_id, item_name, item_category, item_subcategory, item_emoji, item_type, item_tier,
+          rent_active, is_residence, purchase_type, price_paid_stc, invest_end_date,
+          invest_return_amount, current_value_stc, location_city, location_country, location_emoji,
+          status, created_date)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,'invest',?,?,?,?,?,?,?,'active',NOW())`,
+      [purchaseId, player.id, user.email, player.gamertag || null,
+       item_id, item.name || null, item.category || null, item.subcategory || null, item.emoji || null,
        item.category || null, item.tier || null,
        price,
        investEndDate.toISOString().slice(0, 19).replace('T', ' '),
-       returnAmount]
+       returnAmount, price + returnAmount,
+       loc.city, loc.country, loc.emoji]
     );
     const { new_balance: new_stc_balance } = await createPlayerTx({
       playerId: player.id, playerEmail: user.email, amount: -price,
@@ -2753,7 +2933,7 @@ const HANDLERS = {
   },
 
   async lifestyleAdmin({ _auth_user_id, action, asset_id,
-    name, category, subcategory, description, image_url, tier, sort_order,
+    name, category, subcategory, description, image_url, emoji, available_cities, tier, sort_order,
     price_stc, rent_price_stc, rent_duration_days, invest_price_stc,
     invest_return_rate, invest_duration_days, passive_income_stc,
     passive_income_interval_days, weekly_maintenance_stc,
@@ -2764,9 +2944,10 @@ const HANDLERS = {
     const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
     if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
 
+    const availableCitiesJson = serializeLifestyleCities(available_cities);
     const vals = [
       name, category || 'fashion', subcategory || null,
-      description || null, image_url || null, tier || 'standard',
+      description || null, image_url || null, emoji || null, availableCitiesJson, tier || 'standard',
       Number(sort_order || 0),
       Number(price_stc || 0), Number(rent_price_stc || 0), Number(rent_duration_days || 30),
       Number(invest_price_stc || 0), Number(invest_return_rate || 0), Number(invest_duration_days || 30),
@@ -2785,12 +2966,12 @@ const HANDLERS = {
       const id = uuidv4();
       await EXECUTESQL(
         `INSERT INTO lifestyle_items
-           (id, name, category, subcategory, description, image_url, tier, sort_order,
+           (id, name, category, subcategory, description, image_url, emoji, available_cities, tier, sort_order,
             price_stc, rent_price_stc, rent_duration_days, invest_price_stc, invest_return_rate,
             invest_duration_days, passive_income_stc, passive_income_interval_days,
             weekly_maintenance_stc, can_buy, can_rent, can_invest, can_sell,
             sell_value_percent, allows_multiple, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [id, ...vals]
       );
       return { success: true, data: { id } };
@@ -2800,7 +2981,7 @@ const HANDLERS = {
       if (!asset_id) throw new Error('asset_id required');
       await EXECUTESQL(
         `UPDATE lifestyle_items SET
-           name=?, category=?, subcategory=?, description=?, image_url=?, tier=?, sort_order=?,
+           name=?, category=?, subcategory=?, description=?, image_url=?, emoji=?, available_cities=?, tier=?, sort_order=?,
            price_stc=?, rent_price_stc=?, rent_duration_days=?, invest_price_stc=?, invest_return_rate=?,
            invest_duration_days=?, passive_income_stc=?, passive_income_interval_days=?,
            weekly_maintenance_stc=?, can_buy=?, can_rent=?, can_invest=?, can_sell=?,
@@ -3027,6 +3208,7 @@ const HANDLERS = {
         sell_value_percent: 0, allows_multiple: 0,
         description: 'Dedicated media and PR team managing your public image and brand.' },
     ];
+    seed.splice(0, seed.length, ...getDefaultLifestyleItems());
     let inserted = 0;
     let updated = 0;
     for (const item of seed) {
@@ -3034,14 +3216,15 @@ const HANDLERS = {
       if (exists.length) {
         await EXECUTESQL(
           `UPDATE lifestyle_items SET
-             category=?, tier=?, sort_order=?, description=?,
+             category=?, subcategory=?, emoji=?, image_url=?, available_cities=?, tier=?, sort_order=?, description=?,
              price_stc=?, rent_price_stc=?, rent_duration_days=?,
              invest_price_stc=?, invest_return_rate=?, invest_duration_days=?,
              passive_income_stc=?, passive_income_interval_days=?, weekly_maintenance_stc=?,
              can_buy=?, can_rent=?, can_invest=?, can_sell=?,
              sell_value_percent=?, allows_multiple=?, is_active=1
            WHERE name=?`,
-          [item.category, item.tier, item.sort_order, item.description,
+          [item.category, item.subcategory || null, item.emoji || null, item.image_url || null, serializeLifestyleCities(item.available_cities),
+           item.tier, item.sort_order, item.description,
            item.price_stc, item.rent_price_stc, item.rent_duration_days,
            item.invest_price_stc, item.invest_return_rate, item.invest_duration_days,
            item.passive_income_stc, item.passive_income_interval_days, item.weekly_maintenance_stc,
@@ -3053,14 +3236,15 @@ const HANDLERS = {
       }
       await EXECUTESQL(
         `INSERT INTO lifestyle_items
-           (id, name, category, description, tier, sort_order,
+           (id, name, category, subcategory, description, image_url, emoji, available_cities, tier, sort_order,
             price_stc, rent_price_stc, rent_duration_days, invest_price_stc,
             invest_return_rate, invest_duration_days, passive_income_stc,
             passive_income_interval_days, weekly_maintenance_stc,
             can_buy, can_rent, can_invest, can_sell,
             sell_value_percent, allows_multiple, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
-        [uuidv4(), item.name, item.category, item.description, item.tier, item.sort_order,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+        [uuidv4(), item.name, item.category, item.subcategory || null, item.description, item.image_url || null,
+         item.emoji || null, serializeLifestyleCities(item.available_cities), item.tier, item.sort_order,
          item.price_stc, item.rent_price_stc, item.rent_duration_days,
          item.invest_price_stc, item.invest_return_rate, item.invest_duration_days,
          item.passive_income_stc, item.passive_income_interval_days, item.weekly_maintenance_stc,

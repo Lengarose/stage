@@ -506,6 +506,8 @@ async function runStartupMigrations() {
   await addCol('lifestyle_items', 'passive_income_stc',          'BIGINT DEFAULT 0');
   await addCol('lifestyle_items', 'passive_income_interval_days','INT DEFAULT 7');
   await addCol('lifestyle_items', 'weekly_maintenance_stc',      'BIGINT DEFAULT 0');
+  await addCol('lifestyle_items', 'max_upgrade_level',           'INT DEFAULT 0');
+  await addCol('lifestyle_items', 'upgrade_base_cost_stc',       'BIGINT DEFAULT 0');
   await addCol('lifestyle_items', 'can_buy',                     'TINYINT(1) DEFAULT 1');
   await addCol('lifestyle_items', 'can_rent',                    'TINYINT(1) DEFAULT 0');
   await addCol('lifestyle_items', 'can_invest',                  'TINYINT(1) DEFAULT 0');
@@ -513,6 +515,7 @@ async function runStartupMigrations() {
   await addCol('lifestyle_items', 'sell_value_percent',          'INT DEFAULT 60');
   await addCol('lifestyle_items', 'allows_multiple',             'TINYINT(1) DEFAULT 1');
   await addCol('lifestyle_items', 'emoji',                       "VARCHAR(10) DEFAULT ''");
+  await addCol('lifestyle_items', 'available_cities',            'JSON NULL');
 
   // Club finance: enrich stc_transactions
   await addCol('stc_transactions', 'category',      'VARCHAR(100)');
@@ -906,6 +909,22 @@ async function runStartupMigrations() {
   await addCol('lifestyle_purchases', 'invest_return_amount',    'BIGINT DEFAULT 0');
   await addCol('lifestyle_purchases', 'status',                  "VARCHAR(20) DEFAULT 'active'");
   await addCol('lifestyle_purchases', 'player_email',            'VARCHAR(255) NULL');
+  await addCol('lifestyle_purchases', 'player_gamertag',         'VARCHAR(100) NULL');
+  await addCol('lifestyle_purchases', 'item_name',               'VARCHAR(255) NULL');
+  await addCol('lifestyle_purchases', 'item_category',           'VARCHAR(50) NULL');
+  await addCol('lifestyle_purchases', 'item_subcategory',        'VARCHAR(100) NULL');
+  await addCol('lifestyle_purchases', 'item_emoji',              'VARCHAR(10) NULL');
+  await addCol('lifestyle_purchases', 'monthly_rent_stc',        'BIGINT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'location_city',           'VARCHAR(120) NULL');
+  await addCol('lifestyle_purchases', 'location_country',        'VARCHAR(120) NULL');
+  await addCol('lifestyle_purchases', 'location_emoji',          'VARCHAR(10) NULL');
+  await addCol('lifestyle_purchases', 'custom_name',             'VARCHAR(255) NULL');
+  await addCol('lifestyle_purchases', 'weekly_maintenance_stc',  'BIGINT DEFAULT 0');
+  await addCol('lifestyle_purchases', 'last_rent_paid_at',       'DATETIME NULL');
+  await addCol('lifestyle_purchases', 'last_passive_collected_at','DATETIME NULL');
+  await addCol('lifestyle_purchases', 'last_maintenance_paid_at','DATETIME NULL');
+  await addCol('lifestyle_purchases', 'is_defaulted',            'TINYINT(1) DEFAULT 0');
+  await addCol('lifestyle_purchases', 'upgrade_slots',           'JSON NULL');
   await addCol('lifestyle_purchases', 'current_value_stc',       'BIGINT DEFAULT 0');
   await addCol('lifestyle_purchases', 'upgrade_level',           'INT DEFAULT 0');
   await addCol('lifestyle_purchases', 'last_passive_collected',  'DATETIME NULL');
