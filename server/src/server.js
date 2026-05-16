@@ -190,6 +190,11 @@ async function runStartupMigrations() {
   await addCol('players', 'verified_platform_handle', 'VARCHAR(150) NULL');
   await addCol('players', 'identity_verified_at', 'DATETIME NULL');
   await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
+  // Legacy DBs sometimes marked club_id NOT NULL; kicks / account deletion must clear it.
+  await EXECUTESQL(
+    'ALTER TABLE players MODIFY COLUMN club_id VARCHAR(36) NULL'
+  ).catch((err) => console.error('[migration] players.club_id nullable:', err.message));
+
   await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
 
@@ -486,6 +491,10 @@ async function runStartupMigrations() {
   // Club finance: enrich stc_transactions
   await addCol('stc_transactions', 'category',      'VARCHAR(100)');
   await addCol('stc_transactions', 'balance_after',  'DECIMAL(12,2)');
+  // Legacy schema had NOT NULL; player-only rows omit club_id; account purge nulls or removes club refs.
+  await EXECUTESQL(
+    'ALTER TABLE stc_transactions MODIFY COLUMN club_id VARCHAR(36) NULL'
+  ).catch((err) => console.error('[migration] stc_transactions.club_id nullable:', err.message));
 
   // Player market value system (v1)
   await addCol('players', 'market_value_stc',  'BIGINT DEFAULT 250000');
@@ -842,6 +851,25 @@ async function runStartupMigrations() {
   await addCol('lifestyle_purchases', 'upgrade_level',           'INT DEFAULT 0');
   await addCol('lifestyle_purchases', 'last_passive_collected',  'DATETIME NULL');
   await addCol('lifestyle_purchases', 'base_upgrade_cost_stc',   'BIGINT DEFAULT 0');
+
+  // news_items — feed rows (contracts, transfers, etc.); older DBs only had title/body/link.
+  await addCol('news_items', 'type', "VARCHAR(30) NULL DEFAULT 'announcement'");
+  await addCol('news_items', 'category', "VARCHAR(30) NULL DEFAULT 'general'");
+  await addCol('news_items', 'image_url', 'TEXT NULL');
+  await addCol('news_items', 'club_id', 'VARCHAR(36) NULL');
+  await addCol('news_items', 'club_name', 'VARCHAR(100) NULL');
+  await addCol('news_items', 'club_logo_url', 'TEXT NULL');
+  await addCol('news_items', 'player_id', 'VARCHAR(36) NULL');
+  await addCol('news_items', 'player_name', 'VARCHAR(100) NULL');
+  await addCol('news_items', 'player_avatar_url', 'TEXT NULL');
+  await addCol('news_items', 'tournament_id', 'VARCHAR(36) NULL');
+  await addCol('news_items', 'tournament_name', 'VARCHAR(255) NULL');
+  await addCol('news_items', 'is_featured', 'TINYINT(1) NULL DEFAULT 0');
+  await addCol('news_items', 'is_global', 'TINYINT(1) NULL DEFAULT 0');
+  await addCol('news_items', 'transfer_fee_stc', 'BIGINT NULL DEFAULT 0');
+  await addCol('news_items', 'tags', 'JSON NULL');
+  await addCol('news_items', 'visible_to_club_ids', 'JSON NULL');
+  await addCol('news_items', 'visible_to_player_ids', 'JSON NULL');
 
   // ───────────────────────────────────────────────────────────────────────────
   //  EAFC-inspired modules: Daily/Weekly Objectives, Archetypes, Chemistry, SBC

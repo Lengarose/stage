@@ -243,7 +243,8 @@ async function purgeReferencesForClubIds(exec, clubIdsRaw) {
   await exec(`UPDATE matches SET winner_club_id = NULL WHERE winner_club_id IN ${IN_IDS}`, p);
   await exec(`UPDATE matches SET loser_club_id = NULL WHERE loser_club_id IN ${IN_IDS}`, p);
 
-  await exec(`UPDATE stc_transactions SET club_id = NULL WHERE club_id IN ${IN_IDS}`, p);
+  // Ledger rows for this club; club_id was historically NOT NULL — DELETE avoids "club_id cannot be null".
+  await exec(`DELETE FROM stc_transactions WHERE club_id IN ${IN_IDS}`, p);
 
   await exec(`DELETE FROM season_registrations WHERE club_id IN ${IN_IDS}`, p);
 }

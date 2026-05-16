@@ -185,6 +185,96 @@ async function notifyAdminsOfIdentityClaim(claim) {
   }
 }
 
+function auditLogValue(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+/** Best-effort admin audit row (adminEconomyControl and similar). */
+async function createAuditLog({
+  adminUserId, adminEmail, action, entityType, entityId, entityName,
+  oldValue, newValue, reason,
+}) {
+  try {
+    await EXECUTESQL(
+      `INSERT INTO admin_audit_log
+         (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        uuidv4(),
+        adminUserId || null,
+        adminEmail || null,
+        action || 'unknown',
+        entityType || null,
+        entityId || null,
+        entityName || null,
+        auditLogValue(oldValue),
+        auditLogValue(newValue),
+        reason || null,
+      ]
+    );
+  } catch (err) {
+    console.error('[createAuditLog]', err.message);
+  }
+}
+
+/**
+ * Adjust player `stc` and append `player_stc_transactions`.
+ * @param {{ playerId: string, playerEmail?: string|null, amount: number, category: string, source?: string, description?: string, referenceId?: string|null }} p
+ */
+async function createPlayerTx(p) {
+  const {
+    playerId, playerEmail = null, amount, category,
+    source = 'STAGE', description = '', referenceId = null,
+  } = p;
+  if (!playerId) throw new Error('createPlayerTx: playerId required');
+  const delta = Number(amount);
+  if (Number.isNaN(delta)) throw new Error('createPlayerTx: invalid amount');
+  const rows = await EXECUTESQL('SELECT id, stc FROM players WHERE id = ? LIMIT 1', [playerId]);
+  if (!rows.length) throw new Error('Player not found');
+  const oldBal = Number(rows[0].stc || 0);
+  const newBal = oldBal + delta;
+  if (newBal < 0) throw new Error('Insufficient STC');
+  await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBal, playerId]);
+  const txType = delta >= 0 ? 'credit' : 'debit';
+  const txId = uuidv4();
+  await EXECUTESQL(
+    `INSERT INTO player_stc_transactions
+       (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [txId, playerId, playerEmail || null, delta, newBal, txType, category, source, description || '', referenceId || null]
+  );
+  return { new_balance: newBal, transaction_id: txId };
+}
+
+/**
+ * Adjust club `stc` and append `stc_transactions`.
+ * @param {{ clubId: string, amount: number, type: string, category: string, description: string, referenceId?: string|null }} p
+ */
+async function createClubTx(p) {
+  const {
+    clubId, amount, type, category, description, referenceId = null,
+  } = p;
+  if (!clubId) throw new Error('createClubTx: clubId required');
+  const delta = Number(amount);
+  if (Number.isNaN(delta)) throw new Error('createClubTx: invalid amount');
+  const rows = await EXECUTESQL('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1', [clubId]);
+  if (!rows.length) throw new Error('Club not found');
+  const oldBal = Number(rows[0].stc || 0);
+  const newBal = oldBal + delta;
+  if (newBal < 0) throw new Error('Insufficient club STC');
+  await EXECUTESQL('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBal, clubId]);
+  const txId = uuidv4();
+  await EXECUTESQL(
+    `INSERT INTO stc_transactions
+       (id, club_id, amount, type, category, description, reference_id, balance_after, created_date)
+     VALUES (?,?,?,?,?,?,?,?, NOW())`,
+    [txId, clubId, delta, type, category, description || '', referenceId || null, newBal]
+  );
+  return { new_balance: newBal, transaction_id: txId };
+}
+
 const HANDLERS = {
   async submitPlayerIdentityClaim({
     _auth_user_id,
