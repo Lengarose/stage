@@ -18,6 +18,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState(null);
+  /** "club" | "player" — set when picking from search; drives which fields on `selected` are valid */
+  const [recipientKind, setRecipientKind] = useState(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [wagerStc, setWagerStc] = useState("");
@@ -34,7 +36,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
-  const activeSearchType = isOwnerMode ? "club" : searchType;
+  const matchType = isOwnerMode ? "club" : searchType;
+  const activeSearchType = matchType;
   const availableWagerBalance = activeSearchType === "club"
     ? Number(myClub?.stc || 0)
     : Number(myPlayer?.stc || 0);
@@ -55,6 +58,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     setSearchType(forcedSearchType);
     setResults([]);
     setSelected(null);
+    setRecipientKind(null);
     setDate("");
     setTime("");
     setWagerStc("");
@@ -87,20 +91,39 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     }
   }
 
+  function isReachableEmail(email) {
+    const t = String(email || "").trim();
+    if (!t.includes("@")) return null;
+    if (t.toLowerCase().endsWith("@stage.invalid")) return null;
+    return t;
+  }
+
+  function pickRecipientEmail(...candidates) {
+    for (const raw of candidates) {
+      const t = isReachableEmail(raw);
+      if (t) return t;
+    }
+    return null;
+  }
+
   async function resolveClubRecipientEmail(club) {
-    const localOwnerEmail = String(club?.owner_email || "").trim();
+    const localOwnerEmail = isReachableEmail(club?.owner_email);
+    if (localOwnerEmail) return localOwnerEmail;
+
     try {
       const contact = await stageClient.functions.invoke("resolveClubContact", {
         club_id: club.id,
       });
-      return contact?.data?.recipient_email || localOwnerEmail || null;
+      const fromApi = pickRecipientEmail(
+        contact?.data?.recipient_email,
+        contact?.recipient_email
+      );
+      if (fromApi) return fromApi;
     } catch (err) {
       if (!String(err?.message || "").includes("Function 'resolveClubContact' not found")) {
         console.warn("[ArrangeGame] club contact resolver failed, falling back:", err);
       }
     }
-
-    if (localOwnerEmail) return localOwnerEmail;
 
     const clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
     const president = clubPlayers.find((p) =>
@@ -109,7 +132,47 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       p.club_roles?.includes("captain") ||
       p.role === "captain"
     ) || clubPlayers[0];
-    return president?.email || null;
+    return pickRecipientEmail(president?.email);
+  }
+
+  function selectOpponent(opponent, kind) {
+    setRecipientKind(kind);
+    setSelected(opponent);
+    setStep("details");
+  }
+
+  function formatOpponentLabel(opponent, kind) {
+    if (kind === "club") {
+      const tag = opponent?.tag ? ` [${opponent.tag}]` : "";
+      return `${opponent?.name || "Club"}${tag}`;
+    }
+    return opponent?.gamertag || "Player";
+  }
+
+  function opponentImageUrl(opponent, kind) {
+    return kind === "club" ? opponent?.logo_url : opponent?.avatar_url;
+  }
+
+  async function resolvePlayerRecipientEmail(player) {
+    const localEmail = pickRecipientEmail(player?.email);
+    if (localEmail) return localEmail;
+
+    try {
+      const contact = await stageClient.functions.invoke("resolvePlayerContact", {
+        player_id: player.id,
+      });
+      const fromApi = pickRecipientEmail(
+        contact?.data?.recipient_email,
+        contact?.recipient_email
+      );
+      if (fromApi) return fromApi;
+    } catch (err) {
+      if (!String(err?.message || "").includes("Function 'resolvePlayerContact' not found")) {
+        console.warn("[ArrangeGame] player contact resolver failed, falling back:", err);
+      }
+    }
+
+    return null;
   }
 
   async function handleSend() {
@@ -121,28 +184,30 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const localDateTime = combineDateTime(date, time);
       const scheduledDate = toMysqlDateTime(localDateTime);
 
-      const activeType = isOwnerMode ? "club" : "player";
-      const senderIsClub   = activeType === "club";
-      const recipientIsClub = activeType === "club";
+      const senderIsClub = matchType === "club" && Boolean(myClub);
+      const recipientIsClub = recipientKind === "club";
 
       const senderName   = senderIsClub ? `${myClub?.name} [${myClub?.tag}]` : myPlayer?.gamertag || "Unknown";
       const senderClubId = senderIsClub ? (myClub?.id || null) : null;
-      const opponentName = recipientIsClub ? `${selected.name} [${selected.tag}]` : selected.gamertag;
-      const invitationType = senderIsClub ? "club_vs_club" : "player_vs_player";
+      const opponentName = formatOpponentLabel(selected, recipientKind);
+      const invitationType = matchType === "club" ? "club_vs_club" : "player_vs_player";
 
-      // Resolve recipient email ───────────────────────────────────
-      // Player matches can use the player's own email. Club matches use the
-      // backend resolver so owner/president links are repaired server-side.
-      let recipientEmail = null;
-
-      if (!recipientIsClub) {
-        recipientEmail = selected.email || null;
-      } else {
-        recipientEmail = await resolveClubRecipientEmail(selected);
+      if (!recipientKind) {
+        setSendError("Please choose an opponent again.");
+        return;
       }
 
+      // Club rows: owner_email (+ API / staff). Player rows: email (+ users link via API).
+      let recipientEmail = recipientIsClub
+        ? await resolveClubRecipientEmail(selected)
+        : await resolvePlayerRecipientEmail(selected);
+
       if (!recipientEmail) {
-        setSendError("Could not reach this opponent. They may not have an account yet.");
+        setSendError(
+          recipientIsClub
+            ? "Could not reach this club's owner. They may not have a login email yet."
+            : "Could not reach this player. They may not have an account yet."
+        );
         return;
       }
 
@@ -225,14 +290,14 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {!isOwnerMode && myClub && (
               <div className="flex rounded-lg border border-border overflow-hidden">
                 <button
-                  onClick={() => { setSearchType("player"); setResults([]); setSearchQuery(""); }}
+                  onClick={() => { setSearchType("player"); setResults([]); setSearchQuery(""); setSelected(null); setRecipientKind(null); }}
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "player" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
                   <User className="w-3.5 h-3.5" /> Player Match
                 </button>
                 <button
-                  onClick={() => { setSearchType("club"); setResults([]); setSearchQuery(""); }}
+                  onClick={() => { setSearchType("club"); setResults([]); setSearchQuery(""); setSelected(null); setRecipientKind(null); }}
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "club" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
@@ -270,7 +335,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 {results.map(r => (
                   <button
                     key={r.id}
-                    onClick={() => { setSelected(r); setStep("details"); }}
+                    onClick={() => selectOpponent(r, matchType)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/60 transition-colors text-left"
                   >
                     <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
@@ -302,13 +367,17 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {/* Selected opponent */}
             <div className="flex items-center gap-3 p-3 bg-secondary/60 rounded-lg border border-border">
               <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                {selected?.logo_url || selected?.avatar_url
-                  ? <img src={selected.logo_url || selected.avatar_url} alt={selected.name || selected.gamertag} className="w-full h-full object-cover" />
-                  : searchType === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
+                {opponentImageUrl(selected, recipientKind)
+                  ? <img src={opponentImageUrl(selected, recipientKind)} alt={formatOpponentLabel(selected, recipientKind)} className="w-full h-full object-cover" />
+                  : recipientKind === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">{selected?.name || selected?.gamertag}</p>
-                <p className="text-xs text-muted-foreground">{selected?.platform}</p>
+                <p className="text-sm font-semibold text-foreground">{formatOpponentLabel(selected, recipientKind)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selected?.platform}
+                  {recipientKind === "player" && selected?.position ? ` · ${selected.position}` : ""}
+                  {recipientKind === "club" && selected?.region ? ` · ${selected.region}` : ""}
+                </p>
               </div>
             </div>
 

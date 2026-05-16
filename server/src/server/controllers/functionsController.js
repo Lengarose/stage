@@ -496,60 +496,21 @@ async function createAuditLog({
   }
 }
 
-/**
- * Adjust player `stc` and append `player_stc_transactions`.
- * @param {{ playerId: string, playerEmail?: string|null, amount: number, category: string, source?: string, description?: string, referenceId?: string|null }} p
- */
-async function createPlayerTx(p) {
-  const {
-    playerId, playerEmail = null, amount, category,
-    source = 'STAGE', description = '', referenceId = null,
-  } = p;
-  if (!playerId) throw new Error('createPlayerTx: playerId required');
-  const delta = Number(amount);
-  if (Number.isNaN(delta)) throw new Error('createPlayerTx: invalid amount');
-  const rows = await EXECUTESQL('SELECT id, stc FROM players WHERE id = ? LIMIT 1', [playerId]);
-  if (!rows.length) throw new Error('Player not found');
-  const oldBal = Number(rows[0].stc || 0);
-  const newBal = oldBal + delta;
-  if (newBal < 0) throw new Error('Insufficient STC');
-  await EXECUTESQL('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBal, playerId]);
-  const txType = delta >= 0 ? 'credit' : 'debit';
-  const txId = uuidv4();
-  await EXECUTESQL(
-    `INSERT INTO player_stc_transactions
-       (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-    [txId, playerId, playerEmail || null, delta, newBal, txType, category, source, description || '', referenceId || null]
-  );
-  return { new_balance: newBal, transaction_id: txId };
+function isReachableInviteEmail(email) {
+  const t = String(email || '').trim();
+  if (!t || !t.includes('@')) return false;
+  if (t.toLowerCase().endsWith('@stage.invalid')) return false;
+  return true;
 }
 
-/**
- * Adjust club `stc` and append `stc_transactions`.
- * @param {{ clubId: string, amount: number, type: string, category: string, description: string, referenceId?: string|null }} p
- */
-async function createClubTx(p) {
-  const {
-    clubId, amount, type, category, description, referenceId = null,
-  } = p;
-  if (!clubId) throw new Error('createClubTx: clubId required');
-  const delta = Number(amount);
-  if (Number.isNaN(delta)) throw new Error('createClubTx: invalid amount');
-  const rows = await EXECUTESQL('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1', [clubId]);
-  if (!rows.length) throw new Error('Club not found');
-  const oldBal = Number(rows[0].stc || 0);
-  const newBal = oldBal + delta;
-  if (newBal < 0) throw new Error('Insufficient club STC');
-  await EXECUTESQL('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBal, clubId]);
-  const txId = uuidv4();
-  await EXECUTESQL(
-    `INSERT INTO stc_transactions
-       (id, club_id, amount, type, category, description, reference_id, balance_after, created_date)
-     VALUES (?,?,?,?,?,?,?,?, NOW())`,
-    [txId, clubId, delta, type, category, description || '', referenceId || null, newBal]
-  );
-  return { new_balance: newBal, transaction_id: txId };
+function pickReachableEmail(...candidates) {
+  for (const raw of candidates) {
+    const t = String(raw || '').trim();
+    if (isReachableInviteEmail(t)) return t;
+  }
+  return null;
+}
+
 async function resolveClubContactForInvite(clubId) {
   if (!clubId) throw new Error('club_id required');
   return withTransaction(async (query) => {
@@ -570,16 +531,24 @@ async function resolveClubContactForInvite(clubId) {
       );
       ownerUser = userRows[0] || null;
       if (ownerUser && ownerUser.id !== club.user_id) {
-        await query('UPDATE clubs SET user_id = ?, updated_date = NOW() WHERE id = ?', [ownerUser.id, club.id]);
-        club.user_id = ownerUser.id;
+        try {
+          await query('UPDATE clubs SET user_id = ?, updated_date = NOW() WHERE id = ?', [ownerUser.id, club.id]);
+          club.user_id = ownerUser.id;
+        } catch (linkErr) {
+          console.warn('[resolveClubContact] club.user_id link skipped:', linkErr.message);
+        }
       }
     }
 
     if (ownerUser?.id) {
-      await query(
-        'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
-        [club.id, ownerUser.id]
-      );
+      try {
+        await query(
+          'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
+          [club.id, ownerUser.id]
+        );
+      } catch (linkErr) {
+        console.warn('[resolveClubContact] users.owner_id link skipped:', linkErr.message);
+      }
     }
 
     let president = null;
@@ -600,29 +569,67 @@ async function resolveClubContactForInvite(clubId) {
     }
 
     if (president?.id) {
-      await query(
-        "UPDATE players SET user_id = COALESCE(user_id, ?), club_id = ?, club_roles = JSON_ARRAY('president'), role = 'president', status = 'active', updated_date = NOW() WHERE id = ?",
-        [ownerUser?.id || null, club.id, president.id]
-      );
-      if (ownerUser?.id && ownerUser.player_id !== president.id) {
-        await query('UPDATE users SET player_id = COALESCE(player_id, ?), updated_date = NOW() WHERE id = ?', [president.id, ownerUser.id]);
+      try {
+        await query(
+          "UPDATE players SET user_id = COALESCE(user_id, ?), club_id = ?, club_roles = JSON_ARRAY('president'), role = 'president', status = 'active', updated_date = NOW() WHERE id = ?",
+          [ownerUser?.id || null, club.id, president.id]
+        );
+        if (ownerUser?.id && ownerUser.player_id !== president.id) {
+          await query('UPDATE users SET player_id = COALESCE(player_id, ?), updated_date = NOW() WHERE id = ?', [president.id, ownerUser.id]);
+        }
+      } catch (linkErr) {
+        console.warn('[resolveClubContact] president link skipped:', linkErr.message);
       }
     }
 
-    const presidentRows = await query(
-      `SELECT id, email, gamertag
-       FROM players
-       WHERE club_id = ?
-         AND (
-           role = 'president'
-           OR JSON_CONTAINS(club_roles, JSON_QUOTE('president'))
-         )
-       ORDER BY LOWER(TRIM(email)) = LOWER(TRIM(?)) DESC
-       LIMIT 1`,
-      [club.id, ownerEmail]
+    let staffRows = [];
+    try {
+      staffRows = await query(
+        `SELECT id, email, gamertag, role
+         FROM players
+         WHERE club_id = ?
+           AND email IS NOT NULL
+           AND TRIM(email) <> ''
+           AND LOWER(email) NOT LIKE '%@stage.invalid'
+           AND (
+             role IN ('president', 'captain', 'owner')
+             OR club_roles LIKE '%president%'
+             OR club_roles LIKE '%captain%'
+           )
+         ORDER BY
+           CASE role WHEN 'president' THEN 0 WHEN 'captain' THEN 1 WHEN 'owner' THEN 2 ELSE 3 END,
+           updated_date DESC
+         LIMIT 1`,
+        [club.id]
+      );
+    } catch (staffErr) {
+      console.warn('[resolveClubContact] staff lookup failed:', staffErr.message);
+    }
+
+    let anyMemberRows = [];
+    if (!staffRows.length) {
+      anyMemberRows = await query(
+        `SELECT id, email, gamertag
+         FROM players
+         WHERE club_id = ?
+           AND email IS NOT NULL
+           AND TRIM(email) <> ''
+           AND LOWER(email) NOT LIKE '%@stage.invalid'
+         ORDER BY updated_date DESC
+         LIMIT 1`,
+        [club.id]
+      ).catch(() => []);
+    }
+
+    const visiblePresident = staffRows[0] || president || null;
+    const anyMember = anyMemberRows[0] || null;
+    const recipientEmail = pickReachableEmail(
+      ownerUser?.email,
+      ownerEmail,
+      visiblePresident?.email,
+      president?.email,
+      anyMember?.email
     );
-    const visiblePresident = presidentRows[0] || president || null;
-    const recipientEmail = ownerEmail || ownerUser?.email || visiblePresident?.email || null;
 
     if (!recipientEmail) {
       throw new Error('Club has no reachable owner or president email');
@@ -634,18 +641,60 @@ async function resolveClubContactForInvite(clubId) {
         club_name: club.name,
         recipient_email: recipientEmail,
         owner_user_id: ownerUser?.id || club.user_id || null,
-        president_player_id: visiblePresident?.id || null,
-        president_gamertag: visiblePresident?.gamertag || null,
+        president_player_id: visiblePresident?.id || anyMember?.id || null,
+        president_gamertag: visiblePresident?.gamertag || anyMember?.gamertag || null,
         linked_president: Boolean(president?.id),
       },
     };
   });
 }
 
+async function resolvePlayerContactForInvite(playerId) {
+  if (!playerId) throw new Error('player_id required');
+  const rows = await EXECUTESQL('SELECT id, email, user_id, gamertag FROM players WHERE id = ? LIMIT 1', [playerId]);
+  if (!rows.length) throw new Error('Player not found');
+  const player = rows[0];
+
+  let userEmail = null;
+  if (player.user_id) {
+    const users = await EXECUTESQL('SELECT email FROM users WHERE id = ? LIMIT 1', [player.user_id]);
+    userEmail = users[0]?.email || null;
+  }
+  if (!userEmail) {
+    const byPlayerCol = await EXECUTESQL('SELECT email FROM users WHERE player_id = ? LIMIT 1', [playerId]);
+    userEmail = byPlayerCol[0]?.email || null;
+  }
+  if (!userEmail && player.email) {
+    const byEmail = await EXECUTESQL(
+      'SELECT email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+      [player.email]
+    );
+    userEmail = byEmail[0]?.email || null;
+  }
+
+  const recipientEmail = pickReachableEmail(userEmail, player.email);
+  if (!recipientEmail) {
+    throw new Error('Player has no login email — they need to register an account first');
+  }
+
+  return {
+    data: {
+      player_id: player.id,
+      gamertag: player.gamertag || null,
+      recipient_email: recipientEmail,
+    },
+  };
+}
+
 const HANDLERS = {
   async resolveClubContact({ _auth_user_id, club_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     return resolveClubContactForInvite(club_id);
+  },
+
+  async resolvePlayerContact({ _auth_user_id, player_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    return resolvePlayerContactForInvite(player_id);
   },
 
   async submitPlayerIdentityClaim({
