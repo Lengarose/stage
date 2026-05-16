@@ -8,8 +8,6 @@ import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
 
-const STEPS = ["search", "details", "confirm"];
-
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwnerMode = accountMode === "club";
@@ -36,6 +34,20 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
+  const activeSearchType = isOwnerMode ? "club" : searchType;
+  const availableWagerBalance = activeSearchType === "club"
+    ? Number(myClub?.stc || 0)
+    : Number(myPlayer?.stc || 0);
+  const wagerNumber = wagerStc ? Number(wagerStc) : 0;
+  const wagerError = wagerStc && (
+    wagerNumber < MIN_BET
+      ? `Minimum bet is ${MIN_BET.toLocaleString()} STC`
+      : wagerNumber > MAX_BET
+        ? `Maximum bet is ${MAX_BET.toLocaleString()} STC`
+        : wagerNumber > availableWagerBalance
+          ? `You only have ${availableWagerBalance.toLocaleString()} STC available`
+          : ""
+  );
 
   function reset() {
     setStep("search");
@@ -75,6 +87,31 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     }
   }
 
+  async function resolveClubRecipientEmail(club) {
+    const localOwnerEmail = String(club?.owner_email || "").trim();
+    try {
+      const contact = await stageClient.functions.invoke("resolveClubContact", {
+        club_id: club.id,
+      });
+      return contact?.data?.recipient_email || localOwnerEmail || null;
+    } catch (err) {
+      if (!String(err?.message || "").includes("Function 'resolveClubContact' not found")) {
+        console.warn("[ArrangeGame] club contact resolver failed, falling back:", err);
+      }
+    }
+
+    if (localOwnerEmail) return localOwnerEmail;
+
+    const clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
+    const president = clubPlayers.find((p) =>
+      p.club_roles?.includes("president") ||
+      p.role === "president" ||
+      p.club_roles?.includes("captain") ||
+      p.role === "captain"
+    ) || clubPlayers[0];
+    return president?.email || null;
+  }
+
   async function handleSend() {
     if (!selected || !date || !time) return;
     setSending(true);
@@ -94,24 +131,14 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const invitationType = senderIsClub ? "club_vs_club" : "player_vs_player";
 
       // Resolve recipient email ───────────────────────────────────
-      // For player matches: use the player's own email.
-      // For club matches: owner_email is hidden by RLS for non-owners,
-      // so fall back to the club president/captain's email via Player entity.
+      // Player matches can use the player's own email. Club matches use the
+      // backend resolver so owner/president links are repaired server-side.
       let recipientEmail = null;
 
       if (!recipientIsClub) {
         recipientEmail = selected.email || null;
       } else {
-        recipientEmail = selected.owner_email || null;
-        if (!recipientEmail) {
-          const clubPlayers = await stageClient.entities.Player.filter({ club_id: selected.id });
-          const president = clubPlayers.find(p =>
-            p.club_roles?.includes("president") ||
-            p.club_roles?.includes("captain") ||
-            p.role === "captain"
-          ) || clubPlayers[0];
-          if (president) recipientEmail = president.email || null;
-        }
+        recipientEmail = await resolveClubRecipientEmail(selected);
       }
 
       if (!recipientEmail) {
@@ -119,16 +146,21 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         return;
       }
 
+      if (wagerError) {
+        setSendError(wagerError);
+        return;
+      }
+
       const wagerAmount = wagerStc && Number(wagerStc) >= MIN_BET && Number(wagerStc) <= MAX_BET
         ? Number(wagerStc) : 0;
 
       const wagerLine = wagerAmount
-        ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds will be locked from your balance on acceptance.`
+        ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds are locked from both balances when this invite is accepted.`
         : "";
 
       await stageClient.entities.InboxMessage.create({
         recipient_email:      recipientEmail,
-        sender_email:         myPlayer?.email || "system@stage.com",
+        sender_email:         senderIsClub ? (myClub?.owner_email || myPlayer?.email || "system@stage.com") : (myPlayer?.email || "system@stage.com"),
         sender_gamertag:      senderName,
         sender_avatar_url:    senderIsClub ? (myClub?.logo_url || "") : (myPlayer?.avatar_url || ""),
         sender_club_name:     senderIsClub ? myClub?.name : null,
@@ -327,17 +359,15 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 />
               </div>
               {wagerStc && (
-                <p className="text-[10px] text-warning mt-1">
-                  {Number(wagerStc) < MIN_BET ? `⚠️ Minimum bet is ${MIN_BET.toLocaleString()} STC` :
-                   Number(wagerStc) > MAX_BET ? `⚠️ Maximum bet is ${MAX_BET.toLocaleString()} STC` :
-                   `Pot: ${(Number(wagerStc) * 2).toLocaleString()} STC total — loser forfeits their stake`}
+                <p className={cn("text-[10px] mt-1", wagerError ? "text-destructive" : "text-warning")}>
+                  {wagerError || `Pot: ${(Number(wagerStc) * 2).toLocaleString()} STC total. Your ${Number(wagerStc).toLocaleString()} STC stake will lock on acceptance.`}
                 </p>
               )}
             </div>
 
             <Button
               onClick={() => setStep("confirm")}
-              disabled={!date || !time}
+              disabled={!date || !time || !!wagerError}
               className="w-full bg-primary text-primary-foreground"
             >
               Continue
@@ -381,6 +411,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 ? `A player match invitation will be sent to ${selected?.gamertag}'s personal inbox.`
                 : `A club match invitation will be sent to the owner of ${selected?.name}'s inbox.`
               } They can accept, decline, or request a different date.
+              {wagerNumber > 0 && !wagerError ? " The wager stake will appear in finances as locked STC when accepted." : ""}
             </p>
 
             {sendError && (
@@ -391,7 +422,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             <Button
               onClick={handleSend}
-              disabled={sending}
+              disabled={sending || !!wagerError}
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               {sending

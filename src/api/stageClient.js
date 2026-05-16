@@ -408,7 +408,18 @@ const integrations = {
     async UploadFile({ file }) {
       const form = new FormData();
       form.append('file', file);
-      return apiFetch('/upload', { method: 'POST', body: form });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20000);
+      try {
+        return await apiFetch('/upload', { method: 'POST', body: form, signal: controller.signal });
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          throw { message: 'Upload timed out. Try a smaller image or check your connection.' };
+        }
+        throw err;
+      } finally {
+        window.clearTimeout(timeout);
+      }
       // returns { file_url: 'https://stageleagues.com/uploads/...' }
     },
   },

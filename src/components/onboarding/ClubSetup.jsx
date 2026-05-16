@@ -5,6 +5,7 @@ import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import { prepareImageForUpload } from "@/lib/imageUpload";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -32,11 +33,30 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   async function uploadLogo(e) {
     const file = e.target.files[0];
     if (!file) return;
+    setError(null);
+    if (!file.type?.startsWith("image/")) {
+      setError("Please choose an image file.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Club logo must be smaller than 10 MB.");
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
-    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-    setPendingLogo(file_url);
-    setUploading(false);
-    e.target.value = "";
+    try {
+      const uploadFile = await prepareImageForUpload(file, { fallbackName: "club-logo.jpg" });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
+      if (!file_url) throw new Error("Upload failed. Please try another image.");
+      setPendingLogo(file_url);
+    } catch (err) {
+      console.error("Failed to upload club logo:", err);
+      setError(err?.data?.error || err?.message || "Could not upload club logo.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   async function handleCreate() {

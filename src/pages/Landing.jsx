@@ -25,7 +25,7 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
 };
 
 /* ─── alternating picture + text section ─────────────────── */
-function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', accent = '#3b82f6', introVideo = false }) {
+function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', imageZoom, accent = '#3b82f6', introVideo = false }) {
   const frame = imageUrl ? (
     introVideo ? (
       <IntroVideoImage
@@ -36,13 +36,16 @@ function PictureSection({ tag, title, text, imageUrl, flip = false, objectPositi
         imgClassName="h-full min-h-[240px] aspect-[16/10]"
       />
     ) : (
-    <div className="w-full aspect-[16/10] rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-      <img
-        src={imageUrl}
-        alt={title}
-        className="w-full h-full object-cover"
-        style={{ objectPosition }}
-      />
+    <div
+      role="img"
+      aria-label={title}
+      className="w-full aspect-[16/10] rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-cover bg-no-repeat"
+      style={{
+        backgroundImage: `url(${imageUrl})`,
+        backgroundPosition: objectPosition,
+        backgroundSize: imageZoom ? `${imageZoom}%` : "cover",
+      }}
+    >
     </div>
     )
   ) : (
@@ -200,6 +203,8 @@ export default function Landing({ onSignIn }) {
   }, []);
 
   const heroImg        = cms?.hero_image_url || null;
+  const heroPosition   = cms?.hero_image_position || '50% 10%';
+  const heroZoom       = cms?.hero_image_zoom ? Number(cms.hero_image_zoom) : null;
   const heroEyebrow    = cms?.hero_title      || 'The Competitive EA FC Platform';
   const heroDesc       = cms?.hero_description || 'Leagues, competitions, clubs, contracts, and a community — everything the serious EA FC player needs, all in one place.';
   const footerTagline  = cms?.footer_tagline  || 'The premier competitive football gaming platform.';
@@ -218,6 +223,8 @@ export default function Landing({ onSignIn }) {
     title:    cms?.[`section${i + 1}_title`]     || s.title,
     text:     cms?.[`section${i + 1}_text`]      || s.text,
     imageUrl: cms?.[`section${i + 1}_image_url`] || s.imageUrl,
+    objectPosition: cms?.[`section${i + 1}_image_position`] || s.objectPosition,
+    imageZoom: cms?.[`section${i + 1}_image_zoom`] ? Number(cms[`section${i + 1}_image_zoom`]) : null,
     introVideo: s.introVideo ?? false,
   }));
 
@@ -237,7 +244,16 @@ export default function Landing({ onSignIn }) {
 
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6">
-        <img src={heroImg || BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 10%', filter: 'blur(6px)', transform: 'scale(1.05)' }} />
+        <div
+          className="absolute inset-0 bg-cover bg-no-repeat"
+          style={{
+            backgroundImage: `url(${heroImg || BannerImg})`,
+            backgroundPosition: heroPosition,
+            backgroundSize: heroZoom ? `${heroZoom}%` : "cover",
+            filter: 'blur(6px)',
+            transform: 'scale(1.05)',
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
 
         <div className="relative z-10 max-w-4xl mx-auto">
@@ -324,7 +340,7 @@ export default function Landing({ onSignIn }) {
       {/* ── PICTURE SECTIONS ─────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto space-y-28">
-          {pictureSections.map((s, i) => (
+          {pictureSections.map((s) => (
             <FadeIn key={s.title} delay={0.05}>
               <PictureSection {...s} />
             </FadeIn>

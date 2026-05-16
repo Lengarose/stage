@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import ImageUploadField from "@/components/admin/shared/ImageUploadField";
+import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,19 +77,27 @@ export default function LandingPageEditor() {
       hero_title:         r.hero_title         ?? "The Competitive EA FC Platform",
       hero_description:   r.hero_description   ?? "",
       hero_image_url:     r.hero_image_url     ?? "",
+      hero_image_position:r.hero_image_position?? "50% 10%",
+      hero_image_zoom:    r.hero_image_zoom    ?? null,
       stats,
       section1_tag:       r.section1_tag       ?? "Compete",
       section1_title:     r.section1_title     ?? "Structured Leagues & Competitions",
       section1_text:      r.section1_text      ?? "",
       section1_image_url: r.section1_image_url ?? "",
+      section1_image_position: r.section1_image_position ?? "50% 50%",
+      section1_image_zoom:     r.section1_image_zoom     ?? null,
       section2_tag:       r.section2_tag       ?? "Manage",
       section2_title:     r.section2_title     ?? "Your Club, Your Rules",
       section2_text:      r.section2_text      ?? "",
       section2_image_url: r.section2_image_url ?? "",
+      section2_image_position: r.section2_image_position ?? "50% 50%",
+      section2_image_zoom:     r.section2_image_zoom     ?? null,
       section3_tag:       r.section3_tag       ?? "Grow",
       section3_title:     r.section3_title     ?? "Build a Career Worth Watching",
       section3_text:      r.section3_text      ?? "",
       section3_image_url: r.section3_image_url ?? "",
+      section3_image_position: r.section3_image_position ?? "50% 50%",
+      section3_image_zoom:     r.section3_image_zoom     ?? null,
       footer_tagline:     r.footer_tagline     ?? "",
     };
   }
@@ -164,12 +172,18 @@ export default function LandingPageEditor() {
         <Field label="Hero description">
           <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} placeholder="Leagues, competitions, clubs..." />
         </Field>
-        <ImageUploadField
+        <PositionedImageUploadField
           label="Hero background image (full-screen, blurred)"
           value={form.hero_image_url}
           onChange={v => set("hero_image_url", v)}
+          position={form.hero_image_position}
+          onPositionChange={v => set("hero_image_position", v)}
+          zoom={form.hero_image_zoom}
+          onZoomChange={v => set("hero_image_zoom", v)}
           preview="hero"
           placeholder="https://… or drop image above"
+          title="Your Stage Awaits"
+          subtitle={form.hero_title}
         />
       </EditorSection>
 
@@ -208,11 +222,17 @@ export default function LandingPageEditor() {
           <Field label="Description">
             <Textarea value={form[`section${n}_text`]} onChange={e => set(`section${n}_text`, e.target.value)} className="text-xs resize-none" rows={4} />
           </Field>
-          <ImageUploadField
+          <PositionedImageUploadField
             label="Frame image (16:10 ratio looks best)"
             value={form[`section${n}_image_url`]}
             onChange={v => set(`section${n}_image_url`, v)}
+            position={form[`section${n}_image_position`]}
+            onPositionChange={v => set(`section${n}_image_position`, v)}
+            zoom={form[`section${n}_image_zoom`]}
+            onZoomChange={v => set(`section${n}_image_zoom`, v)}
             preview="landscape"
+            title={form[`section${n}_title`]}
+            subtitle={form[`section${n}_tag`]}
           />
         </EditorSection>
       ))}

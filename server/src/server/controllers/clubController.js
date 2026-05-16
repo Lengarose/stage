@@ -65,6 +65,8 @@ router.post('/', async (req, res) => {
     }
 
     const body = { ...req.body };
+    if (!body.user_id && req.user?.id) body.user_id = req.user.id;
+    if (!body.owner_email && req.user?.email) body.owner_email = req.user.email;
     if (body.stc               == null) body.stc                = 30_000_000;
     if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
     if (body.wage_budget_stc     == null) body.wage_budget_stc     = 1_500_000;

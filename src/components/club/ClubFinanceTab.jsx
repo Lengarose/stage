@@ -6,13 +6,15 @@ import { swalAlert, swalConfirm } from "@/lib/swal";
 import {
   TrendingUp, TrendingDown, Wallet, Users, Trophy, Coins,
   AlertTriangle, ChevronLeft, ChevronRight, SlidersHorizontal,
-  RefreshCw, DollarSign, Zap, Gift, ArrowLeftRight, Ticket, Building2,
+  RefreshCw, DollarSign, Gift, ArrowLeftRight, Ticket, Building2,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Category metadata ──────────────────────────────────────────────────────
 const TX_CATEGORIES = {
   ticket_revenue:  { label: "Ticket Revenue",  color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Ticket },
+  shirt_revenue:   { label: "Shirt Sales",      color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: ShoppingBag },
   stadium_upgrade: { label: "Stadium Upgrade", color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: Building2 },
   salary:          { label: "Salary",          color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: Users },
   wager_win:       { label: "Wager Win",        color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Trophy },
@@ -183,9 +185,11 @@ function TxRow({ tx, isAdmin, onDelete }) {
 const CATEGORY_FILTERS = [
   { key: "all",             label: "All" },
   { key: "ticket_revenue",  label: "Tickets" },
+  { key: "shirt_revenue",   label: "Shirts" },
   { key: "stadium_upgrade", label: "Stadium" },
   { key: "salary",          label: "Salary" },
   { key: "wager_win",       label: "Wager Win" },
+  { key: "wager_stake",     label: "Stake" },
   { key: "wager_loss",      label: "Wager Loss" },
   { key: "wager_refund",    label: "Refund" },
   { key: "comp_reward",       label: "Competition" },

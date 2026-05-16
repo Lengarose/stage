@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  CheckCircle, X, MessageSquare, Coins, Target, Clock, ChevronDown, ChevronUp,
+  CheckCircle, X, MessageSquare, Target, Clock, ChevronDown, ChevronUp,
   Loader2, Gamepad2, Plus, Trash2
 } from "lucide-react";
 import { notify, postContractNews } from "@/lib/notify";
-import { CONTRACT_TYPE_OPTIONS } from "@/lib/contractTypes";
 import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
 
@@ -67,14 +66,10 @@ export default function InboxContractOffer({ message, onActioned }) {
         if (player?.club_id && player.club_id === c.team_id) setMyClub(club);
         setClubName(club?.name || message?.metadata?.club_name || null);
         setClubLogoUrl(club?.logo_url || null);
-        // RLS may hide owner_email; try president fallback
         let ownerEmail = club?.owner_email || null;
         if (!ownerEmail) {
-          const clubPlayers = await stageClient.entities.Player.filter({ club_id: c.team_id });
-          const president = clubPlayers.find(p =>
-            p.club_roles?.includes("president") || p.role === "captain"
-          ) || null;
-          ownerEmail = president?.email || null;
+          const contact = await stageClient.functions.invoke("resolveClubContact", { club_id: c.team_id }).catch(() => null);
+          ownerEmail = contact?.data?.recipient_email || null;
         }
         setClubOwnerEmail(ownerEmail);
       }
@@ -90,7 +85,7 @@ export default function InboxContractOffer({ message, onActioned }) {
       try {
         const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
         setWindowOpen(winRes?.data?.window?.status === "open");
-      } catch (_) {
+      } catch {
         setWindowOpen(false); // default to closed if can't check
       }
 
