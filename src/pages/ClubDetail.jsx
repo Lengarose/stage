@@ -117,7 +117,7 @@ export default function ClubDetail() {
         .filter({ team_id: id, contract_type: "ownership" }, "-created_date", 20)
         .catch(() => []);
       const liveOwnershipContracts = (ownershipContracts || []).filter((contract) =>
-        ["pending", "pending_window", "negotiating", "active"].includes(contract.status)
+        contract.status === "active"
       );
       if (liveOwnershipContracts.length > 0) {
         const ownershipPlayers = await Promise.all(

@@ -4,59 +4,6 @@ import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { notify, postContractNews } from "@/lib/notify";
 import { swalConfirm } from "@/lib/swal";
 
-function buildContractOfferBody({ clubName, playerGamertag, contractType, typeMeta, weeklySalary, signingBonus, transferFee, captaincy, targets, offerNote }) {
-  const fmt = (n) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
-  const typeLabel = contractType === "ownership" ? "Club Ownership" : (contractType || "Squad").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-
-  let body = `Dear ${playerGamertag},\n\n`;
-  body += `${clubName} is pleased to extend an official contract offer to you. Please review the full terms below carefully before responding.\n\n`;
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `📋  CONTRACT DETAILS\n`;
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `Type:      ${typeLabel} Contract\n`;
-  body += `Duration:  ${typeMeta.max_games} games  or  ${typeMeta.max_days} days\n`;
-  body += `           (whichever is reached first)\n\n`;
-
-  const hasFinancials = weeklySalary > 0 || signingBonus > 0 || transferFee > 0;
-  if (hasFinancials) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `💰  FINANCIAL TERMS\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    if (weeklySalary > 0) body += `Weekly Salary:    ${fmt(weeklySalary)} STC / week\n`;
-    if (signingBonus > 0) body += `Signing Bonus:    ${fmt(signingBonus)} STC (paid on signing)\n`;
-    if (transferFee > 0)  body += `Transfer Fee:     ${fmt(transferFee)} STC\n`;
-    body += `\n`;
-  }
-
-  if (captaincy) {
-    body += `⭐  CAPTAINCY OFFERED\n`;
-    body += `You are being offered the captain role of ${clubName}.\n\n`;
-  }
-
-  if (targets?.length > 0) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `🎯  PERFORMANCE TARGETS\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    targets.forEach(t => {
-      const typeStr = t.type === "min" ? "at least" : t.type === "exact" ? "exactly" : "between";
-      const valStr = t.type === "range" ? `${t.value}–${t.value_max}` : `${t.value}`;
-      body += `• ${t.stat?.replace(/_/g, " ")}: ${typeStr} ${valStr}\n`;
-    });
-    body += `\n`;
-  }
-
-  if (offerNote) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `📝  MESSAGE FROM ${clubName.toUpperCase()}\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `"${offerNote}"\n\n`;
-  }
-
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `Please respond using the buttons below. You can accept the offer, send a counter-offer with your preferred terms, or decline if you wish.\n\n`;
-  body += `Best regards,\n${clubName} Management`;
-  return body;
-}
 import ContractCard from "./ContractCard";
 import OfferContractDialog from "./OfferContractDialog";
 import RenewContractDialog from "./RenewContractDialog";
@@ -104,15 +51,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     setContractError(null);
     const player = offerDialog;
 
-    // RLS hides email from non-record-owners — fetch fresh to get it
-    let recipientEmail = player.email;
-    if (!recipientEmail) {
-      try {
-        const fresh = await stageClient.entities.Player.filter({ id: player.id });
-        recipientEmail = fresh[0]?.email || null;
-      } catch (_) { /* non-fatal */ }
-    }
-
     let newContract;
     try {
       const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
@@ -136,44 +74,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       throw err;
     }
 
-    if (recipientEmail) {
-      try {
-        const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-        const body = buildContractOfferBody({
-          clubName: club.name,
-          playerGamertag: player.gamertag || "Player",
-          contractType: contract_type,
-          typeMeta,
-          weeklySalary: weekly_salary_stc || 0,
-          signingBonus: signing_bonus_stc || 0,
-          transferFee: transfer_fee_stc || 0,
-          captaincy: captaincy_offered || false,
-          targets: performance_targets || [],
-          offerNote: offer_note,
-        });
-        await stageClient.entities.InboxMessage.create({
-          recipient_email:  recipientEmail,
-          sender_email:     myPlayer?.email || "system@stage.com",
-          sender_gamertag:  club.name,
-          sender_avatar_url: club.logo_url || "",
-          sender_club_name: club.name,
-          subject:          `📄 Contract Offer from ${club.name}`,
-          body,
-          message_type:     "contract_offer",
-          action_type:      "contract_negotiation",
-          related_entity_id: newContract.id,
-          status:   "pending",
-          is_read:  false,
-          metadata: { contract_id: newContract.id, club_id: club.id, club_name: club.name, contract_type },
-        });
-      } catch (_) { /* inbox delivery non-fatal */ }
-    }
-
-    notify(recipientEmail, "contract_offer",
-      `📋 Contract Offer from ${club.name}`,
-      `${club.name} has sent you a ${contract_type} contract offer. Open your inbox to review the terms.`,
-      "/inbox"
-    );
     postContractNews({
       title: `📄 ${club.name} offered a contract to ${player.gamertag}`,
       body: `${club.name} has sent a ${contract_type} contract offer to ${player.gamertag}.`,
@@ -310,50 +210,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       performance_targets: contract.performance_targets || [],
       status: "pending",
     });
-    // RLS email fallback for renewal
-    let renewEmail = player?.email;
-    if (!renewEmail && contract.user_id) {
-      try {
-        const fresh = await stageClient.entities.Player.filter({ id: contract.user_id });
-        renewEmail = fresh[0]?.email || null;
-      } catch (_) { /* non-fatal */ }
-    }
-    if (renewEmail) {
-      try {
-        const body = buildContractOfferBody({
-          clubName: club.name,
-          playerGamertag: player?.gamertag || "Player",
-          contractType: contract_type,
-          typeMeta,
-          weeklySalary: contract.weekly_salary_stc || 0,
-          signingBonus: contract.signing_bonus_stc || 0,
-          transferFee: 0,
-          captaincy: false,
-          targets: contract.performance_targets || [],
-          offerNote: offer_note,
-        });
-        await stageClient.entities.InboxMessage.create({
-          recipient_email:  renewEmail,
-          sender_email:     myPlayer?.email || "system@stage.com",
-          sender_gamertag:  club.name,
-          sender_avatar_url: club.logo_url || "",
-          sender_club_name: club.name,
-          subject:          `📄 Contract Renewal from ${club.name}`,
-          body,
-          message_type:     "contract_offer",
-          action_type:      "contract_negotiation",
-          related_entity_id: newContract.id,
-          status:  "pending",
-          is_read: false,
-          metadata: { contract_id: newContract.id, club_id: club.id, club_name: club.name, contract_type },
-        });
-      } catch (_) { /* inbox delivery non-fatal */ }
-    }
-    notify(renewEmail, "contract_offer",
-      `📋 Contract Renewal from ${club.name}`,
-      `${club.name} has offered you a contract renewal (${contract_type}). Open your inbox to review.`,
-      "/inbox"
-    );
     postContractNews({
       title: `🔄 ${club.name} offered renewal to ${player?.gamertag || "a player"}`,
       body: `${club.name} has offered a ${contract_type} contract renewal to ${player?.gamertag || "a player"}.`,

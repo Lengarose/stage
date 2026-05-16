@@ -477,7 +477,7 @@ async function runStartupMigrations() {
         p.club_roles = JSON_ARRAY('president'),
         p.status = 'active'
     WHERE pc.contract_type = 'ownership'
-      AND pc.status IN ('pending', 'pending_window', 'negotiating', 'active')
+      AND pc.status = 'active'
       AND (
         p.club_id IS NULL
         OR p.club_id = ''
@@ -487,6 +487,120 @@ async function runStartupMigrations() {
         OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('owner'))
       )
   `).catch(err => console.error('[migration] ownership_contract_squad_link:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN player_contracts pc ON pc.user_id = p.id AND pc.team_id = p.club_id
+    LEFT JOIN player_contracts active_pc
+      ON active_pc.user_id = p.id
+     AND active_pc.team_id = p.club_id
+     AND active_pc.status = 'active'
+    LEFT JOIN club_staff_roles csr
+      ON csr.player_id = p.id
+     AND csr.club_id = p.club_id
+    SET p.club_id = NULL,
+        p.role = 'member',
+        p.club_roles = JSON_ARRAY('member'),
+        p.status = 'free_agent',
+        p.updated_date = NOW()
+    WHERE pc.status IN ('pending', 'pending_window', 'negotiating')
+      AND IFNULL(pc.contract_type, '') <> 'ownership'
+      AND active_pc.id IS NULL
+      AND csr.id IS NULL
+  `).catch(err => console.error('[migration] pending_contract_membership_cleanup:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    LEFT JOIN clubs c ON c.id = p.club_id
+    LEFT JOIN player_contracts owner_pc
+      ON owner_pc.user_id = p.id
+     AND owner_pc.team_id = p.club_id
+     AND owner_pc.contract_type = 'ownership'
+     AND owner_pc.status = 'active'
+    LEFT JOIN club_staff_roles president_role
+      ON president_role.player_id = p.id
+     AND president_role.club_id = p.club_id
+     AND president_role.role = 'president'
+    SET p.role = 'member',
+        p.club_roles = JSON_ARRAY('member'),
+        p.updated_date = NOW()
+    WHERE (p.role = 'president' OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('president')))
+      AND (
+        c.id IS NULL
+        OR (
+          NOT (LOWER(TRIM(IFNULL(p.email, ''))) = LOWER(TRIM(IFNULL(c.owner_email, '')))
+               OR (p.user_id IS NOT NULL AND p.user_id = c.user_id))
+          AND owner_pc.id IS NULL
+          AND president_role.id IS NULL
+        )
+      )
+  `).catch(err => console.error('[migration] invalid_president_role_cleanup:', err.message));
+
+  await EXECUTESQL(`
+    INSERT INTO inbox_messages
+      (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
+       subject, body, message_type, action_type, status, is_read, is_system, metadata,
+       related_entity_id, related_entity_type, created_date)
+    SELECT UUID(),
+           LOWER(TRIM(COALESCE(p.email, u.email))),
+           COALESCE(c.owner_email, 'system@stage.com'),
+           COALESCE(c.name, 'Club Management'),
+           COALESCE(c.logo_url, ''),
+           COALESCE(c.name, ''),
+           CONCAT('Contract Offer from ', COALESCE(c.name, 'Club')),
+           CONCAT(
+             COALESCE(c.name, 'A club'), ' has sent you a ', REPLACE(COALESCE(pc.contract_type, 'squad'), '_', ' '), ' contract offer.\\n\\n',
+             'Duration: ', COALESCE(pc.max_games, 0), ' games / ', COALESCE(pc.max_days, 0), ' days\\n',
+             'Weekly Salary: ', COALESCE(pc.weekly_salary_stc, 0), ' STC / week\\n',
+             'Signing Bonus: ', COALESCE(pc.signing_bonus_stc, 0), ' STC\\n\\n',
+             'Please respond using the buttons below. You can accept the offer, send a counter-offer, or decline it.'
+           ),
+           'contract_offer',
+           'contract_negotiation',
+           'pending',
+           0,
+           0,
+           JSON_OBJECT('contract_id', pc.id, 'club_id', pc.team_id, 'club_name', c.name, 'contract_type', pc.contract_type),
+           pc.id,
+           'player_contract',
+           NOW()
+      FROM player_contracts pc
+      JOIN players p ON p.id = pc.user_id
+      LEFT JOIN users u ON u.player_id = p.id OR u.id = p.user_id
+      LEFT JOIN clubs c ON c.id = pc.team_id
+     WHERE pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND COALESCE(p.email, u.email) IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM inbox_messages im
+          WHERE im.related_entity_id = pc.id
+            AND im.message_type = 'contract_offer'
+       )
+  `).catch(err => console.error('[migration] missing_contract_inbox_delivery:', err.message));
+
+  await EXECUTESQL(`
+    INSERT INTO notifications
+      (id, recipient_email, type, title, body, \`read\`, link, related_id, created_date)
+    SELECT UUID(),
+           LOWER(TRIM(COALESCE(p.email, u.email))),
+           'contract_offer',
+           CONCAT('Contract Offer from ', COALESCE(c.name, 'Club')),
+           CONCAT(COALESCE(c.name, 'A club'), ' has sent you a ', COALESCE(pc.contract_type, 'squad'), ' contract offer.'),
+           0,
+           '/inbox',
+           pc.id,
+           NOW()
+      FROM player_contracts pc
+      JOIN players p ON p.id = pc.user_id
+      LEFT JOIN users u ON u.player_id = p.id OR u.id = p.user_id
+      LEFT JOIN clubs c ON c.id = pc.team_id
+     WHERE pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND COALESCE(p.email, u.email) IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM notifications n
+          WHERE n.related_id = pc.id
+            AND n.type = 'contract_offer'
+       )
+  `).catch(err => console.error('[migration] missing_contract_notification_delivery:', err.message));
 
   // Salary tracking on contracts
   await addCol('player_contracts', 'last_salary_paid_at', 'DATETIME NULL');
