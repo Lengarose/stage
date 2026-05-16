@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Upload, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { prepareImageForUpload } from "@/lib/imageUpload";
 
 /**
  * Image field: paste a URL, click/drop on the preview zone, or use Upload.
@@ -35,7 +36,16 @@ export default function ImageUploadField({
     setUploading(true);
     setUploadError(null);
     try {
-      const result = await stageClient.integrations.Core.UploadFile({ file });
+      const uploadFile = await prepareImageForUpload(file, {
+        maxDimension: preview === "hero" ? 2400 : 1800,
+        quality: 0.86,
+        maxBytes: 6 * 1024 * 1024,
+        fallbackName: "stage-image.jpg",
+      });
+      if (uploadFile.size > 10 * 1024 * 1024) {
+        throw new Error("This image is still too large after compression. Try a smaller image.");
+      }
+      const result = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
       if (!result?.file_url) throw new Error("Upload failed — no URL returned.");
       onChange(result.file_url);
     } catch (err) {
@@ -44,7 +54,7 @@ export default function ImageUploadField({
     } finally {
       setUploading(false);
     }
-  }, [onChange]);
+  }, [onChange, preview]);
 
   function handleFileInput(e) {
     const file = e.target.files?.[0];

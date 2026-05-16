@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
-import ImageUploadField from "@/components/admin/shared/ImageUploadField";
+import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,8 @@ export default function HomePageEditor() {
       hero_subtitle:      r.hero_subtitle      ?? "STAGE",
       hero_description:   r.hero_description   ?? "",
       hero_image_url:     r.hero_image_url     ?? "",
+      hero_image_position:r.hero_image_position?? "50% 10%",
+      hero_image_zoom:    r.hero_image_zoom    ?? null,
       hero_cta_1_label:   r.hero_cta_1_label   ?? "Competitions",
       hero_cta_1_url:     r.hero_cta_1_url     ?? "/competitions",
       hero_cta_2_label:   r.hero_cta_2_label   ?? "Game Day",
@@ -69,12 +71,18 @@ export default function HomePageEditor() {
       section1_title:     r.section1_title     ?? "What is STAGE?",
       section1_text:      r.section1_text      ?? "",
       section1_image_url: r.section1_image_url ?? "",
+      section1_image_position: r.section1_image_position ?? "50% 50%",
+      section1_image_zoom:     r.section1_image_zoom     ?? null,
       section2_title:     r.section2_title     ?? "How It Works",
       section2_text:      r.section2_text      ?? "",
       section2_image_url: r.section2_image_url ?? "",
+      section2_image_position: r.section2_image_position ?? "50% 50%",
+      section2_image_zoom:     r.section2_image_zoom     ?? null,
       section3_title:     r.section3_title     ?? "Built for Competitors",
       section3_text:      r.section3_text      ?? "",
       section3_image_url: r.section3_image_url ?? "",
+      section3_image_position: r.section3_image_position ?? "50% 50%",
+      section3_image_zoom:     r.section3_image_zoom     ?? null,
       contact_email:      r.contact_email      ?? "contact@stage.gg",
       footer_tagline:     r.footer_tagline     ?? "",
     };
@@ -196,12 +204,18 @@ export default function HomePageEditor() {
         <Field label="Description">
           <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} />
         </Field>
-        <ImageUploadField
+        <PositionedImageUploadField
           label="Background image"
           value={form.hero_image_url}
           onChange={v => set("hero_image_url", v)}
+          position={form.hero_image_position}
+          onPositionChange={v => set("hero_image_position", v)}
+          zoom={form.hero_image_zoom}
+          onZoomChange={v => set("hero_image_zoom", v)}
           preview="hero"
           placeholder="https://… or drop image above"
+          title={form.hero_subtitle}
+          subtitle={form.hero_title}
         />
         <div className="grid grid-cols-3 gap-2 pt-1">
           {[1, 2, 3].map(n => (
@@ -227,7 +241,18 @@ export default function HomePageEditor() {
           <Field label="Body text">
             <Textarea value={form[`section${n}_text`]} onChange={e => set(`section${n}_text`, e.target.value)} className="text-xs resize-none" rows={4} />
           </Field>
-          <ImageUploadField label="Section image" value={form[`section${n}_image_url`]} onChange={v => set(`section${n}_image_url`, v)} />
+          <PositionedImageUploadField
+            label="Section image"
+            value={form[`section${n}_image_url`]}
+            onChange={v => set(`section${n}_image_url`, v)}
+            position={form[`section${n}_image_position`]}
+            onPositionChange={v => set(`section${n}_image_position`, v)}
+            zoom={form[`section${n}_image_zoom`]}
+            onZoomChange={v => set(`section${n}_image_zoom`, v)}
+            preview="landscape"
+            title={form[`section${n}_title`]}
+            subtitle={`Section ${n}`}
+          />
         </EditorSection>
       ))}
 

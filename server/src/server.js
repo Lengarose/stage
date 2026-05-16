@@ -647,19 +647,27 @@ async function runStartupMigrations() {
     hero_title       VARCHAR(255) NULL,
     hero_description TEXT         NULL,
     hero_image_url   VARCHAR(500) NULL,
+    hero_image_position VARCHAR(50) NULL,
+    hero_image_zoom  INT          NULL,
     stats_json       TEXT         NULL,
     section1_tag     VARCHAR(100) NULL,
     section1_title   VARCHAR(255) NULL,
     section1_text    TEXT         NULL,
     section1_image_url VARCHAR(500) NULL,
+    section1_image_position VARCHAR(50) NULL,
+    section1_image_zoom INT          NULL,
     section2_tag     VARCHAR(100) NULL,
     section2_title   VARCHAR(255) NULL,
     section2_text    TEXT         NULL,
     section2_image_url VARCHAR(500) NULL,
+    section2_image_position VARCHAR(50) NULL,
+    section2_image_zoom INT          NULL,
     section3_tag     VARCHAR(100) NULL,
     section3_title   VARCHAR(255) NULL,
     section3_text    TEXT         NULL,
     section3_image_url VARCHAR(500) NULL,
+    section3_image_position VARCHAR(50) NULL,
+    section3_image_zoom INT          NULL,
     footer_tagline   VARCHAR(255) NULL,
     created_date     DATETIME     DEFAULT CURRENT_TIMESTAMP,
     updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -679,6 +687,8 @@ async function runStartupMigrations() {
     hero_subtitle      VARCHAR(255) NULL,
     hero_description   TEXT         NULL,
     hero_image_url     VARCHAR(500) NULL,
+    hero_image_position VARCHAR(50) NULL,
+    hero_image_zoom    INT          NULL,
     hero_cta_1_label   VARCHAR(255) NULL,
     hero_cta_1_url     VARCHAR(500) NULL,
     hero_cta_2_label   VARCHAR(255) NULL,
@@ -688,18 +698,41 @@ async function runStartupMigrations() {
     section1_title     VARCHAR(255) NULL,
     section1_text      TEXT         NULL,
     section1_image_url VARCHAR(500) NULL,
+    section1_image_position VARCHAR(50) NULL,
+    section1_image_zoom INT          NULL,
     section2_title     VARCHAR(255) NULL,
     section2_text      TEXT         NULL,
     section2_image_url VARCHAR(500) NULL,
+    section2_image_position VARCHAR(50) NULL,
+    section2_image_zoom INT          NULL,
     section3_title     VARCHAR(255) NULL,
     section3_text      TEXT         NULL,
     section3_image_url VARCHAR(500) NULL,
+    section3_image_position VARCHAR(50) NULL,
+    section3_image_zoom INT          NULL,
     faq_items          LONGTEXT     NULL,
     contact_email      VARCHAR(255) NULL,
     footer_tagline     TEXT         NULL,
     created_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_date       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] home_page_contents:', err.message));
+  await addCol('home_page_contents', 'hero_image_position', 'VARCHAR(50) NULL');
+  await addCol('home_page_contents', 'hero_image_zoom', 'INT NULL');
+  await addCol('home_page_contents', 'section1_image_position', 'VARCHAR(50) NULL');
+  await addCol('home_page_contents', 'section1_image_zoom', 'INT NULL');
+  await addCol('home_page_contents', 'section2_image_position', 'VARCHAR(50) NULL');
+  await addCol('home_page_contents', 'section2_image_zoom', 'INT NULL');
+  await addCol('home_page_contents', 'section3_image_position', 'VARCHAR(50) NULL');
+  await addCol('home_page_contents', 'section3_image_zoom', 'INT NULL');
+
+  await addCol('landing_config', 'hero_image_position', 'VARCHAR(50) NULL');
+  await addCol('landing_config', 'hero_image_zoom', 'INT NULL');
+  await addCol('landing_config', 'section1_image_position', 'VARCHAR(50) NULL');
+  await addCol('landing_config', 'section1_image_zoom', 'INT NULL');
+  await addCol('landing_config', 'section2_image_position', 'VARCHAR(50) NULL');
+  await addCol('landing_config', 'section2_image_zoom', 'INT NULL');
+  await addCol('landing_config', 'section3_image_position', 'VARCHAR(50) NULL');
+  await addCol('landing_config', 'section3_image_zoom', 'INT NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS faq_items (
     id           VARCHAR(36)  NOT NULL PRIMARY KEY,

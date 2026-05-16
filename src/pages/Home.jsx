@@ -95,7 +95,7 @@ function FaqItem({ question, answer }) {
 }
 
 /* ── Alternating image / text section ───────────────────── */
-function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center", introVideo }) {
+function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center", imageZoom, introVideo }) {
   const img = imageUrl ? (
     introVideo ? (
       <IntroVideoImage
@@ -105,11 +105,15 @@ function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPositio
         imgClassName="h-56 sm:h-72"
       />
     ) : (
-      <img
-        src={imageUrl}
-        alt={title}
-        className="w-full h-56 sm:h-72 object-cover rounded-2xl border border-border"
-        style={{ objectPosition }}
+      <div
+        role="img"
+        aria-label={title}
+        className="w-full h-56 sm:h-72 rounded-2xl border border-border bg-cover bg-no-repeat"
+        style={{
+          backgroundImage: `url(${imageUrl})`,
+          backgroundPosition: objectPosition,
+          backgroundSize: imageZoom ? `${imageZoom}%` : "cover",
+        }}
       />
     )
   ) : (
@@ -573,6 +577,8 @@ export default function Home() {
 
   const c = cms ? { ...DEFAULTS, ...cms } : DEFAULTS;
   const heroBg = textOrDefault(c.hero_image_url, DEFAULTS.hero_image_url);
+  const heroBgPosition = textOrDefault(c.hero_image_position, "50% 10%");
+  const heroBgZoom = c.hero_image_zoom ? Number(c.hero_image_zoom) : null;
 
   return (
     <div ref={pageRef} className="min-h-screen relative">
@@ -588,7 +594,14 @@ export default function Home() {
         className="relative flex items-center overflow-hidden"
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", minHeight: "88vh" }}
       >
-        <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBg})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
+        <div
+          className="absolute inset-0 bg-cover bg-no-repeat"
+          style={{
+            backgroundImage: `url(${heroBg})`,
+            backgroundSize: heroBgZoom ? `${heroBgZoom}%` : "cover",
+            backgroundPosition: heroBgPosition,
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
@@ -643,7 +656,7 @@ export default function Home() {
           FEATURE SECTION 1 — What is STAGE?
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section1_title, DEFAULTS.section1_title)} text={textOrDefault(c.section1_text, DEFAULTS.section1_text)} imageUrl={textOrDefault(c.section1_image_url, DEFAULTS.section1_image_url)} icon={SECTION_ICONS[0]} flip={false} />
+        <FeatureSection title={textOrDefault(c.section1_title, DEFAULTS.section1_title)} text={textOrDefault(c.section1_text, DEFAULTS.section1_text)} imageUrl={textOrDefault(c.section1_image_url, DEFAULTS.section1_image_url)} objectPosition={textOrDefault(c.section1_image_position, "50% 50%")} imageZoom={c.section1_image_zoom ? Number(c.section1_image_zoom) : null} icon={SECTION_ICONS[0]} flip={false} />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -655,7 +668,7 @@ export default function Home() {
           FEATURE SECTION 2 — How It Works
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition="center top" introVideo />
+        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition={textOrDefault(c.section2_image_position, "center top")} imageZoom={c.section2_image_zoom ? Number(c.section2_image_zoom) : null} introVideo />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -667,7 +680,7 @@ export default function Home() {
           FEATURE SECTION 3 — Built for Competitors
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition="center top" introVideo />
+        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition={textOrDefault(c.section3_image_position, "center top")} imageZoom={c.section3_image_zoom ? Number(c.section3_image_zoom) : null} introVideo />
       </div>
 
       {/* ══════════════════════════════════════════════════════
