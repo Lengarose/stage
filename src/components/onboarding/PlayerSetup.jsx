@@ -27,11 +27,29 @@ export default function PlayerSetup({ onComplete, user }) {
   async function uploadAvatar(e) {
     const file = e.target.files[0];
     if (!file) return;
+    setError(null);
+    if (!file.type?.startsWith("image/")) {
+      setError("Please choose an image file.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Profile picture must be smaller than 10 MB.");
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
-    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-    setPendingAvatar(file_url);
-    setUploading(false);
-    e.target.value = "";
+    try {
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
+      if (!file_url) throw new Error("Upload failed. Please try another image.");
+      setPendingAvatar(file_url);
+    } catch (err) {
+      console.error("Failed to upload avatar:", err);
+      setError(err?.data?.error || err?.message || "Could not upload profile picture.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   async function handleSave() {
