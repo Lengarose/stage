@@ -347,14 +347,16 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         </div>
       )}
 
-      {/* Tabs */}
-      {isClubMatch && myClub && isMyMatch && (
-        <Tabs defaultValue="dressing_room" className="border-0">
+      {/* Tabs — home and away participants; chat for club + solo, dressing/press club-only */}
+      {isMyMatch && (
+        <Tabs defaultValue={isClubMatch && myClub ? "dressing_room" : "chat"} className="border-0">
           <TabsList className="w-full rounded-none border-b border-border bg-secondary/20 justify-start h-auto p-0 overflow-x-auto">
-            <TabsTrigger value="dressing_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-              <Users className="w-3.5 h-3.5" /> Dressing Room
-            </TabsTrigger>
-            {canAccessPressRoom && (
+            {isClubMatch && myClub && (
+              <TabsTrigger value="dressing_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
+                <Users className="w-3.5 h-3.5" /> Dressing Room
+              </TabsTrigger>
+            )}
+            {isClubMatch && myClub && canAccessPressRoom && (
               <TabsTrigger value="press_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
                 <Mic className="w-3.5 h-3.5" /> Press Room
               </TabsTrigger>
@@ -369,11 +371,13 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             )}
           </TabsList>
 
-          <TabsContent value="dressing_room" className="p-4">
-            <GameDayDressingRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-          </TabsContent>
+          {isClubMatch && myClub && (
+            <TabsContent value="dressing_room" className="p-4">
+              <GameDayDressingRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
+            </TabsContent>
+          )}
 
-          {canAccessPressRoom && (
+          {isClubMatch && myClub && canAccessPressRoom && (
             <TabsContent value="press_room" className="p-4">
               <GameDayPressRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
             </TabsContent>

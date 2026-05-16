@@ -35,18 +35,30 @@ export default function GameDay() {
         stageClient.entities.Follow.filter({ follower_email: u.email }),
       ]);
 
+      let club = null;
       if (players.length > 0) {
         const player = players[0];
         setMyPlayer(player);
-        
+
         if (player.club_id) {
           const clubs = await stageClient.entities.Club.filter({ id: player.club_id });
-          if (clubs.length > 0) setMyClub(clubs[0]);
+          club = clubs[0] || null;
         }
       }
 
+      // Club owners / away-side managers may not have player.club_id — still need myClub for Game Day tabs.
+      if (!club && u.id) {
+        const owned = await stageClient.entities.Club.filter({ user_id: u.id });
+        club = owned[0] || null;
+      }
+      if (!club && u.email) {
+        const byEmail = await stageClient.entities.Club.filter({ owner_email: u.email });
+        club = byEmail[0] || null;
+      }
+      if (club) setMyClub(club);
+
       setFollows(followData || []);
-      await loadGames(u.email, players[0]?.id, players[0]?.club_id, followData);
+      await loadGames(u.email, players[0]?.id, club?.id || players[0]?.club_id, followData);
       setLoading(false);
     }
 
