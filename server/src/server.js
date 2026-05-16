@@ -425,6 +425,32 @@ async function runStartupMigrations() {
   )`).catch(err => console.error('[migration] club_operation_audit_logs:', err.message));
 
   await EXECUTESQL(`
+    UPDATE clubs c
+    JOIN users u ON LOWER(TRIM(u.email)) = LOWER(TRIM(c.owner_email))
+    SET c.user_id = COALESCE(c.user_id, u.id),
+        u.owner_id = c.id,
+        u.role_id = 1,
+        c.updated_date = NOW(),
+        u.updated_date = NOW()
+    WHERE c.owner_email IS NOT NULL
+      AND c.owner_email <> ''
+  `).catch(err => console.error('[migration] club_owner_user_link:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN clubs c ON LOWER(TRIM(p.email)) = LOWER(TRIM(c.owner_email))
+    LEFT JOIN users u ON u.id = c.user_id OR LOWER(TRIM(u.email)) = LOWER(TRIM(c.owner_email))
+    SET p.user_id = COALESCE(p.user_id, u.id),
+        p.club_id = c.id,
+        p.role = 'president',
+        p.club_roles = JSON_ARRAY('president'),
+        p.status = 'active',
+        p.updated_date = NOW()
+    WHERE c.owner_email IS NOT NULL
+      AND c.owner_email <> ''
+  `).catch(err => console.error('[migration] club_owner_president_link:', err.message));
+
+  await EXECUTESQL(`
     UPDATE players p
     JOIN clubs c ON p.club_id = c.id
     SET p.role = 'president',

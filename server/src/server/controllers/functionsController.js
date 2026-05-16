@@ -159,45 +159,51 @@ async function getShirtWeights() {
   return _shirtConfigCache;
 }
 
-async function createClubTx({ clubId, amount, type = 'adjustment', category = type, description = '', referenceId = null }) {
-  return withTransaction(async (query) => {
-    const rows = await query('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
-    if (!rows.length) throw new Error('Club not found');
-    const newBalance = Number(rows[0].stc || 0) + Number(amount || 0);
-    await query('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, clubId]);
-    const txId = uuidv4();
-    await query(
-      `INSERT INTO stc_transactions
-       (id, club_id, amount, balance_after, type, category, description, reference_id, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [txId, clubId, Number(amount || 0), newBalance, type, category, description, referenceId]
-    );
-    return { transaction_id: txId, new_balance: newBalance };
-  });
+async function recordClubTransaction(query, {
+  clubId, amount, type = 'adjustment', category = type, description = '', referenceId = null,
+}) {
+  const rows = await query('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+  if (!rows.length) throw new Error('Club not found');
+  const newBalance = Number(rows[0].stc || 0) + Number(amount || 0);
+  await query('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, clubId]);
+  const txId = uuidv4();
+  await query(
+    `INSERT INTO stc_transactions
+     (id, club_id, amount, balance_after, type, category, description, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [txId, clubId, Number(amount || 0), newBalance, type, category, description, referenceId]
+  );
+  return { transaction_id: txId, new_balance: newBalance };
 }
 
-async function createPlayerTx({
+async function createClubTx(args) {
+  return withTransaction((query) => recordClubTransaction(query, args));
+}
+
+async function recordPlayerTransaction(query, {
   playerId, playerEmail = null, amount, type = null, category = 'adjustment',
   source = null, description = '', referenceId = null,
 }) {
-  return withTransaction(async (query) => {
-    const rows = await query('SELECT id, email, stc FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
-    if (!rows.length) throw new Error('Player not found');
-    const player = rows[0];
-    const newBalance = Number(player.stc || 0) + Number(amount || 0);
-    await query('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, playerId]);
-    const txId = uuidv4();
-    await query(
-      `INSERT INTO player_stc_transactions
-       (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        txId, playerId, playerEmail || player.email || null, Number(amount || 0), newBalance,
-        type || (Number(amount || 0) >= 0 ? 'income' : 'expense'), category, source, description, referenceId,
-      ]
-    );
-    return { transaction_id: txId, new_balance: newBalance };
-  });
+  const rows = await query('SELECT id, email, stc FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
+  if (!rows.length) throw new Error('Player not found');
+  const player = rows[0];
+  const newBalance = Number(player.stc || 0) + Number(amount || 0);
+  await query('UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, playerId]);
+  const txId = uuidv4();
+  await query(
+    `INSERT INTO player_stc_transactions
+     (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [
+      txId, playerId, playerEmail || player.email || null, Number(amount || 0), newBalance,
+      type || (Number(amount || 0) >= 0 ? 'income' : 'expense'), category, source, description, referenceId,
+    ]
+  );
+  return { transaction_id: txId, new_balance: newBalance };
+}
+
+async function createPlayerTx(args) {
+  return withTransaction((query) => recordPlayerTransaction(query, args));
 }
 
 async function generateShirtSalesForMatch(match, stats) {
@@ -456,7 +462,104 @@ async function notifyAdminsOfIdentityClaim(claim) {
   }
 }
 
+async function resolveClubContactForInvite(clubId) {
+  if (!clubId) throw new Error('club_id required');
+  return withTransaction(async (query) => {
+    const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+    if (!clubs.length) throw new Error('Club not found');
+    const club = clubs[0];
+    const ownerEmail = String(club.owner_email || '').trim();
+
+    let ownerUser = null;
+    if (club.user_id) {
+      const userRows = await query('SELECT id, email, player_id FROM users WHERE id = ? LIMIT 1', [club.user_id]);
+      ownerUser = userRows[0] || null;
+    }
+    if (!ownerUser && ownerEmail) {
+      const userRows = await query(
+        'SELECT id, email, player_id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+        [ownerEmail]
+      );
+      ownerUser = userRows[0] || null;
+      if (ownerUser && ownerUser.id !== club.user_id) {
+        await query('UPDATE clubs SET user_id = ?, updated_date = NOW() WHERE id = ?', [ownerUser.id, club.id]);
+        club.user_id = ownerUser.id;
+      }
+    }
+
+    if (ownerUser?.id) {
+      await query(
+        'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
+        [club.id, ownerUser.id]
+      );
+    }
+
+    let president = null;
+    if (ownerUser?.player_id) {
+      const rows = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [ownerUser.player_id]);
+      president = rows[0] || null;
+    }
+    if (!president && ownerUser?.id) {
+      const rows = await query('SELECT * FROM players WHERE user_id = ? LIMIT 1 FOR UPDATE', [ownerUser.id]);
+      president = rows[0] || null;
+    }
+    if (!president && ownerEmail) {
+      const rows = await query(
+        'SELECT * FROM players WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1 FOR UPDATE',
+        [ownerEmail]
+      );
+      president = rows[0] || null;
+    }
+
+    if (president?.id) {
+      await query(
+        "UPDATE players SET user_id = COALESCE(user_id, ?), club_id = ?, club_roles = JSON_ARRAY('president'), role = 'president', status = 'active', updated_date = NOW() WHERE id = ?",
+        [ownerUser?.id || null, club.id, president.id]
+      );
+      if (ownerUser?.id && ownerUser.player_id !== president.id) {
+        await query('UPDATE users SET player_id = COALESCE(player_id, ?), updated_date = NOW() WHERE id = ?', [president.id, ownerUser.id]);
+      }
+    }
+
+    const presidentRows = await query(
+      `SELECT id, email, gamertag
+       FROM players
+       WHERE club_id = ?
+         AND (
+           role = 'president'
+           OR JSON_CONTAINS(club_roles, JSON_QUOTE('president'))
+         )
+       ORDER BY LOWER(TRIM(email)) = LOWER(TRIM(?)) DESC
+       LIMIT 1`,
+      [club.id, ownerEmail]
+    );
+    const visiblePresident = presidentRows[0] || president || null;
+    const recipientEmail = ownerEmail || ownerUser?.email || visiblePresident?.email || null;
+
+    if (!recipientEmail) {
+      throw new Error('Club has no reachable owner or president email');
+    }
+
+    return {
+      data: {
+        club_id: club.id,
+        club_name: club.name,
+        recipient_email: recipientEmail,
+        owner_user_id: ownerUser?.id || club.user_id || null,
+        president_player_id: visiblePresident?.id || null,
+        president_gamertag: visiblePresident?.gamertag || null,
+        linked_president: Boolean(president?.id),
+      },
+    };
+  });
+}
+
 const HANDLERS = {
+  async resolveClubContact({ _auth_user_id, club_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    return resolveClubContactForInvite(club_id);
+  },
+
   async submitPlayerIdentityClaim({
     _auth_user_id,
     player_id,
@@ -979,56 +1082,85 @@ const HANDLERS = {
     // ── accept ──────────────────────────────────────────────────────────────
     if (action === 'accept') {
       if (!contract_id) throw new Error('contract_id required');
-      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      if (!contracts.length) throw new Error('Contract not found');
-      const contract = contracts[0];
-      if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) {
-        throw new Error(`Cannot accept contract with status: ${contract.status}`);
-      }
-
-      const salary = Number(contract.weekly_salary_stc || 0);
-      if (salary > 0) {
-        const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
-        if (!clubs.length) throw new Error('Club not found');
-        const clubData = clubs[0];
-        const wageBudget = Number(clubData.wage_budget_stc || 0);
-        const committedRows = await EXECUTESQL(
-          "SELECT COALESCE(SUM(weekly_salary_stc),0) as total FROM player_contracts WHERE team_id = ? AND status = 'active' AND id != ?",
-          [contract.team_id, contract_id]
-        );
-        const committed = Number(committedRows[0]?.total || 0);
-        if (committed + salary > wageBudget) {
-          throw new Error(`Insufficient wage budget. Available: ${(wageBudget - committed).toLocaleString()} STC/wk, Required: ${salary.toLocaleString()} STC/wk`);
-        }
-      }
-
       const today   = new Date().toISOString().split('T')[0];
-      const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
-      await EXECUTESQL(
-        "UPDATE player_contracts SET status = 'active', start_date = ?, end_date = ?, updated_date = NOW() WHERE id = ?",
-        [today, endDate, contract_id]
-      );
+      const result = await withTransaction(async (query) => {
+        const contracts = await query('SELECT * FROM player_contracts WHERE id = ? LIMIT 1 FOR UPDATE', [contract_id]);
+        if (!contracts.length) throw new Error('Contract not found');
+        const contract = contracts[0];
+        if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) {
+          throw new Error(`Cannot accept contract with status: ${contract.status}`);
+        }
 
-      const bonus = Number(contract.signing_bonus_stc || 0);
-      if (bonus > 0) {
-        const players = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [contract.user_id]);
-        const player  = players[0];
-        const clubRows = await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]);
-        await createClubTx({
-          clubId: contract.team_id, amount: -bonus, type: 'signing_bonus', category: 'signing_bonus',
-          description: `Signing bonus — ${player?.gamertag || player?.full_name || 'Player'} (${contract.contract_type})`,
-          referenceId: contract_id,
-        });
-        if (player) {
-          await createPlayerTx({
-            playerId: player.id, playerEmail: player.email, amount: bonus,
-            category: 'signing_bonus', source: clubRows[0]?.name || 'Club',
-            description: `Signing bonus — ${clubRows[0]?.name || 'Club'} (${contract.contract_type})`,
+        const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [contract.user_id]);
+        const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [contract.team_id]);
+        if (!players.length) throw new Error('Player not found');
+        if (!clubs.length) throw new Error('Club not found');
+        const player = players[0];
+        const club = clubs[0];
+
+        const salary = Number(contract.weekly_salary_stc || 0);
+        if (salary > 0) {
+          const wageBudget = Number(club.wage_budget_stc || 0);
+          const committedRows = await query(
+            "SELECT COALESCE(SUM(weekly_salary_stc),0) as total FROM player_contracts WHERE team_id = ? AND status = 'active' AND id != ?",
+            [contract.team_id, contract_id]
+          );
+          const committed = Number(committedRows[0]?.total || 0);
+          if (committed + salary > wageBudget) {
+            throw new Error(`Insufficient wage budget. Available: ${(wageBudget - committed).toLocaleString()} STC/wk, Required: ${salary.toLocaleString()} STC/wk`);
+          }
+        }
+
+        const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
+        await query(
+          "UPDATE player_contracts SET status = 'active', start_date = ?, end_date = ?, updated_date = NOW() WHERE id = ?",
+          [today, endDate, contract_id]
+        );
+
+        const roles = parseMaybeJson(player.club_roles, []);
+        const isSameClub = player.club_id && player.club_id === contract.team_id;
+        const nextRoles = isSameClub && Array.isArray(roles) ? roles.filter(Boolean) : [];
+        let nextRole = player.role || 'member';
+        if (contract.contract_type === 'ownership') {
+          if (!nextRoles.includes('president')) nextRoles.unshift('president');
+          nextRole = 'president';
+        } else if (Number(contract.captaincy_offered || 0) === 1 && !nextRoles.includes('president')) {
+          if (!nextRoles.includes('captain')) nextRoles.push('captain');
+          nextRole = 'captain';
+        } else if (!nextRoles.length || nextRoles.includes('free_agent')) {
+          nextRoles.splice(0, nextRoles.length, 'member');
+          nextRole = 'member';
+        }
+
+        await query(
+          "UPDATE players SET club_id = ?, club_roles = ?, role = ?, status = 'active', updated_date = NOW() WHERE id = ?",
+          [contract.team_id, JSON.stringify(nextRoles), nextRole, contract.user_id]
+        );
+
+        const bonus = Number(contract.signing_bonus_stc || 0);
+        if (bonus > 0) {
+          await recordClubTransaction(query, {
+            clubId: contract.team_id,
+            amount: -bonus,
+            type: 'signing_bonus',
+            category: 'signing_bonus',
+            description: `Signing bonus - ${player?.gamertag || player?.full_name || 'Player'} (${contract.contract_type})`,
+            referenceId: contract_id,
+          });
+          await recordPlayerTransaction(query, {
+            playerId: player.id,
+            playerEmail: player.email,
+            amount: bonus,
+            category: 'signing_bonus',
+            source: club.name || 'Club',
+            description: `Signing bonus - ${club.name || 'Club'} (${contract.contract_type})`,
             referenceId: contract_id,
           });
         }
-      }
-      return { success: true, data: { status: 'active', start_date: today, end_date: endDate } };
+
+        return { endDate };
+      });
+      return { success: true, data: { status: 'active', start_date: today, end_date: result.endDate } };
     }
 
     // ── terminate ────────────────────────────────────────────────────────────

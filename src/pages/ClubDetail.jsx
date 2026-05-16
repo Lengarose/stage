@@ -262,7 +262,11 @@ export default function ClubDetail() {
   async function sendTrialRequest() {
     if (!myPlayer || !club) return;
     const gamerTag = myPlayer.gamertag || "Unknown";
-    const recipientEmail = String(club.owner_email || "").trim().toLowerCase();
+    let recipientEmail = String(club.owner_email || "").trim().toLowerCase();
+    if (!recipientEmail) {
+      const contact = await stageClient.functions.invoke("resolveClubContact", { club_id: id }).catch(() => null);
+      recipientEmail = String(contact?.data?.recipient_email || "").trim().toLowerCase();
+    }
     if (!recipientEmail) {
       console.error("Trial request aborted: club owner_email is missing", club);
       return;

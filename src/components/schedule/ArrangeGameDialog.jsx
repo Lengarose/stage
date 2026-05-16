@@ -87,6 +87,31 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     }
   }
 
+  async function resolveClubRecipientEmail(club) {
+    const localOwnerEmail = String(club?.owner_email || "").trim();
+    try {
+      const contact = await stageClient.functions.invoke("resolveClubContact", {
+        club_id: club.id,
+      });
+      return contact?.data?.recipient_email || localOwnerEmail || null;
+    } catch (err) {
+      if (!String(err?.message || "").includes("Function 'resolveClubContact' not found")) {
+        console.warn("[ArrangeGame] club contact resolver failed, falling back:", err);
+      }
+    }
+
+    if (localOwnerEmail) return localOwnerEmail;
+
+    const clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
+    const president = clubPlayers.find((p) =>
+      p.club_roles?.includes("president") ||
+      p.role === "president" ||
+      p.club_roles?.includes("captain") ||
+      p.role === "captain"
+    ) || clubPlayers[0];
+    return president?.email || null;
+  }
+
   async function handleSend() {
     if (!selected || !date || !time) return;
     setSending(true);
@@ -106,24 +131,14 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const invitationType = senderIsClub ? "club_vs_club" : "player_vs_player";
 
       // Resolve recipient email ───────────────────────────────────
-      // For player matches: use the player's own email.
-      // For club matches: owner_email is hidden by RLS for non-owners,
-      // so fall back to the club president/captain's email via Player entity.
+      // Player matches can use the player's own email. Club matches use the
+      // backend resolver so owner/president links are repaired server-side.
       let recipientEmail = null;
 
       if (!recipientIsClub) {
         recipientEmail = selected.email || null;
       } else {
-        recipientEmail = selected.owner_email || null;
-        if (!recipientEmail) {
-          const clubPlayers = await stageClient.entities.Player.filter({ club_id: selected.id });
-          const president = clubPlayers.find(p =>
-            p.club_roles?.includes("president") ||
-            p.club_roles?.includes("captain") ||
-            p.role === "captain"
-          ) || clubPlayers[0];
-          if (president) recipientEmail = president.email || null;
-        }
+        recipientEmail = await resolveClubRecipientEmail(selected);
       }
 
       if (!recipientEmail) {
@@ -145,7 +160,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
       await stageClient.entities.InboxMessage.create({
         recipient_email:      recipientEmail,
-        sender_email:         myPlayer?.email || "system@stage.com",
+        sender_email:         senderIsClub ? (myClub?.owner_email || myPlayer?.email || "system@stage.com") : (myPlayer?.email || "system@stage.com"),
         sender_gamertag:      senderName,
         sender_avatar_url:    senderIsClub ? (myClub?.logo_url || "") : (myPlayer?.avatar_url || ""),
         sender_club_name:     senderIsClub ? myClub?.name : null,
