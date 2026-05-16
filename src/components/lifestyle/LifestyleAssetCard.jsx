@@ -9,6 +9,9 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
   const ownedPurchase = purchases.find(p => p.item_id === item.id && p.purchase_type === 'buy' && p.status === 'active');
   const rentalPurchase = purchases.find(p => p.item_id === item.id && p.purchase_type === 'rent' && p.status === 'active');
   const investPurchase = purchases.find(p => p.item_id === item.id && p.purchase_type === 'invest' && p.status === 'active');
+  const ownedCount = purchases.filter(p => p.item_id === item.id && p.purchase_type === 'buy' && p.status === 'active').length;
+  const rentalCount = purchases.filter(p => p.item_id === item.id && p.purchase_type === 'rent' && p.status === 'active').length;
+  const investCount = purchases.filter(p => p.item_id === item.id && p.purchase_type === 'invest' && p.status === 'active').length;
 
   const isOwned = !!ownedPurchase;
   const isRenting = !!rentalPurchase;
@@ -17,7 +20,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
 
   const canBuy    = item.can_buy    && !(!item.allows_multiple && isOwned);
   const canRent   = item.can_rent   && item.rent_price_stc > 0 && !isRenting;
-  const canInvest = item.can_invest && item.invest_price_stc > 0 && !isInvesting;
+  const canInvest = item.can_invest && item.invest_price_stc > 0 && !(!item.allows_multiple && isInvesting);
 
   const canAffordBuy    = playerStc >= Number(item.price_stc || 0);
   const canAffordRent   = playerStc >= Number(item.rent_price_stc || 0);
@@ -44,23 +47,23 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
 
         {/* Category emoji */}
         <div className="absolute top-3 left-3 text-base">
-          {categoryEmoji(item.category)}
+          {item.emoji || categoryEmoji(item.category)}
         </div>
 
         {/* Ownership badges */}
         {isOwned && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-emerald-500/90 text-black text-[10px] font-bold px-2.5 py-1.5 rounded-full">
-            <Check className="w-3 h-3" /> Owned
+            <Check className="w-3 h-3" /> Owned{ownedCount > 1 ? ` x${ownedCount}` : ''}
           </div>
         )}
         {isRenting && !isOwned && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-blue-500/90 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full">
-            <CalendarClock className="w-3 h-3" /> Renting
+            <CalendarClock className="w-3 h-3" /> Renting{rentalCount > 1 ? ` x${rentalCount}` : ''}
           </div>
         )}
         {isInvesting && (
           <div className={cn('absolute bottom-3', (isOwned || isRenting) ? 'right-3' : 'left-3', 'flex items-center gap-1.5 bg-amber-500/90 text-black text-[10px] font-bold px-2.5 py-1.5 rounded-full')}>
-            <TrendingUp className="w-3 h-3" /> Investing
+            <TrendingUp className="w-3 h-3" /> Investing{investCount > 1 ? ` x${investCount}` : ''}
           </div>
         )}
 
@@ -128,7 +131,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
         <div className="flex flex-wrap gap-1.5 pt-1">
           {canBuy && (
             <ActionBtn
-              label="Buy"
+              label={isOwned && item.allows_multiple ? 'Buy Again' : 'Buy'}
               icon={<ShoppingCart className="w-3 h-3" />}
               color="emerald"
               disabled={!canAffordBuy}
@@ -146,7 +149,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
           )}
           {canInvest && (
             <ActionBtn
-              label="Invest"
+              label={isInvesting && item.allows_multiple ? 'Invest Again' : 'Invest'}
               icon={<TrendingUp className="w-3 h-3" />}
               color="amber"
               disabled={!canAffordInvest}

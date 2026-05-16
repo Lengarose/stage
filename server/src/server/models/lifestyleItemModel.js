@@ -10,7 +10,15 @@ class LifestyleItem {
     this.description                 = body.description;
     this.price_stc                   = body.price_stc;
     this.rent_price_stc              = body.rent_price_stc;
+    this.rent_duration_days          = body.rent_duration_days;
+    this.invest_price_stc            = body.invest_price_stc;
+    this.invest_return_rate          = body.invest_return_rate;
+    this.invest_duration_days        = body.invest_duration_days;
+    this.can_buy                     = body.can_buy;
     this.can_rent                    = body.can_rent;
+    this.can_invest                  = body.can_invest;
+    this.can_sell                    = body.can_sell;
+    this.sell_value_percent          = body.sell_value_percent;
     this.passive_income_stc          = body.passive_income_stc;
     this.passive_income_interval_days = body.passive_income_interval_days;
     this.image_url                   = body.image_url;
@@ -55,15 +63,19 @@ class LifestyleItem {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO lifestyle_items
       (id, name, category, subcategory, description,
-       price_stc, rent_price_stc, can_rent,
+       price_stc, rent_price_stc, rent_duration_days,
+       invest_price_stc, invest_return_rate, invest_duration_days,
+       can_buy, can_rent, can_invest, can_sell, sell_value_percent,
        passive_income_stc, passive_income_interval_days,
        image_url, emoji, tier, is_active, sort_order,
        max_upgrade_level, upgrade_base_cost_stc, weekly_maintenance_stc,
        allows_multiple, available_cities)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.name, this.category, this.subcategory, this.description,
-      this.price_stc, this.rent_price_stc, this.can_rent,
+      this.price_stc, this.rent_price_stc, this.rent_duration_days,
+      this.invest_price_stc, this.invest_return_rate, this.invest_duration_days,
+      this.can_buy, this.can_rent, this.can_invest, this.can_sell, this.sell_value_percent,
       this.passive_income_stc, this.passive_income_interval_days,
       this.image_url, this.emoji, this.tier, this.is_active, this.sort_order,
       this.max_upgrade_level, this.upgrade_base_cost_stc, this.weekly_maintenance_stc,
@@ -75,7 +87,9 @@ class LifestyleItem {
   update(id) {
     const sql = `UPDATE lifestyle_items SET
       name=?, category=?, subcategory=?, description=?,
-      price_stc=?, rent_price_stc=?, can_rent=?,
+      price_stc=?, rent_price_stc=?, rent_duration_days=?,
+      invest_price_stc=?, invest_return_rate=?, invest_duration_days=?,
+      can_buy=?, can_rent=?, can_invest=?, can_sell=?, sell_value_percent=?,
       passive_income_stc=?, passive_income_interval_days=?,
       image_url=?, emoji=?, tier=?, is_active=?, sort_order=?,
       max_upgrade_level=?, upgrade_base_cost_stc=?, weekly_maintenance_stc=?,
@@ -83,7 +97,9 @@ class LifestyleItem {
       WHERE id=?`;
     const values = [
       this.name, this.category, this.subcategory, this.description,
-      this.price_stc, this.rent_price_stc, this.can_rent,
+      this.price_stc, this.rent_price_stc, this.rent_duration_days,
+      this.invest_price_stc, this.invest_return_rate, this.invest_duration_days,
+      this.can_buy, this.can_rent, this.can_invest, this.can_sell, this.sell_value_percent,
       this.passive_income_stc, this.passive_income_interval_days,
       this.image_url, this.emoji, this.tier, this.is_active, this.sort_order,
       this.max_upgrade_level, this.upgrade_base_cost_stc, this.weekly_maintenance_stc,

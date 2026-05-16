@@ -22,6 +22,11 @@ export default function LifestylesTab({
   lifestyleSaving,
   saveLifestyleAsset,
 }) {
+  const totalAssets = lifestyleItems.length;
+  const rentableAssets = lifestyleItems.filter(item => item.can_rent && Number(item.rent_price_stc || 0) > 0).length;
+  const investableAssets = lifestyleItems.filter(item => item.can_invest && Number(item.invest_price_stc || 0) > 0).length;
+  const propertyAssets = lifestyleItems.filter(item => item.category === 'houses' || item.category === 'real_estate').length;
+
   return (
     <>
 <div className="space-y-4">
@@ -38,6 +43,20 @@ export default function LifestylesTab({
         <Plus className="w-3.5 h-3.5" /> Add Asset
       </Button>
     </div>
+  </div>
+
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+    {[
+      ['Assets', totalAssets],
+      ['Properties', propertyAssets],
+      ['Rentable', rentableAssets],
+      ['Investable', investableAssets],
+    ].map(([label, value]) => (
+      <div key={label} className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
+        <p className="text-lg font-semibold text-foreground leading-none">{value}</p>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{label}</p>
+      </div>
+    ))}
   </div>
 
   {/* Asset list */}
@@ -58,12 +77,14 @@ export default function LifestylesTab({
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-foreground text-sm truncate">{item.name}</p>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{item.category}</span>
+              {item.subcategory && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{item.subcategory.replaceAll('_', ' ')}</span>}
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{item.tier}</span>
             </div>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-[11px] text-muted-foreground">
               {item.price_stc > 0 && <span>Buy: {Number(item.price_stc).toLocaleString()}</span>}
               {item.can_rent && item.rent_price_stc > 0 && <span>Rent: {Number(item.rent_price_stc).toLocaleString()}</span>}
               {item.can_invest && item.invest_price_stc > 0 && <span>Invest: {Number(item.invest_return_rate)}% in {item.invest_duration_days}d</span>}
+              {item.passive_income_stc > 0 && <span>Income: {Number(item.passive_income_stc).toLocaleString()} / {item.passive_income_interval_days}d</span>}
             </div>
           </div>
           {/* Action buttons */}
@@ -115,6 +136,16 @@ export default function LifestylesTab({
           </select>
         </div>
         <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Subcategory</label>
+          <Input value={lifestyleForm.subcategory || ''} onChange={e => setLifestyleForm(p => ({ ...p, subcategory: e.target.value }))}
+            className="bg-secondary border-border mt-1 text-sm" placeholder="e.g. boot_deal" />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Emoji</label>
+          <Input value={lifestyleForm.emoji || ''} onChange={e => setLifestyleForm(p => ({ ...p, emoji: e.target.value }))}
+            className="bg-secondary border-border mt-1 text-sm" placeholder="e.g. 🏙️" />
+        </div>
+        <div>
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Tier</label>
           <select value={lifestyleForm.tier || 'standard'}
             onChange={e => setLifestyleForm(p => ({ ...p, tier: e.target.value }))}
@@ -126,6 +157,17 @@ export default function LifestylesTab({
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Description</label>
           <Textarea value={lifestyleForm.description || ''} onChange={e => setLifestyleForm(p => ({ ...p, description: e.target.value }))}
             className="bg-secondary border-border mt-1 text-sm" rows={2} placeholder="Short description" />
+        </div>
+        <div className="col-span-2">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Available Cities</label>
+          <Textarea
+            value={typeof lifestyleForm.available_cities === 'string' ? lifestyleForm.available_cities : JSON.stringify(lifestyleForm.available_cities || [], null, 2)}
+            onChange={e => setLifestyleForm(p => ({ ...p, available_cities: e.target.value }))}
+            className="bg-secondary border-border mt-1 text-xs font-mono"
+            rows={3}
+            placeholder='[{"city":"London","country":"United Kingdom","emoji":"🇬🇧"}]'
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">Used by buy/rent/invest flows for houses and location-based assets.</p>
         </div>
         <div className="col-span-2">
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Image</label>

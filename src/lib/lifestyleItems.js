@@ -74,6 +74,23 @@ export function getAssetImage(item) {
   return ASSET_FALLBACK_IMAGES[cat] || ASSET_FALLBACK_IMAGES.fashion;
 }
 
+export function parseLifestyleCities(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'object') return [value];
+  const raw = String(value).trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    if (parsed && typeof parsed === 'object') return [parsed];
+  } catch {}
+  return raw.split('\n').map(line => {
+    const [city, country, emoji] = line.split(',').map(part => String(part || '').trim());
+    return city ? { city, country: country || '', emoji: emoji || '' } : null;
+  }).filter(Boolean);
+}
+
 export function formatSTC(n) {
   const v = Number(n || 0);
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
