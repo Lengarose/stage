@@ -1,7 +1,7 @@
 // Drop-in replacement for the Base44 SDK — mirrors the same API surface
 // so zero changes are needed in any component file.
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
-import { toMysqlDateTime } from "@/lib/momentDate";
+import { toMysqlDateTime, asWallClockDateTimeString } from "@/lib/momentDate";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 // Default is a RELATIVE path so:
@@ -102,6 +102,23 @@ function entityToPath(name) {
 
 
 // ── Entity CRUD factory ────────────────────────────────────────────────────────
+function normalizeEntityFromApi(entityName, row) {
+  if (!row || typeof row !== "object") return row;
+  if (entityName === "Match") {
+    return {
+      ...row,
+      scheduled_date: asWallClockDateTimeString(row.scheduled_date),
+      first_submission_at: asWallClockDateTimeString(row.first_submission_at),
+    };
+  }
+  return row;
+}
+
+function normalizeEntityListFromApi(entityName, data) {
+  const arr = Array.isArray(data) ? data : (data ? [data] : []);
+  return arr.map((row) => normalizeEntityFromApi(entityName, row));
+}
+
 function makeEntity(name) {
   const base = entityToPath(name);
   const normalizeBody = (body) => {
@@ -185,12 +202,13 @@ function makeEntity(name) {
           return (av < bv ? -1 : 1) * (desc ? -1 : 1);
         });
       }
-      return arr;
+      return normalizeEntityListFromApi(name, arr);
     },
 
     async get(id) {
       try {
-        return await apiFetch(`${base}/${id}`);
+        const row = await apiFetch(`${base}/${id}`);
+        return normalizeEntityFromApi(name, row);
       } catch (err) {
         if (err?.status === 404) return null;
         throw err;
@@ -198,11 +216,13 @@ function makeEntity(name) {
     },
 
     async create(body) {
-      return apiFetch(base, { method: 'POST', body: JSON.stringify(normalizeBody(body)) });
+      const row = await apiFetch(base, { method: 'POST', body: JSON.stringify(normalizeBody(body)) });
+      return normalizeEntityFromApi(name, row);
     },
 
     async update(id, body) {
-      return apiFetch(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(normalizeBody(body)) });
+      const row = await apiFetch(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify(normalizeBody(body)) });
+      return normalizeEntityFromApi(name, row);
     },
 
     async delete(id) {

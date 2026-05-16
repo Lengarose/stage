@@ -25,12 +25,56 @@ function convertDateFnsPattern(pattern = "") {
   return converted;
 }
 
-const PARSE_FORMATS = [moment.ISO_8601, "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"];
+const MYSQL_WALL_CLOCK_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?$/;
 
+const PARSE_FORMATS = ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm", moment.ISO_8601];
+
+function formatLocalWallClockFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
+/**
+ * Normalize API/DB schedule values to "YYYY-MM-DD HH:mm:ss" (no timezone shift).
+ * Use on every Match fetch — legacy APIs may return ISO "…Z" even when DB is correct.
+ */
+export function asWallClockDateTimeString(value) {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return formatLocalWallClockFromDate(value);
+  }
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return s;
+  if (MYSQL_WALL_CLOCK_RE.test(s)) {
+    const normalized = s.replace("T", " ");
+    return normalized.length === 16 ? `${normalized}:00` : normalized.slice(0, 19);
+  }
+  const isoZ = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?Z$/i);
+  if (isoZ) {
+    const sec = isoZ[3] || "00";
+    return `${isoZ[1]} ${isoZ[2]}:${sec}`;
+  }
+  const isoParts = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+  if (isoParts && (s.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(s))) {
+    return `${isoParts[1]} ${isoParts[2]}`;
+  }
+  return s;
+}
+
+/** Parse schedule datetimes as wall-clock (no UTC shift). */
 export function parseISO(value) {
-  const m = moment(value, PARSE_FORMATS, true);
+  if (value == null || value === "") return new Date("invalid");
+  if (value instanceof Date) return value;
+  const wall = asWallClockDateTimeString(value);
+  if (wall) {
+    const normalized = wall.replace("T", " ");
+    const m = moment(normalized, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"], true);
+    if (m.isValid()) return m.toDate();
+  }
+  const s = String(value).trim();
+  const m = moment(s, PARSE_FORMATS, true);
   if (m.isValid()) return m.toDate();
-  const loose = moment(value);
+  const loose = moment(s);
   return loose.isValid() ? loose.toDate() : new Date("invalid");
 }
 
@@ -133,16 +177,33 @@ export function toMysqlDateTime(value) {
   if (typeof trimmed === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
     return trimmed;
   }
+  if (typeof trimmed === "string" && MYSQL_WALL_CLOCK_RE.test(trimmed)) {
+    const normalized = trimmed.replace("T", " ");
+    return normalized.length === 16 ? `${normalized}:00` : normalized.slice(0, 19);
+  }
+  if (trimmed instanceof Date) {
+    if (Number.isNaN(trimmed.getTime())) return null;
+    return formatLocalWallClockFromDate(trimmed);
+  }
   const m = toMoment(trimmed);
   if (!m.isValid()) return null;
   return m.format("YYYY-MM-DD HH:mm:ss");
 }
 
+/** Date + time inputs → MySQL wall-clock string (no UTC round-trip). */
+export function combineDateTimeToMysql(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const t = String(timeStr).trim();
+  const timePart = t.length === 5 ? `${t}:00` : t.slice(0, 8);
+  return `${dateStr} ${timePart}`;
+}
+
 /** Value for `<input type="datetime-local" />` from a stored schedule datetime. */
 export function toDatetimeLocalValue(value) {
   if (!value) return "";
-  const m = moment(value, PARSE_FORMATS, true);
-  if (!m.isValid()) return "";
+  const parsed = parseISO(value);
+  if (!isValid(parsed)) return "";
+  const m = moment(parsed);
   return m.format("YYYY-MM-DDTHH:mm");
 }
 

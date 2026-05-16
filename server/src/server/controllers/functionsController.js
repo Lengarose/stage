@@ -1011,8 +1011,8 @@ const HANDLERS = {
     }
 
     if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
-      const proposedIso = (new_date && new_time) ? new Date(`${new_date}T${new_time}:00`).toISOString() : null;
-      const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedIso || 'Please discuss a new time.'}`;
+      const proposedMysql = (new_date && new_time) ? toMysqlDateTime(`${new_date} ${new_time.length === 5 ? `${new_time}:00` : new_time}`) : null;
+      const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedMysql || 'Please discuss a new time.'}`;
       const responseId = uuidv4();
       await EXECUTESQL(
         `INSERT INTO inbox_messages
@@ -1025,7 +1025,7 @@ const HANDLERS = {
           meta.created_match_id || message.related_entity_id || null, 'match',
           JSON.stringify({
             ...meta,
-            scheduled_date: proposedIso || meta.scheduled_date,
+            scheduled_date: proposedMysql || meta.scheduled_date,
             reschedule_request: true,
             original_message_id: message_id,
           }),
@@ -1035,7 +1035,7 @@ const HANDLERS = {
         recipientEmail: message.sender_email,
         type: 'match_reminder',
         title: `${user.email} wants to reschedule`,
-        body: proposedIso ? `New proposed date: ${proposedIso}` : 'A new date was requested.',
+        body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
         link: '/inbox',
         relatedId: responseId,
       });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, isPast, differenceInHours, combineDateTime, toMysqlDateTime } from "@/lib/momentDate";
+import { format, isPast, differenceInHours, combineDateTimeToMysql } from "@/lib/momentDate";
 import { CalendarDays, Clock, Check, RefreshCw, AlertTriangle, Timer, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +54,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
     setBusy(true);
     setError("");
     try {
-      const proposedDate = toMysqlDateTime(combineDateTime(propDate, propTime));
+      const proposedDate = combineDateTimeToMysql(propDate, propTime);
       await proposeTime({ fixture, fixtureType, role, proposedDate, myClub, myEmail, myGamertag });
       setProposing(false);
       setPropDate(""); setPropTime("");

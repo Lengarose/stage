@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { format, combineDateTime, toMysqlDateTime } from "@/lib/momentDate";
+import { format, combineDateTimeToMysql } from "@/lib/momentDate";
 import { Check, RefreshCw, CalendarDays, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     setBusy("counter");
     setError("");
     try {
-      const proposedDate = toMysqlDateTime(combineDateTime(cDate, cTime));
+      const proposedDate = combineDateTimeToMysql(cDate, cTime);
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
       await proposeTime({ fixture, fixtureType: meta.fixture_type, role, proposedDate, myClub, myEmail, myGamertag });
       await base44.entities.InboxMessage.update(message.id, { status: "date_change_requested", is_read: true });

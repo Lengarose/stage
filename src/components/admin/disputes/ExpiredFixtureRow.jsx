@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { forceSchedule, flagForAdminReview, declareForfeit } from "@/lib/scheduleEngine";
-import { combineDateTime, toMysqlDateTime } from "@/lib/momentDate";
+import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { swalConfirm } from "@/lib/swal";
 
 export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }) {
@@ -15,7 +15,7 @@ export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }
     if (!forceDate || !forceTime) return;
     setBusy(id);
     try {
-      const date = toMysqlDateTime(combineDateTime(forceDate, forceTime));
+      const date = combineDateTimeToMysql(forceDate, forceTime);
       await forceSchedule({ fixture, fixtureType: fixture._fixtureType, date, adminNote: "Admin override after deadline." });
       onResolved();
     } finally { setBusy(null); }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
-import { toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
+import { combineDateTimeToMysql } from "@/lib/momentDate";
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
@@ -181,8 +181,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     setSendError("");
 
     try {
-      const localDateTime = combineDateTime(date, time);
-      const scheduledDate = toMysqlDateTime(localDateTime);
+      const scheduledDate = combineDateTimeToMysql(date, time);
 
       const senderIsClub = matchType === "club" && Boolean(myClub);
       const recipientIsClub = recipientKind === "club";

@@ -7,10 +7,11 @@ const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/consta
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { match_id, page } = req.query;
+    const { match_id, channel, club_id, page, limit } = req.query;
     const cm = new ChatMessage();
     let result;
-    if (match_id) result = await cm.selectByMatch(match_id);
+    if (match_id) result = await cm.selectByMatch(match_id, limit);
+    else if (channel) result = await cm.selectByChannel(channel, club_id || null);
     else result = await cm.selectAll(Number(page) || 1);
     res.json(result);
   } catch (err) {

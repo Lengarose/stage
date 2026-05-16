@@ -5,6 +5,7 @@ const { EXECUTESQL } = require('../db/database');
 const { socketEmit } = require('../express/index');
 const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
 const { v4: uuidv4 } = require('uuid');
+const { normalizeMatchForApi } = require('../utils/datetime');
 
 async function getAuthContext(req) {
   const userId = req.user?.id;
@@ -197,7 +198,7 @@ async function enrichMatchRows(rows) {
   const clubNameById = new Map(clubs.map((c) => [c.id, c.name]));
   const playerNameById = new Map(players.map((p) => [p.id, p.gamertag]));
 
-  return list.map((r) => ({
+  return list.map((r) => normalizeMatchForApi({
     ...r,
     home_club_name: r.home_club_name || (r.home_club_id ? (clubNameById.get(r.home_club_id) || null) : null),
     away_club_name: r.away_club_name || (r.away_club_id ? (clubNameById.get(r.away_club_id) || null) : null),

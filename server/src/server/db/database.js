@@ -15,6 +15,8 @@ const pool = mysql.createPool({
   charset:           'utf8mb4',
   waitForConnections: true,
   connectionLimit:    10,
+  // Return DATETIME as "YYYY-MM-DD HH:mm:ss" — wall-clock, no UTC JSON shift in API responses.
+  dateStrings:        true,
 });
 
 // Coerce ISO 8601 datetime strings to MySQL DATETIME format inside the parameter

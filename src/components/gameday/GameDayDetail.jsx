@@ -359,11 +359,9 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
                 <Mic className="w-3.5 h-3.5" /> Press Room
               </TabsTrigger>
             )}
-            {isHomeClub && (
-              <TabsTrigger value="chat" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-                <MessageSquare className="w-3.5 h-3.5" /> Chat
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="chat" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
+              <MessageSquare className="w-3.5 h-3.5" /> Chat
+            </TabsTrigger>
             {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
               <TabsTrigger value="stats" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
                 <Target className="w-3.5 h-3.5" /> Stats
@@ -381,11 +379,9 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </TabsContent>
           )}
 
-          {isHomeClub && (
-            <TabsContent value="chat" className="p-4">
-              <GameDayMatchChat game={game} myClub={myClub} user={user} />
-            </TabsContent>
-          )}
+          <TabsContent value="chat" className="p-4">
+            <GameDayMatchChat game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
+          </TabsContent>
 
           {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
             <TabsContent value="stats" className="p-4 space-y-4">

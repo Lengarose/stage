@@ -2,7 +2,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format, toMysqlDateTime, combineDateTime } from "@/lib/momentDate";
+import { format, parseISO, toMysqlDateTime, combineDateTimeToMysql, isValid } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       if (action === "accepted" && message.message_type === "match_invite") {
         notify(message.sender_email, "match_scheduled",
           `✅ Match Invitation Accepted`,
-          `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleDateString() : "the proposed date"}.`,
+          `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date && isValid(parseISO(meta.scheduled_date)) ? format(parseISO(meta.scheduled_date), "PPp") : "the proposed date"}.`,
           "/schedule"
         );
         // Create the scheduled match from the invitation metadata.
@@ -136,7 +136,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             sender_avatar_url: responderAvatar,
             sender_club_name: responderClubName,
             subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
-            body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date ? new Date(meta.scheduled_date).toLocaleString() : "TBD"}\n\nThe match has been added to your schedule.`,
+            body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date && isValid(parseISO(meta.scheduled_date)) ? format(parseISO(meta.scheduled_date), "PPp") : "TBD"}\n\nThe match has been added to your schedule.`,
             message_type:    "match_invite_response",
             action_type:     "none",
             status:          "pending",
@@ -172,7 +172,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
       if (action === "date_change_requested" && message.sender_email) {
         const newDate = rescheduleDate && rescheduleTime
-          ? toMysqlDateTime(combineDateTime(rescheduleDate, rescheduleTime))
+          ? combineDateTimeToMysql(rescheduleDate, rescheduleTime)
           : null;
         await stageClient.entities.InboxMessage.create({
           recipient_email: message.sender_email,

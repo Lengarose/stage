@@ -23,8 +23,11 @@ class ChatMessage {
     return EXECUTESQL('SELECT * FROM chat_messages WHERE id = ?', [id]);
   }
 
-  selectByMatch(match_id) {
-    return EXECUTESQL('SELECT * FROM chat_messages WHERE match_id = ? ORDER BY id ASC', [match_id]);
+  selectByMatch(match_id, limit = 200) {
+    return EXECUTESQL(
+      'SELECT * FROM chat_messages WHERE match_id = ? ORDER BY created_date ASC LIMIT ?',
+      [match_id, Math.min(Math.max(Number(limit) || 200, 1), 500)]
+    );
   }
 
   selectByChannel(channel, club_id = null) {
