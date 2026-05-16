@@ -4,7 +4,7 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2 } from "lucide-react";
+import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayDressingRoom from "./GameDayDressingRoom";
