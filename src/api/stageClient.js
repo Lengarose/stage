@@ -409,7 +409,7 @@ const integrations = {
       const form = new FormData();
       form.append('file', file);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 45000);
+      const timeout = window.setTimeout(() => controller.abort(), 20000);
       try {
         return await apiFetch('/upload', { method: 'POST', body: form, signal: controller.signal });
       } catch (err) {

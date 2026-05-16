@@ -5,6 +5,7 @@ import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import { prepareImageForUpload } from "@/lib/imageUpload";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -45,7 +46,8 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     }
     setUploading(true);
     try {
-      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
+      const uploadFile = await prepareImageForUpload(file, { fallbackName: "club-logo.jpg" });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
       if (!file_url) throw new Error("Upload failed. Please try another image.");
       setPendingLogo(file_url);
     } catch (err) {
