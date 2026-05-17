@@ -9,9 +9,9 @@ const server = http.createServer(app);
 app.use(express.json());
 app.set('trust proxy', 1);
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT =  3001;
 const ACCESS_TOKEN_SECRET =
-  process.env.ACCESS_TOKEN_SECRET || '';
+  process.env.ACCESS_TOKEN_SECRET || 'e11c51e0d9b810e4a6765904a144361248d4976b';
 // REST server uses SOCKET_SERVER_SECRET; socket server accepts either name.
 const EMIT_SECRET =
   process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '';
