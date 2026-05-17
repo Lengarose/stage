@@ -1,6 +1,26 @@
 const { EXECUTESQL, withTransaction } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+async function insertAdminAudit(exec, audit) {
+  if (!audit) return;
+  await exec(
+    `INSERT INTO admin_audit_log
+     (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      uuidv4(),
+      audit.admin?.id || null,
+      audit.admin?.email || null,
+      audit.action,
+      audit.entityType,
+      audit.entityId,
+      audit.oldValue == null ? null : JSON.stringify(audit.oldValue),
+      audit.newValue == null ? null : JSON.stringify(audit.newValue),
+      audit.reason || null,
+    ]
+  );
+}
+
 class InternationalTournamentModel {
   listTournaments(limit = 100) {
     const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 200);
@@ -27,28 +47,35 @@ class InternationalTournamentModel {
     return this.getTournament(id);
   }
 
-  async createTournament(body, user) {
+  async createTournament(body, user, audit = null) {
     const id = body.id || uuidv4();
-    await EXECUTESQL(
-      `INSERT INTO international_tournaments
-       (id, name, tournament_type, region, status, voting_opens_at, voting_closes_at,
-        squad_locks_at, starts_at, eligible_countries, created_by_user_id, created_by_email)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        body.name,
-        body.tournament_type,
-        body.region || null,
-        body.status || 'draft',
-        body.voting_opens_at || null,
-        body.voting_closes_at || null,
-        body.squad_locks_at || null,
-        body.starts_at || null,
-        body.eligible_countries ? JSON.stringify(body.eligible_countries) : null,
-        user?.id || null,
-        user?.email || null,
-      ]
-    );
+    await withTransaction(async (exec) => {
+      await exec(
+        `INSERT INTO international_tournaments
+         (id, name, tournament_type, region, status, voting_opens_at, voting_closes_at,
+          squad_locks_at, starts_at, eligible_countries, created_by_user_id, created_by_email)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          body.name,
+          body.tournament_type,
+          body.region || null,
+          body.status || 'draft',
+          body.voting_opens_at || null,
+          body.voting_closes_at || null,
+          body.squad_locks_at || null,
+          body.starts_at || null,
+          body.eligible_countries ? JSON.stringify(body.eligible_countries) : null,
+          user?.id || null,
+          user?.email || null,
+        ]
+      );
+      await insertAdminAudit(exec, audit && {
+        ...audit,
+        entityId: audit.entityId || id,
+        newValue: audit.newValue || { ...body, id },
+      });
+    });
     return this.getTournament(id);
   }
 
@@ -122,7 +149,7 @@ class InternationalTournamentModel {
     );
   }
 
-  async openVoting(tournament, countries) {
+  async openVoting(tournament, countries, audit = null) {
     await withTransaction(async (exec) => {
       await exec(
         'UPDATE international_tournaments SET status = ?, updated_date = CURRENT_TIMESTAMP WHERE id = ?',
@@ -148,6 +175,7 @@ class InternationalTournamentModel {
           ]
         );
       }
+      await insertAdminAudit(exec, audit);
     });
     return this.listElections(tournament.id);
   }
@@ -214,6 +242,35 @@ class InternationalTournamentModel {
       }
     });
   }
+
+  async closeElections(elections, winnerByElectionId, audit = null) {
+    await withTransaction(async (exec) => {
+      for (const election of elections) {
+        const winner = winnerByElectionId.get(election.id);
+        await exec(
+          `UPDATE national_team_elections
+           SET status = 'closed', winner_player_id = ?, winner_vote_count = ?, updated_date = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [winner?.player_id || null, winner?.vote_count || 0, election.id]
+        );
+        if (winner?.player_id) {
+          await exec(
+            `INSERT INTO national_team_representatives
+             (id, tournament_id, election_id, country_code, player_id, vote_count, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'active')
+             ON DUPLICATE KEY UPDATE
+               election_id = VALUES(election_id),
+               player_id = VALUES(player_id),
+               vote_count = VALUES(vote_count),
+               status = 'active'`,
+            [uuidv4(), election.international_tournament_id, election.id, election.country_code, winner.player_id, winner.vote_count || 0]
+          );
+        }
+      }
+      await insertAdminAudit(exec, audit);
+    });
+  }
+
 
   listEligiblePlayers(_tournamentId, countryCode) {
     return EXECUTESQL(
@@ -293,11 +350,14 @@ class InternationalTournamentModel {
     return this.getSquad(tournamentId, countryCode);
   }
 
-  lockSquad(squadId) {
-    return EXECUTESQL(
-      "UPDATE national_team_squads SET status = 'locked', locked_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [squadId]
-    );
+  lockSquad(squadId, audit = null) {
+    return withTransaction(async (exec) => {
+      await exec(
+        "UPDATE national_team_squads SET status = 'locked', locked_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [squadId]
+      );
+      await insertAdminAudit(exec, audit);
+    });
   }
 }
 
