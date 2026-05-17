@@ -52,13 +52,17 @@ function canVoteForCandidate({ voter, candidate, election, now = new Date() } = 
   }
 
   const votingOpensAt = toDate(election.voting_opens_at);
+  const voteTime = toDate(now);
+  if (votingOpensAt && voteTime && voteTime < votingOpensAt) {
+    return { ok: false, reason: 'voting_not_open_yet' };
+  }
+
   const voterCreatedAt = toDate(voter.created_date || voter.created_at);
   if (votingOpensAt && voterCreatedAt && voterCreatedAt > votingOpensAt) {
     return { ok: false, reason: 'voter_created_after_open' };
   }
 
   const votingClosesAt = toDate(election.voting_closes_at);
-  const voteTime = toDate(now);
   if (votingClosesAt && voteTime && voteTime > votingClosesAt) {
     return { ok: false, reason: 'voting_closed' };
   }

@@ -7,9 +7,11 @@ import { Globe2, Plus, Vote, Lock } from 'lucide-react';
 export default function InternationalTournamentsTab({
   tournaments = [],
   electionsByTournament = {},
+  squadsByTournament = {},
   onCreate,
   onOpenVoting,
   onCloseVoting,
+  onLockSquad,
   saving,
 }) {
   const [form, setForm] = useState({
@@ -100,6 +102,53 @@ export default function InternationalTournamentsTab({
                     </Button>
                   </div>
                 </div>
+                {elections.length > 0 && (
+                  <div className="mt-4 border-t border-border pt-3 space-y-2">
+                    {elections.map((election) => {
+                      const countryCode = String(election.country_code || '').toUpperCase();
+                      const squadState = squadsByTournament[`${tournament.id}:${countryCode}`] || { squad: null, players: [] };
+                      const squad = squadState.squad;
+                      const squadPlayers = squadState.players || [];
+                      return (
+                        <div key={election.id} className="bg-secondary/40 border border-border rounded px-3 py-2">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {election.country_name || countryCode}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Representative: {election.winner_gamertag || election.winner_player_id || 'Not elected yet'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Squad: {squadPlayers.length}/26 · {squad?.status || 'not submitted'}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={!squad || squad.status === 'locked'}
+                              onClick={() => onLockSquad?.(tournament.id, squad.id)}
+                              className="rounded gap-1.5"
+                            >
+                              <Lock className="w-3.5 h-3.5" /> {squad?.status === 'locked' ? 'Locked' : 'Lock Squad'}
+                            </Button>
+                          </div>
+                          {squadPlayers.length > 0 && (
+                            <div className="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                              {squadPlayers.map((player) => (
+                                <div key={player.player_id} className="text-xs text-muted-foreground bg-card/60 border border-border rounded px-2 py-1">
+                                  <span className="font-medium text-foreground">{player.gamertag || player.email || player.player_id}</span>
+                                  <span> · {player.position || 'Any'} · {player.overall_rating || 0}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

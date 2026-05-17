@@ -119,6 +119,22 @@ test('canVoteForCandidate rejects votes after voting closes with reason voting_c
   assert.deepEqual(result, { ok: false, reason: 'voting_closed' });
 });
 
+test('canVoteForCandidate rejects votes before voting opens with reason voting_not_open_yet', () => {
+  const result = canVoteForCandidate({
+    voter: { id: 'player-1', country: 'BE', created_date: '2026-01-01T00:00:00Z' },
+    candidate: { id: 'player-2', country: 'BE' },
+    election: {
+      status: 'voting_open',
+      country: 'BE',
+      voting_opens_at: '2026-02-01T00:00:00Z',
+      voting_closes_at: '2026-03-01T00:00:00Z',
+    },
+    now: new Date('2026-01-31T23:59:59Z'),
+  });
+
+  assert.deepEqual(result, { ok: false, reason: 'voting_not_open_yet' });
+});
+
 test('canVoteForCandidate accepts valid same-country non-self vote', () => {
   const result = canVoteForCandidate({
     voter: { id: 'player-1', country: 'be', created_date: '2026-01-01T00:00:00Z' },

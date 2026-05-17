@@ -137,7 +137,8 @@ class InternationalTournamentModel {
     );
   }
 
-  listCountriesFromPlayers() {
+  listCountriesFromPlayers(minPlayers = 1) {
+    const safeMinPlayers = Math.max(Number(minPlayers) || 1, 1);
     return EXECUTESQL(
       `SELECT UPPER(country_code) AS country_code,
               MAX(country) AS country_name,
@@ -145,7 +146,9 @@ class InternationalTournamentModel {
        FROM players
        WHERE country_code IS NOT NULL AND country_code <> ''
        GROUP BY UPPER(country_code)
-       ORDER BY country_name ASC, country_code ASC`
+       HAVING COUNT(*) >= ?
+       ORDER BY country_name ASC, country_code ASC`,
+      [safeMinPlayers]
     );
   }
 
@@ -243,7 +246,7 @@ class InternationalTournamentModel {
     });
   }
 
-  async closeElections(elections, winnerByElectionId, audit = null) {
+  async closeElections(tournamentId, elections, winnerByElectionId, audit = null) {
     await withTransaction(async (exec) => {
       for (const election of elections) {
         const winner = winnerByElectionId.get(election.id);
@@ -267,6 +270,10 @@ class InternationalTournamentModel {
           );
         }
       }
+      await exec(
+        'UPDATE international_tournaments SET status = ?, updated_date = CURRENT_TIMESTAMP WHERE id = ?',
+        ['squad_selection', tournamentId]
+      );
       await insertAdminAudit(exec, audit);
     });
   }

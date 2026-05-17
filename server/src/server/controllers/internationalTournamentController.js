@@ -35,6 +35,53 @@ function sendError(res, err) {
   res.status(status).json({ error: err.message, code: err.code || err.reason || 'error' });
 }
 
+function parseDate(value) {
+  if (!value) return null;
+  const normalized = value instanceof Date ? value : String(value).replace(' ', 'T');
+  const date = normalized instanceof Date ? normalized : new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isPastDate(value, now = new Date()) {
+  const date = parseDate(value);
+  return Boolean(date && date <= now);
+}
+
+function parseEligibleCountries(raw) {
+  if (!raw) return [];
+  let value = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      value = [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((country) => {
+      const countryCode = typeof country === 'string' ? country : country?.country_code;
+      return {
+        country_code: normalizeCountryCode(countryCode),
+        country_name: typeof country === 'string'
+          ? country
+          : country?.country_name || country?.country || country?.country_code,
+      };
+    })
+    .filter((country) => country.country_code);
+}
+
+function normalizeCountryList(countries = []) {
+  return countries
+    .map((country) => ({
+      country_code: normalizeCountryCode(typeof country === 'string' ? country : country.country_code),
+      country_name: typeof country === 'string'
+        ? country
+        : country.country_name || country.country || country.country_code,
+    }))
+    .filter((country) => country.country_code);
+}
+
 router.get('/', async (req, res) => {
   try {
     const rows = await model.listTournaments(req.query.limit || 100);
@@ -76,13 +123,13 @@ router.post('/:id/open-voting', async (req, res) => {
     if (!admin) return;
     const tournament = (await model.getTournament(req.params.id))[0];
     if (!tournament) return res.status(404).json({ error: 'Tournament not found', code: 'not_found' });
-    const countries = Array.isArray(req.body?.countries) && req.body.countries.length
-      ? req.body.countries
-      : await model.listCountriesFromPlayers();
-    const requestedCountries = countries.map((c) => ({
-      country_code: normalizeCountryCode(c.country_code),
-      country_name: c.country_name || c.country || c.country_code,
-    })).filter((c) => c.country_code);
+    const explicitCountries = parseEligibleCountries(tournament.eligible_countries);
+    const requestedCountries = explicitCountries.length
+      ? normalizeCountryList(explicitCountries)
+      : normalizeCountryList(await model.listCountriesFromPlayers(tournament.max_squad_size || 26));
+    if (!requestedCountries.length) {
+      return res.status(400).json({ error: 'No eligible countries found', code: 'no_eligible_countries' });
+    }
     const elections = await model.openVoting(tournament, requestedCountries, {
       admin,
       action: 'open_international_voting',
@@ -125,7 +172,7 @@ router.post('/:id/close-voting', async (req, res) => {
       const totals = await model.voteTotals(election.id);
       winnerByElectionId.set(election.id, chooseElectionWinner(totals));
     }
-    await model.closeElections(elections, winnerByElectionId, {
+    await model.closeElections(req.params.id, elections, winnerByElectionId, {
       admin,
       action: 'close_international_voting',
       entityType: 'international_tournament',
@@ -162,6 +209,12 @@ router.get('/:id/squads/:countryCode', async (req, res) => {
 
 router.post('/:id/squads', async (req, res) => {
   try {
+    const tournament = (await model.getTournament(req.params.id))[0];
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found', code: 'not_found' });
+    if (isPastDate(tournament.squad_locks_at) || isPastDate(tournament.starts_at)) {
+      return res.status(409).json({ error: 'squad_locked_by_date', code: 'squad_locked_by_date' });
+    }
+
     const countryCode = normalizeCountryCode(req.body?.country_code);
     const playerIds = req.body?.player_ids || [];
     const selection = validateSquadSelection({ playerIds, maxSquadSize: 26 });

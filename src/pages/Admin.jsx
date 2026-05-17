@@ -65,6 +65,7 @@ export default function Admin(props) {
   const [tournaments, setTournaments] = useState([]);
   const [internationalTournaments, setInternationalTournaments] = useState([]);
   const [internationalElections, setInternationalElections] = useState({});
+  const [internationalSquads, setInternationalSquads] = useState({});
   const [savingInternationalTournament, setSavingInternationalTournament] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
@@ -263,7 +264,18 @@ export default function Admin(props) {
       row.id,
       await internationalTournamentsApi.elections(row.id).catch(() => []),
     ]));
-    setInternationalElections(Object.fromEntries(pairs));
+    const electionsByTournament = Object.fromEntries(pairs);
+    setInternationalElections(electionsByTournament);
+    const squadPairs = await Promise.all(pairs.flatMap(([tournamentId, elections]) => (
+      elections
+        .filter((election) => election.country_code)
+        .map(async (election) => {
+          const countryCode = String(election.country_code).toUpperCase();
+          const squad = await internationalTournamentsApi.squad(tournamentId, countryCode).catch(() => ({ squad: null, players: [] }));
+          return [`${tournamentId}:${countryCode}`, squad];
+        })
+    )));
+    setInternationalSquads(Object.fromEntries(squadPairs));
   }
 
   async function createInternationalTournament(form) {
@@ -298,6 +310,16 @@ export default function Admin(props) {
       await swalAlert("Voting closed and representatives elected.");
     } catch (err) {
       await swalAlert(err?.message || err?.error || "Could not close voting.");
+    }
+  }
+
+  async function lockInternationalSquad(tournamentId, squadId) {
+    try {
+      await internationalTournamentsApi.lockSquad(tournamentId, squadId);
+      await loadInternationalTournaments();
+      await swalAlert("National squad locked.");
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not lock squad.");
     }
   }
 
@@ -1414,9 +1436,11 @@ export default function Admin(props) {
             <InternationalTournamentsTab
               tournaments={internationalTournaments}
               electionsByTournament={internationalElections}
+              squadsByTournament={internationalSquads}
               onCreate={createInternationalTournament}
               onOpenVoting={openInternationalVoting}
               onCloseVoting={closeInternationalVoting}
+              onLockSquad={lockInternationalSquad}
               saving={savingInternationalTournament}
             />
           )}
