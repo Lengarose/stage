@@ -82,6 +82,7 @@ export default function ClubDetail() {
   const [clubChatMessages, setClubChatMessages] = useState([]);
   const [clubChatInput, setClubChatInput] = useState("");
   const [sendingClubChat, setSendingClubChat] = useState(false);
+  const [operationStaffRoles, setOperationStaffRoles] = useState([]);
   const navigate = useNavigate();
   const logoInputRef  = useRef();
   const pendingFileRef = useRef(null);
@@ -95,7 +96,7 @@ export default function ClubDetail() {
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
   const isViceCaptain = isMember && (myPlayer?.role === "vice-captain" || myPlayer?.club_roles?.includes("vice-captain"));
   const canEdit = isOwner || isCaptain;
-  const canOpenOperations = isOwner || isPresident || isCaptain || isViceCaptain || isAdminTakeover;
+  const canOpenOperations = isOwner || isPresident || isCaptain || isViceCaptain || operationStaffRoles.length > 0 || isAdminTakeover;
   const CLUB_CHAT_CHANNEL = `club:${id}`;
 
   useEffect(() => {
@@ -192,11 +193,20 @@ export default function ClubDetail() {
       setFollowersList(allFollowersData);
 
       if (myPl.length > 0) {
-        setMyPlayer(myPl[0]);
+        const mine = myPl[0];
+        setMyPlayer(mine);
+        const staffRows = await stageClient.entities.ClubStaffRole
+          .filter({ club_id: id }, "-created_date", 100)
+          .catch(() => []);
+        setOperationStaffRoles((staffRows || []).filter((role) =>
+          role.user_id === user.id || role.player_id === mine.id
+        ));
         if (myPl[0].club_id && myPl[0].club_id !== id) {
           const myClubArr = await stageClient.entities.Club.filter({ id: myPl[0].club_id });
           if (myClubArr.length > 0) setMyClubData(myClubArr[0]);
         }
+      } else {
+        setOperationStaffRoles([]);
       }
 
       if (myPl.length > 0 && (

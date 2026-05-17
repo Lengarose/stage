@@ -56,6 +56,23 @@ CREATE TABLE IF NOT EXISTS players (
   verified_platform     VARCHAR(50),
   verified_platform_handle VARCHAR(150),
   identity_verified_at  DATETIME,
+  ranking_points        INT          DEFAULT 0,
+  global_rank           INT,
+  regional_rank         INT,
+  country_rank          INT,
+  position_rank         INT,
+  ranking_matches       INT          DEFAULT 0,
+  ranking_wins          INT          DEFAULT 0,
+  ranking_draws         INT          DEFAULT 0,
+  ranking_losses        INT          DEFAULT 0,
+  ranking_win_rate      DECIMAL(5,2) DEFAULT 0,
+  ranking_goals         INT          DEFAULT 0,
+  ranking_assists       INT          DEFAULT 0,
+  ranking_clean_sheets  INT          DEFAULT 0,
+  ranking_motm          INT          DEFAULT 0,
+  ranking_avg_rating    DECIMAL(4,2) DEFAULT 0,
+  ranking_competition_wins INT       DEFAULT 0,
+  ranking_finishes_score INT         DEFAULT 0,
   role                  VARCHAR(50),
   dressing_room_seat    INT,
   is_ready              TINYINT(1)   DEFAULT 0,
@@ -84,6 +101,10 @@ CREATE TABLE IF NOT EXISTS clubs (
   draws               INT          DEFAULT 0,
   goals_scored        INT          DEFAULT 0,
   goals_conceded      INT          DEFAULT 0,
+  ranking_points      INT          DEFAULT 0,
+  global_rank         INT,
+  regional_rank       INT,
+  country_rank        INT,
   rating              DECIMAL(5,1) DEFAULT 0,
   peak_rating         DECIMAL(5,1) DEFAULT 0,
   matches_ranked      INT          DEFAULT 0,
@@ -335,9 +356,14 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   match_id       VARCHAR(36)  NOT NULL,
   tournament_id  VARCHAR(36),
   club_id        VARCHAR(36),
+  player_id      VARCHAR(36),
   player_email   VARCHAR(255) NOT NULL,
+  player_gamertag VARCHAR(255),
+  position       VARCHAR(50),
   goals          INT          DEFAULT 0,
   assists        INT          DEFAULT 0,
+  clean_sheet    TINYINT(1)   DEFAULT 0,
+  is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
   created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
@@ -999,6 +1025,23 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform_handle'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform_handle VARCHAR(150) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='identity_verified_at'),'SELECT 1','ALTER TABLE players ADD COLUMN identity_verified_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='global_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN global_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='regional_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN regional_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='country_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN country_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='position_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN position_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_matches'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_matches INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_wins'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_wins INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_draws'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_draws INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_losses'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_losses INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_win_rate'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_win_rate DECIMAL(5,2) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_goals'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_goals INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_assists'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_assists INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_clean_sheets'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_clean_sheets INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_motm'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_motm INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_avg_rating'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_avg_rating DECIMAL(4,2) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_competition_wins'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_competition_wins INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_finishes_score'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_finishes_score INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_expires_at'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_expires_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_billing'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_billing VARCHAR(20) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stripe_subscription_id'),'SELECT 1','ALTER TABLE players ADD COLUMN stripe_subscription_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -1008,6 +1051,7 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE clubs ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='global_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN global_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='regional_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN regional_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='country_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN country_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stadium_name'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stadium_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='achievements'),'SELECT 1','ALTER TABLE clubs ADD COLUMN achievements JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='tournaments';
@@ -1521,6 +1565,10 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @t='inbox_messages'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_system'),'SELECT 1','ALTER TABLE inbox_messages ADD COLUMN is_system TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='match_player_stats'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_gamertag'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN player_gamertag VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='own_goals'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN own_goals INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_id'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN player_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='position'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN position VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='clean_sheet'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN clean_sheet TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_motm'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN is_motm TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='notifications'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='related_id'),'SELECT 1','ALTER TABLE notifications ADD COLUMN related_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='player_contracts'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='games_played'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN games_played INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='transfer_window_id'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN transfer_window_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;

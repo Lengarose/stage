@@ -18,7 +18,7 @@ export default function Clubs() {
 
   useEffect(() => {
     async function load() {
-      const data = await stageClient.entities.Club.list("-rating", 100);
+      const data = await stageClient.entities.Club.list(null, 500);
       setClubs(data);
       setLoading(false);
     }
@@ -32,7 +32,7 @@ export default function Clubs() {
     const matchPlatform = platform === "All Platforms" || c.platform === platform;
     const matchRegion   = region   === "All Regions"   || c.region   === region;
     return matchSearch && matchPlatform && matchRegion;
-  });
+  }).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -90,16 +90,10 @@ export default function Clubs() {
       ) : (
         <>
           {/* Column labels */}
-          <div className="hidden sm:grid grid-cols-[2.5rem_2.5rem_3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
-            <span />
-            <span className="text-white/25 text-[9px] uppercase tracking-widest text-center">#</span>
-            <span />
+          <div className="hidden sm:grid grid-cols-[3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">Logo</span>
             <span className="text-white/25 text-[9px] uppercase tracking-widest">Club</span>
-            <div className="flex items-center gap-6 pr-1">
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-10 text-center">Trophies</span>
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-16 text-center">W/D/L</span>
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-10 text-center">WR%</span>
-            </div>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">Profile</span>
           </div>
 
           <div className="space-y-2">
@@ -107,7 +101,6 @@ export default function Clubs() {
               <ClubCard
                 key={`${club.id}-${i}`}
                 club={club}
-                rank={(page - 1) * PAGE_SIZE + i + 1}
               />
             ))}
           </div>

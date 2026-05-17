@@ -59,6 +59,8 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   const [auditLogs, setAuditLogs] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [recruitmentPosts, setRecruitmentPosts] = useState([]);
+  const [notice, setNotice] = useState(null);
+  const [error, setError] = useState(null);
   const [selectedStaffPlayer, setSelectedStaffPlayer] = useState("");
   const [selectedStaffRole, setSelectedStaffRole] = useState("recruiter");
   const [offerApplicant, setOfferApplicant] = useState(null);
@@ -103,6 +105,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   async function load() {
     if (!club?.id) return;
     setLoading(true);
+    setError(null);
     try {
       const [appRows, staffRows, availRows, lineupRows, auditRows, contractRows, postRows] = await Promise.all([
         stageClient.entities.ClubApplicant.filter({ club_id: club.id }, "-created_date", 200).catch(() => []),
@@ -120,6 +123,8 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       setAuditLogs(auditRows);
       setContracts(contractRows);
       setRecruitmentPosts(postRows);
+    } catch (err) {
+      setError(err?.message || "Could not load club operations.");
     } finally {
       setLoading(false);
     }
@@ -141,9 +146,14 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   async function applicantAction(applicant, action, body = {}) {
     setBusy(`${action}:${applicant.id}`);
+    setError(null);
+    setNotice(null);
     try {
       await stageClient.http.post(`/club-applicants/${applicant.id}/${action}`, body);
+      setNotice(action === "review" ? "Applicant marked as reviewed." : action === "decline" ? "Applicant declined." : action === "offer-trial" ? "Trial offer sent." : "Applicant updated.");
       await load();
+    } catch (err) {
+      setError(err?.message || `Could not ${sourceLabel(action)}.`);
     } finally {
       setBusy(null);
     }
@@ -158,31 +168,60 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   async function assignStaffRole() {
     if (!selectedStaffPlayer) return;
     setBusy("staff");
+    setError(null);
+    setNotice(null);
     try {
-      await stageClient.entities.ClubStaffRole.create({
-        club_id: club.id,
+      await stageClient.http.post(`/clubs/${club.id}/staff`, {
         player_id: selectedStaffPlayer,
         role: selectedStaffRole,
       });
       setSelectedStaffPlayer("");
+      setNotice("Staff role assigned.");
       await load();
+    } catch (err) {
+      setError(err?.message || "Could not assign staff role.");
     } finally {
       setBusy(null);
     }
   }
 
   async function updateStaffPermissions(role, permissions) {
-    await stageClient.entities.ClubStaffRole.update(role.id, { permissions });
-    await load();
+    if (!role?.player_id) return;
+    setBusy(`permissions:${role.id}`);
+    setError(null);
+    setNotice(null);
+    try {
+      await stageClient.http.post(`/clubs/${club.id}/staff/${role.player_id}/permissions`, { permissions });
+      setNotice("Staff permissions updated.");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not update staff permissions.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function removeStaffRole(role) {
-    await stageClient.entities.ClubStaffRole.delete(role.id);
-    await load();
+    if (!role?.player_id) return;
+    setBusy(`remove-staff:${role.id}`);
+    setError(null);
+    setNotice(null);
+    try {
+      await stageClient.http.post(`/clubs/${club.id}/staff/${role.player_id}/remove`, {});
+      setNotice("Staff role removed.");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not remove staff role.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function setMyAvailability(fixture, status) {
     if (!myPlayer?.id) return;
+    setBusy(`availability:${fixture.id}:${status}`);
+    setError(null);
+    setNotice(null);
     const existing = availability.find((row) => row.fixture_id === fixture.id && row.player_id === myPlayer.id);
     const body = {
       club_id: club.id,
@@ -191,9 +230,16 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       player_id: myPlayer.id,
       status,
     };
-    if (existing) await stageClient.entities.ClubFixtureAvailability.update(existing.id, body);
-    else await stageClient.entities.ClubFixtureAvailability.create(body);
-    await load();
+    try {
+      if (existing) await stageClient.http.patch(`/club-fixture-availabilities/${existing.id}`, body);
+      else await stageClient.http.post("/club-fixture-availabilities", body);
+      setNotice(`Availability set to ${sourceLabel(status)}.`);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not update availability.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   function toggleLineupPlayer(listName, playerId) {
@@ -210,6 +256,9 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   async function saveLineup(status = "draft") {
     if (!lineupFixtureId) return;
+    setBusy(`lineup:${status}`);
+    setError(null);
+    setNotice(null);
     const fixture = upcomingFixtures.find((row) => row.id === lineupFixtureId);
     const body = {
       club_id: club.id,
@@ -218,10 +267,17 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       ...lineupForm,
       status,
     };
-    if (selectedLineup) await stageClient.entities.ClubFixtureLineup.update(selectedLineup.id, body);
-    else await stageClient.entities.ClubFixtureLineup.create(body);
-    if (status === "published") await stageClient.http.post(`/clubs/${club.id}/lineups/${lineupFixtureId}/publish`);
-    await load();
+    try {
+      if (selectedLineup) await stageClient.http.patch(`/club-fixture-lineups/${selectedLineup.id}`, body);
+      else await stageClient.http.post("/club-fixture-lineups", body);
+      if (status === "published") await stageClient.http.post(`/clubs/${club.id}/lineups/${lineupFixtureId}/publish`);
+      setNotice(status === "published" ? "Lineup published." : "Lineup draft saved.");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not save lineup.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   const sections = [
@@ -239,6 +295,18 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-xs font-bold uppercase">Dismiss</button>
+        </div>
+      )}
+      {notice && (
+        <div className="flex items-center justify-between gap-3 rounded border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="text-xs font-bold uppercase">Dismiss</button>
+        </div>
+      )}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {sections.map(([key, label, Icon]) => (
           <button
@@ -271,10 +339,10 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
             </div>
           ))}
           <div className="md:col-span-3 flex gap-2 flex-wrap">
-            <Link to="/recruitment"><Button size="sm">Create Recruitment Post</Button></Link>
-            <Button size="sm" variant="outline" onClick={() => setActiveSection("applicants")}>Review Applicants</Button>
-            <Button size="sm" variant="outline" onClick={() => setActiveSection("lineup")}>Edit Lineup</Button>
-            <Button size="sm" variant="outline" onClick={() => setActiveSection("staff")}>Manage Staff</Button>
+            <Link to={`/recruitment?create=club_recruiting&club_id=${club.id}`}><Button type="button" size="sm">Create Recruitment Post</Button></Link>
+            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("applicants")}>Review Applicants</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("lineup")}>Edit Lineup</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("staff")}>Manage Staff</Button>
           </div>
         </div>
       )}
@@ -298,10 +366,10 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
               {applicant.message && <p className="text-sm text-white/60 whitespace-pre-wrap line-clamp-3">{applicant.message}</p>}
               <div className="flex gap-2 flex-wrap">
                 {applicant.player_id && <Link to={`/players/${applicant.player_id}`}><Button size="sm" variant="outline" className="text-xs">View Profile</Button></Link>}
-                <Button size="sm" variant="outline" disabled={busy === `review:${applicant.id}`} onClick={() => applicantAction(applicant, "review")} className="text-xs">Mark Reviewed</Button>
-                <Button size="sm" disabled={busy === `offer-trial:${applicant.id}`} onClick={() => applicantAction(applicant, "offer-trial")} className="text-xs">Offer Trial</Button>
-                <Button size="sm" variant="outline" onClick={() => setOfferApplicant(applicant)} className="text-xs">Offer Contract</Button>
-                <Button size="sm" variant="outline" disabled={busy === `decline:${applicant.id}`} onClick={() => applicantAction(applicant, "decline")} className="text-xs border-destructive/30 text-destructive">Decline</Button>
+                <Button type="button" size="sm" variant="outline" disabled={busy === `review:${applicant.id}`} onClick={() => applicantAction(applicant, "review")} className="text-xs">Mark Reviewed</Button>
+                <Button type="button" size="sm" disabled={busy === `offer-trial:${applicant.id}`} onClick={() => applicantAction(applicant, "offer-trial")} className="text-xs">Offer Trial</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setOfferApplicant(applicant)} className="text-xs">Offer Contract</Button>
+                <Button type="button" size="sm" variant="outline" disabled={busy === `decline:${applicant.id}`} onClick={() => applicantAction(applicant, "decline")} className="text-xs border-destructive/30 text-destructive">Decline</Button>
               </div>
             </div>
           ))}
@@ -318,7 +386,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
             <select value={selectedStaffRole} onChange={(e) => setSelectedStaffRole(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
               {STAFF_ROLES.map((role) => <option key={role} value={role}>{sourceLabel(role)}</option>)}
             </select>
-            <Button onClick={assignStaffRole} disabled={busy === "staff" || !selectedStaffPlayer}>{busy === "staff" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assign"}</Button>
+            <Button type="button" onClick={assignStaffRole} disabled={busy === "staff" || !selectedStaffPlayer}>{busy === "staff" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assign"}</Button>
           </div>
           {staffRoles.map((role) => {
             const permissions = normalizeList(role.permissions);
@@ -329,7 +397,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
                     <p className="font-bold text-white">{role.player_gamertag || role.player_email}</p>
                     <p className="text-xs text-white/45 capitalize">{sourceLabel(role.role)}</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => removeStaffRole(role)} className="text-xs border-destructive/30 text-destructive">Remove</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={busy === `remove-staff:${role.id}`} onClick={() => removeStaffRole(role)} className="text-xs border-destructive/30 text-destructive">Remove</Button>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {PERMISSIONS.map((permission) => (
@@ -337,6 +405,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
                       <input
                         type="checkbox"
                         checked={permissions.includes(permission)}
+                        disabled={busy === `permissions:${role.id}`}
                         onChange={(e) => {
                           const next = e.target.checked
                             ? [...permissions, permission]
@@ -370,7 +439,17 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {AVAILABILITY.map((status) => (
-                    <Button key={status} size="sm" variant="outline" onClick={() => setMyAvailability(fixture, status)} className="text-xs capitalize">{status}</Button>
+                    <Button
+                      key={status}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === `availability:${fixture.id}:${status}`}
+                      onClick={() => setMyAvailability(fixture, status)}
+                      className="text-xs capitalize"
+                    >
+                      {busy === `availability:${fixture.id}:${status}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : status}
+                    </Button>
                   ))}
                 </div>
                 <div className="grid sm:grid-cols-2 gap-2">
@@ -388,32 +467,43 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
       {activeSection === "lineup" && (
         <div className="space-y-3">
-          <div className="grid md:grid-cols-2 gap-2">
-            <select value={lineupFixtureId} onChange={(e) => setLineupFixtureId(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
-              {upcomingFixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixtureLabel(fixture, club.id)}</option>)}
-            </select>
-            <select value={lineupForm.formation} onChange={(e) => setLineupForm((prev) => ({ ...prev, formation: e.target.value }))} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
-              {FORMATIONS.map((formation) => <option key={formation} value={formation}>{formation}</option>)}
-            </select>
-          </div>
-          <div className="grid md:grid-cols-2 gap-3">
-            <LineupPickList title="Starting XI" players={players} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
-            <LineupPickList title="Bench" players={players} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
-          </div>
-          <select value={lineupForm.captain_player_id} onChange={(e) => setLineupForm((prev) => ({ ...prev, captain_player_id: e.target.value }))} className="w-full rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
-            <option value="">Select match captain</option>
-            {players.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
-          </select>
-          <Textarea value={lineupForm.notes} onChange={(e) => setLineupForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Lineup notes..." className="bg-white/5 border-white/10" />
-          <div className="flex gap-2">
-            <Button onClick={() => saveLineup("draft")} className="gap-1.5"><FileText className="w-4 h-4" /> Save Draft</Button>
-            <Button variant="outline" onClick={() => saveLineup("published")}>Publish</Button>
-          </div>
+          {upcomingFixtures.length === 0 ? <Empty label="No upcoming fixtures to plan a lineup for." /> : (
+            <>
+              <div className="grid md:grid-cols-2 gap-2">
+                <select value={lineupFixtureId} onChange={(e) => setLineupFixtureId(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+                  {upcomingFixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixtureLabel(fixture, club.id)}</option>)}
+                </select>
+                <select value={lineupForm.formation} onChange={(e) => setLineupForm((prev) => ({ ...prev, formation: e.target.value }))} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+                  {FORMATIONS.map((formation) => <option key={formation} value={formation}>{formation}</option>)}
+                </select>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <LineupPickList title="Starting XI" players={players} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
+                <LineupPickList title="Bench" players={players} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
+              </div>
+              <select value={lineupForm.captain_player_id} onChange={(e) => setLineupForm((prev) => ({ ...prev, captain_player_id: e.target.value }))} className="w-full rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+                <option value="">Select match captain</option>
+                {players.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
+              </select>
+              <Textarea value={lineupForm.notes} onChange={(e) => setLineupForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Lineup notes..." className="bg-white/5 border-white/10" />
+              <div className="flex gap-2">
+                <Button type="button" disabled={busy === "lineup:draft"} onClick={() => saveLineup("draft")} className="gap-1.5">
+                  {busy === "lineup:draft" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Save Draft
+                </Button>
+                <Button type="button" variant="outline" disabled={busy === "lineup:published"} onClick={() => saveLineup("published")}>
+                  {busy === "lineup:published" ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Publish
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {activeSection === "audit" && (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="outline" onClick={load} className="text-xs">Refresh Audit</Button>
+          </div>
           {auditLogs.length === 0 ? <Empty label="No operations history yet." /> : auditLogs.map((log) => (
             <div key={log.id} className="rounded border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
               <p className="text-white capitalize">{sourceLabel(log.action)}</p>

@@ -8,21 +8,6 @@ const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PAGE_SIZE = 15;
 
-function ratingStyle(r) {
-  if (r >= 90) return { cls: "text-yellow-300", shadow: "0 0 18px rgba(253,224,71,0.7)" };
-  if (r >= 85) return { cls: "text-yellow-400", shadow: "0 0 14px rgba(234,179,8,0.5)" };
-  if (r >= 80) return { cls: "text-slate-200",  shadow: "0 0 10px rgba(226,232,240,0.4)" };
-  if (r >= 75) return { cls: "text-amber-500",  shadow: "0 0 8px rgba(245,158,11,0.3)"  };
-  return { cls: "text-[hsl(189,100%,52%)]", shadow: "0 0 8px hsl(189 100% 52% / 0.4)" };
-}
-
-function rankBadge(rank) {
-  if (rank === 1) return "bg-yellow-400 text-black shadow-[0_0_16px_rgba(234,179,8,0.7)] font-black";
-  if (rank === 2) return "bg-slate-300 text-black shadow-[0_0_10px_rgba(203,213,225,0.5)] font-black";
-  if (rank === 3) return "bg-amber-600 text-white shadow-[0_0_10px_rgba(217,119,6,0.5)] font-black";
-  return "bg-white/8 text-white/50 font-semibold";
-}
-
 export default function Players() {
   const [players, setPlayers]   = useState([]);
   const [clubs,   setClubs]     = useState({});
@@ -35,7 +20,7 @@ export default function Players() {
   useEffect(() => {
     async function load() {
       const [data, clubData] = await Promise.all([
-        stageClient.entities.Player.list("-overall_rating", 500),
+        stageClient.entities.Player.list(null, 500),
         stageClient.entities.Club.list(),
       ]);
       setPlayers(data);
@@ -52,7 +37,7 @@ export default function Players() {
     const matchPlatform = platform === "All Platforms" || p.platform === platform;
     const matchPosition = position === "All Positions" || p.position === position || p.secondary_position === position;
     return matchSearch && matchPlatform && matchPosition;
-  });
+  }).sort((a, b) => (a.gamertag || "").localeCompare(b.gamertag || ""));
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -107,29 +92,14 @@ export default function Players() {
       ) : (
         <>
           {/* Column labels */}
-          <div className="hidden sm:grid grid-cols-[2.5rem_2.5rem_3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
-            <span />
-            <span className="text-white/25 text-[9px] uppercase tracking-widest text-center">#</span>
-            <span />
+          <div className="hidden sm:grid grid-cols-[3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">Avatar</span>
             <span className="text-white/25 text-[9px] uppercase tracking-widest">Player</span>
-            <div className="flex items-center gap-8 pr-1">
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-8 text-center">GLS</span>
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-8 text-center">AST</span>
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-16 text-center">W/D/L</span>
-              <span className="text-white/25 text-[9px] uppercase tracking-widest w-10 text-center">WR%</span>
-            </div>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">Profile</span>
           </div>
 
           <div className="space-y-2">
             {paginated.map((player, i) => {
-              const globalRank = (page - 1) * PAGE_SIZE + i + 1;
-              const rating  = player.overall_rating || 70;
-              const rs      = ratingStyle(rating);
-              const wins    = player.wins_count || 0;
-              const losses  = player.losses_count || 0;
-              const draws   = player.draws_count || 0;
-              const matches = wins + losses + draws;
-              const wr      = matches > 0 ? Math.round((wins / matches) * 100) : 0;
               const club    = player.club_id ? clubs[player.club_id] : null;
 
               return (
@@ -162,23 +132,6 @@ export default function Players() {
 
                     {/* Content */}
                     <div className="relative z-10 flex items-center gap-4 px-5 py-4">
-
-                      {/* Rank badge */}
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs shrink-0", rankBadge(globalRank))}>
-                        {globalRank}
-                      </div>
-
-                      {/* OVR rating — EA FC style */}
-                      <div className="shrink-0 text-center w-10">
-                        <div
-                          className={cn("font-heading font-black text-2xl leading-none", rs.cls)}
-                          style={{ textShadow: rs.shadow }}
-                        >
-                          {rating}
-                        </div>
-                        <div className="text-white/30 text-[8px] uppercase tracking-widest mt-0.5">OVR</div>
-                      </div>
-
                       {/* Avatar */}
                       <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/15 shrink-0 bg-black/40 group-hover:border-white/30 transition-colors">
                         {player.avatar_url ? (
@@ -222,26 +175,8 @@ export default function Players() {
                         </div>
                       </div>
 
-                      {/* Stats — hidden on mobile */}
-                      <div className="hidden sm:flex items-center gap-6 shrink-0 pr-1">
-                        <div className="text-center w-8">
-                          <div className="text-white font-black text-base leading-none">{player.goals || 0}</div>
-                          <div className="text-white/25 text-[8px] uppercase tracking-widest mt-0.5">GLS</div>
-                        </div>
-                        <div className="text-center w-8">
-                          <div className="text-white font-black text-base leading-none">{player.assists || 0}</div>
-                          <div className="text-white/25 text-[8px] uppercase tracking-widest mt-0.5">AST</div>
-                        </div>
-                        <div className="text-center w-16">
-                          <div className="text-white/60 text-xs font-semibold">{wins}W {draws}D {losses}L</div>
-                          <div className="text-white/25 text-[8px] uppercase tracking-widest mt-0.5">Record</div>
-                        </div>
-                        <div className="text-center w-10">
-                          <div className={cn("font-black text-sm leading-none",
-                            wr >= 60 ? "text-emerald-400" : wr >= 40 ? "text-yellow-400" : "text-white/40"
-                          )}>{wr}%</div>
-                          <div className="text-white/25 text-[8px] uppercase tracking-widest mt-0.5">WR</div>
-                        </div>
+                      <div className="hidden sm:block shrink-0 text-xs font-bold uppercase tracking-wider text-white/35 group-hover:text-[hsl(189,100%,52%)]/80 transition-colors">
+                        View Profile
                       </div>
                     </div>
                   </div>
