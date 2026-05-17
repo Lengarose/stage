@@ -156,6 +156,7 @@ export default function Admin(props) {
   const [loadingStandings, setLoadingStandings]           = useState(false);
   const [selectedStandingsSeason, setSelectedStandingsSeason] = useState("");
   const [selectedStandingsLeague, setSelectedStandingsLeague] = useState("");
+  const [removingCompetitionClub, setRemovingCompetitionClub] = useState(null);
 
   // Result entry dialog
   const [resultDialog, setResultDialog]   = useState(null);
@@ -837,6 +838,104 @@ export default function Admin(props) {
     }
   }
 
+  function isFunctionMissingError(err, functionName) {
+    const message = String(err?.message || err?.error || "");
+    return err?.status === 404 || message.includes(`Function '${functionName}' not found`);
+  }
+
+  async function removeClubFromCompetitionLocally(panel, standing, reason) {
+    const isCompetition = panel.type === "competition";
+    const parentEntity = isCompetition ? base44.entities.CompetitionSeason : base44.entities.RegionalLeague;
+    const standingEntity = isCompetition ? base44.entities.CompetitionStanding : base44.entities.RegionalLeagueStanding;
+    const fixtureEntity = isCompetition ? base44.entities.CompetitionFixture : base44.entities.RegionalLeagueFixture;
+    const parentFilterKey = isCompetition ? "season_id" : "league_id";
+    const parentRows = isCompetition
+      ? compSeasons.filter(s => s.id === panel.id)
+      : regionalLeagues.filter(l => l.id === panel.id);
+    const parent = parentRows[0] || await parentEntity.get(panel.id);
+    if (!parent) throw new Error(`${isCompetition ? "Competition season" : "Regional league"} not found.`);
+
+    if ((Number(standing.played) || 0) > 0) {
+      throw new Error("This club has already played in this league/competition. Remove or correct played results first.");
+    }
+
+    const fixtures = await (fixtureEntity?.filter({ [parentFilterKey]: panel.id }, null, 300) ?? Promise.resolve([]));
+    const clubFixtures = fixtures.filter(f => f.home_club_id === standing.club_id || f.away_club_id === standing.club_id);
+    const hasCompleted = clubFixtures.some(f => (
+      f.status === "completed" ||
+      f.stats_processed === true ||
+      String(f.stats_processed || "").toLowerCase() === "true"
+    ));
+    if (hasCompleted) {
+      throw new Error("This club has completed fixtures in this league/competition. Reverse those results before removing it.");
+    }
+
+    const registeredIds = Array.isArray(parent.registered_club_ids)
+      ? parent.registered_club_ids
+      : [];
+    const nextIds = registeredIds.filter(id => String(id) !== String(standing.club_id));
+    await Promise.all([
+      ...clubFixtures.map(f => fixtureEntity.delete(f.id)),
+      standingEntity.delete(standing.id),
+      parentEntity.update(panel.id, {
+        registered_club_ids: nextIds,
+        num_clubs: nextIds.length || Math.max(0, (Number(parent.num_clubs) || 0) - 1),
+      }),
+    ]);
+
+    if (!isCompetition && base44.entities.SeasonRegistration) {
+      const registrations = await base44.entities.SeasonRegistration.filter({ club_id: standing.club_id }, "-applied_at", 25).catch(() => []);
+      const assigned = registrations.filter(reg => reg.assigned_league_id === panel.id);
+      await Promise.all(assigned.map(reg => base44.entities.SeasonRegistration.update(reg.id, {
+        status: "removed",
+        admin_notes: reason,
+        reviewed_by: adminProfile?.email || "admin",
+        reviewed_at: new Date().toISOString(),
+      }).catch(() => null)));
+    }
+
+    return { success: true, fallback: true };
+  }
+
+  async function removeClubFromCompetition(standing) {
+    if (!standing?.club_id || !standingsPanel?.id) return;
+    const targetLabel = standingsPanel.type === "competition" ? "competition season" : "regional league";
+    const played = Number(standing.played || 0);
+    const warning = played > 0
+      ? `\n\n${standing.club_name} already has ${played} played match${played === 1 ? "" : "es"}. The backend will block removal until those results are corrected.`
+      : "";
+    const ok = await swalConfirm(
+      `Remove ${standing.club_name || "this club"} from this ${targetLabel}? This will delete their standing row and any unplayed fixtures in this ${targetLabel}.${warning}`
+    );
+    if (!ok) return;
+
+    const panel = standingsPanel;
+    const reason = `Removed from ${panel.name || targetLabel} in admin Leagues panel`;
+    setRemovingCompetitionClub(standing.id);
+    try {
+      try {
+        await stageClient.functions.invoke("adminRemoveClubFromCompetition", {
+          target_type: panel.type,
+          target_id: panel.id,
+          club_id: standing.club_id,
+          standing_id: standing.id,
+          reason,
+        });
+      } catch (err) {
+        if (!isFunctionMissingError(err, "adminRemoveClubFromCompetition")) throw err;
+        await removeClubFromCompetitionLocally(panel, standing, reason);
+      }
+      setStandingsList(prev => prev.filter(row => row.id !== standing.id));
+      await loadAll();
+      await loadStandingsForPanel(panel);
+      await swalAlert(`${standing.club_name || "Club"} removed from ${panel.name || targetLabel}.`);
+    } catch (err) {
+      await swalAlert(`Could not remove club: ${err?.message || err?.error || "Unknown error."}`);
+    } finally {
+      setRemovingCompetitionClub(null);
+    }
+  }
+
   async function processAdminResult() {
     if (!resultDialog) return;
     const { fixture, fixtureType } = resultDialog;
@@ -1400,6 +1499,8 @@ export default function Admin(props) {
               standingsPanel={standingsPanel}
               standingsList={standingsList}
               loadStandingsForPanel={loadStandingsForPanel}
+              removeClubFromCompetition={removeClubFromCompetition}
+              removingCompetitionClub={removingCompetitionClub}
               selectedStandingsLeague={selectedStandingsLeague}
               setSelectedStandingsLeague={setSelectedStandingsLeague}
               seedRegionalLeagues={seedRegionalLeagues}
