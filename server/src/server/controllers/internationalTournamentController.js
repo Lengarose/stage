@@ -3,8 +3,9 @@ const InternationalTournamentModel = require('../models/internationalTournamentM
 const { EXECUTESQL } = require('../db/database');
 const {
   canVoteForCandidate,
-  chooseElectionWinner,
+  getTopPlayersByPosition,
   normalizeCountryCode,
+  rankOwnerCandidates,
   validateSquadSelection,
 } = require('../services/nationalTeamRules');
 
@@ -82,6 +83,17 @@ function normalizeCountryList(countries = []) {
     .filter((country) => country.country_code);
 }
 
+function chooseOwnerElectionWinner(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return [...rows].sort((left, right) => {
+    const voteDelta = Number(right.vote_count || 0) - Number(left.vote_count || 0);
+    if (voteDelta !== 0) return voteDelta;
+    const rankingDelta = Number(right.club_ranking_points || 0) - Number(left.club_ranking_points || 0);
+    if (rankingDelta !== 0) return rankingDelta;
+    return String(left.club_name || '').localeCompare(String(right.club_name || ''));
+  })[0];
+}
+
 router.get('/', async (req, res) => {
   try {
     const rows = await model.listTournaments(req.query.limit || 100);
@@ -108,10 +120,42 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.patch('/:id', async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+    if (!req.body?.name) return res.status(400).json({ error: 'name is required', code: 'missing_name' });
+    if (!req.body?.tournament_type) return res.status(400).json({ error: 'tournament_type is required', code: 'missing_tournament_type' });
+    const rows = await model.updateTournament(req.params.id, req.body, admin, {
+      admin,
+      action: 'update_international_tournament',
+      entityType: 'international_tournament',
+      entityId: req.params.id,
+    });
+    if (!rows.length) return res.status(404).json({ error: 'Tournament not found', code: 'not_found' });
+    res.json(rows[0]);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 router.get('/:id/elections', async (req, res) => {
   try {
     const elections = await model.listElections(req.params.id);
     res.json(elections);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.get('/:id/elections/:electionId/owner-candidates', async (req, res) => {
+  try {
+    const election = (await model.getElection(req.params.electionId))[0];
+    if (!election || election.international_tournament_id !== req.params.id) {
+      return res.status(404).json({ error: 'Election not found', code: 'not_found' });
+    }
+    const rows = await model.listOwnerCandidates(election.country_code);
+    res.json(rankOwnerCandidates(rows, election.country_code));
   } catch (err) {
     sendError(res, err);
   }
@@ -147,13 +191,26 @@ router.post('/elections/:electionId/vote', async (req, res) => {
   try {
     const election = (await model.getElection(req.params.electionId))[0];
     if (!election) return res.status(404).json({ error: 'Election not found', code: 'not_found' });
-    const voter = (await model.getPlayerForUser(req.user))[0];
-    const candidate = (await model.getPlayer(req.body?.candidate_player_id))[0];
-    const validation = canVoteForCandidate({ voter, candidate, election });
+    const voterOwner = (await model.getOwnerForUser(req.user))[0];
+    if (!voterOwner) return res.status(403).json({ error: 'owner_required', code: 'owner_required' });
+    if (normalizeCountryCode(voterOwner.country_code) !== normalizeCountryCode(election.country_code)) {
+      return res.status(403).json({ error: 'owner_country_mismatch', code: 'owner_country_mismatch' });
+    }
+
+    const candidate = (await model.getOwnerCandidate(election.country_code, req.body?.candidate_owner_club_id || req.body?.candidate_player_id))[0];
+    const topCandidates = rankOwnerCandidates(await model.listOwnerCandidates(election.country_code), election.country_code);
+    const candidateAllowed = topCandidates.some((row) => row.owner_club_id === candidate?.owner_club_id);
+    if (!candidate || !candidateAllowed) return res.status(400).json({ error: 'candidate_not_eligible', code: 'candidate_not_eligible' });
+
+    const validation = canVoteForCandidate({
+      voter: { id: voterOwner.owner_club_id, country_code: voterOwner.country_code, created_date: '2000-01-01T00:00:00Z' },
+      candidate: { id: `candidate:${candidate.owner_club_id}`, country_code: candidate.country_code },
+      election,
+    });
     if (!validation.ok) return res.status(400).json({ error: validation.reason, code: validation.reason });
-    const existing = await model.findVote(election.id, voter.id);
+    const existing = await model.findOwnerVote(election.id, voterOwner.owner_club_id);
     if (existing.length) return res.status(409).json({ error: 'duplicate_vote', code: 'duplicate_vote' });
-    const vote = (await model.createVote({ election, voter, candidate }))[0];
+    const vote = (await model.createOwnerVote({ election, voterOwner, candidateOwner: candidate }))[0];
     res.status(201).json(vote);
   } catch (err) {
     sendError(res, err);
@@ -169,8 +226,8 @@ router.post('/:id/close-voting', async (req, res) => {
     const elections = await model.listElections(req.params.id);
     const winnerByElectionId = new Map();
     for (const election of elections) {
-      const totals = await model.voteTotals(election.id);
-      winnerByElectionId.set(election.id, chooseElectionWinner(totals));
+      const totals = await model.ownerVoteTotals(election.id);
+      winnerByElectionId.set(election.id, chooseOwnerElectionWinner(totals));
     }
     await model.closeElections(req.params.id, elections, winnerByElectionId, {
       admin,
@@ -191,7 +248,7 @@ router.get('/:id/eligible-players', async (req, res) => {
     const countryCode = normalizeCountryCode(req.query.country_code);
     if (!countryCode) return res.status(400).json({ error: 'country_code is required', code: 'missing_country_code' });
     const rows = await model.listEligiblePlayers(req.params.id, countryCode);
-    res.json(rows);
+    res.json(getTopPlayersByPosition(rows, 3));
   } catch (err) {
     sendError(res, err);
   }
@@ -221,10 +278,11 @@ router.post('/:id/squads', async (req, res) => {
     if (!selection.ok) return res.status(400).json({ error: selection.reason, code: selection.reason });
 
     const submitter = (await model.getPlayerForUser(req.user))[0];
-    const rep = (await model.getRepresentative(req.params.id, countryCode, submitter?.id))[0];
+    const submitterOwner = (await model.getOwnerForUser(req.user))[0];
+    const rep = (await model.getRepresentativeForOwner(req.params.id, countryCode, submitterOwner?.owner_user_id || req.user?.id, submitterOwner?.owner_club_id))[0];
     if (!rep) return res.status(403).json({ error: 'representative_required', code: 'representative_required' });
 
-    const eligiblePlayers = await model.listEligiblePlayers(req.params.id, countryCode);
+    const eligiblePlayers = getTopPlayersByPosition(await model.listEligiblePlayers(req.params.id, countryCode), 3);
     const byId = new Map(eligiblePlayers.map((player) => [player.id, player]));
     const selectedPlayers = selection.playerIds.map((id) => byId.get(id));
     if (selectedPlayers.some((player) => !player)) {
@@ -235,7 +293,8 @@ router.post('/:id/squads', async (req, res) => {
       tournamentId: req.params.id,
       countryCode,
       representativeId: rep.id,
-      submitterPlayerId: submitter.id,
+      submitterPlayerId: submitter?.id || null,
+      submitterOwnerUserId: submitterOwner?.owner_user_id || req.user?.id || null,
       players: selectedPlayers,
     }))[0];
     const players = await model.listSquadPlayers(squad.id);

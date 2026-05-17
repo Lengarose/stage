@@ -47,22 +47,24 @@ class StcTransaction {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO stc_transactions
-      (id, player_id, player_email, club_id, amount, type, description, reference_id)
-      VALUES (?,?,?,?,?,?,?,?)`;
+      (id, player_id, player_email, club_id, amount, balance_after, type, category, description, reference_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.player_id, this.player_email, this.club_id,
-      this.amount, this.type, this.description, this.reference_id,
+      this.amount, this.balance_after, this.type, this.category,
+      this.description, this.reference_id,
     ];
     return EXECUTESQL(sql, values);
   }
 
   update(id) {
     const sql = `UPDATE stc_transactions SET
-      player_id=?, player_email=?, club_id=?, amount=?, type=?, description=?, reference_id=?
+      player_id=?, player_email=?, club_id=?, amount=?, balance_after=?, type=?, category=?, description=?, reference_id=?
       WHERE id=?`;
     const values = [
       this.player_id, this.player_email, this.club_id,
-      this.amount, this.type, this.description, this.reference_id,
+      this.amount, this.balance_after, this.type, this.category,
+      this.description, this.reference_id,
       id,
     ];
     return EXECUTESQL(sql, values);

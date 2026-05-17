@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const viteEnv = /** @type {any} */ (import.meta).env;
-const rawSocketUrl = (viteEnv && viteEnv.VITE_SOCKET_URL) || '';
+const rawSocketUrl = 'https://stage-7osn.onrender.com';
 let SOCKET_URL = rawSocketUrl || window.location.origin;
 try {
   const parsed = rawSocketUrl ? new URL(rawSocketUrl, window.location.origin) : null;
@@ -16,7 +16,7 @@ try {
 } catch {
   SOCKET_URL = window.location.origin;
 }
-const ACCESS_KEY = 'stage_access_token';
+const ACCESS_KEY = 'e11c51e0d9b810e4a6765904a144361248d4976b';
 
 // ── Channel constants (mirrors server/src/constants/constants.js) ──────────────
 export const CHANNELS = {

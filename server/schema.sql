@@ -79,6 +79,16 @@ CREATE TABLE IF NOT EXISTS players (
   club_id               VARCHAR(36),
   notification_settings JSON,
   club_roles            JSON,
+  market_value_stc      BIGINT       DEFAULT 250000,
+  matches_played        INT          DEFAULT 0,
+  avg_match_rating      DECIMAL(4,2) DEFAULT 0,
+  wins_count            INT          DEFAULT 0,
+  man_of_the_match      INT          DEFAULT 0,
+  clean_sheets          INT          DEFAULT 0,
+  form_last10           TEXT         NULL,
+  value_updated_at      DATETIME     NULL,
+  archetype             VARCHAR(64)  NULL,
+  sacrificed_at         DATETIME     NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -196,6 +206,12 @@ CREATE TABLE IF NOT EXISTS matches (
   -- origin (which league fixture / cup tie / friendly produced this match)
   source_fixture_id      VARCHAR(36),
   source_fixture_type    VARCHAR(50),
+  -- ticket revenue (populated by stadium engine after match completion)
+  home_ticket_revenue    DECIMAL(12,2) NULL,
+  home_ticket_attendance INT          NULL,
+  home_ticket_capacity   INT          NULL,
+  home_ticket_price      DECIMAL(8,2) NULL,
+  home_ticket_pct        DECIMAL(5,2) NULL,
   created_date           DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date           DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -227,6 +243,7 @@ CREATE TABLE IF NOT EXISTS international_tournaments (
   squad_locks_at      DATETIME     NULL,
   starts_at           DATETIME     NULL,
   max_squad_size      INT          NOT NULL DEFAULT 26,
+  max_teams           INT          NOT NULL DEFAULT 32,
   matchday_squad_size INT          NOT NULL DEFAULT 18,
   starters_size       INT          NOT NULL DEFAULT 11,
   bench_size          INT          NOT NULL DEFAULT 7,
@@ -249,6 +266,8 @@ CREATE TABLE IF NOT EXISTS national_team_elections (
   voting_opens_at             DATETIME NULL,
   voting_closes_at            DATETIME NULL,
   winner_player_id            VARCHAR(36) NULL,
+  winner_owner_user_id        VARCHAR(36) NULL,
+  winner_owner_club_id        VARCHAR(36) NULL,
   winner_vote_count           INT DEFAULT 0,
   created_date                DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date                DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -264,6 +283,9 @@ CREATE TABLE IF NOT EXISTS national_team_votes (
   country_code         VARCHAR(10) NOT NULL,
   voter_player_id      VARCHAR(36) NOT NULL,
   candidate_player_id  VARCHAR(36) NOT NULL,
+  voter_owner_club_id  VARCHAR(36) NULL,
+  candidate_owner_club_id VARCHAR(36) NULL,
+  candidate_owner_user_id VARCHAR(36) NULL,
   created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_ntv_election_voter (election_id, voter_player_id),
   INDEX idx_ntv_election_candidate (election_id, candidate_player_id),
@@ -276,6 +298,8 @@ CREATE TABLE IF NOT EXISTS national_team_representatives (
   election_id          VARCHAR(36) NOT NULL,
   country_code         VARCHAR(10) NOT NULL,
   player_id            VARCHAR(36) NOT NULL,
+  owner_user_id         VARCHAR(36) NULL,
+  owner_club_id         VARCHAR(36) NULL,
   vote_count           INT DEFAULT 0,
   status               VARCHAR(40) DEFAULT 'active',
   created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -292,6 +316,7 @@ CREATE TABLE IF NOT EXISTS national_team_squads (
   status                  VARCHAR(40) DEFAULT 'draft',
   locked_at               DATETIME NULL,
   submitted_by_player_id  VARCHAR(36) NULL,
+  submitted_by_owner_user_id VARCHAR(36) NULL,
   created_date            DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date            DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_nts_tournament_country (tournament_id, country_code),
@@ -489,13 +514,17 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 -- ── stc_transactions ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stc_transactions (
-  id           VARCHAR(36)   PRIMARY KEY,
-  club_id      VARCHAR(36)   NULL,
-  amount       DECIMAL(12,2) NOT NULL,
-  type         VARCHAR(100),
-  description  TEXT,
-  reference_id VARCHAR(36),
-  created_date DATETIME      DEFAULT CURRENT_TIMESTAMP
+  id            VARCHAR(36)   PRIMARY KEY,
+  player_id     VARCHAR(36)   NULL,
+  player_email  VARCHAR(255)  NULL,
+  club_id       VARCHAR(36)   NULL,
+  amount        DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2) NULL,
+  type          VARCHAR(100),
+  category      VARCHAR(100)  NULL,
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── shirt_sales ───────────────────────────────────────────────
