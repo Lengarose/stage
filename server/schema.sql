@@ -195,6 +195,103 @@ CREATE TABLE IF NOT EXISTS tournaments (
   updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS international_tournaments (
+  id                  VARCHAR(36) PRIMARY KEY,
+  name                VARCHAR(200) NOT NULL,
+  tournament_type     VARCHAR(50)  NOT NULL,
+  region              VARCHAR(100) NULL,
+  status              VARCHAR(40)  NOT NULL DEFAULT 'draft',
+  voting_opens_at     DATETIME     NULL,
+  voting_closes_at    DATETIME     NULL,
+  squad_locks_at      DATETIME     NULL,
+  starts_at           DATETIME     NULL,
+  max_squad_size      INT          NOT NULL DEFAULT 26,
+  matchday_squad_size INT          NOT NULL DEFAULT 18,
+  starters_size       INT          NOT NULL DEFAULT 11,
+  bench_size          INT          NOT NULL DEFAULT 7,
+  eligible_countries  JSON         NULL,
+  created_by_user_id  VARCHAR(36)  NULL,
+  created_by_email    VARCHAR(255) NULL,
+  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_it_status (status),
+  INDEX idx_it_type_region (tournament_type, region),
+  INDEX idx_it_dates (voting_opens_at, voting_closes_at, starts_at)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_elections (
+  id                          VARCHAR(36) PRIMARY KEY,
+  international_tournament_id VARCHAR(36) NOT NULL,
+  country_code                VARCHAR(10) NOT NULL,
+  country_name                VARCHAR(100) NULL,
+  status                      VARCHAR(40) NOT NULL DEFAULT 'draft',
+  voting_opens_at             DATETIME NULL,
+  voting_closes_at            DATETIME NULL,
+  winner_player_id            VARCHAR(36) NULL,
+  winner_vote_count           INT DEFAULT 0,
+  created_date                DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date                DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_nte_tournament_country (international_tournament_id, country_code),
+  INDEX idx_nte_tournament (international_tournament_id),
+  INDEX idx_nte_country_status (country_code, status)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_votes (
+  id                  VARCHAR(36) PRIMARY KEY,
+  election_id          VARCHAR(36) NOT NULL,
+  tournament_id        VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  voter_player_id      VARCHAR(36) NOT NULL,
+  candidate_player_id  VARCHAR(36) NOT NULL,
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntv_election_voter (election_id, voter_player_id),
+  INDEX idx_ntv_election_candidate (election_id, candidate_player_id),
+  INDEX idx_ntv_tournament_country (tournament_id, country_code)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_representatives (
+  id                  VARCHAR(36) PRIMARY KEY,
+  tournament_id        VARCHAR(36) NOT NULL,
+  election_id          VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  player_id            VARCHAR(36) NOT NULL,
+  vote_count           INT DEFAULT 0,
+  status               VARCHAR(40) DEFAULT 'active',
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntr_tournament_country (tournament_id, country_code),
+  INDEX idx_ntr_player (player_id),
+  INDEX idx_ntr_election (election_id)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_squads (
+  id                     VARCHAR(36) PRIMARY KEY,
+  tournament_id           VARCHAR(36) NOT NULL,
+  country_code            VARCHAR(10) NOT NULL,
+  representative_id       VARCHAR(36) NULL,
+  status                  VARCHAR(40) DEFAULT 'draft',
+  locked_at               DATETIME NULL,
+  submitted_by_player_id  VARCHAR(36) NULL,
+  created_date            DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date            DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_nts_tournament_country (tournament_id, country_code),
+  INDEX idx_nts_rep (representative_id),
+  INDEX idx_nts_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_squad_players (
+  id                  VARCHAR(36) PRIMARY KEY,
+  squad_id             VARCHAR(36) NOT NULL,
+  tournament_id        VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  player_id            VARCHAR(36) NOT NULL,
+  position             VARCHAR(50) NULL,
+  overall_rating       DECIMAL(4,1) DEFAULT 0,
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntsp_squad_player (squad_id, player_id),
+  INDEX idx_ntsp_tournament_country (tournament_id, country_code),
+  INDEX idx_ntsp_player (player_id)
+);
+
 -- ── posts ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS posts (
   id                  VARCHAR(36)  PRIMARY KEY,
