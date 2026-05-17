@@ -23,6 +23,7 @@ import Clubs from './pages/Clubs';
 import ClubDetail from './pages/ClubDetail';
 import Tournaments from './pages/Tournaments';
 import TournamentDetail from './pages/TournamentDetail';
+import InternationalTournaments from './pages/InternationalTournaments';
 import Rankings from './pages/Rankings';
 import Profile from './pages/Profile';
 import Social from './pages/Social';
@@ -44,6 +45,7 @@ import AdminClubsPage from './pages/admin/AdminClubsPage';
 import AdminRankingsPage from './pages/admin/AdminRankingsPage';
 import AdminLeaguesPage from './pages/admin/AdminLeaguesPage';
 import AdminTournamentsPage from './pages/admin/AdminTournamentsPage';
+import AdminInternationalTournamentsPage from './pages/admin/AdminInternationalTournamentsPage';
 import AdminTrophiesPage from './pages/admin/AdminTrophiesPage';
 import AdminRewardsPage from './pages/admin/AdminRewardsPage';
 import AdminNewsPage from './pages/admin/AdminNewsPage';
@@ -194,6 +196,7 @@ const AuthenticatedApp = () => {
         <Route path="/clubs/:id" element={<ClubDetail />} />
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetail />} />
+        <Route path="/international" element={<InternationalTournaments />} />
         <Route path="/rankings" element={<Rankings />} />
         <Route path="/social" element={<Social />} />
         <Route path="/community" element={<Community />} />
@@ -217,6 +220,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/rankings" element={<AdminRankingsPage />} />
         <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
         <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />
+        <Route path="/admin/international-tournaments" element={<AdminInternationalTournamentsPage />} />
         <Route path="/admin/trophies" element={<AdminTrophiesPage />} />
         <Route path="/admin/rewards" element={<AdminRewardsPage />} />
         <Route path="/admin/news" element={<AdminNewsPage />} />

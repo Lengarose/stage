@@ -4,7 +4,7 @@ import {
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
-  AlertTriangle, Flag, MessagesSquare,
+  AlertTriangle, Flag, MessagesSquare, Globe2,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -82,6 +82,7 @@ function getPlayerGroups(_clubPath) {
         { path: "/game-day",        icon: Zap,       label: "Game Day" },
         { path: "/competitions",    icon: Star,      label: "Competitions" },
         { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/international",   icon: Globe2,    label: "International" },
         { path: "/register-league", icon: Shield,    label: "Register" },
         { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
@@ -145,6 +146,7 @@ function getOwnerGroups(clubPath) {
       items: [
         { path: "/competitions",    icon: Star,      label: "Competitions" },
         { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
+        { path: "/international",   icon: Globe2,    label: "International" },
         { path: "/register-league", icon: Shield,    label: "Register" },
         { path: "/rankings",        icon: BarChart3, label: "Rankings" },
       ],
@@ -174,6 +176,7 @@ function getAdminGroups() {
         { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
         { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
         { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
+        { path: "/admin/international-tournaments", icon: Globe2, label: "International" },
         { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
       ],
     },
@@ -480,6 +483,7 @@ const MOBILE_MORE_GROUPS = [
     items: [
       { path: "/game-day",        icon: Zap,           label: "Game Day"      },
       { path: "/tournaments",     icon: Trophy,        label: "Tournaments"   },
+      { path: "/international",   icon: Globe2,        label: "International" },
       { path: "/register-league", icon: Shield,        label: "Register"      },
       { path: "/rankings",        icon: BarChart3,     label: "Rankings"      },
     ],

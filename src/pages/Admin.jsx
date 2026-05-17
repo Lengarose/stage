@@ -10,6 +10,7 @@ import ClubsTab from "@/components/admin/sections/ClubsTab";
 import RankingsTab from "@/components/admin/sections/RankingsTab";
 import LeaguesTab from "@/components/admin/sections/LeaguesTab";
 import TournamentsTab from "@/components/admin/sections/TournamentsTab";
+import InternationalTournamentsTab from "@/components/admin/sections/InternationalTournamentsTab";
 import NewsTab from "@/components/admin/sections/NewsTab";
 import PressConferencesTab from "@/components/admin/sections/PressConferencesTab";
 import LifestylesTab from "@/components/admin/sections/LifestylesTab";
@@ -22,6 +23,7 @@ import HomeTab from "@/components/admin/sections/HomeTab";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
 import { base44 } from "@/api/base44Client";
 import { stageClient } from "@/api/stageClient";
+import { internationalTournamentsApi } from "@/api/internationalTournaments";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -61,6 +63,10 @@ export default function Admin(props) {
   const [recruitmentPosts, setRecruitmentPosts] = useState([]);
   const [clubs, setClubs] = useState([]);
   const [tournaments, setTournaments] = useState([]);
+  const [internationalTournaments, setInternationalTournaments] = useState([]);
+  const [internationalElections, setInternationalElections] = useState({});
+  const [internationalSquads, setInternationalSquads] = useState({});
+  const [savingInternationalTournament, setSavingInternationalTournament] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
   const [tournamentSearch, setTournamentSearch] = useState("");
@@ -229,6 +235,7 @@ export default function Admin(props) {
       setRegApplications(allRegApps);
       setPressConferences(allPressConferences);
       setLifestyleItems(allLifestyleItems);
+      await loadInternationalTournaments();
       setExpiredFixtures([
         ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
         ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
@@ -247,6 +254,72 @@ export default function Admin(props) {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadInternationalTournaments() {
+    const rows = await internationalTournamentsApi.list(100).catch(() => []);
+    setInternationalTournaments(rows);
+    const pairs = await Promise.all(rows.map(async (row) => [
+      row.id,
+      await internationalTournamentsApi.elections(row.id).catch(() => []),
+    ]));
+    const electionsByTournament = Object.fromEntries(pairs);
+    setInternationalElections(electionsByTournament);
+    const squadPairs = await Promise.all(pairs.flatMap(([tournamentId, elections]) => (
+      elections
+        .filter((election) => election.country_code)
+        .map(async (election) => {
+          const countryCode = String(election.country_code).toUpperCase();
+          const squad = await internationalTournamentsApi.squad(tournamentId, countryCode).catch(() => ({ squad: null, players: [] }));
+          return [`${tournamentId}:${countryCode}`, squad];
+        })
+    )));
+    setInternationalSquads(Object.fromEntries(squadPairs));
+  }
+
+  async function createInternationalTournament(form) {
+    setSavingInternationalTournament(true);
+    try {
+      await internationalTournamentsApi.create(form);
+      await loadInternationalTournaments();
+      await swalAlert("International tournament created.");
+      return true;
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not create international tournament.");
+      return false;
+    } finally {
+      setSavingInternationalTournament(false);
+    }
+  }
+
+  async function openInternationalVoting(id) {
+    try {
+      await internationalTournamentsApi.openVoting(id);
+      await loadInternationalTournaments();
+      await swalAlert("Voting opened for eligible countries.");
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not open voting.");
+    }
+  }
+
+  async function closeInternationalVoting(id) {
+    try {
+      await internationalTournamentsApi.closeVoting(id);
+      await loadInternationalTournaments();
+      await swalAlert("Voting closed and representatives elected.");
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not close voting.");
+    }
+  }
+
+  async function lockInternationalSquad(tournamentId, squadId) {
+    try {
+      await internationalTournamentsApi.lockSquad(tournamentId, squadId);
+      await loadInternationalTournaments();
+      await swalAlert("National squad locked.");
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not lock squad.");
     }
   }
 
@@ -1356,6 +1429,19 @@ export default function Admin(props) {
               setTournamentSearch={setTournamentSearch}
               tournaments={tournaments}
               cancelTournament={cancelTournament}
+            />
+          )}
+
+          {adminTab === "international-tournaments" && (
+            <InternationalTournamentsTab
+              tournaments={internationalTournaments}
+              electionsByTournament={internationalElections}
+              squadsByTournament={internationalSquads}
+              onCreate={createInternationalTournament}
+              onOpenVoting={openInternationalVoting}
+              onCloseVoting={closeInternationalVoting}
+              onLockSquad={lockInternationalSquad}
+              saving={savingInternationalTournament}
             />
           )}
 
