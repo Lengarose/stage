@@ -57,13 +57,18 @@ export default function Onboarding({ onComplete }) {
         if (players[0]) {
           setPlayer(players[0]);
         }
+        // Already onboarded — don't show role chooser after localStorage was cleared
+        if (u.player_id || players[0]?.id) {
+          onComplete?.();
+          return;
+        }
       } catch (err) {
         console.error("Failed to load user:", err);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [onComplete]);
 
   const handlePlayerComplete = async (optimisticPlayer = null) => {
     try {

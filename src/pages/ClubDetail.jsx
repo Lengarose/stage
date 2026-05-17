@@ -433,8 +433,8 @@ export default function ClubDetail() {
   async function loadHistory() {
     if (historyLoaded) return;
     const [compRows, leagueRows] = await Promise.all([
-      (base44.entities.CompetitionStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
-      (base44.entities.RegionalLeagueStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
+      (stageClient.entities.CompetitionStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
+      (stageClient.entities.RegionalLeagueStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
     ]);
     const comp = compRows.map(r => ({
       type: "competition",

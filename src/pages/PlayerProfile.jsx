@@ -212,7 +212,7 @@ export default function PlayerProfile() {
     const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
     let recipientEmail = player.email;
     if (!recipientEmail) {
-      try { const f = await base44.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
+      try { const f = await stageClient.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
     }
     const newContract = await stageClient.entities.PlayerContract.create({
       team_id: viewerClub.id, user_id: player.id,

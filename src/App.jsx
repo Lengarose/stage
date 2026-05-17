@@ -130,14 +130,31 @@ const AuthenticatedApp = () => {
   const [showLogin, setShowLogin] = React.useState(false);
   const location = useLocation();
 
+  const handleOnboardingComplete = React.useCallback(() => {
+    if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
+    setPlayerSetupComplete(true);
+  }, [user?.id]);
+
+  const hasCompletedOnboarding = React.useMemo(() => {
+    if (!user?.id) return false;
+    const userScopedKey = `stage_onboarding_completed_${user.id}`;
+    if (localStorage.getItem(userScopedKey) === '1') return true;
+    if (user.player_id) return true;
+    if (user.owner_id && !user.player_id) return true;
+    return false;
+  }, [user]);
+
   React.useEffect(() => {
     if (!user) return;
     if (isAppAdminUser(user)) ensureAdminPanelMode();
-    const userScopedKey = `stage_onboarding_completed_${user.id}`;
-    const userScopedDone = localStorage.getItem(userScopedKey) === '1';
-    const hasClubOnlySetup = Boolean(user.owner_id && !user.player_id);
-    setPlayerSetupComplete(userScopedDone || hasClubOnlySetup);
-  }, [user]);
+    if (hasCompletedOnboarding) {
+      const userScopedKey = `stage_onboarding_completed_${user.id}`;
+      if (localStorage.getItem(userScopedKey) !== '1') {
+        localStorage.setItem(userScopedKey, '1');
+      }
+      setPlayerSetupComplete(true);
+    }
+  }, [user, hasCompletedOnboarding]);
 
   // Run automated contract maintenance once per session
   React.useEffect(() => {
@@ -181,11 +198,8 @@ const AuthenticatedApp = () => {
     return <Navigate to="/admin" replace />;
   }
 
-  if (!isAppAdminUser(user) && !playerSetupComplete) {
-    return <Onboarding onComplete={() => {
-      if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
-      setPlayerSetupComplete(true);
-    }} />;
+  if (!isAppAdminUser(user) && !playerSetupComplete && !hasCompletedOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   return (
