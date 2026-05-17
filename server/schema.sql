@@ -79,6 +79,16 @@ CREATE TABLE IF NOT EXISTS players (
   club_id               VARCHAR(36),
   notification_settings JSON,
   club_roles            JSON,
+  market_value_stc      BIGINT       DEFAULT 250000,
+  matches_played        INT          DEFAULT 0,
+  avg_match_rating      DECIMAL(4,2) DEFAULT 0,
+  wins_count            INT          DEFAULT 0,
+  man_of_the_match      INT          DEFAULT 0,
+  clean_sheets          INT          DEFAULT 0,
+  form_last10           TEXT         NULL,
+  value_updated_at      DATETIME     NULL,
+  archetype             VARCHAR(64)  NULL,
+  sacrificed_at         DATETIME     NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -196,6 +206,12 @@ CREATE TABLE IF NOT EXISTS matches (
   -- origin (which league fixture / cup tie / friendly produced this match)
   source_fixture_id      VARCHAR(36),
   source_fixture_type    VARCHAR(50),
+  -- ticket revenue (populated by stadium engine after match completion)
+  home_ticket_revenue    DECIMAL(12,2) NULL,
+  home_ticket_attendance INT          NULL,
+  home_ticket_capacity   INT          NULL,
+  home_ticket_price      DECIMAL(8,2) NULL,
+  home_ticket_pct        DECIMAL(5,2) NULL,
   created_date           DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date           DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -498,13 +514,17 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 -- ── stc_transactions ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stc_transactions (
-  id           VARCHAR(36)   PRIMARY KEY,
-  club_id      VARCHAR(36)   NULL,
-  amount       DECIMAL(12,2) NOT NULL,
-  type         VARCHAR(100),
-  description  TEXT,
-  reference_id VARCHAR(36),
-  created_date DATETIME      DEFAULT CURRENT_TIMESTAMP
+  id            VARCHAR(36)   PRIMARY KEY,
+  player_id     VARCHAR(36)   NULL,
+  player_email  VARCHAR(255)  NULL,
+  club_id       VARCHAR(36)   NULL,
+  amount        DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2) NULL,
+  type          VARCHAR(100),
+  category      VARCHAR(100)  NULL,
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── shirt_sales ───────────────────────────────────────────────
