@@ -174,6 +174,37 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: "rejected" } : c));
   }
 
+  async function cancelContractOffer(contract) {
+    if (!(await swalConfirm("Cancel this pending contract offer? The player will no longer be able to accept it."))) return;
+    try {
+      let updated;
+      try {
+        updated = await stageClient.http.post(`/player-contracts/${contract.id}/cancel`, {
+          reason: "Cancelled by club from contracts panel",
+        });
+      } catch (err) {
+        const isMissingCancelRoute = err?.status === 404 || String(err?.message || "").toLowerCase().includes("not found");
+        if (!isMissingCancelRoute) throw err;
+        updated = await stageClient.entities.PlayerContract.update(contract.id, {
+          status: "cancelled",
+          start_date: null,
+          end_date: null,
+        });
+      }
+      const player = playerMap[contract.user_id];
+      postContractNews({
+        title: `↩ ${club.name} cancelled a contract offer`,
+        body: `${club.name} cancelled the ${contract.contract_type} contract offer to ${player?.gamertag || "a player"}.`,
+        club_name: club.name, club_logo_url: club.logo_url || "",
+        player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
+        link: `/clubs/${club.id}`,
+      });
+      setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, ...(updated || {}), status: "cancelled" } : c));
+    } catch (err) {
+      setContractError(`Failed to cancel contract: ${err?.message || "unknown error"}`);
+    }
+  }
+
   async function terminateContract(contract) {
     if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
@@ -221,7 +252,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     setRenewDialog(null);
   }
 
-  const HISTORY_STATUSES = ["rejected", "expired", "terminated", "completed"];
+  const HISTORY_STATUSES = ["rejected", "expired", "terminated", "completed", "cancelled"];
   const [negotiateDialog, setNegotiateDialog] = useState(null); // contract object
 
   const byStatus = {
@@ -297,11 +328,12 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
               canManage={false}
               isMyContract={true}
               onAccept={acceptContract}
-              onReject={rejectContract}
-              onTerminate={() => {}}
-              onRenew={null}
-              onNegotiate={() => setNegotiateDialog(c)}
-            />
+                onReject={rejectContract}
+                onTerminate={() => {}}
+                onCancel={cancelContractOffer}
+                onRenew={null}
+                onNegotiate={() => setNegotiateDialog(c)}
+              />
           ))}
         </div>
       )}
@@ -360,6 +392,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                         onAccept={acceptContract}
                         onReject={rejectContract}
                         onTerminate={terminateContract}
+                        onCancel={cancelContractOffer}
                         onRenew={canManage ? () => setRenewDialog(c) : null}
                         dualContract={true}
                       />
@@ -376,6 +409,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                     onAccept={acceptContract}
                     onReject={rejectContract}
                     onTerminate={terminateContract}
+                    onCancel={cancelContractOffer}
                     onRenew={canManage ? () => setRenewDialog(c) : null}
                   />
                 ))}
@@ -398,6 +432,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                 onAccept={acceptContract}
                 onReject={rejectContract}
                 onTerminate={terminateContract}
+                onCancel={cancelContractOffer}
                 onRenew={null}
               />
             ))

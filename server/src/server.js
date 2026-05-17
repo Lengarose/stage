@@ -537,6 +537,71 @@ async function runStartupMigrations() {
   `).catch(err => console.error('[migration] invalid_president_role_cleanup:', err.message));
 
   await EXECUTESQL(`
+    UPDATE player_contracts pc
+    JOIN clubs c ON c.id = pc.team_id
+    LEFT JOIN players p ON p.id = pc.user_id
+       SET pc.status = 'cancelled',
+           pc.start_date = NULL,
+           pc.end_date = NULL
+     WHERE pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND LOWER(TRIM(c.name)) IN ('fc longue vie', 'longue vie fc')
+       AND (
+         LOWER(TRIM(IFNULL(p.gamertag, ''))) = 'callmewes'
+         OR LOWER(TRIM(IFNULL(p.email, ''))) LIKE '%callmewes%'
+         OR p.id IS NULL
+       )
+  `).catch(err => console.error('[migration] cancel_callmewes_pending_offer:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE inbox_messages im
+    JOIN player_contracts pc ON pc.id = im.related_entity_id
+    JOIN clubs c ON c.id = pc.team_id
+       SET im.status = 'cancelled',
+           im.is_read = 1
+     WHERE im.message_type = 'contract_offer'
+       AND pc.status = 'cancelled'
+       AND LOWER(TRIM(c.name)) IN ('fc longue vie', 'longue vie fc')
+  `).catch(err => console.error('[migration] cancel_callmewes_pending_inbox:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE notifications n
+    JOIN player_contracts pc ON pc.id = n.related_id
+    JOIN clubs c ON c.id = pc.team_id
+       SET n.\`read\` = 1
+     WHERE n.type = 'contract_offer'
+       AND pc.status = 'cancelled'
+       AND LOWER(TRIM(c.name)) IN ('fc longue vie', 'longue vie fc')
+  `).catch(err => console.error('[migration] cancel_callmewes_pending_notification:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE inbox_messages im
+    JOIN player_contracts pc ON pc.id = im.related_entity_id
+    JOIN players p ON p.id = pc.user_id
+    LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
+       SET im.recipient_email = LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))),
+           im.status = 'pending',
+           im.is_read = 0
+     WHERE im.message_type = 'contract_offer'
+       AND pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')) IS NOT NULL
+       AND LOWER(TRIM(IFNULL(im.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+  `).catch(err => console.error('[migration] repair_contract_inbox_recipient:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE notifications n
+    JOIN player_contracts pc ON pc.id = n.related_id
+    JOIN players p ON p.id = pc.user_id
+    LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
+       SET n.recipient_email = LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))),
+           n.\`read\` = 0,
+           n.link = '/inbox'
+     WHERE n.type = 'contract_offer'
+       AND pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')) IS NOT NULL
+       AND LOWER(TRIM(IFNULL(n.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+  `).catch(err => console.error('[migration] repair_contract_notification_recipient:', err.message));
+
+  await EXECUTESQL(`
     INSERT INTO inbox_messages
       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
        subject, body, message_type, action_type, status, is_read, is_system, metadata,

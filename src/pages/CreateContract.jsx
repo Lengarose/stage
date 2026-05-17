@@ -15,66 +15,13 @@ import { notify, postContractNews } from "@/lib/notify";
 import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { cn } from "@/lib/utils";
+import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 
 const TARGET_TYPES = [
   { value: "min",   label: "Minimum (≥)" },
   { value: "exact", label: "Exact (=)" },
   { value: "range", label: "Range (between)" },
 ];
-
-function buildContractOfferBody({ clubName, playerGamertag, contractType, typeMeta, weeklySalary, signingBonus, transferFee, captaincy, targets, offerNote }) {
-  const fmt = (n) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
-  const typeLabel = contractType === "ownership" ? "Club Ownership" : (contractType || "Squad").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-
-  let body = `Dear ${playerGamertag},\n\n`;
-  body += `${clubName} is pleased to extend an official contract offer to you. Please review the full terms below carefully before responding.\n\n`;
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `📋  CONTRACT DETAILS\n`;
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `Type:      ${typeLabel} Contract\n`;
-  body += `Duration:  ${typeMeta.max_games} games  or  ${typeMeta.max_days} days\n`;
-  body += `           (whichever is reached first)\n\n`;
-
-  const hasFinancials = weeklySalary > 0 || signingBonus > 0 || transferFee > 0;
-  if (hasFinancials) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `💰  FINANCIAL TERMS\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    if (weeklySalary > 0) body += `Weekly Salary:    ${fmt(weeklySalary)} STC / week\n`;
-    if (signingBonus > 0) body += `Signing Bonus:    ${fmt(signingBonus)} STC (paid on signing)\n`;
-    if (transferFee > 0)  body += `Transfer Fee:     ${fmt(transferFee)} STC\n`;
-    body += `\n`;
-  }
-
-  if (captaincy) {
-    body += `⭐  CAPTAINCY OFFERED\n`;
-    body += `You are being offered the captain role of ${clubName}.\n\n`;
-  }
-
-  if (targets?.length > 0) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `🎯  PERFORMANCE TARGETS\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    targets.forEach(t => {
-      const typeStr = t.type === "min" ? "at least" : t.type === "exact" ? "exactly" : "between";
-      const valStr = t.type === "range" ? `${t.value}–${t.value_max}` : `${t.value}`;
-      body += `• ${t.stat?.replace(/_/g, " ")}: ${typeStr} ${valStr}\n`;
-    });
-    body += `\n`;
-  }
-
-  if (offerNote) {
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `📝  MESSAGE FROM ${clubName.toUpperCase()}\n`;
-    body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    body += `"${offerNote}"\n\n`;
-  }
-
-  body += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  body += `Please respond using the buttons below. You can accept the offer, send a counter-offer with your preferred terms, or decline if you wish.\n\n`;
-  body += `Best regards,\n${clubName} Management`;
-  return body;
-}
 
 export default function CreateContract() {
   const navigate = useNavigate();
@@ -177,37 +124,18 @@ export default function CreateContract() {
         status: "pending",
       });
 
-      if (recipientEmail) {
-        try {
-          const body = buildContractOfferBody({
-            clubName: club.name,
-            playerGamertag: selectedPlayer.gamertag || "Player",
-            contractType: selectedType,
-            typeMeta,
-            weeklySalary: salary,
-            signingBonus: bonus,
-            transferFee: 0,
-            captaincy,
-            targets,
-            offerNote: note,
-          });
-          await stageClient.entities.InboxMessage.create({
-            recipient_email:  recipientEmail,
-            sender_email:     myPlayer?.email || "system@stage.com",
-            sender_gamertag:  club.name,
-            sender_avatar_url: club.logo_url || "",
-            sender_club_name: club.name,
-            subject:          `📄 Contract Offer from ${club.name}`,
-            body,
-            message_type:     "contract_offer",
-            action_type:      "contract_negotiation",
-            related_entity_id: newContract.id,
-            status:   "pending",
-            is_read:  false,
-            metadata: { contract_id: newContract.id, club_id: clubId, club_name: club.name, contract_type: selectedType },
-          });
-        } catch (_) { /* inbox delivery non-fatal */ }
-      }
+      await ensureContractOfferInbox({
+        contractId: newContract.id,
+        player: { ...selectedPlayer, email: recipientEmail || selectedPlayer.email },
+        club,
+        contractType: selectedType,
+        maxGames: typeMeta.max_games,
+        maxDays: typeMeta.max_days,
+        weeklySalary: salary,
+        signingBonus: bonus,
+        offerNote: note,
+        senderEmail: myPlayer?.email,
+      }).catch((err) => console.warn("[CreateContract] inbox fallback failed:", err?.message || err));
 
       notify(recipientEmail, "contract_offer",
         `📋 Contract Offer from ${club.name}`,

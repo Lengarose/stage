@@ -275,7 +275,7 @@ async function deliverContractOfferMessage(contractId) {
   const recipientEmail = String(contract.player_email || contract.user_email || '').trim().toLowerCase();
   if (!recipientEmail) return;
   const existingInbox = await EXECUTESQL(
-    "SELECT id FROM inbox_messages WHERE related_entity_id = ? AND message_type = 'contract_offer' LIMIT 1",
+    "SELECT id, recipient_email FROM inbox_messages WHERE related_entity_id = ? AND message_type = 'contract_offer' LIMIT 1",
     [contractId]
   );
   const typeLabel = String(contract.contract_type || 'squad').replace(/_/g, ' ');
@@ -289,7 +289,19 @@ async function deliverContractOfferMessage(contractId) {
     '',
     'Please respond using the buttons below. You can accept the offer, send a counter-offer, or decline it.',
   ].filter(Boolean).join('\n');
-  if (!existingInbox.length) {
+  if (existingInbox.length) {
+    const currentRecipient = String(existingInbox[0].recipient_email || '').trim().toLowerCase();
+    if (currentRecipient !== recipientEmail) {
+      await EXECUTESQL(
+        `UPDATE inbox_messages
+            SET recipient_email = ?,
+                status = 'pending',
+                is_read = 0
+          WHERE id = ?`,
+        [recipientEmail, existingInbox[0].id]
+      ).catch(() => {});
+    }
+  } else {
     await EXECUTESQL(
       `INSERT INTO inbox_messages
          (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
@@ -1098,7 +1110,14 @@ const HANDLERS = {
   }) {
     let recipient = recipient_email;
     if (!recipient && recipient_player_id) {
-      const p = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [recipient_player_id]);
+      const p = await EXECUTESQL(
+        `SELECT COALESCE(NULLIF(TRIM(p.email), ''), NULLIF(TRIM(u.email), '')) AS email
+           FROM players p
+           LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
+          WHERE p.id = ?
+          LIMIT 1`,
+        [recipient_player_id]
+      );
       recipient = p[0]?.email || null;
     }
     if (!recipient || !subject || !body) throw new Error('Missing required fields: recipient_email (or recipient_player_id), subject, body');
