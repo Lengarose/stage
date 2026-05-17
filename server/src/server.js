@@ -64,6 +64,7 @@ app.use('/api/stage/player-stc-transactions',   verifyToken, require('./server/c
 app.use('/api/stage/player-identity-claims',    verifyToken, require('./server/controllers/playerIdentityClaimController'));
 app.use('/api/stage/recruitment-posts',         verifyToken, require('./server/controllers/recruitmentPostController'));
 app.use('/api/stage/recruitment-interests',     verifyToken, require('./server/controllers/recruitmentInterestController'));
+app.use('/api/stage/rankings',                  verifyToken, require('./server/controllers/rankingController'));
 app.use('/api/stage/club-applicants',           verifyToken, require('./server/controllers/clubApplicantController'));
 app.use('/api/stage/club-staff-roles',          verifyToken, require('./server/controllers/clubStaffRoleController'));
 app.use('/api/stage/club-fixture-availability', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
@@ -258,6 +259,29 @@ async function runStartupMigrations() {
   // match_player_stats — add player_id and gamertag (schema v2)
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
   await addCol('match_player_stats', 'player_gamertag', 'VARCHAR(255) NULL');
+  await addCol('match_player_stats', 'position', 'VARCHAR(50) NULL');
+  await addCol('match_player_stats', 'clean_sheet', 'TINYINT(1) DEFAULT 0');
+  await addCol('match_player_stats', 'is_motm', 'TINYINT(1) DEFAULT 0');
+
+  // Official STAGE rankings — rebuilt from competition/tournament fixtures only.
+  await addCol('clubs', 'country_rank', 'INT NULL');
+  await addCol('players', 'ranking_points', 'INT DEFAULT 0');
+  await addCol('players', 'global_rank', 'INT NULL');
+  await addCol('players', 'regional_rank', 'INT NULL');
+  await addCol('players', 'country_rank', 'INT NULL');
+  await addCol('players', 'position_rank', 'INT NULL');
+  await addCol('players', 'ranking_matches', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_wins', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_draws', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_losses', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_win_rate', 'DECIMAL(5,2) DEFAULT 0');
+  await addCol('players', 'ranking_goals', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_assists', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_clean_sheets', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_motm', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_avg_rating', 'DECIMAL(4,2) DEFAULT 0');
+  await addCol('players', 'ranking_competition_wins', 'INT DEFAULT 0');
+  await addCol('players', 'ranking_finishes_score', 'INT DEFAULT 0');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS international_tournaments (
     id                  VARCHAR(36) PRIMARY KEY,
