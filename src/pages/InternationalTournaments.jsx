@@ -7,8 +7,10 @@ import NationalSquadBuilder from '@/components/international/NationalSquadBuilde
 
 export default function InternationalTournaments() {
   const [myPlayer, setMyPlayer] = useState(null);
+  const [myOwnerClub, setMyOwnerClub] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [electionsByTournament, setElectionsByTournament] = useState({});
+  const [ownerCandidatesByElection, setOwnerCandidatesByElection] = useState({});
   const [playersByTournament, setPlayersByTournament] = useState({});
   const [squadsByTournament, setSquadsByTournament] = useState({});
   const [loading, setLoading] = useState(true);
@@ -23,34 +25,47 @@ export default function InternationalTournaments() {
       const user = await stageClient.auth.me();
       const players = user?.email ? await stageClient.entities.Player.filter({ email: user.email }) : [];
       const player = players[0] || null;
+      const ownerClubs = user?.email ? await stageClient.entities.Club.filter({ owner_email: user.email }) : [];
+      const ownerClub = ownerClubs[0] || null;
       const rows = await internationalTournamentsApi.list(100);
 
       let electionMap = {};
+      let ownerCandidateMap = {};
       let playerMap = {};
       let squadMap = {};
-      if (player?.country_code) {
+      const ownerCountryCode = ownerClub?.country_code || player?.country_code;
+      if (ownerCountryCode) {
         const electionPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
           await internationalTournamentsApi.elections(tournament.id),
         ]));
         electionMap = Object.fromEntries(electionPairs);
+        const ownerCandidatePairs = await Promise.all(electionPairs.flatMap(([tournamentId, elections]) => (
+          elections.map(async (election) => [
+            election.id,
+            await internationalTournamentsApi.ownerCandidates(tournamentId, election.id),
+          ])
+        )));
+        ownerCandidateMap = Object.fromEntries(ownerCandidatePairs);
 
         const playerPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
-          await internationalTournamentsApi.eligiblePlayers(tournament.id, player.country_code),
+          await internationalTournamentsApi.eligiblePlayers(tournament.id, ownerCountryCode),
         ]));
         playerMap = Object.fromEntries(playerPairs);
 
         const squadPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
-          await internationalTournamentsApi.squad(tournament.id, player.country_code),
+          await internationalTournamentsApi.squad(tournament.id, ownerCountryCode),
         ]));
         squadMap = Object.fromEntries(squadPairs);
       }
 
       setMyPlayer(player);
+      setMyOwnerClub(ownerClub);
       setTournaments(rows);
       setElectionsByTournament(electionMap);
+      setOwnerCandidatesByElection(ownerCandidateMap);
       setPlayersByTournament(playerMap);
       setSquadsByTournament(squadMap);
     } catch (err) {
@@ -64,13 +79,13 @@ export default function InternationalTournaments() {
     load();
   }, []);
 
-  const myCountryCode = String(myPlayer?.country_code || '').toUpperCase();
+  const myCountryCode = String(myOwnerClub?.country_code || myPlayer?.country_code || '').toUpperCase();
 
-  async function vote(electionId, candidatePlayerId) {
+  async function vote(electionId, candidateOwnerClubId) {
     setBusyAction(`vote:${electionId}`);
     setActionError('');
     try {
-      await internationalTournamentsApi.vote(electionId, candidatePlayerId);
+      await internationalTournamentsApi.vote(electionId, candidateOwnerClubId);
       await load();
     } catch (err) {
       setActionError(err?.message || err?.error || 'Could not submit your vote.');
@@ -101,7 +116,7 @@ export default function InternationalTournaments() {
     <main className="max-w-6xl mx-auto px-4 py-8 space-y-5">
       <div>
         <h1 className="font-heading text-3xl uppercase text-foreground">International</h1>
-        <p className="text-sm text-muted-foreground">Vote for your country representative and follow national squad selection.</p>
+        <p className="text-sm text-muted-foreground">Club owners vote for the national team owner, then the winner selects the squad.</p>
       </div>
       {loading && <p className="text-sm text-muted-foreground">Loading international tournaments...</p>}
       {loadError && <p className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</p>}
@@ -110,7 +125,7 @@ export default function InternationalTournaments() {
         <section className="bg-card border border-border rounded p-4">
           <p className="text-sm font-semibold text-foreground">No international tournaments are open yet.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            An admin needs to create an international tournament and open voting before players can vote for their country representative.
+            An admin needs to create an international tournament and open voting before club owners can vote for the national team owner.
           </p>
         </section>
       )}
@@ -119,15 +134,15 @@ export default function InternationalTournaments() {
         const election = elections.find((row) => String(row.country_code).toUpperCase() === myCountryCode);
         const eligiblePlayers = playersByTournament[tournament.id] || [];
         const squadState = squadsByTournament[tournament.id] || { squad: null, players: [] };
-        const isRepresentative = election?.winner_player_id && election.winner_player_id === myPlayer?.id;
+        const isRepresentative = election?.winner_owner_club_id && election.winner_owner_club_id === myOwnerClub?.id;
 
         return (
           <InternationalTournamentCard key={tournament.id} tournament={tournament}>
             {tournament.status === 'voting_open' && (
               <CountryElectionPanel
                 election={election}
-                players={eligiblePlayers}
-                myPlayer={myPlayer}
+                ownerCandidates={ownerCandidatesByElection[election?.id] || []}
+                isOwner={Boolean(myOwnerClub)}
                 onVote={vote}
                 disabled={busyAction === `vote:${election?.id}`}
               />

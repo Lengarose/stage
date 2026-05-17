@@ -21,6 +21,10 @@ export const internationalTournamentsApi = {
     return stageClient.http.post(base, body);
   },
 
+  update(id, body) {
+    return stageClient.http.patch(`${base}/${segment(id)}`, body);
+  },
+
   openVoting(id, countries = []) {
     return stageClient.http.post(`${base}/${segment(id)}/open-voting`, { countries: normalizeCountries(countries) });
   },
@@ -33,9 +37,13 @@ export const internationalTournamentsApi = {
     return stageClient.http.get(`${base}/${segment(id)}/elections`);
   },
 
-  vote(electionId, candidatePlayerId) {
+  ownerCandidates(id, electionId) {
+    return stageClient.http.get(`${base}/${segment(id)}/elections/${segment(electionId)}/owner-candidates`);
+  },
+
+  vote(electionId, candidateOwnerClubId) {
     return stageClient.http.post(`${base}/elections/${segment(electionId)}/vote`, {
-      candidate_player_id: candidatePlayerId,
+      candidate_owner_club_id: candidateOwnerClubId,
     });
   },
 

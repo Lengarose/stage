@@ -58,9 +58,9 @@ class InternationalTournamentModel {
       await exec(
         `INSERT INTO international_tournaments
          (id, name, tournament_type, region, status, voting_opens_at, voting_closes_at,
-          squad_locks_at, starts_at, max_squad_size, matchday_squad_size, starters_size, bench_size,
+          squad_locks_at, starts_at, max_squad_size, max_teams, matchday_squad_size, starters_size, bench_size,
           eligible_countries, created_by_user_id, created_by_email)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           body.name,
@@ -72,6 +72,7 @@ class InternationalTournamentModel {
           body.squad_locks_at || null,
           body.starts_at || null,
           toPositiveInt(body.max_squad_size, 26),
+          toPositiveInt(body.max_teams, 32),
           toPositiveInt(body.matchday_squad_size, 18),
           toPositiveInt(body.starters_size, 11),
           toPositiveInt(body.bench_size, 7),
@@ -93,12 +94,56 @@ class InternationalTournamentModel {
     return this.createTournament(body, user);
   }
 
+  async updateTournament(id, body, user, audit = null) {
+    const beforeRows = await this.getTournament(id);
+    const before = beforeRows[0];
+    if (!before) {
+      const err = new Error('Tournament not found');
+      err.status = 404;
+      throw err;
+    }
+    await withTransaction(async (exec) => {
+      await exec(
+        `UPDATE international_tournaments
+         SET name = ?, tournament_type = ?, region = ?, status = ?,
+             voting_opens_at = ?, voting_closes_at = ?, squad_locks_at = ?, starts_at = ?,
+             max_squad_size = ?, max_teams = ?, matchday_squad_size = ?, starters_size = ?, bench_size = ?,
+             eligible_countries = ?, updated_date = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          body.name,
+          body.tournament_type,
+          body.region || null,
+          body.status ?? before.status ?? 'draft',
+          body.voting_opens_at || null,
+          body.voting_closes_at || null,
+          body.squad_locks_at || null,
+          body.starts_at || null,
+          toPositiveInt(body.max_squad_size, before.max_squad_size || 26),
+          toPositiveInt(body.max_teams, before.max_teams || 32),
+          toPositiveInt(body.matchday_squad_size, before.matchday_squad_size || 18),
+          toPositiveInt(body.starters_size, before.starters_size || 11),
+          toPositiveInt(body.bench_size, before.bench_size || 7),
+          body.eligible_countries ? JSON.stringify(body.eligible_countries) : null,
+          id,
+        ]
+      );
+      await insertAdminAudit(exec, audit && {
+        ...audit,
+        entityId: audit.entityId || id,
+        oldValue: audit.oldValue ?? before,
+        newValue: audit.newValue || { ...body, id },
+      });
+    });
+    return this.getTournament(id);
+  }
+
   update(id, body) {
     return EXECUTESQL(
       `UPDATE international_tournaments
        SET name = ?, tournament_type = ?, region = ?, status = ?,
            voting_opens_at = ?, voting_closes_at = ?, squad_locks_at = ?, starts_at = ?,
-           max_squad_size = ?, matchday_squad_size = ?, starters_size = ?, bench_size = ?,
+           max_squad_size = ?, max_teams = ?, matchday_squad_size = ?, starters_size = ?, bench_size = ?,
            eligible_countries = ?, updated_date = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
@@ -111,6 +156,7 @@ class InternationalTournamentModel {
         body.squad_locks_at || null,
         body.starts_at || null,
         toPositiveInt(body.max_squad_size, 26),
+        toPositiveInt(body.max_teams, 32),
         toPositiveInt(body.matchday_squad_size, 18),
         toPositiveInt(body.starters_size, 11),
         toPositiveInt(body.bench_size, 7),
@@ -128,9 +174,13 @@ class InternationalTournamentModel {
     return EXECUTESQL(
       `SELECT e.*,
               p.gamertag AS winner_gamertag,
-              p.overall_rating AS winner_overall_rating
+              p.overall_rating AS winner_overall_rating,
+              u.email AS winner_owner_email,
+              c.name AS winner_owner_club_name
        FROM national_team_elections e
        LEFT JOIN players p ON p.id = e.winner_player_id
+       LEFT JOIN users u ON u.id = e.winner_owner_user_id
+       LEFT JOIN clubs c ON c.id = e.winner_owner_club_id
        WHERE e.international_tournament_id = ?
        ORDER BY e.country_name ASC, e.country_code ASC`,
       [tournamentId]
@@ -148,6 +198,27 @@ class InternationalTournamentModel {
   getPlayerForUser(user) {
     return EXECUTESQL(
       'SELECT * FROM players WHERE user_id = ? OR LOWER(email) = LOWER(?) LIMIT 1',
+      [user?.id || '', user?.email || '']
+    );
+  }
+
+  getOwnerForUser(user) {
+    return EXECUTESQL(
+      `SELECT c.id AS owner_club_id,
+              c.id AS club_id,
+              c.name AS club_name,
+              c.owner_email,
+              c.user_id AS owner_user_id,
+              u.id AS user_id,
+              u.email AS user_email,
+              UPPER(c.country_code) AS country_code,
+              c.ranking_points AS club_ranking_points,
+              c.rating AS squad_avg_rating
+       FROM clubs c
+       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
+       WHERE c.user_id = ? OR LOWER(c.owner_email) = LOWER(?)
+       ORDER BY c.ranking_points DESC, c.rating DESC, c.name ASC
+       LIMIT 1`,
       [user?.id || '', user?.email || '']
     );
   }
@@ -198,10 +269,62 @@ class InternationalTournamentModel {
     return this.listElections(tournament.id);
   }
 
+  listOwnerCandidates(countryCode) {
+    return EXECUTESQL(
+      `SELECT c.id AS owner_club_id,
+              c.id AS club_id,
+              c.name AS club_name,
+              c.owner_email,
+              COALESCE(c.user_id, u.id) AS owner_user_id,
+              u.email AS owner_user_email,
+              UPPER(c.country_code) AS country_code,
+              COALESCE(c.ranking_points, 0) AS club_ranking_points,
+              COALESCE(c.rating, 0) AS squad_avg_rating,
+              COUNT(p.id) AS player_count
+       FROM clubs c
+       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
+       LEFT JOIN players p ON p.club_id = c.id
+       WHERE UPPER(c.country_code) = UPPER(?)
+         AND c.owner_email IS NOT NULL
+         AND c.owner_email <> ''
+         AND COALESCE(c.user_id, u.id) IS NOT NULL
+       GROUP BY c.id, c.name, c.owner_email, c.user_id, u.id, u.email, c.country_code, c.ranking_points, c.rating
+       ORDER BY club_ranking_points DESC, squad_avg_rating DESC, c.name ASC`,
+      [countryCode]
+    );
+  }
+
+  getOwnerCandidate(countryCode, ownerClubId) {
+    return EXECUTESQL(
+      `SELECT c.id AS owner_club_id,
+              c.id AS club_id,
+              c.name AS club_name,
+              c.owner_email,
+              COALESCE(c.user_id, u.id) AS owner_user_id,
+              u.email AS owner_user_email,
+              UPPER(c.country_code) AS country_code,
+              COALESCE(c.ranking_points, 0) AS club_ranking_points,
+              COALESCE(c.rating, 0) AS squad_avg_rating
+       FROM clubs c
+       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
+       WHERE c.id = ? AND UPPER(c.country_code) = UPPER(?)
+         AND COALESCE(c.user_id, u.id) IS NOT NULL
+       LIMIT 1`,
+      [ownerClubId, countryCode]
+    );
+  }
+
   findVote(electionId, voterPlayerId) {
     return EXECUTESQL(
       'SELECT * FROM national_team_votes WHERE election_id = ? AND voter_player_id = ? LIMIT 1',
       [electionId, voterPlayerId]
+    );
+  }
+
+  findOwnerVote(electionId, voterOwnerClubId) {
+    return EXECUTESQL(
+      'SELECT * FROM national_team_votes WHERE election_id = ? AND voter_owner_club_id = ? LIMIT 1',
+      [electionId, voterOwnerClubId]
     );
   }
 
@@ -223,6 +346,28 @@ class InternationalTournamentModel {
     return EXECUTESQL('SELECT * FROM national_team_votes WHERE id = ? LIMIT 1', [id]);
   }
 
+  async createOwnerVote({ election, voterOwner, candidateOwner }) {
+    const id = uuidv4();
+    await EXECUTESQL(
+      `INSERT INTO national_team_votes
+       (id, election_id, tournament_id, country_code, voter_player_id, candidate_player_id,
+        voter_owner_club_id, candidate_owner_club_id, candidate_owner_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        election.id,
+        election.international_tournament_id,
+        election.country_code,
+        voterOwner.owner_club_id,
+        candidateOwner.owner_user_id || candidateOwner.owner_club_id,
+        voterOwner.owner_club_id,
+        candidateOwner.owner_club_id,
+        candidateOwner.owner_user_id || null,
+      ]
+    );
+    return EXECUTESQL('SELECT * FROM national_team_votes WHERE id = ? LIMIT 1', [id]);
+  }
+
   voteTotals(electionId) {
     return EXECUTESQL(
       `SELECT v.candidate_player_id AS player_id,
@@ -233,6 +378,23 @@ class InternationalTournamentModel {
        JOIN players p ON p.id = v.candidate_player_id
        WHERE v.election_id = ?
        GROUP BY v.candidate_player_id, p.gamertag, p.overall_rating`,
+      [electionId]
+    );
+  }
+
+  ownerVoteTotals(electionId) {
+    return EXECUTESQL(
+      `SELECT v.candidate_owner_club_id AS owner_club_id,
+              MAX(v.candidate_owner_user_id) AS owner_user_id,
+              COUNT(*) AS vote_count,
+              c.name AS club_name,
+              c.owner_email,
+              COALESCE(c.ranking_points, 0) AS club_ranking_points,
+              COALESCE(c.rating, 0) AS squad_avg_rating
+       FROM national_team_votes v
+       JOIN clubs c ON c.id = v.candidate_owner_club_id
+       WHERE v.election_id = ?
+       GROUP BY v.candidate_owner_club_id, c.name, c.owner_email, c.ranking_points, c.rating`,
       [electionId]
     );
   }
@@ -267,21 +429,43 @@ class InternationalTournamentModel {
         const winner = winnerByElectionId.get(election.id);
         await exec(
           `UPDATE national_team_elections
-           SET status = 'closed', winner_player_id = ?, winner_vote_count = ?, updated_date = CURRENT_TIMESTAMP
+           SET status = 'closed',
+               winner_player_id = ?,
+               winner_owner_user_id = ?,
+               winner_owner_club_id = ?,
+               winner_vote_count = ?,
+               updated_date = CURRENT_TIMESTAMP
            WHERE id = ?`,
-          [winner?.player_id || null, winner?.vote_count || 0, election.id]
+          [
+            winner?.player_id || winner?.owner_user_id || null,
+            winner?.owner_user_id || null,
+            winner?.owner_club_id || null,
+            winner?.vote_count || 0,
+            election.id,
+          ]
         );
-        if (winner?.player_id) {
+        if (winner?.owner_club_id || winner?.player_id) {
           await exec(
             `INSERT INTO national_team_representatives
-             (id, tournament_id, election_id, country_code, player_id, vote_count, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'active')
+             (id, tournament_id, election_id, country_code, player_id, owner_user_id, owner_club_id, vote_count, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
              ON DUPLICATE KEY UPDATE
                election_id = VALUES(election_id),
                player_id = VALUES(player_id),
+               owner_user_id = VALUES(owner_user_id),
+               owner_club_id = VALUES(owner_club_id),
                vote_count = VALUES(vote_count),
                status = 'active'`,
-            [uuidv4(), election.international_tournament_id, election.id, election.country_code, winner.player_id, winner.vote_count || 0]
+            [
+              uuidv4(),
+              election.international_tournament_id,
+              election.id,
+              election.country_code,
+              winner.owner_user_id || winner.player_id,
+              winner.owner_user_id || null,
+              winner.owner_club_id || null,
+              winner.vote_count || 0,
+            ]
           );
         }
       }
@@ -317,6 +501,18 @@ class InternationalTournamentModel {
     );
   }
 
+  getRepresentativeForOwner(tournamentId, countryCode, ownerUserId, ownerClubId) {
+    return EXECUTESQL(
+      `SELECT * FROM national_team_representatives
+       WHERE tournament_id = ?
+         AND UPPER(country_code) = UPPER(?)
+         AND status = 'active'
+         AND (owner_user_id = ? OR owner_club_id = ?)
+       LIMIT 1`,
+      [tournamentId, countryCode, ownerUserId || '', ownerClubId || '']
+    );
+  }
+
   getSquad(tournamentId, countryCode) {
     return EXECUTESQL(
       'SELECT * FROM national_team_squads WHERE tournament_id = ? AND UPPER(country_code) = UPPER(?) LIMIT 1',
@@ -336,7 +532,7 @@ class InternationalTournamentModel {
     );
   }
 
-  async saveSquad({ tournamentId, countryCode, representativeId, submitterPlayerId, players }) {
+  async saveSquad({ tournamentId, countryCode, representativeId, submitterPlayerId, submitterOwnerUserId, players }) {
     let squadId;
     await withTransaction(async (exec) => {
       const existing = await exec(
@@ -351,13 +547,14 @@ class InternationalTournamentModel {
       }
       await exec(
         `INSERT INTO national_team_squads
-         (id, tournament_id, country_code, representative_id, status, submitted_by_player_id)
-         VALUES (?, ?, ?, ?, 'draft', ?)
+         (id, tournament_id, country_code, representative_id, status, submitted_by_player_id, submitted_by_owner_user_id)
+         VALUES (?, ?, ?, ?, 'draft', ?, ?)
          ON DUPLICATE KEY UPDATE
            representative_id = VALUES(representative_id),
            submitted_by_player_id = VALUES(submitted_by_player_id),
+           submitted_by_owner_user_id = VALUES(submitted_by_owner_user_id),
            updated_date = CURRENT_TIMESTAMP`,
-        [squadId, tournamentId, countryCode, representativeId, submitterPlayerId]
+        [squadId, tournamentId, countryCode, representativeId, submitterPlayerId || null, submitterOwnerUserId || null]
       );
       await exec('DELETE FROM national_team_squad_players WHERE squad_id = ?', [squadId]);
       for (const player of players) {

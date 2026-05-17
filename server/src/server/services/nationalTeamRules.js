@@ -107,9 +107,54 @@ function chooseElectionWinner(rows = []) {
   })[0];
 }
 
+function rankOwnerCandidates(rows = [], countryCode) {
+  const country = normalizeCountryCode(countryCode);
+  return rows
+    .filter((row) => normalizeCountryCode(row.country_code) === country)
+    .sort((left, right) => {
+      const rankingDelta = Number(right.club_ranking_points || 0) - Number(left.club_ranking_points || 0);
+      if (rankingDelta !== 0) return rankingDelta;
+
+      const ratingDelta = Number(right.squad_avg_rating || 0) - Number(left.squad_avg_rating || 0);
+      if (ratingDelta !== 0) return ratingDelta;
+
+      return String(left.club_name || left.club_id || '').localeCompare(String(right.club_name || right.club_id || ''));
+    })
+    .slice(0, 5);
+}
+
+function getTopPlayersByPosition(players = [], limitPerPosition = 3) {
+  const byPosition = new Map();
+  for (const player of players) {
+    const position = String(player.position || 'ANY').trim().toUpperCase() || 'ANY';
+    const list = byPosition.get(position) || [];
+    list.push(player);
+    byPosition.set(position, list);
+  }
+
+  return [...byPosition.entries()].flatMap(([, positionPlayers]) => (
+    positionPlayers
+      .sort((left, right) => {
+        const overallDelta = Number(right.overall_rating || 0) - Number(left.overall_rating || 0);
+        if (overallDelta !== 0) return overallDelta;
+
+        const matchRatingDelta = Number(right.avg_match_rating || 0) - Number(left.avg_match_rating || 0);
+        if (matchRatingDelta !== 0) return matchRatingDelta;
+
+        const matchesDelta = Number(right.matches_played || 0) - Number(left.matches_played || 0);
+        if (matchesDelta !== 0) return matchesDelta;
+
+        return String(left.gamertag || left.id || '').localeCompare(String(right.gamertag || right.id || ''));
+      })
+      .slice(0, limitPerPosition)
+  ));
+}
+
 module.exports = {
   normalizeCountryCode,
   canVoteForCandidate,
   validateSquadSelection,
   chooseElectionWinner,
+  rankOwnerCandidates,
+  getTopPlayersByPosition,
 };

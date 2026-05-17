@@ -293,6 +293,21 @@ export default function Admin(props) {
     }
   }
 
+  async function updateInternationalTournament(id, form) {
+    setSavingInternationalTournament(true);
+    try {
+      await internationalTournamentsApi.update(id, form);
+      await loadInternationalTournaments();
+      await swalAlert("International tournament updated.");
+      return true;
+    } catch (err) {
+      await swalAlert(err?.message || err?.error || "Could not update international tournament.");
+      return false;
+    } finally {
+      setSavingInternationalTournament(false);
+    }
+  }
+
   async function openInternationalVoting(id) {
     try {
       await internationalTournamentsApi.openVoting(id);
@@ -1438,6 +1453,7 @@ export default function Admin(props) {
               electionsByTournament={internationalElections}
               squadsByTournament={internationalSquads}
               onCreate={createInternationalTournament}
+              onUpdate={updateInternationalTournament}
               onOpenVoting={openInternationalVoting}
               onCloseVoting={closeInternationalVoting}
               onLockSquad={lockInternationalSquad}

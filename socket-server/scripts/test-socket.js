@@ -21,12 +21,12 @@ const baseUrl = (
   process.argv[2] ||
   process.env.SOCKET_SERVER_URL ||
   process.env.SOCKET_URL ||
-  'http://localhost:3001'
+  'https://stage-7osn.onrender.com'
 ).replace(/\/$/, '');
 
 const emitSecret =
-  process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '';
-const accessSecret = process.env.ACCESS_TOKEN_SECRET || '';
+  process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '#1?BCJw[JrZ}Y|>?6CVpCHrSCm$6><#)1O_{mRgIdlw';
+const accessSecret = process.env.ACCESS_TOKEN_SECRET || 'e11c51e0d9b810e4a6765904a144361248d4976b';
 const testChannel =
   process.env.TEST_CHANNEL || 'STAGE_CHAT_MESSAGE_smoke-test';
 

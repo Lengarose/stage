@@ -4,7 +4,9 @@ const test = require('node:test');
 const {
   canVoteForCandidate,
   chooseElectionWinner,
+  getTopPlayersByPosition,
   normalizeCountryCode,
+  rankOwnerCandidates,
   validateSquadSelection,
 } = require('../nationalTeamRules');
 
@@ -216,4 +218,31 @@ test('chooseElectionWinner uses player_id as final deterministic tiebreaker', ()
   ]);
 
   assert.deepEqual(winner, { player_id: 'player-1', vote_count: 10, overall_rating: 91 });
+});
+
+test('rankOwnerCandidates returns top 5 club owners from a country', () => {
+  const candidates = rankOwnerCandidates([
+    { owner_user_id: 'owner-1', club_id: 'club-1', country_code: 'BE', club_ranking_points: 50, squad_avg_rating: 80 },
+    { owner_user_id: 'owner-2', club_id: 'club-2', country_code: 'BE', club_ranking_points: 80, squad_avg_rating: 72 },
+    { owner_user_id: 'owner-3', club_id: 'club-3', country_code: 'BE', club_ranking_points: 80, squad_avg_rating: 86 },
+    { owner_user_id: 'owner-4', club_id: 'club-4', country_code: 'BE', club_ranking_points: 20, squad_avg_rating: 91 },
+    { owner_user_id: 'owner-5', club_id: 'club-5', country_code: 'BE', club_ranking_points: 55, squad_avg_rating: 70 },
+    { owner_user_id: 'owner-6', club_id: 'club-6', country_code: 'BE', club_ranking_points: 40, squad_avg_rating: 83 },
+    { owner_user_id: 'owner-7', club_id: 'club-7', country_code: 'FR', club_ranking_points: 100, squad_avg_rating: 99 },
+  ], 'BE');
+
+  assert.deepEqual(candidates.map((candidate) => candidate.club_id), ['club-3', 'club-2', 'club-5', 'club-1', 'club-6']);
+});
+
+test('getTopPlayersByPosition keeps only the top 3 players for each position', () => {
+  const players = getTopPlayersByPosition([
+    { id: 'gk-1', position: 'GK', overall_rating: 80, avg_match_rating: 7.1, matches_played: 10 },
+    { id: 'gk-2', position: 'GK', overall_rating: 90, avg_match_rating: 6.8, matches_played: 4 },
+    { id: 'gk-3', position: 'GK', overall_rating: 85, avg_match_rating: 7.5, matches_played: 9 },
+    { id: 'gk-4', position: 'GK', overall_rating: 70, avg_match_rating: 8.0, matches_played: 20 },
+    { id: 'st-1', position: 'ST', overall_rating: 88, avg_match_rating: 7.2, matches_played: 8 },
+    { id: 'st-2', position: 'ST', overall_rating: 88, avg_match_rating: 7.8, matches_played: 6 },
+  ]);
+
+  assert.deepEqual(players.map((player) => player.id), ['gk-2', 'gk-3', 'gk-1', 'st-2', 'st-1']);
 });

@@ -270,6 +270,7 @@ async function runStartupMigrations() {
     squad_locks_at      DATETIME     NULL,
     starts_at           DATETIME     NULL,
     max_squad_size      INT          NOT NULL DEFAULT 26,
+    max_teams           INT          NOT NULL DEFAULT 32,
     matchday_squad_size INT          NOT NULL DEFAULT 18,
     starters_size       INT          NOT NULL DEFAULT 11,
     bench_size          INT          NOT NULL DEFAULT 7,
@@ -282,6 +283,7 @@ async function runStartupMigrations() {
     INDEX idx_it_type_region (tournament_type, region),
     INDEX idx_it_dates (voting_opens_at, voting_closes_at, starts_at)
   )`).catch(err => console.error('[migration] international_tournaments:', err.message));
+  await addCol('international_tournaments', 'max_teams', 'INT NOT NULL DEFAULT 32');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS national_team_elections (
     id                          VARCHAR(36) PRIMARY KEY,
@@ -292,6 +294,8 @@ async function runStartupMigrations() {
     voting_opens_at             DATETIME NULL,
     voting_closes_at            DATETIME NULL,
     winner_player_id            VARCHAR(36) NULL,
+    winner_owner_user_id        VARCHAR(36) NULL,
+    winner_owner_club_id        VARCHAR(36) NULL,
     winner_vote_count           INT DEFAULT 0,
     created_date                DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_date                DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -299,6 +303,8 @@ async function runStartupMigrations() {
     INDEX idx_nte_tournament (international_tournament_id),
     INDEX idx_nte_country_status (country_code, status)
   )`).catch(err => console.error('[migration] national_team_elections:', err.message));
+  await addCol('national_team_elections', 'winner_owner_user_id', 'VARCHAR(36) NULL');
+  await addCol('national_team_elections', 'winner_owner_club_id', 'VARCHAR(36) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS national_team_votes (
     id                  VARCHAR(36) PRIMARY KEY,
@@ -307,11 +313,17 @@ async function runStartupMigrations() {
     country_code         VARCHAR(10) NOT NULL,
     voter_player_id      VARCHAR(36) NOT NULL,
     candidate_player_id  VARCHAR(36) NOT NULL,
+    voter_owner_club_id  VARCHAR(36) NULL,
+    candidate_owner_club_id VARCHAR(36) NULL,
+    candidate_owner_user_id VARCHAR(36) NULL,
     created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_ntv_election_voter (election_id, voter_player_id),
     INDEX idx_ntv_election_candidate (election_id, candidate_player_id),
     INDEX idx_ntv_tournament_country (tournament_id, country_code)
   )`).catch(err => console.error('[migration] national_team_votes:', err.message));
+  await addCol('national_team_votes', 'voter_owner_club_id', 'VARCHAR(36) NULL');
+  await addCol('national_team_votes', 'candidate_owner_club_id', 'VARCHAR(36) NULL');
+  await addCol('national_team_votes', 'candidate_owner_user_id', 'VARCHAR(36) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS national_team_representatives (
     id                  VARCHAR(36) PRIMARY KEY,
@@ -319,6 +331,8 @@ async function runStartupMigrations() {
     election_id          VARCHAR(36) NOT NULL,
     country_code         VARCHAR(10) NOT NULL,
     player_id            VARCHAR(36) NOT NULL,
+    owner_user_id         VARCHAR(36) NULL,
+    owner_club_id         VARCHAR(36) NULL,
     vote_count           INT DEFAULT 0,
     status               VARCHAR(40) DEFAULT 'active',
     created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -326,6 +340,8 @@ async function runStartupMigrations() {
     INDEX idx_ntr_player (player_id),
     INDEX idx_ntr_election (election_id)
   )`).catch(err => console.error('[migration] national_team_representatives:', err.message));
+  await addCol('national_team_representatives', 'owner_user_id', 'VARCHAR(36) NULL');
+  await addCol('national_team_representatives', 'owner_club_id', 'VARCHAR(36) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS national_team_squads (
     id                     VARCHAR(36) PRIMARY KEY,
@@ -335,12 +351,14 @@ async function runStartupMigrations() {
     status                  VARCHAR(40) DEFAULT 'draft',
     locked_at               DATETIME NULL,
     submitted_by_player_id  VARCHAR(36) NULL,
+    submitted_by_owner_user_id VARCHAR(36) NULL,
     created_date            DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_date            DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_nts_tournament_country (tournament_id, country_code),
     INDEX idx_nts_rep (representative_id),
     INDEX idx_nts_status (status)
   )`).catch(err => console.error('[migration] national_team_squads:', err.message));
+  await addCol('national_team_squads', 'submitted_by_owner_user_id', 'VARCHAR(36) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS national_team_squad_players (
     id                  VARCHAR(36) PRIMARY KEY,
