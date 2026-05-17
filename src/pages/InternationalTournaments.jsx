@@ -106,6 +106,14 @@ export default function InternationalTournaments() {
       {loading && <p className="text-sm text-muted-foreground">Loading international tournaments...</p>}
       {loadError && <p className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</p>}
       {actionError && <p className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{actionError}</p>}
+      {!loading && !loadError && visibleTournaments.length === 0 && (
+        <section className="bg-card border border-border rounded p-4">
+          <p className="text-sm font-semibold text-foreground">No international tournaments are open yet.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            An admin needs to create an international tournament and open voting before players can vote for their country representative.
+          </p>
+        </section>
+      )}
       {visibleTournaments.map((tournament) => {
         const elections = electionsByTournament[tournament.id] || [];
         const election = elections.find((row) => String(row.country_code).toUpperCase() === myCountryCode);
