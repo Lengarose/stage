@@ -1,8 +1,7 @@
 const express   = require('express');
 const router    = express.Router();
 const LiveMatch = require('../models/liveMatchModel');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadcast');
 
 router.get('/', async (req, res) => {
   try {
@@ -55,7 +54,7 @@ router.delete('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const { match_id } = existing[0];
     await new LiveMatch().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(match_id, SOCKET_CHANNELS.MATCH), { deleted: true, id });
+    broadcastMatchDeleted(match_id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

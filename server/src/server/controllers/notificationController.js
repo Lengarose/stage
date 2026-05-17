@@ -2,8 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const Notification = require('../models/notificationModel');
 const { EXECUTESQL } = require('../db/database');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastNotification } = require('../utils/socketBroadcast');
 
 async function getCurrentUser(req) {
   const userId = req.user?.id;
@@ -62,7 +61,7 @@ router.post('/', async (req, res) => {
     await notification.create();
     const created = await notification.selectOne(notification.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.NOTIFICATION), record);
+    broadcastNotification(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -80,7 +79,7 @@ router.patch('/:id', async (req, res) => {
     await notification.update(id);
     const updated = await notification.selectOne(id);
     const record  = updated[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.NOTIFICATION), record);
+    broadcastNotification(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -96,7 +95,7 @@ router.delete('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const { recipient_email } = existing[0];
     await new Notification().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(recipient_email, SOCKET_CHANNELS.NOTIFICATION), { deleted: true, id });
+    broadcastNotification({ recipient_email, deleted: true, id });
     res.json({ success: true });
   } catch (err) {
     console.error(err);

@@ -2,8 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const Match   = require('../models/matchModel');
 const { EXECUTESQL } = require('../db/database');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadcast');
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi } = require('../utils/datetime');
 
@@ -343,8 +342,7 @@ router.post('/', async (req, res) => {
     await match.create();
     const created = await match.selectOne(match.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
-    socketEmit(SOCKET_CHANNELS.MATCH, record);
+    broadcastMatch(record);
     res.status(201).json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -385,8 +383,7 @@ router.patch('/:id', async (req, res) => {
         Object.assign(record, refreshed[0]);
       }
     }
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.MATCH), record);
-    socketEmit(SOCKET_CHANNELS.MATCH, record);
+    broadcastMatch(record);
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -415,8 +412,7 @@ router.delete('/:id', async (req, res) => {
       if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
     }
     await new Match().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.MATCH), { deleted: true, id });
-    socketEmit(SOCKET_CHANNELS.MATCH, { deleted: true, id });
+    broadcastMatchDeleted(id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

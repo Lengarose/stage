@@ -2,8 +2,7 @@ const express       = require('express');
 const router        = express.Router();
 const InboxMessage  = require('../models/inboxMessageModel');
 const { EXECUTESQL } = require('../db/database');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastInbox, broadcastInboxDeleted } = require('../utils/socketBroadcast');
 
 async function getCurrentUser(req) {
   const userId = req.user?.id;
@@ -73,7 +72,7 @@ router.post('/', async (req, res) => {
     await inbox.create();
     const created = await inbox.selectOne(inbox.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.INBOX), record);
+    broadcastInbox(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -102,7 +101,7 @@ router.patch('/:id', async (req, res) => {
     await inbox.update(id);
     const updated = await inbox.selectOne(id);
     const record  = updated[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.INBOX), record);
+    broadcastInbox(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -124,7 +123,7 @@ router.delete('/:id', async (req, res) => {
     }
     const { recipient_email } = existing[0];
     await new InboxMessage().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(recipient_email, SOCKET_CHANNELS.INBOX), { deleted: true, id });
+    broadcastInboxDeleted(id, recipient_email);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

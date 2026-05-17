@@ -1,8 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const Post    = require('../models/postModel');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastPost, broadcastPostDeleted } = require('../utils/socketBroadcast');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -40,7 +39,7 @@ router.post('/', async (req, res) => {
     await post.create();
     const created = await post.selectOne(post.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.POST), record);
+    broadcastPost(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -58,7 +57,7 @@ router.patch('/:id', async (req, res) => {
     await post.update(id);
     const updated = await post.selectOne(id);
     const record  = updated[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.POST), record);
+    broadcastPost(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -73,7 +72,7 @@ router.delete('/:id', async (req, res) => {
     const existing = await new Post().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new Post().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.POST), { deleted: true, id });
+    broadcastPostDeleted(id, existing[0]);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

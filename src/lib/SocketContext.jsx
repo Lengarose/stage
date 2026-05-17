@@ -29,6 +29,7 @@ export const CHANNELS = {
   DRESSING_ROOM: 'STAGE_DRESSING_ROOM',
   CHAT_MESSAGE:  'STAGE_CHAT_MESSAGE',
   TOURNAMENT:    'STAGE_TOURNAMENT',
+  POST_FEED:     'STAGE_POST_FEED',
 };
 
 /** Build a targeted channel e.g. makeChannel(clubId, CHANNELS.CLUB) → "STAGE_CLUB_abc123" */

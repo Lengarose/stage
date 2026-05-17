@@ -31,7 +31,7 @@ const ENV = {
   // Socket server on Render (socket-server/). URL = https://<service>.onrender.com (no trailing slash).
   // SECRET must match EMIT_SECRET on the Render socket service.
   SOCKET_SERVER_URL:    'https://stage-7osn.onrender.com',
-  SOCKET_SERVER_SECRET: 'srv-d84plrd7vvec73fev130',
+  SOCKET_SERVER_SECRET: 'srv-#1?BCJw[JrZ}Y|>?6CVpCHrSCm$6><#)1O_{mRgIdlw',
 
   // Google OAuth — redirect: https://stageleagues.com/api/stage/auth/google/callback
   GOOGLE_CLIENT_ID: '',

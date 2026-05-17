@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
-import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,7 +36,6 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
 
   useEffect(() => {
     let stopped = false;
-    const socketChannel = makeChannel(game.id, CHANNELS.CHAT_MESSAGE);
 
     (async () => {
       setLoading(true);
@@ -45,10 +43,11 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
       if (!stopped) setLoading(false);
     })();
 
-    setSocketListeners(socketChannel, (payload) => {
-      if (!payload) return;
-      if (payload.deleted) {
-        setMessages((prev) => prev.filter((m) => m.id !== payload.id));
+    const unsub = stageClient.entities.ChatMessage.subscribe((event) => {
+      const payload = event.data;
+      if (!payload || payload.match_id !== game.id) return;
+      if (event.type === "delete") {
+        setMessages((prev) => prev.filter((m) => m.id !== event.id));
         return;
       }
       setMessages((prev) => {
@@ -60,16 +59,11 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
         }
         return sortMessages([...prev, payload]);
       });
-    });
-
-    const pollId = window.setInterval(() => {
-      if (!stopped) loadMessages();
-    }, 5000);
+    }, { match_id: game.id });
 
     return () => {
       stopped = true;
-      window.clearInterval(pollId);
-      offSocketListeners(socketChannel);
+      unsub();
     };
   }, [game.id, loadMessages]);
 

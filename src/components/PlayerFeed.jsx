@@ -29,7 +29,7 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
     }
     load();
 
-    const unsub = stageClient.entities.Post.subscribe(event => {
+    const unsub = stageClient.entities.Post.subscribe((event) => {
       if (event.type === "create" && event.data.author_email === player.email) {
         setPosts(prev => [event.data, ...prev]);
       } else if (event.type === "update") {
@@ -39,7 +39,7 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
         setPosts(prev => prev.filter(p => p.id !== event.id));
         setExpandedPost(prev => prev?.id === event.id ? null : prev);
       }
-    });
+    }, { author_email: player.email });
     return unsub;
   }, [player.email]);
 

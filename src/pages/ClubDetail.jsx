@@ -33,7 +33,6 @@ import { notify } from "@/lib/notify";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
-import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -234,10 +233,18 @@ export default function ClubDetail() {
     load();
 
     const unsubPlayer = stageClient.entities.Player.subscribe((event) => {
-      if (event.type === "update" && event.data.club_id === id) {
-        setPlayers(prev => prev.map(p => p.id === event.id ? event.data : p));
+      const row = event.data;
+      if (!row || row.club_id !== id) return;
+      if (row._entity === "player" || row.gamertag) {
+        if (event.type === "delete") {
+          setPlayers((prev) => prev.filter((p) => p.id !== event.id));
+        } else if (event.type === "update") {
+          setPlayers((prev) => prev.map((p) => (p.id === event.id ? row : p)));
+        } else if (event.type === "create") {
+          setPlayers((prev) => (prev.some((p) => p.id === event.id) ? prev : [row, ...prev]));
+        }
       }
-    });
+    }, { club_id: id });
     return () => { unsubPlayer(); };
   }, [id]);
 
@@ -342,13 +349,11 @@ export default function ClubDetail() {
   }
 
   useEffect(() => {
-    let stopped = false;
-    const channel = makeChannel(CLUB_CHAT_CHANNEL, CHANNELS.CHAT_MESSAGE);
-
-    setSocketListeners(channel, (payload) => {
-      if (!payload) return;
-      if (payload.deleted) {
-        setClubChatMessages((prev) => prev.filter((m) => m.id !== payload.id));
+    const unsub = stageClient.entities.ChatMessage.subscribe((event) => {
+      const payload = event.data;
+      if (!payload || payload.match_id !== CLUB_CHAT_CHANNEL) return;
+      if (event.type === "delete") {
+        setClubChatMessages((prev) => prev.filter((m) => m.id !== event.id));
         return;
       }
       setClubChatMessages((prev) => {
@@ -362,20 +367,8 @@ export default function ClubDetail() {
           (a, b) => new Date(a.created_date || 0).getTime() - new Date(b.created_date || 0).getTime()
         );
       });
-    });
-
-    const intervalId = window.setInterval(async () => {
-      if (stopped) return;
-      const latest = await stageClient.entities.ChatMessage
-        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
-        .catch(() => null);
-      if (latest) setClubChatMessages(latest);
-    }, 30000);
-    return () => {
-      stopped = true;
-      window.clearInterval(intervalId);
-      offSocketListeners(channel);
-    };
+    }, { match_id: CLUB_CHAT_CHANNEL });
+    return () => unsub();
   }, [CLUB_CHAT_CHANNEL]);
 
   async function sendClubChatMessage() {

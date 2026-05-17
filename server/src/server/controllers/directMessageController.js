@@ -1,8 +1,7 @@
 const express       = require('express');
 const router        = express.Router();
 const DirectMessage = require('../models/directMessageModel');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastInboxToPlayerIds } = require('../utils/socketBroadcast');
 
 router.get('/', async (req, res) => {
   try {
@@ -28,9 +27,7 @@ router.post('/', async (req, res) => {
     const dm = new DirectMessage(req.body);
     await dm.create();
     const record = (await dm.selectOne(dm.id))[0];
-    // Emit to both participants' inbox channels
-    if (record.sender_id)   socketEmit(MAKE_SOCKET_CHANNEL(record.sender_id,   SOCKET_CHANNELS.INBOX), record);
-    if (record.receiver_id) socketEmit(MAKE_SOCKET_CHANNEL(record.receiver_id, SOCKET_CHANNELS.INBOX), record);
+    await broadcastInboxToPlayerIds(record, [record.sender_id, record.receiver_id]);
     res.status(201).json(record);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -43,7 +40,7 @@ router.patch('/:id', async (req, res) => {
     const dm = new DirectMessage({ ...existing[0], ...req.body });
     await dm.update(id);
     const record = (await dm.selectOne(id))[0];
-    if (record.receiver_id) socketEmit(MAKE_SOCKET_CHANNEL(record.receiver_id, SOCKET_CHANNELS.INBOX), record);
+    await broadcastInboxToPlayerIds(record, [record.sender_id, record.receiver_id]);
     res.json(record);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -55,8 +52,7 @@ router.delete('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const { sender_id, receiver_id } = existing[0];
     await new DirectMessage().delete(id);
-    if (sender_id)   socketEmit(MAKE_SOCKET_CHANNEL(sender_id,   SOCKET_CHANNELS.INBOX), { deleted: true, id });
-    if (receiver_id) socketEmit(MAKE_SOCKET_CHANNEL(receiver_id, SOCKET_CHANNELS.INBOX), { deleted: true, id });
+    await broadcastInboxToPlayerIds({ deleted: true, id }, [sender_id, receiver_id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

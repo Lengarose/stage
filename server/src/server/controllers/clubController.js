@@ -4,8 +4,7 @@ const Club    = require('../models/clubModel');
 const ClubStaffRole = require('../models/clubStaffRoleModel');
 const ClubFixtureLineup = require('../models/clubFixtureLineupModel');
 const { EXECUTESQL } = require('../db/database');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastClub, broadcastClubDeleted } = require('../utils/socketBroadcast');
 const {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
@@ -121,7 +120,7 @@ router.post('/', async (req, res) => {
         ).catch(() => { ownerContractId = null; });
       }
     }
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.CLUB), record);
+    broadcastClub(record);
     res.status(201).json({ ...record, owner_contract_id: ownerContractId });
   } catch (err) {
     console.error(err);
@@ -154,7 +153,7 @@ router.patch('/:id', async (req, res) => {
         [record.id, record.user_id]
       );
     }
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.CLUB), record);
+    broadcastClub(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -169,7 +168,7 @@ router.delete('/:id', async (req, res) => {
     const existing = await new Club().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new Club().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.CLUB), { deleted: true, id });
+    broadcastClubDeleted(id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

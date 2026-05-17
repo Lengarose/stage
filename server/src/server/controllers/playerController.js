@@ -2,8 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const Player  = require('../models/playerModel');
 const { EXECUTESQL } = require('../db/database');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastPlayer, broadcastPlayerDeleted } = require('../utils/socketBroadcast');
 
 let secondaryPositionColumnReady = null;
 
@@ -130,7 +129,7 @@ router.post('/', async (req, res) => {
       console.error('[wallet-init] failed for player', record.id, walletErr.message);
     }
 
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
+    broadcastPlayer(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -165,7 +164,7 @@ router.patch('/:id', async (req, res) => {
         [record.id, record.user_id]
       );
     }
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.PLAYER), record);
+    broadcastPlayer(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -180,7 +179,7 @@ router.delete('/:id', async (req, res) => {
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new Player().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.PLAYER), { deleted: true, id });
+    broadcastPlayerDeleted(id, existing[0]);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

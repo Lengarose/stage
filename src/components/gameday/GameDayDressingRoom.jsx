@@ -42,7 +42,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
         setSeatedPlayerIds(event.data.seated_players || []);
         if (event.data.id) setDressingRoomId(event.data.id);
       }
-    });
+    }, { match_id: game.id });
     return () => unsub();
   }, [game.id, myClub]);
 

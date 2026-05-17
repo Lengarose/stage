@@ -27,7 +27,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
     }
     load();
 
-    const unsub = stageClient.entities.Post.subscribe(event => {
+    const unsub = stageClient.entities.Post.subscribe((event) => {
       if (event.type === "create" && event.data.club_id === club.id) {
         setPosts(prev => [event.data, ...prev]);
       } else if (event.type === "update") {
@@ -37,7 +37,7 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
         setPosts(prev => prev.filter(p => p.id !== event.id));
         setExpandedPost(prev => prev?.id === event.id ? null : prev);
       }
-    });
+    }, { club_id: club.id });
     return unsub;
   }, [club.id]);
 

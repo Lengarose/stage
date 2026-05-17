@@ -134,38 +134,77 @@ function makeEntity(name) {
     return makeEntityApi.filter({}, orderBy, limit);
   };
 
-  const subscribe = (handler) => {
+  const subscribe = (handler, filters = {}) => {
     const knownIds = new Set();
     let disposed = false;
-    let channel = null;
+    const channels = [];
+
+    const onPayload = (payload) => {
+      if (!payload || disposed) return;
+      if (payload.deleted) {
+        handler?.({ type: "delete", id: payload.id, data: payload });
+        return;
+      }
+      const id = payload.id;
+      const type = id && !knownIds.has(id) ? "create" : "update";
+      if (id) knownIds.add(id);
+      handler?.({ type, id, data: payload });
+    };
 
     (async () => {
       try {
-        // Current backend emits room-scoped updates. For now, wire entities that
-        // are reliably user-scoped in the existing app.
         const me = await auth.me().catch(() => null);
-        if (disposed || !me?.email) return;
+        if (disposed) return;
 
-        if (name === "Notification") {
-          channel = makeChannel(me.email, CHANNELS.NOTIFICATION);
-        } else if (name === "InboxMessage") {
-          channel = makeChannel(me.email, CHANNELS.INBOX);
-        } else {
-          // Keep compatibility for unsupported entities.
-          return;
+        const add = (ch) => {
+          if (!ch || channels.includes(ch)) return;
+          channels.push(ch);
+          setSocketListeners(ch, onPayload);
+        };
+
+        switch (name) {
+          case "Notification":
+            if (me?.email) add(makeChannel(me.email, CHANNELS.NOTIFICATION));
+            break;
+          case "InboxMessage":
+          case "DirectMessage":
+            if (me?.email) add(makeChannel(me.email, CHANNELS.INBOX));
+            if (me?.player_id) add(makeChannel(me.player_id, CHANNELS.INBOX));
+            break;
+          case "Match":
+            add(CHANNELS.MATCH);
+            if (filters.id) add(makeChannel(filters.id, CHANNELS.MATCH));
+            break;
+          case "ChatMessage":
+            if (filters.match_id) add(makeChannel(filters.match_id, CHANNELS.CHAT_MESSAGE));
+            break;
+          case "DressingRoom":
+            if (filters.match_id) add(makeChannel(filters.match_id, CHANNELS.DRESSING_ROOM));
+            break;
+          case "Post":
+            add(CHANNELS.POST);
+            if (filters.club_id) add(makeChannel(filters.club_id, CHANNELS.POST_FEED));
+            if (filters.author_email) add(makeChannel(filters.author_email, CHANNELS.POST_FEED));
+            break;
+          case "Player":
+            if (filters.id) add(makeChannel(filters.id, CHANNELS.PLAYER));
+            if (me?.player_id) add(makeChannel(me.player_id, CHANNELS.PLAYER));
+            if (filters.club_id) add(makeChannel(filters.club_id, CHANNELS.CLUB));
+            break;
+          case "Club":
+            if (filters.id) add(makeChannel(filters.id, CHANNELS.CLUB));
+            break;
+          case "Tournament":
+            add(CHANNELS.TOURNAMENT);
+            if (filters.id) add(makeChannel(filters.id, CHANNELS.TOURNAMENT));
+            break;
+          case "MatchPlayerStat":
+            if (filters.tournament_id) add(makeChannel(filters.tournament_id, CHANNELS.TOURNAMENT));
+            if (filters.match_id) add(makeChannel(filters.match_id, CHANNELS.MATCH));
+            break;
+          default:
+            break;
         }
-
-        setSocketListeners(channel, (payload) => {
-          if (!payload || disposed) return;
-          if (payload.deleted) {
-            handler?.({ type: "delete", id: payload.id, data: payload });
-            return;
-          }
-          const id = payload.id;
-          const type = id && !knownIds.has(id) ? "create" : "update";
-          if (id) knownIds.add(id);
-          handler?.({ type, id, data: payload });
-        });
       } catch {
         // Non-fatal: keep app functional if realtime wiring fails.
       }
@@ -173,7 +212,7 @@ function makeEntity(name) {
 
     return () => {
       disposed = true;
-      if (channel) offSocketListeners(channel);
+      for (const ch of channels) offSocketListeners(ch);
     };
   };
 

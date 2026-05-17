@@ -1,8 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
 const Tournament = require('../models/tournamentModel');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -46,7 +45,7 @@ router.post('/', async (req, res) => {
     await tournament.create();
     const created = await tournament.selectOne(tournament.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.TOURNAMENT), record);
+    broadcastTournament(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -64,7 +63,7 @@ router.patch('/:id', async (req, res) => {
     await tournament.update(id);
     const updated = await tournament.selectOne(id);
     const record  = updated[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.id, SOCKET_CHANNELS.TOURNAMENT), record);
+    broadcastTournament(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -79,7 +78,7 @@ router.delete('/:id', async (req, res) => {
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new Tournament().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.TOURNAMENT), { deleted: true, id });
+    broadcastTournamentDeleted(id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

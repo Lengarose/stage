@@ -17,10 +17,10 @@ export default function TournamentLeaderboard({ tournamentId }) {
     load();
 
     const unsub = stageClient.entities.MatchPlayerStat.subscribe((event) => {
-      if (event.data?.tournament_id === tournamentId) {
+      if (event.data?._entity === "MatchPlayerStat" && event.data?.tournament_id === tournamentId) {
         stageClient.entities.MatchPlayerStat.filter({ tournament_id: tournamentId }).then(setStats);
       }
-    });
+    }, { tournament_id: tournamentId });
 
     return unsub;
   }, [tournamentId]);

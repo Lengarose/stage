@@ -19,6 +19,13 @@ const EA_ENDPOINTS = {
 };
 
 const { toMysqlDateTime } = require('../utils/datetime');
+const {
+  broadcastMatch,
+  broadcastMatchById,
+  broadcastNotification,
+  broadcastInbox,
+  broadcastMatchPlayerStat,
+} = require('../utils/socketBroadcast');
 
 async function getMe(_auth_user_id) {
   if (!_auth_user_id) throw new Error('not authenticated');
@@ -254,6 +261,16 @@ async function createNotificationIfEnabled({
     'INSERT INTO notifications (id, recipient_email, type, title, body, `read`, link, related_id, created_date) VALUES (?,?,?,?,?,?,?,?, NOW())',
     [id, recipientEmail, type, title, body, 0, link || '', relatedId]
   );
+  broadcastNotification({
+    id,
+    recipient_email: recipientEmail,
+    type,
+    title,
+    body,
+    read: 0,
+    link: link || '',
+    related_id: relatedId,
+  });
   return { success: true, id };
 }
 
@@ -557,16 +574,29 @@ async function processMatchCompletion(match, acceptedSubmission) {
   );
 
   for (const stat of playerStats) {
+    const statId = uuidv4();
+    const statRow = {
+      id: statId,
+      match_id: matchId,
+      tournament_id: fresh.tournament_id || null,
+      club_id: stat.club_id || null,
+      player_email: stat.player_email || '',
+      player_gamertag: stat.player_gamertag || null,
+      goals: Number(stat.goals || 0),
+      assists: Number(stat.assists || 0),
+      rating: Number(stat.rating || 0),
+    };
     await EXECUTESQL(
       `INSERT INTO match_player_stats
        (id, match_id, tournament_id, club_id, player_email, player_gamertag, goals, assists, rating, created_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        uuidv4(), matchId, fresh.tournament_id || null, stat.club_id || null,
-        stat.player_email || '', stat.player_gamertag || null, Number(stat.goals || 0),
-        Number(stat.assists || 0), Number(stat.rating || 0),
+        statRow.id, statRow.match_id, statRow.tournament_id, statRow.club_id,
+        statRow.player_email, statRow.player_gamertag, statRow.goals,
+        statRow.assists, statRow.rating,
       ]
     ).catch(() => {});
+    broadcastMatchPlayerStat(statRow);
   }
 
   const isClubMatch = fresh.mode === 'club' && fresh.home_club_id && fresh.away_club_id;
@@ -630,6 +660,7 @@ async function processMatchCompletion(match, acceptedSubmission) {
     await generateShirtSalesForMatch(completed, stats).catch(() => {});
   }
 
+  await broadcastMatchById(matchId);
   return { data: { status: 'completed' } };
 }
 
@@ -1186,6 +1217,7 @@ const HANDLERS = {
       const nextDate = toMysqlDateTime(meta.scheduled_date);
       if (existingMatchId && nextDate) {
         await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [nextDate, existingMatchId]);
+        await broadcastMatchById(existingMatchId);
       }
       if (message.sender_email) {
         await createNotificationIfEnabled({
@@ -1237,6 +1269,7 @@ const HANDLERS = {
           payload.home_player_id, payload.away_player_id, payload.home_player_name, payload.away_player_name, new Date(),
         ]
       );
+      broadcastMatch(payload);
       await EXECUTESQL(
         'UPDATE inbox_messages SET metadata = ? WHERE id = ?',
         [JSON.stringify({ ...meta, created_match_id: matchId }), message_id]
@@ -1275,6 +1308,15 @@ const HANDLERS = {
           }),
         ]
       );
+      broadcastInbox({
+        id: responseId,
+        recipient_email: message.sender_email,
+        sender_email: user.email,
+        message_type: 'match_invite',
+        status: 'pending',
+        is_read: 0,
+        related_entity_id: meta.created_match_id || message.related_entity_id || null,
+      });
       await createNotificationIfEnabled({
         recipientEmail: message.sender_email,
         type: 'match_reminder',
@@ -1293,6 +1335,7 @@ const HANDLERS = {
           'UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?',
           [targetDate, existingMatchId]
         );
+        await broadcastMatchById(existingMatchId);
       } else if (!existingMatchId) {
         // Confirming a date proposal before match exists -> create now.
         const isClubMatch = (meta.invitation_type || 'player_vs_player') === 'club_vs_club';
@@ -1316,6 +1359,7 @@ const HANDLERS = {
             new Date(),
           ]
         );
+        await broadcastMatchById(createdId);
       }
       if (message.sender_email) {
         await createNotificationIfEnabled({
@@ -2043,6 +2087,7 @@ const HANDLERS = {
 
     if (action === 'kickoff') {
       await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
+      await broadcastMatchById(match_id);
       return { data: { success: true } };
     }
 
@@ -2077,12 +2122,14 @@ const HANDLERS = {
       const awaySub = parseSubmission(updated.away_submission);
 
       if (!homeSub || !awaySub) {
+        await broadcastMatchById(match_id);
         return { data: { status: 'waiting' } };
       }
 
       if (Number(homeSub.home_score) !== Number(awaySub.home_score) ||
           Number(homeSub.away_score) !== Number(awaySub.away_score)) {
         await EXECUTESQL("UPDATE matches SET status = 'disputed', updated_date = NOW() WHERE id = ?", [match_id]);
+        await broadcastMatchById(match_id);
         return { data: { status: 'disputed' } };
       }
 

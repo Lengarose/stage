@@ -1,8 +1,7 @@
 const express     = require('express');
 const router      = express.Router();
 const ChatMessage = require('../models/chatMessageModel');
-const { socketEmit } = require('../express/index');
-const { SOCKET_CHANNELS, MAKE_SOCKET_CHANNEL } = require('../../constants/constants');
+const { broadcastChatMessage, broadcastChatMessageDeleted } = require('../utils/socketBroadcast');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -40,7 +39,7 @@ router.post('/', async (req, res) => {
     await cm.create();
     const created = await cm.selectOne(cm.id);
     const record  = created[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.match_id, SOCKET_CHANNELS.CHAT_MESSAGE), record);
+    broadcastChatMessage(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -58,7 +57,7 @@ router.patch('/:id', async (req, res) => {
     await cm.update(id);
     const updated = await cm.selectOne(id);
     const record  = updated[0];
-    socketEmit(MAKE_SOCKET_CHANNEL(record.match_id, SOCKET_CHANNELS.CHAT_MESSAGE), record);
+    broadcastChatMessage(record);
     res.json(record);
   } catch (err) {
     console.error(err);
@@ -74,7 +73,7 @@ router.delete('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const { match_id } = existing[0];
     await new ChatMessage().delete(id);
-    socketEmit(MAKE_SOCKET_CHANNEL(match_id, SOCKET_CHANNELS.CHAT_MESSAGE), { deleted: true, id });
+    broadcastChatMessageDeleted(id, match_id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
