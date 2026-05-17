@@ -44,6 +44,7 @@ import AdminClubsPage from './pages/admin/AdminClubsPage';
 import AdminRankingsPage from './pages/admin/AdminRankingsPage';
 import AdminLeaguesPage from './pages/admin/AdminLeaguesPage';
 import AdminTournamentsPage from './pages/admin/AdminTournamentsPage';
+import AdminInternationalTournamentsPage from './pages/admin/AdminInternationalTournamentsPage';
 import AdminTrophiesPage from './pages/admin/AdminTrophiesPage';
 import AdminRewardsPage from './pages/admin/AdminRewardsPage';
 import AdminNewsPage from './pages/admin/AdminNewsPage';
@@ -217,6 +218,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/rankings" element={<AdminRankingsPage />} />
         <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
         <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />
+        <Route path="/admin/international-tournaments" element={<AdminInternationalTournamentsPage />} />
         <Route path="/admin/trophies" element={<AdminTrophiesPage />} />
         <Route path="/admin/rewards" element={<AdminRewardsPage />} />
         <Route path="/admin/news" element={<AdminNewsPage />} />

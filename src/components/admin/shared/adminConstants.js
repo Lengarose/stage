@@ -19,6 +19,8 @@ export const ADMIN_SECTION_ALIASES = {
   disputes: "disputes",
   forfeits: "forfeits",
   tournaments: "tournaments",
+  "international-tournaments": "international-tournaments",
+  international: "international-tournaments",
   leagues: "leagues",
   news: "news",
   trophies: "trophies",
