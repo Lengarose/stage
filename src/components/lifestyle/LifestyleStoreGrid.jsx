@@ -50,6 +50,10 @@ function getItemImage(item) {
   return ITEM_IMAGES[item.name] || CATEGORY_FALLBACKS[item.category] || ITEM_IMAGES["Luxury Brand Collection"];
 }
 
+function isEnabled(value) {
+  return value === true || value === 1 || value === "1";
+}
+
 // { item, intent } — intent is "buy_live" | "invest"
 export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, onBuy, onRent, hasResidence }) {
   const [modal, setModal] = useState(null); // { item, intent }
@@ -103,11 +107,12 @@ export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, 
           // Non-property items
           const ownedCount = (purchases || []).filter(p => p.item_id === item.id && p.purchase_type !== "rent").length;
           const activeRentalNonProp = (purchases || []).find(p => p.item_id === item.id && p.purchase_type === "rent" && p.rent_active !== false) || null;
-          const isMulti = item.allows_multiple;
+          const isMulti = isEnabled(item.allows_multiple);
           const alreadyOwned = ownedCount > 0;
           const showBlock = alreadyOwned && !isMulti;
           const canAffordBuy = stc >= item.price_stc;
-          const canAffordRent = item.can_rent && item.rent_price_stc && stc >= item.rent_price_stc;
+          const canRentItem = isEnabled(item.can_rent) && Number(item.rent_price_stc || 0) > 0;
+          const canAffordRent = canRentItem && stc >= Number(item.rent_price_stc || 0);
           const hasPassive = item.passive_income_stc > 0;
           const imageUrl = getItemImage(item);
           const tierStyle = LIFESTYLE_TIER_STYLES[item.tier] || LIFESTYLE_TIER_STYLES.starter;
@@ -139,7 +144,7 @@ export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, 
                         {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : canAffordBuy ? alreadyOwned ? <><Plus className="w-3 h-3" /> Add</> : "Buy" : <><Lock className="w-3 h-3" /> Need STC</>}
                       </Button>
                     </div>
-                    {item.can_rent && item.rent_price_stc > 0 && (
+                    {canRentItem && (
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rent/mo</p>
@@ -182,7 +187,8 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
   const tierStyle = LIFESTYLE_TIER_STYLES[item.tier] || LIFESTYLE_TIER_STYLES.starter;
   const imageUrl = getItemImage(item);
   const canAfford = stc >= item.price_stc;
-  const canAffordRent = item.can_rent && item.rent_price_stc && stc >= item.rent_price_stc;
+  const canRentItem = isEnabled(item.can_rent) && Number(item.rent_price_stc || 0) > 0;
+  const canAffordRent = canRentItem && stc >= Number(item.rent_price_stc || 0);
   const hasPassive = item.passive_income_stc > 0;
   const isMyResidence = liveOwned?.is_residence || activeRental?.is_residence;
   const [renting, setRenting] = useState(false);
@@ -273,7 +279,7 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
             )}
 
             {/* Rent */}
-            {item.can_rent && item.rent_price_stc > 0 ? (
+            {canRentItem ? (
               activeRental ? (
                 <div className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border bg-primary/5 border-primary/20 text-[10px] font-bold text-primary">
                   <CalendarClock className="w-3.5 h-3.5" />
@@ -318,7 +324,7 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
           </div>
 
           {/* Rent price hint */}
-          {item.can_rent && item.rent_price_stc > 0 && !activeRental && (
+          {canRentItem && !activeRental && (
             <p className="text-[10px] text-muted-foreground text-center">Rent: {formatSTC(item.rent_price_stc)}/mo</p>
           )}
         </div>
