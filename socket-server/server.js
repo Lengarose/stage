@@ -7,24 +7,42 @@ const app    = express();
 const server = http.createServer(app);
 
 app.use(express.json());
+app.set('trust proxy', 1);
 
-const PORT               = process.env.PORT               || 3001;
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || '';
-const EMIT_SECRET        = process.env.EMIT_SECRET        || '';
+const PORT = Number(process.env.PORT) || 3001;
+const ACCESS_TOKEN_SECRET =
+  process.env.ACCESS_TOKEN_SECRET || '';
+// REST server uses SOCKET_SERVER_SECRET; socket server accepts either name.
+const EMIT_SECRET =
+  process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '';
 
 if (!ACCESS_TOKEN_SECRET) console.warn('[socket] WARNING: ACCESS_TOKEN_SECRET not set');
-if (!EMIT_SECRET)         console.warn('[socket] WARNING: EMIT_SECRET not set');
+if (!EMIT_SECRET) console.warn('[socket] WARNING: EMIT_SECRET / SOCKET_SERVER_SECRET not set');
+
+function parseAllowedOrigins() {
+  const raw =
+    process.env.ALLOWED_ORIGINS ||
+    process.env.FRONTEND_URL ||
+    '*';
+  if (raw === '*') return '*';
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const allowedOrigins = parseAllowedOrigins();
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || '*',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
   transports: ['websocket', 'polling'],
-  pingTimeout:  60000,
+  pingTimeout: 60000,
   pingInterval: 25000,
-  allowEIO3:    true,
+  allowEIO3: true,
 });
 
 // Verify JWT on every socket connection
@@ -61,6 +79,15 @@ app.post('/emit', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'stage-socket-server' }));
+app.get('/health', (_req, res) =>
+  res.json({
+    ok: true,
+    service: 'stage-socket-server',
+    connections: io.engine?.clientsCount ?? 0,
+  })
+);
 
-server.listen(PORT, () => console.log(`[socket] running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[socket] running on 0.0.0.0:${PORT}`);
+  console.log(`[socket] CORS origins: ${Array.isArray(allowedOrigins) ? allowedOrigins.join(', ') : allowedOrigins}`);
+});

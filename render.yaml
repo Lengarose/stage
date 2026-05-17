@@ -1,0 +1,24 @@
+# Stage League — realtime socket.io service (deploy this on Render).
+# The REST API + MySQL stay on Gandi; only socket-server/ runs here.
+#
+# Dashboard: New → Blueprint → connect repo → Render reads this file.
+# Or: New Web Service → Root Directory = socket-server (same env vars below).
+
+services:
+  - type: web
+    name: stage-socket
+    runtime: node
+    rootDir: socket-server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: EMIT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://stageleagues.com,http://localhost:5173

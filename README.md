@@ -133,6 +133,56 @@ pm2 restart stage-server   # or your process manager
 
 DB migrations run at boot, no manual SQL step required.
 
+### Realtime (socket.io) on Render
+
+The REST API stays on **Gandi** (MySQL via Unix socket). Deploy **only** `socket-server/` to Render — do not deploy the full `server/` app there (it will fail with `ENOENT … mysqld.sock`).
+
+1. **Render** → New **Web Service** (or Blueprint from `render.yaml`).
+   - **Root directory:** `socket-server`
+   - **Build:** `npm install`
+   - **Start:** `npm start`
+   - **Health check path:** `/health`
+
+2. **Environment variables** on the Render socket service:
+
+   | Variable | Value |
+   |---|---|
+   | `ACCESS_TOKEN_SECRET` | Same as Gandi `server` |
+   | `EMIT_SECRET` | Same as Gandi `SOCKET_SERVER_SECRET` |
+   | `ALLOWED_ORIGINS` | `https://stageleagues.com,http://localhost:5173` |
+
+3. **Gandi `server` env** (after deploy, copy the Render URL e.g. `https://stage-socket-xxxx.onrender.com`):
+
+   ```bash
+   SOCKET_SERVER_URL=https://stage-socket-xxxx.onrender.com
+   SOCKET_SERVER_SECRET=<same value as EMIT_SECRET on Render>
+   ```
+
+4. **Production frontend build** (`.env` or CI before `npm run build`):
+
+   ```bash
+   VITE_SOCKET_URL=https://stage-socket-xxxx.onrender.com
+   ```
+
+5. **Verify**
+   - `curl https://stage-socket-xxxx.onrender.com/health` → `{"ok":true,...}`
+   - Open Game Day chat or notifications; browser DevTools → Network → WS should connect to the Render host.
+
+**Note:** Render free instances spin down after inactivity (~50s cold start). Upgrade to a paid plan for always-on WebSockets in production.
+
+See `socket-server/env.example` for local dev.
+
+**Smoke test** (after Render deploy):
+
+```bash
+cd socket-server && npm install
+EMIT_SECRET=<render-secret> \
+ACCESS_TOKEN_SECRET=<gandi-secret> \
+npm run test:socket -- https://stage-7osn.onrender.com
+```
+
+Expect: `/health` OK → socket connects → `POST /emit` → receives `update` on the test channel.
+
 **Pre-deploy checklist** (from `AGENTS.md` §8):
 
 ```bash

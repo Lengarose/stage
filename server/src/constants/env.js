@@ -28,9 +28,10 @@ const ENV = {
   REFRESH_TOKEN_SECRET:
     'PAZEJFNSWJSIDAOEZRAOZERJAJ?FSLDK?FSDLFKQSLDKFLQSDKFHAZEFNEARARarrabjhsdbhjfsqsdf',
 
-  // Socket server (separate WebSocket-capable host — e.g. Railway/Render/Fly.io)
-  SOCKET_SERVER_URL:    '',
-  SOCKET_SERVER_SECRET: '',
+  // Socket server on Render (socket-server/). URL = https://<service>.onrender.com (no trailing slash).
+  // SECRET must match EMIT_SECRET on the Render socket service.
+  SOCKET_SERVER_URL:    'https://stage-7osn.onrender.com',
+  SOCKET_SERVER_SECRET: 'srv-d84plrd7vvec73fev130',
 
   // Google OAuth — redirect: https://stageleagues.com/api/stage/auth/google/callback
   GOOGLE_CLIENT_ID: '',
