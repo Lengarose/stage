@@ -233,7 +233,7 @@ export default function Admin(props) {
       setCompSeasons(allCompSeasons);
       setQualEntries(allQual);
       setRegionalLeagues(allRegLeagues);
-      setRegApplications(allRegApps);
+      setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
       setPressConferences(allPressConferences);
       setLifestyleItems(allLifestyleItems);
       await loadInternationalTournaments();
@@ -277,6 +277,41 @@ export default function Admin(props) {
         })
     )));
     setInternationalSquads(Object.fromEntries(squadPairs));
+  }
+
+  async function cleanupStaleSeasonRegistrations(registrations) {
+    if (!base44.entities.SeasonRegistration || !base44.entities.RegionalLeagueStanding) return registrations;
+    const activeStatuses = new Set(["pending", "waitlisted", "approved"]);
+    const candidates = registrations.filter(reg => (
+      activeStatuses.has(String(reg.status || "").toLowerCase()) &&
+      (String(reg.admin_notes || "").toLowerCase().includes("removed from") || reg.assigned_league_id)
+    ));
+    if (!candidates.length) return registrations;
+
+    const leagueIds = [...new Set(candidates.map(reg => reg.assigned_league_id).filter(Boolean))];
+    const standingRows = (await Promise.all(leagueIds.map(leagueId =>
+      (base44.entities.RegionalLeagueStanding?.filter({ league_id: leagueId }, null, 200) ?? Promise.resolve([])).catch(() => [])
+    ))).flat();
+    const standingKeys = new Set(standingRows.map(row => `${row.league_id}:${row.club_id}`));
+
+    const updates = [];
+    const next = registrations.map(reg => {
+      const removedByNote = String(reg.admin_notes || "").toLowerCase().includes("removed from");
+      const missingStanding = reg.assigned_league_id && !standingKeys.has(`${reg.assigned_league_id}:${reg.club_id}`);
+      if (!activeStatuses.has(String(reg.status || "").toLowerCase()) || (!removedByNote && !missingStanding)) {
+        return reg;
+      }
+      const patch = {
+        status: "removed",
+        admin_notes: reg.admin_notes || "Removed from league registration.",
+        reviewed_by: reg.reviewed_by || adminProfile?.email || "admin",
+        reviewed_at: reg.reviewed_at || new Date().toISOString(),
+      };
+      updates.push(base44.entities.SeasonRegistration.update(reg.id, patch).catch(() => null));
+      return { ...reg, ...patch };
+    });
+    if (updates.length) await Promise.all(updates);
+    return next;
   }
 
   async function createInternationalTournament(form) {

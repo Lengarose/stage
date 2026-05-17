@@ -28,7 +28,15 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
     platform,
   }, null, 10) ?? Promise.resolve([])).catch(() => []);
 
-  const active = existing.find(r => r.status === "pending" || r.status === "waitlisted" || r.status === "approved");
+  const activeStatuses = new Set(["pending", "waitlisted", "approved"]);
+  const inactiveStatuses = new Set(["rejected", "removed", "withdrawn", "cancelled", "canceled"]);
+  const active = existing.find(r => {
+    const status = String(r.status || "").toLowerCase();
+    const adminNotes = String(r.admin_notes || "").toLowerCase();
+    if (inactiveStatuses.has(status)) return false;
+    if (adminNotes.includes("removed from")) return false;
+    return activeStatuses.has(status);
+  });
   if (active) {
     throw new Error(`Your club already has an active application for ${regionName} (${active.status}).`);
   }

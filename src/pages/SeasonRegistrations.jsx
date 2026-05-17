@@ -16,7 +16,15 @@ const STATUS_CONFIG = {
   approved:   { label: "Approved",    cls: "text-success border-success/30 bg-success/5",                icon: CheckCircle   },
   rejected:   { label: "Rejected",    cls: "text-destructive border-destructive/30 bg-destructive/5",    icon: X             },
   waitlisted: { label: "Waitlisted",  cls: "text-muted-foreground border-border bg-secondary",           icon: Clock         },
+  removed:    { label: "Removed",     cls: "text-muted-foreground border-border bg-secondary",           icon: X             },
 };
+
+const ACTIVE_APPLICATION_STATUSES = new Set(["pending", "waitlisted", "approved"]);
+
+function isRemovedApplication(app) {
+  return String(app?.status || "").toLowerCase() === "removed" ||
+    String(app?.admin_notes || "").toLowerCase().includes("removed from");
+}
 
 export default function SeasonRegistrations() {
   const [_user,        setUser]         = useState(null);
@@ -56,9 +64,10 @@ export default function SeasonRegistrations() {
       // this guard makes sure we never render someone else's application
       // even against a stale/older backend.
       const myEmail = (u?.email || "").toLowerCase();
-      const ownedApps = myEmail
+      let ownedApps = myEmail
         ? apps.filter(a => String(a.owner_email || "").toLowerCase() === myEmail)
         : [];
+      ownedApps = await cleanupStaleOwnedApplications(ownedApps);
       setMyApps(ownedApps);
 
       if (u) {
@@ -72,6 +81,38 @@ export default function SeasonRegistrations() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function cleanupStaleOwnedApplications(apps) {
+    if (!base44.entities.SeasonRegistration) return apps;
+    const candidates = apps.filter(app => (
+      ACTIVE_APPLICATION_STATUSES.has(String(app.status || "").toLowerCase()) &&
+      (isRemovedApplication(app) || app.assigned_league_id)
+    ));
+    if (!candidates.length) return apps;
+
+    const leagueIds = [...new Set(candidates.map(app => app.assigned_league_id).filter(Boolean))];
+    const standingRows = (await Promise.all(leagueIds.map(leagueId =>
+      (base44.entities.RegionalLeagueStanding?.filter({ league_id: leagueId }, null, 100) ?? Promise.resolve([])).catch(() => [])
+    ))).flat();
+    const standingKeys = new Set(standingRows.map(row => `${row.league_id}:${row.club_id}`));
+    const updates = [];
+    const nextApps = apps.map(app => {
+      const removedByNote = isRemovedApplication(app);
+      const missingStanding = app.assigned_league_id && !standingKeys.has(`${app.assigned_league_id}:${app.club_id}`);
+      if (!ACTIVE_APPLICATION_STATUSES.has(String(app.status || "").toLowerCase()) || (!removedByNote && !missingStanding)) {
+        return app;
+      }
+      const patch = {
+        status: "removed",
+        admin_notes: app.admin_notes || "Removed from league registration.",
+        reviewed_at: app.reviewed_at || new Date().toISOString(),
+      };
+      updates.push(base44.entities.SeasonRegistration.update(app.id, patch).catch(() => null));
+      return { ...app, ...patch };
+    });
+    if (updates.length) await Promise.all(updates);
+    return nextApps;
   }
 
   function openApplyDialog(region) {
@@ -109,6 +150,7 @@ export default function SeasonRegistrations() {
   // Map region_slug → my application (if any)
   const appByRegion = {};
   for (const app of myApps) {
+    if (!ACTIVE_APPLICATION_STATUSES.has(String(app.status || "").toLowerCase()) || isRemovedApplication(app)) continue;
     if (!appByRegion[app.region_slug]) appByRegion[app.region_slug] = app;
   }
 
