@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ function normalizeList(value) {
 }
 
 export default function Recruitment() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
@@ -63,8 +64,33 @@ export default function Recruitment() {
     verified_only: false,
     expires_at: "",
   });
+  const canCreateClubPost = Boolean(myClub && canManageClub);
+  const canCreatePlayerPost = Boolean(myPlayer);
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const createType = searchParams.get("create");
+    if (!createType || createOpen) return;
+    if (createType === "club_recruiting" && canCreateClubPost) {
+      setActiveType("club_recruiting");
+      openCreate("club_recruiting");
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("create");
+        return next;
+      }, { replace: true });
+    } else if ((createType === "player_lfg" || createType === "trial_request") && canCreatePlayerPost) {
+      setActiveType(createType);
+      openCreate(createType);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("create");
+        return next;
+      }, { replace: true });
+    }
+  }, [loading, searchParams, createOpen, canCreateClubPost, canCreatePlayerPost, setSearchParams]);
 
   async function load() {
     setLoading(true);
@@ -230,9 +256,6 @@ export default function Recruitment() {
     setOfferTarget(null);
     setNotice("Contract offer sent.");
   }
-
-  const canCreateClubPost = Boolean(myClub && canManageClub);
-  const canCreatePlayerPost = Boolean(myPlayer);
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
