@@ -217,7 +217,7 @@ router.post('/:id/squads', async (req, res) => {
 
     const countryCode = normalizeCountryCode(req.body?.country_code);
     const playerIds = req.body?.player_ids || [];
-    const selection = validateSquadSelection({ playerIds, maxSquadSize: 26 });
+    const selection = validateSquadSelection({ playerIds, maxSquadSize: tournament.max_squad_size || 26 });
     if (!selection.ok) return res.status(400).json({ error: selection.reason, code: selection.reason });
 
     const submitter = (await model.getPlayerForUser(req.user))[0];

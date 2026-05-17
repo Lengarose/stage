@@ -21,6 +21,11 @@ async function insertAdminAudit(exec, audit) {
   );
 }
 
+function toPositiveInt(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback;
+}
+
 class InternationalTournamentModel {
   listTournaments(limit = 100) {
     const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 200);
@@ -53,8 +58,9 @@ class InternationalTournamentModel {
       await exec(
         `INSERT INTO international_tournaments
          (id, name, tournament_type, region, status, voting_opens_at, voting_closes_at,
-          squad_locks_at, starts_at, eligible_countries, created_by_user_id, created_by_email)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          squad_locks_at, starts_at, max_squad_size, matchday_squad_size, starters_size, bench_size,
+          eligible_countries, created_by_user_id, created_by_email)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           body.name,
@@ -65,6 +71,10 @@ class InternationalTournamentModel {
           body.voting_closes_at || null,
           body.squad_locks_at || null,
           body.starts_at || null,
+          toPositiveInt(body.max_squad_size, 26),
+          toPositiveInt(body.matchday_squad_size, 18),
+          toPositiveInt(body.starters_size, 11),
+          toPositiveInt(body.bench_size, 7),
           body.eligible_countries ? JSON.stringify(body.eligible_countries) : null,
           user?.id || null,
           user?.email || null,
@@ -88,6 +98,7 @@ class InternationalTournamentModel {
       `UPDATE international_tournaments
        SET name = ?, tournament_type = ?, region = ?, status = ?,
            voting_opens_at = ?, voting_closes_at = ?, squad_locks_at = ?, starts_at = ?,
+           max_squad_size = ?, matchday_squad_size = ?, starters_size = ?, bench_size = ?,
            eligible_countries = ?, updated_date = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
@@ -99,6 +110,10 @@ class InternationalTournamentModel {
         body.voting_closes_at || null,
         body.squad_locks_at || null,
         body.starts_at || null,
+        toPositiveInt(body.max_squad_size, 26),
+        toPositiveInt(body.matchday_squad_size, 18),
+        toPositiveInt(body.starters_size, 11),
+        toPositiveInt(body.bench_size, 7),
         body.eligible_countries ? JSON.stringify(body.eligible_countries) : null,
         id,
       ]

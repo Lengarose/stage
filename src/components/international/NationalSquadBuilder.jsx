@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
-export default function NationalSquadBuilder({ players, squad, squadPlayers, onSave, disabled }) {
+export default function NationalSquadBuilder({ players, squad, squadPlayers, maxSquadSize = 26, onSave, disabled }) {
   const initialSelected = useMemo(() => new Set((squadPlayers || []).map((player) => player.player_id)), [squadPlayers]);
   const [selected, setSelected] = useState(initialSelected);
   const locked = squad?.status === 'locked';
@@ -15,7 +15,7 @@ export default function NationalSquadBuilder({ players, squad, squadPlayers, onS
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(playerId)) next.delete(playerId);
-      else if (next.size < 26) next.add(playerId);
+      else if (next.size < maxSquadSize) next.add(playerId);
       return next;
     });
   }
@@ -25,7 +25,7 @@ export default function NationalSquadBuilder({ players, squad, squadPlayers, onS
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-bold text-foreground">National Squad</p>
-          <p className="text-xs text-muted-foreground">{selected.size}/26 selected · matchday rule: 11 starters + 7 bench</p>
+          <p className="text-xs text-muted-foreground">{selected.size}/{maxSquadSize} selected · matchday rule: 11 starters + 7 bench</p>
         </div>
         <Button type="button" disabled={locked || disabled} onClick={() => onSave([...selected])} className="rounded gap-2">
           <Save className="w-4 h-4" /> {disabled ? 'Saving...' : 'Save Squad'}

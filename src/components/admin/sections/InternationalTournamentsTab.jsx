@@ -14,7 +14,7 @@ export default function InternationalTournamentsTab({
   onLockSquad,
   saving,
 }) {
-  const [form, setForm] = useState({
+  const emptyForm = {
     name: '',
     tournament_type: 'world_cup',
     region: 'Global',
@@ -22,23 +22,29 @@ export default function InternationalTournamentsTab({
     voting_closes_at: '',
     squad_locks_at: '',
     starts_at: '',
+    max_squad_size: '26',
+    eligible_country_codes: '',
+  };
+  const [form, setForm] = useState({
+    ...emptyForm,
   });
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   async function submit(event) {
     event.preventDefault();
-    const created = await onCreate(form);
-    if (!created) return;
-    setForm({
-      name: '',
-      tournament_type: 'world_cup',
-      region: 'Global',
-      voting_opens_at: '',
-      voting_closes_at: '',
-      squad_locks_at: '',
-      starts_at: '',
+    const eligibleCountries = form.eligible_country_codes
+      .split(',')
+      .map((countryCode) => countryCode.trim().toUpperCase())
+      .filter(Boolean)
+      .map((countryCode) => ({ country_code: countryCode, country_name: countryCode }));
+    const created = await onCreate({
+      ...form,
+      max_squad_size: Number(form.max_squad_size) || 26,
+      eligible_countries: eligibleCountries.length ? eligibleCountries : null,
     });
+    if (!created) return;
+    setForm({ ...emptyForm });
   }
 
   return (
@@ -58,6 +64,14 @@ export default function InternationalTournamentsTab({
           <option value="custom">Custom</option>
         </select>
         <input className="bg-secondary border border-border rounded px-3 py-2 text-sm" placeholder="Region" value={form.region} onChange={(event) => set('region', event.target.value)} />
+        <label className="space-y-1">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Squad size / minimum players per country</span>
+          <input className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm" type="number" min="1" max="26" value={form.max_squad_size} onChange={(event) => set('max_squad_size', event.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Eligible countries override</span>
+          <input className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm" placeholder="BE, FR, CD" value={form.eligible_country_codes} onChange={(event) => set('eligible_country_codes', event.target.value)} />
+        </label>
         <label className="space-y-1">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Voting opens</span>
           <input className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm" type="datetime-local" value={form.voting_opens_at} onChange={(event) => set('voting_opens_at', event.target.value)} />
@@ -120,7 +134,7 @@ export default function InternationalTournamentsTab({
                                 Representative: {election.winner_gamertag || election.winner_player_id || 'Not elected yet'}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Squad: {squadPlayers.length}/26 · {squad?.status || 'not submitted'}
+                                Squad: {squadPlayers.length}/{tournament.max_squad_size || 26} · {squad?.status || 'not submitted'}
                               </p>
                             </div>
                             <Button

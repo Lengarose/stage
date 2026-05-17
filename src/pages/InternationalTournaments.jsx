@@ -137,6 +137,7 @@ export default function InternationalTournaments() {
                 players={eligiblePlayers}
                 squad={squadState.squad}
                 squadPlayers={squadState.players}
+                maxSquadSize={tournament.max_squad_size || 26}
                 onSave={(playerIds) => saveSquad(tournament.id, playerIds)}
                 disabled={busyAction === `squad:${tournament.id}`}
               />
