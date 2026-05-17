@@ -6,6 +6,8 @@ import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
 import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
+import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
+import { CONTRACT_TYPES } from "@/lib/contractTypes";
 
 export default function TransferMarket() {
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function TransferMarket() {
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     if (!offerTarget || !myClub) return;
     const targetPlayer = offerTarget.player || offerTarget;
-    await stageClient.functions.invoke("contractActions", {
+    const result = await stageClient.functions.invoke("contractActions", {
       action: "offer",
       team_id: myClub.id,
       user_id: targetPlayer.id,
@@ -81,6 +83,22 @@ export default function TransferMarket() {
       performance_targets,
       captaincy_offered,
     });
+    const contractId = result?.data?.contract_id || result?.contract_id;
+    const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
+    if (contractId) {
+      await ensureContractOfferInbox({
+        contractId,
+        player: targetPlayer,
+        club: myClub,
+        contractType: contract_type,
+        maxGames: typeMeta.max_games,
+        maxDays: typeMeta.max_days,
+        weeklySalary: weekly_salary_stc,
+        signingBonus: signing_bonus_stc,
+        offerNote: offer_note,
+        senderEmail: myPlayer?.email,
+      }).catch((err) => console.warn("[TransferMarket] inbox fallback failed:", err?.message || err));
+    }
     const updated = await stageClient.entities.PlayerContract.filter({ team_id: myClub.id });
     setMyContracts(updated);
     setOfferTarget(null);

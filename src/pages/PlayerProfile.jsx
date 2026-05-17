@@ -22,6 +22,7 @@ import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
+import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 
 function normalizeClubRoles(roles) {
   if (Array.isArray(roles)) return roles;
@@ -213,7 +214,6 @@ export default function PlayerProfile() {
     if (!recipientEmail) {
       try { const f = await base44.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
     }
-    const fmt = n => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n/1_000).toFixed(0)}K` : `${n}`;
     const newContract = await stageClient.entities.PlayerContract.create({
       team_id: viewerClub.id, user_id: player.id,
       contract_type: terms.contract_type, offer_note: terms.offer_note || "",
@@ -226,28 +226,18 @@ export default function PlayerProfile() {
       captaincy_offered:   terms.captaincy_offered   || false,
       status: "pending",
     });
-    if (recipientEmail) {
-      try {
-        const salary = terms.weekly_salary_stc || 0;
-        const bonus  = terms.signing_bonus_stc  || 0;
-        let body = `Dear ${player.gamertag},\n\n${viewerClub.name} is pleased to extend an official contract offer to you.\n\n`;
-        body += `Type: ${terms.contract_type} Contract · Duration: ${typeMeta.max_games} games / ${typeMeta.max_days} days\n`;
-        if (salary > 0) body += `Weekly Salary: ${fmt(salary)} STC/wk\n`;
-        if (bonus  > 0) body += `Signing Bonus: ${fmt(bonus)} STC\n`;
-        if (terms.captaincy_offered) body += `Captaincy offered ⭐\n`;
-        if (terms.offer_note) body += `\nMessage: "${terms.offer_note}"\n`;
-        body += `\nPlease respond using the buttons below.\n\nBest regards,\n${viewerClub.name} Management`;
-        await stageClient.entities.InboxMessage.create({
-          recipient_email: recipientEmail, sender_email: myPlayer?.email || "",
-          sender_gamertag: viewerClub.name, sender_avatar_url: viewerClub.logo_url || "",
-          sender_club_name: viewerClub.name,
-          subject: `📄 Contract Offer from ${viewerClub.name}`, body,
-          message_type: "contract_offer", action_type: "contract_negotiation",
-          related_entity_id: newContract.id, status: "pending", is_read: false,
-          metadata: { contract_id: newContract.id, club_id: viewerClub.id, club_name: viewerClub.name, contract_type: terms.contract_type },
-        });
-      } catch { }
-    }
+    await ensureContractOfferInbox({
+      contractId: newContract.id,
+      player: { ...player, email: recipientEmail || player.email },
+      club: viewerClub,
+      contractType: terms.contract_type,
+      maxGames: typeMeta.max_games,
+      maxDays: typeMeta.max_days,
+      weeklySalary: terms.weekly_salary_stc,
+      signingBonus: terms.signing_bonus_stc,
+      offerNote: terms.offer_note,
+      senderEmail: myPlayer?.email,
+    }).catch((err) => console.warn("[PlayerProfile] inbox fallback failed:", err?.message || err));
     notify(recipientEmail, "contract_offer",
       `📋 Contract Offer from ${viewerClub.name}`,
       `${viewerClub.name} has sent you a ${terms.contract_type} contract offer. Open your inbox to review.`,

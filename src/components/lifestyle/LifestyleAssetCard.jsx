@@ -2,9 +2,18 @@ import { cn } from '@/lib/utils';
 import { LIFESTYLE_TIER_STYLES, getAssetImage, formatSTC, categoryEmoji } from '@/lib/lifestyleItems';
 import { ShoppingCart, CalendarClock, TrendingUp, Tag, Lock, Check, RefreshCw } from 'lucide-react';
 
+function isEnabled(value) {
+  return value === true || value === 1 || value === '1';
+}
+
 export default function LifestyleAssetCard({ item, playerStc = 0, purchases = [], onAction }) {
   const tier = LIFESTYLE_TIER_STYLES[item.tier] || LIFESTYLE_TIER_STYLES.standard;
   const imgUrl = getAssetImage(item);
+  const canBuyItem = isEnabled(item.can_buy);
+  const canRentItem = isEnabled(item.can_rent);
+  const canInvestItem = isEnabled(item.can_invest);
+  const canSellItem = isEnabled(item.can_sell);
+  const allowsMultiple = isEnabled(item.allows_multiple);
 
   const ownedPurchase = purchases.find(p => p.item_id === item.id && p.purchase_type === 'buy' && p.status === 'active');
   const rentalPurchase = purchases.find(p => p.item_id === item.id && p.purchase_type === 'rent' && p.status === 'active');
@@ -16,11 +25,10 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
   const isOwned = !!ownedPurchase;
   const isRenting = !!rentalPurchase;
   const isInvesting = !!investPurchase;
-  const hasAny = isOwned || isRenting || isInvesting;
 
-  const canBuy    = item.can_buy    && !(!item.allows_multiple && isOwned);
-  const canRent   = item.can_rent   && item.rent_price_stc > 0 && !isRenting;
-  const canInvest = item.can_invest && item.invest_price_stc > 0 && !(!item.allows_multiple && isInvesting);
+  const canBuy    = canBuyItem && !(!allowsMultiple && isOwned);
+  const canRent   = canRentItem && Number(item.rent_price_stc || 0) > 0 && !isRenting;
+  const canInvest = canInvestItem && Number(item.invest_price_stc || 0) > 0 && !(!allowsMultiple && isInvesting);
 
   const canAffordBuy    = playerStc >= Number(item.price_stc || 0);
   const canAffordRent   = playerStc >= Number(item.rent_price_stc || 0);
@@ -86,7 +94,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
 
         {/* Price rows */}
         <div className="space-y-1.5 pt-2 border-t border-white/10">
-          {item.can_buy && item.price_stc > 0 && (
+          {canBuyItem && Number(item.price_stc || 0) > 0 && (
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-muted-foreground"><ShoppingCart className="w-3 h-3" /> Buy</span>
               <span className={cn('font-semibold', canAffordBuy ? 'text-emerald-400' : 'text-muted-foreground')}>
@@ -94,7 +102,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
               </span>
             </div>
           )}
-          {item.can_rent && item.rent_price_stc > 0 && (
+          {canRentItem && Number(item.rent_price_stc || 0) > 0 && (
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-muted-foreground"><CalendarClock className="w-3 h-3" /> Rent/{item.rent_duration_days}d</span>
               <span className={cn('font-semibold', canAffordRent ? 'text-blue-400' : 'text-muted-foreground')}>
@@ -102,7 +110,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
               </span>
             </div>
           )}
-          {item.can_invest && item.invest_price_stc > 0 && (
+          {canInvestItem && Number(item.invest_price_stc || 0) > 0 && (
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-muted-foreground"><TrendingUp className="w-3 h-3" /> Invest</span>
               <span className={cn('font-semibold', canAffordInvest ? 'text-amber-400' : 'text-muted-foreground')}>
@@ -117,7 +125,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
               <span className="font-semibold text-orange-400">{formatSTC(item.weekly_maintenance_stc)} STC</span>
             </div>
           )}
-          {item.can_sell && item.sell_value_percent > 0 && isOwned && (
+          {canSellItem && Number(item.sell_value_percent || 0) > 0 && isOwned && (
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-muted-foreground"><Tag className="w-3 h-3" /> Sell value</span>
               <span className="font-semibold text-foreground/60">
@@ -131,7 +139,7 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
         <div className="flex flex-wrap gap-1.5 pt-1">
           {canBuy && (
             <ActionBtn
-              label={isOwned && item.allows_multiple ? 'Buy Again' : 'Buy'}
+              label={isOwned && allowsMultiple ? 'Buy Again' : 'Buy'}
               icon={<ShoppingCart className="w-3 h-3" />}
               color="emerald"
               disabled={!canAffordBuy}
@@ -149,14 +157,14 @@ export default function LifestyleAssetCard({ item, playerStc = 0, purchases = []
           )}
           {canInvest && (
             <ActionBtn
-              label={isInvesting && item.allows_multiple ? 'Invest Again' : 'Invest'}
+              label={isInvesting && allowsMultiple ? 'Invest Again' : 'Invest'}
               icon={<TrendingUp className="w-3 h-3" />}
               color="amber"
               disabled={!canAffordInvest}
               onClick={() => onAction?.('invest', item)}
             />
           )}
-          {isOwned && item.can_sell && (
+          {isOwned && canSellItem && (
             <ActionBtn
               label="Sell"
               icon={<Tag className="w-3 h-3" />}

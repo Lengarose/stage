@@ -12,9 +12,14 @@ const STATUS_STYLES = {
   expired:        "bg-muted/50 text-muted-foreground border-border",
   terminated:     "bg-destructive/10 text-destructive/70 border-destructive/20",
   completed:      "bg-primary/10 text-primary border-primary/20",
+  cancelled:      "bg-muted/50 text-muted-foreground border-border",
 };
 
-export default function ContractCard({ contract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onRenew, onNegotiate, dualContract = false }) {
+function isEnabled(value) {
+  return value === true || value === 1 || value === "1";
+}
+
+export default function ContractCard({ contract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onCancel, onRenew, onNegotiate, dualContract = false }) {
   const meta = CONTRACT_TYPES[contract.contract_type];
   const progress = getContractProgress(contract);
   if (!meta) return null;
@@ -111,7 +116,7 @@ export default function ContractCard({ contract, player, canManage, isMyContract
                   <Coins className="w-2.5 h-2.5" /> +{contract.signing_bonus_stc.toLocaleString()} bonus
                 </span>
               )}
-              {contract.captaincy_offered && (
+              {isEnabled(contract.captaincy_offered) && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning font-medium">
                   ⭐ Captaincy
                 </span>
@@ -158,7 +163,7 @@ export default function ContractCard({ contract, player, canManage, isMyContract
           )}
 
           {/* Completed/expired summary */}
-          {["completed", "expired", "terminated"].includes(contract.status) && progress && (
+          {["completed", "expired", "terminated", "cancelled"].includes(contract.status) && progress && (
             <p className="text-xs text-muted-foreground mt-2">
               {contract.games_played || 0} games played
               {contract.start_date && contract.end_date && (
@@ -190,6 +195,11 @@ export default function ContractCard({ contract, player, canManage, isMyContract
           {contract.status === "active" && canManage && (
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => onTerminate(contract)}>
               <X className="w-3 h-3 mr-1" /> Terminate
+            </Button>
+          )}
+          {["pending", "pending_window", "negotiating"].includes(contract.status) && canManage && onCancel && (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => onCancel(contract)}>
+              <X className="w-3 h-3 mr-1" /> Cancel Offer
             </Button>
           )}
           {isRenewable && onRenew && (
