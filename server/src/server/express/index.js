@@ -7,7 +7,21 @@ const { get } = require('../../constants/env');
 const app    = express();
 const server = http.createServer(app);
 
-app.use(cors());
+// CORS — allow production origin + localhost dev. Add origins as needed.
+const ALLOWED_ORIGINS = [
+  'https://stageleagues.com',
+  'https://www.stageleagues.com',
+  'http://localhost:5173',    // Vite dev
+  'http://localhost:3000',    // alt dev
+];
+app.use(cors({
+  origin(origin, cb) {
+    // Allow requests with no origin (server-to-server, curl, mobile apps)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 
 const SOCKET_SERVER_URL    = get('SOCKET_SERVER_URL')    || '';
 const SOCKET_SERVER_SECRET = get('SOCKET_SERVER_SECRET') || '';

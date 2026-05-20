@@ -1,6 +1,6 @@
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import { cn } from "@/lib/utils";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Coins } from "lucide-react";
 
 export default function RewardsTab({
@@ -67,8 +67,8 @@ export default function RewardsTab({
             onTrophyUrlChange={async (url) => {
               setRewardSource(s => s ? { ...s, trophy_image_url: url } : s);
               const entity = rewardSource.type === "competition"
-                ? base44.entities.Competition
-                : base44.entities.RegionalLeague;
+                ? stageClient.entities.Competition
+                : stageClient.entities.RegionalLeague;
               await entity?.update(rewardSource.id, { trophy_image_url: url }).catch(() => {});
             }}
           />

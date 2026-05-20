@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 /**
  * Awards a TrophyPlacement to the winning club when a tournament completes.
@@ -7,23 +7,23 @@ import { base44 } from "@/api/base44Client";
 export async function awardTournamentTrophy(tournament, winnerClubId) {
   if (!tournament?.trophy_item_id || !winnerClubId) return;
   try {
-    const items = await base44.entities.TrophyItem.filter({ id: tournament.trophy_item_id }, null, 1);
+    const items = await stageClient.entities.TrophyItem.filter({ id: tournament.trophy_item_id }, null, 1);
     const item = items[0];
     if (!item) return;
 
-    const existing = await base44.entities.TrophyPlacement.filter(
+    const existing = await stageClient.entities.TrophyPlacement.filter(
       { owner_id: winnerClubId, trophy_item_id: tournament.trophy_item_id },
       null, 1
     );
 
     if (existing.length > 0) {
       const p = existing[0];
-      await base44.entities.TrophyPlacement.update(p.id, {
+      await stageClient.entities.TrophyPlacement.update(p.id, {
         win_count: (p.win_count || 1) + 1,
         won_tournament_ids: [...(p.won_tournament_ids || []), tournament.id],
       });
     } else {
-      await base44.entities.TrophyPlacement.create({
+      await stageClient.entities.TrophyPlacement.create({
         owner_id: winnerClubId,
         owner_type: "club",
         trophy_item_id: tournament.trophy_item_id,

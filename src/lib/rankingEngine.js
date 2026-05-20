@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 // ─── Default config ────────────────────────────────────────────────────────────
 // Mirrors RankingConfig entity defaults. Overridden at runtime by the active
@@ -38,7 +38,7 @@ export const DEFAULT_CONFIG = {
 
 export async function getRankingConfig() {
   try {
-    const rows = await base44.entities.RankingConfig?.list(null, 10) ?? [];
+    const rows = await stageClient.entities.RankingConfig?.list(null, 10) ?? [];
     const active = rows.find(r => r.is_active) || rows[0];
     return active ? { ...DEFAULT_CONFIG, ...active } : DEFAULT_CONFIG;
   } catch {
@@ -120,7 +120,7 @@ export async function updateClubRankingAfterMatch({
   matchId = null,
 }) {
   const config    = await getRankingConfig();
-  const allClubs  = await base44.entities.Club.list("-ranking_points", 1000).catch(() => []);
+  const allClubs  = await stageClient.entities.Club.list("-ranking_points", 1000).catch(() => []);
   const totalClubs = allClubs.length || 1;
 
   // Look up current global ranks (from live sorted list, not stored field — more accurate)
@@ -145,13 +145,13 @@ export async function updateClubRankingAfterMatch({
   const updateForm = (existing, r) => [r, ...(existing || [])].slice(0, 5);
 
   await Promise.all([
-    base44.entities.Club.update(homeClub.id, {
+    stageClient.entities.Club.update(homeClub.id, {
       ranking_points: (homeClub.ranking_points || 0) + homeEarned,
       form:        updateForm(homeClub.form, homeResult),
       win_streak:  homeWin ? (homeClub.win_streak || 0) + 1 : 0,
       loss_streak: !homeWin && !isDraw ? (homeClub.loss_streak || 0) + 1 : 0,
     }),
-    base44.entities.Club.update(awayClub.id, {
+    stageClient.entities.Club.update(awayClub.id, {
       ranking_points: (awayClub.ranking_points || 0) + awayEarned,
       form:        updateForm(awayClub.form, awayResult),
       win_streak:  !homeWin && !isDraw ? (awayClub.win_streak || 0) + 1 : 0,
@@ -160,9 +160,9 @@ export async function updateClubRankingAfterMatch({
   ]);
 
   // Non-fatal: log to RankingHistory if entity is published
-  if (base44.entities.RatingHistory) {
+  if (stageClient.entities.RatingHistory) {
     await Promise.all([
-      base44.entities.RatingHistory.create({
+      stageClient.entities.RatingHistory.create({
         club_id:            homeClub.id,
         club_name:          homeClub.name,
         opponent_club_id:   awayClub.id,
@@ -184,7 +184,7 @@ export async function updateClubRankingAfterMatch({
         stage_multiplier:        hStage,
         played_at:          now,
       }),
-      base44.entities.RatingHistory.create({
+      stageClient.entities.RatingHistory.create({
         club_id:            awayClub.id,
         club_name:          awayClub.name,
         opponent_club_id:   homeClub.id,
@@ -217,10 +217,10 @@ export async function updateClubRankingAfterMatch({
 // Run after bulk operations or periodic recalculation.
 
 export async function recalculateGlobalRanks() {
-  const clubs = await base44.entities.Club.list("-ranking_points", 1000);
+  const clubs = await stageClient.entities.Club.list("-ranking_points", 1000);
   await Promise.all(
     clubs.map((club, i) =>
-      base44.entities.Club.update(club.id, { global_rank: i + 1 })
+      stageClient.entities.Club.update(club.id, { global_rank: i + 1 })
     )
   );
   return clubs.length;
@@ -230,7 +230,7 @@ export async function recalculateGlobalRanks() {
 // Within each region, sorts clubs by ranking_points DESC and writes regional_rank.
 
 export async function recalculateRegionalRanks() {
-  const clubs = await base44.entities.Club.list(null, 1000);
+  const clubs = await stageClient.entities.Club.list(null, 1000);
 
   const byRegion = {};
   for (const club of clubs) {
@@ -243,7 +243,7 @@ export async function recalculateRegionalRanks() {
   for (const regionClubs of Object.values(byRegion)) {
     regionClubs.sort((a, b) => (b.ranking_points || 0) - (a.ranking_points || 0));
     regionClubs.forEach((club, i) =>
-      updates.push(base44.entities.Club.update(club.id, { regional_rank: i + 1 }))
+      updates.push(stageClient.entities.Club.update(club.id, { regional_rank: i + 1 }))
     );
   }
   await Promise.all(updates);

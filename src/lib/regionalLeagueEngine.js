@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { sortStandings } from "./competitionUtils";
 import { STAGE_QUALIFICATION_RULES, RELEGATION_SPOTS, PROMOTION_SPOTS } from "./qualificationConfig";
 
@@ -38,7 +38,7 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
   const clubIds = sorted.map(s => s.club_id);
   const existingEntries = await Promise.all(
     clubIds.map(id =>
-      base44.entities.QualificationEntry.filter({ club_id: id, status: "pending" }, null, 10).catch(() => [])
+      stageClient.entities.QualificationEntry.filter({ club_id: id, status: "pending" }, null, 10).catch(() => [])
     )
   );
   // Map: clubId → Set of target_competition_id strings already pending
@@ -60,7 +60,7 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
       if (pendingMap[s.club_id]?.has(comp.id)) continue;
 
       ops.push(
-        base44.entities.QualificationEntry.create({
+        stageClient.entities.QualificationEntry.create({
           source_type: "regional_league",
           regional_league_id: league.id,
           regional_league_name: league.name,
@@ -80,7 +80,7 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
         })
       );
       ops.push(
-        base44.entities.RegionalLeagueStanding.update(s.id, {
+        stageClient.entities.RegionalLeagueStanding.update(s.id, {
           is_stage_qualified: true,
           stage_competition_slug: rule.competitionSlug,
           final_position: pos,
@@ -97,7 +97,7 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
       final_position: sorted.indexOf(s) + 1,
     };
     if (linkedLeague) update.relegation_target_league_id = linkedLeague.id;
-    ops.push(base44.entities.RegionalLeagueStanding.update(s.id, update));
+    ops.push(stageClient.entities.RegionalLeagueStanding.update(s.id, update));
   }
 
   // Stamp final position on all other clubs
@@ -106,12 +106,12 @@ export async function processLeagueSeasonEnd(league, standings, competitions, al
     const isQualified = STAGE_QUALIFICATION_RULES.some(r => r.positions.includes(i + 1));
     const isRelegated = i >= total - RELEGATION_SPOTS;
     if (!isQualified && !isRelegated) {
-      ops.push(base44.entities.RegionalLeagueStanding.update(s.id, { final_position: i + 1 }));
+      ops.push(stageClient.entities.RegionalLeagueStanding.update(s.id, { final_position: i + 1 }));
     }
   }
 
   await Promise.all(ops);
-  await base44.entities.RegionalLeague.update(league.id, { status: "completed" });
+  await stageClient.entities.RegionalLeague.update(league.id, { status: "completed" });
 
   const qualCount = STAGE_QUALIFICATION_RULES.reduce((n, r) =>
     n + r.positions.filter(p => p <= total).length, 0
@@ -128,14 +128,14 @@ async function processDiv2SeasonEnd(league, sorted, linkedLeague) {
   for (let i = 0; i < promoted.length; i++) {
     const update = { is_promoted: true, final_position: i + 1 };
     if (linkedLeague) update.promotion_target_league_id = linkedLeague.id;
-    ops.push(base44.entities.RegionalLeagueStanding.update(promoted[i].id, update));
+    ops.push(stageClient.entities.RegionalLeagueStanding.update(promoted[i].id, update));
   }
 
   // Relegate bottom 2 only if the division has enough clubs
   if (total > RELEGATION_SPOTS + PROMOTION_SPOTS) {
     const relegated = sorted.slice(total - RELEGATION_SPOTS);
     for (const s of relegated) {
-      ops.push(base44.entities.RegionalLeagueStanding.update(s.id, {
+      ops.push(stageClient.entities.RegionalLeagueStanding.update(s.id, {
         is_relegated: true,
         final_position: sorted.indexOf(s) + 1,
       }));
@@ -144,11 +144,11 @@ async function processDiv2SeasonEnd(league, sorted, linkedLeague) {
 
   // Stamp final position on mid-table
   for (let i = PROMOTION_SPOTS; i < total - RELEGATION_SPOTS; i++) {
-    ops.push(base44.entities.RegionalLeagueStanding.update(sorted[i].id, { final_position: i + 1 }));
+    ops.push(stageClient.entities.RegionalLeagueStanding.update(sorted[i].id, { final_position: i + 1 }));
   }
 
   await Promise.all(ops);
-  await base44.entities.RegionalLeague.update(league.id, { status: "completed" });
+  await stageClient.entities.RegionalLeague.update(league.id, { status: "completed" });
 
   return { type: "div2", promoted: promoted.length };
 }

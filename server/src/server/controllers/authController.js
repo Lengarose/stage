@@ -6,12 +6,14 @@ const { EXECUTESQL } = require('../db/database');
 const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
+const { validate, rules } = require('../middleware/validate');
 
-router.post('/register', async (req, res) => {
+router.post('/register', validate({
+  email:    [rules.required, rules.email, rules.maxLength(255)],
+  password: [rules.required, rules.string, rules.minLength(6), rules.maxLength(128)],
+}), async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
-    if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
     const existing = await EXECUTESQL('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [email]);
     if (existing.length) return res.status(409).json({ error: 'This user with this email exist' });
@@ -39,11 +41,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', validate({
+  password: [rules.required, rules.string, rules.maxLength(128)],
+}), async (req, res) => {
   try {
     const { email, identifier, password } = req.body;
     const loginIdentifier = String(identifier || email || '').trim();
-    if (!loginIdentifier || !password) return res.status(400).json({ error: 'identifier and password required' });
+    if (!loginIdentifier) return res.status(400).json({ error: 'identifier and password required' });
 
     // Allow login by: email OR player gamertag OR club name.
     const rows = await EXECUTESQL(

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { format, isPast } from "@/lib/momentDate";
 import {
@@ -43,11 +43,11 @@ export default function LeagueDetail() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const u = await base44.auth.me().catch(() => null);
+    const u = await stageClient.auth.me().catch(() => null);
     setUser(u);
 
     const [allLeagues] = await Promise.all([
-      base44.entities.RegionalLeague.list("-season_number", 100).catch(() => []),
+      stageClient.entities.RegionalLeague.list("-season_number", 100).catch(() => []),
     ]);
 
     const found = allLeagues.find(l => l.slug === slug);
@@ -60,8 +60,8 @@ export default function LeagueDetail() {
     setPrevSeasons(siblings);
 
     const [leagueStandings, leagueFixtures] = await Promise.all([
-      base44.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
-      (base44.entities.RegionalLeagueFixture
+      stageClient.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
+      (stageClient.entities.RegionalLeagueFixture
         ?.filter({ league_id: found.id }, null, 500)
         ?? Promise.resolve([])
       ).catch(err => {
@@ -73,11 +73,11 @@ export default function LeagueDetail() {
     setFixtures(leagueFixtures);
 
     if (u) {
-      const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
+      const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
       const player  = players[0] || null;
       setMyPlayer(player);
       if (player?.club_id) {
-        const clubs = await base44.entities.Club.filter({ id: player.club_id }).catch(() => []);
+        const clubs = await stageClient.entities.Club.filter({ id: player.club_id }).catch(() => []);
         const club = clubs[0] || null;
         setMyClub(club);
         // Auto-open the matchday that involves my club
@@ -239,7 +239,7 @@ export default function LeagueDetail() {
                   <p className="text-xs font-semibold text-warning">Schema not published</p>
                   <p className="text-[11px] text-muted-foreground">
                     Publish <code className="font-mono bg-secondary px-1 rounded">RegionalLeagueFixture</code> on{" "}
-                    <span className="text-foreground">app.base44.com</span> to enable fixture generation and scheduling.
+                    <span className="text-foreground">app.stageClient.com</span> to enable fixture generation and scheduling.
                   </p>
                 </div>
               </div>

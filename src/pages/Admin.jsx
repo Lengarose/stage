@@ -21,7 +21,6 @@ import RewardsTab from "@/components/admin/sections/RewardsTab";
 import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
-import { base44 } from "@/api/base44Client";
 import { stageClient } from "@/api/stageClient";
 import { internationalTournamentsApi } from "@/api/internationalTournaments";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
@@ -202,18 +201,18 @@ export default function Admin(props) {
     setLoading(true);
     try {
       const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems, pendingIdentityClaims, allRecruitmentPosts] = await Promise.all([
-        base44.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
-        base44.entities.Player.list("-created_date", 100).catch(() => []),
-        base44.entities.Tournament.list("-created_date", 200).catch(() => []),
-        base44.entities.Club.list("-created_date", 100).catch(() => []),
-        base44.entities.TrophyItem.list("sort_order", 100).catch(() => []),
-        base44.entities.Competition.list("tier", 10).catch(() => []),
-        base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
-        base44.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
-        base44.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
-        (base44.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
-        (base44.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
-        (base44.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
+        stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
+        stageClient.entities.Player.list("-created_date", 100).catch(() => []),
+        stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
+        stageClient.entities.Club.list("-created_date", 100).catch(() => []),
+        stageClient.entities.TrophyItem.list("sort_order", 100).catch(() => []),
+        stageClient.entities.Competition.list("tier", 10).catch(() => []),
+        stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
+        stageClient.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
+        stageClient.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
+        (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+        (stageClient.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
+        (stageClient.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.PressConference.list("-created_date", 200).catch(() => []),
         stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
@@ -242,7 +241,7 @@ export default function Admin(props) {
       ]);
 
       // Load ranking config (non-fatal)
-      const cfgRows = await (base44.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
+      const cfgRows = await (stageClient.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
       const activeCfg = cfgRows.find(r => r.is_active) || cfgRows[0];
       if (activeCfg) {
         setRankingConfigId(activeCfg.id);
@@ -359,10 +358,10 @@ export default function Admin(props) {
     setUploadingTrophy(true);
     setTrophyUploadError(null);
     try {
-      const uploadResult = await base44.integrations.Core.UploadFile({ file: newTrophyFile });
+      const uploadResult = await stageClient.integrations.Core.UploadFile({ file: newTrophyFile });
       if (!uploadResult?.file_url) throw new Error("Upload succeeded but no URL was returned.");
       const linked = newTrophyLinkedSource?.id ? newTrophyLinkedSource : null;
-      await base44.entities.TrophyItem.create({
+      await stageClient.entities.TrophyItem.create({
         name: newTrophyName.trim(),
         image_url: uploadResult.file_url,
         is_official: !!linked || newTrophyAdminOnly,
@@ -375,9 +374,9 @@ export default function Admin(props) {
       // Sync trophy_image_url on the linked competition/league
       if (linked?.id) {
         if (linked.type === "competition") {
-          await base44.entities.Competition.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
+          await stageClient.entities.Competition.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
         } else if (linked.type === "regional_league") {
-          await base44.entities.RegionalLeague.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
+          await stageClient.entities.RegionalLeague.update(linked.id, { trophy_image_url: uploadResult.file_url }).catch(() => {});
         }
       }
       setNewTrophyName("");
@@ -385,7 +384,7 @@ export default function Admin(props) {
       setNewTrophyAdminOnly(false);
       setNewTrophyLinkedSource(null);
       if (trophyFileRef.current) trophyFileRef.current.value = "";
-      const updated = await base44.entities.TrophyItem.list("sort_order", 200).catch(() => []);
+      const updated = await stageClient.entities.TrophyItem.list("sort_order", 200).catch(() => []);
       setTrophyItems(updated);
     } catch (err) {
       setTrophyUploadError(err?.message || JSON.stringify(err) || "Failed to add trophy. Check console.");
@@ -398,7 +397,7 @@ export default function Admin(props) {
   async function updateTrophyItem(id, editForm, replaceFile) {
     let imageUrl = null;
     if (replaceFile) {
-      const res = await base44.integrations.Core.UploadFile({ file: replaceFile });
+      const res = await stageClient.integrations.Core.UploadFile({ file: replaceFile });
       if (!res?.file_url) throw new Error("Image upload failed.");
       imageUrl = res.file_url;
     }
@@ -411,23 +410,23 @@ export default function Admin(props) {
       linked_source_name: linked?.name || null,
     };
     if (imageUrl) patch.image_url = imageUrl;
-    await base44.entities.TrophyItem.update(id, patch);
+    await stageClient.entities.TrophyItem.update(id, patch);
     // Sync trophy_image_url on linked source
     const syncUrl = imageUrl || trophyItems.find(t => t.id === id)?.image_url;
     if (linked?.id && syncUrl) {
       if (linked.type === "competition") {
-        await base44.entities.Competition.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
+        await stageClient.entities.Competition.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
       } else if (linked.type === "regional_league") {
-        await base44.entities.RegionalLeague.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
+        await stageClient.entities.RegionalLeague.update(linked.id, { trophy_image_url: syncUrl }).catch(() => {});
       }
     }
-    const updated = await base44.entities.TrophyItem.list("sort_order", 200).catch(() => []);
+    const updated = await stageClient.entities.TrophyItem.list("sort_order", 200).catch(() => []);
     setTrophyItems(updated);
   }
 
   async function deleteTrophyItem(id) {
     if (!(await swalConfirm("Delete this trophy from the library? It will no longer appear in carousels."))) return;
-    await base44.entities.TrophyItem.delete(id);
+    await stageClient.entities.TrophyItem.delete(id);
     setTrophyItems(prev => prev.filter(t => t.id !== id));
   }
 
@@ -526,7 +525,7 @@ export default function Admin(props) {
         const res = await stageClient.integrations.Core.UploadFile({ file: adminTrophyFile });
         trophy_url = res.file_url;
         if (!adminTrophyItemId && tournamentForm.name) {
-          const created = await base44.entities.TrophyItem.create({
+          const created = await stageClient.entities.TrophyItem.create({
             name: `By STAGE · ${tournamentForm.name}`,
             image_url: trophy_url,
             is_official: true,
@@ -537,7 +536,7 @@ export default function Admin(props) {
       }
       const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
 
-      await base44.entities.Tournament.create({
+      await stageClient.entities.Tournament.create({
         ...tournamentForm,
         max_teams: Number(tournamentForm.max_teams),
         entry_credits: 0,
@@ -588,7 +587,7 @@ export default function Admin(props) {
       ];
       const existing = new Set(competitions.map(c => c.slug));
       const toCreate = defs.filter(d => !existing.has(d.slug));
-      await Promise.all(toCreate.map(d => base44.entities.Competition.create(d)));
+      await Promise.all(toCreate.map(d => stageClient.entities.Competition.create(d)));
       await loadAll();
       await swalAlert(`Competitions seeded! (${toCreate.length} created)`);
     } catch (err) {
@@ -597,7 +596,7 @@ export default function Admin(props) {
         await swalAlert(
           "⚠️ Competition entity not published yet.\n\n" +
           "To fix this:\n" +
-          "1. Go to app.base44.com\n" +
+          "1. Go to app.stageClient.com\n" +
           "2. Open your app → Entities\n" +
           "3. Find Competition and click Publish\n\n" +
           "Once published, come back and click Seed Competitions again."
@@ -618,7 +617,7 @@ export default function Admin(props) {
     const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
     const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
     const numMatchdays = Number(newSeasonForm.num_league_matchdays) || 8;
-    await base44.entities.CompetitionSeason.create({
+    await stageClient.entities.CompetitionSeason.create({
       competition_id: comp.id,
       competition_name: comp.name,
       competition_tier: comp.tier,
@@ -638,7 +637,7 @@ export default function Admin(props) {
       current_matchday: 1,
       prize_pool_stc: parseInt(newSeasonForm.prize_pool_stc) || 0,
     });
-    await base44.entities.Competition.update(comp.id, { current_season: nextSeason });
+    await stageClient.entities.Competition.update(comp.id, { current_season: nextSeason });
     setNewSeasonForm(f => ({ ...f, competition_id: "" }));
     await loadAll();
     setCreatingLeagueSeason(false);
@@ -655,7 +654,7 @@ export default function Admin(props) {
   }
 
   async function rejectQualEntry(entry) {
-    await base44.entities.QualificationEntry.update(entry.id, { status: "rejected", confirmed_by: adminProfile.email, confirmed_at: new Date().toISOString() });
+    await stageClient.entities.QualificationEntry.update(entry.id, { status: "rejected", confirmed_by: adminProfile.email, confirmed_at: new Date().toISOString() });
     setQualEntries(prev => prev.filter(e => e.id !== entry.id));
   }
 
@@ -675,7 +674,7 @@ export default function Admin(props) {
           max_clubs: 16,
           promoted_slots: d.division === 1 ? 6 : 2,
         }));
-      await Promise.all(toCreate.map(d => base44.entities.RegionalLeague.create(d)));
+      await Promise.all(toCreate.map(d => stageClient.entities.RegionalLeague.create(d)));
       await loadAll();
       await swalAlert(`Regional leagues seeded! (${toCreate.length} created)`);
     } catch (err) {
@@ -684,7 +683,7 @@ export default function Admin(props) {
         await swalAlert(
           "⚠️ RegionalLeague entity not published yet.\n\n" +
           "To fix this:\n" +
-          "1. Go to app.base44.com\n" +
+          "1. Go to app.stageClient.com\n" +
           "2. Open your app → Entities\n" +
           "3. Find RegionalLeague and click Publish\n\n" +
           "Once published, come back and click Seed All Leagues again."
@@ -700,7 +699,7 @@ export default function Admin(props) {
   async function processLeagueEnd(league) {
     setProcessingLeagueEnd(league.id);
     try {
-      const standings = await base44.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
+      const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
       if (!standings.length) {
         await swalAlert("No standings found. Add clubs and record results before processing season end.");
         return;
@@ -785,7 +784,7 @@ export default function Admin(props) {
     if (!editingComp) return;
     setSavingComp(true);
     try {
-      await base44.entities.Competition.update(editingComp, {
+      await stageClient.entities.Competition.update(editingComp, {
         max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || 36,
         qualification_spots_per_region: Number(compEditForm.qualification_spots_per_region) || 2,
         promotion_spots:                0,
@@ -805,7 +804,7 @@ export default function Admin(props) {
     if (!editingLeague) return;
     setSavingLeague(true);
     try {
-      await base44.entities.RegionalLeague.update(editingLeague, {
+      await stageClient.entities.RegionalLeague.update(editingLeague, {
         max_clubs:        Number(leagueEditForm.max_clubs) || 16,
         promoted_slots:   Number(leagueEditForm.promoted_slots) || 2,
       });
@@ -825,9 +824,9 @@ export default function Admin(props) {
     try {
       let list = [];
       if (panel.type === "competition") {
-        list = await (base44.entities.CompetitionFixture?.filter({ season_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
+        list = await (stageClient.entities.CompetitionFixture?.filter({ season_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
       } else {
-        list = await (base44.entities.RegionalLeagueFixture?.filter({ league_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
+        list = await (stageClient.entities.RegionalLeagueFixture?.filter({ league_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
       }
       setFixturesList(list.sort((a, b) => (a.matchday || 0) - (b.matchday || 0)));
     } finally {
@@ -842,9 +841,9 @@ export default function Admin(props) {
     try {
       let list = [];
       if (panel.type === "competition") {
-        list = await (base44.entities.CompetitionStanding?.filter({ season_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
+        list = await (stageClient.entities.CompetitionStanding?.filter({ season_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
       } else {
-        list = await (base44.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
+        list = await (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
       }
       setStandingsList(list.sort((a, b) => (a.position || 99) - (b.position || 99)));
     } finally {
@@ -864,7 +863,7 @@ export default function Admin(props) {
     setSavingResult(true);
     try {
       if (fixtureType === "competition") {
-        await base44.entities.CompetitionFixture.update(fixture.id, {
+        await stageClient.entities.CompetitionFixture.update(fixture.id, {
           home_score: home, away_score: away, status: "completed", stats_processed: false,
         });
         const { processFixtureResult } = await import("@/lib/competitionUtils");
@@ -873,12 +872,12 @@ export default function Admin(props) {
         // Regional league — update fixture + standings + ranking
         const isDraw = home === away;
         const homeWin = home > away;
-        await (base44.entities.RegionalLeagueFixture?.update(fixture.id, {
+        await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, {
           home_score: home, away_score: away, status: "completed", stats_processed: true,
         }) ?? Promise.resolve());
         const [[homeRow], [awayRow]] = await Promise.all([
-          (base44.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
-          (base44.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
+          (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
+          (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
         ]);
         const updates = [];
         if (homeRow) {
@@ -889,7 +888,7 @@ export default function Admin(props) {
             points: (homeRow.points||0)+(homeWin?3:isDraw?1:0),
           };
           u.goal_difference = u.goals_for - u.goals_against;
-          updates.push(base44.entities.RegionalLeagueStanding.update(homeRow.id, u));
+          updates.push(stageClient.entities.RegionalLeagueStanding.update(homeRow.id, u));
         }
         if (awayRow) {
           const u = {
@@ -899,15 +898,15 @@ export default function Admin(props) {
             points: (awayRow.points||0)+(!homeWin&&!isDraw?3:isDraw?1:0),
           };
           u.goal_difference = u.goals_for - u.goals_against;
-          updates.push(base44.entities.RegionalLeagueStanding.update(awayRow.id, u));
+          updates.push(stageClient.entities.RegionalLeagueStanding.update(awayRow.id, u));
         }
         await Promise.all(updates);
         // Non-fatal ranking update
         try {
           const { updateClubRankingAfterMatch } = await import("@/lib/rankingEngine");
           const [[hc],[ac]] = await Promise.all([
-            base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(()=>[]),
-            base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(()=>[]),
+            stageClient.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(()=>[]),
+            stageClient.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(()=>[]),
           ]);
           if (hc && ac) {
             await updateClubRankingAfterMatch({
@@ -1151,9 +1150,9 @@ export default function Admin(props) {
     if (!(await swalConfirm("This will zero out all club ranking data (ranking points, global/regional rank, form, win/loss streak) for ALL clubs. This cannot be undone. Continue?"))) return;
     setResettingRankings(true);
     try {
-      const allClubs = await base44.entities.Club.list(null, 500);
+      const allClubs = await stageClient.entities.Club.list(null, 500);
       await Promise.all(allClubs.map(c =>
-        base44.entities.Club.update(c.id, {
+        stageClient.entities.Club.update(c.id, {
           ranking_points:   0,
           global_rank:      0,
           regional_rank:    0,
@@ -1182,14 +1181,14 @@ export default function Admin(props) {
       payload.label     = rankingConfig.label || "Default";
       payload.is_active = true;
 
-      if (!base44.entities.RankingConfig) {
-        await swalAlert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.base44.com, then come back to save.");
+      if (!stageClient.entities.RankingConfig) {
+        await swalAlert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.stageClient.com, then come back to save.");
         return;
       }
       if (rankingConfigId) {
-        await base44.entities.RankingConfig.update(rankingConfigId, payload);
+        await stageClient.entities.RankingConfig.update(rankingConfigId, payload);
       } else {
-        const created = await base44.entities.RankingConfig.create(payload);
+        const created = await stageClient.entities.RankingConfig.create(payload);
         setRankingConfigId(created.id);
       }
       await swalAlert("Ranking config saved.");

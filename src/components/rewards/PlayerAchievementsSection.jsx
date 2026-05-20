@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { BADGE_STYLE } from "@/lib/rewardsEngine";
 import { Trophy, Medal } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ export default function PlayerAchievementsSection({ playerId }) {
 
   useEffect(() => {
     if (!playerId) { setLoading(false); return; }
-    (base44.entities.PlayerAchievement?.filter({ player_id: playerId }, "-season_number", 100) ?? Promise.resolve([]))
+    (stageClient.entities.PlayerAchievement?.filter({ player_id: playerId }, "-season_number", 100) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
         setItems(rows.sort((a, b) => {

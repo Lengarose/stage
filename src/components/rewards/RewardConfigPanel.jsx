@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { saveRewardConfigs, defaultPositionLabel, defaultBadgeType, BADGE_STYLE } from "@/lib/rewardsEngine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
   useEffect(() => {
     if (!sourceId) { setLoading(false); return; }
     setLoading(true);
-    (base44.entities.RewardConfig?.filter({ source_id: sourceId }, null, 20) ?? Promise.resolve([]))
+    (stageClient.entities.RewardConfig?.filter({ source_id: sourceId }, null, 20) ?? Promise.resolve([]))
       .catch(() => [])
       .then(configs => {
         const sorted = configs.slice().sort((a, b) => a.position - b.position);
@@ -97,7 +97,7 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
       setTrophyUrl(file_url);
       if (onTrophyUrlChange) onTrophyUrlChange(file_url);
     } catch {

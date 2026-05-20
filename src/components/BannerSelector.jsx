@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import BannerPreviewEditor from "./BannerPreviewEditor";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Move } from "lucide-react";
 
@@ -38,7 +38,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
         setTimeout(() => reject(new Error("Upload timed out. Please try again.")), 20000)
       );
       const result = await Promise.race([
-        base44.integrations.Core.UploadFile({ file }),
+        stageClient.integrations.Core.UploadFile({ file }),
         timeout,
       ]);
       if (!result?.file_url) throw new Error("Upload failed — no URL returned.");

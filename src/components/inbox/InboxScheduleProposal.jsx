@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { format, combineDateTimeToMysql } from "@/lib/momentDate";
 import { Check, RefreshCw, CalendarDays, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,8 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     setLoading(true);
     try {
       const ent = meta.fixture_type === "regional_league"
-        ? base44.entities.RegionalLeagueFixture
-        : base44.entities.CompetitionFixture;
+        ? stageClient.entities.RegionalLeagueFixture
+        : stageClient.entities.CompetitionFixture;
       const rows = await ent.filter({ id: meta.fixture_id }, null, 1).catch(() => []);
       setFixture(rows[0] || null);
     } finally { setLoading(false); }
@@ -45,7 +45,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     try {
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
       await acceptProposal({ fixture, fixtureType: meta.fixture_type, role, myClub, myEmail });
-      await base44.entities.InboxMessage.update(message.id, { status: "confirmed", is_read: true });
+      await stageClient.entities.InboxMessage.update(message.id, { status: "confirmed", is_read: true });
       onActioned("confirmed");
     } catch (err) {
       setError(err?.message || "Failed to confirm match. Please try again.");
@@ -60,7 +60,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
       const proposedDate = combineDateTimeToMysql(cDate, cTime);
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
       await proposeTime({ fixture, fixtureType: meta.fixture_type, role, proposedDate, myClub, myEmail, myGamertag });
-      await base44.entities.InboxMessage.update(message.id, { status: "date_change_requested", is_read: true });
+      await stageClient.entities.InboxMessage.update(message.id, { status: "date_change_requested", is_read: true });
       setCounter(false);
       setCDate(""); setCTime("");
       onActioned("date_change_requested");

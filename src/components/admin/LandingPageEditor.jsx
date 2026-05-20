@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,7 @@ export default function LandingPageEditor() {
   const [saved, setSaved]   = useState(false);
 
   useEffect(() => {
-    (base44.entities.LandingConfig?.filter({}, null, 1) ?? Promise.resolve([]))
+    (stageClient.entities.LandingConfig?.filter({}, null, 1) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
         const r = rows[0] || {};
@@ -124,9 +124,9 @@ export default function LandingPageEditor() {
       };
       delete payload.stats;
       if (record?.id) {
-        await base44.entities.LandingConfig.update(record.id, payload);
+        await stageClient.entities.LandingConfig.update(record.id, payload);
       } else {
-        const created = await base44.entities.LandingConfig.create(payload);
+        const created = await stageClient.entities.LandingConfig.create(payload);
         setRecord(created);
       }
       setSaved(true);

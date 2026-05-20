@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
@@ -69,10 +68,10 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     if (!game?.id) return;
     async function load() {
       if (game.tournament_id && game.tournament_id !== "ranked") {
-        const tournaments = await base44.entities.Tournament.filter({ id: game.tournament_id });
+        const tournaments = await stageClient.entities.Tournament.filter({ id: game.tournament_id });
         if (tournaments.length > 0) setTournament(tournaments[0]);
       }
-      const matchStats = await base44.entities.MatchPlayerStat.filter({ match_id: game.id });
+      const matchStats = await stageClient.entities.MatchPlayerStat.filter({ match_id: game.id });
       setStats(matchStats || []);
       setIsHomeClub(
         isClubMatchEarly ? (myClub ? game.home_club_id === myClub.id : false) : false
@@ -124,7 +123,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   async function handleKickoff() {
     setKickoffLoading(true);
-    const res = await base44.functions.invoke("matchKickoff", {
+    const res = await stageClient.functions.invoke("matchKickoff", {
       match_id: game.id,
       action: "kickoff",
     });
@@ -141,7 +140,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     setShowResultForm(false);
 
     // Always reload from server — captures submission flags, goal events, scores
-    const fresh = await base44.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
+    const fresh = await stageClient.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
     let updated = fresh?.[0] ? { ...game, ...fresh[0] } : {
       ...game,
       status: status === "disputed" ? "disputed" : status === "completed" ? "completed" : game.status,

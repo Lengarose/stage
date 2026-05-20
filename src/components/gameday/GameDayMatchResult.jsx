@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Target, Zap, Star, CheckCircle2, Clock, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     async function loadSeated() {
       if (!myClub) { setLoadingPlayers(false); return; }
       const [dressing, allPlayers] = await Promise.all([
-        base44.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        base44.entities.Player.filter({ club_id: myClub.id }),
+        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.Player.filter({ club_id: myClub.id }),
       ]);
       const seatedIds = dressing?.[0]?.seated_players || [];
       const seated    = seatedIds.length > 0
@@ -90,7 +90,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     setProofFile(file);
     setUploadingProof(true);
     try {
-      const result = await base44.integrations.Core.UploadFile({ file });
+      const result = await stageClient.integrations.Core.UploadFile({ file });
       setProofUrl(result?.file_url || null);
     } catch {
       setProofUrl(null);
@@ -160,7 +160,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         is_penalty:       !!ev.is_penalty,
       }));
 
-      const res = await base44.functions.invoke("matchKickoff", {
+      const res = await stageClient.functions.invoke("matchKickoff", {
         match_id:     game.id,
         action:       "submit_result",
         is_home_team: isHomeTeam,

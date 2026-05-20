@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -144,7 +144,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
     const winnerName = winnerId === fixture.home_club_id ? fixture.home_club_name
       : winnerId === fixture.away_club_id ? fixture.away_club_name : "";
 
-    await base44.entities.CompetitionFixture.update(fixture.id, {
+    await stageClient.entities.CompetitionFixture.update(fixture.id, {
       home_score: hs, away_score: as_,
       winner_club_id: winnerId,
       winner_club_name: winnerName,
@@ -416,14 +416,14 @@ export default function CompetitionDetail() {
     setLoading(true);
     try {
       const [comps, user] = await Promise.all([
-        base44.entities.Competition.filter({ slug }, null, 1).catch(() => []),
-        base44.auth.me().catch(() => null),
+        stageClient.entities.Competition.filter({ slug }, null, 1).catch(() => []),
+        stageClient.auth.me().catch(() => null),
       ]);
       setIsAdmin(user?.role === "admin");
       const comp = comps[0];
       if (!comp) { setLoading(false); return; }
       setCompetition(comp);
-      const seasons = await base44.entities.CompetitionSeason.filter(
+      const seasons = await stageClient.entities.CompetitionSeason.filter(
         { competition_id: comp.id }, "-season_number", 20
       ).catch(() => []);
       setAllSeasons(seasons);
@@ -440,9 +440,9 @@ export default function CompetitionDetail() {
     setLoading(true);
     try {
       const [rows, fx, qual] = await Promise.all([
-        base44.entities.CompetitionStanding.filter({ season_id: season.id }, null, 100).catch(() => []),
-        base44.entities.CompetitionFixture.filter({ season_id: season.id }, "matchday", 300).catch(() => []),
-        base44.entities.QualificationEntry.filter({ target_season_id: season.id }, null, 50).catch(() => []),
+        stageClient.entities.CompetitionStanding.filter({ season_id: season.id }, null, 100).catch(() => []),
+        stageClient.entities.CompetitionFixture.filter({ season_id: season.id }, "matchday", 300).catch(() => []),
+        stageClient.entities.QualificationEntry.filter({ target_season_id: season.id }, null, 50).catch(() => []),
       ]);
       setStandings(rows);
       setFixtures(fx);

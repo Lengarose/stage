@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
 import { stageClient } from "@/api/stageClient";
 import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -261,9 +260,9 @@ export default function TournamentDetail() {
     else if (type === "group_stage") generatedMatches = generateGroupStageMatches(seededClubs, numGroups);
     else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
     else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
-    await base44.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id, status: "scheduled" })));
-    await base44.entities.Tournament.update(id, { num_groups: numGroups });
-    const newMatches = await base44.entities.Match.filter({ tournament_id: id }, "round");
+    await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id, status: "scheduled" })));
+    await stageClient.entities.Tournament.update(id, { num_groups: numGroups });
+    const newMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
     setMatches(newMatches);
   }
 
@@ -755,7 +754,7 @@ function resetUI() {
   async function approveForfeit(match) {
     const winnerClubId = match.forfeit_claimed_by;
     const _winnerName = winnerClubId === match.home_club_id ? match.home_club_name : match.away_club_name;
-    await base44.entities.Match.update(match.id, {
+    await stageClient.entities.Match.update(match.id, {
       status: "forfeit",
       winner_club_id: winnerClubId,
       forfeit_status: "approved",

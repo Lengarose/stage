@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 export const COMPETITIONS = [
   {
@@ -167,7 +167,7 @@ export async function generateLeaguePhaseFixtures(season, standings) {
   const base = fixtureBase(season);
   const ops = matchdays.flatMap((day, mdIdx) =>
     day.map(({ home, away }) =>
-      base44.entities.CompetitionFixture.create({
+      stageClient.entities.CompetitionFixture.create({
         ...base,
         ...fixtureClubFields("home", home),
         ...fixtureClubFields("away", away),
@@ -178,7 +178,7 @@ export async function generateLeaguePhaseFixtures(season, standings) {
   );
 
   await Promise.all(ops);
-  await base44.entities.CompetitionSeason.update(season.id, {
+  await stageClient.entities.CompetitionSeason.update(season.id, {
     status: "league_phase",
     league_matchday_total: matchdays.length,
     num_league_matchdays: matchdays.length,
@@ -201,21 +201,21 @@ export async function generatePlayoffRound(season, standings) {
 
   // Mark positions 25-36 as eliminated
   sorted.slice(24).forEach((s, i) =>
-    ops.push(base44.entities.CompetitionStanding.update(s.id, {
+    ops.push(stageClient.entities.CompetitionStanding.update(s.id, {
       is_eliminated: true,
       final_position: 25 + i,
     }))
   );
   // Mark positions 1-8 as direct knockout qualifiers
   sorted.slice(0, 8).forEach((s, i) =>
-    ops.push(base44.entities.CompetitionStanding.update(s.id, {
+    ops.push(stageClient.entities.CompetitionStanding.update(s.id, {
       is_direct_knockout: true,
       final_position: i + 1,
     }))
   );
   // Mark positions 9-24 as playoff qualified
   participants.forEach(s =>
-    ops.push(base44.entities.CompetitionStanding.update(s.id, { is_playoff_qualified: true }))
+    ops.push(stageClient.entities.CompetitionStanding.update(s.id, { is_playoff_qualified: true }))
   );
 
   // Create 8 ties: position 9v24, 10v23, 11v22, 12v21, 13v20, 14v19, 15v18, 16v17
@@ -225,14 +225,14 @@ export async function generatePlayoffRound(season, standings) {
     const tieId = `playoff-${season.id}-${i + 1}`;
 
     // Leg 1: lower seed (worse position) is home
-    ops.push(base44.entities.CompetitionFixture.create({
+    ops.push(stageClient.entities.CompetitionFixture.create({
       ...base,
       ...fixtureClubFields("home", lower),
       ...fixtureClubFields("away", higher),
       phase: "playoff_round", tie_id: tieId, leg: 1, bracket_position: i + 1,
     }));
     // Leg 2: higher seed (better position) is home
-    ops.push(base44.entities.CompetitionFixture.create({
+    ops.push(stageClient.entities.CompetitionFixture.create({
       ...base,
       ...fixtureClubFields("home", higher),
       ...fixtureClubFields("away", lower),
@@ -241,7 +241,7 @@ export async function generatePlayoffRound(season, standings) {
   }
 
   await Promise.all(ops);
-  await base44.entities.CompetitionSeason.update(season.id, { status: "playoff_round" });
+  await stageClient.entities.CompetitionSeason.update(season.id, { status: "playoff_round" });
 }
 
 // ─── Aggregate tie winner ──────────────────────────────────────────────────────
@@ -319,14 +319,14 @@ export async function generateKnockoutR16(season, standings, playoffFixtures) {
     const tieId = `r16-${season.id}-${i + 1}`;
 
     // Leg 1: playoff winner (lower seed) is home
-    ops.push(base44.entities.CompetitionFixture.create({
+    ops.push(stageClient.entities.CompetitionFixture.create({
       ...base,
       ...fixtureClubFields("home", lowerWinner),
       ...fixtureClubFields("away", higher),
       phase: "knockout_r16", tie_id: tieId, leg: 1, bracket_position: i + 1,
     }));
     // Leg 2: direct qualifier (higher seed) is home
-    ops.push(base44.entities.CompetitionFixture.create({
+    ops.push(stageClient.entities.CompetitionFixture.create({
       ...base,
       ...fixtureClubFields("home", higher),
       ...fixtureClubFields("away", lowerWinner),
@@ -335,7 +335,7 @@ export async function generateKnockoutR16(season, standings, playoffFixtures) {
   }
 
   await Promise.all(ops);
-  await base44.entities.CompetitionSeason.update(season.id, { status: "knockout_r16" });
+  await stageClient.entities.CompetitionSeason.update(season.id, { status: "knockout_r16" });
 }
 
 // ─── Generic knockout round advancement ───────────────────────────────────────
@@ -386,7 +386,7 @@ export async function generateNextKnockoutRound(season, currentFixtures, current
     // Single match — no legs, no tie_id
     const [w1, w2] = winners;
     if (!w1 || !w2) throw new Error("Need exactly 2 semi-final winners.");
-    ops.push(base44.entities.CompetitionFixture.create({
+    ops.push(stageClient.entities.CompetitionFixture.create({
       ...base,
       ...fixtureClubFields("home", w1),
       ...fixtureClubFields("away", w2),
@@ -402,14 +402,14 @@ export async function generateNextKnockoutRound(season, currentFixtures, current
       const tieId = `${nextPhase}-${season.id}-${i + 1}`;
 
       // Leg 1: "lower seed" (unseeded) is home
-      ops.push(base44.entities.CompetitionFixture.create({
+      ops.push(stageClient.entities.CompetitionFixture.create({
         ...base,
         ...fixtureClubFields("home", unseeded),
         ...fixtureClubFields("away", seeded),
         phase: nextPhase, tie_id: tieId, leg: 1, bracket_position: i + 1,
       }));
       // Leg 2: "higher seed" (seeded) is home
-      ops.push(base44.entities.CompetitionFixture.create({
+      ops.push(stageClient.entities.CompetitionFixture.create({
         ...base,
         ...fixtureClubFields("home", seeded),
         ...fixtureClubFields("away", unseeded),
@@ -419,7 +419,7 @@ export async function generateNextKnockoutRound(season, currentFixtures, current
   }
 
   await Promise.all(ops);
-  await base44.entities.CompetitionSeason.update(season.id, { status: nextPhase });
+  await stageClient.entities.CompetitionSeason.update(season.id, { status: nextPhase });
 }
 
 // ─── Process a completed fixture ───────────────────────────────────────────────
@@ -436,8 +436,8 @@ export async function processFixtureResult(fixture) {
     try {
       const { updateClubRankingAfterMatch } = await import("./rankingEngine");
       const [[homeClub], [awayClub]] = await Promise.all([
-        base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
-        base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
+        stageClient.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
+        stageClient.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
       ]);
       if (homeClub && awayClub) {
         await updateClubRankingAfterMatch({
@@ -455,16 +455,16 @@ export async function processFixtureResult(fixture) {
   // Knockout / playoff fixtures: mark processed only, no league-table update
   if (fixture.phase !== "league") {
     await Promise.all([
-      base44.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
+      stageClient.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
       _rankingUpdate,
     ]);
     return;
   }
 
-  const [homeRow] = await base44.entities.CompetitionStanding.filter(
+  const [homeRow] = await stageClient.entities.CompetitionStanding.filter(
     { season_id: fixture.season_id, club_id: fixture.home_club_id }, null, 1
   );
-  const [awayRow] = await base44.entities.CompetitionStanding.filter(
+  const [awayRow] = await stageClient.entities.CompetitionStanding.filter(
     { season_id: fixture.season_id, club_id: fixture.away_club_id }, null, 1
   );
   if (!homeRow || !awayRow) return;
@@ -497,19 +497,19 @@ export async function processFixtureResult(fixture) {
   awayUpdate.goal_difference = awayUpdate.goals_for - awayUpdate.goals_against;
 
   await Promise.all([
-    base44.entities.CompetitionStanding.update(homeRow.id, homeUpdate),
-    base44.entities.CompetitionStanding.update(awayRow.id, awayUpdate),
-    base44.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
+    stageClient.entities.CompetitionStanding.update(homeRow.id, homeUpdate),
+    stageClient.entities.CompetitionStanding.update(awayRow.id, awayUpdate),
+    stageClient.entities.CompetitionFixture.update(fixture.id, { stats_processed: true }),
     _rankingUpdate,
   ]);
 
   // Re-sort all positions in the season
-  const allStandings = await base44.entities.CompetitionStanding.filter({ season_id: fixture.season_id }, null, 200);
+  const allStandings = await stageClient.entities.CompetitionStanding.filter({ season_id: fixture.season_id }, null, 200);
   const sorted = sortStandings(allStandings.map(s =>
     s.id === homeRow.id ? { ...s, ...homeUpdate } : s.id === awayRow.id ? { ...s, ...awayUpdate } : s
   ));
   await Promise.all(
-    sorted.map((s, i) => base44.entities.CompetitionStanding.update(s.id, { position: i + 1 }))
+    sorted.map((s, i) => stageClient.entities.CompetitionStanding.update(s.id, { position: i + 1 }))
   );
 }
 
@@ -525,8 +525,8 @@ export async function processRegionalLeagueFixtureResult(fixture) {
     try {
       const { updateClubRankingAfterMatch } = await import("./rankingEngine");
       const [[homeClub], [awayClub]] = await Promise.all([
-        base44.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
-        base44.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
+        stageClient.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(() => []),
+        stageClient.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(() => []),
       ]);
       if (homeClub && awayClub) {
         await updateClubRankingAfterMatch({
@@ -542,10 +542,10 @@ export async function processRegionalLeagueFixtureResult(fixture) {
   })();
 
   const [[homeRow], [awayRow]] = await Promise.all([
-    (base44.entities.RegionalLeagueStanding?.filter(
+    (stageClient.entities.RegionalLeagueStanding?.filter(
       { league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1
     ) ?? Promise.resolve([])).catch(() => []),
-    (base44.entities.RegionalLeagueStanding?.filter(
+    (stageClient.entities.RegionalLeagueStanding?.filter(
       { league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1
     ) ?? Promise.resolve([])).catch(() => []),
   ]);
@@ -580,14 +580,14 @@ export async function processRegionalLeagueFixtureResult(fixture) {
   awayUpdate.goal_difference = awayUpdate.goals_for - awayUpdate.goals_against;
 
   await Promise.all([
-    base44.entities.RegionalLeagueStanding.update(homeRow.id, homeUpdate),
-    base44.entities.RegionalLeagueStanding.update(awayRow.id, awayUpdate),
-    (base44.entities.RegionalLeagueFixture?.update(fixture.id, { stats_processed: true }) ?? Promise.resolve()),
+    stageClient.entities.RegionalLeagueStanding.update(homeRow.id, homeUpdate),
+    stageClient.entities.RegionalLeagueStanding.update(awayRow.id, awayUpdate),
+    (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, { stats_processed: true }) ?? Promise.resolve()),
     _rankingUpdate,
   ]);
 
   // Re-sort positions
-  const allRows = await (base44.entities.RegionalLeagueStanding?.filter(
+  const allRows = await (stageClient.entities.RegionalLeagueStanding?.filter(
     { league_id: fixture.league_id }, null, 100
   ) ?? Promise.resolve([])).catch(() => []);
 
@@ -603,14 +603,14 @@ export async function processRegionalLeagueFixtureResult(fixture) {
     });
 
   await Promise.all(
-    sorted.map((s, i) => base44.entities.RegionalLeagueStanding.update(s.id, { position: i + 1 }))
+    sorted.map((s, i) => stageClient.entities.RegionalLeagueStanding.update(s.id, { position: i + 1 }))
   );
 }
 
 // Create standing rows for all clubs in a season (called when season starts)
 export async function initializeStandings(season, clubs) {
   await Promise.all(clubs.map((club, i) =>
-    base44.entities.CompetitionStanding.create({
+    stageClient.entities.CompetitionStanding.create({
       season_id: season.id,
       competition_id: season.competition_id,
       competition_name: season.competition_name,
@@ -638,7 +638,7 @@ export async function generateQualificationEntries(regionalLeague, standings) {
   const entries = [];
   for (let i = 0; i < slots; i++) {
     const s = sorted[i];
-    entries.push(base44.entities.QualificationEntry.create({
+    entries.push(stageClient.entities.QualificationEntry.create({
       source_type: "regional_league",
       regional_league_id: regionalLeague.id,
       regional_league_name: regionalLeague.name,
@@ -662,16 +662,16 @@ export async function generateQualificationEntries(regionalLeague, standings) {
 
 // Confirm a qualification entry: add club to season + create standing row
 export async function confirmQualificationEntry(entry, season, adminEmail) {
-  const club = await base44.entities.Club.filter({ id: entry.club_id }, null, 1).then(r => r[0]);
+  const club = await stageClient.entities.Club.filter({ id: entry.club_id }, null, 1).then(r => r[0]);
   if (!club) throw new Error("Club not found");
 
   const alreadyIn = (season.registered_club_ids || []).includes(entry.club_id);
   if (!alreadyIn) {
-    await base44.entities.CompetitionSeason.update(season.id, {
+    await stageClient.entities.CompetitionSeason.update(season.id, {
       registered_club_ids: [...(season.registered_club_ids || []), entry.club_id],
       num_clubs: (season.num_clubs || 0) + 1,
     });
-    await base44.entities.CompetitionStanding.create({
+    await stageClient.entities.CompetitionStanding.create({
       season_id: season.id,
       competition_id: season.competition_id,
       competition_name: season.competition_name,
@@ -691,7 +691,7 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
     });
   }
 
-  await base44.entities.QualificationEntry.update(entry.id, {
+  await stageClient.entities.QualificationEntry.update(entry.id, {
     status: "confirmed",
     target_season_id: season.id,
     target_season_number: season.season_number,
@@ -724,13 +724,13 @@ export async function processCompetitionSeasonEnd(season, standings, competition
     const s = sorted[pos - 1];
 
     // Deduplication: skip if an entry already exists for this club → target competition
-    const existing = await base44.entities.QualificationEntry.filter(
+    const existing = await stageClient.entities.QualificationEntry.filter(
       { club_id: s.club_id, target_competition_id: targetComp.id, status: "pending" }, null, 1
     ).catch(() => []);
     if (existing.length > 0) continue;
 
     ops.push(
-      base44.entities.QualificationEntry.create({
+      stageClient.entities.QualificationEntry.create({
         source_type: "competition_season",
         regional_league_id: null,
         regional_league_name: null,
@@ -763,8 +763,8 @@ export async function processCompetitionSeasonEnd(season, standings, competition
  * Each matchday window opens immediately (window_days = 4 by default).
  */
 export async function generateRegionalLeagueFixtures(league, clubs, windowDays = 4) {
-  if (!base44.entities.RegionalLeagueFixture) {
-    throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.base44.com to enable fixture generation.");
+  if (!stageClient.entities.RegionalLeagueFixture) {
+    throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.stageClient.com to enable fixture generation.");
   }
   if (clubs.length < 2) throw new Error("Need at least 2 clubs to generate fixtures.");
   const evenClubs = clubs.length % 2 === 0 ? clubs : [...clubs, { id: "__bye__", name: "BYE" }];
@@ -799,7 +799,7 @@ export async function generateRegionalLeagueFixtures(league, clubs, windowDays =
     day
       .filter(({ home, away }) => home.id !== "__bye__" && away.id !== "__bye__")
       .map(({ home, away }) =>
-        base44.entities.RegionalLeagueFixture.create({
+        stageClient.entities.RegionalLeagueFixture.create({
           ...leagueBase,
           home_club_id:       home.id,
           home_club_name:     home.name,
@@ -815,7 +815,7 @@ export async function generateRegionalLeagueFixtures(league, clubs, windowDays =
   );
 
   await Promise.all(ops);
-  await base44.entities.RegionalLeague.update(league.id, {
+  await stageClient.entities.RegionalLeague.update(league.id, {
     status: "in_progress",
     num_clubs: clubs.length,
   });

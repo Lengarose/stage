@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 // ─── Context label ────────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export function buildMatchContext(fixture, fixtureType) {
 export async function createMatchFromFixture(fixture, fixtureType) {
   // Guard: already linked — just keep the scheduled_date in sync
   if (fixture.match_id) {
-    await base44.entities.Match.update(fixture.match_id, {
+    await stageClient.entities.Match.update(fixture.match_id, {
       scheduled_date: fixture.confirmed_date || fixture.scheduled_date || null,
     }).catch(() => {});
     return { id: fixture.match_id };
@@ -33,7 +33,7 @@ export async function createMatchFromFixture(fixture, fixtureType) {
 
   const context = buildMatchContext(fixture, fixtureType);
 
-  const match = await base44.entities.Match.create({
+  const match = await stageClient.entities.Match.create({
     home_club_id:        fixture.home_club_id,
     home_club_name:      fixture.home_club_name,
     away_club_id:        fixture.away_club_id,
@@ -56,9 +56,9 @@ export async function createMatchFromFixture(fixture, fixtureType) {
 
   // Link fixture → match
   if (fixtureType === "regional_league") {
-    await (base44.entities.RegionalLeagueFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
+    await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
   } else {
-    await (base44.entities.CompetitionFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
+    await (stageClient.entities.CompetitionFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
   }
 
   return match;
@@ -79,13 +79,13 @@ export async function syncFixtureAfterMatch(match) {
 
   try {
     if (match.source_fixture_type === "competition") {
-      const rows = await (base44.entities.CompetitionFixture?.filter(
+      const rows = await (stageClient.entities.CompetitionFixture?.filter(
         { id: match.source_fixture_id }, null, 1
       ) ?? Promise.resolve([])).catch(() => []);
       const fixture = rows[0];
       if (!fixture || fixture.stats_processed) return;
 
-      await base44.entities.CompetitionFixture.update(fixture.id, {
+      await stageClient.entities.CompetitionFixture.update(fixture.id, {
         home_score:       homeScore,
         away_score:       awayScore,
         status:           "completed",
@@ -102,13 +102,13 @@ export async function syncFixtureAfterMatch(match) {
       });
 
     } else {
-      const rows = await (base44.entities.RegionalLeagueFixture?.filter(
+      const rows = await (stageClient.entities.RegionalLeagueFixture?.filter(
         { id: match.source_fixture_id }, null, 1
       ) ?? Promise.resolve([])).catch(() => []);
       const fixture = rows[0];
       if (!fixture || fixture.stats_processed) return;
 
-      await (base44.entities.RegionalLeagueFixture?.update(fixture.id, {
+      await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, {
         home_score:       homeScore,
         away_score:       awayScore,
         status:           "played",
@@ -134,16 +134,16 @@ export async function syncFixtureAfterMatch(match) {
 export async function syncPlayerCareerStats(matchId) {
   if (!matchId) return;
   try {
-    const stats = await base44.entities.MatchPlayerStat.filter({ match_id: matchId }, null, 50).catch(() => []);
+    const stats = await stageClient.entities.MatchPlayerStat.filter({ match_id: matchId }, null, 50).catch(() => []);
     if (!stats.length) return;
 
     await Promise.all(stats.map(async (stat) => {
       if (!stat.player_email) return;
-      const players = await base44.entities.Player.filter({ email: stat.player_email }, null, 1).catch(() => []);
+      const players = await stageClient.entities.Player.filter({ email: stat.player_email }, null, 1).catch(() => []);
       const player  = players[0];
       if (!player) return;
 
-      const allStats = await base44.entities.MatchPlayerStat.filter(
+      const allStats = await stageClient.entities.MatchPlayerStat.filter(
         { player_email: stat.player_email }, null, 500
       ).catch(() => []);
 
@@ -154,7 +154,7 @@ export async function syncPlayerCareerStats(matchId) {
         ? Math.round((rated.reduce((s, r) => s + r.rating, 0) / rated.length) * 10) / 10
         : 0;
 
-      await base44.entities.Player.update(player.id, {
+      await stageClient.entities.Player.update(player.id, {
         goals:      totalGoals,
         assists:    totalAssists,
         avg_rating: avgRating,

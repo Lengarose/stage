@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Trophy, Shield, ArrowLeft, CheckCircle, Clock, X, AlertTriangle, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,13 +39,13 @@ export default function SeasonRegistrations() {
   async function load() {
     setLoading(true);
     try {
-      const u = await base44.auth.me().catch(() => null);
+      const u = await stageClient.auth.me().catch(() => null);
       setUser(u);
 
       const [allLeagues, apps] = await Promise.all([
-        base44.entities.RegionalLeague.filter({ status: "registration" }, null, 100).catch(() => []),
+        stageClient.entities.RegionalLeague.filter({ status: "registration" }, null, 100).catch(() => []),
         u
-          ? (base44.entities.SeasonRegistration?.filter({ owner_email: u.email }, "-applied_at", 50) ?? Promise.resolve([])).catch(() => [])
+          ? (stageClient.entities.SeasonRegistration?.filter({ owner_email: u.email }, "-applied_at", 50) ?? Promise.resolve([])).catch(() => [])
           : Promise.resolve([]),
       ]);
 
@@ -62,10 +62,10 @@ export default function SeasonRegistrations() {
       setMyApps(ownedApps);
 
       if (u) {
-        const players = await base44.entities.Player.filter({ email: u.email }).catch(() => []);
+        const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
         const player = players[0];
         if (player?.club_id) {
-          const clubs = await base44.entities.Club.filter({ id: player.club_id }, null, 1).catch(() => []);
+          const clubs = await stageClient.entities.Club.filter({ id: player.club_id }, null, 1).catch(() => []);
           setMyClub(clubs[0] || null);
         }
       }

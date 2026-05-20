@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 // ─── Badge / label helpers ────────────────────────────────────────────────────
 
@@ -38,13 +38,13 @@ export async function distributeSeasonRewards({
   if (!standings?.length) return { skipped: true, reason: "no standings" };
 
   // Idempotency: if any ClubAchievement already exists for this source+season, skip
-  const existing = await (base44.entities.ClubAchievement?.filter(
+  const existing = await (stageClient.entities.ClubAchievement?.filter(
     { source_id: sourceId, season_number: seasonNumber }, null, 2
   ) ?? Promise.resolve([])).catch(() => []);
   if (existing.length > 0) return { skipped: true, reason: "already distributed" };
 
   // Load reward config for this source
-  const configs = await (base44.entities.RewardConfig?.filter(
+  const configs = await (stageClient.entities.RewardConfig?.filter(
     { source_id: sourceId }, null, 20
   ) ?? Promise.resolve([])).catch(() => []);
   const configMap = {};
@@ -68,7 +68,7 @@ export async function distributeSeasonRewards({
     const posLabel  = config?.position_label || defaultPositionLabel(pos);
     const badge     = config?.badge_type   || defaultBadgeType(pos);
 
-    await (base44.entities.ClubAchievement?.create({
+    await (stageClient.entities.ClubAchievement?.create({
       club_id:          standing.club_id,
       club_name:        standing.club_name,
       club_logo_url:    standing.club_logo_url || "",
@@ -88,16 +88,16 @@ export async function distributeSeasonRewards({
     }) ?? Promise.resolve()).catch(() => {});
 
     if (stcAmount > 0) {
-      await base44.entities.Club.filter({ id: standing.club_id }, null, 1)
+      await stageClient.entities.Club.filter({ id: standing.club_id }, null, 1)
         .then(async (arr) => {
           const club = arr[0];
           if (!club) return;
           await Promise.all([
-            base44.entities.Club.update(club.id, {
+            stageClient.entities.Club.update(club.id, {
               stc:     (club.stc     || 0) + stcAmount,
               trophies: badge === "winner" ? (club.trophies || 0) + 1 : (club.trophies || 0),
             }),
-            base44.entities.STCTransaction.create({
+            stageClient.entities.STCTransaction.create({
               club_id:      club.id,
               amount:       stcAmount,
               type:         "season_prize",
@@ -131,12 +131,12 @@ async function _distributePlayerAchievements({
     const posLabel = config?.position_label || defaultPositionLabel(pos);
     const badge    = config?.badge_type    || defaultBadgeType(pos);
 
-    const players = await base44.entities.Player.filter(
+    const players = await stageClient.entities.Player.filter(
       { club_id: standing.club_id }, null, 50
     ).catch(() => []);
 
     await Promise.all(players.map(player =>
-      (base44.entities.PlayerAchievement?.create({
+      (stageClient.entities.PlayerAchievement?.create({
         player_id:        player.id,
         player_email:     player.email    || "",
         player_gamertag:  player.gamertag || "",
@@ -162,7 +162,7 @@ async function _distributePlayerAchievements({
 // ─── Reward config helpers (used by admin UI) ─────────────────────────────────
 
 export async function getRewardConfigs(sourceId) {
-  return (base44.entities.RewardConfig?.filter({ source_id: sourceId }, null, 20) ?? Promise.resolve([]))
+  return (stageClient.entities.RewardConfig?.filter({ source_id: sourceId }, null, 20) ?? Promise.resolve([]))
     .catch(() => []);
 }
 
@@ -171,10 +171,10 @@ export async function saveRewardConfigs(sourceId, sourceType, sourceName, rows) 
   // Strategy: delete all existing configs for this source, then re-create
   const existing = await getRewardConfigs(sourceId);
   await Promise.all(existing.map(c =>
-    (base44.entities.RewardConfig?.delete(c.id) ?? Promise.resolve()).catch(() => {})
+    (stageClient.entities.RewardConfig?.delete(c.id) ?? Promise.resolve()).catch(() => {})
   ));
   await Promise.all(rows.map(row =>
-    (base44.entities.RewardConfig?.create({
+    (stageClient.entities.RewardConfig?.create({
       source_id:      sourceId,
       source_type:    sourceType,
       source_name:    sourceName,

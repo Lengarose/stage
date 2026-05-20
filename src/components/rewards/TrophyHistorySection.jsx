@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { BADGE_STYLE } from "@/lib/rewardsEngine";
 import { Trophy, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ export default function TrophyHistorySection({ sourceId, trophyImageUrl, classNa
 
   useEffect(() => {
     if (!sourceId) { setLoading(false); return; }
-    (base44.entities.ClubAchievement?.filter({ source_id: sourceId }, "-season_number", 50) ?? Promise.resolve([]))
+    (stageClient.entities.ClubAchievement?.filter({ source_id: sourceId }, "-season_number", 50) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
         // Keep only notable positions (winner + runner-up + semi-final) and sort by season desc

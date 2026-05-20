@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SEASON_STATUS_LABEL } from "../shared/adminConstants";
@@ -14,38 +14,38 @@ export default function SeasonCard({ season: s, onRefresh }) {
       const { generateLeaguePhaseFixtures, generatePlayoffRound, generateKnockoutR16, generateNextKnockoutRound } = await import("@/lib/competitionUtils");
 
       if (action === "generate_fixtures") {
-        const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
+        const standings = await stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
         if (!standings.length) { await swalAlert("No clubs registered yet. Confirm qualification entries first."); return; }
         await generateLeaguePhaseFixtures(s, standings);
         await swalAlert(`League phase fixtures generated! ${standings.length} clubs, 8 matchdays.`);
 
       } else if (action === "playoff_round") {
-        const standings = await base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
+        const standings = await stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
         await generatePlayoffRound(s, standings);
         await swalAlert("Playoff round generated! Positions 9-24 play off. Positions 25-36 eliminated.");
 
       } else if (action === "knockout_r16") {
         const [standings, fixtures] = await Promise.all([
-          base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
-          base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: "playoff_round" }, null, 30).catch(() => []),
+          stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
+          stageClient.entities.CompetitionFixture.filter({ season_id: s.id, phase: "playoff_round" }, null, 30).catch(() => []),
         ]);
         await generateKnockoutR16(s, standings, fixtures);
         await swalAlert("Round of 16 generated!");
 
       } else if (["knockout_qf", "knockout_sf", "knockout_final"].includes(action)) {
         const prevPhase = { knockout_qf: "knockout_r16", knockout_sf: "knockout_qf", knockout_final: "knockout_sf" }[action];
-        const fixtures = await base44.entities.CompetitionFixture.filter({ season_id: s.id, phase: prevPhase }, null, 30).catch(() => []);
+        const fixtures = await stageClient.entities.CompetitionFixture.filter({ season_id: s.id, phase: prevPhase }, null, 30).catch(() => []);
         await generateNextKnockoutRound(s, fixtures, prevPhase);
         await swalAlert(`${SEASON_STATUS_LABEL[action]} fixtures generated!`);
 
       } else if (action === "complete") {
-        await base44.entities.CompetitionSeason.update(s.id, { status: "completed" });
+        await stageClient.entities.CompetitionSeason.update(s.id, { status: "completed" });
         // Trigger cross-competition qualification (e.g. Elite winner → Supreme)
         try {
           const { processCompetitionSeasonEnd } = await import("@/lib/competitionUtils");
           const [standings, competitions] = await Promise.all([
-            base44.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
-            base44.entities.Competition.filter({}, null, 10).catch(() => []),
+            stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
+            stageClient.entities.Competition.filter({}, null, 10).catch(() => []),
           ]);
           const result = await processCompetitionSeasonEnd(s, standings, competitions);
           if (result?.qualified > 0) {
@@ -58,18 +58,18 @@ export default function SeasonCard({ season: s, onRefresh }) {
         }
 
       } else if (action === "open_registration") {
-        await base44.entities.CompetitionSeason.update(s.id, { status: "registration" });
+        await stageClient.entities.CompetitionSeason.update(s.id, { status: "registration" });
         await swalAlert("Registration is now open.");
 
       } else if (action === "archive") {
         const { archiveCompetitionSeason } = await import("@/lib/seasonLifecycle");
-        const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
+        const comps = await stageClient.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
         await archiveCompetitionSeason(s, comps[0] || null);
         await swalAlert(`Season ${s.season_number} archived. Standings and winner locked.`);
 
       } else if (action === "create_next") {
         const { createNextCompetitionSeason } = await import("@/lib/seasonLifecycle");
-        const comps = await base44.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
+        const comps = await stageClient.entities.Competition.filter({ id: s.competition_id }, null, 1).catch(() => []);
         const next = await createNextCompetitionSeason(s, comps[0] || null);
         await swalAlert(`Season ${next.season_number} created as Draft. Open Registration when ready.`);
       }

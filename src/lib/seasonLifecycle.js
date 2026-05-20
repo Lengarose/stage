@@ -1,14 +1,14 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { sortStandings } from "./competitionUtils";
 
 // ─── Competition season lifecycle ────────────────────────────────────────────
 
 export async function openSeasonRegistration(season) {
-  await base44.entities.CompetitionSeason.update(season.id, { status: "registration" });
+  await stageClient.entities.CompetitionSeason.update(season.id, { status: "registration" });
 }
 
 export async function archiveCompetitionSeason(season, competition) {
-  const standings = await (base44.entities.CompetitionStanding?.filter(
+  const standings = await (stageClient.entities.CompetitionStanding?.filter(
     { season_id: season.id }, null, 200
   ) ?? Promise.resolve([])).catch(() => []);
 
@@ -20,7 +20,7 @@ export async function archiveCompetitionSeason(season, competition) {
   // Stamp final positions on any that don't have them
   sorted.forEach((s, i) => {
     if (!s.final_position) {
-      ops.push(base44.entities.CompetitionStanding.update(s.id, { final_position: i + 1 }));
+      ops.push(stageClient.entities.CompetitionStanding.update(s.id, { final_position: i + 1 }));
     }
   });
 
@@ -28,10 +28,10 @@ export async function archiveCompetitionSeason(season, competition) {
   const promoSpots = competition?.promotion_spots || 0;
   const relSpots   = competition?.relegation_spots || 0;
   sorted.slice(0, promoSpots).forEach(s => {
-    ops.push(base44.entities.CompetitionStanding.update(s.id, { is_promoted: true }));
+    ops.push(stageClient.entities.CompetitionStanding.update(s.id, { is_promoted: true }));
   });
   sorted.slice(sorted.length - relSpots).forEach(s => {
-    if (relSpots > 0) ops.push(base44.entities.CompetitionStanding.update(s.id, { is_relegated: true }));
+    if (relSpots > 0) ops.push(stageClient.entities.CompetitionStanding.update(s.id, { is_relegated: true }));
   });
 
   const winner   = sorted[0];
@@ -46,19 +46,19 @@ export async function archiveCompetitionSeason(season, competition) {
 
   // Award achievement to winner
   if (winner?.club_id) {
-    const clubs = await base44.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
+    const clubs = await stageClient.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
     const club = clubs[0];
     if (club) {
       const label = `${season.competition_name} — Season ${season.season_number} Winner`;
       const current = club.achievements || [];
       if (!current.includes(label)) {
-        ops.push(base44.entities.Club.update(club.id, { achievements: [...current, label] }));
+        ops.push(stageClient.entities.Club.update(club.id, { achievements: [...current, label] }));
       }
     }
   }
 
   await Promise.all(ops);
-  await base44.entities.CompetitionSeason.update(season.id, seasonPatch);
+  await stageClient.entities.CompetitionSeason.update(season.id, seasonPatch);
 
   // Distribute STC prizes, trophies, and achievements (non-fatal)
   import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
@@ -77,7 +77,7 @@ export async function archiveCompetitionSeason(season, competition) {
 
 export async function createNextCompetitionSeason(season, competition) {
   const nextNumber = (season.season_number || 1) + 1;
-  const created = await base44.entities.CompetitionSeason.create({
+  const created = await stageClient.entities.CompetitionSeason.create({
     competition_id:        season.competition_id,
     competition_name:      season.competition_name,
     competition_tier:      season.competition_tier,
@@ -96,9 +96,9 @@ export async function createNextCompetitionSeason(season, competition) {
     status:                "draft",
     prize_pool_stc:        season.prize_pool_stc || 0,
   });
-  await base44.entities.CompetitionSeason.update(season.id, { next_season_id: created.id });
+  await stageClient.entities.CompetitionSeason.update(season.id, { next_season_id: created.id });
   if (competition) {
-    await base44.entities.Competition.update(competition.id, { current_season: nextNumber });
+    await stageClient.entities.Competition.update(competition.id, { current_season: nextNumber });
   }
   return created;
 }
@@ -106,11 +106,11 @@ export async function createNextCompetitionSeason(season, competition) {
 // ─── Regional league lifecycle ────────────────────────────────────────────────
 
 export async function openLeagueRegistration(league) {
-  await base44.entities.RegionalLeague.update(league.id, { status: "registration" });
+  await stageClient.entities.RegionalLeague.update(league.id, { status: "registration" });
 }
 
 export async function archiveLeague(league) {
-  const standings = await (base44.entities.RegionalLeagueStanding?.filter(
+  const standings = await (stageClient.entities.RegionalLeagueStanding?.filter(
     { league_id: league.id }, null, 50
   ) ?? Promise.resolve([])).catch(() => []);
 
@@ -121,7 +121,7 @@ export async function archiveLeague(league) {
 
   sorted.forEach((s, i) => {
     if (!s.final_position) {
-      ops.push(base44.entities.RegionalLeagueStanding.update(s.id, { final_position: i + 1 }));
+      ops.push(stageClient.entities.RegionalLeagueStanding.update(s.id, { final_position: i + 1 }));
     }
   });
 
@@ -134,19 +134,19 @@ export async function archiveLeague(league) {
 
   // Award achievement to winner
   if (winner?.club_id) {
-    const clubs = await base44.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
+    const clubs = await stageClient.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
     const club = clubs[0];
     if (club) {
       const label = `${league.name} — Season ${league.season_number} Winner`;
       const current = club.achievements || [];
       if (!current.includes(label)) {
-        ops.push(base44.entities.Club.update(club.id, { achievements: [...current, label] }));
+        ops.push(stageClient.entities.Club.update(club.id, { achievements: [...current, label] }));
       }
     }
   }
 
   await Promise.all(ops);
-  await base44.entities.RegionalLeague.update(league.id, patch);
+  await stageClient.entities.RegionalLeague.update(league.id, patch);
 
   // Distribute STC prizes, trophies, and achievements (non-fatal)
   import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
@@ -168,7 +168,7 @@ export async function createNextLeagueSeason(league) {
   const nextNumber = (league.season_number || 1) + 1;
   const newSlug    = `${baseSlug}-s${nextNumber}`;
 
-  const created = await base44.entities.RegionalLeague.create({
+  const created = await stageClient.entities.RegionalLeague.create({
     name:            league.name,
     slug:            newSlug,
     region_slug:     league.region_slug,
@@ -185,6 +185,6 @@ export async function createNextLeagueSeason(league) {
     linked_league_slug:  league.linked_league_slug || null,
   });
 
-  await base44.entities.RegionalLeague.update(league.id, { next_season_id: created.id });
+  await stageClient.entities.RegionalLeague.update(league.id, { next_season_id: created.id });
   return created;
 }

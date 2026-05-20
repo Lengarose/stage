@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
 import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown, ChevronRight as Next } from "lucide-react";
 import BannerPreviewEditor from "../components/BannerPreviewEditor";
 import { Button } from "@/components/ui/button";
@@ -68,12 +67,12 @@ export default function Tournaments() {
   async function load() {
     setLoading(true);
     try {
-      const isAuthed = await base44.auth.isAuthenticated();
+      const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
       const [data, user, items] = await Promise.all([
-        base44.entities.Tournament.list("-created_date", 100),
-        base44.auth.me(),
-        base44.entities.TrophyItem.list("sort_order", 50).catch(() => []),
+        stageClient.entities.Tournament.list("-created_date", 100),
+        stageClient.auth.me(),
+        stageClient.entities.TrophyItem.list("sort_order", 50).catch(() => []),
       ]);
       setTournaments(data);
       const adminUser = user.role === "admin";
@@ -131,7 +130,7 @@ export default function Tournaments() {
     try {
       const feeSTC = entryType === "stc" ? Math.max(0, parseInt(form.entry_fee_stc) || 0) : 0;
       const selectedTrophy = trophyItems.find(t => t.id === form.trophy_item_id);
-      await base44.entities.Tournament.create({
+      await stageClient.entities.Tournament.create({
         ...form,
         name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
         max_teams: parseInt(form.max_teams),
@@ -482,7 +481,7 @@ export default function Tournaments() {
                             const file = e.target.files?.[0];
                             if (!file) return;
                             setUploadingRules(true);
-                            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                            const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
                             setForm(f => ({ ...f, rules_file_url: file_url }));
                             setUploadingRules(false);
                             e.target.value = "";

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { Trophy, Globe, ChevronRight, Star, TrendingUp, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COMPETITIONS, getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
@@ -143,9 +143,9 @@ export default function Competitions() {
     setLoading(true);
     try {
       const [comps, allSeasons, leagues] = await Promise.all([
-        base44.entities.Competition.list("tier", 10).catch(() => []),
-        base44.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
-        base44.entities.RegionalLeague.list("-season_number", 20).catch(() => []),
+        stageClient.entities.Competition.list("tier", 10).catch(() => []),
+        stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
+        stageClient.entities.RegionalLeague.list("-season_number", 20).catch(() => []),
       ]);
       setCompetitions(comps);
       setSeasons(allSeasons);
@@ -165,7 +165,7 @@ export default function Competitions() {
 
       const standingResults = await Promise.all(
         Object.entries(latestSeasons).map(async ([slug, season]) => {
-          const rows = await base44.entities.CompetitionStanding.filter(
+          const rows = await stageClient.entities.CompetitionStanding.filter(
             { season_id: season.id }, null, 50
           ).catch(() => []);
           return [slug, rows];

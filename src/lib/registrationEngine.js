@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 
 // ─── Club → League registration flow ─────────────────────────────────────────
 //
@@ -22,7 +22,7 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
   seasonLabel = "",
 } = {}) {
   // Guard: no duplicate active application for same region + platform
-  const existing = await (base44.entities.SeasonRegistration?.filter({
+  const existing = await (stageClient.entities.SeasonRegistration?.filter({
     club_id: club.id,
     region_slug: regionSlug,
     platform,
@@ -33,7 +33,7 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
     throw new Error(`Your club already has an active application for ${regionName} (${active.status}).`);
   }
 
-  const reg = await base44.entities.SeasonRegistration.create({
+  const reg = await stageClient.entities.SeasonRegistration.create({
     club_id:            club.id,
     club_name:          club.name,
     club_tag:           club.tag  || "",
@@ -82,7 +82,7 @@ export async function approveRegistration(reg, league, adminEmail) {
 
   // Add club to league
   ops.push(
-    base44.entities.RegionalLeague.update(league.id, {
+    stageClient.entities.RegionalLeague.update(league.id, {
       registered_club_ids: [...ids, reg.club_id],
       num_clubs: current + 1,
     })
@@ -90,7 +90,7 @@ export async function approveRegistration(reg, league, adminEmail) {
 
   // Create standing row
   ops.push(
-    base44.entities.RegionalLeagueStanding.create({
+    stageClient.entities.RegionalLeagueStanding.create({
       league_id:     league.id,
       league_name:   league.name,
       region_slug:   league.region_slug || reg.region_slug,
@@ -111,7 +111,7 @@ export async function approveRegistration(reg, league, adminEmail) {
   await Promise.all(ops);
 
   // Mark application approved
-  await base44.entities.SeasonRegistration.update(reg.id, {
+  await stageClient.entities.SeasonRegistration.update(reg.id, {
     status:               "approved",
     assigned_league_id:   league.id,
     assigned_league_name: league.name,
@@ -125,7 +125,7 @@ export async function approveRegistration(reg, league, adminEmail) {
  * Reject an application.
  */
 export async function rejectRegistration(reg, adminNotes, adminEmail) {
-  await base44.entities.SeasonRegistration.update(reg.id, {
+  await stageClient.entities.SeasonRegistration.update(reg.id, {
     status:      "rejected",
     admin_notes: adminNotes || "",
     reviewed_by: adminEmail,
@@ -137,7 +137,7 @@ export async function rejectRegistration(reg, adminNotes, adminEmail) {
  * Move an application to the waiting list.
  */
 export async function waitlistRegistration(reg, adminNotes, adminEmail) {
-  await base44.entities.SeasonRegistration.update(reg.id, {
+  await stageClient.entities.SeasonRegistration.update(reg.id, {
     status:      "waitlisted",
     admin_notes: adminNotes || "",
     reviewed_by: adminEmail,

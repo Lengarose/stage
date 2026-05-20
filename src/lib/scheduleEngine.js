@@ -1,4 +1,4 @@
-import { base44, stageClient } from "@/api/base44Client";
+import { stageClient } from "@/api/stageClient";
 import { notify } from "./notify";
 import { addDays, format } from "@/lib/momentDate";
 
@@ -9,11 +9,11 @@ const DEFAULT_WINDOW_DAYS_COMPETITION = 5;
 
 function entity(fixtureType) {
   const ent = fixtureType === "regional_league"
-    ? base44.entities.RegionalLeagueFixture
-    : base44.entities.CompetitionFixture;
+    ? stageClient.entities.RegionalLeagueFixture
+    : stageClient.entities.CompetitionFixture;
   if (!ent) {
     const name = fixtureType === "regional_league" ? "RegionalLeagueFixture" : "CompetitionFixture";
-    throw new Error(`${name} schema not published yet. Please publish it on app.base44.com to enable scheduling.`);
+    throw new Error(`${name} schema not published yet. Please publish it on app.stageClient.com to enable scheduling.`);
   }
   return ent;
 }
@@ -29,7 +29,7 @@ function defaultWindowDays(fixtureType) {
 export async function getClubManagerEmail(clubId) {
   if (!clubId) return null;
   try {
-    const players = await base44.entities.Player.filter({ club_id: clubId });
+    const players = await stageClient.entities.Player.filter({ club_id: clubId });
     const manager = players.find(p =>
       p.club_roles?.includes("president") ||
       p.club_roles?.includes("manager") ||
@@ -101,7 +101,7 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
     ? format(new Date(fixture.window_end), "d MMM yyyy")
     : "TBD";
 
-  await base44.entities.InboxMessage.create({
+  await stageClient.entities.InboxMessage.create({
     recipient_email:     recipientEmail,
     sender_email:        myEmail,
     sender_gamertag:     proposerName,
@@ -166,7 +166,7 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
   ).catch(() => {});
 
   if (proposerEmail) {
-    await base44.entities.InboxMessage.create({
+    await stageClient.entities.InboxMessage.create({
       recipient_email: proposerEmail,
       sender_email:    myEmail,
       sender_gamertag: accepterName,

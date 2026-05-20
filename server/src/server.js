@@ -5,16 +5,23 @@ const { PORT } = require('./constants/constants');
 const { verifyToken } = require('./server/authMiddleware');
 const { errorHandler } = require('./server/middleware/errorHandler');
 const { notFoundHandler } = require('./server/middleware/notFoundHandler');
+const { rateLimiter } = require('./server/middleware/rateLimiter');
+const { securityHeaders } = require('./server/middleware/securityHeaders');
 const { passport } = require('./server/oauth/passportConfig');
 
-app.use(require('express').json());
+app.use(securityHeaders());
+app.use(require('express').json({ limit: '2mb' }));
 app.use(require('express').urlencoded({ extended: true })); // needed for Apple POST callback
 app.use(passport.initialize());
 
 const { ensureUploadsDir } = require('./constants/paths');
 
+// Rate-limit auth routes to prevent brute-force attacks.
+// 20 requests per 15 min per IP for login/register; 10 per 15 min for password reset.
+const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 20 });
+
 // Auth (public) — email/password + OAuth
-app.use('/api/stage/auth', require('./server/controllers/authController'));
+app.use('/api/stage/auth', authLimiter, require('./server/controllers/authController'));
 app.use('/api/stage/auth', require('./server/controllers/oauthController'));
 
 // File upload + server functions (protected)
@@ -79,6 +86,11 @@ app.use('/api/stage/archetypes',                verifyToken, require('./server/c
 app.use('/api/stage/chemistry-links',           verifyToken, require('./server/controllers/chemistryLinkController'));
 app.use('/api/stage/sbcs',                      verifyToken, require('./server/controllers/sbcController'));
 app.use('/api/stage/sbc-submissions',           verifyToken, require('./server/controllers/sbcSubmissionController'));
+
+// Legacy/compat entities — models existed, controllers were missing until now
+app.use('/api/stage/rating-histories',          verifyToken, require('./server/controllers/ratingHistoryController'));
+app.use('/api/stage/live-match-events',         verifyToken, require('./server/controllers/liveMatchEventController'));
+app.use('/api/stage/challenges',                verifyToken, require('./server/controllers/challengeController'));
 
 // Competition & league entity stack (generic CRUD via single league_entities table)
 const { makeRouter: makeLeagueRouter } = require('./server/controllers/leagueEntityController');
