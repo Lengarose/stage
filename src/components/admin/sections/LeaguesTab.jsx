@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle } from "lucide-react";
+import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2 } from "lucide-react";
 
 export default function LeaguesTab({
   seedCompetitions,
@@ -55,6 +55,8 @@ export default function LeaguesTab({
   standingsPanel,
   standingsList,
   loadStandingsForPanel,
+  removeClubFromCompetition,
+  removingCompetitionClub,
   selectedStandingsLeague,
   setSelectedStandingsLeague,
   seedRegionalLeagues,
@@ -534,6 +536,7 @@ export default function LeaguesTab({
                       <th className="px-2 py-2 text-center text-[10px] text-destructive uppercase w-8">L</th>
                       <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-10">GD</th>
                       <th className="px-2 py-2 text-center text-[10px] text-foreground font-bold uppercase w-10">Pts</th>
+                      <th className="px-2 py-2 text-right text-[10px] text-muted-foreground uppercase w-24">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -547,6 +550,22 @@ export default function LeaguesTab({
                         <td className="px-2 py-2 text-center text-destructive">{s.losses || 0}</td>
                         <td className="px-2 py-2 text-center text-muted-foreground">{(s.goal_difference || 0) > 0 ? `+${s.goal_difference}` : (s.goal_difference || 0)}</td>
                         <td className="px-2 py-2 text-center font-bold text-foreground">{s.points || 0}</td>
+                        <td className="px-2 py-2 text-right">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={removingCompetitionClub === s.id}
+                            onClick={() => removeClubFromCompetition?.(s)}
+                            className="h-7 text-[10px] rounded border-destructive/30 text-destructive hover:bg-destructive/10 gap-1">
+                            {removingCompetitionClub === s.id ? (
+                              <span className="w-3 h-3 border-2 border-destructive/30 border-t-destructive rounded-full animate-spin inline-block" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            Remove
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
