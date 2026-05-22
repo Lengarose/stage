@@ -25,8 +25,8 @@ const baseUrl = (
 ).replace(/\/$/, '');
 
 const emitSecret =
-  process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '#1?BCJw[JrZ}Y|>?6CVpCHrSCm$6><#)1O_{mRgIdlw';
-const accessSecret = process.env.ACCESS_TOKEN_SECRET || 'e11c51e0d9b810e4a6765904a144361248d4976b';
+  process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '';
+const accessSecret = process.env.ACCESS_TOKEN_SECRET || '';
 const testChannel =
   process.env.TEST_CHANNEL || 'STAGE_CHAT_MESSAGE_smoke-test';
 
@@ -64,7 +64,12 @@ async function postEmit(payload) {
 function connectAndListen(channel) {
   const token = jwt.sign({ id: 'socket-smoke-test' }, accessSecret, { expiresIn: '5m' });
 
-  return new Promise((resolve, reject) => {
+  let resolveReady;
+  const ready = new Promise((resolve) => {
+    resolveReady = resolve;
+  });
+
+  const received = new Promise((resolve, reject) => {
     const client = io(baseUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
@@ -94,8 +99,11 @@ function connectAndListen(channel) {
       ok(`Socket connected (${client.id})`);
       client.emit('JOINLEAVEROOM', { action: 'join', channel });
       ok(`Joined room ${channel}`);
+      resolveReady();
     });
   });
+
+  return { ready, received };
 }
 
 async function main() {
@@ -116,14 +124,12 @@ async function main() {
     at: new Date().toISOString(),
   };
 
-  const listenPromise = connectAndListen(testChannel);
-
-  // Let JOINLEAVEROOM reach the server before /emit
-  await new Promise((r) => setTimeout(r, 500));
+  const listener = connectAndListen(testChannel);
+  await listener.ready;
 
   await postEmit({ channel: testChannel, data: testPayload });
 
-  const received = await listenPromise;
+  const received = await listener.received;
   ok(`Received update: ${JSON.stringify(received)}`);
 
   console.log('\nAll checks passed. Gandi → POST /emit → browser path should work the same.\n');

@@ -16,12 +16,16 @@ app.use(passport.initialize());
 
 const { ensureUploadsDir } = require('./constants/paths');
 
-// Rate-limit auth routes to prevent brute-force attacks.
-// 20 requests per 15 min per IP for login/register; 10 per 15 min for password reset.
-const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 20 });
+// Rate-limit only brute-force-sensitive auth routes (login/register/password).
+// `/me`, `/refresh`, `/logout` are called on every page load — never throttle them.
+const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+app.use('/api/stage/auth/login',           authLimiter);
+app.use('/api/stage/auth/register',        authLimiter);
+app.use('/api/stage/auth/forgot-password', authLimiter);
+app.use('/api/stage/auth/reset-password',  authLimiter);
 
 // Auth (public) — email/password + OAuth
-app.use('/api/stage/auth', authLimiter, require('./server/controllers/authController'));
+app.use('/api/stage/auth', require('./server/controllers/authController'));
 app.use('/api/stage/auth', require('./server/controllers/oauthController'));
 
 // File upload + server functions (protected)

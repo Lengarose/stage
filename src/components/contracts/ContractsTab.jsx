@@ -54,7 +54,8 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     let newContract;
     try {
       const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-      newContract = await stageClient.entities.PlayerContract.create({
+      const result = await stageClient.functions.invoke("contractManagement", {
+        action: "offer",
         team_id: club.id,
         user_id: player.id,
         contract_type,
@@ -67,8 +68,8 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         transfer_fee_stc:   transfer_fee_stc   || 0,
         performance_targets: performance_targets || [],
         captaincy_offered:  captaincy_offered  || false,
-        status: "pending",
       });
+      newContract = result?.data?.contract;
     } catch (err) {
       setContractError(`Failed to create contract: ${err?.message || "unknown error"}`);
       throw err;
@@ -82,35 +83,26 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       link: `/clubs/${club.id}`,
     });
 
-    setContracts(prev => [...prev, newContract]);
+    if (newContract) setContracts(prev => [...prev, newContract]);
     setPlayerMap(prev => ({ ...prev, [player.id]: player }));
   }
 
   async function negotiateContract(contract, terms) {
-    await stageClient.entities.PlayerContract.update(contract.id, {
+    const result = await stageClient.functions.invoke("contractManagement", {
+      action: "counter",
+      contract_id: contract.id,
+      ...terms,
+      last_negotiated_by: myPlayer?.id,
+    });
+    const updatedContract = result?.data?.contract || {
+      ...contract,
       ...terms,
       status: "negotiating",
-      negotiation_round:    (contract.negotiation_round || 0) + 1,
-      last_negotiated_by:   myPlayer?.id,
-    });
+      negotiation_round: (contract.negotiation_round || 0) + 1,
+    };
     const recipient = playerMap[contract.user_id];
     const recipientEmail = recipient?.email || null;
     if (recipientEmail) {
-      await stageClient.entities.InboxMessage.create({
-        recipient_email:  recipientEmail,
-        sender_email:     myPlayer?.email || "system@stage.com",
-        sender_gamertag:  club.name,
-        sender_avatar_url: club.logo_url || "",
-        sender_club_name: club.name,
-        subject:          `📄 Counter-Offer from ${club.name}`,
-        body:             `${club.name} has sent a counter-offer on your contract. Open your inbox to review the updated terms.`,
-        message_type:     "contract_offer",
-        action_type:      "contract_negotiation",
-        related_entity_id: contract.id,
-        status:  "pending",
-        is_read: false,
-        metadata: { contract_id: contract.id, club_id: club.id, club_name: club.name },
-      });
       notify(recipientEmail, "contract_offer",
         `🔄 Counter-Offer from ${club.name}`,
         `${club.name} has responded to your contract negotiation. Round ${(contract.negotiation_round || 0) + 1}.`,
@@ -127,7 +119,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     });
     setContracts(prev => prev.map(c =>
       c.id === contract.id
-        ? { ...c, ...terms, status: "negotiating", negotiation_round: (c.negotiation_round || 0) + 1 }
+        ? { ...c, ...updatedContract }
         : c
     ));
   }
@@ -157,7 +149,11 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function rejectContract(contract) {
-    await stageClient.entities.PlayerContract.update(contract.id, { status: "rejected" });
+    const result = await stageClient.functions.invoke("contractManagement", {
+      action: "reject",
+      contract_id: contract.id,
+    });
+    const updatedContract = result?.data?.contract || { ...contract, status: "rejected" };
     const player = playerMap[contract.user_id];
     notify(club.owner_email, "contract_rejected",
       `❌ Contract Rejected`,
@@ -171,26 +167,17 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: "rejected" } : c));
+    setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, ...updatedContract } : c));
   }
 
   async function cancelContractOffer(contract) {
     if (!(await swalConfirm("Cancel this pending contract offer? The player will no longer be able to accept it."))) return;
     try {
-      let updated;
-      try {
-        updated = await stageClient.http.post(`/player-contracts/${contract.id}/cancel`, {
-          reason: "Cancelled by club from contracts panel",
-        });
-      } catch (err) {
-        const isMissingCancelRoute = err?.status === 404 || String(err?.message || "").toLowerCase().includes("not found");
-        if (!isMissingCancelRoute) throw err;
-        updated = await stageClient.entities.PlayerContract.update(contract.id, {
-          status: "cancelled",
-          start_date: null,
-          end_date: null,
-        });
-      }
+      const result = await stageClient.functions.invoke("contractManagement", {
+        action: "cancel_offer",
+        contract_id: contract.id,
+      });
+      const updated = result?.data?.contract;
       const player = playerMap[contract.user_id];
       postContractNews({
         title: `↩ ${club.name} cancelled a contract offer`,
@@ -228,9 +215,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const contract = renewDialog;
     const player   = playerMap[contract.user_id];
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-    const newContract = await stageClient.entities.PlayerContract.create({
-      team_id:             contract.team_id,
-      user_id:             contract.user_id,
+    const result = await stageClient.functions.invoke("contractManagement", {
+      action: "renewal_offer",
+      contract_id: contract.id,
       contract_type,
       offer_note:          offer_note || "",
       offered_by:          myPlayer?.id || "",
@@ -239,8 +226,8 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       weekly_salary_stc:   contract.weekly_salary_stc  || 0,
       signing_bonus_stc:   contract.signing_bonus_stc  || 0,
       performance_targets: contract.performance_targets || [],
-      status: "pending",
     });
+    const newContract = result?.data?.contract;
     postContractNews({
       title: `🔄 ${club.name} offered renewal to ${player?.gamertag || "a player"}`,
       body: `${club.name} has offered a ${contract_type} contract renewal to ${player?.gamertag || "a player"}.`,
@@ -248,7 +235,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => [...prev, newContract]);
+    if (newContract) setContracts(prev => [...prev, newContract]);
     setRenewDialog(null);
   }
 

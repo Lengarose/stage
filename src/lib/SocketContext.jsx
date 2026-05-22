@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const viteEnv = /** @type {any} */ (import.meta).env;
-const rawSocketUrl = 'https://stage-7osn.onrender.com';
+const rawSocketUrl = viteEnv?.VITE_SOCKET_URL || 'https://stage-7osn.onrender.com';
 let SOCKET_URL = rawSocketUrl || window.location.origin;
 try {
   const parsed = rawSocketUrl ? new URL(rawSocketUrl, window.location.origin) : null;
@@ -16,7 +16,8 @@ try {
 } catch {
   SOCKET_URL = window.location.origin;
 }
-const ACCESS_KEY = 'e11c51e0d9b810e4a6765904a144361248d4976b';
+const ACCESS_KEY = 'stage_access_token';
+const AUTH_CHANGED_EVENT = 'stage-auth-changed';
 
 // ── Channel constants (mirrors server/src/constants/constants.js) ──────────────
 export const CHANNELS = {
@@ -47,6 +48,19 @@ export const SOCKET_CLIENT = io(SOCKET_URL, {
   reconnectionDelay:    2000,
   autoConnect:          false,
 });
+
+function connectWithStoredToken() {
+  const token = localStorage.getItem(ACCESS_KEY);
+  SOCKET_CLIENT.auth = { token };
+
+  if (!token) {
+    if (SOCKET_CLIENT.connected) SOCKET_CLIENT.disconnect();
+    return;
+  }
+
+  if (SOCKET_CLIENT.connected) return;
+  SOCKET_CLIENT.connect();
+}
 
 // Internal listener registry: Map<channel, callback>
 const _listeners = new Map();
@@ -108,18 +122,20 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(SOCKET_CLIENT.connected);
 
   useEffect(() => {
-    SOCKET_CLIENT.auth = { token: localStorage.getItem(ACCESS_KEY) };
-    SOCKET_CLIENT.connect();
+    connectWithStoredToken();
 
     const onConnect    = () => setIsConnected(true);
     const onDisconnect = () => setIsConnected(false);
+    const onAuthChanged = () => connectWithStoredToken();
 
     SOCKET_CLIENT.on('connect',    onConnect);
     SOCKET_CLIENT.on('disconnect', onDisconnect);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
 
     return () => {
       SOCKET_CLIENT.off('connect',    onConnect);
       SOCKET_CLIENT.off('disconnect', onDisconnect);
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
     };
   }, []);
 

@@ -29,7 +29,7 @@ class Match {
     this.loser_player_id       = body.loser_player_id;
     this.loser_player_name     = body.loser_player_name;
     this.round                 = body.round;
-    this.group_number          = body.group_number;
+    this.group_number          = body.group_number ?? body.group;
     this.bracket_side          = body.bracket_side;
     this.scheduled_date        = toMysqlDateTime(body.scheduled_date);
     this.result_home_submitted = body.result_home_submitted;

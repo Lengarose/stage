@@ -5,7 +5,7 @@ import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lu
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { getCompetitionMeta, sortStandings, processFixtureResult } from "@/lib/competitionUtils";
+import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -144,13 +144,14 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
     const winnerName = winnerId === fixture.home_club_id ? fixture.home_club_name
       : winnerId === fixture.away_club_id ? fixture.away_club_name : "";
 
-    await stageClient.entities.CompetitionFixture.update(fixture.id, {
-      home_score: hs, away_score: as_,
+    await stageClient.functions.invoke("competitionFixtureResult", {
+      fixture_id: fixture.id,
+      home_score: hs,
+      away_score: as_,
       winner_club_id: winnerId,
       winner_club_name: winnerName,
-      status: "completed",
+      reason: "Submitted from competition detail",
     });
-    await processFixtureResult({ ...fixture, home_score: hs, away_score: as_, winner_club_id: winnerId, status: "completed" });
     setSaving(false);
     setEditing(false);
     onSubmitResult?.();

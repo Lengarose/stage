@@ -137,8 +137,11 @@ export default function InboxContractOffer({ message, onActioned }) {
         // Renewal = player already belongs to this club; transfers need an open window
         const isRenewal = myPlayer?.club_id && myPlayer.club_id === contract.team_id;
         if (!isRenewal && !windowOpen) {
-          await stageClient.entities.PlayerContract.update(contractId, { status: "pending_window" });
-          setContract(prev => ({ ...prev, status: "pending_window" }));
+          const result = await stageClient.functions.invoke("contractManagement", {
+            action: "mark_pending_window",
+            contract_id: contractId,
+          });
+          setContract(prev => ({ ...prev, ...(result?.data?.contract || {}), status: "pending_window" }));
           onActioned?.("pending_window");
           return;
         }
@@ -162,8 +165,11 @@ export default function InboxContractOffer({ message, onActioned }) {
           link: `/clubs/${contract.team_id}`,
         });
       } else {
-        await stageClient.entities.PlayerContract.update(contractId, { status: "rejected" });
-        setContract(prev => ({ ...prev, status: "rejected" }));
+        const result = await stageClient.functions.invoke("contractManagement", {
+          action: "reject",
+          contract_id: contractId,
+        });
+        setContract(prev => ({ ...prev, ...(result?.data?.contract || {}), status: "rejected" }));
         notify(clubOwnerEmail, "contract_rejected",
           `❌ Contract Declined`,
           `${myPlayer?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
@@ -200,8 +206,13 @@ export default function InboxContractOffer({ message, onActioned }) {
       if (counterFee)    updatedFields.transfer_fee_stc   = parseInt(counterFee);
       if (counterTargets.length > 0) updatedFields.performance_targets = counterTargets;
 
-      await stageClient.entities.PlayerContract.update(contractId, updatedFields);
-      setContract(prev => ({ ...prev, ...updatedFields }));
+      const result = await stageClient.functions.invoke("contractManagement", {
+        action: "counter",
+        contract_id: contractId,
+        ...updatedFields,
+        last_negotiated_by: myPlayer?.id || "",
+      });
+      setContract(prev => ({ ...prev, ...(result?.data?.contract || updatedFields) }));
       setShowCounter(false);
       setCounterNote("");
       notify(clubOwnerEmail, "contract_offer",

@@ -16,6 +16,13 @@ const REFRESH_KEY = 'stage_refresh_token';
 const USER_KEY    = 'stage_user_id';
 const PLAYER_KEY  = 'stage_player_id';
 const OWNER_KEY   = 'stage_owner_id';
+const AUTH_CHANGED_EVENT = 'stage-auth-changed';
+
+function notifyAuthChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+  }
+}
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
 export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId } = /** @type {any} */({})) => {
@@ -24,10 +31,12 @@ export const storeTokens = ({ accessToken, refreshToken, userId, playerId, owner
   if (userId)       localStorage.setItem(USER_KEY,    String(userId));
   if (playerId)     localStorage.setItem(PLAYER_KEY,  String(playerId));
   if (ownerId)      localStorage.setItem(OWNER_KEY,   String(ownerId));
+  notifyAuthChanged();
 };
 
 export const clearTokens = () => {
   [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  notifyAuthChanged();
 };
 
 /** Keep localStorage ids aligned with /auth/me (e.g. after refresh or admin login). */
@@ -107,6 +116,7 @@ function normalizeEntityFromApi(entityName, row) {
   if (entityName === "Match") {
     return {
       ...row,
+      group: row.group ?? row.group_number,
       scheduled_date: asWallClockDateTimeString(row.scheduled_date),
       first_submission_at: asWallClockDateTimeString(row.first_submission_at),
     };

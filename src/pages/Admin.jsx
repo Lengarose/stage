@@ -22,6 +22,7 @@ import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
 import { stageClient } from "@/api/stageClient";
+import { base44 } from "@/api/base44Client";
 import { internationalTournamentsApi } from "@/api/internationalTournaments";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -182,12 +183,15 @@ export default function Admin(props) {
     (async () => {
       try {
         const u = await stageClient.auth.me();
-        const isAdmin = u?.role === "admin" || Number(u?.role_id) === 0;
+        const isAdmin = u?.role_name === "admin"
+          || u?.role === "admin"
+          || Number(u?.role_id) === 0;
         if (!isAdmin) { setAllowed(false); return; }
         setAllowed(true);
         setAdminProfile(u);
         await loadAll();
-      } catch {
+      } catch(e) {
+        console.log("error",e);
         setAllowed(false);
       }
     })();
@@ -477,31 +481,33 @@ export default function Admin(props) {
         action: "admin_resolve",
         admin_resolve_winner: isHome ? "home" : "away",
       });
-    } catch {
-      // Fallback: direct update
-      const isHome = selectedWinner === m.home_club_id;
-      const winnerName = isHome ? m.home_club_name : m.away_club_name;
-      await stageClient.entities.Match.update(m.id, { status: "completed", winner_club_id: selectedWinner, winner_club_name: winnerName });
+      setResolveDialog(null); setSelectedWinner("");
+      await loadAll();
+    } catch (err) {
+      await swalAlert(`Could not resolve dispute: ${err?.message || "Unknown error"}`);
+    } finally {
+      setSaving(false);
     }
-    setResolveDialog(null); setSelectedWinner(""); setSaving(false);
-    await loadAll();
   }
 
   async function resolveForfeit(matchId, approve) {
     const m = forfeits.find(f => f.id === matchId);
     if (!m) return;
-    if (approve) {
-      const winnerId = m.forfeit_claimed_by;
-      const winnerName = winnerId === m.home_club_id ? m.home_club_name : m.away_club_name;
-      await stageClient.entities.Match.update(matchId, { status: "forfeit", forfeit_status: "approved", winner_club_id: winnerId, winner_club_name: winnerName });
-    } else {
-      await stageClient.entities.Match.update(matchId, { forfeit_status: "rejected" });
-    }
+    await stageClient.functions.invoke("adminMatchActions", {
+      action: "resolve_forfeit",
+      match_id: matchId,
+      approve,
+      reason: approve ? "Approved from admin forfeits panel" : "Rejected from admin forfeits panel",
+    });
     setForfeits(prev => prev.filter(f => f.id !== matchId));
   }
 
   async function kickFromClub(playerId) {
-    await stageClient.entities.Player.update(playerId, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
+    await stageClient.functions.invoke("adminMembershipActions", {
+      action: "kick_from_club",
+      player_id: playerId,
+      reason: "Removed from club in admin players panel",
+    });
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" } : p));
   }
 
@@ -532,12 +538,20 @@ export default function Admin(props) {
 
   async function deleteClub(clubId) {
     if (!(await swalConfirm("Are you sure you want to delete this club? This cannot be undone."))) return;
-    await stageClient.entities.Club.delete(clubId);
+    await stageClient.functions.invoke("clubAdminActions", {
+      action: "delete",
+      club_id: clubId,
+      reason: "Deleted from admin clubs panel",
+    });
     setClubs(prev => prev.filter(c => c.id !== clubId));
   }
 
   async function cancelTournament(tournamentId) {
-    await stageClient.entities.Tournament.update(tournamentId, { status: "cancelled" });
+    const res = await stageClient.functions.invoke("tournamentCancellation", { tournament_id: tournamentId });
+    if (!res?.data?.success) {
+      await swalAlert(res?.data?.error || "Tournament cancellation failed");
+      return;
+    }
     setTournaments(prev => prev.filter(t => t.id !== tournamentId));
   }
 
@@ -887,65 +901,6 @@ export default function Admin(props) {
     }
   }
 
-  function isFunctionMissingError(err, functionName) {
-    const message = String(err?.message || err?.error || "");
-    return err?.status === 404 || message.includes(`Function '${functionName}' not found`);
-  }
-
-  async function removeClubFromCompetitionLocally(panel, standing, reason) {
-    const isCompetition = panel.type === "competition";
-    const parentEntity = isCompetition ? base44.entities.CompetitionSeason : base44.entities.RegionalLeague;
-    const standingEntity = isCompetition ? base44.entities.CompetitionStanding : base44.entities.RegionalLeagueStanding;
-    const fixtureEntity = isCompetition ? base44.entities.CompetitionFixture : base44.entities.RegionalLeagueFixture;
-    const parentFilterKey = isCompetition ? "season_id" : "league_id";
-    const parentRows = isCompetition
-      ? compSeasons.filter(s => s.id === panel.id)
-      : regionalLeagues.filter(l => l.id === panel.id);
-    const parent = parentRows[0] || await parentEntity.get(panel.id);
-    if (!parent) throw new Error(`${isCompetition ? "Competition season" : "Regional league"} not found.`);
-
-    if ((Number(standing.played) || 0) > 0) {
-      throw new Error("This club has already played in this league/competition. Remove or correct played results first.");
-    }
-
-    const fixtures = await (fixtureEntity?.filter({ [parentFilterKey]: panel.id }, null, 300) ?? Promise.resolve([]));
-    const clubFixtures = fixtures.filter(f => f.home_club_id === standing.club_id || f.away_club_id === standing.club_id);
-    const hasCompleted = clubFixtures.some(f => (
-      f.status === "completed" ||
-      f.stats_processed === true ||
-      String(f.stats_processed || "").toLowerCase() === "true"
-    ));
-    if (hasCompleted) {
-      throw new Error("This club has completed fixtures in this league/competition. Reverse those results before removing it.");
-    }
-
-    const registeredIds = Array.isArray(parent.registered_club_ids)
-      ? parent.registered_club_ids
-      : [];
-    const nextIds = registeredIds.filter(id => String(id) !== String(standing.club_id));
-    await Promise.all([
-      ...clubFixtures.map(f => fixtureEntity.delete(f.id)),
-      standingEntity.delete(standing.id),
-      parentEntity.update(panel.id, {
-        registered_club_ids: nextIds,
-        num_clubs: nextIds.length || Math.max(0, (Number(parent.num_clubs) || 0) - 1),
-      }),
-    ]);
-
-    if (!isCompetition && base44.entities.SeasonRegistration) {
-      const registrations = await base44.entities.SeasonRegistration.filter({ club_id: standing.club_id }, "-applied_at", 25).catch(() => []);
-      const assigned = registrations.filter(reg => reg.assigned_league_id === panel.id);
-      await Promise.all(assigned.map(reg => base44.entities.SeasonRegistration.update(reg.id, {
-        status: "removed",
-        admin_notes: reason,
-        reviewed_by: adminProfile?.email || "admin",
-        reviewed_at: new Date().toISOString(),
-      }).catch(() => null)));
-    }
-
-    return { success: true, fallback: true };
-  }
-
   async function removeClubFromCompetition(standing) {
     if (!standing?.club_id || !standingsPanel?.id) return;
     const targetLabel = standingsPanel.type === "competition" ? "competition season" : "regional league";
@@ -962,18 +917,13 @@ export default function Admin(props) {
     const reason = `Removed from ${panel.name || targetLabel} in admin Leagues panel`;
     setRemovingCompetitionClub(standing.id);
     try {
-      try {
-        await stageClient.functions.invoke("adminRemoveClubFromCompetition", {
-          target_type: panel.type,
-          target_id: panel.id,
-          club_id: standing.club_id,
-          standing_id: standing.id,
-          reason,
-        });
-      } catch (err) {
-        if (!isFunctionMissingError(err, "adminRemoveClubFromCompetition")) throw err;
-        await removeClubFromCompetitionLocally(panel, standing, reason);
-      }
+      await stageClient.functions.invoke("adminRemoveClubFromCompetition", {
+        target_type: panel.type,
+        target_id: panel.id,
+        club_id: standing.club_id,
+        standing_id: standing.id,
+        reason,
+      });
       setStandingsList(prev => prev.filter(row => row.id !== standing.id));
       await loadAll();
       await loadStandingsForPanel(panel);

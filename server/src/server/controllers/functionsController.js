@@ -567,10 +567,26 @@ async function processMatchCompletion(match, acceptedSubmission) {
     return { data: { status: 'completed', skipped: true } };
   }
 
+  const winnerClubId = homeScore > awayScore ? fresh.home_club_id : homeScore < awayScore ? fresh.away_club_id : null;
+  const winnerClubName = homeScore > awayScore ? fresh.home_club_name : homeScore < awayScore ? fresh.away_club_name : null;
+  const loserClubId = homeScore > awayScore ? fresh.away_club_id : homeScore < awayScore ? fresh.home_club_id : null;
+  const loserClubName = homeScore > awayScore ? fresh.away_club_name : homeScore < awayScore ? fresh.home_club_name : null;
+
   await EXECUTESQL(
-    `UPDATE matches SET status='completed', home_score=?, away_score=?, home_goal_events=?,
-       away_goal_events=?, updated_date=NOW() WHERE id=?`,
-    [homeScore, awayScore, JSON.stringify(goalEvents), JSON.stringify([]), matchId]
+    `UPDATE matches SET status='completed', home_score=?, away_score=?,
+       winner_club_id=?, winner_club_name=?, loser_club_id=?, loser_club_name=?,
+       home_goal_events=?, away_goal_events=?, updated_date=NOW() WHERE id=?`,
+    [
+      homeScore,
+      awayScore,
+      winnerClubId,
+      winnerClubName,
+      loserClubId,
+      loserClubName,
+      JSON.stringify(goalEvents),
+      JSON.stringify([]),
+      matchId,
+    ]
   );
 
   for (const stat of playerStats) {
@@ -762,6 +778,93 @@ function normalizeIdList(value) {
   return [];
 }
 
+function parseFormList(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return value.split(',').map(v => v.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function sortCompetitionStandingRows(rows) {
+  return [...rows].sort((a, b) => {
+    if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
+    if (Number(b.goal_difference || 0) !== Number(a.goal_difference || 0)) return Number(b.goal_difference || 0) - Number(a.goal_difference || 0);
+    if (Number(b.goals_for || 0) !== Number(a.goals_for || 0)) return Number(b.goals_for || 0) - Number(a.goals_for || 0);
+    return String(a.club_name || '').localeCompare(String(b.club_name || ''));
+  });
+}
+
+const CREDIT_PACKS = {
+  credits_100:  { priceId: 'price_1TOayT2fnaWmNMFQby00tHqR', credits: 100 },
+  credits_300:  { priceId: 'price_1TOb0I2fnaWmNMFQyryD4Rpc', credits: 300 },
+  credits_700:  { priceId: 'price_1TOb1N2fnaWmNMFQIcd2HIuy', credits: 700 },
+  credits_1500: { priceId: 'price_1TOb2Y2fnaWmNMFQArERKaS1', credits: 1500 },
+};
+
+const SUBSCRIPTION_PRICE_ENV = {
+  pro: {
+    monthly: 'STRIPE_PRO_MONTHLY_PRICE_ID',
+    yearly: 'STRIPE_PRO_YEARLY_PRICE_ID',
+  },
+  elite: {
+    monthly: 'STRIPE_ELITE_MONTHLY_PRICE_ID',
+    yearly: 'STRIPE_ELITE_YEARLY_PRICE_ID',
+  },
+};
+
+async function createStripeCheckoutSession(fields) {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+  if (!stripeSecret) {
+    throw new Error('Stripe checkout is not configured on the server');
+  }
+
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) body.append(key, String(value));
+  }
+
+  const res = await axios.post('https://api.stripe.com/v1/checkout/sessions', body.toString(), {
+    headers: {
+      Authorization: `Bearer ${stripeSecret}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
+  return res.data;
+}
+
+async function insertTournamentMatch(query, match) {
+  const id = match.id || uuidv4();
+  await query(
+    `INSERT INTO matches
+       (id, tournament_id, home_club_id, away_club_id, home_club_name, away_club_name,
+        home_score, away_score, status, mode, type, round, group_number, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [
+      id,
+      match.tournament_id,
+      match.home_club_id || null,
+      match.away_club_id || null,
+      match.home_club_name || null,
+      match.away_club_name || null,
+      Number(match.home_score || 0),
+      Number(match.away_score || 0),
+      match.status || 'scheduled',
+      match.mode || 'club',
+      match.type || 'knockout',
+      Number(match.round || 1),
+      match.group_number ?? match.group ?? null,
+    ]
+  );
+  return id;
+}
+
 function leagueEntityTypeConfig(targetType) {
   if (targetType === 'competition') {
     return {
@@ -810,6 +913,14 @@ async function createAuditLog({
   } catch (err) {
     console.error('[createAuditLog]', err.message);
   }
+}
+
+async function requireAdminUser(userId) {
+  if (!userId) throw new Error('not authenticated');
+  const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  const user = rows[0];
+  if (!user || ![0, 2].includes(Number(user.role_id))) throw new Error('Admin only');
+  return user;
 }
 
 function isReachableInviteEmail(email) {
@@ -1003,6 +1114,630 @@ async function resolvePlayerContactForInvite(playerId) {
 }
 
 const HANDLERS = {
+  async stripeCheckout({ _auth_user_id, packId, creditTarget = 'player', successUrl, cancelUrl }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const pack = CREDIT_PACKS[packId];
+    if (!pack) throw new Error('Unknown credit pack');
+    if (!successUrl || !cancelUrl) throw new Error('successUrl and cancelUrl required');
+    const session = await createStripeCheckoutSession({
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      'line_items[0][price]': pack.priceId,
+      'line_items[0][quantity]': 1,
+      'metadata[user_id]': _auth_user_id,
+      'metadata[pack_id]': packId,
+      'metadata[credits]': pack.credits,
+      'metadata[credit_target]': creditTarget === 'club' ? 'club' : 'player',
+    });
+    return { data: { success: true, url: session.url, id: session.id } };
+  },
+
+  async stripeSubscription({ _auth_user_id, tier, billing = 'monthly', successUrl, cancelUrl }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!successUrl || !cancelUrl) throw new Error('successUrl and cancelUrl required');
+    const normalizedTier = String(tier || '').toLowerCase();
+    const normalizedBilling = String(billing || 'monthly').toLowerCase();
+    const envKey = SUBSCRIPTION_PRICE_ENV[normalizedTier]?.[normalizedBilling];
+    const priceId = envKey ? process.env[envKey] : '';
+    if (!priceId) throw new Error(`Stripe price is not configured for ${normalizedTier || 'unknown'} ${normalizedBilling}`);
+    const session = await createStripeCheckoutSession({
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      'line_items[0][price]': priceId,
+      'line_items[0][quantity]': 1,
+      'metadata[user_id]': _auth_user_id,
+      'metadata[tier]': normalizedTier,
+      'metadata[billing]': normalizedBilling,
+    });
+    return { data: { success: true, url: session.url, id: session.id } };
+  },
+
+  async fixSubscription({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    return {
+      data: {
+        success: false,
+        pending: true,
+        error: 'Subscription activation must be confirmed by Stripe webhook/admin reconciliation',
+      },
+    };
+  },
+
+  async transferPayment({
+    _auth_user_id,
+    player_id,
+    source_club_id,
+    target_club_id,
+    amount,
+  }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const fee = Number(amount || 0);
+    if (!source_club_id) throw new Error('source_club_id required');
+    if (!target_club_id) throw new Error('target_club_id required');
+    if (source_club_id === target_club_id) throw new Error('Cannot pay a transfer fee to the same club');
+    if (!Number.isFinite(fee) || fee <= 0) throw new Error('Enter a valid transfer fee amount');
+
+    const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!userRows.length) throw new Error('User not found');
+    const user = userRows[0];
+
+    const result = await withTransaction(async (query) => {
+      const sourceRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [source_club_id]);
+      const targetRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [target_club_id]);
+      if (!sourceRows.length) throw new Error('Paying club not found');
+      if (!targetRows.length) throw new Error('Receiving club not found');
+      const source = sourceRows[0];
+      const target = targetRows[0];
+      const isAdmin = Number(user.role_id) === 0;
+      const canPay = isAdmin
+        || String(source.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+        || String(source.user_id || '') === String(_auth_user_id);
+      if (!canPay) throw new Error('Only the paying club owner can pay this transfer fee');
+
+      const sourceBalance = Number(source.stc || 0);
+      if (sourceBalance < fee) throw new Error(`Insufficient funds. Club balance: ${sourceBalance}`);
+
+      const sourceBudget = Number(source.transfer_budget_stc || 0);
+      const nextSourceBudget = Math.max(0, sourceBudget - fee);
+      await query('UPDATE clubs SET transfer_budget_stc = ?, updated_date = NOW() WHERE id = ?', [nextSourceBudget, source.id]);
+      await query(
+        'UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ?, updated_date = NOW() WHERE id = ?',
+        [fee, target.id]
+      );
+
+      const playerRows = player_id
+        ? await query('SELECT id, gamertag, avatar_url FROM players WHERE id = ? LIMIT 1', [player_id])
+        : [];
+      const player = playerRows[0] || null;
+      const playerLabel = player?.gamertag || 'a player';
+      const sourceTx = await recordClubTransaction(query, {
+        clubId: source.id,
+        amount: -fee,
+        type: 'transfer_fee_paid',
+        category: 'transfer_fee',
+        description: `Transfer fee paid to ${target.name || 'club'} for ${playerLabel}`,
+        referenceId: player_id || null,
+      });
+      const targetTx = await recordClubTransaction(query, {
+        clubId: target.id,
+        amount: fee,
+        type: 'transfer_fee_received',
+        category: 'transfer_fee',
+        description: `Transfer fee received from ${source.name || 'club'} for ${playerLabel}`,
+        referenceId: player_id || null,
+      });
+
+      if (target.owner_email) {
+        await query(
+          `INSERT INTO notifications
+             (id, recipient_email, type, title, body, \`read\`, link, created_date)
+           VALUES (?, ?, 'club_update', ?, ?, 0, ?, NOW())`,
+          [
+            uuidv4(),
+            String(target.owner_email).trim().toLowerCase(),
+            `Transfer Fee Received - ${fee.toLocaleString()} STC`,
+            `${source.name || 'A club'} paid a transfer fee of ${fee.toLocaleString()} STC for ${playerLabel}.`,
+            `/clubs/${target.id}`,
+          ]
+        ).catch(() => {});
+      }
+
+      await query(
+        `INSERT INTO news_items
+          (id, title, body, type, category, club_name, club_logo_url,
+           player_name, player_avatar_url, link, is_global, published_at, transfer_fee_stc)
+         VALUES (?, ?, ?, 'contract', 'contracts', ?, ?, ?, ?, ?, 1, NOW(), ?)`,
+        [
+          uuidv4(),
+          `${source.name || 'Club'} paid ${fee.toLocaleString()} STC transfer fee for ${playerLabel}`,
+          `${source.name || 'Club'} paid a transfer fee of ${fee.toLocaleString()} STC to ${target.name || 'the previous club'} for ${playerLabel}.`,
+          source.name || null,
+          source.logo_url || null,
+          player?.gamertag || null,
+          player?.avatar_url || null,
+          player_id ? `/players/${player_id}` : '',
+          fee,
+        ]
+      ).catch(() => {});
+
+      return {
+        source_club_id: source.id,
+        target_club_id: target.id,
+        source_stc: sourceTx.new_balance,
+        target_stc: targetTx.new_balance,
+        source_transfer_budget_stc: nextSourceBudget,
+        target_transfer_budget_stc: Number(target.transfer_budget_stc || 0) + fee,
+        source_transaction_id: sourceTx.transaction_id,
+        target_transaction_id: targetTx.transaction_id,
+      };
+    });
+
+    return { data: { success: true, ...result } };
+  },
+
+  async tournamentWithdrawal({ _auth_user_id, tournament_id, club_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!tournament_id) throw new Error('tournament_id required');
+    if (!club_id) throw new Error('club_id required');
+
+    const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    if (!userRows.length) throw new Error('User not found');
+    const user = userRows[0];
+
+    const result = await withTransaction(async (query) => {
+      const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      if (!tournamentRows.length) throw new Error('Tournament not found');
+      const tournament = tournamentRows[0];
+      if (String(tournament.status || '') !== 'registration') throw new Error('Tournament registration is closed');
+
+      const clubRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
+      if (!clubRows.length) throw new Error('Club not found');
+      const club = clubRows[0];
+      const isAdmin = Number(user.role_id) === 0;
+      const ownerOk = isAdmin
+        || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+        || String(club.user_id || '') === String(_auth_user_id);
+      if (!ownerOk) throw new Error('Only the club owner can withdraw this club');
+
+      const registered = normalizeIdList(tournament.registered_clubs);
+      if (!registered.includes(String(club_id))) throw new Error('Club is not registered for this tournament');
+      const updatedRegistered = registered.filter((id) => String(id) !== String(club_id));
+      await query(
+        'UPDATE tournaments SET registered_clubs = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(updatedRegistered), tournament_id]
+      );
+
+      const entryCredits = Number(tournament.entry_credits ?? 50);
+      const entryFee = Number(tournament.entry_fee_stc || 0);
+      const nextCredits = Number(club.credits || 0) + entryCredits;
+      await query('UPDATE clubs SET credits = ?, updated_date = NOW() WHERE id = ?', [nextCredits, club_id]);
+
+      let nextStc = Number(club.stc || 0);
+      let transactionId = null;
+      if (entryFee > 0) {
+        const tx = await recordClubTransaction(query, {
+          clubId: club_id,
+          amount: entryFee,
+          type: 'tournament_refund',
+          category: 'tournament_refund',
+          description: `Tournament withdrawal refund: ${tournament.name}`,
+          referenceId: tournament_id,
+        });
+        nextStc = tx.new_balance;
+        transactionId = tx.transaction_id;
+      }
+
+      return {
+        registered_clubs: updatedRegistered,
+        club_id,
+        club_stc: nextStc,
+        club_credits: nextCredits,
+        refunded_stc: entryFee,
+        refunded_credits: entryCredits,
+        transaction_id: transactionId,
+      };
+    });
+
+    return { data: { success: true, ...result } };
+  },
+
+  async assignGroups({ _auth_user_id, tournamentId, tournament_id, groupAssignments }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournamentId required');
+    if (!groupAssignments || typeof groupAssignments !== 'object') throw new Error('groupAssignments required');
+
+    const entries = Object.entries(groupAssignments)
+      .filter(([, clubIds]) => Array.isArray(clubIds))
+      .sort(([a], [b]) => String(a).localeCompare(String(b)));
+
+    let updated = 0;
+    for (let index = 0; index < entries.length; index++) {
+      const [, clubIds] = entries[index];
+      const ids = clubIds.map(String).filter(Boolean);
+      if (!ids.length) continue;
+      const placeholders = ids.map(() => '?').join(',');
+      const result = await EXECUTESQL(
+        `UPDATE matches
+          SET group_number = ?, updated_date = NOW()
+          WHERE tournament_id = ?
+            AND (home_club_id IN (${placeholders}) OR away_club_id IN (${placeholders}))`,
+        [index, id, ...ids, ...ids]
+      );
+      updated += Number(result?.affectedRows || 0);
+    }
+
+    const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
+    for (const match of matches) broadcastMatch(match);
+    return { data: { success: true, updated } };
+  },
+
+  async simulateScore({ _auth_user_id, matchId, match_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = matchId || match_id;
+    if (!id) throw new Error('matchId required');
+    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) throw new Error('Match not found');
+    const match = rows[0];
+    if (String(match.status || '') === 'completed') {
+      return { data: { success: true, skipped: true, status: 'completed' } };
+    }
+
+    let homeScore = Math.floor(Math.random() * 6);
+    let awayScore = Math.floor(Math.random() * 6);
+    if (homeScore === awayScore) {
+      Math.random() > 0.5 ? homeScore++ : awayScore++;
+    }
+
+    const result = await processMatchCompletion(match, {
+      home_score: homeScore,
+      away_score: awayScore,
+      player_stats: [],
+      goal_events: [],
+    });
+    return { data: { success: true, ...result.data, home_score: homeScore, away_score: awayScore } };
+  },
+
+  async advanceRound({ _auth_user_id, tournamentId, tournament_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournamentId required');
+
+    const result = await withTransaction(async (query) => {
+      const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
+      if (!tournaments.length) throw new Error('Tournament not found');
+      const tournament = tournaments[0];
+      const currentRound = Number(tournament.current_round || 1);
+
+      const currentMatches = await query(
+        'SELECT * FROM matches WHERE tournament_id = ? AND round = ? ORDER BY created_date ASC FOR UPDATE',
+        [id, currentRound]
+      );
+      if (!currentMatches.length) throw new Error('No matches found for current round');
+      const incomplete = currentMatches.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
+      if (incomplete) throw new Error('Current round is not complete');
+
+      const winners = currentMatches
+        .filter((m) => m.winner_club_id)
+        .map((m) => ({
+          id: m.winner_club_id,
+          name: String(m.winner_club_id) === String(m.home_club_id) ? m.home_club_name : m.away_club_name,
+        }));
+      if (winners.length < 1) throw new Error('No winners found for current round');
+
+      if (winners.length === 1) {
+        await query(
+          `UPDATE tournaments
+             SET status = 'completed', winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
+           WHERE id = ?`,
+          [winners[0].id, winners[0].name || 'Winner', id]
+        );
+        return { completed: true, winner: winners[0], created: 0 };
+      }
+
+      const nextRound = currentRound + 1;
+      const existingNext = await query(
+        'SELECT id FROM matches WHERE tournament_id = ? AND round = ? LIMIT 1',
+        [id, nextRound]
+      );
+      if (existingNext.length) {
+        await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
+        return { completed: false, current_round: nextRound, created: 0, skipped_existing: true };
+      }
+
+      let created = 0;
+      for (let i = 0; i < winners.length; i += 2) {
+        if (!winners[i + 1]) continue;
+        await insertTournamentMatch(query, {
+          tournament_id: id,
+          home_club_id: winners[i].id,
+          home_club_name: winners[i].name,
+          away_club_id: winners[i + 1].id,
+          away_club_name: winners[i + 1].name,
+          round: nextRound,
+          type: winners.length === 2 ? 'final' : 'knockout',
+          status: 'scheduled',
+        });
+        created++;
+      }
+      await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
+      return { completed: false, current_round: nextRound, created };
+    });
+
+    const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
+    for (const match of matches) broadcastMatch(match);
+    return { data: { success: true, ...result } };
+  },
+
+  async adminMatchActions({ _auth_user_id, action, match_id, approve, reason }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!action) throw new Error('action required');
+    if (!match_id) throw new Error('match_id required');
+
+    if (action === 'resolve_forfeit') {
+      const result = await withTransaction(async (query) => {
+        const rows = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [match_id]);
+        if (!rows.length) throw new Error('Match not found');
+        const match = rows[0];
+        const shouldApprove = approve === true || approve === 'true';
+
+        let patch;
+        if (shouldApprove) {
+          const winnerId = match.forfeit_claimed_by;
+          if (!winnerId) throw new Error('Match has no forfeit claimant');
+          const winnerName = String(winnerId) === String(match.home_club_id)
+            ? match.home_club_name
+            : match.away_club_name;
+          patch = {
+            status: 'forfeit',
+            forfeit_status: 'approved',
+            winner_club_id: winnerId,
+            winner_club_name: winnerName,
+          };
+          await query(
+            `UPDATE matches
+             SET status = ?, forfeit_status = ?, winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
+             WHERE id = ?`,
+            [patch.status, patch.forfeit_status, patch.winner_club_id, patch.winner_club_name, match_id]
+          );
+        } else {
+          patch = { forfeit_status: 'rejected' };
+          await query(
+            `UPDATE matches SET forfeit_status = ?, updated_date = NOW() WHERE id = ?`,
+            [patch.forfeit_status, match_id]
+          );
+        }
+
+        const updatedRows = await query('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+        const updated = updatedRows[0] || { ...match, ...patch };
+        await createAuditLog({
+          adminUserId: admin.id,
+          adminEmail: admin.email,
+          action: shouldApprove ? 'approve_tournament_forfeit' : 'reject_tournament_forfeit',
+          entityType: 'match',
+          entityId: match_id,
+          entityName: `${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`,
+          oldValue: match,
+          newValue: updated,
+          reason: reason || null,
+        });
+        return updated;
+      });
+
+      broadcastMatch(result);
+      return { data: { success: true, match: result } };
+    }
+
+    throw new Error(`Unknown adminMatchActions action: ${action}`);
+  },
+
+  async adminMembershipActions({ _auth_user_id, action, player_id, reason }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!action) throw new Error('action required');
+    if (!player_id) throw new Error('player_id required');
+
+    if (action === 'kick_from_club') {
+      const result = await withTransaction(async (query) => {
+        const rows = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [player_id]);
+        if (!rows.length) throw new Error('Player not found');
+        const player = rows[0];
+        await query(
+          `UPDATE players
+           SET club_id = NULL, role = 'member', club_roles = ?, status = 'free_agent', updated_date = NOW()
+           WHERE id = ?`,
+          [JSON.stringify(['member']), player_id]
+        );
+        const updatedRows = await query('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+        const updated = updatedRows[0] || {
+          ...player,
+          club_id: null,
+          role: 'member',
+          club_roles: ['member'],
+          status: 'free_agent',
+        };
+        await createAuditLog({
+          adminUserId: admin.id,
+          adminEmail: admin.email,
+          action: 'kick_player_from_club',
+          entityType: 'player',
+          entityId: player_id,
+          entityName: player.gamertag || player.email || null,
+          oldValue: player,
+          newValue: updated,
+          reason: reason || null,
+        });
+        return updated;
+      });
+
+      return { data: { success: true, player: result } };
+    }
+
+    throw new Error(`Unknown adminMembershipActions action: ${action}`);
+  },
+
+  async clubAdminActions({ _auth_user_id, action, club_id, reason }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!action) throw new Error('action required');
+    if (!club_id) throw new Error('club_id required');
+
+    if (action === 'delete') {
+      const result = await withTransaction(async (query) => {
+        const rows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
+        if (!rows.length) throw new Error('Club not found');
+        const club = rows[0];
+        await query('UPDATE players SET club_id = NULL, updated_date = NOW() WHERE club_id = ?', [club_id]);
+        await query('DELETE FROM clubs WHERE id = ?', [club_id]);
+        await createAuditLog({
+          adminUserId: admin.id,
+          adminEmail: admin.email,
+          action: 'delete_club',
+          entityType: 'club',
+          entityId: club_id,
+          entityName: club.name || null,
+          oldValue: club,
+          newValue: null,
+          reason: reason || null,
+        });
+        return club;
+      });
+
+      return { data: { success: true, club: result } };
+    }
+
+    throw new Error(`Unknown clubAdminActions action: ${action}`);
+  },
+
+  async competitionFixtureResult({
+    _auth_user_id,
+    fixture_id,
+    home_score,
+    away_score,
+    winner_club_id,
+    winner_club_name,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!fixture_id) throw new Error('fixture_id required');
+    const homeScore = Number(home_score);
+    const awayScore = Number(away_score);
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore < 0 || awayScore < 0) {
+      throw new Error('Valid non-negative scores are required');
+    }
+
+    const result = await withTransaction(async (query) => {
+      const fixtureRows = await query('SELECT * FROM competition_fixtures WHERE id = ? LIMIT 1 FOR UPDATE', [fixture_id]);
+      if (!fixtureRows.length) throw new Error('Competition fixture not found');
+      const fixture = fixtureRows[0];
+      if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
+        throw new Error('Fixture result has already been processed');
+      }
+
+      const resolvedWinnerId = winner_club_id
+        || (homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null);
+      const resolvedWinnerName = winner_club_name
+        || (String(resolvedWinnerId || '') === String(fixture.home_club_id || '') ? fixture.home_club_name
+          : String(resolvedWinnerId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
+            : null);
+
+      await query(
+        `UPDATE competition_fixtures
+         SET home_score = ?, away_score = ?, winner_club_id = ?, winner_club_name = ?,
+             status = 'completed', stats_processed = 1
+         WHERE id = ?`,
+        [homeScore, awayScore, resolvedWinnerId, resolvedWinnerName, fixture_id]
+      );
+
+      if (String(fixture.phase || 'league') === 'league') {
+        const standingRows = await query(
+          `SELECT * FROM competition_standings
+           WHERE season_id = ? AND club_id IN (?, ?)
+           FOR UPDATE`,
+          [fixture.season_id, fixture.home_club_id, fixture.away_club_id]
+        );
+        const homeRow = standingRows.find(row => String(row.club_id) === String(fixture.home_club_id));
+        const awayRow = standingRows.find(row => String(row.club_id) === String(fixture.away_club_id));
+        if (!homeRow || !awayRow) throw new Error('Competition standing rows not found');
+
+        const isDraw = homeScore === awayScore;
+        const homeWin = homeScore > awayScore;
+        const buildUpdate = (row, goalsFor, goalsAgainst, resultCode) => {
+          const wins = Number(row.wins || 0) + (resultCode === 'W' ? 1 : 0);
+          const draws = Number(row.draws || 0) + (resultCode === 'D' ? 1 : 0);
+          const losses = Number(row.losses || 0) + (resultCode === 'L' ? 1 : 0);
+          const nextGoalsFor = Number(row.goals_for || 0) + goalsFor;
+          const nextGoalsAgainst = Number(row.goals_against || 0) + goalsAgainst;
+          return {
+            played: Number(row.played || 0) + 1,
+            wins,
+            draws,
+            losses,
+            goals_for: nextGoalsFor,
+            goals_against: nextGoalsAgainst,
+            goal_difference: nextGoalsFor - nextGoalsAgainst,
+            points: Number(row.points || 0) + (resultCode === 'W' ? 3 : resultCode === 'D' ? 1 : 0),
+            form: [resultCode, ...parseFormList(row.form)].slice(0, 5),
+          };
+        };
+
+        const homeUpdate = buildUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
+        const awayUpdate = buildUpdate(awayRow, awayScore, homeScore, !homeWin && !isDraw ? 'W' : isDraw ? 'D' : 'L');
+
+        await query(
+          `UPDATE competition_standings
+           SET played = ?, wins = ?, draws = ?, losses = ?, goals_for = ?, goals_against = ?,
+               goal_difference = ?, points = ?, form = ?
+           WHERE id = ?`,
+          [
+            homeUpdate.played, homeUpdate.wins, homeUpdate.draws, homeUpdate.losses,
+            homeUpdate.goals_for, homeUpdate.goals_against, homeUpdate.goal_difference,
+            homeUpdate.points, JSON.stringify(homeUpdate.form), homeRow.id,
+          ]
+        );
+        await query(
+          `UPDATE competition_standings
+           SET played = ?, wins = ?, draws = ?, losses = ?, goals_for = ?, goals_against = ?,
+               goal_difference = ?, points = ?, form = ?
+           WHERE id = ?`,
+          [
+            awayUpdate.played, awayUpdate.wins, awayUpdate.draws, awayUpdate.losses,
+            awayUpdate.goals_for, awayUpdate.goals_against, awayUpdate.goal_difference,
+            awayUpdate.points, JSON.stringify(awayUpdate.form), awayRow.id,
+          ]
+        );
+
+        const allStandings = await query('SELECT * FROM competition_standings WHERE season_id = ? FOR UPDATE', [fixture.season_id]);
+        const merged = allStandings.map(row => {
+          if (row.id === homeRow.id) return { ...row, ...homeUpdate };
+          if (row.id === awayRow.id) return { ...row, ...awayUpdate };
+          return row;
+        });
+        const sorted = sortCompetitionStandingRows(merged);
+        for (let index = 0; index < sorted.length; index += 1) {
+          await query('UPDATE competition_standings SET position = ? WHERE id = ?', [index + 1, sorted[index].id]);
+        }
+      }
+
+      const updatedFixture = await query('SELECT * FROM competition_fixtures WHERE id = ? LIMIT 1', [fixture_id]);
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'submit_competition_fixture_result',
+        entityType: 'competition_fixture',
+        entityId: fixture_id,
+        entityName: `${fixture.home_club_name || 'Home'} vs ${fixture.away_club_name || 'Away'}`,
+        oldValue: fixture,
+        newValue: updatedFixture[0] || null,
+        reason: reason || null,
+      });
+
+      return updatedFixture[0];
+    });
+
+    return { data: { success: true, fixture: result } };
+  },
+
   async resolveClubContact({ _auth_user_id, club_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     return resolveClubContactForInvite(club_id);
@@ -1698,10 +2433,116 @@ const HANDLERS = {
 
   async contractManagement({
     action, _auth_user_id,
+    team_id, user_id, offered_by,
     contract_id, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
     contract_type, start_date, end_date, max_days, max_games,
-    status, offer_note, performance_targets, note, amount,
+    status, offer_note, performance_targets, note, amount, captaincy_offered,
+    last_negotiated_by,
   }) {
+    // ── offer / renewal_offer ───────────────────────────────────────────────
+    if (action === 'offer' || action === 'renewal_offer') {
+      if (!_auth_user_id) throw new Error('not authenticated');
+      const { user, player } = await getMe(_auth_user_id);
+      if (!player && Number(user?.role_id ?? 1) !== 0) throw new Error('Player profile not found');
+
+      let sourceContract = null;
+      if (action === 'renewal_offer') {
+        if (!contract_id) throw new Error('contract_id required');
+        const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+        if (!rows.length) throw new Error('Contract not found');
+        sourceContract = rows[0];
+      }
+
+      const targetTeamId = team_id || sourceContract?.team_id;
+      const targetUserId = user_id || sourceContract?.user_id;
+      if (!targetTeamId || !targetUserId) throw new Error('team_id and user_id required');
+
+      const id = uuidv4();
+      await EXECUTESQL(
+        `INSERT INTO player_contracts (
+          id, team_id, user_id, contract_type, status, offered_by, max_games, max_days,
+          weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
+          captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+        [
+          id,
+          targetTeamId,
+          targetUserId,
+          contract_type || sourceContract?.contract_type || 'squad',
+          'pending',
+          offered_by || player?.id || user?.email || '',
+          Number(max_games ?? sourceContract?.max_games ?? 0),
+          Number(max_days ?? sourceContract?.max_days ?? 0),
+          Number(weekly_salary_stc ?? sourceContract?.weekly_salary_stc ?? 0),
+          Number(signing_bonus_stc ?? sourceContract?.signing_bonus_stc ?? 0),
+          Number(transfer_fee_stc ?? sourceContract?.transfer_fee_stc ?? 0),
+          offer_note || '',
+          captaincy_offered ? 1 : 0,
+          0,
+          performance_targets ? JSON.stringify(performance_targets) : (sourceContract?.performance_targets || null),
+        ]
+      );
+      await deliverContractOfferMessage(id).catch(err => console.error('[contract delivery]', err.message));
+      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [id]);
+      return { success: true, data: { contract: rows[0], contract_id: id, status: 'pending' } };
+    }
+
+    // ── counter ─────────────────────────────────────────────────────────────
+    if (action === 'counter') {
+      if (!contract_id) throw new Error('contract_id required');
+      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      if (!rows.length) throw new Error('Contract not found');
+      const contract = rows[0];
+      if (!['pending', 'negotiating'].includes(contract.status)) {
+        throw new Error(`Cannot counter contract with status: ${contract.status}`);
+      }
+      const updates = {
+        status: 'negotiating',
+        negotiation_round: Number(contract.negotiation_round || 0) + 1,
+        last_negotiated_by: last_negotiated_by || offered_by || null,
+      };
+      if (weekly_salary_stc != null) updates.weekly_salary_stc = Number(weekly_salary_stc);
+      if (signing_bonus_stc != null) updates.signing_bonus_stc = Number(signing_bonus_stc);
+      if (transfer_fee_stc != null) updates.transfer_fee_stc = Number(transfer_fee_stc);
+      if (offer_note != null) updates.offer_note = offer_note;
+      if (performance_targets != null) updates.performance_targets = JSON.stringify(performance_targets);
+      const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      await EXECUTESQL(
+        `UPDATE player_contracts SET ${setClauses}, updated_date = NOW() WHERE id = ?`,
+        [...Object.values(updates), contract_id]
+      );
+      await deliverContractOfferMessage(contract_id).catch(err => console.error('[contract delivery]', err.message));
+      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      return { success: true, data: { contract: updated[0], status: 'negotiating' } };
+    }
+
+    // ── reject ──────────────────────────────────────────────────────────────
+    if (action === 'reject') {
+      if (!contract_id) throw new Error('contract_id required');
+      await EXECUTESQL("UPDATE player_contracts SET status = 'rejected', updated_date = NOW() WHERE id = ?", [contract_id]);
+      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      return { success: true, data: { contract: updated[0], status: 'rejected' } };
+    }
+
+    // ── mark_pending_window ─────────────────────────────────────────────────
+    if (action === 'mark_pending_window') {
+      if (!contract_id) throw new Error('contract_id required');
+      await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
+      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      return { success: true, data: { contract: updated[0], status: 'pending_window' } };
+    }
+
+    // ── cancel_offer ────────────────────────────────────────────────────────
+    if (action === 'cancel_offer') {
+      if (!contract_id) throw new Error('contract_id required');
+      await EXECUTESQL(
+        "UPDATE player_contracts SET status = 'cancelled', start_date = NULL, end_date = NULL, updated_date = NOW() WHERE id = ?",
+        [contract_id]
+      );
+      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      return { success: true, data: { contract: updated[0], status: 'cancelled' } };
+    }
+
     // ── accept ──────────────────────────────────────────────────────────────
     if (action === 'accept') {
       if (!contract_id) throw new Error('contract_id required');
@@ -1808,7 +2649,7 @@ const HANDLERS = {
     // ── auto_pay_salaries ────────────────────────────────────────────────────
     if (action === 'auto_pay_salaries') {
       const overdue = await EXECUTESQL(
-        `SELECT pc.*, p.gamertag, p.full_name, p.email AS player_email,
+        `SELECT pc.*, p.gamertag, p.email AS player_email,
                 c.stc AS club_stc, c.name AS club_name
          FROM player_contracts pc
          JOIN players p ON p.id = pc.user_id
@@ -1829,7 +2670,7 @@ const HANDLERS = {
           if (gross <= 0) { failed++; continue; }
           await createClubTx({
             clubId: contract.team_id, amount: -gross, type: 'salary_payment', category: 'salary',
-            description: `Salary: ${contract.gamertag || contract.full_name || 'Player'}${weeksMult > 1 ? ` (${weeksMult}wk)` : ''}`,
+            description: `Salary: ${contract.gamertag || 'Player'}${weeksMult > 1 ? ` (${weeksMult}wk)` : ''}`,
             referenceId: contract.id,
           });
           await createPlayerTx({
@@ -1850,7 +2691,7 @@ const HANDLERS = {
       const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
       if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
       const rows = await EXECUTESQL(
-        `SELECT pc.*, p.gamertag, p.full_name, p.avatar_url,
+        `SELECT pc.*, p.gamertag, p.avatar_url,
                 c.name AS club_name, c.logo_url AS club_logo_url
          FROM player_contracts pc
          LEFT JOIN players p ON p.id = pc.user_id
@@ -4802,7 +5643,7 @@ const HANDLERS = {
     );
     if (!users.length) return fail('User not found');
     const user = users[0];
-    const isAdmin = Number(user.role_id) === 2;
+    const isAdmin = [0, 2].includes(Number(user.role_id));
 
     const parseIds = (raw) => {
       if (raw == null) return [];

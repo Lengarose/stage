@@ -2,25 +2,36 @@ import { useState, useEffect } from "react";
 import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
+import {
+  advanceTournamentRound,
+  cancelTournamentById,
+  clearTournamentDraw,
+  deleteTournamentById,
+  fetchTournamentMatches,
+  generateTournamentDraw,
+  initializeTournamentDraw,
+  notifyTournamentRegistration,
+  registerTournamentClub,
+  registerTournamentPlayer,
+  simulateTournamentScore,
+  withdrawTournamentClub,
+} from "@/api/tournamentActions";
 import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  generateKnockoutRound1, generateLeagueMatches, generateGroupStageMatches,
   generateNextKnockoutRound, calculateGroupStandings,
-  generateUCLLeaguePhase, calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
+  calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
 import { awardTournamentTrophy } from "@/lib/awardTrophy";
-import { seedClubs } from "@/lib/rankingEngine";
 import KnockoutBracket from "../components/KnockoutBracket";
 import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
 import EditTournamentDialog from "../components/EditTournamentDialog";
-import TournamentCountdown from "../components/TournamentCountdown";
 import PlayerRegistrantList from "../components/PlayerRegistrantList";
 import DressingRoom from "../components/DressingRoom";
 import TournamentWinnerPressRoomDialog from "../components/TournamentWinnerPressRoomDialog";
@@ -89,7 +100,7 @@ export default function TournamentDetail() {
         const [tData, clubData, matchData, plData] = await Promise.all([
           stageClient.entities.Tournament.filter({ id }, null, 1).catch(() => []),
           stageClient.entities.Club.list("-rating", 200).catch(() => []),
-          stageClient.entities.Match.filter({ tournament_id: id }, "round").catch(() => []),
+          fetchTournamentMatches(id).catch(() => []),
           stageClient.entities.Player.filter({ email: u.email }).catch(() => []),
         ]);
         const t = tData[0] || null;
@@ -145,7 +156,7 @@ export default function TournamentDetail() {
 
     const unsub = stageClient.entities.Match.subscribe((event) => {
       if (event.data?.tournament_id === id) {
-        stageClient.entities.Match.filter({ tournament_id: id }, "round").then(setMatches);
+        fetchTournamentMatches(id).then(setMatches);
       }
     });
 
@@ -211,10 +222,7 @@ export default function TournamentDetail() {
 
     // Lock both credits and STC
     try {
-      const res = await stageClient.functions.invoke('tournamentRegistration', {
-        tournament_id: tournament.id,
-        club_id: effectiveId,
-      });
+      const res = await registerTournamentClub(tournament.id, effectiveId);
       
       if (!res.data.success) {
         await swalAlert(res.data.error || 'Registration failed');
@@ -233,11 +241,7 @@ export default function TournamentDetail() {
       setClubs(allClubs.filter(c => updated.includes(c.id)));
 
       // Notify all club players about registration
-      stageClient.functions.invoke('tournamentRegistrationNotify', {
-        action: 'register',
-        tournament_id: tournament.id,
-        club_id: effectiveId,
-      }).catch(() => {}); // fire-and-forget
+      notifyTournamentRegistration(tournament.id, effectiveId).catch(() => {});
 
       if (updated.length >= tournament.max_teams) {
         await initializeTournament({ ...tournament, registered_clubs: updated }, allClubs.filter(c => updated.includes(c.id)));
@@ -247,68 +251,57 @@ export default function TournamentDetail() {
     }
   }
 
+  async function registerPlayer() {
+    if (!myPlayer || !tournament) return;
+    const entryCost = tournament.entry_credits ?? 50;
+    const entryFeeSTC = tournament.entry_fee_stc ?? 0;
+    const currentCredits = myPlayer.credits ?? 500;
+    if (currentCredits < entryCost) { await swalAlert("Not enough credits."); return; }
+    if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
+      await swalAlert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
+      return;
+    }
+    if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
+      await swalAlert("Registration is closed.");
+      return;
+    }
+    try {
+      const res = await registerTournamentPlayer(tournament.id, myPlayer.id);
+      if (!res.data.success) {
+        await swalAlert(res.data.error || 'Registration failed');
+        return;
+      }
+      const updated = [...(tournament.registered_players || []), myPlayer.id];
+      setMyPlayer(prev => ({
+        ...prev,
+        credits: res.data.new_player_credits ?? prev.credits,
+        stc: res.data.new_player_stc ?? prev.stc,
+      }));
+      setTournament(prev => ({ ...prev, registered_players: updated }));
+    } catch (err) {
+      await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
+    }
+  }
+
   async function generateDraw() {
     if (!tournament) return;
     const t = tournament;
-    const seededClubs = seedClubs(allClubs.filter(c => t.registered_clubs?.includes(c.id)));
-    if (seededClubs.length < 2) { await swalAlert("Need at least 2 registered teams to generate a draw."); return; }
-    let generatedMatches = [];
-    const type = t.type;
-    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(seededClubs.length / 4)) : (t.num_groups || 2);
-    if (type === "knockout") generatedMatches = generateKnockoutRound1(seededClubs);
-    else if (type === "league") generatedMatches = generateLeagueMatches(seededClubs);
-    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(seededClubs, numGroups);
-    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
-    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
-    await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id, status: "scheduled" })));
-    await stageClient.entities.Tournament.update(id, { num_groups: numGroups });
-    const newMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const registeredClubs = allClubs.filter(c => t.registered_clubs?.includes(c.id));
+    if (registeredClubs.length < 2) { await swalAlert("Need at least 2 registered teams to generate a draw."); return; }
+    const newMatches = await generateTournamentDraw(id, t, registeredClubs);
     setMatches(newMatches);
   }
 
   async function clearDraw() {
     if (!(await swalConfirm("Clear the current draw? This will delete all generated matchups."))) return;
-    await Promise.all(matches.map(m => stageClient.entities.Match.delete(m.id)));
+    await clearTournamentDraw(matches);
     setMatches([]);
   }
 
   async function initializeTournament(t, registeredClubs) {
-    // If draw already generated, just start the tournament
-    const existingMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    if (existingMatches.length > 0) {
-      await stageClient.entities.Tournament.update(id, { status: "in_progress", current_round: 1 });
-      setTournament(prev => ({ ...prev, status: "in_progress", current_round: 1 }));
-      setMatches(existingMatches);
-      return;
-    }
-    const seededClubs = seedClubs(registeredClubs);
-    let generatedMatches = [];
-    const type = t.type;
-    const numGroups = type === "group_stage" ? Math.max(1, Math.ceil(seededClubs.length / 4)) : (t.num_groups || 2);
-    if (type === "knockout") generatedMatches = generateKnockoutRound1(seededClubs);
-    else if (type === "league") generatedMatches = generateLeagueMatches(seededClubs);
-    else if (type === "group_stage") generatedMatches = generateGroupStageMatches(seededClubs, numGroups);
-    else if (type === "double_elimination") generatedMatches = generateKnockoutRound1(seededClubs);
-    else if (type === "swiss_ucl") generatedMatches = generateUCLLeaguePhase(seededClubs);
-
-    await stageClient.entities.Match.bulkCreate(generatedMatches.map(m => ({ ...m, tournament_id: id })));
-    await stageClient.entities.Tournament.update(id, { status: "in_progress", current_round: 1, num_groups: numGroups });
-    setTournament(prev => ({ ...prev, status: "in_progress", current_round: 1, num_groups: numGroups }));
-
-    // Assign groups for group stage tournaments
-    if (type === "group_stage") {
-      const groupAssignments = {};
-      for (let g = 0; g < numGroups; g++) {
-        const startIdx = g * Math.ceil(registeredClubs.length / numGroups);
-        const endIdx = Math.min(startIdx + Math.ceil(registeredClubs.length / numGroups), registeredClubs.length);
-        groupAssignments[`groupA`] = registeredClubs.slice(startIdx, endIdx).map(c => c.id);
-        if (g === 1) groupAssignments[`groupB`] = registeredClubs.slice(startIdx, endIdx).map(c => c.id);
-      }
-      await stageClient.functions.invoke('assignGroups', { tournamentId: id, groupAssignments });
-    }
-
-    const newMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    setMatches(newMatches);
+    const result = await initializeTournamentDraw(id, t, registeredClubs);
+    setTournament(prev => ({ ...prev, ...result.tournamentPatch }));
+    setMatches(result.matches);
   }
 
   async function _scheduleAllMatches() {
@@ -325,7 +318,7 @@ export default function TournamentDetail() {
       const schedDate = new Date(baseDate.getTime() + i * timeStep);
       await stageClient.entities.Match.update(shuffled[i].id, { scheduled_date: toMysqlDateTime(schedDate) });
     }
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     await swalAlert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
   }
@@ -333,7 +326,7 @@ export default function TournamentDetail() {
   async function _proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
     await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: toMysqlDateTime(scheduleDate) });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     setScheduleDialogOpen(false);
     setScheduleMatch(null);
@@ -352,7 +345,7 @@ export default function TournamentDetail() {
       home_score: hs, away_score: as_, winner_club_id: winnerId,winner_club_name:winner_name, loser_club_id:loserId, loser_club_name:loser_name,
       status: "completed", admin_notes: disputeForm.admin_notes || ""
     });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
@@ -743,7 +736,7 @@ function resetUI() {
       status: "disputed",
       admin_notes: `Forfeit claimed by ${myPlayer.club_id === match.home_club_id ? match.home_club_name : match.away_club_name}`,
     });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     setForfeitDialogOpen(false);
     setForfeitMatch(null);
@@ -759,7 +752,7 @@ function resetUI() {
       winner_club_id: winnerClubId,
       forfeit_status: "approved",
     });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
@@ -774,7 +767,7 @@ function resetUI() {
     for (const m of playoffMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
     await stageClient.entities.Tournament.update(id, { current_round: 9, ucl_phase: "playoff" });
     setTournament(prev => ({ ...prev, current_round: 9, ucl_phase: "playoff" }));
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
   }
 
@@ -858,14 +851,12 @@ function resetUI() {
   }
 
   async function refreshMatches() {
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
+    const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
   }
 
   async function simulateScore(match) {
-    await stageClient.functions.invoke('simulateScore', { matchId: match.id, tournamentId: id });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, 'round');
-    setMatches(refreshed);
+    setMatches(await simulateTournamentScore(id, match.id));
   }
 
   async function withdrawFromTournament() {
@@ -876,35 +867,21 @@ function resetUI() {
       ? `Withdraw from the tournament? Entry credits + ${entryFeeSTC.toLocaleString()} STC will be refunded.`
       : "Withdraw from the tournament? Entry credits will be refunded.";
     if (!(await swalConfirm(confirmMsg))) return;
-    
-    const updated = (tournament.registered_clubs || []).filter(cid => cid !== effectiveId);
-    await stageClient.entities.Tournament.update(tournament.id, { registered_clubs: updated });
-    
+
     const clubData = takeoverClub || allClubs.find(c => c.id === effectiveId);
-    if (clubData) {
-      const entryCost = tournament.entry_credits ?? 50;
-      const refundStc = entryFeeSTC;
-      const newCredits = (clubData.credits || 0) + entryCost;
-      const newStc = (clubData.stc || 0) + refundStc;
-      await stageClient.entities.Club.update(effectiveId, { credits: newCredits, stc: newStc });
-      
-      if (refundStc > 0) {
-        await stageClient.entities.STCTransaction.create({
-          club_id: effectiveId,
-          amount: refundStc,
-          type: 'tournament_entry',
-          description: `Tournament withdrawal refund: ${tournament.name}`,
-          reference_id: tournament.id,
-        });
-      }
+    const res = await withdrawTournamentClub(tournament.id, effectiveId);
+    if (!res?.data?.success) {
+      await swalAlert(res?.data?.error || "Withdrawal failed");
+      return;
     }
-    
+
+    const updated = res.data.registered_clubs || [];
     setTournament(prev => ({ ...prev, registered_clubs: updated }));
     setClubs(allClubs.filter(c => updated.includes(c.id)));
     if (clubData) {
       setAllClubs(prev => prev.map(c =>
         c.id === effectiveId
-          ? { ...c, stc: (c.stc || 0) + (entryFeeSTC || 0), credits: (c.credits || 0) + (tournament.entry_credits ?? 50) }
+          ? { ...c, stc: res.data.club_stc ?? c.stc, credits: res.data.club_credits ?? c.credits }
           : c
       ));
     }
@@ -912,7 +889,7 @@ function resetUI() {
 
   async function cancelTournament() {
     if (!(await swalConfirm("Are you sure you want to cancel this tournament? This cannot be undone."))) return;
-    const res = await stageClient.functions.invoke('tournamentCancellation', { tournament_id: id });
+    const res = await cancelTournamentById(id);
     if (!res?.data?.success) {
       await swalAlert(res?.data?.error || 'Cancellation failed');
       return;
@@ -925,16 +902,14 @@ function resetUI() {
 
   async function deleteTournament() {
     if (!(await swalConfirm("Permanently DELETE this tournament and all its matches? This cannot be undone."))) return;
-    await stageClient.entities.Tournament.delete(id);
+    await deleteTournamentById(id);
     window.location.href = "/tournaments";
   }
 
   async function advanceRound() {
-    await stageClient.functions.invoke('advanceRound', { tournamentId: id });
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    setMatches(refreshed);
-    const updated = await stageClient.entities.Tournament.filter({ id }, null, 1);
-    setTournament(updated[0]);
+    const result = await advanceTournamentRound(id);
+    setMatches(result.matches);
+    setTournament(result.tournament);
   }
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -1105,18 +1080,7 @@ function resetUI() {
               })()}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-                <Button onClick={async () => {
-                  const entryCost = tournament.entry_credits ?? 50;
-                  if ((myPlayer.credits ?? 500) < entryCost) { await swalAlert("Not enough credits."); return; }
-                  if (tournament.start_date && new Date(tournament.start_date) < new Date()) { await swalAlert("Registration is closed."); return; }
-                  const updated = [...(tournament.registered_players || []), myPlayer.id];
-                  if (entryCost > 0) {
-                    const res = await stageClient.functions.invoke('spendCredits', { amount: entryCost, target: 'player' });
-                    setMyPlayer(prev => ({ ...prev, credits: res.data.new_balance }));
-                  }
-                  await stageClient.entities.Tournament.update(tournament.id, { registered_players: updated });
-                  setTournament(prev => ({ ...prev, registered_players: updated }));
-                }} disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}
+                <Button onClick={registerPlayer} disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}
                 className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                   <Users className="w-4 h-4 mr-2" /> Register as Player
                   <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
@@ -1192,36 +1156,7 @@ function resetUI() {
             })()}
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-              <Button onClick={async () => {
-                const entryCost = tournament.entry_credits ?? 50;
-                const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-                const currentCredits = myPlayer.credits ?? 500;
-                if (currentCredits < entryCost) { await swalAlert("Not enough credits."); return; }
-                if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
-                  await swalAlert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
-                  return;
-                }
-                if (tournament.start_date && new Date(tournament.start_date) < new Date()) { await swalAlert("Registration is closed."); return; }
-                try {
-                  const res = await stageClient.functions.invoke('tournamentRegistration', {
-                    tournament_id: tournament.id,
-                    player_id: myPlayer.id,
-                  });
-                  if (!res.data.success) {
-                    await swalAlert(res.data.error || 'Registration failed');
-                    return;
-                  }
-                  const updated = [...(tournament.registered_players || []), myPlayer.id];
-                  setMyPlayer(prev => ({
-                    ...prev,
-                    credits: res.data.new_player_credits ?? prev.credits,
-                    stc: res.data.new_player_stc ?? prev.stc,
-                  }));
-                  setTournament(prev => ({ ...prev, registered_players: updated }));
-                } catch (err) {
-                  await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
-                }
-              }} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+              <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                 <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
               </Button>
             )}

@@ -7,7 +7,8 @@ export default function FontPreview() {
   const [allowed, setAllowed] = useState(null);
 
   useEffect(() => {
-    stageClient.auth.me().then(u => setAllowed(u?.role === "admin"));
+    stageClient.auth.me().then(u => setAllowed(u?.role_name === "admin" || Number(u?.role_id) === 0));
+    console.log('heeee');
   }, []);
 
   if (allowed === null) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;

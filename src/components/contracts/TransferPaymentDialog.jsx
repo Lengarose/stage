@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { stageClient } from "@/api/stageClient";
 import { Coins, Loader2, ArrowRight } from "lucide-react";
 import { formatSTC } from "@/lib/playerValue";
-import { notify, postContractNews } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export default function TransferPaymentDialog({ open, onClose, player, targetClub, myClub, onPaid }) {
@@ -25,31 +24,14 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
     setLoading(true);
     setError(null);
     try {
-      await stageClient.entities.Club.update(myClub.id, {
-        stc: myBalance - feeNum,
-        transfer_budget_stc: Math.max(0, myTransferBudget - feeNum),
-      });
-      if (targetClub) {
-        await stageClient.entities.Club.update(targetClub.id, {
-          stc: (targetClub.stc || 0) + feeNum,
-          transfer_budget_stc: (targetClub.transfer_budget_stc || 0) + feeNum,
-        });
-        notify(targetClub.owner_email, "club_update",
-          `💰 Transfer Fee Received — ${formatSTC(feeNum)}`,
-          `${myClub.name} paid a transfer fee of ${formatSTC(feeNum)} for ${player?.gamertag || "a player"}.`,
-          `/clubs/${targetClub.id}`
-        );
-      }
-      postContractNews({
-        title: `💰 ${myClub.name} paid ${formatSTC(feeNum)} transfer fee for ${player?.gamertag || "a player"}`,
-        body: `${myClub.name} paid a transfer fee of ${formatSTC(feeNum)} to ${targetClub?.name || "the previous club"} for ${player?.gamertag || "a player"}.`,
-        club_name: myClub.name, club_logo_url: myClub.logo_url || "",
-        player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
-        link: `/players/${player?.id}`,
-        transfer_fee_stc: feeNum,
+      const res = await stageClient.functions.invoke("transferPayment", {
+        source_club_id: myClub.id,
+        target_club_id: targetClub?.id,
+        player_id: player?.id,
+        amount: feeNum,
       });
       setSuccess(true);
-      onPaid?.(feeNum);
+      onPaid?.(feeNum, res.data);
     } catch (err) {
       setError(err?.message || "Payment failed. Please try again.");
     } finally {
