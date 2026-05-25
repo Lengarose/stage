@@ -11,26 +11,46 @@ export default function PWAUpdatePrompt() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const mod = await import(/* @vite-ignore */ 'virtual:pwa-register');
-        if (cancelled) return;
-        const register = mod.registerSW({
-          immediate: true,
-          onNeedRefresh() {
-            setNeedRefresh(true);
-          },
-          onOfflineReady() {
-            // Optional: surface "ready for offline" — kept silent for now.
-          },
+    if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return () => { cancelled = true; };
+
+    let refreshing = false;
+    const handleControllerChange = () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      if (cancelled) return;
+
+      const showUpdate = (worker) => {
+        if (!worker) return;
+        setNeedRefresh(true);
+        setUpdateSW(() => async (reloadPage = true) => {
+          worker.postMessage({ type: 'SKIP_WAITING' });
+          if (reloadPage && !navigator.serviceWorker.controller) window.location.reload();
         });
-        setUpdateSW(() => register);
-      } catch {
-        // No SW available (dev mode or browser without SW support) — ignore.
-      }
-    })();
+      };
+
+      if (registration.waiting) showUpdate(registration.waiting);
+
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdate(worker);
+          }
+        });
+      });
+    }).catch(() => {
+      // No SW available or registration blocked — ignore.
+    });
+
     return () => {
       cancelled = true;
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
     };
   }, []);
 

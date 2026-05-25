@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { format, isPast } from "@/lib/momentDate";
 import {
@@ -46,61 +46,73 @@ export default function LeagueDetail() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const u = await stageClient.auth.me().catch(() => null);
-    setUser(u);
+    try {
+      const u = await stageClient.auth.me().catch(() => null);
+      setUser(u);
 
-    const [allLeagues] = await Promise.all([
-      stageClient.entities.RegionalLeague.list("-season_number", 100).catch(() => []),
-    ]);
+      const [allLeagues] = await Promise.all([
+        stageClient.entities.RegionalLeague.list("-season_number", 100).catch(() => []),
+      ]);
 
-    const found = allLeagues.find(l => l.slug === slug);
-    if (!found) { setLoading(false); return; }
-    setLeague(found);
-
-    const siblings = allLeagues
-      .filter(l => l.id !== found.id && l.region_slug === found.region_slug && (l.division || 1) === (found.division || 1))
-      .sort((a, b) => (b.season_number || 1) - (a.season_number || 1));
-    setPrevSeasons(siblings);
-
-    const [leagueStandings, leagueFixtures] = await Promise.all([
-      stageClient.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
-      (stageClient.entities.RegionalLeagueFixture
-        ?.filter({ league_id: found.id }, null, 500)
-        ?? Promise.resolve([])
-      ).catch(err => {
-        if (err?.response?.status === 404 || String(err).includes("not found")) setFixtureEntityMissing(true);
-        return [];
-      }),
-    ]);
-    setStandings(leagueStandings);
-    setFixtures(leagueFixtures);
-
-    const matchIds = [...new Set(leagueFixtures.map(f => f.match_id).filter(Boolean))];
-    const stats = matchIds.length
-      ? (await Promise.all(matchIds.map(id =>
-          stageClient.entities.MatchPlayerStat.filter({ match_id: id }, null, 100).catch(() => [])
-        ))).flat()
-      : [];
-    setPlayerStats(stats);
-    const statEmails = [...new Set(stats.map(s => s.player_email).filter(Boolean).map(e => String(e).toLowerCase()))];
-    const playerRows = statEmails.length
-      ? (await Promise.all(statEmails.map(email =>
-          stageClient.entities.Player.filter({ email }, null, 1).catch(() => [])
-        ))).flat()
-      : [];
-    setPlayersByEmail(Object.fromEntries(playerRows.map(p => [String(p.email || "").toLowerCase(), p])));
-
-    if (u) {
-      const { player, club } = await resolveMyPlayerAndClub();
-      setMyPlayer(player);
-      setMyClub(club);
-      // Auto-open the matchday that involves my club
-      if (club) {
-        const myMatchday = leagueFixtures.find(f => f.home_club_id === club.id || f.away_club_id === club.id);
-        if (myMatchday) setOpenMd(myMatchday.matchday);
+      const found = allLeagues.find(l => l.slug === slug);
+      if (!found) {
+        setLeague(null);
+        setStandings([]);
+        setFixtures([]);
+        setPlayerStats([]);
+        setPlayersByEmail({});
+        return;
       }
+      setLeague(found);
+
+      const siblings = allLeagues
+        .filter(l => l.id !== found.id && l.region_slug === found.region_slug && (l.division || 1) === (found.division || 1))
+        .sort((a, b) => (b.season_number || 1) - (a.season_number || 1));
+      setPrevSeasons(siblings);
+
+      const [leagueStandings, leagueFixtures] = await Promise.all([
+        stageClient.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
+        (stageClient.entities.RegionalLeagueFixture
+          ?.filter({ league_id: found.id }, null, 500)
+          ?? Promise.resolve([])
+        ).catch(err => {
+          if (err?.response?.status === 404 || String(err).includes("not found")) setFixtureEntityMissing(true);
+          return [];
+        }),
+      ]);
+      setStandings(leagueStandings);
+      setFixtures(leagueFixtures);
+
+      const matchIds = [...new Set(leagueFixtures.map(f => f.match_id).filter(Boolean))];
+      const stats = matchIds.length
+        ? (await Promise.all(matchIds.map(id =>
+            stageClient.entities.MatchPlayerStat.filter({ match_id: id }, null, 100).catch(() => [])
+          ))).flat()
+        : [];
+      setPlayerStats(stats);
+      const statEmails = [...new Set(stats.map(s => s.player_email).filter(Boolean).map(e => String(e).toLowerCase()))];
+      const playerRows = statEmails.length
+        ? (await Promise.all(statEmails.map(email =>
+            stageClient.entities.Player.filter({ email }, null, 1).catch(() => [])
+          ))).flat()
+        : [];
+      setPlayersByEmail(Object.fromEntries(playerRows.map(p => [String(p.email || "").toLowerCase(), p])));
+
+      if (u) {
+        const { player, club } = await resolveMyPlayerAndClub();
+        setMyPlayer(player);
+        setMyClub(club);
+        // Auto-open the matchday that involves my club
+        if (club) {
+          const myMatchday = leagueFixtures.find(f => f.home_club_id === club.id || f.away_club_id === club.id);
+          if (myMatchday) setOpenMd(myMatchday.matchday);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load league detail", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [slug]);
 
   useEffect(() => { load(); }, [load]);
@@ -187,7 +199,7 @@ export default function LeagueDetail() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-muted-foreground">League not found.</p>
-        <Link to="/admin"><Button variant="outline" size="sm">Back to Admin</Button></Link>
+        <Link to="/competitions"><Button variant="outline" size="sm">Back to Competitions</Button></Link>
       </div>
     );
   }
@@ -227,7 +239,7 @@ export default function LeagueDetail() {
                 : league.status === "registration" ? "text-primary border-primary/30 bg-primary/5"
                 : league.status === "completed"   ? "text-muted-foreground border-border bg-secondary"
                 : "text-warning border-warning/30 bg-warning/5"
-              )}>{league.status.replace("_", " ")}</span>
+              )}>{String(league.status || "draft").replace("_", " ")}</span>
               {isAdmin && fixtures.length === 0 && standings.length >= 2 && (
                 <Button size="sm" onClick={handleGenerateFixtures} disabled={generating}
                   className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
@@ -638,7 +650,7 @@ export default function LeagueDetail() {
                       ps.status === "in_progress" ? "text-success border-success/30" :
                       "text-warning border-warning/30"
                     )}>
-                      {ps.status.replace("_", " ")}
+                      {String(ps.status || "draft").replace("_", " ")}
                     </span>
                   </Link>
                 ))}
