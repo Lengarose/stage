@@ -152,12 +152,14 @@ export default function LeagueDetail() {
   }
 
   async function openGameDayForFixture(fixture) {
-    if (!fixture.match_id) {
+    try {
       const { createMatchFromFixture } = await import("@/lib/gameDayIntegration");
-      await createMatchFromFixture(fixture, "regional_league");
+      const match = await createMatchFromFixture(fixture, "regional_league");
       await load();
+      navigate(match?.id ? `/game-day?match=${match.id}` : "/game-day");
+    } catch (err) {
+      await swalAlert(`Could not open Game Day: ${err?.message || "Unknown error"}`);
     }
-    navigate("/game-day");
   }
 
   const isAdmin = user?.role === "admin";

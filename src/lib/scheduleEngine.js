@@ -160,10 +160,9 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
     ...(fixtureType === "competition" ? { scheduled_date: confirmedDate } : {}),
   });
 
-  // Auto-create a Match record so this fixture appears on Game Day for both clubs
-  import("./gameDayIntegration").then(({ createMatchFromFixture }) =>
-    createMatchFromFixture({ ...fixture, confirmed_date: confirmedDate, status: "scheduled" }, fixtureType)
-  ).catch(() => {});
+  // Auto-create a Match record so this fixture appears on Game Day for both clubs.
+  const { createMatchFromFixture } = await import("./gameDayIntegration");
+  await createMatchFromFixture({ ...fixture, confirmed_date: confirmedDate, status: "scheduled" }, fixtureType);
 
   if (proposerEmail) {
     await stageClient.entities.InboxMessage.create({
@@ -233,10 +232,9 @@ export async function forceSchedule({ fixture, fixtureType, date, adminNote = ""
     admin_note:   adminNote || null,
   });
 
-  // Auto-create a Match record so this fixture appears on Game Day
-  import("./gameDayIntegration").then(({ createMatchFromFixture }) =>
-    createMatchFromFixture({ ...fixture, confirmed_date: date, status: "scheduled" }, fixtureType)
-  ).catch(() => {});
+  // Auto-create a Match record so this fixture appears on Game Day.
+  const { createMatchFromFixture } = await import("./gameDayIntegration");
+  await createMatchFromFixture({ ...fixture, confirmed_date: date, status: "scheduled" }, fixtureType);
 
   const fixtureName = `${fixture.home_club_name} vs ${fixture.away_club_name}`;
   const msg = `An admin has scheduled your match: ${fixtureName} on ${formattedDate}.`;

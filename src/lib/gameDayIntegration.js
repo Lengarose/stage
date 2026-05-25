@@ -23,12 +23,33 @@ export function buildMatchContext(fixture, fixtureType) {
 // ─── Match creation from a confirmed fixture ──────────────────────────────────
 
 export async function createMatchFromFixture(fixture, fixtureType) {
-  // Guard: already linked — just keep the scheduled_date in sync
+  const fixtureEntity = fixtureType === "regional_league"
+    ? stageClient.entities.RegionalLeagueFixture
+    : stageClient.entities.CompetitionFixture;
+
+  // Guard: already linked — verify the match still exists and keep the date in sync.
   if (fixture.match_id) {
-    await stageClient.entities.Match.update(fixture.match_id, {
+    const existing = await stageClient.entities.Match.get(fixture.match_id).catch(() => null);
+    if (existing?.id) {
+      await stageClient.entities.Match.update(fixture.match_id, {
+        scheduled_date: fixture.confirmed_date || fixture.scheduled_date || existing.scheduled_date || null,
+      }).catch(() => {});
+      return existing;
+    }
+  }
+
+  // Guard: another client may already have created the match but not written
+  // match_id back to this fixture yet.
+  const existingMatches = await stageClient.entities.Match.filter({
+    source_fixture_id: fixture.id,
+    source_fixture_type: fixtureType,
+  }, "-created_date", 1).catch(() => []);
+  if (existingMatches[0]?.id) {
+    await stageClient.entities.Match.update(existingMatches[0].id, {
       scheduled_date: fixture.confirmed_date || fixture.scheduled_date || null,
     }).catch(() => {});
-    return { id: fixture.match_id };
+    await (fixtureEntity?.update(fixture.id, { match_id: existingMatches[0].id }) ?? Promise.resolve()).catch(() => {});
+    return existingMatches[0];
   }
 
   const context = buildMatchContext(fixture, fixtureType);
@@ -55,11 +76,7 @@ export async function createMatchFromFixture(fixture, fixtureType) {
   });
 
   // Link fixture → match
-  if (fixtureType === "regional_league") {
-    await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
-  } else {
-    await (stageClient.entities.CompetitionFixture?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
-  }
+  await (fixtureEntity?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
 
   return match;
 }

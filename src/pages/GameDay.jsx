@@ -1,42 +1,44 @@
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Zap, X } from "lucide-react";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
+import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 
 export default function GameDay() {
+  const [searchParams] = useSearchParams();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [follows, setFollows] = useState([]);
   const [tournamentMap, setTournamentMap] = useState({});
 
   useEffect(() => {
     let userEmail = null;
 
     async function load() {
-      const isAuthed = await stageClient.auth.isAuthenticated();
-      if (!isAuthed) {
+      try {
+        const isAuthed = await stageClient.auth.isAuthenticated();
+        if (!isAuthed) {
+          return;
+        }
+
+        const { user: u, player, club } = await resolveMyPlayerAndClub();
+        if (!u) return;
+        setUser(u);
+        userEmail = u.email;
+
+        if (player) setMyPlayer(player);
+        if (club) setMyClub(club);
+
+        const followData = await stageClient.entities.Follow.filter({ follower_email: u.email }).catch(() => []);
+        await loadGames(player?.id, club?.id || player?.club_id, followData);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const { user: u, player, club } = await resolveMyPlayerAndClub();
-      if (!u) { setLoading(false); return; }
-      setUser(u);
-      userEmail = u.email;
-
-      if (player) setMyPlayer(player);
-      if (club) setMyClub(club);
-
-      const followData = await stageClient.entities.Follow.filter({ follower_email: u.email }).catch(() => []);
-      setFollows(followData || []);
-      await loadGames(u.email, player?.id, club?.id || player?.club_id, followData);
-      setLoading(false);
     }
 
     load();
@@ -73,9 +75,9 @@ export default function GameDay() {
     });
 
     return () => unsubMatch();
-  }, []);
+  }, [searchParams]);
 
-  async function loadGames(email, playerId, clubId, followData) {
+  async function loadGames(playerId, clubId, followData) {
     const followedClubIds = followData
       .filter(f => f.target_type === "club")
       .map(f => f.target_id);
@@ -122,9 +124,40 @@ export default function GameDay() {
       );
     }
 
-    const arrays = await Promise.all(fetchPromises);
+    const regionalFixturePromises = [];
+    if (clubId && stageClient.entities.RegionalLeagueFixture) {
+      regionalFixturePromises.push(
+        stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []),
+        stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []),
+        stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
+        stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
+      );
+    }
+
+    const [arrays, regionalFixtureArrays] = await Promise.all([
+      Promise.all(fetchPromises.map(p => p.catch(() => []))),
+      Promise.all(regionalFixturePromises),
+    ]);
     const matchMap = new Map();
     arrays.flat().forEach(m => matchMap.set(m.id, m));
+
+    const confirmedRegionalFixtures = regionalFixtureArrays
+      .flat()
+      .filter(f => f?.id && (f.scheduling_status === "confirmed" || f.status === "scheduled"));
+    for (const fixture of confirmedRegionalFixtures) {
+      const match = await createMatchFromFixture(fixture, "regional_league").catch(() => null);
+      if (match?.id) matchMap.set(match.id, match);
+    }
+
+    const requestedMatchId = searchParams.get("match");
+    if (requestedMatchId) {
+      const requested = matchMap.get(requestedMatchId)
+        || await stageClient.entities.Match.get(requestedMatchId).catch(() => null);
+      if (requested?.id) {
+        matchMap.set(requested.id, requested);
+        setSelectedGame(requested);
+      }
+    }
 
     // Keep active matches + completed ones updated within last 24h; drop forfeit
     const relevantGames = Array.from(matchMap.values()).filter(m => {

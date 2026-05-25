@@ -9,12 +9,27 @@ const { normalizeMatchForApi } = require('../utils/datetime');
 async function getAuthContext(req) {
   const userId = req.user?.id;
   if (!userId) return null;
-  const users = await EXECUTESQL('SELECT id, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  const users = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
   if (!users.length) return null;
   const user = users[0];
+  const email = String(user.email || '').trim().toLowerCase();
   const [players, clubs] = await Promise.all([
-    EXECUTESQL('SELECT id, club_id FROM players WHERE user_id = ? LIMIT 1', [userId]),
-    EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [userId]),
+    EXECUTESQL(
+      `SELECT id, club_id
+       FROM players
+       WHERE user_id = ?
+          OR LOWER(TRIM(email)) = ?
+       LIMIT 1`,
+      [userId, email]
+    ),
+    EXECUTESQL(
+      `SELECT id
+       FROM clubs
+       WHERE user_id = ?
+          OR LOWER(TRIM(owner_email)) = ?
+       LIMIT 1`,
+      [userId, email]
+    ),
   ]);
   return {
     userId,
@@ -250,6 +265,8 @@ router.get('/', async (req, res) => {
       mode,
       round,
       type,
+      source_fixture_id,
+      source_fixture_type,
     } = req.query;
     const match = new Match();
     const auth = await getAuthContext(req);
@@ -263,6 +280,7 @@ router.get('/', async (req, res) => {
     const filters = {
       id, home_club_id, away_club_id, home_player_id, away_player_id,
       tournament_id, status, mode, round, type,
+      source_fixture_id, source_fixture_type,
     };
     const clean = Object.entries(filters).filter(([, v]) => v !== undefined && v !== null && v !== '');
     if (!isAdmin) {
