@@ -54,13 +54,13 @@ test('GET / includes away matches for a club the user owns even when their playe
       const ownScopeValues = params.slice(0, -1);
       return ownScopeValues.includes(ownedClubId) ? [match] : [];
     }
-    if (/SELECT id, name FROM clubs WHERE id IN/.test(sql)) {
+    if (/SELECT id, name, owner_email FROM clubs WHERE id IN/.test(sql)) {
       return [
-        { id: 'club-home', name: 'Home Club' },
-        { id: ownedClubId, name: 'Owned Away Club' },
+        { id: 'club-home', name: 'Home Club', owner_email: 'home@example.test' },
+        { id: ownedClubId, name: 'Owned Away Club', owner_email: 'owned@example.test' },
       ];
     }
-    if (/SELECT id, gamertag FROM players WHERE id IN/.test(sql)) return [];
+    if (/SELECT id, gamertag, email FROM players WHERE id IN/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
 
