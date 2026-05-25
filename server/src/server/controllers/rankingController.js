@@ -263,22 +263,6 @@ async function getOfficialFixtures() {
     fixtures.push(fixture);
   };
 
-  const competitionFixtures = await query(
-    `SELECT id, match_id, competition_name, competition_tier, competition_slug, phase, status,
-            home_club_id, away_club_id, home_score, away_score, winner_club_id
-       FROM competition_fixtures
-      WHERE status IN ('completed','confirmed','played','forfeit')`
-  );
-  competitionFixtures.forEach((row) => add(mapPhysicalFixture(row, 'competition')));
-
-  const regionalFixtures = await query(
-    `SELECT id, match_id, league_name, region_slug, division, status,
-            home_club_id, away_club_id, home_score, away_score, winner_club_id
-       FROM regional_league_fixtures
-      WHERE status IN ('completed','confirmed','played','forfeit')`
-  );
-  regionalFixtures.forEach((row) => add(mapPhysicalFixture(row, 'regional_league')));
-
   const tournamentMatches = await query(
     `SELECT m.id, m.id AS match_id, m.competition_context, m.type, m.status,
             m.home_club_id, m.away_club_id, m.home_score, m.away_score, m.winner_club_id,
@@ -315,7 +299,6 @@ async function getTitleBonuses() {
       if (item.runner_up_club_id) rows.push({ club_id: item.runner_up_club_id, points: 160, source_type: sourceType });
     }
   };
-  addRows(await query(`SELECT winner_club_id, runner_up_club_id FROM competition_seasons WHERE winner_club_id IS NOT NULL`), 'competition');
   addRows(await query(`SELECT winner_club_id, runner_up_club_id FROM tournaments WHERE winner_club_id IS NOT NULL`), 'tournament');
 
   const entitySeasons = await query(

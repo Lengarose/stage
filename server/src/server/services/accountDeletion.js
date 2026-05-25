@@ -155,9 +155,20 @@ async function purgeEmailFingerprints(exec, userId, emailsRaw) {
 
   await exec(`UPDATE tournaments SET organizer_email = NULL WHERE LOWER(TRIM(IFNULL(organizer_email, ''))) IN ${IN_EMAIL}`, lower);
   await exec(`UPDATE tournaments SET creator_email = NULL WHERE LOWER(TRIM(IFNULL(creator_email, ''))) IN ${IN_EMAIL}`, lower);
-  await exec(`UPDATE regional_leagues SET organizer_email = NULL WHERE LOWER(TRIM(IFNULL(organizer_email, ''))) IN ${IN_EMAIL}`, lower);
+  await exec(
+    `UPDATE league_entities
+        SET data_json = JSON_REMOVE(data_json, '$.organizer_email'), updated_date = NOW()
+      WHERE entity_type = 'regional_league'
+        AND LOWER(TRIM(IFNULL(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.organizer_email')), ''))) IN ${IN_EMAIL}`,
+    lower
+  );
 
-  await exec(`DELETE FROM season_registrations WHERE LOWER(TRIM(IFNULL(owner_email, ''))) IN ${IN_EMAIL}`, lower);
+  await exec(
+    `DELETE FROM league_entities
+      WHERE entity_type = 'season_registration'
+        AND LOWER(TRIM(IFNULL(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.owner_email')), ''))) IN ${IN_EMAIL}`,
+    lower
+  );
 
   await exec(`UPDATE admin_audit_log SET admin_email = NULL WHERE LOWER(TRIM(IFNULL(admin_email, ''))) IN ${IN_EMAIL}`, lower);
   await exec(`UPDATE club_operation_audit_logs SET actor_email = NULL WHERE LOWER(TRIM(IFNULL(actor_email, ''))) IN ${IN_EMAIL}`, lower);
@@ -246,7 +257,7 @@ async function purgeReferencesForClubIds(exec, clubIdsRaw) {
   // Ledger rows for this club; club_id was historically NOT NULL — DELETE avoids "club_id cannot be null".
   await exec(`DELETE FROM stc_transactions WHERE club_id IN ${IN_IDS}`, p);
 
-  await exec(`DELETE FROM season_registrations WHERE club_id IN ${IN_IDS}`, p);
+  await exec(`DELETE FROM league_entities WHERE entity_type = 'season_registration' AND club_id IN ${IN_IDS}`, p);
 }
 
 /** Satisfy NOT NULL UNIQUE players.email after unlink / retention policies. */

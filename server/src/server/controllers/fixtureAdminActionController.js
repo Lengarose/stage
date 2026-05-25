@@ -18,9 +18,9 @@ const FixtureAdminAction = require('../models/fixtureAdminActionModel');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-const FIXTURE_TABLES = {
-  competition:     'competition_fixtures',
-  regional_league: 'regional_league_fixtures',
+const FIXTURE_ENTITY_TYPES = {
+  competition:     'competition_fixture',
+  regional_league: 'regional_league_fixture',
 };
 
 const { toMysqlDateTime } = require('../utils/datetime');
@@ -46,10 +46,65 @@ function isAdmin(ctx) {
 }
 
 async function getFixture(fixtureType, fixtureId) {
-  const table = FIXTURE_TABLES[fixtureType];
-  if (!table) throw new Error(`Unknown fixture_type: ${fixtureType}`);
-  const rows = await EXECUTESQL(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [fixtureId]);
-  return rows[0] || null;
+  const entityType = FIXTURE_ENTITY_TYPES[fixtureType];
+  if (!entityType) throw new Error(`Unknown fixture_type: ${fixtureType}`);
+  const rows = await EXECUTESQL(
+    'SELECT * FROM league_entities WHERE id = ? AND entity_type = ? LIMIT 1',
+    [fixtureId, entityType]
+  );
+  return parseLeagueEntityRow(rows[0] || null);
+}
+
+function parseLeagueEntityRow(row) {
+  if (!row) return null;
+  let data = {};
+  try {
+    data = row.data_json
+      ? (typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json)
+      : {};
+  } catch {
+    data = {};
+  }
+  return {
+    ...data,
+    id: row.id,
+    status: row.status ?? data.status,
+    scheduling_status: row.scheduling_status ?? data.scheduling_status,
+    league_id: row.league_id ?? data.league_id,
+    season_id: row.season_id ?? data.season_id,
+    competition_id: row.competition_id ?? data.competition_id,
+    club_id: row.club_id ?? data.club_id,
+    division: row.division ?? data.division,
+    region: row.region ?? data.region,
+    platform: row.platform ?? data.platform,
+    season_number: row.season_number ?? data.season_number,
+    created_date: row.created_date,
+    updated_date: row.updated_date,
+  };
+}
+
+async function updateFixture(fixtureType, fixtureId, changes) {
+  const entityType = FIXTURE_ENTITY_TYPES[fixtureType];
+  if (!entityType) throw new Error(`Unknown fixture_type: ${fixtureType}`);
+  const current = await getFixture(fixtureType, fixtureId);
+  if (!current) return null;
+  const next = { ...current, ...changes };
+  await EXECUTESQL(
+    `UPDATE league_entities
+        SET data_json = ?,
+            status = ?,
+            scheduling_status = ?,
+            updated_date = NOW()
+      WHERE id = ? AND entity_type = ?`,
+    [
+      JSON.stringify(next),
+      next.status || null,
+      next.scheduling_status || null,
+      fixtureId,
+      entityType,
+    ]
+  );
+  return getFixture(fixtureType, fixtureId);
 }
 
 function appendAdminNote(existing, addition) {
@@ -132,8 +187,9 @@ router.post('/force-schedule', async (req, res) => {
     if (!fixture_id || !fixture_type || !date) {
       return res.status(400).json({ error: 'fixture_id, fixture_type, and date are required' });
     }
-    const table = FIXTURE_TABLES[fixture_type];
-    if (!table) return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    if (!FIXTURE_ENTITY_TYPES[fixture_type]) {
+      return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    }
 
     const fixture = await getFixture(fixture_type, fixture_id);
     if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
@@ -145,20 +201,13 @@ router.post('/force-schedule', async (req, res) => {
     const noteLine = `Admin force-scheduled: ${humanDate}${admin_note ? ' — ' + admin_note : ''}`;
     const newAdminNotes = appendAdminNote(fixture.admin_notes, noteLine);
 
-    // competition_fixtures has scheduled_date, regional_league_fixtures does not.
-    if (fixture_type === 'competition') {
-      await EXECUTESQL(
-        `UPDATE ${table} SET scheduling_status = 'confirmed', confirmed_date = ?, scheduled_date = ?,
-           status = 'scheduled', admin_notes = ? WHERE id = ?`,
-        [mysqlDate, mysqlDate, newAdminNotes, fixture_id]
-      );
-    } else {
-      await EXECUTESQL(
-        `UPDATE ${table} SET scheduling_status = 'confirmed', confirmed_date = ?,
-           status = 'scheduled', admin_notes = ? WHERE id = ?`,
-        [mysqlDate, newAdminNotes, fixture_id]
-      );
-    }
+    await updateFixture(fixture_type, fixture_id, {
+      scheduling_status: 'confirmed',
+      confirmed_date: mysqlDate,
+      scheduled_date: fixture_type === 'competition' ? mysqlDate : fixture.scheduled_date,
+      status: 'scheduled',
+      admin_notes: newAdminNotes,
+    });
 
     const audit = await writeAudit({
       fixture,
@@ -186,8 +235,9 @@ router.post('/declare-forfeit', async (req, res) => {
     if (!fixture_id || !fixture_type || !forfeiting_club_id) {
       return res.status(400).json({ error: 'fixture_id, fixture_type, and forfeiting_club_id are required' });
     }
-    const table = FIXTURE_TABLES[fixture_type];
-    if (!table) return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    if (!FIXTURE_ENTITY_TYPES[fixture_type]) {
+      return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    }
 
     const fixture = await getFixture(fixture_type, fixture_id);
     if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
@@ -200,11 +250,13 @@ router.post('/declare-forfeit', async (req, res) => {
     const noteLine = `Forfeit declared: ${forfeitingName} forfeited.${admin_note ? ' ' + admin_note : ''}`;
     const newAdminNotes = appendAdminNote(fixture.admin_notes, noteLine);
 
-    await EXECUTESQL(
-      `UPDATE ${table} SET scheduling_status = 'confirmed', status = 'forfeit',
-         winner_club_id = ?, winner_club_name = ?, admin_notes = ? WHERE id = ?`,
-      [winnerId, winnerName, newAdminNotes, fixture_id]
-    );
+    await updateFixture(fixture_type, fixture_id, {
+      scheduling_status: 'confirmed',
+      status: 'forfeit',
+      winner_club_id: winnerId,
+      winner_club_name: winnerName,
+      admin_notes: newAdminNotes,
+    });
 
     const audit = await writeAudit({
       fixture,
@@ -235,16 +287,14 @@ router.post('/flag-review', async (req, res) => {
     if (!fixture_id || !fixture_type) {
       return res.status(400).json({ error: 'fixture_id and fixture_type are required' });
     }
-    const table = FIXTURE_TABLES[fixture_type];
-    if (!table) return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    if (!FIXTURE_ENTITY_TYPES[fixture_type]) {
+      return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
+    }
 
     const fixture = await getFixture(fixture_type, fixture_id);
     if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
 
-    await EXECUTESQL(
-      `UPDATE ${table} SET scheduling_status = 'admin_review' WHERE id = ?`,
-      [fixture_id]
-    );
+    await updateFixture(fixture_type, fixture_id, { scheduling_status: 'admin_review' });
 
     const audit = await writeAudit({
       fixture,
