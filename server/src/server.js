@@ -222,6 +222,12 @@ async function runStartupMigrations() {
 
   await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
+  await addCol('matches', 'home_owner_email', 'VARCHAR(255) NULL');
+  await addCol('matches', 'away_owner_email', 'VARCHAR(255) NULL');
+  await EXECUTESQL('CREATE INDEX idx_matches_home_owner_email ON matches(home_owner_email)')
+    .catch((err) => console.error('[migration] idx_matches_home_owner_email:', err.message));
+  await EXECUTESQL('CREATE INDEX idx_matches_away_owner_email ON matches(away_owner_email)')
+    .catch((err) => console.error('[migration] idx_matches_away_owner_email:', err.message));
 
   // Match result submission fields
   await addCol('matches', 'home_goal_events', 'TEXT NULL');

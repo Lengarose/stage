@@ -10,10 +10,14 @@ class Match {
     this.away_club_id          = body.away_club_id;
     this.home_club_name        = body.home_club_name;
     this.away_club_name        = body.away_club_name;
+    this.home_owner_email      = body.home_owner_email;
+    this.away_owner_email      = body.away_owner_email;
     this.home_player_id        = body.home_player_id;
     this.home_player_name      = body.home_player_name;
+    this.home_player_email     = body.home_player_email;
     this.away_player_id        = body.away_player_id;
     this.away_player_name      = body.away_player_name;
+    this.away_player_email     = body.away_player_email;
     this.home_score            = body.home_score;
     this.away_score            = body.away_score;
     this.status                = body.status;
@@ -96,7 +100,9 @@ class Match {
     const sql = `INSERT INTO matches
       (id, tournament_id,
        home_club_id, away_club_id, home_club_name, away_club_name,
-       home_player_id, home_player_name, away_player_id, away_player_name,
+       home_owner_email, away_owner_email,
+       home_player_id, home_player_name, home_player_email,
+       away_player_id, away_player_name, away_player_email,
        home_score, away_score, status, mode, type, stats_processed,
        winner_club_id, winner_club_name, winner_player_id, winner_player_name,
        loser_club_id, loser_club_name, loser_player_id, loser_player_name,
@@ -112,11 +118,13 @@ class Match {
        wager_home_player_id, wager_away_player_id,
        source_fixture_id, source_fixture_type, competition_context,
        home_goal_events, away_goal_events)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.tournament_id,
       this.home_club_id, this.away_club_id, this.home_club_name, this.away_club_name,
-      this.home_player_id, this.home_player_name, this.away_player_id, this.away_player_name,
+      this.home_owner_email, this.away_owner_email,
+      this.home_player_id, this.home_player_name, this.home_player_email,
+      this.away_player_id, this.away_player_name, this.away_player_email,
       this.home_score, this.away_score, this.status, this.mode, this.type, this.stats_processed,
       this.winner_club_id, this.winner_club_name, this.winner_player_id, this.winner_player_name,
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,
@@ -140,7 +148,9 @@ class Match {
     const sql = `UPDATE matches SET
       tournament_id=?,
       home_club_id=?, away_club_id=?, home_club_name=?, away_club_name=?,
-      home_player_id=?, home_player_name=?, away_player_id=?, away_player_name=?,
+      home_owner_email=?, away_owner_email=?,
+      home_player_id=?, home_player_name=?, home_player_email=?,
+      away_player_id=?, away_player_name=?, away_player_email=?,
       home_score=?, away_score=?, status=?, mode=?, type=?, stats_processed=?,
       winner_club_id=?, winner_club_name=?, winner_player_id=?, winner_player_name=?,
       loser_club_id=?, loser_club_name=?, loser_player_id=?, loser_player_name=?,
@@ -160,7 +170,9 @@ class Match {
     const values = [
       this.tournament_id,
       this.home_club_id, this.away_club_id, this.home_club_name, this.away_club_name,
-      this.home_player_id, this.home_player_name, this.away_player_id, this.away_player_name,
+      this.home_owner_email, this.away_owner_email,
+      this.home_player_id, this.home_player_name, this.home_player_email,
+      this.away_player_id, this.away_player_name, this.away_player_email,
       this.home_score, this.away_score, this.status, this.mode, this.type, this.stats_processed,
       this.winner_club_id, this.winner_club_name, this.winner_player_id, this.winner_player_name,
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,

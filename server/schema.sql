@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS matches (
   away_player_id         VARCHAR(36),
   home_club_name         VARCHAR(150),
   away_club_name         VARCHAR(150),
+  home_owner_email       VARCHAR(255),
+  away_owner_email       VARCHAR(255),
   home_player_name       VARCHAR(150),
   away_player_name       VARCHAR(150),
   home_player_email      VARCHAR(255),
@@ -867,6 +869,8 @@ CREATE INDEX idx_clubs_user          ON clubs(user_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
+CREATE INDEX idx_matches_home_owner_email ON matches(home_owner_email);
+CREATE INDEX idx_matches_away_owner_email ON matches(away_owner_email);
 CREATE INDEX idx_posts_club          ON posts(club_id);
 CREATE INDEX idx_posts_author        ON posts(author_email);
 CREATE INDEX idx_comments_post       ON comments(post_id);

@@ -213,27 +213,31 @@ async function enrichMatchRows(rows) {
   const [clubs, players] = await Promise.all([
     clubIds.length
       ? EXECUTESQL(
-          `SELECT id, name FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
+          `SELECT id, name, owner_email FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
           clubIds
         )
       : Promise.resolve([]),
     playerIds.length
       ? EXECUTESQL(
-          `SELECT id, gamertag FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+          `SELECT id, gamertag, email FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
           playerIds
         )
       : Promise.resolve([]),
   ]);
 
-  const clubNameById = new Map(clubs.map((c) => [c.id, c.name]));
-  const playerNameById = new Map(players.map((p) => [p.id, p.gamertag]));
+  const clubById = new Map(clubs.map((c) => [c.id, c]));
+  const playerById = new Map(players.map((p) => [p.id, p]));
 
   return list.map((r) => normalizeMatchForApi({
     ...r,
-    home_club_name: r.home_club_name || (r.home_club_id ? (clubNameById.get(r.home_club_id) || null) : null),
-    away_club_name: r.away_club_name || (r.away_club_id ? (clubNameById.get(r.away_club_id) || null) : null),
-    home_player_name: r.home_player_name || (r.home_player_id ? (playerNameById.get(r.home_player_id) || null) : null),
-    away_player_name: r.away_player_name || (r.away_player_id ? (playerNameById.get(r.away_player_id) || null) : null),
+    home_club_name: r.home_club_name || (r.home_club_id ? (clubById.get(r.home_club_id)?.name || null) : null),
+    away_club_name: r.away_club_name || (r.away_club_id ? (clubById.get(r.away_club_id)?.name || null) : null),
+    home_owner_email: r.home_owner_email || (r.home_club_id ? (clubById.get(r.home_club_id)?.owner_email || null) : null),
+    away_owner_email: r.away_owner_email || (r.away_club_id ? (clubById.get(r.away_club_id)?.owner_email || null) : null),
+    home_player_name: r.home_player_name || (r.home_player_id ? (playerById.get(r.home_player_id)?.gamertag || null) : null),
+    away_player_name: r.away_player_name || (r.away_player_id ? (playerById.get(r.away_player_id)?.gamertag || null) : null),
+    home_player_email: r.home_player_email || (r.home_player_id ? (playerById.get(r.home_player_id)?.email || null) : null),
+    away_player_email: r.away_player_email || (r.away_player_id ? (playerById.get(r.away_player_id)?.email || null) : null),
   }));
 }
 
@@ -244,22 +248,38 @@ async function attachMatchNames(payload) {
 
   if (clubIds.length) {
     const clubs = await EXECUTESQL(
-      `SELECT id, name FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
+      `SELECT id, name, owner_email FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
       clubIds
     );
-    const byId = new Map(clubs.map((c) => [c.id, c.name]));
-    if (next.home_club_id) next.home_club_name = byId.get(next.home_club_id) || next.home_club_name || null;
-    if (next.away_club_id) next.away_club_name = byId.get(next.away_club_id) || next.away_club_name || null;
+    const byId = new Map(clubs.map((c) => [c.id, c]));
+    if (next.home_club_id) {
+      const club = byId.get(next.home_club_id);
+      next.home_club_name = club?.name || next.home_club_name || null;
+      next.home_owner_email = club?.owner_email || next.home_owner_email || null;
+    }
+    if (next.away_club_id) {
+      const club = byId.get(next.away_club_id);
+      next.away_club_name = club?.name || next.away_club_name || null;
+      next.away_owner_email = club?.owner_email || next.away_owner_email || null;
+    }
   }
 
   if (playerIds.length) {
     const players = await EXECUTESQL(
-      `SELECT id, gamertag FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+      `SELECT id, gamertag, email FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
       playerIds
     );
-    const byId = new Map(players.map((p) => [p.id, p.gamertag]));
-    if (next.home_player_id) next.home_player_name = byId.get(next.home_player_id) || next.home_player_name || null;
-    if (next.away_player_id) next.away_player_name = byId.get(next.away_player_id) || next.away_player_name || null;
+    const byId = new Map(players.map((p) => [p.id, p]));
+    if (next.home_player_id) {
+      const player = byId.get(next.home_player_id);
+      next.home_player_name = player?.gamertag || next.home_player_name || null;
+      next.home_player_email = player?.email || next.home_player_email || null;
+    }
+    if (next.away_player_id) {
+      const player = byId.get(next.away_player_id);
+      next.away_player_name = player?.gamertag || next.away_player_name || null;
+      next.away_player_email = player?.email || next.away_player_email || null;
+    }
   }
 
   return next;
