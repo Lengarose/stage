@@ -2,20 +2,9 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const viteEnv = /** @type {any} */ (import.meta).env;
-const rawSocketUrl = viteEnv?.VITE_SOCKET_URL || 'https://stage-7osn.onrender.com';
-let SOCKET_URL = rawSocketUrl || window.location.origin;
-try {
-  const parsed = rawSocketUrl ? new URL(rawSocketUrl, window.location.origin) : null;
-  const currentHost = window.location.hostname;
-  const socketHost = parsed ? parsed.hostname : '';
-  const envPointsToLocalhost = socketHost === 'localhost' || socketHost === '127.0.0.1';
-  const appNotLocalhost = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
-  if (rawSocketUrl && envPointsToLocalhost && appNotLocalhost) {
-    SOCKET_URL = window.location.origin;
-  }
-} catch {
-  SOCKET_URL = window.location.origin;
-}
+const rawSocketUrl = 'https://stage-7osn.onrender.com';
+let SOCKET_URL = rawSocketUrl;
+
 const ACCESS_KEY = 'stage_access_token';
 const AUTH_CHANGED_EVENT = 'stage-auth-changed';
 

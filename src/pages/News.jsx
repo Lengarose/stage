@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import {
   Newspaper, ArrowRightLeft, FileSignature, Shield,
@@ -139,21 +139,18 @@ export default function News() {
       let followed = new Set();
 
       try {
-        const u = await stageClient.auth.me();
-        const players = await stageClient.entities.Player.filter({ email: u.email });
-        player = players[0] || null;
+        const resolved = await resolveMyPlayerAndClub();
+        player = resolved.player;
+        club = resolved.club;
         setMyPlayer(player);
-
-        if (player?.club_id) {
-          const clubs = await stageClient.entities.Club.filter({ id: player.club_id });
-          club = clubs[0] || null;
-          setMyClub(club);
-        }
+        setMyClub(club);
 
         // Load followed entities to use for visibility
-        const follows = await stageClient.entities.Follow.filter({ follower_player_id: player?.id });
-        followed = new Set(follows.map(f => f.target_id));
-        setFollowedIds(followed);
+        if (player?.id) {
+          const follows = await stageClient.entities.Follow.filter({ follower_player_id: player.id });
+          followed = new Set(follows.map(f => f.target_id));
+          setFollowedIds(followed);
+        }
       } catch (_) {}
 
       const [news, press] = await Promise.all([

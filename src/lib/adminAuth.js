@@ -31,6 +31,10 @@ export function isAdminGlobalRoute(pathname) {
     return true;
   }
   if (pathname === '/clubs' || pathname.startsWith('/clubs/')) return true;
+  if (pathname === '/leagues' || pathname.startsWith('/leagues/')) return true;
+  if (pathname === '/competitions' || pathname.startsWith('/competitions/')) return true;
+  if (pathname === '/tournaments' || pathname.startsWith('/tournaments/')) return true;
+  if (pathname === '/players' || pathname.startsWith('/players/')) return true;
   return false;
 }
 

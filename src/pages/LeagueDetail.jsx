@@ -91,18 +91,13 @@ export default function LeagueDetail() {
     setPlayersByEmail(Object.fromEntries(playerRows.map(p => [String(p.email || "").toLowerCase(), p])));
 
     if (u) {
-      const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
-      const player  = players[0] || null;
+      const { player, club } = await resolveMyPlayerAndClub();
       setMyPlayer(player);
-      if (player?.club_id) {
-        const clubs = await stageClient.entities.Club.filter({ id: player.club_id }).catch(() => []);
-        const club = clubs[0] || null;
-        setMyClub(club);
-        // Auto-open the matchday that involves my club
-        if (club) {
-          const myMatchday = leagueFixtures.find(f => f.home_club_id === club.id || f.away_club_id === club.id);
-          if (myMatchday) setOpenMd(myMatchday.matchday);
-        }
+      setMyClub(club);
+      // Auto-open the matchday that involves my club
+      if (club) {
+        const myMatchday = leagueFixtures.find(f => f.home_club_id === club.id || f.away_club_id === club.id);
+        if (myMatchday) setOpenMd(myMatchday.matchday);
       }
     }
     setLoading(false);

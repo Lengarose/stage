@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,15 +95,10 @@ export default function Recruitment() {
   async function load() {
     setLoading(true);
     try {
-      const u = await stageClient.auth.me();
+      const { user: u, player, club } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
-      const [playerRows, clubRows, postRows] = await Promise.all([
-        stageClient.entities.Player.filter({ email: u.email }).catch(() => []),
-        stageClient.entities.Club.filter({ owner_email: u.email }).catch(() => []),
-        stageClient.entities.RecruitmentPost.filter({}, "-created_date", 200).catch(() => []),
-      ]);
-      const player = playerRows[0] || null;
-      const club = clubRows[0] || (player?.club_id ? (await stageClient.entities.Club.filter({ id: player.club_id }).catch(() => []))[0] : null);
+      const postRows = await stageClient.entities.RecruitmentPost.filter({}, "-created_date", 200).catch(() => []);
       setMyPlayer(player);
       setMyClub(club || null);
       setPosts(postRows);

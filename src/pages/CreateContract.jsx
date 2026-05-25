@@ -99,8 +99,8 @@ export default function CreateContract() {
       let recipientEmail = selectedPlayer.email;
       if (!recipientEmail) {
         try {
-          const fresh = await stageClient.entities.Player.filter({ id: selectedPlayer.id });
-          recipientEmail = fresh[0]?.email || null;
+          const fresh = await stageClient.entities.Player.get(selectedPlayer.id);
+          recipientEmail = fresh?.email || null;
         } catch (_) { /* non-fatal */ }
       }
 

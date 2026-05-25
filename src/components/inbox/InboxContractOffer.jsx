@@ -3,7 +3,7 @@
  * Allows the player (or club owner) to Accept, Decline, or Counter the contract directly from Inbox.
  */
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -46,18 +46,12 @@ export default function InboxContractOffer({ message, onActioned }) {
   useEffect(() => {
     if (!contractId) { setLoading(false); return; }
     async function load() {
-      const [user, c] = await Promise.all([
-        stageClient.auth.me(),
+      const [{ user, player }, c] = await Promise.all([
+        resolveMyPlayerAndClub(),
         stageClient.entities.PlayerContract.get(contractId).catch(() => null),
       ]);
-      setMyEmail(user.email);
+      setMyEmail(user?.email);
       setContract(c);
-
-      // Determine if I am the player or the club owner
-      const [playerArr] = await Promise.all([
-        stageClient.entities.Player.filter({ email: user.email }),
-      ]);
-      const player = playerArr[0] || null;
       setMyPlayer(player);
 
       if (c?.team_id) {

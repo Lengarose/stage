@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Trophy, Shield, ArrowLeft, CheckCircle, Clock, X, AlertTriangle, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,9 @@ export default function SeasonRegistrations() {
   async function load() {
     setLoading(true);
     try {
-      const u = await stageClient.auth.me().catch(() => null);
+      const { user: u, club } = await resolveMyPlayerAndClub();
       setUser(u);
+      setMyClub(club);
 
       const [allLeagues, apps] = await Promise.all([
         stageClient.entities.RegionalLeague.filter({ status: "registration" }, null, 100).catch(() => []),
@@ -69,22 +70,13 @@ export default function SeasonRegistrations() {
         : [];
       ownedApps = await cleanupStaleOwnedApplications(ownedApps);
       setMyApps(ownedApps);
-
-      if (u) {
-        const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
-        const player = players[0];
-        if (player?.club_id) {
-          const clubs = await stageClient.entities.Club.filter({ id: player.club_id }, null, 1).catch(() => []);
-          setMyClub(clubs[0] || null);
-        }
-      }
     } finally {
       setLoading(false);
     }
   }
 
   async function cleanupStaleOwnedApplications(apps) {
-    if (!base44.entities.SeasonRegistration) return apps;
+    if (!stageClient.entities.SeasonRegistration) return apps;
     const candidates = apps.filter(app => (
       ACTIVE_APPLICATION_STATUSES.has(String(app.status || "").toLowerCase()) &&
       (isRemovedApplication(app) || app.assigned_league_id)
@@ -93,7 +85,7 @@ export default function SeasonRegistrations() {
 
     const leagueIds = [...new Set(candidates.map(app => app.assigned_league_id).filter(Boolean))];
     const standingRows = (await Promise.all(leagueIds.map(leagueId =>
-      (base44.entities.RegionalLeagueStanding?.filter({ league_id: leagueId }, null, 100) ?? Promise.resolve([])).catch(() => [])
+      (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: leagueId }, null, 100) ?? Promise.resolve([])).catch(() => [])
     ))).flat();
     const standingKeys = new Set(standingRows.map(row => `${row.league_id}:${row.club_id}`));
     const updates = [];
@@ -108,7 +100,7 @@ export default function SeasonRegistrations() {
         admin_notes: app.admin_notes || "Removed from league registration.",
         reviewed_at: app.reviewed_at || new Date().toISOString(),
       };
-      updates.push(base44.entities.SeasonRegistration.update(app.id, patch).catch(() => null));
+      updates.push(stageClient.entities.SeasonRegistration.update(app.id, patch).catch(() => null));
       return { ...app, ...patch };
     });
     if (updates.length) await Promise.all(updates);

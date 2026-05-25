@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
 import { getSubscriptionTier, TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
 import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "lucide-react";
@@ -23,9 +23,9 @@ const CREDIT_PACKS = [
 ];
 
 const BADGE_IMAGES = {
-  sub_rookie: "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
-  sub_pro:    "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
-  sub_elite:  "https://media.stageClient.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
+  sub_rookie: "https://stageleagues.com/uploads/rookie.png",
+  sub_pro:    "https://stageleagues.com/uploads/pro.png",
+  sub_elite:  "https://stageleagues.com/uploads/elite.png",
 };
 
 export default function Store() {
@@ -44,18 +44,13 @@ export default function Store() {
 
   useEffect(() => {
     async function load() {
-      const u = await stageClient.auth.me();
+      const { user: u, player: pl, club } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
-      const [pl, purch] = await Promise.all([
-        stageClient.entities.Player.filter({ email: u.email }),
-        stageClient.entities.UserPurchase.filter({ buyer_email: u.email }),
-      ]);
-      if (pl.length > 0) {
-        setPlayer(pl[0]);
-        if (pl[0].club_id) {
-          const clubs = await stageClient.entities.Club.filter({ id: pl[0].club_id });
-          if (clubs[0]) setMyClub(clubs[0]);
-        }
+      const purch = await stageClient.entities.UserPurchase.filter({ buyer_email: u.email }).catch(() => []);
+      if (pl) {
+        setPlayer(pl);
+        if (club) setMyClub(club);
       }
       setPurchases(purch);
       const mode = localStorage.getItem("stage-account-mode") || "player";
@@ -68,8 +63,10 @@ export default function Store() {
         try {
           const fixRes = await stageClient.functions.invoke('fixSubscription', { email: u.email });
           if (fixRes.data?.success) {
-            const refreshed = await stageClient.entities.Player.filter({ email: u.email });
-            if (refreshed[0]) setPlayer(refreshed[0]);
+            const refreshedPl = u.player_id
+              ? await stageClient.entities.Player.get(u.player_id).catch(() => null)
+              : null;
+            if (refreshedPl) setPlayer(refreshedPl);
             showNotif(`🌟 STAGE ${fixRes.data.tier?.toUpperCase()} activated! +${fixRes.data.credits_added} credits added.`, 'success');
           } else {
             showNotif('Subscription activated! It may take a moment to reflect.', 'success');

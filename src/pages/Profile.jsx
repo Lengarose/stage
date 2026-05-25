@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   User, Shield, Save, Plus, LogOut,
   Camera, Loader2, Edit2, Check, X,
@@ -116,16 +116,13 @@ export default function Profile() {
     async function load() {
       const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const u = await stageClient.auth.me();
+      const { user: u, player: resolvedPlayer, club: resolvedClub_ } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
-      const [pl, cl, ownedClubs] = await Promise.all([
-        stageClient.entities.Player.filter({ email: u.email }),
-        stageClient.entities.Club.list("-rating", 200),
-        stageClient.entities.Club.filter({ owner_email: u.email }),
-      ]);
+      const cl = await stageClient.entities.Club.list("-rating", 200);
       setClubs(cl);
-      if (pl.length > 0) {
-        const p = pl[0];
+      if (resolvedPlayer) {
+        const p = resolvedPlayer;
         setPlayer(p);
         stageClient.identityClaims
           .list({ player_id: p.id }, "-created_date", 20)
@@ -152,13 +149,8 @@ export default function Profile() {
           });
         });
 
-        let memberClub = p.club_id ? (cl.find(c => c.id === p.club_id) || null) : null;
-        if (!memberClub && p.club_id) {
-          const direct = await stageClient.entities.Club.filter({ id: p.club_id });
-          memberClub = direct[0] || null;
-        }
-        const ownedClub = ownedClubs[0] || null;
-        const resolvedClub = memberClub || ownedClub;
+        // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
+        const resolvedClub = resolvedClub_;
         if (resolvedClub) {
           setMyClub(resolvedClub);
           setClubForm({
@@ -293,7 +285,10 @@ export default function Profile() {
       creator_player_id: player.id,
     });
     if (!club?.id) return;
-    const refreshed = await stageClient.entities.Player.filter({ email: user.email });
+    const refreshedPl = user.player_id
+      ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
+      : null;
+    const refreshed = refreshedPl ? [refreshedPl] : [];
     if (refreshed[0]) setPlayer(refreshed[0]);
     setMyClub(club);
     setClubForm({
@@ -662,7 +657,10 @@ export default function Profile() {
             setClubOnboardingOpen(false);
             if (club) {
               setMyClub(club);
-              const refreshed = await stageClient.entities.Player.filter({ email: user.email });
+              const refreshedPl = user.player_id
+      ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
+      : null;
+    const refreshed = refreshedPl ? [refreshedPl] : [];
               if (refreshed[0]) setPlayer(refreshed[0]);
             }
           }}
@@ -935,7 +933,10 @@ export default function Profile() {
                 setClubOnboardingOpen(false);
                 if (club) {
                   setMyClub(club);
-                  const refreshed = await stageClient.entities.Player.filter({ email: user.email });
+                  const refreshedPl = user.player_id
+      ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
+      : null;
+    const refreshed = refreshedPl ? [refreshedPl] : [];
                   if (refreshed[0]) setPlayer(refreshed[0]);
                   setView("club");
                 }

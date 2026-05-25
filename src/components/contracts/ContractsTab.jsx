@@ -39,7 +39,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const missing = uniqueIds.filter(uid => !pMap[uid]);
     if (missing.length > 0) {
       const extras = await Promise.all(
-        missing.map(uid => stageClient.entities.Player.filter({ id: uid }).then(r => r[0]).catch(() => null))
+        missing.map(uid => stageClient.entities.Player.get(uid).catch(() => null))
       );
       extras.filter(Boolean).forEach(p => { pMap[p.id] = p; });
     }

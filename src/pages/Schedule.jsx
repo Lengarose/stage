@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import ScheduleList from "../components/schedule/ScheduleList";
 import MatchDetail from "../components/schedule/MatchDetail";
@@ -40,28 +40,19 @@ export default function Schedule() {
 
   async function load() {
     setLoading(true);
-    const u = await stageClient.auth.me().catch(() => null);
+    const { user: u, player, club } = await resolveMyPlayerAndClub();
     if (!u) { setLoading(false); return; }
     setUser(u);
+    setMyPlayer(player);
 
-    const [players, tournaments, contracts] = await Promise.all([
-      stageClient.entities.Player.filter({ email: u.email }),
+    const [tournaments, contracts] = await Promise.all([
       stageClient.entities.Tournament.list("-created_date", 100),
       stageClient.entities.PlayerContract.list("-created_date", 50),
     ]);
 
-    const player = players?.[0] || null;
-    setMyPlayer(player);
-
-    let club = null;
     let clubPlayers = [];
-    if (player?.club_id) {
-      const [clubs, cPlayers] = await Promise.all([
-        stageClient.entities.Club.filter({ id: player.club_id }),
-        stageClient.entities.Player.filter({ club_id: player.club_id }),
-      ]);
-      club = clubs?.[0] || null;
-      clubPlayers = cPlayers || [];
+    if (club) {
+      clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
       setMyClub(club);
     }
     setAllPlayers(clubPlayers);
@@ -120,7 +111,7 @@ export default function Schedule() {
     // Fetch player avatars and club logos in parallel
     const [soloPlayersData, clubsData] = await Promise.all([
       soloPlayerIds.size > 0
-        ? Promise.all([...soloPlayerIds].map(pid => stageClient.entities.Player.filter({ id: pid }).catch(() => []))).then(r => r.flat())
+        ? Promise.all([...soloPlayerIds].map(pid => stageClient.entities.Player.get(pid).catch(() => null))).then(r => r.filter(Boolean))
         : Promise.resolve([]),
       clubIds.size > 0
         ? Promise.all([...clubIds].map(cid => stageClient.entities.Club.filter({ id: cid }).catch(() => []))).then(r => r.flat())

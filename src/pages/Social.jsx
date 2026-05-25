@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Heart, MessageCircle, Plus, Image, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,11 +19,11 @@ export default function Social() {
 
   useEffect(() => {
     async function load() {
-      const u = await stageClient.auth.me();
+      const { user: u, player: myPl } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
-      const [postData, plData, newsData, pressData] = await Promise.all([
+      const [postData, newsData, pressData] = await Promise.all([
         stageClient.entities.Post.list("-created_date", 30),
-        stageClient.entities.Player.filter({ email: u.email }),
         stageClient.entities.NewsItem.list("-published_at", 10),
         stageClient.entities.PressArticle.list("-published_at", 10),
       ]);
@@ -33,7 +33,7 @@ export default function Social() {
         ...pressData.map(a => ({ ...a, _type: "press", _sortDate: a.published_at })),
       ].sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0));
       setPosts(allPosts);
-      if (plData.length > 0) setMyPlayer(plData[0]);
+      if (myPl) setMyPlayer(myPl);
       setLoading(false);
     }
     load();

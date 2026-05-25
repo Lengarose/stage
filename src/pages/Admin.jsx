@@ -1253,10 +1253,10 @@ export default function Admin(props) {
         description: walletAdjustNote || undefined,
       });
       // Refresh player list and wallet
-      const fresh = await stageClient.entities.Player.filter({ id: playerWalletDialog.id }, null, 1);
-      if (fresh[0]) setPlayerWalletDialog(fresh[0]);
-      setPlayers(prev => prev.map(p => p.id === playerWalletDialog.id ? { ...p, stc: fresh[0]?.stc ?? p.stc } : p));
-      await openPlayerWallet(fresh[0] || playerWalletDialog);
+      const fresh = await stageClient.entities.Player.get(playerWalletDialog.id).catch(() => null);
+      if (fresh) setPlayerWalletDialog(fresh);
+      setPlayers(prev => prev.map(p => p.id === playerWalletDialog.id ? { ...p, stc: fresh?.stc ?? p.stc } : p));
+      await openPlayerWallet(fresh || playerWalletDialog);
       setWalletAdjustAmount("");
       setWalletAdjustNote("");
     } catch (err) {

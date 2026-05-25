@@ -15,6 +15,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import PageNotFound from './lib/PageNotFound';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
+import PWAUpdatePrompt from '@/components/PWAUpdatePrompt';
 
 // Eagerly loaded — needed for initial render / auth flow
 import Login from './pages/Login';
@@ -297,6 +298,7 @@ function App() {
                 <Route path="*" element={<AuthenticatedApp />} />
               </Routes>
             </Router>
+            <PWAUpdatePrompt />
             <Toaster />
           </QueryClientProvider>
         </TranslationProvider>

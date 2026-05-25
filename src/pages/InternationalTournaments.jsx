@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { stageClient } from '@/api/stageClient';
+import { resolveMyPlayerAndClub } from '@/api/stageClient';
 import { internationalTournamentsApi } from '@/api/internationalTournaments';
 import InternationalTournamentCard from '@/components/international/InternationalTournamentCard';
 import CountryElectionPanel from '@/components/international/CountryElectionPanel';
@@ -22,11 +22,7 @@ export default function InternationalTournaments() {
     setLoading(true);
     setLoadError('');
     try {
-      const user = await stageClient.auth.me();
-      const players = user?.email ? await stageClient.entities.Player.filter({ email: user.email }) : [];
-      const player = players[0] || null;
-      const ownerClubs = user?.email ? await stageClient.entities.Club.filter({ owner_email: user.email }) : [];
-      const ownerClub = ownerClubs[0] || null;
+      const { player, club: ownerClub } = await resolveMyPlayerAndClub();
       const rows = await internationalTournamentsApi.list(100);
 
       let electionMap = {};

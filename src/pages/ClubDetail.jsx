@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
   Check, X, Camera, Send, Loader2, LogOut,
@@ -105,11 +105,12 @@ export default function ClubDetail() {
       const user = await stageClient.auth.me();
       setCurrentUser(user);
 
-      const [clubRecord, initialPlayerData, myPl] = await Promise.all([
+      const { player: myPlResolved } = await resolveMyPlayerAndClub();
+      const [clubRecord, initialPlayerData] = await Promise.all([
         stageClient.entities.Club.get(id),
         stageClient.entities.Player.filter({ club_id: id }),
-        stageClient.entities.Player.filter({ email: user.email }),
       ]);
+      const myPl = myPlResolved ? [myPlResolved] : [];
       let playerData = initialPlayerData || [];
       const playerIds = new Set(playerData.map((p) => p.id).filter(Boolean));
 
@@ -202,8 +203,8 @@ export default function ClubDetail() {
           role.user_id === user.id || role.player_id === mine.id
         ));
         if (myPl[0].club_id && myPl[0].club_id !== id) {
-          const myClubArr = await stageClient.entities.Club.filter({ id: myPl[0].club_id });
-          if (myClubArr.length > 0) setMyClubData(myClubArr[0]);
+          const myClubRecord = await stageClient.entities.Club.get(myPl[0].club_id).catch(() => null);
+          if (myClubRecord) setMyClubData(myClubRecord);
         }
       } else {
         setOperationStaffRoles([]);
@@ -1318,10 +1319,10 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
       await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
     } else {
-      const myPlayerData = await stageClient.entities.Player.filter({ email: currentUser.email });
+      const { player: myPl_ } = await resolveMyPlayerAndClub();
       const f = await stageClient.entities.Follow.create({
         follower_email: currentUser.email,
-        follower_player_id: myPlayerData[0]?.id || "",
+        follower_player_id: myPl_?.id || "",
         target_id: player.id,
         target_type: "player",
         target_name: player.gamertag,

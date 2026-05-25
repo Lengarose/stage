@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { resolveMyPlayerAndClub } from "@/api/stageClient";
 import STCWallet from "@/components/lifestyle/STCWallet";
 import { Wallet as WalletIcon } from "lucide-react";
 
@@ -8,12 +8,9 @@ export default function Wallet() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    stageClient.auth.me().then(u => {
-      if (!u?.email) { setLoading(false); return; }
-      stageClient.entities.Player.filter({ email: u.email }, null, 1)
-        .then(rows => { setPlayer(rows[0] || null); setLoading(false); })
-        .catch(() => setLoading(false));
-    }).catch(() => setLoading(false));
+    resolveMyPlayerAndClub()
+      .then(({ player: p }) => { setPlayer(p); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   if (loading) {

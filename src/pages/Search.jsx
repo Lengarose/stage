@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { searchClub } from "@/lib/eafcClient";
 import { Search as SearchIcon, User, Shield, Swords, UserPlus, Trophy, Users, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -21,10 +21,9 @@ export default function Search() {
 
   useEffect(() => {
     async function loadUser() {
-      const u = await stageClient.auth.me();
+      const { user: u, player } = await resolveMyPlayerAndClub();
       setUser(u);
-      const pl = await stageClient.entities.Player.filter({ email: u.email });
-      if (pl.length > 0) setMyPlayer(pl[0]);
+      if (player) setMyPlayer(player);
     }
     loadUser();
   }, []);
@@ -52,10 +51,10 @@ export default function Search() {
       await swalAlert("You need to be in a club to challenge.");
       return;
     }
-    const myClub = await stageClient.entities.Club.filter({ id: myPlayer.club_id });
+    const myClub = await stageClient.entities.Club.get(myPlayer.club_id).catch(() => null);
     const liveMatch = await stageClient.entities.LiveMatch.create({
       home_club_id: myPlayer.club_id,
-      home_club_name: myClub[0]?.name || "Unknown",
+      home_club_name: myClub?.name || "Unknown",
       away_club_id: opponentClubId,
       away_club_name: opponentClubName,
       type: "friendly",
@@ -74,8 +73,8 @@ export default function Search() {
       await stageClient.entities.Notification.create({
         recipient_email: p.email,
         type: "invite",
-        title: `⚔️ Challenge from ${myClub[0]?.name || "A club"}`,
-        body: `${myClub[0]?.name || "A club"} has challenged ${opponentClubName} to a friendly match!`,
+        title: `⚔️ Challenge from ${myClub?.name || "A club"}`,
+        body: `${myClub?.name || "A club"} has challenged ${opponentClubName} to a friendly match!`,
         link: `/live/${liveMatch.id}`,
         read: false,
       });
