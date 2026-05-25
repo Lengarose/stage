@@ -8,7 +8,7 @@ export default function PlayerRegistrantList({ playerIds }) {
 
   useEffect(() => {
     if (!playerIds?.length) return;
-    Promise.all(playerIds.map(id => stageClient.entities.Player.filter({ id }, null, 1).then(r => r[0]))).then(results => {
+    Promise.all(playerIds.map(id => stageClient.entities.Player.get(id).catch(() => null))).then(results => {
       setPlayers(results.filter(Boolean));
     });
   }, [playerIds?.join(",")]);
