@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2 } from "lucide-react";
+import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
 
 export default function LeaguesTab({
   seedCompetitions,
@@ -68,6 +69,8 @@ export default function LeaguesTab({
   saveLeagueRules,
   savingLeague,
   leagueLifecycleAction,
+  generateRegionalFixturesForAdmin,
+  generatingRegionalFixtures,
   processingLeagueEnd,
   processLeagueEnd,
   expiredFixtures,
@@ -82,7 +85,7 @@ export default function LeaguesTab({
     <div className="flex items-center justify-between gap-3">
       <div>
         <h3 className="font-heading text-base uppercase tracking-tight text-foreground">STAGE Competitions</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions (Champions League format). No promotion/relegation. Click Edit Rules to adjust club limits and playoff spots.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions (Champions League format). Qualification-only through regional leagues and competition results. Click Edit Rules to adjust club limits and playoff spots.</p>
       </div>
       <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
         {seedingComps ? "Seeding..." : competitions.length >= 3 ? "✓ Seeded" : "Seed Competitions"}
@@ -169,12 +172,19 @@ export default function LeaguesTab({
   {competitions.length > 0 && (
     <div className="bg-card border border-border rounded p-5 space-y-4">
       <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Start New Season</h3>
+      <p className="text-xs text-muted-foreground">
+        Creates a qualification draft. Clubs are added by confirming Qualification Entries; fixture generation unlocks when the season is full.
+      </p>
       <div>
         <label className="label-xs">Competition</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {competitions.map(c => (
             <button key={c.id} type="button"
-              onClick={() => setNewSeasonForm(f => ({ ...f, competition_id: c.id }))}
+              onClick={() => setNewSeasonForm(f => ({
+                ...f,
+                competition_id: c.id,
+                prize_pool_stc: calculatePrizePool("competition", c, Number(f.num_clubs) || 36),
+              }))}
               className={cn("rounded border px-3 py-2 text-left text-xs font-bold transition-all",
                 newSeasonForm.competition_id === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
               )}>
@@ -206,9 +216,17 @@ export default function LeaguesTab({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label-xs">Number of Clubs</label>
+          <label className="label-xs">Target Qualified Clubs</label>
           <input type="number" min="4" max="128" value={newSeasonForm.num_clubs ?? 36}
-            onChange={e => setNewSeasonForm(f => ({ ...f, num_clubs: e.target.value }))}
+            onChange={e => setNewSeasonForm(f => {
+              const comp = competitions.find(c => c.id === f.competition_id);
+              const numClubs = e.target.value;
+              return {
+                ...f,
+                num_clubs: numClubs,
+                prize_pool_stc: comp ? calculatePrizePool("competition", comp, Number(numClubs) || 36) : f.prize_pool_stc,
+              };
+            })}
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
         </div>
         <div>
@@ -219,11 +237,14 @@ export default function LeaguesTab({
         </div>
       </div>
       <div>
-        <label className="label-xs">Prize Pool (STC) — optional</label>
+        <label className="label-xs">Prize Pool (STC)</label>
         <input type="number" min="0" value={newSeasonForm.prize_pool_stc}
           onChange={e => setNewSeasonForm(f => ({ ...f, prize_pool_stc: e.target.value }))}
           className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
           placeholder="e.g. 5000000" />
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Defaults fill automatically from the selected tier. Current pool: {formatStcCompact(newSeasonForm.prize_pool_stc || 0)}.
+        </p>
       </div>
       <Button onClick={createCompetitionSeason} disabled={creatingLeagueSeason || !newSeasonForm.competition_id}
         className="w-full bg-primary text-primary-foreground h-9 text-xs rounded font-bold gap-2">
@@ -637,6 +658,13 @@ export default function LeaguesTab({
                           <Button size="sm" onClick={() => leagueLifecycleAction(league, "open_registration")}
                             className="h-7 text-xs rounded bg-primary text-primary-foreground shrink-0">
                             Open Registration
+                          </Button>
+                        )}
+                        {league.status === "registration" && (
+                          <Button size="sm" disabled={generatingRegionalFixtures === league.id}
+                            onClick={() => generateRegionalFixturesForAdmin(league)}
+                            className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
+                            {generatingRegionalFixtures === league.id ? "Generating..." : "Generate Fixtures"}
                           </Button>
                         )}
                         {league.status === "in_progress" && (

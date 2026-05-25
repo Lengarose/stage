@@ -28,7 +28,7 @@ export default function RewardsTab({
             if (!comp) return null;
             const active = rewardSource?.id === comp.id;
             return (
-              <button key={t.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, trophy_image_url: comp.trophy_image_url || "" })}
+              <button key={t.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
                 className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                   active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 )} style={{ borderLeftColor: active ? undefined : t.color, borderLeftWidth: 2 }}>
@@ -40,7 +40,7 @@ export default function RewardsTab({
           {regionalLeagues.filter(l => l.status !== "archived").slice(0, 12).map(league => {
             const active = rewardSource?.id === league.id;
             return (
-              <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, trophy_image_url: league.trophy_image_url || "" })}
+              <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: league.max_clubs || 16, trophy_image_url: league.trophy_image_url || "" })}
                 className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                   active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 )}>
@@ -63,6 +63,8 @@ export default function RewardsTab({
             sourceId={rewardSource.id}
             sourceType={rewardSource.type}
             sourceName={rewardSource.name}
+            source={rewardSource}
+            maxPositions={rewardSource.type === "regional_league" ? (rewardSource.max_clubs || 16) : 36}
             trophyImageUrl={rewardSource.trophy_image_url}
             onTrophyUrlChange={async (url) => {
               setRewardSource(s => s ? { ...s, trophy_image_url: url } : s);

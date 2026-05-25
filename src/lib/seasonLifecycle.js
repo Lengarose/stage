@@ -1,10 +1,11 @@
 import { stageClient } from "@/api/stageClient";
 import { sortStandings } from "./competitionUtils";
+import { calculatePrizePool } from "./prizeDefaults";
 
 // ─── Competition season lifecycle ────────────────────────────────────────────
 
 export async function openSeasonRegistration(season) {
-  await stageClient.entities.CompetitionSeason.update(season.id, { status: "registration" });
+  throw new Error(`${season?.competition_name || "This competition"} is qualification-only. Confirm qualified clubs instead of opening public registration.`);
 }
 
 export async function archiveCompetitionSeason(season, competition) {
@@ -60,19 +61,20 @@ export async function archiveCompetitionSeason(season, competition) {
   await Promise.all(ops);
   await stageClient.entities.CompetitionSeason.update(season.id, seasonPatch);
 
-  // Distribute STC prizes, trophies, and achievements (non-fatal)
-  import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
-    distributeSeasonRewards({
+  // Distribute STC prizes, trophies, and achievements.
+  const { distributeSeasonRewards } = await import("./rewardsEngine");
+  await distributeSeasonRewards({
       sourceId:       season.competition_id,
       sourceType:     "competition",
       sourceName:     season.competition_name || competition?.name || "Competition",
+      sourceSlug:     season.competition_slug || competition?.slug || "",
+      sourceTier:     season.competition_tier || competition?.tier || null,
       seasonId:       season.id,
       seasonNumber:   season.season_number,
       seasonLabel:    season.season_label || `Season ${season.season_number}`,
       trophyImageUrl: competition?.trophy_image_url || "",
       standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
-    })
-  ).catch(() => {});
+    });
 }
 
 export async function createNextCompetitionSeason(season, competition) {
@@ -92,10 +94,16 @@ export async function createNextCompetitionSeason(season, competition) {
     fixtures_generated:    false,
     registered_club_ids:   [],
     num_clubs:             0,
+    max_clubs:             season.max_clubs || season.target_clubs || competition?.max_clubs_per_season || 36,
+    target_clubs:          season.max_clubs || season.target_clubs || competition?.max_clubs_per_season || 36,
     current_matchday:      1,
     status:                "draft",
-    prize_pool_stc:        season.prize_pool_stc || 0,
+    prize_pool_stc:        season.prize_pool_stc || calculatePrizePool("competition", competition || season, season.max_clubs || season.target_clubs || 36),
   });
+  if (competition) {
+    const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
+    await ensureDefaultRewardConfigs(competition.id, "competition", competition.name, competition, season.max_clubs || season.target_clubs || 36);
+  }
   await stageClient.entities.CompetitionSeason.update(season.id, { next_season_id: created.id });
   if (competition) {
     await stageClient.entities.Competition.update(competition.id, { current_season: nextNumber });
@@ -148,19 +156,19 @@ export async function archiveLeague(league) {
   await Promise.all(ops);
   await stageClient.entities.RegionalLeague.update(league.id, patch);
 
-  // Distribute STC prizes, trophies, and achievements (non-fatal)
-  import("./rewardsEngine").then(({ distributeSeasonRewards }) =>
-    distributeSeasonRewards({
+  // Distribute STC prizes, trophies, and achievements.
+  const { distributeSeasonRewards } = await import("./rewardsEngine");
+  await distributeSeasonRewards({
       sourceId:       league.id,
       sourceType:     "regional_league",
       sourceName:     league.name,
+      sourceDivision: league.division || 1,
       seasonId:       "",
       seasonNumber:   league.season_number,
       seasonLabel:    `Season ${league.season_number}`,
       trophyImageUrl: league.trophy_image_url || "",
       standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
-    })
-  ).catch(() => {});
+    });
 }
 
 export async function createNextLeagueSeason(league) {
@@ -181,9 +189,12 @@ export async function createNextLeagueSeason(league) {
     max_clubs:       league.max_clubs || 16,
     num_clubs:       0,
     promoted_slots:  league.promoted_slots || 2,
+    prize_pool_stc:  calculatePrizePool("regional_league", league, league.max_clubs || 16),
     registered_club_ids: [],
     linked_league_slug:  league.linked_league_slug || null,
   });
+  const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
+  await ensureDefaultRewardConfigs(created.id, "regional_league", created.name, created, created.max_clubs || 16);
 
   await stageClient.entities.RegionalLeague.update(league.id, { next_season_id: created.id });
   return created;

@@ -665,11 +665,20 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
   const club = await stageClient.entities.Club.filter({ id: entry.club_id }, null, 1).then(r => r[0]);
   if (!club) throw new Error("Club not found");
 
-  const alreadyIn = (season.registered_club_ids || []).includes(entry.club_id);
+  const registeredClubIds = Array.isArray(season.registered_club_ids) ? season.registered_club_ids : [];
+  const alreadyIn = registeredClubIds.includes(entry.club_id);
+  const targetClubs = Number(season.max_clubs || season.target_clubs || season.max_clubs_per_season || 36);
+  const nextRegisteredClubIds = alreadyIn ? registeredClubIds : [...registeredClubIds, entry.club_id];
+  if (!alreadyIn && targetClubs > 0 && nextRegisteredClubIds.length > targetClubs) {
+    throw new Error(`This season is already full (${registeredClubIds.length}/${targetClubs} clubs).`);
+  }
+
   if (!alreadyIn) {
     await stageClient.entities.CompetitionSeason.update(season.id, {
-      registered_club_ids: [...(season.registered_club_ids || []), entry.club_id],
-      num_clubs: (season.num_clubs || 0) + 1,
+      registered_club_ids: nextRegisteredClubIds,
+      num_clubs: nextRegisteredClubIds.length,
+      max_clubs: targetClubs,
+      target_clubs: targetClubs,
     });
     await stageClient.entities.CompetitionStanding.create({
       season_id: season.id,
@@ -684,7 +693,7 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
       club_tag: club.tag || "",
       platform: club.platform || season.platform,
       region: club.region || season.region,
-      position: (season.num_clubs || 0) + 1,
+      position: nextRegisteredClubIds.length,
       played: 0, wins: 0, draws: 0, losses: 0,
       goals_for: 0, goals_against: 0, goal_difference: 0,
       points: 0, form: [],

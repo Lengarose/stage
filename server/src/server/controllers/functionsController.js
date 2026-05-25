@@ -1892,6 +1892,68 @@ const HANDLERS = {
     });
   },
 
+  async awardClubSeasonPrize({
+    _auth_user_id,
+    club_id,
+    amount,
+    description,
+    reference_id,
+    legacy_reference_id,
+    category = 'competition_reward',
+    position,
+  }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!club_id) throw new Error('club_id required');
+    const prize = Number(amount || 0);
+    if (prize <= 0) return { success: true, skipped: true, reason: 'no_prize' };
+
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    const admin = adminRows[0];
+    if (!admin || Number(admin.role_id) !== 0) throw new Error('Admin only');
+
+    const ref = reference_id || uuidv4();
+    const existing = await EXECUTESQL(
+      `SELECT id FROM stc_transactions
+        WHERE club_id = ?
+          AND category = ?
+          AND (reference_id = ? ${legacy_reference_id ? 'OR reference_id = ?' : ''})
+        LIMIT 1`,
+      legacy_reference_id
+        ? [club_id, category, ref, legacy_reference_id]
+        : [club_id, category, ref]
+    );
+    if (existing.length) return { success: true, skipped: true, reason: 'already_paid', transaction_id: existing[0].id };
+
+    const result = await createClubTx({
+      clubId: club_id,
+      amount: prize,
+      type: 'income',
+      category,
+      description: description || 'Competition prize',
+      referenceId: ref,
+    });
+
+    if (Number(position) === 1) {
+      await EXECUTESQL(
+        'UPDATE clubs SET trophies = COALESCE(trophies, 0) + 1, updated_date = NOW() WHERE id = ?',
+        [club_id]
+      ).catch(() => {});
+    }
+
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'award_club_season_prize',
+      entityType: 'club',
+      entityId: club_id,
+      oldValue: null,
+      newValue: { amount: prize, category, description, reference_id: ref, position },
+      reason: 'Season reward distribution',
+    });
+
+    return { success: true, ...result };
+  },
+
   async resolvePlayerContact({ _auth_user_id, player_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     return resolvePlayerContactForInvite(player_id);
