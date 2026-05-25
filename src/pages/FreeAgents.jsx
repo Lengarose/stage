@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { User, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,21 +21,18 @@ export default function FreeAgents() {
 
   useEffect(() => {
     async function load() {
-      const u = await stageClient.auth.me();
+      const { user: u, club } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
-      const [allPlayers, myPlayer, allClubs] = await Promise.all([
+      const [allPlayers, allClubs] = await Promise.all([
         stageClient.entities.Player.filter({ status: "free_agent" }),
-        stageClient.entities.Player.filter({ email: u.email }),
         stageClient.entities.Club.list(null, 500),
       ]);
       const ownerEmails = new Set(allClubs.map(c => c.owner_email).filter(Boolean));
       // Only show players with no club AND who don't own a club
       const trueAgents = allPlayers.filter(p => !p.club_id && !ownerEmails.has(p.email));
       setPlayers(trueAgents);
-      if (myPlayer[0]?.club_id) {
-        const clubs = await stageClient.entities.Club.filter({ id: myPlayer[0].club_id });
-        if (clubs[0]) setMyClub(clubs[0]);
-      }
+      if (club) setMyClub(club);
       setLoading(false);
     }
     load();

@@ -1,6 +1,6 @@
 require('./constants/env').applyToProcessEnv();
 
-const { app, server } = require('./server/express/index');
+const { app, server,express } = require('./server/express/index');
 const { PORT } = require('./constants/constants');
 const { verifyToken } = require('./server/authMiddleware');
 const { errorHandler } = require('./server/middleware/errorHandler');
@@ -8,6 +8,8 @@ const { notFoundHandler } = require('./server/middleware/notFoundHandler');
 const { rateLimiter } = require('./server/middleware/rateLimiter');
 const { securityHeaders } = require('./server/middleware/securityHeaders');
 const { passport } = require('./server/oauth/passportConfig');
+const path = require("path");
+
 
 app.use(securityHeaders());
 app.use(require('express').json({ limit: '2mb' }));
@@ -112,6 +114,11 @@ app.use('/api/stage/season-registrations',       verifyToken, makeLeagueRouter('
 // Static `/uploads` — same folder as multer (see constants/paths.js); created if missing
 const uploadsStaticDir = ensureUploadsDir();
 app.use('/uploads', require('express').static(uploadsStaticDir));
+
+app.use(express.static(path.join(__dirname, "build")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "build", "index.html"));
+});
 
 // OAuth error landing page (used when FRONTEND_URL points to this backend host)
 app.get('/auth/error', (_req, res) => {

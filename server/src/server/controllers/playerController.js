@@ -42,10 +42,11 @@ async function ensureSecondaryPositionColumn() {
 router.get('/', async (req, res) => {
   try {
     await ensureSecondaryPositionColumn();
-    const { email, user_id, club_id, gamertag, page } = req.query;
+    const { id, email, user_id, club_id, gamertag, page } = req.query;
     const player = new Player();
     let result;
-    if (email) result = await player.selectByEmail(email);
+    if (id) result = await player.selectOne(String(id));
+    else if (email) result = await player.selectByEmail(email);
     else if (user_id) result = await player.selectByUserId(user_id);
     else if (club_id) result = await player.selectByClub(club_id);
     else if (gamertag) {

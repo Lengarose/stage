@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Zap, X } from "lucide-react";
 import GameDayCard from "@/components/gameday/GameDayCard";
@@ -25,40 +25,17 @@ export default function GameDay() {
         return;
       }
 
-      const u = await stageClient.auth.me();
+      const { user: u, player, club } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
       userEmail = u.email;
 
-      // Get player & club
-      const [players, followData] = await Promise.all([
-        stageClient.entities.Player.filter({ email: u.email }),
-        stageClient.entities.Follow.filter({ follower_email: u.email }),
-      ]);
-
-      let club = null;
-      if (players.length > 0) {
-        const player = players[0];
-        setMyPlayer(player);
-
-        if (player.club_id) {
-          const clubs = await stageClient.entities.Club.filter({ id: player.club_id });
-          club = clubs[0] || null;
-        }
-      }
-
-      // Club owners / away-side managers may not have player.club_id — still need myClub for Game Day tabs.
-      if (!club && u.id) {
-        const owned = await stageClient.entities.Club.filter({ user_id: u.id });
-        club = owned[0] || null;
-      }
-      if (!club && u.email) {
-        const byEmail = await stageClient.entities.Club.filter({ owner_email: u.email });
-        club = byEmail[0] || null;
-      }
+      if (player) setMyPlayer(player);
       if (club) setMyClub(club);
 
+      const followData = await stageClient.entities.Follow.filter({ follower_email: u.email }).catch(() => []);
       setFollows(followData || []);
-      await loadGames(u.email, players[0]?.id, club?.id || players[0]?.club_id, followData);
+      await loadGames(u.email, player?.id, club?.id || player?.club_id, followData);
       setLoading(false);
     }
 

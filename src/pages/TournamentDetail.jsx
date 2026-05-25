@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   advanceTournamentRound,
   cancelTournamentById,
@@ -97,11 +97,11 @@ export default function TournamentDetail() {
         // the rest of the page from rendering — the spinner used to stick
         // forever when (for example) the tournament id was stale and the
         // backend returned a non-2xx the SDK didn't recover from.
-        const [tData, clubData, matchData, plData] = await Promise.all([
+        const { player: myPl } = await resolveMyPlayerAndClub();
+        const [tData, clubData, matchData] = await Promise.all([
           stageClient.entities.Tournament.filter({ id }, null, 1).catch(() => []),
           stageClient.entities.Club.list("-rating", 200).catch(() => []),
           fetchTournamentMatches(id).catch(() => []),
-          stageClient.entities.Player.filter({ email: u.email }).catch(() => []),
         ]);
         const t = tData[0] || null;
         setTournament(t);
@@ -110,10 +110,10 @@ export default function TournamentDetail() {
         if (t) {
           setClubs(clubData.filter(c => t.registered_clubs?.includes(c.id)));
         }
-        if (plData.length > 0) {
-          setMyPlayer(plData[0]);
-          if (plData[0].club_id) {
-            const clubPlayers = await stageClient.entities.Player.filter({ club_id: plData[0].club_id }).catch(() => []);
+        if (myPl) {
+          setMyPlayer(myPl);
+          if (myPl.club_id) {
+            const clubPlayers = await stageClient.entities.Player.filter({ club_id: myPl.club_id }).catch(() => []);
             setMyClubPlayers(clubPlayers);
           }
         }

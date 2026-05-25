@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { stageClient } from '@/api/stageClient';
+import { stageClient, resolveMyPlayerAndClub } from '@/api/stageClient';
 import { cn } from '@/lib/utils';
 import { LIFESTYLE_CATEGORIES, resolveCategory, formatSTC, getAssetImage, LIFESTYLE_TIER_STYLES } from '@/lib/lifestyleItems';
 import { Button } from '@/components/ui/button';
@@ -30,13 +30,9 @@ export default function Lifestyle() {
 
   const load = useCallback(async () => {
     try {
-      const u = await stageClient.auth.me();
+      const { user: u, player: pl } = await resolveMyPlayerAndClub();
       if (!u?.email) { setLoading(false); return; }
-      const [players, storeItems] = await Promise.all([
-        stageClient.entities.Player.filter({ email: u.email }),
-        stageClient.entities.LifestyleItem.filter({ is_active: true }, 'sort_order', 200),
-      ]);
-      const pl = players[0] || null;
+      const storeItems = await stageClient.entities.LifestyleItem.filter({ is_active: true }, 'sort_order', 200);
       setPlayer(pl);
       setItems(storeItems);
       if (pl) {

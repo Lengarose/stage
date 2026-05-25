@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { TrendingUp, X } from "lucide-react";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
@@ -32,29 +32,21 @@ export default function TransferMarket() {
   async function load() {
     setLoading(true);
     try {
-      const user = await stageClient.auth.me();
+      const { user, player, club } = await resolveMyPlayerAndClub();
 
-      const [marketRes, playerArr] = await Promise.all([
-        stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} })),
-        stageClient.entities.Player.filter({ email: user.email }),
-      ]);
+      const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
 
-      const player = playerArr[0] || null;
       setMyPlayer(player);
       setFreeAgents(marketRes?.data?.free_agents || []);
       setExpiringPlayers(marketRes?.data?.expiring_players || []);
       setCurrentWindow(marketRes?.data?.current_window || null);
 
-      if (player?.club_id) {
-        const [clubArr, contractArr] = await Promise.all([
-          stageClient.entities.Club.filter({ id: player.club_id }),
-          stageClient.entities.PlayerContract.filter({ team_id: player.club_id }),
-        ]);
-        const club = clubArr[0] || null;
+      if (club) {
+        const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
         setMyClub(club);
         setMyContracts(contractArr);
         const isOwner = club?.owner_email === user.email;
-        const isManagement = player.club_roles?.includes("president") || player.club_roles?.includes("captain");
+        const isManagement = player?.club_roles?.includes("president") || player?.club_roles?.includes("captain");
         setCanManage(isOwner || isManagement || user.role === "admin");
       }
     } catch (err) {

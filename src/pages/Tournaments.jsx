@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrophyCarousel from "../components/tournament/TrophyCarousel";
 import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
 
 const TYPE_LABEL = {
@@ -80,8 +80,7 @@ export default function Tournaments() {
       if (adminUser) {
         setCanCreate(true);
       } else {
-        const players = await stageClient.entities.Player.filter({ email: user.email });
-        const player = players[0];
+        const { player } = await resolveMyPlayerAndClub();
         setMyPlayer(player);
         const tier = player?.subscription || "rookie";
         const allowed = ["pro", "elite"].includes(tier);

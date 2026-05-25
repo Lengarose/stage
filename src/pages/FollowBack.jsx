@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FollowedClubRow from "@/components/followback/FollowedClubRow";
 import FollowedPlayerRow from "@/components/followback/FollowedPlayerRow";
@@ -16,17 +16,14 @@ export default function FollowBack() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const user = await stageClient.auth.me();
+      const { user, player } = await resolveMyPlayerAndClub();
       if (!user) return;
 
-      const [playerRes, followRes, scheduledRes, liveRes] = await Promise.all([
-        stageClient.entities.Player.filter({ email: user.email }),
+      const [followRes, scheduledRes, liveRes] = await Promise.all([
         stageClient.entities.Follow.filter({ follower_email: user.email }),
         stageClient.entities.Match.filter({ status: "scheduled" }, "-scheduled_date", 200),
         stageClient.entities.Match.filter({ status: "in_progress" }, "-scheduled_date", 50),
       ]);
-
-      const player = playerRes[0];
       setMyPlayer(player);
       setFollows(followRes);
       setMatches([...liveRes, ...scheduledRes]);
@@ -39,7 +36,7 @@ export default function FollowBack() {
           ? Promise.all(clubFollows.map(f => stageClient.entities.Club.filter({ id: f.target_id }).then(r => r[0])))
           : Promise.resolve([]),
         playerFollows.length > 0
-          ? Promise.all(playerFollows.map(f => stageClient.entities.Player.filter({ id: f.target_id }).then(r => r[0])))
+          ? Promise.all(playerFollows.map(f => stageClient.entities.Player.get(f.target_id).catch(() => null)))
           : Promise.resolve([]),
       ]);
 

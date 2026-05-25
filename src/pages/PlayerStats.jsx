@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, Legend } from "recharts";
 import { User, Target, TrendingUp, Star, Shield, Trophy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,18 +17,15 @@ export default function PlayerStats() {
 
   useEffect(() => {
     async function load() {
-      const user = await stageClient.auth.me();
-      const myPlData = await stageClient.entities.Player.filter({ email: user.email });
-      const myPl = myPlData[0];
-      if (!myPl?.club_id) { setLoading(false); return; }
+      const { club } = await resolveMyPlayerAndClub();
+      if (!club?.id) { setLoading(false); return; }
 
-      const [clubData, clubPlayers, allStats] = await Promise.all([
-        stageClient.entities.Club.filter({ id: myPl.club_id }),
-        stageClient.entities.Player.filter({ club_id: myPl.club_id }),
-        stageClient.entities.MatchPlayerStat.filter({ club_id: myPl.club_id }),
+      const [clubPlayers, allStats] = await Promise.all([
+        stageClient.entities.Player.filter({ club_id: club.id }),
+        stageClient.entities.MatchPlayerStat.filter({ club_id: club.id }),
       ]);
 
-      setMyClub(clubData[0] || null);
+      setMyClub(club);
       setPlayers(clubPlayers);
       setStats(allStats);
       setLoading(false);

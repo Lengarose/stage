@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { stageClient } from "@/api/stageClient";
+import { resolveMyPlayerAndClub } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
@@ -48,14 +48,10 @@ export default function Onboarding({ onComplete }) {
   useEffect(() => {
     (async () => {
       try {
-        const u = await stageClient.auth.me();
+        const { user: u, player: pl } = await resolveMyPlayerAndClub();
         setUser(u);
-        const [players, clubs] = await Promise.all([
-          stageClient.entities.Player.filter({ email: u.email }),
-          stageClient.entities.Club.filter({ owner_email: u.email }),
-        ]);
-        if (players[0]) {
-          setPlayer(players[0]);
+        if (pl) {
+          setPlayer(pl);
         }
         // Already onboarded — don't show role chooser after localStorage was cleared
         if (u.player_id || players[0]?.id) {
@@ -72,9 +68,9 @@ export default function Onboarding({ onComplete }) {
 
   const handlePlayerComplete = async (optimisticPlayer = null) => {
     try {
-      const updated = await stageClient.entities.Player.filter({ email: user.email });
-      if (updated[0]) {
-        setPlayer(updated[0]);
+      const { player: updated } = await resolveMyPlayerAndClub();
+      if (updated) {
+        setPlayer(updated);
       } else if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
       }

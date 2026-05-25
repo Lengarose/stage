@@ -76,7 +76,13 @@ export default function PlayerSetup({ onComplete, user }) {
         stc: 50000,
       };
 
-      const existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
+      let existing = [];
+      if (user.player_id) {
+        const p = await stageClient.entities.Player.get(user.player_id).catch(() => null);
+        existing = p ? [p] : [];
+      } else {
+        existing = await stageClient.entities.Player.filter({ email: user.email }, null, 1).catch(() => []);
+      }
 
       const isBenignSaveError = (e) => {
         const msg = String(e?.message || '');

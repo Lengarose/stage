@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   ArrowLeft, User, Shield, Target, Swords,
   Gamepad2, Flag, Settings,
@@ -106,14 +106,14 @@ export default function PlayerProfile() {
 
       const enrichedFollowers = await Promise.all(
         allFollowers.filter(f => f.follower_player_id).map(async (f) => {
-          const pl = await stageClient.entities.Player.filter({ id: f.follower_player_id });
-          return { ...f, _player_id: f.follower_player_id, _player_name: pl[0]?.gamertag, avatar_url: pl[0]?.avatar_url };
+          const pl = await stageClient.entities.Player.get(f.follower_player_id).catch(() => null);
+          return { ...f, _player_id: f.follower_player_id, _player_name: pl?.gamertag, avatar_url: pl?.avatar_url };
         })
       );
       setFollowersList(enrichedFollowers);
 
-      const myPlArr = await stageClient.entities.Player.filter({ email: user.email });
-      if (myPlArr.length > 0) setMyPlayer(myPlArr[0]);
+      const { player: myPl, club: myClubResolved } = await resolveMyPlayerAndClub();
+      if (myPl) setMyPlayer(myPl);
 
       if (players.length > 0 && players[0].id && players[0].email) {
         const p = players[0];
@@ -136,11 +136,8 @@ export default function PlayerProfile() {
 
       // Load viewer's club if in club mode
       const acctMode = localStorage.getItem("stage-account-mode") || "player";
-      if (acctMode === "club" && myPlArr[0]?.club_id) {
-        try {
-          const vcArr = await stageClient.entities.Club.filter({ id: myPlArr[0].club_id });
-          setViewerClub(vcArr[0] || null);
-        } catch { }
+      if (acctMode === "club" && myClubResolved) {
+        setViewerClub(myClubResolved);
       }
 
       // Transfer window
@@ -212,7 +209,7 @@ export default function PlayerProfile() {
     const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
     let recipientEmail = player.email;
     if (!recipientEmail) {
-      try { const f = await stageClient.entities.Player.filter({ id: player.id }); recipientEmail = f[0]?.email || null; } catch { }
+      try { const f = await stageClient.entities.Player.get(player.id); recipientEmail = f?.email || null; } catch { }
     }
     const newContract = await stageClient.entities.PlayerContract.create({
       team_id: viewerClub.id, user_id: player.id,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Inbox, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
@@ -19,17 +19,13 @@ export default function InboxPage() {
     let stopped = false;
 
     async function load() {
-      const u = await stageClient.auth.me();
+      const { user: u, player, club } = await resolveMyPlayerAndClub();
+      if (!u) { setLoading(false); return; }
       setUser(u);
       const currentEmail = String(u.email || "").trim().toLowerCase();
 
-      const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
-      const player = players[0] || null;
       setMyPlayer(player);
-      if (player?.club_id) {
-        const clubs = await stageClient.entities.Club.filter({ id: player.club_id }).catch(() => []);
-        setMyClub(clubs[0] || null);
-      }
+      setMyClub(club);
 
       const data = await stageClient.entities.InboxMessage.filter({ recipient_email: currentEmail }, "-created_date", 200);
       setMessages(data || []);

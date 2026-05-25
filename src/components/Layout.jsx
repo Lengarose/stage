@@ -9,7 +9,7 @@ import {
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { isAppAdminUser, shouldShowAdminHeader } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
@@ -469,15 +469,28 @@ function HeaderIdentityMenu({
 }
 
 /* ── Mobile primary tabs ──────────────────────────────────── */
-const MOBILE_PRIMARY = [
+const MOBILE_PRIMARY_PLAYER = [
   { path: "/",             icon: Home,   label: "Home"    },
   { path: "/competitions", icon: Trophy, label: "Compete" },
   { path: "/search",       icon: Search, label: "Search"  },
-      { path: "/social",       icon: Rss,    label: "Social"  },
-      { path: "/profile",      icon: User,   label: "Profile" },
+  { path: "/social",       icon: Rss,    label: "Social"  },
+  { path: "/profile",      icon: User,   label: "Profile" },
 ];
 
-const MOBILE_MORE_GROUPS = [
+function getMobilePrimary(accountMode, clubPath) {
+  if (accountMode === "club") {
+    return [
+      { path: "/",                          icon: Home,         label: "Home"     },
+      { path: clubPath || "/clubs",         icon: Shield,       label: "My Club"  },
+      { path: "/schedule",                  icon: CalendarDays, label: "Schedule" },
+      { path: "/players-list",              icon: UsersRound,   label: "Squad"    },
+      { path: "/profile",                   icon: User,         label: "Profile"  },
+    ];
+  }
+  return MOBILE_PRIMARY_PLAYER;
+}
+
+const MOBILE_MORE_GROUPS_PLAYER = [
   {
     label: "Play",
     items: [
@@ -519,7 +532,56 @@ const MOBILE_MORE_GROUPS = [
   },
 ];
 
-function MobileMoreSheet({ open, onClose, pathname }) {
+function getMobileMoreGroupsOwner(clubPath) {
+  return [
+    {
+      label: "Club",
+      items: [
+        ...(clubPath ? [{ path: clubPath, icon: Shield, label: "My Club" }] : []),
+        { path: "/players-list",    icon: UsersRound,    label: "Players"      },
+        { path: "/game-day",        icon: Zap,           label: "Game Day"     },
+        { path: "/inbox",           icon: Inbox,         label: "Inbox"        },
+        { path: "/social",          icon: Rss,          label: "Feed"          },
+      ],
+    },
+    {
+      label: "Market",
+      items: [
+        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
+        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
+        { path: "/lifestyle",       icon: Coins,          label: "Lifestyle"   },
+        { path: "/wallet",          icon: Zap,            label: "Wallet"      },
+        { path: "/store",           icon: ShoppingBag,    label: "Store"       },
+      ],
+    },
+    {
+      label: "Competitions",
+      items: [
+        { path: "/competitions",    icon: Star,           label: "Competitions" },
+        { path: "/tournaments",     icon: Trophy,         label: "Tournaments"  },
+        { path: "/international",   icon: Globe2,         label: "International" },
+        { path: "/register-league", icon: Shield,         label: "Register"     },
+        { path: "/rankings",        icon: BarChart3,      label: "Rankings"     },
+      ],
+    },
+    {
+      label: "Info",
+      items: [
+        { path: "/news",            icon: Newspaper,      label: "News"          },
+        { path: "/notifications",   icon: Bell,           label: "Notifications" },
+        { path: "/settings",        icon: Settings,       label: "Settings"      },
+      ],
+    },
+  ];
+}
+
+function getMobileMoreGroups(accountMode, clubPath) {
+  if (accountMode === "club") return getMobileMoreGroupsOwner(clubPath);
+  return MOBILE_MORE_GROUPS_PLAYER;
+}
+
+function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath }) {
+  const groups = getMobileMoreGroups(accountMode, clubPath);
   return (
     <>
       {/* backdrop */}
@@ -552,7 +614,7 @@ function MobileMoreSheet({ open, onClose, pathname }) {
           className="overflow-y-auto px-4 pb-4"
           style={{ maxHeight: "calc(82vh - 60px)", WebkitOverflowScrolling: "touch" }}
         >
-          {MOBILE_MORE_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.label} className="mb-4">
               <p
                 className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
@@ -560,7 +622,7 @@ function MobileMoreSheet({ open, onClose, pathname }) {
               >
                 {group.label}
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2.5">
                 {group.items.map((item) => {
                   const isActive = isNavItemActive(item.path, pathname);
                   const Icon = item.icon;
@@ -569,24 +631,24 @@ function MobileMoreSheet({ open, onClose, pathname }) {
                       key={item.path}
                       to={item.path}
                       onClick={onClose}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-3 px-1 transition-all active:scale-95"
+                      className="flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95"
                       style={{
                         background: isActive ? "rgba(0,229,189,0.12)" : "rgba(255,255,255,0.04)",
                         border: isActive ? "1px solid rgba(0,229,189,0.3)" : "1px solid rgba(255,255,255,0.06)",
                       }}
                     >
                       <Icon
-                        className="w-5 h-5"
-                        style={{ color: isActive ? "#00E5BD" : "rgba(255,255,255,0.5)" }}
+                        className="w-7 h-7"
+                        style={{ color: isActive ? "#00E5BD" : "rgba(255,255,255,0.55)" }}
                       />
                       <span
-                        className="text-[9px] text-center leading-tight"
+                        className="text-[11px] text-center leading-tight"
                         style={{
                           fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
                           fontWeight: 600,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
-                          color: isActive ? "#00E5BD" : "rgba(255,255,255,0.45)",
+                          color: isActive ? "#00E5BD" : "rgba(255,255,255,0.55)",
                         }}
                       >
                         {item.label}
@@ -606,14 +668,23 @@ function MobileMoreSheet({ open, onClose, pathname }) {
 function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const primaryActive = MOBILE_PRIMARY.find((t) => isNavItemActive(t.path, pathname));
-  const moreActive = findActiveInGroups(MOBILE_MORE_GROUPS, pathname);
+  const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
+  const primaryTabs = getMobilePrimary(accountMode, clubPath);
+  const moreGroups = getMobileMoreGroups(accountMode, clubPath);
+  const primaryActive = primaryTabs.find((t) => isNavItemActive(t.path, pathname));
+  const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
   const moreLabel = moreActive?.item.label ?? "More";
 
   return (
     <>
-      <MobileMoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} pathname={pathname} />
+      <MobileMoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        pathname={pathname}
+        accountMode={accountMode}
+        clubPath={clubPath}
+      />
 
       <nav
         className="fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
@@ -627,7 +698,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
         }}
       >
         <div className="flex w-full">
-          {MOBILE_PRIMARY.map((tab) => {
+          {primaryTabs.map((tab) => {
             const isActive = isNavItemActive(tab.path, pathname);
             const Icon = tab.icon;
             return (
@@ -716,6 +787,201 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
   );
 }
 
+const ADMIN_MOBILE_PRIMARY = [
+  { path: "/admin", icon: ShieldAlert, label: "Dash" },
+  { path: "/admin/players", icon: UsersRound, label: "Players" },
+  { path: "/admin/clubs", icon: Shield, label: "Clubs" },
+  { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
+];
+
+function AdminMobileMoreSheet({ open, onClose, pathname }) {
+  const groups = getAdminGroups();
+
+  return (
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm md:hidden"
+          style={{ WebkitBackdropFilter: "blur(4px)" }}
+          onClick={onClose}
+        />
+      )}
+      <div
+        className="fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out md:hidden"
+        style={{
+          bottom: 0,
+          transform: open ? "translateY(0)" : "translateY(110%)",
+          background: "linear-gradient(180deg, #1a0d16 0%, #090d1c 100%)",
+          borderTop: "1.5px solid rgba(248,113,113,0.28)",
+          boxShadow: "0 -12px 60px rgba(0,0,0,0.82)",
+          paddingBottom: "calc(var(--mobile-tab-h) + var(--safe-bottom))",
+          maxHeight: "82vh",
+        }}
+      >
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(248,113,113,0.35)" }} />
+        </div>
+
+        <div
+          className="overflow-y-auto px-4 pb-4"
+          style={{ maxHeight: "calc(82vh - 60px)", WebkitOverflowScrolling: "touch" }}
+        >
+          {groups.map((group) => (
+            <div key={group.label} className="mb-4">
+              <p
+                className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
+                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 600, color: "rgba(248,113,113,0.68)" }}
+              >
+                {group.label}
+              </p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {group.items.map((item) => {
+                  const isActive = isNavItemActive(item.path, pathname);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onClose}
+                      className="flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95"
+                      style={{
+                        background: isActive ? "rgba(248,113,113,0.14)" : "rgba(255,255,255,0.04)",
+                        border: isActive ? "1px solid rgba(248,113,113,0.38)" : "1px solid rgba(255,255,255,0.07)",
+                      }}
+                    >
+                      <Icon
+                        className="w-7 h-7"
+                        style={{ color: isActive ? "#f87171" : "rgba(255,255,255,0.58)" }}
+                      />
+                      <span
+                        className="text-[11px] text-center leading-tight"
+                        style={{
+                          fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: isActive ? "#f87171" : "rgba(255,255,255,0.58)",
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AdminMobileBottomBar({ pathname }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const adminGroups = getAdminGroups();
+  const primaryActive = ADMIN_MOBILE_PRIMARY.find((t) => isNavItemActive(t.path, pathname));
+  const moreActive = findActiveInGroups(adminGroups, pathname);
+  const inMore = !primaryActive && Boolean(moreActive);
+  const moreLabel = inMore ? moreActive.item.label : "More";
+
+  return (
+    <>
+      <AdminMobileMoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        pathname={pathname}
+      />
+
+      <nav
+        className="fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
+        style={{
+          background: "rgba(12,8,20,0.94)",
+          backdropFilter: "blur(32px)",
+          WebkitBackdropFilter: "blur(32px)",
+          borderTop: "1px solid rgba(248,113,113,0.22)",
+          boxShadow: "0 -4px 30px rgba(0,0,0,0.65)",
+          paddingBottom: "var(--safe-bottom)",
+        }}
+      >
+        <div className="flex w-full">
+          {ADMIN_MOBILE_PRIMARY.map((tab) => {
+            const isActive = isNavItemActive(tab.path, pathname);
+            const Icon = tab.icon;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+                style={{ minHeight: "var(--mobile-tab-h)" }}
+                onClick={() => setMoreOpen(false)}
+              >
+                <div className="relative flex items-center justify-center">
+                  <Icon
+                    className="w-[22px] h-[22px] transition-colors"
+                    style={{ color: isActive ? "#f87171" : "rgba(255,255,255,0.38)" }}
+                  />
+                  {isActive && (
+                    <span
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{ background: "#f87171", boxShadow: "0 0 6px #f87171" }}
+                    />
+                  )}
+                </div>
+                <span
+                  className="text-[9px] transition-colors"
+                  style={{
+                    fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                    fontWeight: 600,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: isActive ? "#f87171" : "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {tab.label}
+                </span>
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+            style={{ minHeight: "var(--mobile-tab-h)" }}
+          >
+            <div className="w-[22px] h-[22px] flex flex-col items-center justify-center gap-[3px]">
+              {[0,1,2].map((i) => (
+                <span
+                  key={i}
+                  className="block rounded-full transition-all"
+                  style={{
+                    width: moreOpen ? (i === 1 ? 14 : 10) : 14,
+                    height: 2,
+                    background: (moreOpen || inMore) ? "#f87171" : "rgba(255,255,255,0.38)",
+                  }}
+                />
+              ))}
+            </div>
+            <span
+              className="text-[9px] transition-colors"
+              style={{
+                fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: (moreOpen || inMore) ? "#f87171" : "rgba(255,255,255,0.3)",
+              }}
+            >
+              {moreLabel}
+            </span>
+          </button>
+        </div>
+      </nav>
+    </>
+  );
+}
+
 function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin, activePageLabel }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
@@ -734,36 +1000,22 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
         borderBottom: "1px solid rgba(0,229,189,0.1)",
       }}
     >
-      <Link to="/" className="shrink-0">
-        <img src={LogoImg} alt="STAGE" className="h-9 w-auto object-contain" />
-      </Link>
-
-      {activePageLabel && (
-        <span
-          className="absolute left-1/2 -translate-x-1/2 text-[11px] uppercase truncate max-w-[42vw] pointer-events-none"
-          style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", color: TEAL }}
-        >
-          {activePageLabel}
-        </span>
-      )}
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <Link to="/" className="shrink-0">
+          <img src={LogoImg} alt="STAGE" className="h-10 w-auto object-contain" />
+        </Link>
+        {activePageLabel && (
+          <span
+            className="text-[12px] uppercase truncate"
+            style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", color: TEAL }}
+          >
+            {activePageLabel}
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="bg-transparent outline-none border border-white/10 rounded-lg px-2 py-1 text-[10px] uppercase"
-          style={{
-            fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            color: "rgba(255,255,255,0.5)",
-            background: "rgba(255,255,255,0.05)",
-          }}
-        >
-          {THEMES.map((t) => (
-            <option key={t.id} value={t.id} className="bg-[#080f1c] text-white normal-case">{t.label}</option>
-          ))}
-        </select>
+        <MobileThemeButton theme={theme} setTheme={setTheme} />
 
         <NotificationBell />
 
@@ -791,23 +1043,176 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
           </button>
         )}
 
-        {/* Identity avatar tap → profile */}
-        <Link to="/profile" className="ml-1">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border"
-            style={{
-              border: "1.5px solid rgba(0,229,189,0.4)",
-              background: myPlayer?.avatar_url ? `url(${myPlayer.avatar_url})` : "rgba(255,255,255,0.08)",
-              backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
-              backgroundPosition: myPlayer?.avatar_position || "50% 50%",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            {!myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />}
-          </div>
-        </Link>
+        <MobileIdentityMenu
+          myPlayer={myPlayer}
+          myClub={myClub}
+          accountMode={accountMode}
+          switchMode={switchMode}
+        />
       </div>
     </header>
+  );
+}
+
+function MobileThemeButton({ theme, setTheme }) {
+  const current = THEMES.find((t) => t.id === theme) || THEMES[0];
+  const Icon = current.icon;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="w-9 h-9 flex items-center justify-center rounded-full border border-white/10 outline-none"
+          style={{ background: "rgba(255,255,255,0.05)" }}
+          aria-label="Theme"
+        >
+          <Icon className="w-4 h-4 text-white/70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="z-[90] w-44 p-1 text-white"
+        style={getEafcDropdownStyle(false)}
+      >
+        <DropdownMenuLabel
+          className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
+          style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
+        >
+          Theme
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+          {THEMES.map((t) => {
+            const ThemeIcon = t.icon;
+            return (
+              <DropdownMenuRadioItem
+                key={t.id}
+                value={t.id}
+                className="cursor-pointer gap-2 py-2 text-white/80 focus:bg-white/10 focus:text-white"
+                style={{ ...headingFont, fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+              >
+                <ThemeIcon className="h-3.5 w-3.5 shrink-0 text-[#00E5BD]" />
+                {t.label}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MobileIdentityMenu({ myPlayer, myClub, accountMode, switchMode }) {
+  const canSwitchRole = Boolean(myPlayer && myClub?.id);
+  const showAsOwner = accountMode === "club" && Boolean(myClub?.id);
+  const clubLogoFallback =
+    myClub &&
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
+
+  const showPlayerAvatarBg = !showAsOwner && Boolean(myPlayer?.avatar_url);
+  const avatarNode = (
+    <div
+      className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border"
+      style={{
+        border: "1.5px solid rgba(0,229,189,0.4)",
+        backgroundColor: "rgba(255,255,255,0.08)",
+        ...(showPlayerAvatarBg && {
+          backgroundImage: `url(${myPlayer.avatar_url})`,
+          backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
+          backgroundPosition: myPlayer?.avatar_position || "50% 50%",
+          backgroundRepeat: "no-repeat",
+        }),
+      }}
+    >
+      {showAsOwner && myClub ? (
+        <img
+          src={myClub.logo_url || clubLogoFallback}
+          alt=""
+          className="h-full w-full object-cover"
+          style={{ objectPosition: myClub.logo_position || "50% 50%" }}
+        />
+      ) : (
+        !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
+      )}
+    </div>
+  );
+
+  // If user has only one identity, keep the bar minimal — direct link to profile.
+  if (!canSwitchRole) {
+    return (
+      <Link to="/profile" className="ml-1">
+        {avatarNode}
+      </Link>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="ml-1 outline-none">
+          {avatarNode}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="z-[90] w-52 p-1 text-white"
+        style={getEafcDropdownStyle(false)}
+      >
+        <DropdownMenuLabel
+          className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
+          style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
+        >
+          Account
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
+          <DropdownMenuRadioItem
+            value="player"
+            className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-blue-600/20 focus:text-white"
+            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          >
+            <User className="h-4 w-4 shrink-0 text-blue-400" /> Player
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem
+            value="club"
+            className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
+            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          >
+            <Shield className="h-4 w-4 shrink-0 text-amber-400" /> Owner
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          >
+            <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+          <Link
+            to="/settings"
+            className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          >
+            <Settings className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
+        <DropdownMenuItem
+          className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
+          style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          onClick={() => stageClient.auth.logout()}
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Logout
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -971,10 +1376,10 @@ export default function Layout() {
   useEffect(() => {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
-      const u = await stageClient.auth.me();
+      const { user: u, player: p, club: c } = await resolveMyPlayerAndClub();
       if (!u) return;
-      const clubs = await stageClient.entities.Club.filter({ owner_email: u.email });
-      const c = clubs?.[0];
+
+      // Club
       if (c?.id) {
         setMyClubId(c.id);
         setMyClub(c);
@@ -982,15 +1387,8 @@ export default function Layout() {
         setMyClubId(null);
         setMyClub(null);
       }
-    })();
-  }, []);
 
-  useEffect(() => {
-    (async () => {
-      const u = await stageClient.auth.me();
-      if (!u) return;
-      const players = await stageClient.entities.Player.filter({ email: u.email });
-      const p = players?.[0];
+      // Player
       if (!p) return;
       setMyPlayer(p);
       setSubscriptionTier((p.subscription || "rookie").toLowerCase());
@@ -1281,7 +1679,9 @@ export default function Layout() {
       </div>
 
       {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
-      {!showAdminHeader && (
+      {showAdminHeader ? (
+        <AdminMobileBottomBar pathname={location.pathname} />
+      ) : (
         <MobileBottomBar
           pathname={location.pathname}
           myPlayer={myPlayer}

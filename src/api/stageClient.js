@@ -232,6 +232,13 @@ function makeEntity(name) {
       for (const [k, v] of Object.entries(filters)) {
         if (v !== undefined && v !== null) clean[k] = v;
       }
+      if (clean.id && Object.keys(clean).length === 1) {
+        const row = await makeEntityApi.get(clean.id).catch((err) => {
+          if (err?.status === 404) return null;
+          throw err;
+        });
+        return row ? [row] : [];
+      }
       const qs = new URLSearchParams({ ...clean, limit: String(limit) }).toString();
       let data;
       try {
@@ -582,6 +589,47 @@ function buildQuery(q) {
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
   return params.length ? `?${params.join('&')}` : '';
+}
+
+// ── Canonical user→player→club resolver ───────────────────────────────────────
+// The correct lookup chain is:
+//   users table (auth.me()) → player_id → players table → club_id → clubs table
+//   Club-owner fallback: users.owner_id → clubs table
+//   Last fallback: clubs.owner_email = user.email
+//
+// Usage:
+//   const { user, player, club } = await resolveMyPlayerAndClub();
+export async function resolveMyPlayerAndClub() {
+  const u = await auth.me().catch(() => null);
+  if (!u) return { user: null, player: null, club: null };
+
+  let player = null;
+  let club = null;
+
+  // 1) Use user.player_id from users table to get player directly.
+  //    Use .get(id) for one-row identity lookups.
+  if (u.player_id) {
+    player = await entities.Player.get(u.player_id).catch(() => null);
+  }
+
+  // 2) From player, get club via club_id
+  //    Club controller supports ?id= but .get() is cleaner.
+  if (player?.club_id) {
+    club = await entities.Club.get(player.club_id).catch(() => null);
+  }
+
+  // 3) Club-only accounts may have no player profile. Use owner_id from users.
+  if (!club && u.owner_id) {
+    club = await entities.Club.get(u.owner_id).catch(() => null);
+  }
+
+  // 4) Final fallback: find club by owner_email
+  if (!club && u.email) {
+    const rows = await entities.Club.filter({ owner_email: u.email }, null, 1).catch(() => []);
+    club = rows[0] || null;
+  }
+
+  return { user: u, player, club };
 }
 
 export const stageClient = { entities, auth, integrations, functions, http, identityClaims };

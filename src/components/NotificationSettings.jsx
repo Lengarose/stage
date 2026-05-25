@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Bell, BellOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { NOTIFICATION_SETTINGS, getDefaultNotificationSettings } from "@/lib/notificationTypes";
@@ -22,10 +22,8 @@ export default function NotificationSettings() {
 
   useEffect(() => {
     async function load() {
-      const user = await stageClient.auth.me();
-      if (!user?.email) return;
-      const players = await stageClient.entities.Player.filter({ email: user.email });
-      const p = players?.[0];
+      const { player: p } = await resolveMyPlayerAndClub();
+      if (!p) return;
       if (p) {
         setPlayer(p);
         if (p.notification_settings) {
