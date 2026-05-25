@@ -29,12 +29,29 @@ const {
 
 async function getMe(_auth_user_id) {
   if (!_auth_user_id) throw new Error('not authenticated');
-  const users = await EXECUTESQL('SELECT id, email FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+  const users = await EXECUTESQL('SELECT id, email, player_id, owner_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
   if (!users.length) throw new Error('User not found');
   const me = users[0];
-  const players = await EXECUTESQL('SELECT * FROM players WHERE user_id = ? LIMIT 1', [_auth_user_id]);
-  const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [_auth_user_id]);
-  return { user: me, player: players[0] || null, club: clubs[0] || null };
+  const playerRows = me.player_id
+    ? await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [me.player_id]).catch(() => [])
+    : [];
+  const player = playerRows[0] || (await EXECUTESQL('SELECT * FROM players WHERE user_id = ? LIMIT 1', [_auth_user_id]).catch(() => []))[0] || null;
+
+  const clubRows = player?.club_id
+    ? await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [player.club_id]).catch(() => [])
+    : [];
+  const ownerClubRows = !clubRows.length && me.owner_id
+    ? await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [me.owner_id]).catch(() => [])
+    : [];
+  const userClubRows = !clubRows.length && !ownerClubRows.length
+    ? await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [_auth_user_id]).catch(() => [])
+    : [];
+  const emailClubRows = !clubRows.length && !ownerClubRows.length && !userClubRows.length && me.email
+    ? await EXECUTESQL('SELECT * FROM clubs WHERE owner_email = ? LIMIT 1', [me.email]).catch(() => [])
+    : [];
+  const club = clubRows[0] || ownerClubRows[0] || userClubRows[0] || emailClubRows[0] || null;
+
+  return { user: me, player, club };
 }
 
 async function getCurrentTransferWindow() {

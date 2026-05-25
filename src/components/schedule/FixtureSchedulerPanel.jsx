@@ -232,7 +232,10 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
 
 function ProposalForm({ propDate, propTime, deadline, onDateChange, onTimeChange, onSubmit, onCancel, busy }) {
   const minDate = new Date().toISOString().split("T")[0];
-  const maxDate = deadline ? deadline.split("T")[0] : undefined;
+  const deadlineIso = deadline instanceof Date
+    ? (Number.isNaN(deadline.getTime()) ? null : deadline.toISOString())
+    : (typeof deadline === "string" ? deadline : null);
+  const maxDate = deadlineIso ? deadlineIso.split("T")[0] : undefined;
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-warning font-semibold uppercase tracking-wider flex items-center gap-1">
