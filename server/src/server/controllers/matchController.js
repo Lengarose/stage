@@ -42,14 +42,30 @@ async function getAuthContext(req) {
 }
 
 function ownScopeWhere(ctx) {
+  const clubIds = authClubIds(ctx);
+  const clubClause = clubIds.length
+    ? ` OR home_club_id IN (${clubIds.map(() => '?').join(',')}) OR away_club_id IN (${clubIds.map(() => '?').join(',')})`
+    : '';
   return {
-    clause: '(home_player_id = ? OR away_player_id = ? OR home_club_id = ? OR away_club_id = ?)',
-    values: [ctx.playerId, ctx.playerId, ctx.playerClubId || ctx.ownerClubId, ctx.playerClubId || ctx.ownerClubId],
+    clause: `(home_player_id = ? OR away_player_id = ?${clubClause})`,
+    values: [ctx.playerId, ctx.playerId, ...clubIds, ...clubIds],
   };
 }
 
 function hasOwnScope(ctx) {
   return Boolean(ctx.playerId || ctx.playerClubId || ctx.ownerClubId);
+}
+
+function authClubIds(ctx) {
+  return [...new Set([ctx.playerClubId, ctx.ownerClubId].filter(Boolean))];
+}
+
+function matchTouchesAuthScope(record, ctx) {
+  const clubIds = authClubIds(ctx);
+  return record.home_player_id === ctx.playerId ||
+    record.away_player_id === ctx.playerId ||
+    clubIds.includes(record.home_club_id) ||
+    clubIds.includes(record.away_club_id);
 }
 
 function eloDelta(ratingA, ratingB, result) {
@@ -324,13 +340,9 @@ router.get('/:id', async (req, res) => {
     const result = await match.selectOne(req.params.id);
     if (!result.length) return res.status(404).json({ error: 'Not found' });
     const record = result[0];
-    const userClubId = auth.playerClubId || auth.ownerClubId;
-    const canAccess = isAdmin ||
-      record.home_player_id === auth.playerId ||
-      record.away_player_id === auth.playerId ||
-      record.home_club_id === userClubId ||
-      record.away_club_id === userClubId;
-    if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+    if (!isAdmin && !matchTouchesAuthScope(record, auth)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -346,14 +358,8 @@ router.post('/', async (req, res) => {
     const isAdmin = auth.roleId === 0;
     if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     if (!isAdmin) {
-      const userClubId = auth.playerClubId || auth.ownerClubId;
       const payload = req.body || {};
-      const touchesMine =
-        payload.home_player_id === auth.playerId ||
-        payload.away_player_id === auth.playerId ||
-        payload.home_club_id === userClubId ||
-        payload.away_club_id === userClubId;
-      if (!touchesMine) return res.status(403).json({ error: 'Forbidden' });
+      if (!matchTouchesAuthScope(payload, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     const payloadWithNames = await attachMatchNames(req.body);
     const match = new Match(payloadWithNames);
@@ -380,13 +386,7 @@ router.patch('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     if (!isAdmin) {
       const record = existing[0];
-      const userClubId = auth.playerClubId || auth.ownerClubId;
-      const canAccess =
-        record.home_player_id === auth.playerId ||
-        record.away_player_id === auth.playerId ||
-        record.home_club_id === userClubId ||
-        record.away_club_id === userClubId;
-      if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+      if (!matchTouchesAuthScope(record, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     const previous = existing[0];
     const payloadWithNames = await attachMatchNames({ ...previous, ...req.body });
@@ -421,13 +421,7 @@ router.delete('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     if (!isAdmin) {
       const record = existing[0];
-      const userClubId = auth.playerClubId || auth.ownerClubId;
-      const canAccess =
-        record.home_player_id === auth.playerId ||
-        record.away_player_id === auth.playerId ||
-        record.home_club_id === userClubId ||
-        record.away_club_id === userClubId;
-      if (!canAccess) return res.status(403).json({ error: 'Forbidden' });
+      if (!matchTouchesAuthScope(record, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     await new Match().delete(id);
     broadcastMatchDeleted(id);
