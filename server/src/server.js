@@ -39,6 +39,7 @@ app.use('/api/stage/players',           verifyToken, require('./server/controlle
 app.use('/api/stage/clubs',             verifyToken, require('./server/controllers/clubController'));
 app.use('/api/stage/matches',           verifyToken, require('./server/controllers/matchController'));
 app.use('/api/stage/tournaments',       verifyToken, require('./server/controllers/tournamentController'));
+app.use('/api/stage/competition-engine', verifyToken, require('./server/controllers/competitionEngineController'));
 app.use('/api/stage/international-tournaments', verifyToken, require('./server/controllers/internationalTournamentController'));
 app.use('/api/stage/posts',             verifyToken, require('./server/controllers/postController'));
 app.use('/api/stage/comments',          verifyToken, require('./server/controllers/commentController'));
