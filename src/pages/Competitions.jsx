@@ -263,12 +263,12 @@ export default function Competitions() {
               <h2 className="text-xs font-black uppercase tracking-widest text-foreground">Regional Leagues</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[...activeLeagues, ...openLeagues].slice(0, 9).map(league => {
+              {[...activeLeagues, ...openLeagues].map(league => {
                 const targetMeta = getCompetitionMeta(
                   COMPETITIONS.find(c => c.name === league.target_competition_name)?.slug || "challenger"
                 );
                 return (
-                  <div key={league.id} className="bg-card border border-border rounded p-4">
+                  <Link key={league.id} to={`/leagues/${league.slug}`} className="bg-card border border-border rounded p-4 block transition-colors hover:border-primary/50 hover:bg-secondary/20">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <p className="text-sm font-bold text-foreground leading-tight">{league.name}</p>
@@ -287,7 +287,7 @@ export default function Competitions() {
                       <span className={targetMeta.textColor}>→ {league.target_competition_name || "STAGE"}</span>
                       {league.promoted_slots > 0 && <span className="text-muted-foreground">({league.promoted_slots} spots)</span>}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
