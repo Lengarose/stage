@@ -202,6 +202,14 @@ Important fields:
 - `bracket_side`
 - `home_participant_id`
 - `away_participant_id`
+- `home_club_id`
+- `home_club_name`
+- `away_club_id`
+- `away_club_name`
+- `home_player_id`
+- `home_player_name`
+- `away_player_id`
+- `away_player_name`
 - `status`: unscheduled, scheduled, in_progress, completed, disputed, forfeit, cancelled
 - `scheduling_status`: open, home_proposed, away_proposed, confirmed, expired, admin_review
 - `window_start`
@@ -375,6 +383,13 @@ Add or verify indexes:
 - `player_stc_transactions(player_id, category, reference_id)`
 
 Where possible, server-generated financial transactions should have a unique idempotency key.
+
+`matches` must keep identity snapshot fields for both sides:
+
+- club matches: `home_club_id`, `home_club_name`, `away_club_id`, `away_club_name`
+- player matches: `home_player_id`, `home_player_name`, `away_player_id`, `away_player_name`
+
+The unified fixture engine should populate these fields when it creates or links a Game Day match. IDs are used for permissions and joins; names are stored as snapshots so old fixtures and match history still render correctly if a club/player changes name later.
 
 ## Server Commands
 
