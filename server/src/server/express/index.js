@@ -12,6 +12,7 @@ const ALLOWED_ORIGINS = [
   'https://stageleagues.com',
   'https://www.stageleagues.com',
   'http://localhost:5173',    // Vite dev
+  'http://localhost:5174',    // Vite dev (alt port)
   'http://localhost:3000',    // alt dev
 ];
 app.use(cors({
