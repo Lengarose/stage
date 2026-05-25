@@ -42,6 +42,7 @@ import {
 import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
+import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
 
 /** @param {{ forcedSection?: string }} [props] */
 export default function Admin(props) {
@@ -131,6 +132,7 @@ export default function Admin(props) {
   const [regionalLeagues, setRegionalLeagues] = useState([]);
   const [seedingRegionalLeagues, setSeedingRegionalLeagues] = useState(false);
   const [processingLeagueEnd, setProcessingLeagueEnd] = useState(null);
+  const [generatingRegionalFixtures, setGeneratingRegionalFixtures] = useState(null);
 
   // Competition & league inline editing
   const [editingComp, setEditingComp]       = useState(null);
@@ -239,6 +241,12 @@ export default function Admin(props) {
       setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
       setPressConferences(allPressConferences);
       setLifestyleItems(allLifestyleItems);
+      seedDefaultRewardConfigsForSources([
+        ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
+        ...allRegLeagues
+          .filter(l => l.status !== "archived")
+          .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: l.max_clubs || 16 })),
+      ]).catch(() => {});
       await loadInternationalTournaments();
       setExpiredFixtures([
         ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
@@ -432,6 +440,32 @@ export default function Admin(props) {
     } finally {
       setUploadingTrophy(false);
     }
+  }
+
+  async function seedDefaultRewardConfig(sourceId, sourceType, sourceName, source, maxPositions) {
+    if (!sourceId || !stageClient.entities.RewardConfig) return;
+    const existing = await stageClient.entities.RewardConfig.filter({ source_id: sourceId }, null, 1).catch(() => []);
+    if (existing.length) return;
+    const rows = getDefaultRewardRowsForSource(sourceType, { ...source, name: sourceName }, maxPositions);
+    await Promise.all(rows.map(row => stageClient.entities.RewardConfig.create({
+      source_id: sourceId,
+      source_type: sourceType,
+      source_name: sourceName,
+      position: row.position,
+      position_label: row.position_label,
+      badge_type: row.badge_type,
+      stc_amount: row.stc_amount,
+    }).catch(() => null)));
+  }
+
+  async function seedDefaultRewardConfigsForSources(sources) {
+    await Promise.all((sources || []).map(source => seedDefaultRewardConfig(
+      source.id,
+      source.type,
+      source.name,
+      source,
+      source.type === "regional_league" ? (source.max_clubs || 16) : 36
+    )));
   }
 
   async function updateTrophyItem(id, editForm, replaceFile) {
@@ -637,7 +671,14 @@ export default function Admin(props) {
       ];
       const existing = new Set(competitions.map(c => c.slug));
       const toCreate = defs.filter(d => !existing.has(d.slug));
-      await Promise.all(toCreate.map(d => stageClient.entities.Competition.create(d)));
+      const created = await Promise.all(toCreate.map(d => stageClient.entities.Competition.create(d)));
+      await seedDefaultRewardConfigsForSources(created.map(c => ({
+        id: c.id,
+        type: "competition",
+        name: c.name,
+        slug: c.slug,
+        tier: c.tier,
+      })));
       await loadAll();
       await swalAlert(`Competitions seeded! (${toCreate.length} created)`);
     } catch (err) {
@@ -667,6 +708,8 @@ export default function Admin(props) {
     const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
     const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
     const numMatchdays = Number(newSeasonForm.num_league_matchdays) || 8;
+    const targetClubs = Number(newSeasonForm.num_clubs) || Number(comp.max_clubs_per_season) || 36;
+    const defaultPrizePool = calculatePrizePool("competition", comp, targetClubs);
     await stageClient.entities.CompetitionSeason.create({
       competition_id: comp.id,
       competition_name: comp.name,
@@ -683,20 +726,30 @@ export default function Admin(props) {
       league_matchday_total: numMatchdays,
       fixtures_generated: false,
       registered_club_ids: [],
-      num_clubs: Number(newSeasonForm.num_clubs) || 36,
+      num_clubs: 0,
+      max_clubs: targetClubs,
+      target_clubs: targetClubs,
       current_matchday: 1,
-      prize_pool_stc: parseInt(newSeasonForm.prize_pool_stc) || 0,
+      prize_pool_stc: parseInt(newSeasonForm.prize_pool_stc) || defaultPrizePool,
     });
+    await seedDefaultRewardConfig(comp.id, "competition", comp.name, comp, targetClubs);
     await stageClient.entities.Competition.update(comp.id, { current_season: nextSeason });
     setNewSeasonForm(f => ({ ...f, competition_id: "" }));
     await loadAll();
     setCreatingLeagueSeason(false);
-    await swalAlert(`Season ${nextSeason} created for ${comp.name}!`);
+    await swalAlert(`Season ${nextSeason} created for ${comp.name}. Confirm qualified clubs, then generate fixtures once it reaches ${targetClubs} clubs.`);
   }
 
   async function confirmQualEntry(entry) {
-    const season = compSeasons.find(s => s.competition_id === entry.target_competition_id && s.status === "registration");
-    if (!season) { await swalAlert("No open registration season found for this competition. Create a season first."); return; }
+    const eligibleSeasons = compSeasons
+      .filter(s =>
+        s.competition_id === entry.target_competition_id &&
+        !s.fixtures_generated &&
+        ["draft", "qualification", "registration"].includes(s.status)
+      )
+      .sort((a, b) => (b.season_number || 0) - (a.season_number || 0));
+    const season = eligibleSeasons[0];
+    if (!season) { await swalAlert("No qualification season found for this competition. Create a season first."); return; }
     const { confirmQualificationEntry } = await import("@/lib/competitionUtils");
     await confirmQualificationEntry(entry, season, adminProfile.email);
     setQualEntries(prev => prev.filter(e => e.id !== entry.id));
@@ -723,8 +776,16 @@ export default function Admin(props) {
           status: "registration",
           max_clubs: 16,
           promoted_slots: d.division === 1 ? 6 : 2,
+          prize_pool_stc: calculatePrizePool("regional_league", d, 16),
         }));
-      await Promise.all(toCreate.map(d => stageClient.entities.RegionalLeague.create(d)));
+      const created = await Promise.all(toCreate.map(d => stageClient.entities.RegionalLeague.create(d)));
+      await seedDefaultRewardConfigsForSources(created.map(l => ({
+        id: l.id,
+        type: "regional_league",
+        name: l.name,
+        division: l.division || 1,
+        max_clubs: l.max_clubs || 16,
+      })));
       await loadAll();
       await swalAlert(`Regional leagues seeded! (${toCreate.length} created)`);
     } catch (err) {
@@ -766,6 +827,36 @@ export default function Admin(props) {
       await swalAlert(`Error: ${err.message}`);
     } finally {
       setProcessingLeagueEnd(null);
+    }
+  }
+
+  async function generateRegionalFixturesForAdmin(league) {
+    setGeneratingRegionalFixtures(league.id);
+    try {
+      const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 100).catch(() => []);
+      if (standings.length < 2) {
+        await swalAlert("Need at least 2 approved clubs in the league before fixtures can be generated.");
+        return;
+      }
+      const maxClubs = Number(league.max_clubs) || 16;
+      if (standings.length < maxClubs) {
+        const ok = await swalConfirm(`${league.name} is not full yet (${standings.length}/${maxClubs} clubs). Generate fixtures anyway?`);
+        if (!ok) return;
+      }
+      const clubsForFixtures = standings.map(s => ({
+        id: s.club_id,
+        name: s.club_name,
+        logo_url: s.club_logo_url || "",
+        tag: s.club_tag || "",
+      }));
+      const { generateRegionalLeagueFixtures } = await import("@/lib/competitionUtils");
+      await generateRegionalLeagueFixtures(league, clubsForFixtures);
+      await loadAll();
+      await swalAlert(`Fixtures generated for ${league.name}. The season is now in progress.`);
+    } catch (err) {
+      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
+    } finally {
+      setGeneratingRegionalFixtures(null);
     }
   }
 
@@ -1511,6 +1602,8 @@ export default function Admin(props) {
               saveLeagueRules={saveLeagueRules}
               savingLeague={savingLeague}
               leagueLifecycleAction={leagueLifecycleAction}
+              generateRegionalFixturesForAdmin={generateRegionalFixturesForAdmin}
+              generatingRegionalFixtures={generatingRegionalFixtures}
               processingLeagueEnd={processingLeagueEnd}
               processLeagueEnd={processLeagueEnd}
               expiredFixtures={expiredFixtures}

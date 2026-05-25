@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { saveRewardConfigs, defaultPositionLabel, defaultBadgeType, BADGE_STYLE } from "@/lib/rewardsEngine";
+import { getDefaultRewardRowsForSource, formatStcCompact } from "@/lib/prizeDefaults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -26,7 +27,7 @@ function newRow(pos) {
   };
 }
 
-export default function RewardConfigPanel({ sourceId, sourceType, sourceName, trophyImageUrl, onTrophyUrlChange }) {
+export default function RewardConfigPanel({ sourceId, sourceType, sourceName, source = null, maxPositions = 36, trophyImageUrl, onTrophyUrlChange }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -46,11 +47,13 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
       .catch(() => [])
       .then(configs => {
         const sorted = configs.slice().sort((a, b) => a.position - b.position);
-        setRows(sorted.map(c => ({ ...c, _key: c.id })));
+        const defaults = getDefaultRewardRowsForSource(sourceType, { ...(source || {}), name: sourceName }, maxPositions);
+        const rowsToShow = sorted.length ? sorted : defaults;
+        setRows(rowsToShow.map((c, index) => ({ ...c, _key: c.id || `default-${index}` })));
         setLoading(false);
-        setDirty(false);
+        setDirty(!sorted.length);
       });
-  }, [sourceId]);
+  }, [sourceId, sourceType, sourceName, source, maxPositions]);
 
   function addRow() {
     const maxPos = rows.reduce((m, r) => Math.max(m, Number(r.position) || 0), 0);
@@ -153,7 +156,12 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, tr
       {/* STC reward table */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-foreground">STC Prize Distribution</p>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground">STC Prize Distribution</p>
+            <p className="text-[10px] text-muted-foreground">
+              Default pool: {formatStcCompact(rows.reduce((sum, row) => sum + Number(row.stc_amount || 0), 0))}
+            </p>
+          </div>
           <Button size="sm" variant="outline" onClick={addRow}
             className="h-7 text-[10px] gap-1 border-border text-muted-foreground hover:text-foreground">
             <Plus className="w-3 h-3" /> Add Position
