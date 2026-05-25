@@ -204,12 +204,16 @@ Important fields:
 - `away_participant_id`
 - `home_club_id`
 - `home_club_name`
+- `home_owner_email`
 - `away_club_id`
 - `away_club_name`
+- `away_owner_email`
 - `player_home_id`
 - `player_home_gamertag`
+- `player_home_email`
 - `player_away_id`
 - `player_away_gamertag`
+- `player_away_email`
 - `status`: unscheduled, scheduled, in_progress, completed, disputed, forfeit, cancelled
 - `scheduling_status`: open, home_proposed, away_proposed, confirmed, expired, admin_review
 - `window_start`
@@ -386,10 +390,15 @@ Where possible, server-generated financial transactions should have a unique ide
 
 `matches` must keep identity snapshot fields for both sides:
 
-- club matches: `home_club_id`, `home_club_name`, `away_club_id`, `away_club_name`
-- player matches: `player_home_id`, `player_home_gamertag`, `player_away_id`, `player_away_gamertag`
+- club matches: `home_club_id`, `home_club_name`, `home_owner_email`, `away_club_id`, `away_club_name`, `away_owner_email`
+- player matches: `home_player_id`, `home_player_name`, `home_player_email`, `away_player_id`, `away_player_name`, `away_player_email`
+- canonical player engine fields: `player_home_id`, `player_home_gamertag`, `player_home_email`, `player_away_id`, `player_away_gamertag`, `player_away_email`
 
-The unified fixture engine should populate these fields when it creates or links a Game Day match. IDs are used for permissions and joins; names/gamertags are stored as snapshots so old fixtures and match history still render correctly if a club name or player gamertag changes later. Existing `matches.home_player_id`, `matches.home_player_name`, `matches.away_player_id`, and `matches.away_player_name` can remain as compatibility fields, but new unified engine code should treat the canonical player snapshot names as `player_home_*` and `player_away_*`.
+The unified fixture engine should populate these fields when it creates or links a Game Day match. If `home_club_id` or `away_club_id` is present, the same server command must resolve and persist the matching `*_club_name` and `*_owner_email` values. If `home_player_id` or `away_player_id` is present, the same server command must resolve and persist the matching `*_player_name` and `*_player_email` values, where `*_player_name` is the gamertag snapshot.
+
+IDs are used for permissions and joins; names, gamertags, and emails are stored as snapshots so old fixtures, match history, scheduling, inbox messages, and organizer/admin notifications still render correctly if a club name, owner email, player gamertag, or player email changes later. Existing `matches.home_player_id`, `matches.home_player_name`, `matches.home_player_email`, `matches.away_player_id`, `matches.away_player_name`, and `matches.away_player_email` remain compatibility fields, but new unified engine code should treat the canonical player snapshot names as `player_home_*` and `player_away_*` on typed fixture/participant tables.
+
+Current schema check: `matches.home_player_email` and `matches.away_player_email` already exist in `server/schema.sql` and startup migrations, but `matches.home_owner_email` and `matches.away_owner_email` do not exist yet. The implementation plan must add those owner-email columns to both schema sources, wire them through the match model, and update match creation/enrichment so ID-backed snapshots are stored instead of only filled at read time.
 
 ## Server Commands
 
