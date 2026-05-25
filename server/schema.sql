@@ -1158,140 +1158,6 @@ CREATE TABLE IF NOT EXISTS club_achievements (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS competitions (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  name VARCHAR(255),
-  slug VARCHAR(50),
-  tier INT,
-  description TEXT,
-  logo_url TEXT,
-  banner_url TEXT,
-  primary_color VARCHAR(20) DEFAULT '#00E5BD',
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  region VARCHAR(100) DEFAULT 'Global',
-  max_clubs_per_season INT DEFAULT 16,
-  promotion_spots INT DEFAULT 2,
-  relegation_spots INT DEFAULT 2,
-  playoff_spots INT DEFAULT 4,
-  qualification_spots_per_region INT DEFAULT 2,
-  current_season INT DEFAULT 1,
-  is_active TINYINT(1) DEFAULT 1,
-  trophy_image_url TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_fixtures (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  season_id VARCHAR(36),
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT,
-  match_id VARCHAR(36),
-  home_club_id VARCHAR(36),
-  home_club_name VARCHAR(255),
-  home_club_logo_url TEXT,
-  home_club_tag VARCHAR(50),
-  away_club_id VARCHAR(36),
-  away_club_name VARCHAR(255),
-  away_club_logo_url TEXT,
-  away_club_tag VARCHAR(50),
-  phase VARCHAR(50) DEFAULT 'league',
-  tie_id VARCHAR(36),
-  leg INT,
-  matchday INT,
-  round INT,
-  bracket_position INT,
-  scheduled_date DATETIME,
-  status VARCHAR(50) DEFAULT 'scheduled',
-  home_score INT DEFAULT 0,
-  away_score INT DEFAULT 0,
-  home_submitted_score VARCHAR(20),
-  away_submitted_score VARCHAR(20),
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  stats_processed TINYINT(1) DEFAULT 0,
-  window_start DATETIME,
-  window_end DATETIME,
-  window_days INT DEFAULT 5,
-  scheduling_status VARCHAR(50) DEFAULT 'open',
-  home_proposed_date DATETIME,
-  away_proposed_date DATETIME,
-  confirmed_date DATETIME,
-  last_proposed_by VARCHAR(10),
-  proposal_count INT DEFAULT 0,
-  admin_notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_seasons (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT DEFAULT 1,
-  season_label VARCHAR(100),
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  region VARCHAR(100) DEFAULT 'Global',
-  format VARCHAR(50) DEFAULT 'league_36_8md',
-  num_league_matchdays INT DEFAULT 8,
-  fixtures_generated TINYINT(1) DEFAULT 0,
-  status VARCHAR(50) DEFAULT 'draft',
-  archived_at DATETIME,
-  next_season_id VARCHAR(36),
-  playoff_format VARCHAR(50) DEFAULT '9_24_bracket',
-  start_date DATETIME,
-  end_date DATETIME,
-  registration_deadline DATETIME,
-  registered_club_ids JSON,
-  num_clubs INT DEFAULT 0,
-  league_matchday_total INT DEFAULT 0,
-  current_matchday INT DEFAULT 1,
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  runner_up_club_id VARCHAR(36),
-  runner_up_club_name VARCHAR(255),
-  prize_pool_stc DECIMAL(10,2) DEFAULT 0,
-  trophy_item_id VARCHAR(36),
-  admin_notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_standings (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  season_id VARCHAR(36),
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  platform VARCHAR(50),
-  region VARCHAR(100),
-  position INT DEFAULT 0,
-  played INT DEFAULT 0,
-  wins INT DEFAULT 0,
-  draws INT DEFAULT 0,
-  losses INT DEFAULT 0,
-  goals_for INT DEFAULT 0,
-  goals_against INT DEFAULT 0,
-  goal_difference INT DEFAULT 0,
-  points INT DEFAULT 0,
-  form JSON,
-  is_promoted TINYINT(1) DEFAULT 0,
-  is_relegated TINYINT(1) DEFAULT 0,
-  is_playoff_qualified TINYINT(1) DEFAULT 0,
-  is_direct_knockout TINYINT(1) DEFAULT 0,
-  is_eliminated TINYINT(1) DEFAULT 0,
-  final_position INT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS live_match_events (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   live_match_id VARCHAR(36),
@@ -1337,57 +1203,6 @@ CREATE TABLE IF NOT EXISTS player_contract_history (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS qualification_entries (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  source_type VARCHAR(50) DEFAULT 'regional_league',
-  regional_league_id VARCHAR(36),
-  regional_league_name VARCHAR(255),
-  regional_finish_position INT,
-  target_competition_id VARCHAR(36),
-  target_competition_name VARCHAR(255),
-  target_competition_tier INT,
-  target_season_id VARCHAR(36),
-  target_season_number INT,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  club_region VARCHAR(100),
-  club_platform VARCHAR(50),
-  status VARCHAR(50) DEFAULT 'pending',
-  confirmed_by VARCHAR(255),
-  confirmed_at DATETIME,
-  notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ranking_configs (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  label VARCHAR(255) DEFAULT 'Default',
-  is_active TINYINT(1) DEFAULT 1,
-  win_points DECIMAL(10,2) DEFAULT 100,
-  draw_points DECIMAL(10,2) DEFAULT 40,
-  loss_points DECIMAL(10,2) DEFAULT 10,
-  opp_top10 DECIMAL(5,2) DEFAULT 2.0,
-  opp_top25 DECIMAL(5,2) DEFAULT 1.5,
-  opp_top50 DECIMAL(5,2) DEFAULT 1.2,
-  opp_bot50 DECIMAL(5,2) DEFAULT 1.0,
-  opp_bot25 DECIMAL(5,2) DEFAULT 0.8,
-  comp_regional_div2 DECIMAL(5,2) DEFAULT 0.8,
-  comp_regional_div1 DECIMAL(5,2) DEFAULT 1.0,
-  comp_challenger DECIMAL(5,2) DEFAULT 1.2,
-  comp_elite DECIMAL(5,2) DEFAULT 1.5,
-  comp_supreme DECIMAL(5,2) DEFAULT 2.0,
-  comp_tournament DECIMAL(5,2) DEFAULT 1.0,
-  stage_group DECIMAL(5,2) DEFAULT 1.0,
-  stage_playoff DECIMAL(5,2) DEFAULT 1.1,
-  stage_r16 DECIMAL(5,2) DEFAULT 1.2,
-  stage_qf DECIMAL(5,2) DEFAULT 1.4,
-  stage_sf DECIMAL(5,2) DEFAULT 1.6,
-  stage_final DECIMAL(5,2) DEFAULT 2.0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS rating_history (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   club_id VARCHAR(36),
@@ -1415,111 +1230,6 @@ CREATE TABLE IF NOT EXISTS rating_history (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS regional_leagues (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  name VARCHAR(255),
-  slug VARCHAR(100),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  country_code VARCHAR(5),
-  region VARCHAR(100),
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  season_number INT DEFAULT 1,
-  status VARCHAR(50) DEFAULT 'draft',
-  archived_at DATETIME,
-  next_season_id VARCHAR(36),
-  max_clubs INT DEFAULT 16,
-  num_clubs INT DEFAULT 0,
-  start_date DATETIME,
-  end_date DATETIME,
-  promoted_slots INT DEFAULT 2,
-  target_competition_id VARCHAR(36),
-  target_competition_name VARCHAR(255),
-  target_competition_tier INT,
-  target_season_id VARCHAR(36),
-  registered_club_ids JSON,
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  organizer_email VARCHAR(255),
-  trophy_item_id VARCHAR(36),
-  banner_url TEXT,
-  linked_league_slug VARCHAR(100),
-  admin_notes TEXT,
-  trophy_image_url TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS regional_league_fixtures (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  league_id VARCHAR(36),
-  league_name VARCHAR(255),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  season_number INT DEFAULT 1,
-  matchday INT,
-  home_club_id VARCHAR(36),
-  home_club_name VARCHAR(255),
-  home_club_logo_url TEXT,
-  home_club_tag VARCHAR(50),
-  away_club_id VARCHAR(36),
-  away_club_name VARCHAR(255),
-  away_club_logo_url TEXT,
-  away_club_tag VARCHAR(50),
-  window_start DATETIME,
-  window_end DATETIME,
-  window_days INT DEFAULT 4,
-  scheduling_status VARCHAR(50) DEFAULT 'open',
-  home_proposed_date DATETIME,
-  away_proposed_date DATETIME,
-  confirmed_date DATETIME,
-  last_proposed_by VARCHAR(10),
-  proposal_count INT DEFAULT 0,
-  status VARCHAR(50) DEFAULT 'unscheduled',
-  home_score INT DEFAULT 0,
-  away_score INT DEFAULT 0,
-  home_submitted_score VARCHAR(20),
-  away_submitted_score VARCHAR(20),
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  stats_processed TINYINT(1) DEFAULT 0,
-  admin_notes TEXT,
-  match_id VARCHAR(36),
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS regional_league_standings (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  league_id VARCHAR(36),
-  league_name VARCHAR(255),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  season_number INT DEFAULT 1,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  platform VARCHAR(50),
-  region VARCHAR(100),
-  position INT DEFAULT 1,
-  played INT DEFAULT 0,
-  wins INT DEFAULT 0,
-  draws INT DEFAULT 0,
-  losses INT DEFAULT 0,
-  goals_for INT DEFAULT 0,
-  goals_against INT DEFAULT 0,
-  goal_difference INT DEFAULT 0,
-  points INT DEFAULT 0,
-  form JSON,
-  is_stage_qualified TINYINT(1) DEFAULT 0,
-  stage_competition_slug VARCHAR(50),
-  is_promoted TINYINT(1) DEFAULT 0,
-  is_relegated TINYINT(1) DEFAULT 0,
-  final_position INT,
-  promotion_target_league_id VARCHAR(36),
-  relegation_target_league_id VARCHAR(36),
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS reward_configs (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   source_id VARCHAR(36),
@@ -1529,31 +1239,6 @@ CREATE TABLE IF NOT EXISTS reward_configs (
   position_label VARCHAR(100),
   badge_type VARCHAR(50) DEFAULT 'participant',
   stc_amount DECIMAL(10,2) DEFAULT 0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS season_registrations (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_tag VARCHAR(50),
-  club_logo_url TEXT,
-  owner_email VARCHAR(255),
-  target_type VARCHAR(50) DEFAULT 'regional_league',
-  region_slug VARCHAR(100),
-  region_name VARCHAR(255),
-  platform VARCHAR(50),
-  preferred_division INT DEFAULT 1,
-  note_from_club TEXT,
-  season_label VARCHAR(100),
-  status VARCHAR(50) DEFAULT 'pending',
-  assigned_league_id VARCHAR(36),
-  assigned_league_name VARCHAR(255),
-  assigned_division INT,
-  admin_notes TEXT,
-  reviewed_by VARCHAR(255),
-  reviewed_at DATETIME,
-  applied_at DATETIME,
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1708,7 +1393,6 @@ SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'home_goal_events') = 0,'ALTER TABLE matches ADD COLUMN home_goal_events JSON','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'away_goal_events') = 0,'ALTER TABLE matches ADD COLUMN away_goal_events JSON','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND INDEX_NAME = 'idx_matches_source_fx') = 0,'CREATE INDEX idx_matches_source_fx ON matches(source_fixture_id)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'season_registrations' AND INDEX_NAME = 'idx_season_reg_club') = 0,'CREATE INDEX idx_season_reg_club ON season_registrations(club_id)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'reward_configs' AND INDEX_NAME = 'idx_reward_source') = 0,'CREATE INDEX idx_reward_source ON reward_configs(source_type, source_id, position)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- END inlined: stage_entity_changes_20260505.sql
 
@@ -1864,12 +1548,11 @@ CREATE TABLE IF NOT EXISTS player_stc_transactions (
   INDEX idx_pst_created (created_date)
 );
 
--- Competition & league entity store — single flexible table that backs every
--- /api/stage/* route exposed via leagueEntityController.makeRouter(): competitions,
--- competition_seasons, competition_fixtures, competition_standings, regional_leagues,
--- regional_league_fixtures, regional_league_standings, qualification_entries,
--- ranking_configs, season_registrations. The `entity_type` discriminator selects
--- which logical entity a row represents; remaining structured data lives in `data_json`.
+-- Competition & league entity store — single flexible table that backs the
+-- competition, regional league, qualification, ranking, and season-registration
+-- /api/stage/* routes exposed via leagueEntityController.makeRouter().
+-- The `entity_type` discriminator selects which logical entity a row represents;
+-- remaining structured data lives in `data_json`.
 CREATE TABLE IF NOT EXISTS league_entities (
   id                VARCHAR(36)  NOT NULL PRIMARY KEY,
   entity_type       VARCHAR(50)  NOT NULL,

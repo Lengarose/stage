@@ -779,7 +779,39 @@ function parseLeagueEntityRow(row) {
   } catch {
     data = {};
   }
-  return { ...data, id: row.id, created_date: row.created_date, updated_date: row.updated_date };
+  return {
+    ...data,
+    id: row.id,
+    status: row.status ?? data.status,
+    scheduling_status: row.scheduling_status ?? data.scheduling_status,
+    slug: row.slug ?? data.slug,
+    league_id: row.league_id ?? data.league_id,
+    season_id: row.season_id ?? data.season_id,
+    competition_id: row.competition_id ?? data.competition_id,
+    club_id: row.club_id ?? data.club_id,
+    is_active: row.is_active ?? data.is_active,
+    tier: row.tier ?? data.tier,
+    division: row.division ?? data.division,
+    region: row.region ?? data.region,
+    platform: row.platform ?? data.platform,
+    season_number: row.season_number ?? data.season_number,
+    created_date: row.created_date,
+    updated_date: row.updated_date,
+  };
+}
+
+async function updateLeagueEntityData(query, entityType, id, next, indexed = {}) {
+  const sets = ['data_json = ?', 'updated_date = NOW()'];
+  const values = [JSON.stringify(next)];
+  for (const [column, value] of Object.entries(indexed)) {
+    sets.push(`${column} = ?`);
+    values.push(value ?? null);
+  }
+  values.push(id, entityType);
+  await query(
+    `UPDATE league_entities SET ${sets.join(', ')} WHERE id = ? AND entity_type = ?`,
+    values
+  );
 }
 
 function normalizeIdList(value) {
@@ -1644,9 +1676,14 @@ const HANDLERS = {
     }
 
     const result = await withTransaction(async (query) => {
-      const fixtureRows = await query('SELECT * FROM competition_fixtures WHERE id = ? LIMIT 1 FOR UPDATE', [fixture_id]);
+      const fixtureRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'competition_fixture'
+          LIMIT 1 FOR UPDATE`,
+        [fixture_id]
+      );
       if (!fixtureRows.length) throw new Error('Competition fixture not found');
-      const fixture = fixtureRows[0];
+      const fixture = parseLeagueEntityRow(fixtureRows[0]);
       if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
         throw new Error('Fixture result has already been processed');
       }
@@ -1658,23 +1695,29 @@ const HANDLERS = {
           : String(resolvedWinnerId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
             : null);
 
-      await query(
-        `UPDATE competition_fixtures
-         SET home_score = ?, away_score = ?, winner_club_id = ?, winner_club_name = ?,
-             status = 'completed', stats_processed = 1
-         WHERE id = ?`,
-        [homeScore, awayScore, resolvedWinnerId, resolvedWinnerName, fixture_id]
-      );
+      const nextFixture = {
+        ...fixture,
+        home_score: homeScore,
+        away_score: awayScore,
+        winner_club_id: resolvedWinnerId,
+        winner_club_name: resolvedWinnerName,
+        status: 'completed',
+        stats_processed: true,
+      };
+      await updateLeagueEntityData(query, 'competition_fixture', fixture_id, nextFixture, { status: 'completed' });
 
       if (String(fixture.phase || 'league') === 'league') {
         const standingRows = await query(
-          `SELECT * FROM competition_standings
-           WHERE season_id = ? AND club_id IN (?, ?)
+          `SELECT * FROM league_entities
+           WHERE entity_type = 'competition_standing'
+             AND season_id = ?
+             AND club_id IN (?, ?)
            FOR UPDATE`,
           [fixture.season_id, fixture.home_club_id, fixture.away_club_id]
         );
-        const homeRow = standingRows.find(row => String(row.club_id) === String(fixture.home_club_id));
-        const awayRow = standingRows.find(row => String(row.club_id) === String(fixture.away_club_id));
+        const parsedStandings = standingRows.map(parseLeagueEntityRow);
+        const homeRow = parsedStandings.find(row => String(row.club_id) === String(fixture.home_club_id));
+        const awayRow = parsedStandings.find(row => String(row.club_id) === String(fixture.away_club_id));
         if (!homeRow || !awayRow) throw new Error('Competition standing rows not found');
 
         const isDraw = homeScore === awayScore;
@@ -1700,43 +1743,41 @@ const HANDLERS = {
 
         const homeUpdate = buildUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
         const awayUpdate = buildUpdate(awayRow, awayScore, homeScore, !homeWin && !isDraw ? 'W' : isDraw ? 'D' : 'L');
+        const nextHomeStanding = { ...homeRow, ...homeUpdate };
+        const nextAwayStanding = { ...awayRow, ...awayUpdate };
 
-        await query(
-          `UPDATE competition_standings
-           SET played = ?, wins = ?, draws = ?, losses = ?, goals_for = ?, goals_against = ?,
-               goal_difference = ?, points = ?, form = ?
-           WHERE id = ?`,
-          [
-            homeUpdate.played, homeUpdate.wins, homeUpdate.draws, homeUpdate.losses,
-            homeUpdate.goals_for, homeUpdate.goals_against, homeUpdate.goal_difference,
-            homeUpdate.points, JSON.stringify(homeUpdate.form), homeRow.id,
-          ]
-        );
-        await query(
-          `UPDATE competition_standings
-           SET played = ?, wins = ?, draws = ?, losses = ?, goals_for = ?, goals_against = ?,
-               goal_difference = ?, points = ?, form = ?
-           WHERE id = ?`,
-          [
-            awayUpdate.played, awayUpdate.wins, awayUpdate.draws, awayUpdate.losses,
-            awayUpdate.goals_for, awayUpdate.goals_against, awayUpdate.goal_difference,
-            awayUpdate.points, JSON.stringify(awayUpdate.form), awayRow.id,
-          ]
-        );
+        await updateLeagueEntityData(query, 'competition_standing', homeRow.id, nextHomeStanding);
+        await updateLeagueEntityData(query, 'competition_standing', awayRow.id, nextAwayStanding);
 
-        const allStandings = await query('SELECT * FROM competition_standings WHERE season_id = ? FOR UPDATE', [fixture.season_id]);
+        const allStandings = await query(
+          `SELECT * FROM league_entities
+            WHERE entity_type = 'competition_standing' AND season_id = ?
+            FOR UPDATE`,
+          [fixture.season_id]
+        );
         const merged = allStandings.map(row => {
-          if (row.id === homeRow.id) return { ...row, ...homeUpdate };
-          if (row.id === awayRow.id) return { ...row, ...awayUpdate };
-          return row;
+          if (row.id === homeRow.id) return nextHomeStanding;
+          if (row.id === awayRow.id) return nextAwayStanding;
+          return parseLeagueEntityRow(row);
         });
         const sorted = sortCompetitionStandingRows(merged);
         for (let index = 0; index < sorted.length; index += 1) {
-          await query('UPDATE competition_standings SET position = ? WHERE id = ?', [index + 1, sorted[index].id]);
+          await updateLeagueEntityData(
+            query,
+            'competition_standing',
+            sorted[index].id,
+            { ...sorted[index], position: index + 1 }
+          );
         }
       }
 
-      const updatedFixture = await query('SELECT * FROM competition_fixtures WHERE id = ? LIMIT 1', [fixture_id]);
+      const updatedFixtureRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'competition_fixture'
+          LIMIT 1`,
+        [fixture_id]
+      );
+      const updatedFixture = parseLeagueEntityRow(updatedFixtureRows[0] || null);
       await createAuditLog({
         adminUserId: admin.id,
         adminEmail: admin.email,
@@ -1745,11 +1786,11 @@ const HANDLERS = {
         entityId: fixture_id,
         entityName: `${fixture.home_club_name || 'Home'} vs ${fixture.away_club_name || 'Away'}`,
         oldValue: fixture,
-        newValue: updatedFixture[0] || null,
+        newValue: updatedFixture,
         reason: reason || null,
       });
 
-      return updatedFixture[0];
+      return updatedFixture;
     });
 
     return { data: { success: true, fixture: result } };

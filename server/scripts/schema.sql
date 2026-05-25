@@ -56,12 +56,39 @@ CREATE TABLE IF NOT EXISTS players (
   verified_platform     VARCHAR(50),
   verified_platform_handle VARCHAR(150),
   identity_verified_at  DATETIME,
+  ranking_points        INT          DEFAULT 0,
+  global_rank           INT,
+  regional_rank         INT,
+  country_rank          INT,
+  position_rank         INT,
+  ranking_matches       INT          DEFAULT 0,
+  ranking_wins          INT          DEFAULT 0,
+  ranking_draws         INT          DEFAULT 0,
+  ranking_losses        INT          DEFAULT 0,
+  ranking_win_rate      DECIMAL(5,2) DEFAULT 0,
+  ranking_goals         INT          DEFAULT 0,
+  ranking_assists       INT          DEFAULT 0,
+  ranking_clean_sheets  INT          DEFAULT 0,
+  ranking_motm          INT          DEFAULT 0,
+  ranking_avg_rating    DECIMAL(4,2) DEFAULT 0,
+  ranking_competition_wins INT       DEFAULT 0,
+  ranking_finishes_score INT         DEFAULT 0,
   role                  VARCHAR(50),
   dressing_room_seat    INT,
   is_ready              TINYINT(1)   DEFAULT 0,
   club_id               VARCHAR(36),
   notification_settings JSON,
   club_roles            JSON,
+  market_value_stc      BIGINT       DEFAULT 250000,
+  matches_played        INT          DEFAULT 0,
+  avg_match_rating      DECIMAL(4,2) DEFAULT 0,
+  wins_count            INT          DEFAULT 0,
+  man_of_the_match      INT          DEFAULT 0,
+  clean_sheets          INT          DEFAULT 0,
+  form_last10           TEXT         NULL,
+  value_updated_at      DATETIME     NULL,
+  archetype             VARCHAR(64)  NULL,
+  sacrificed_at         DATETIME     NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -84,6 +111,10 @@ CREATE TABLE IF NOT EXISTS clubs (
   draws               INT          DEFAULT 0,
   goals_scored        INT          DEFAULT 0,
   goals_conceded      INT          DEFAULT 0,
+  ranking_points      INT          DEFAULT 0,
+  global_rank         INT,
+  regional_rank       INT,
+  country_rank        INT,
   rating              DECIMAL(5,1) DEFAULT 0,
   peak_rating         DECIMAL(5,1) DEFAULT 0,
   matches_ranked      INT          DEFAULT 0,
@@ -172,15 +203,15 @@ CREATE TABLE IF NOT EXISTS matches (
   wager_away_locked      TINYINT(1)   DEFAULT 0,
   wager_home_player_id   VARCHAR(36),
   wager_away_player_id   VARCHAR(36),
-  -- home match revenue
-  home_ticket_revenue    DECIMAL(12,2) DEFAULT 0,
-  home_ticket_attendance INT          DEFAULT 0,
-  home_ticket_capacity   INT          DEFAULT 0,
-  home_ticket_price      DECIMAL(8,2) DEFAULT 0,
-  home_ticket_pct        TINYINT      DEFAULT 0,
   -- origin (which league fixture / cup tie / friendly produced this match)
   source_fixture_id      VARCHAR(36),
   source_fixture_type    VARCHAR(50),
+  -- ticket revenue (populated by stadium engine after match completion)
+  home_ticket_revenue    DECIMAL(12,2) NULL,
+  home_ticket_attendance INT          NULL,
+  home_ticket_capacity   INT          NULL,
+  home_ticket_price      DECIMAL(8,2) NULL,
+  home_ticket_pct        DECIMAL(5,2) NULL,
   created_date           DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date           DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -199,6 +230,112 @@ CREATE TABLE IF NOT EXISTS tournaments (
   registered_clubs    JSON,
   created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS international_tournaments (
+  id                  VARCHAR(36) PRIMARY KEY,
+  name                VARCHAR(200) NOT NULL,
+  tournament_type     VARCHAR(50)  NOT NULL,
+  region              VARCHAR(100) NULL,
+  status              VARCHAR(40)  NOT NULL DEFAULT 'draft',
+  voting_opens_at     DATETIME     NULL,
+  voting_closes_at    DATETIME     NULL,
+  squad_locks_at      DATETIME     NULL,
+  starts_at           DATETIME     NULL,
+  max_squad_size      INT          NOT NULL DEFAULT 26,
+  max_teams           INT          NOT NULL DEFAULT 32,
+  matchday_squad_size INT          NOT NULL DEFAULT 18,
+  starters_size       INT          NOT NULL DEFAULT 11,
+  bench_size          INT          NOT NULL DEFAULT 7,
+  eligible_countries  JSON         NULL,
+  created_by_user_id  VARCHAR(36)  NULL,
+  created_by_email    VARCHAR(255) NULL,
+  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_it_status (status),
+  INDEX idx_it_type_region (tournament_type, region),
+  INDEX idx_it_dates (voting_opens_at, voting_closes_at, starts_at)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_elections (
+  id                          VARCHAR(36) PRIMARY KEY,
+  international_tournament_id VARCHAR(36) NOT NULL,
+  country_code                VARCHAR(10) NOT NULL,
+  country_name                VARCHAR(100) NULL,
+  status                      VARCHAR(40) NOT NULL DEFAULT 'draft',
+  voting_opens_at             DATETIME NULL,
+  voting_closes_at            DATETIME NULL,
+  winner_player_id            VARCHAR(36) NULL,
+  winner_owner_user_id        VARCHAR(36) NULL,
+  winner_owner_club_id        VARCHAR(36) NULL,
+  winner_vote_count           INT DEFAULT 0,
+  created_date                DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date                DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_nte_tournament_country (international_tournament_id, country_code),
+  INDEX idx_nte_tournament (international_tournament_id),
+  INDEX idx_nte_country_status (country_code, status)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_votes (
+  id                  VARCHAR(36) PRIMARY KEY,
+  election_id          VARCHAR(36) NOT NULL,
+  tournament_id        VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  voter_player_id      VARCHAR(36) NOT NULL,
+  candidate_player_id  VARCHAR(36) NOT NULL,
+  voter_owner_club_id  VARCHAR(36) NULL,
+  candidate_owner_club_id VARCHAR(36) NULL,
+  candidate_owner_user_id VARCHAR(36) NULL,
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntv_election_voter (election_id, voter_player_id),
+  INDEX idx_ntv_election_candidate (election_id, candidate_player_id),
+  INDEX idx_ntv_tournament_country (tournament_id, country_code)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_representatives (
+  id                  VARCHAR(36) PRIMARY KEY,
+  tournament_id        VARCHAR(36) NOT NULL,
+  election_id          VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  player_id            VARCHAR(36) NOT NULL,
+  owner_user_id         VARCHAR(36) NULL,
+  owner_club_id         VARCHAR(36) NULL,
+  vote_count           INT DEFAULT 0,
+  status               VARCHAR(40) DEFAULT 'active',
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntr_tournament_country (tournament_id, country_code),
+  INDEX idx_ntr_player (player_id),
+  INDEX idx_ntr_election (election_id)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_squads (
+  id                     VARCHAR(36) PRIMARY KEY,
+  tournament_id           VARCHAR(36) NOT NULL,
+  country_code            VARCHAR(10) NOT NULL,
+  representative_id       VARCHAR(36) NULL,
+  status                  VARCHAR(40) DEFAULT 'draft',
+  locked_at               DATETIME NULL,
+  submitted_by_player_id  VARCHAR(36) NULL,
+  submitted_by_owner_user_id VARCHAR(36) NULL,
+  created_date            DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date            DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_nts_tournament_country (tournament_id, country_code),
+  INDEX idx_nts_rep (representative_id),
+  INDEX idx_nts_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS national_team_squad_players (
+  id                  VARCHAR(36) PRIMARY KEY,
+  squad_id             VARCHAR(36) NOT NULL,
+  tournament_id        VARCHAR(36) NOT NULL,
+  country_code         VARCHAR(10) NOT NULL,
+  player_id            VARCHAR(36) NOT NULL,
+  position             VARCHAR(50) NULL,
+  overall_rating       DECIMAL(4,1) DEFAULT 0,
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ntsp_squad_player (squad_id, player_id),
+  INDEX idx_ntsp_tournament_country (tournament_id, country_code),
+  INDEX idx_ntsp_player (player_id)
 );
 
 -- ── posts ─────────────────────────────────────────────────────
@@ -238,8 +375,11 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   player_id      VARCHAR(36),
   player_email   VARCHAR(255) NOT NULL,
   player_gamertag VARCHAR(255),
+  position       VARCHAR(50),
   goals          INT          DEFAULT 0,
   assists        INT          DEFAULT 0,
+  clean_sheet    TINYINT(1)   DEFAULT 0,
+  is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
   created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
@@ -374,13 +514,17 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 -- ── stc_transactions ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stc_transactions (
-  id           VARCHAR(36)   PRIMARY KEY,
-  club_id      VARCHAR(36)   NULL,
-  amount       DECIMAL(12,2) NOT NULL,
-  type         VARCHAR(100),
-  description  TEXT,
-  reference_id VARCHAR(36),
-  created_date DATETIME      DEFAULT CURRENT_TIMESTAMP
+  id            VARCHAR(36)   PRIMARY KEY,
+  player_id     VARCHAR(36)   NULL,
+  player_email  VARCHAR(255)  NULL,
+  club_id       VARCHAR(36)   NULL,
+  amount        DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2) NULL,
+  type          VARCHAR(100),
+  category      VARCHAR(100)  NULL,
+  description   TEXT,
+  reference_id  VARCHAR(36),
+  created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ── shirt_sales ───────────────────────────────────────────────
@@ -392,8 +536,6 @@ CREATE TABLE IF NOT EXISTS shirt_sales (
   club_id         VARCHAR(36),
   buyer_email     VARCHAR(255),
   price_stc       DECIMAL(12,2) DEFAULT 0,
-  match_id        VARCHAR(36),
-  quantity        INT           DEFAULT 1,
   created_date    DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -903,6 +1045,23 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='verified_platform_handle'),'SELECT 1','ALTER TABLE players ADD COLUMN verified_platform_handle VARCHAR(150) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='identity_verified_at'),'SELECT 1','ALTER TABLE players ADD COLUMN identity_verified_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='global_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN global_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='regional_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN regional_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='country_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN country_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='position_rank'),'SELECT 1','ALTER TABLE players ADD COLUMN position_rank INT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_matches'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_matches INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_wins'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_wins INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_draws'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_draws INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_losses'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_losses INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_win_rate'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_win_rate DECIMAL(5,2) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_goals'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_goals INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_assists'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_assists INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_clean_sheets'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_clean_sheets INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_motm'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_motm INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_avg_rating'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_avg_rating DECIMAL(4,2) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_competition_wins'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_competition_wins INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_finishes_score'),'SELECT 1','ALTER TABLE players ADD COLUMN ranking_finishes_score INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_expires_at'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_expires_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_billing'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_billing VARCHAR(20) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stripe_subscription_id'),'SELECT 1','ALTER TABLE players ADD COLUMN stripe_subscription_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -912,6 +1071,7 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE clubs ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='global_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN global_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='regional_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN regional_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='country_rank'),'SELECT 1','ALTER TABLE clubs ADD COLUMN country_rank INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stadium_name'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stadium_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='achievements'),'SELECT 1','ALTER TABLE clubs ADD COLUMN achievements JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='tournaments';
@@ -998,140 +1158,6 @@ CREATE TABLE IF NOT EXISTS club_achievements (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS competitions (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  name VARCHAR(255),
-  slug VARCHAR(50),
-  tier INT,
-  description TEXT,
-  logo_url TEXT,
-  banner_url TEXT,
-  primary_color VARCHAR(20) DEFAULT '#00E5BD',
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  region VARCHAR(100) DEFAULT 'Global',
-  max_clubs_per_season INT DEFAULT 16,
-  promotion_spots INT DEFAULT 2,
-  relegation_spots INT DEFAULT 2,
-  playoff_spots INT DEFAULT 4,
-  qualification_spots_per_region INT DEFAULT 2,
-  current_season INT DEFAULT 1,
-  is_active TINYINT(1) DEFAULT 1,
-  trophy_image_url TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_fixtures (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  season_id VARCHAR(36),
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT,
-  match_id VARCHAR(36),
-  home_club_id VARCHAR(36),
-  home_club_name VARCHAR(255),
-  home_club_logo_url TEXT,
-  home_club_tag VARCHAR(50),
-  away_club_id VARCHAR(36),
-  away_club_name VARCHAR(255),
-  away_club_logo_url TEXT,
-  away_club_tag VARCHAR(50),
-  phase VARCHAR(50) DEFAULT 'league',
-  tie_id VARCHAR(36),
-  leg INT,
-  matchday INT,
-  round INT,
-  bracket_position INT,
-  scheduled_date DATETIME,
-  status VARCHAR(50) DEFAULT 'scheduled',
-  home_score INT DEFAULT 0,
-  away_score INT DEFAULT 0,
-  home_submitted_score VARCHAR(20),
-  away_submitted_score VARCHAR(20),
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  stats_processed TINYINT(1) DEFAULT 0,
-  window_start DATETIME,
-  window_end DATETIME,
-  window_days INT DEFAULT 5,
-  scheduling_status VARCHAR(50) DEFAULT 'open',
-  home_proposed_date DATETIME,
-  away_proposed_date DATETIME,
-  confirmed_date DATETIME,
-  last_proposed_by VARCHAR(10),
-  proposal_count INT DEFAULT 0,
-  admin_notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_seasons (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT DEFAULT 1,
-  season_label VARCHAR(100),
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  region VARCHAR(100) DEFAULT 'Global',
-  format VARCHAR(50) DEFAULT 'league_36_8md',
-  num_league_matchdays INT DEFAULT 8,
-  fixtures_generated TINYINT(1) DEFAULT 0,
-  status VARCHAR(50) DEFAULT 'draft',
-  archived_at DATETIME,
-  next_season_id VARCHAR(36),
-  playoff_format VARCHAR(50) DEFAULT '9_24_bracket',
-  start_date DATETIME,
-  end_date DATETIME,
-  registration_deadline DATETIME,
-  registered_club_ids JSON,
-  num_clubs INT DEFAULT 0,
-  league_matchday_total INT DEFAULT 0,
-  current_matchday INT DEFAULT 1,
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  runner_up_club_id VARCHAR(36),
-  runner_up_club_name VARCHAR(255),
-  prize_pool_stc DECIMAL(10,2) DEFAULT 0,
-  trophy_item_id VARCHAR(36),
-  admin_notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS competition_standings (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  season_id VARCHAR(36),
-  competition_id VARCHAR(36),
-  competition_name VARCHAR(255),
-  competition_tier INT,
-  competition_slug VARCHAR(50),
-  season_number INT,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  platform VARCHAR(50),
-  region VARCHAR(100),
-  position INT DEFAULT 0,
-  played INT DEFAULT 0,
-  wins INT DEFAULT 0,
-  draws INT DEFAULT 0,
-  losses INT DEFAULT 0,
-  goals_for INT DEFAULT 0,
-  goals_against INT DEFAULT 0,
-  goal_difference INT DEFAULT 0,
-  points INT DEFAULT 0,
-  form JSON,
-  is_promoted TINYINT(1) DEFAULT 0,
-  is_relegated TINYINT(1) DEFAULT 0,
-  is_playoff_qualified TINYINT(1) DEFAULT 0,
-  is_direct_knockout TINYINT(1) DEFAULT 0,
-  is_eliminated TINYINT(1) DEFAULT 0,
-  final_position INT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS live_match_events (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   live_match_id VARCHAR(36),
@@ -1177,57 +1203,6 @@ CREATE TABLE IF NOT EXISTS player_contract_history (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS qualification_entries (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  source_type VARCHAR(50) DEFAULT 'regional_league',
-  regional_league_id VARCHAR(36),
-  regional_league_name VARCHAR(255),
-  regional_finish_position INT,
-  target_competition_id VARCHAR(36),
-  target_competition_name VARCHAR(255),
-  target_competition_tier INT,
-  target_season_id VARCHAR(36),
-  target_season_number INT,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  club_region VARCHAR(100),
-  club_platform VARCHAR(50),
-  status VARCHAR(50) DEFAULT 'pending',
-  confirmed_by VARCHAR(255),
-  confirmed_at DATETIME,
-  notes TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ranking_configs (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  label VARCHAR(255) DEFAULT 'Default',
-  is_active TINYINT(1) DEFAULT 1,
-  win_points DECIMAL(10,2) DEFAULT 100,
-  draw_points DECIMAL(10,2) DEFAULT 40,
-  loss_points DECIMAL(10,2) DEFAULT 10,
-  opp_top10 DECIMAL(5,2) DEFAULT 2.0,
-  opp_top25 DECIMAL(5,2) DEFAULT 1.5,
-  opp_top50 DECIMAL(5,2) DEFAULT 1.2,
-  opp_bot50 DECIMAL(5,2) DEFAULT 1.0,
-  opp_bot25 DECIMAL(5,2) DEFAULT 0.8,
-  comp_regional_div2 DECIMAL(5,2) DEFAULT 0.8,
-  comp_regional_div1 DECIMAL(5,2) DEFAULT 1.0,
-  comp_challenger DECIMAL(5,2) DEFAULT 1.2,
-  comp_elite DECIMAL(5,2) DEFAULT 1.5,
-  comp_supreme DECIMAL(5,2) DEFAULT 2.0,
-  comp_tournament DECIMAL(5,2) DEFAULT 1.0,
-  stage_group DECIMAL(5,2) DEFAULT 1.0,
-  stage_playoff DECIMAL(5,2) DEFAULT 1.1,
-  stage_r16 DECIMAL(5,2) DEFAULT 1.2,
-  stage_qf DECIMAL(5,2) DEFAULT 1.4,
-  stage_sf DECIMAL(5,2) DEFAULT 1.6,
-  stage_final DECIMAL(5,2) DEFAULT 2.0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS rating_history (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   club_id VARCHAR(36),
@@ -1255,111 +1230,6 @@ CREATE TABLE IF NOT EXISTS rating_history (
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS regional_leagues (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  name VARCHAR(255),
-  slug VARCHAR(100),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  country_code VARCHAR(5),
-  region VARCHAR(100),
-  platform VARCHAR(50) DEFAULT 'Cross-Platform',
-  season_number INT DEFAULT 1,
-  status VARCHAR(50) DEFAULT 'draft',
-  archived_at DATETIME,
-  next_season_id VARCHAR(36),
-  max_clubs INT DEFAULT 16,
-  num_clubs INT DEFAULT 0,
-  start_date DATETIME,
-  end_date DATETIME,
-  promoted_slots INT DEFAULT 2,
-  target_competition_id VARCHAR(36),
-  target_competition_name VARCHAR(255),
-  target_competition_tier INT,
-  target_season_id VARCHAR(36),
-  registered_club_ids JSON,
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  organizer_email VARCHAR(255),
-  trophy_item_id VARCHAR(36),
-  banner_url TEXT,
-  linked_league_slug VARCHAR(100),
-  admin_notes TEXT,
-  trophy_image_url TEXT,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS regional_league_fixtures (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  league_id VARCHAR(36),
-  league_name VARCHAR(255),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  season_number INT DEFAULT 1,
-  matchday INT,
-  home_club_id VARCHAR(36),
-  home_club_name VARCHAR(255),
-  home_club_logo_url TEXT,
-  home_club_tag VARCHAR(50),
-  away_club_id VARCHAR(36),
-  away_club_name VARCHAR(255),
-  away_club_logo_url TEXT,
-  away_club_tag VARCHAR(50),
-  window_start DATETIME,
-  window_end DATETIME,
-  window_days INT DEFAULT 4,
-  scheduling_status VARCHAR(50) DEFAULT 'open',
-  home_proposed_date DATETIME,
-  away_proposed_date DATETIME,
-  confirmed_date DATETIME,
-  last_proposed_by VARCHAR(10),
-  proposal_count INT DEFAULT 0,
-  status VARCHAR(50) DEFAULT 'unscheduled',
-  home_score INT DEFAULT 0,
-  away_score INT DEFAULT 0,
-  home_submitted_score VARCHAR(20),
-  away_submitted_score VARCHAR(20),
-  winner_club_id VARCHAR(36),
-  winner_club_name VARCHAR(255),
-  stats_processed TINYINT(1) DEFAULT 0,
-  admin_notes TEXT,
-  match_id VARCHAR(36),
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS regional_league_standings (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  league_id VARCHAR(36),
-  league_name VARCHAR(255),
-  region_slug VARCHAR(100),
-  division INT DEFAULT 1,
-  season_number INT DEFAULT 1,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_logo_url TEXT,
-  club_tag VARCHAR(50),
-  platform VARCHAR(50),
-  region VARCHAR(100),
-  position INT DEFAULT 1,
-  played INT DEFAULT 0,
-  wins INT DEFAULT 0,
-  draws INT DEFAULT 0,
-  losses INT DEFAULT 0,
-  goals_for INT DEFAULT 0,
-  goals_against INT DEFAULT 0,
-  goal_difference INT DEFAULT 0,
-  points INT DEFAULT 0,
-  form JSON,
-  is_stage_qualified TINYINT(1) DEFAULT 0,
-  stage_competition_slug VARCHAR(50),
-  is_promoted TINYINT(1) DEFAULT 0,
-  is_relegated TINYINT(1) DEFAULT 0,
-  final_position INT,
-  promotion_target_league_id VARCHAR(36),
-  relegation_target_league_id VARCHAR(36),
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS reward_configs (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   source_id VARCHAR(36),
@@ -1369,31 +1239,6 @@ CREATE TABLE IF NOT EXISTS reward_configs (
   position_label VARCHAR(100),
   badge_type VARCHAR(50) DEFAULT 'participant',
   stc_amount DECIMAL(10,2) DEFAULT 0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS season_registrations (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  club_id VARCHAR(36),
-  club_name VARCHAR(255),
-  club_tag VARCHAR(50),
-  club_logo_url TEXT,
-  owner_email VARCHAR(255),
-  target_type VARCHAR(50) DEFAULT 'regional_league',
-  region_slug VARCHAR(100),
-  region_name VARCHAR(255),
-  platform VARCHAR(50),
-  preferred_division INT DEFAULT 1,
-  note_from_club TEXT,
-  season_label VARCHAR(100),
-  status VARCHAR(50) DEFAULT 'pending',
-  assigned_league_id VARCHAR(36),
-  assigned_league_name VARCHAR(255),
-  assigned_division INT,
-  admin_notes TEXT,
-  reviewed_by VARCHAR(255),
-  reviewed_at DATETIME,
-  applied_at DATETIME,
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1425,6 +1270,10 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @t='inbox_messages'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_system'),'SELECT 1','ALTER TABLE inbox_messages ADD COLUMN is_system TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='match_player_stats'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_gamertag'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN player_gamertag VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='own_goals'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN own_goals INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_id'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN player_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='position'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN position VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='clean_sheet'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN clean_sheet TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_motm'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN is_motm TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='notifications'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='related_id'),'SELECT 1','ALTER TABLE notifications ADD COLUMN related_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='player_contracts'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='games_played'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN games_played INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='transfer_window_id'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN transfer_window_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -1534,20 +1383,6 @@ SET @t='news_items';
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='type'),'SELECT 1','ALTER TABLE news_items ADD COLUMN type VARCHAR(30) NULL DEFAULT ''announcement''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='category'),'SELECT 1','ALTER TABLE news_items ADD COLUMN category VARCHAR(30) NULL DEFAULT ''general''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='image_url'),'SELECT 1','ALTER TABLE news_items ADD COLUMN image_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='club_id'),'SELECT 1','ALTER TABLE news_items ADD COLUMN club_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='club_name'),'SELECT 1','ALTER TABLE news_items ADD COLUMN club_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='club_logo_url'),'SELECT 1','ALTER TABLE news_items ADD COLUMN club_logo_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_id'),'SELECT 1','ALTER TABLE news_items ADD COLUMN player_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_name'),'SELECT 1','ALTER TABLE news_items ADD COLUMN player_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_avatar_url'),'SELECT 1','ALTER TABLE news_items ADD COLUMN player_avatar_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_id'),'SELECT 1','ALTER TABLE news_items ADD COLUMN tournament_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_name'),'SELECT 1','ALTER TABLE news_items ADD COLUMN tournament_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_featured'),'SELECT 1','ALTER TABLE news_items ADD COLUMN is_featured TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_global'),'SELECT 1','ALTER TABLE news_items ADD COLUMN is_global TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='transfer_fee_stc'),'SELECT 1','ALTER TABLE news_items ADD COLUMN transfer_fee_stc BIGINT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tags'),'SELECT 1','ALTER TABLE news_items ADD COLUMN tags JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='visible_to_club_ids'),'SELECT 1','ALTER TABLE news_items ADD COLUMN visible_to_club_ids JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='visible_to_player_ids'),'SELECT 1','ALTER TABLE news_items ADD COLUMN visible_to_player_ids JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- END inlined: match_lifestyle_news_migration.sql
 
 -- BEGIN inlined: stage_entity_changes_20260505.sql (summary subset)
@@ -1558,7 +1393,6 @@ SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'home_goal_events') = 0,'ALTER TABLE matches ADD COLUMN home_goal_events JSON','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND COLUMN_NAME = 'away_goal_events') = 0,'ALTER TABLE matches ADD COLUMN away_goal_events JSON','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'matches' AND INDEX_NAME = 'idx_matches_source_fx') = 0,'CREATE INDEX idx_matches_source_fx ON matches(source_fixture_id)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'season_registrations' AND INDEX_NAME = 'idx_season_reg_club') = 0,'CREATE INDEX idx_season_reg_club ON season_registrations(club_id)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'reward_configs' AND INDEX_NAME = 'idx_reward_source') = 0,'CREATE INDEX idx_reward_source ON reward_configs(source_type, source_id, position)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- END inlined: stage_entity_changes_20260505.sql
 
@@ -1608,27 +1442,19 @@ CREATE TABLE IF NOT EXISTS landing_config (
   hero_title         VARCHAR(255) NULL,
   hero_description   TEXT         NULL,
   hero_image_url     VARCHAR(500) NULL,
-  hero_image_position VARCHAR(50) NULL,
-  hero_image_zoom    INT          NULL,
   stats_json         TEXT         NULL,
   section1_tag       VARCHAR(100) NULL,
   section1_title     VARCHAR(255) NULL,
   section1_text      TEXT         NULL,
   section1_image_url VARCHAR(500) NULL,
-  section1_image_position VARCHAR(50) NULL,
-  section1_image_zoom INT          NULL,
   section2_tag       VARCHAR(100) NULL,
   section2_title     VARCHAR(255) NULL,
   section2_text      TEXT         NULL,
   section2_image_url VARCHAR(500) NULL,
-  section2_image_position VARCHAR(50) NULL,
-  section2_image_zoom INT          NULL,
   section3_tag       VARCHAR(100) NULL,
   section3_title     VARCHAR(255) NULL,
   section3_text      TEXT         NULL,
   section3_image_url VARCHAR(500) NULL,
-  section3_image_position VARCHAR(50) NULL,
-  section3_image_zoom INT          NULL,
   footer_tagline     VARCHAR(255) NULL,
   created_date       DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -1642,8 +1468,6 @@ CREATE TABLE IF NOT EXISTS home_page_contents (
   hero_subtitle      VARCHAR(255) NULL,
   hero_description   TEXT         NULL,
   hero_image_url     VARCHAR(500) NULL,
-  hero_image_position VARCHAR(50) NULL,
-  hero_image_zoom    INT          NULL,
   hero_cta_1_label   VARCHAR(255) NULL,
   hero_cta_1_url     VARCHAR(500) NULL,
   hero_cta_2_label   VARCHAR(255) NULL,
@@ -1653,18 +1477,12 @@ CREATE TABLE IF NOT EXISTS home_page_contents (
   section1_title     VARCHAR(255) NULL,
   section1_text      TEXT         NULL,
   section1_image_url VARCHAR(500) NULL,
-  section1_image_position VARCHAR(50) NULL,
-  section1_image_zoom INT          NULL,
   section2_title     VARCHAR(255) NULL,
   section2_text      TEXT         NULL,
   section2_image_url VARCHAR(500) NULL,
-  section2_image_position VARCHAR(50) NULL,
-  section2_image_zoom INT          NULL,
   section3_title     VARCHAR(255) NULL,
   section3_text      TEXT         NULL,
   section3_image_url VARCHAR(500) NULL,
-  section3_image_position VARCHAR(50) NULL,
-  section3_image_zoom INT          NULL,
   faq_items          LONGTEXT     NULL,
   contact_email      VARCHAR(255) NULL,
   footer_tagline     TEXT         NULL,
@@ -1730,12 +1548,11 @@ CREATE TABLE IF NOT EXISTS player_stc_transactions (
   INDEX idx_pst_created (created_date)
 );
 
--- Competition & league entity store — single flexible table that backs every
--- /api/stage/* route exposed via leagueEntityController.makeRouter(): competitions,
--- competition_seasons, competition_fixtures, competition_standings, regional_leagues,
--- regional_league_fixtures, regional_league_standings, qualification_entries,
--- ranking_configs, season_registrations. The `entity_type` discriminator selects
--- which logical entity a row represents; remaining structured data lives in `data_json`.
+-- Competition & league entity store — single flexible table that backs the
+-- competition, regional league, qualification, ranking, and season-registration
+-- /api/stage/* routes exposed via leagueEntityController.makeRouter().
+-- The `entity_type` discriminator selects which logical entity a row represents;
+-- remaining structured data lives in `data_json`.
 CREATE TABLE IF NOT EXISTS league_entities (
   id                VARCHAR(36)  NOT NULL PRIMARY KEY,
   entity_type       VARCHAR(50)  NOT NULL,
