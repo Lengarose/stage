@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { format, isPast } from "@/lib/momentDate";
 import {
   Trophy, ArrowLeft, Calendar, ChevronDown, ChevronRight,
-  AlertTriangle, Check, Clock, Shield, Plus
+  AlertTriangle, Check, Clock, Shield, Plus, Zap, ExternalLink
 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,17 @@ const SCHEDULING_BADGE = {
 
 export default function LeagueDetail() {
   const { slug }   = useParams();
+  const navigate    = useNavigate();
   const [league,   setLeague]   = useState(null);
   const [standings,setStandings]= useState([]);
   const [fixtures, setFixtures] = useState([]);
+  const [playerStats, setPlayerStats] = useState([]);
+  const [playersByEmail, setPlayersByEmail] = useState({});
   const [myClub,   setMyClub]   = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [user,     setUser]     = useState(null);
   const [loading,  setLoading]  = useState(true);
-  const [tab,      setTab]      = useState("fixtures");
+  const [tab,      setTab]      = useState("overview");
   const [openMd,   setOpenMd]   = useState(null);
   const [generating, setGenerating] = useState(false);
   const [openingWindows, setOpeningWindows] = useState(null);
@@ -71,6 +74,21 @@ export default function LeagueDetail() {
     ]);
     setStandings(leagueStandings);
     setFixtures(leagueFixtures);
+
+    const matchIds = [...new Set(leagueFixtures.map(f => f.match_id).filter(Boolean))];
+    const stats = matchIds.length
+      ? (await Promise.all(matchIds.map(id =>
+          stageClient.entities.MatchPlayerStat.filter({ match_id: id }, null, 100).catch(() => [])
+        ))).flat()
+      : [];
+    setPlayerStats(stats);
+    const statEmails = [...new Set(stats.map(s => s.player_email).filter(Boolean).map(e => String(e).toLowerCase()))];
+    const playerRows = statEmails.length
+      ? (await Promise.all(statEmails.map(email =>
+          stageClient.entities.Player.filter({ email }, null, 1).catch(() => [])
+        ))).flat()
+      : [];
+    setPlayersByEmail(Object.fromEntries(playerRows.map(p => [String(p.email || "").toLowerCase(), p])));
 
     if (u) {
       const players = await stageClient.entities.Player.filter({ email: u.email }).catch(() => []);
@@ -126,6 +144,15 @@ export default function LeagueDetail() {
     } finally { setOpeningWindows(null); }
   }
 
+  async function openGameDayForFixture(fixture) {
+    if (!fixture.match_id) {
+      const { createMatchFromFixture } = await import("@/lib/gameDayIntegration");
+      await createMatchFromFixture(fixture, "regional_league");
+      await load();
+    }
+    navigate("/game-day");
+  }
+
   const isAdmin = user?.role === "admin";
   const ldef    = LEAGUE_DEFINITIONS.find(d => d.slug === slug);
 
@@ -136,6 +163,22 @@ export default function LeagueDetail() {
   const sortedStandings = [...standings].sort((a, b) =>
     b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against)
   );
+  const playedFixtures = fixtures.filter(f => f.status === "played" || f.status === "completed");
+  const scheduledFixtures = fixtures.filter(f => f.scheduling_status === "confirmed" || f.status === "scheduled");
+  const myFixtures = myClub ? fixtures.filter(f => f.home_club_id === myClub.id || f.away_club_id === myClub.id) : [];
+  const leader = sortedStandings[0];
+  const topScorers = buildLeaguePlayerStats(playerStats, playersByEmail).sort((a, b) =>
+    b.goals - a.goals || b.assists - a.assists || b.avg_rating - a.avg_rating || a.name.localeCompare(b.name)
+  );
+  const clubStatsRows = sortedStandings.map(row => ({
+    ...row,
+    winRate: row.played ? Math.round((Number(row.wins || 0) / Number(row.played || 1)) * 1000) / 10 : 0,
+    goalsPerMatch: row.played ? Math.round((Number(row.goals_for || 0) / Number(row.played || 1)) * 100) / 100 : 0,
+    cleanSheets: playedFixtures.filter(f =>
+      (f.home_club_id === row.club_id && Number(f.away_score || 0) === 0) ||
+      (f.away_club_id === row.club_id && Number(f.home_score || 0) === 0)
+    ).length,
+  }));
 
   if (loading) {
     return (
@@ -159,8 +202,8 @@ export default function LeagueDetail() {
       <div className="max-w-5xl mx-auto space-y-6">
 
         {/* Back */}
-        <Link to="/admin" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Admin
+        <Link to="/competitions" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Competitions
         </Link>
 
         {/* Header */}
@@ -219,7 +262,7 @@ export default function LeagueDetail() {
 
         {/* Tabs */}
         <div className="flex border-b border-border gap-0">
-          {["fixtures", "standings"].map(t => (
+          {["overview", "fixtures", "standings", "club stats", "player stats"].map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={cn("px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors",
                 tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -228,6 +271,73 @@ export default function LeagueDetail() {
             </button>
           ))}
         </div>
+
+        {/* ── Overview tab ── */}
+        {tab === "overview" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: "Clubs", value: `${standings.length}/${league.max_clubs || 16}`, icon: Shield },
+                { label: "Fixtures", value: fixtures.length, icon: Calendar },
+                { label: "Played", value: playedFixtures.length, icon: Check },
+                { label: "Scheduled", value: scheduledFixtures.length, icon: Zap },
+              ].map(item => (
+                <div key={item.label} className="bg-card border border-border rounded-xl p-4">
+                  <item.icon className="w-4 h-4 text-primary mb-3" />
+                  <p className="font-heading text-3xl text-foreground">{item.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Trophy className="w-4 h-4 text-warning" />
+                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">League Leader</h2>
+                </div>
+                {leader ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {leader.club_logo_url
+                        ? <img src={leader.club_logo_url} alt={leader.club_name} className="w-10 h-10 rounded object-cover" />
+                        : <Shield className="w-8 h-8 text-muted-foreground" />}
+                      <div className="min-w-0">
+                        <Link to={`/clubs/${leader.club_id}`} className="font-bold text-foreground hover:text-primary truncate block">
+                          {leader.club_name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">{leader.wins || 0}W {leader.draws || 0}D {leader.losses || 0}L</p>
+                      </div>
+                    </div>
+                    <p className="font-heading text-4xl text-primary">{leader.points || 0}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No leader yet.</p>
+                )}
+              </div>
+
+              <div className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">Your Club Fixtures</h2>
+                </div>
+                {myClub && myFixtures.length ? (
+                  <div className="space-y-2">
+                    {myFixtures.slice(0, 4).map(f => (
+                      <button key={f.id} type="button" onClick={() => { setTab("fixtures"); setOpenMd(f.matchday); }}
+                        className="w-full flex items-center justify-between gap-3 rounded border border-border px-3 py-2 text-left hover:border-primary/40">
+                        <span className="text-xs text-foreground truncate">{f.home_club_name} vs {f.away_club_name}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">MD {f.matchday}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{myClub ? "Your club has no fixtures in this league." : "Join or manage a club to see your fixtures here."}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Fixtures tab ── */}
         {tab === "fixtures" && (
@@ -315,6 +425,7 @@ export default function LeagueDetail() {
                             myEmail={user?.email}
                             myGamertag={myPlayer?.gamertag}
                             onUpdate={load}
+                            onOpenGameDay={openGameDayForFixture}
                           />
                         ))}
                       </div>
@@ -322,6 +433,80 @@ export default function LeagueDetail() {
                   </div>
                 );
               })
+            )}
+          </div>
+        )}
+
+        {/* ── Club stats tab ── */}
+        {tab === "club stats" && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {clubStatsRows.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground text-sm">No club stats yet.</div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/40">
+                    {["Club", "P", "W%", "GF", "GA", "GD", "CS", "G/M"].map((h, i) => (
+                      <th key={h} className={cn("px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", i === 0 ? "text-left" : "text-center")}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {clubStatsRows.map(row => (
+                    <tr key={row.id}>
+                      <td className="px-3 py-2.5">
+                        <Link to={`/clubs/${row.club_id}`} className="font-semibold text-foreground hover:text-primary">{row.club_name}</Link>
+                      </td>
+                      <td className="text-center px-3 py-2.5">{row.played || 0}</td>
+                      <td className="text-center px-3 py-2.5">{row.winRate}%</td>
+                      <td className="text-center px-3 py-2.5">{row.goals_for || 0}</td>
+                      <td className="text-center px-3 py-2.5">{row.goals_against || 0}</td>
+                      <td className="text-center px-3 py-2.5">{row.goal_difference || 0}</td>
+                      <td className="text-center px-3 py-2.5">{row.cleanSheets}</td>
+                      <td className="text-center px-3 py-2.5">{row.goalsPerMatch}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* ── Player stats tab ── */}
+        {tab === "player stats" && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {topScorers.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground text-sm">No player stats yet. Stats appear after Game Day results are submitted.</div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/40">
+                    {["Player", "Club", "M", "G", "A", "CS", "MOTM", "AVG"].map((h, i) => (
+                      <th key={h} className={cn("px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", i < 2 ? "text-left" : "text-center")}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {topScorers.map(row => (
+                    <tr key={row.key}>
+                      <td className="px-3 py-2.5">
+                        {row.player_id ? (
+                          <Link to={`/players/${row.player_id}`} className="font-semibold text-foreground hover:text-primary">{row.name}</Link>
+                        ) : (
+                          <span className="font-semibold text-foreground">{row.name}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{row.club_name || "—"}</td>
+                      <td className="text-center px-3 py-2.5">{row.matches}</td>
+                      <td className="text-center px-3 py-2.5 font-bold text-foreground">{row.goals}</td>
+                      <td className="text-center px-3 py-2.5">{row.assists}</td>
+                      <td className="text-center px-3 py-2.5">{row.clean_sheets}</td>
+                      <td className="text-center px-3 py-2.5">{row.motm}</td>
+                      <td className="text-center px-3 py-2.5">{row.avg_rating || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         )}
@@ -474,12 +659,13 @@ export default function LeagueDetail() {
 
 // ─── Fixture row ──────────────────────────────────────────────────────────────
 
-function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate }) {
+function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate, onOpenGameDay }) {
   const [expanded, setExpanded] = useState(false);
   const sched = fixture.scheduling_status || "open";
   const badge = SCHEDULING_BADGE[sched] || SCHEDULING_BADGE.open;
   const isMyFixture = myClub && (fixture.home_club_id === myClub.id || fixture.away_club_id === myClub.id);
   const isPlayed = fixture.status === "played";
+  const canOpenGameDay = fixture.match_id || fixture.scheduling_status === "confirmed" || fixture.status === "scheduled";
 
   return (
     <div className={cn("transition-colors", isMyFixture && "bg-primary/5")}>
@@ -525,6 +711,16 @@ function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate }) {
           {badge.label}
         </span>
 
+        {canOpenGameDay && (
+          <button
+            type="button"
+            onClick={() => onOpenGameDay(fixture)}
+            className="inline-flex items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10"
+          >
+            Game Day <ExternalLink className="w-3 h-3" />
+          </button>
+        )}
+
         {/* Expand toggle (only for my fixture or admin) */}
         {(isMyFixture || !isPlayed) && (
           <button onClick={() => setExpanded(v => !v)}
@@ -548,4 +744,43 @@ function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate }) {
       )}
     </div>
   );
+}
+
+function buildLeaguePlayerStats(stats, playersByEmail) {
+  const rows = new Map();
+  for (const stat of stats || []) {
+    const email = String(stat.player_email || "").toLowerCase();
+    const player = playersByEmail[email] || null;
+    const key = stat.player_id || player?.id || email || stat.player_gamertag || stat.id;
+    if (!key) continue;
+    if (!rows.has(key)) {
+      rows.set(key, {
+        key,
+        player_id: stat.player_id || player?.id || "",
+        name: player?.gamertag || stat.player_gamertag || stat.player_name || stat.player_email || "Unknown Player",
+        club_id: stat.club_id || player?.club_id || "",
+        club_name: stat.club_name || player?.club_name || "",
+        matches: 0,
+        goals: 0,
+        assists: 0,
+        clean_sheets: 0,
+        motm: 0,
+        rating_total: 0,
+        rated_matches: 0,
+        avg_rating: 0,
+      });
+    }
+    const row = rows.get(key);
+    row.matches += 1;
+    row.goals += Number(stat.goals || 0);
+    row.assists += Number(stat.assists || 0);
+    row.clean_sheets += Number(stat.clean_sheet || 0);
+    row.motm += Number(stat.is_motm || 0);
+    if (Number(stat.rating || 0) > 0) {
+      row.rating_total += Number(stat.rating);
+      row.rated_matches += 1;
+      row.avg_rating = Math.round((row.rating_total / row.rated_matches) * 100) / 100;
+    }
+  }
+  return [...rows.values()];
 }
