@@ -206,10 +206,10 @@ Important fields:
 - `home_club_name`
 - `away_club_id`
 - `away_club_name`
-- `home_player_id`
-- `home_player_name`
-- `away_player_id`
-- `away_player_name`
+- `player_home_id`
+- `player_home_gamertag`
+- `player_away_id`
+- `player_away_gamertag`
 - `status`: unscheduled, scheduled, in_progress, completed, disputed, forfeit, cancelled
 - `scheduling_status`: open, home_proposed, away_proposed, confirmed, expired, admin_review
 - `window_start`
@@ -387,9 +387,9 @@ Where possible, server-generated financial transactions should have a unique ide
 `matches` must keep identity snapshot fields for both sides:
 
 - club matches: `home_club_id`, `home_club_name`, `away_club_id`, `away_club_name`
-- player matches: `home_player_id`, `home_player_name`, `away_player_id`, `away_player_name`
+- player matches: `player_home_id`, `player_home_gamertag`, `player_away_id`, `player_away_gamertag`
 
-The unified fixture engine should populate these fields when it creates or links a Game Day match. IDs are used for permissions and joins; names are stored as snapshots so old fixtures and match history still render correctly if a club/player changes name later.
+The unified fixture engine should populate these fields when it creates or links a Game Day match. IDs are used for permissions and joins; names/gamertags are stored as snapshots so old fixtures and match history still render correctly if a club name or player gamertag changes later. Existing `matches.home_player_id`, `matches.home_player_name`, `matches.away_player_id`, and `matches.away_player_name` can remain as compatibility fields, but new unified engine code should treat the canonical player snapshot names as `player_home_*` and `player_away_*`.
 
 ## Server Commands
 
