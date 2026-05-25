@@ -309,6 +309,9 @@ const ENTITY_NAMES = [
   'Competition', 'CompetitionSeason', 'CompetitionFixture', 'CompetitionStanding',
   'RegionalLeague', 'RegionalLeagueFixture', 'RegionalLeagueStanding',
   'QualificationEntry', 'RankingConfig', 'SeasonRegistration',
+  // Unified competition engine typed operational entities
+  'CompetitionInstance', 'CompetitionParticipant', 'CompetitionScheduleProposal',
+  'CompetitionResultSubmission', 'CompetitionPhaseState', 'CompetitionPayout',
   // New reward/achievement entities
   'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
   // Pre-login landing page config
@@ -591,6 +594,33 @@ function buildQuery(q) {
   return params.length ? `?${params.join('&')}` : '';
 }
 
+// ── Unified competition engine commands ──────────────────────────────────────
+const competitionEngine = {
+  listInstances(params = {}) {
+    return http.get('/competition-engine/instances', params);
+  },
+
+  getInstance(id) {
+    return http.get(`/competition-engine/instances/${encodeURIComponent(id)}`);
+  },
+
+  listParticipants(instanceId) {
+    return http.get(`/competition-engine/instances/${encodeURIComponent(instanceId)}/participants`);
+  },
+
+  listFixtures(instanceId, params = {}) {
+    return http.get(`/competition-engine/instances/${encodeURIComponent(instanceId)}/fixtures`, params);
+  },
+
+  createMatchFromFixture(fixtureId) {
+    return http.post(`/competition-engine/fixtures/${encodeURIComponent(fixtureId)}/match/create`, {});
+  },
+
+  submitResult(matchId, payload = {}) {
+    return http.post(`/competition-engine/matches/${encodeURIComponent(matchId)}/results/submit`, payload);
+  },
+};
+
 // ── Canonical user→player→club resolver ───────────────────────────────────────
 // The correct lookup chain is:
 //   users table (auth.me()) → player_id → players table → club_id → clubs table
@@ -632,6 +662,6 @@ export async function resolveMyPlayerAndClub() {
   return { user: u, player, club };
 }
 
-export const stageClient = { entities, auth, integrations, functions, http, identityClaims };
+export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine };
 // Backward-compat alias during migration
 export const base44 = stageClient;
