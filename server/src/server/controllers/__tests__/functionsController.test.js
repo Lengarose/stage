@@ -353,3 +353,85 @@ test('syncCompletedMatchToSource delegates completed match sync to service', asy
   assert.equal(response.body.data.synced, true);
   assert.equal(syncedMatch.id, 'match-1');
 });
+
+test('respondInboxMessage creates invite match with player email snapshots server-side', async () => {
+  const inserts = [];
+  const inboxUpdates = [];
+  const message = {
+    id: 'message-1',
+    recipient_email: 'away@example.test',
+    sender_email: 'home@example.test',
+    message_type: 'match_invite',
+    subject: 'Ranked invite',
+    related_entity_id: null,
+    metadata: JSON.stringify({
+      invitation_type: 'player_vs_player',
+      challenger_player_id: 'player-home',
+      opponent_player_id: 'player-away',
+      challenger_name: 'HomeTag',
+      opponent_name: 'AwayTag',
+      scheduled_date: '2026-06-01T20:00:00.000Z',
+    }),
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, player_id, owner_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+    if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT id, gamertag, email FROM players WHERE id IN/.test(sql)) {
+      return [
+        { id: 'player-home', gamertag: 'HomeTag', email: 'home-player@example.test' },
+        { id: 'player-away', gamertag: 'AwayTag', email: 'away-player@example.test' },
+      ];
+    }
+    if (/INSERT INTO matches/.test(sql)) {
+      inserts.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE inbox_messages SET related_entity_id = \?/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+
+  await handle(
+    { params: { name: 'respondInboxMessage' }, body: { message_id: 'message-1', action: 'accepted' }, user: { id: 'user-away' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(inserts.length, 1);
+  assert.equal(inserts[0][2], null);
+  assert.equal(inserts[0][3], null);
+  assert.equal(inserts[0][8], 'player-home');
+  assert.equal(inserts[0][10], 'home-player@example.test');
+  assert.equal(inserts[0][11], 'player-away');
+  assert.equal(inserts[0][13], 'away-player@example.test');
+  assert.equal(inboxUpdates.some(update => /related_entity_id/.test(update.sql)), true);
+});

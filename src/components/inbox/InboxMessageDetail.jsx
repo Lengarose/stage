@@ -2,9 +2,8 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format, parseISO, toMysqlDateTime, combineDateTimeToMysql, isValid } from "@/lib/momentDate";
+import { format } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
-import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
@@ -37,156 +36,15 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
     setLoading(action);
     setActionError("");
     try {
-      const meta = typeof message.metadata === "string"
-        ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
-        : (message.metadata || {});
-      const delayStatusUpdate = action === "accepted" && message.message_type === "match_invite";
-
-      if (!delayStatusUpdate) {
+      if (message.message_type === "match_invite") {
+        await stageClient.functions.invoke("respondInboxMessage", {
+          message_id: message.id,
+          action,
+          new_date: rescheduleDate || null,
+          new_time: rescheduleTime || null,
+        });
+      } else {
         await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
-      }
-
-      if (action === "accepted" && message.message_type === "match_invite") {
-        notify(message.sender_email, "match_scheduled",
-          `✅ Match Invitation Accepted`,
-          `${meta.opponent_name} has accepted your match invitation for ${meta.scheduled_date && isValid(parseISO(meta.scheduled_date)) ? format(parseISO(meta.scheduled_date), "PPp") : "the proposed date"}.`,
-          "/schedule"
-        );
-        // Create the scheduled match from the invitation metadata.
-        // If legacy invite metadata lacks ids, resolve them from sender/recipient emails.
-        const [senderPlayers, recipientPlayers] = await Promise.all([
-          message.sender_email ? stageClient.entities.Player.filter({ email: message.sender_email }, null, 1).catch(() => []) : Promise.resolve([]),
-          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
-        ]);
-        const senderPlayer = senderPlayers?.[0] || null;
-        const recipientPlayer = recipientPlayers?.[0] || null;
-
-        // Determine match kind from invitation_type (single source of truth set
-        // by ArrangeGameDialog). Only fall back to "both have an explicit club id
-        // in metadata" for legacy invites that pre-date the invitation_type field;
-        // we deliberately do NOT count senderPlayer.club_id / recipientPlayer.club_id
-        // as evidence of a club match because every player has a club, which would
-        // misclassify every player_vs_player invite as a club match.
-        const isClub = meta.invitation_type
-          ? meta.invitation_type === "club_vs_club"
-          : (!!meta.challenger_club_id && !!meta.opponent_club_id);
-
-        // Only populate ids for the side that matches the match kind. Leaking
-        // the "other" side's ids was the cause of player matches being saved
-        // with home_club_name = a gamertag and showing up as Club-vs-Player.
-        const home_player_id = isClub ? null : (meta.challenger_player_id || senderPlayer?.id || null);
-        const away_player_id = isClub ? null : (meta.opponent_player_id || recipientPlayer?.id || null);
-        const home_club_id   = isClub ? (meta.challenger_club_id || senderPlayer?.club_id || null) : null;
-        const away_club_id   = isClub ? (meta.opponent_club_id || recipientPlayer?.club_id || null) : null;
-
-        const [homeClubRows, awayClubRows] = await Promise.all([
-          home_club_id ? stageClient.entities.Club.filter({ id: home_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
-          away_club_id ? stageClient.entities.Club.filter({ id: away_club_id }, null, 1).catch(() => []) : Promise.resolve([]),
-        ]);
-        const homeClub = homeClubRows?.[0] || null;
-        const awayClub = awayClubRows?.[0] || null;
-
-        // Guard against creating broken rows with every identity field null.
-        if (!home_player_id && !away_player_id && !home_club_id && !away_club_id) {
-          throw new Error("Cannot schedule match: invitation is missing challenger/opponent ids.");
-        }
-
-        const createdMatch = await stageClient.entities.Match.create({
-          status:           "scheduled",
-          mode:             isClub ? "club" : "solo",
-          scheduled_date:   toMysqlDateTime(meta.scheduled_date),
-          home_club_id,
-          home_club_name:   isClub ? (meta.challenger_name || homeClub?.name || null) : null,
-          away_club_id,
-          away_club_name:   isClub ? (meta.opponent_name || awayClub?.name || null) : null,
-          home_player_id,
-          home_player_name: !isClub ? (meta.challenger_name || senderPlayer?.gamertag || null) : null,
-          away_player_id,
-          away_player_name: !isClub ? (meta.opponent_name || recipientPlayer?.gamertag || null) : null,
-          wager_stc:        meta.wager_stc || 0,
-          wager_status:     (meta.wager_stc || 0) > 0 ? "pending_acceptance" : null,
-          wager_home_locked: false,
-          wager_away_locked: false,
-        });
-
-        if (Number(meta.wager_stc || 0) > 0 && createdMatch?.id) {
-          await stageClient.functions.invoke("wagerMatchActions", {
-            action: "accept_wager",
-            match_id: createdMatch.id,
-          });
-        }
-
-        await stageClient.entities.InboxMessage.update(message.id, {
-          status: action,
-          is_read: true,
-          related_entity_id: createdMatch?.id || message.related_entity_id || null,
-          related_entity_type: "match",
-          metadata: { ...meta, created_match_id: createdMatch?.id || null },
-        });
-
-        // Notify the challenger that their invite was accepted
-        if (message.sender_email) {
-          const responderName = myGamertag || recipientPlayer?.gamertag || message.recipient_email || "Player";
-          const responderAvatar = recipientPlayer?.avatar_url || "";
-          const responderClubName = awayClub?.name || recipientPlayer?.club_name || null;
-          await stageClient.entities.InboxMessage.create({
-            recipient_email: message.sender_email,
-            sender_email:    message.recipient_email,
-            sender_gamertag: responderName,
-            sender_avatar_url: responderAvatar,
-            sender_club_name: responderClubName,
-            subject:         `✅ Match Accepted: ${meta.challenger_name} vs ${meta.opponent_name}`,
-            body:            `${meta.opponent_name} has accepted your match invitation!\n\nDate: ${meta.scheduled_date && isValid(parseISO(meta.scheduled_date)) ? format(parseISO(meta.scheduled_date), "PPp") : "TBD"}\n\nThe match has been added to your schedule.`,
-            message_type:    "match_invite_response",
-            action_type:     "none",
-            status:          "pending",
-            is_read:         false,
-          });
-        }
-      }
-
-      if (action === "declined" && message.sender_email) {
-        notify(message.sender_email, "match_result",
-          `❌ Match Invitation Declined`,
-          `${meta.opponent_name} has declined your match invitation.`,
-          "/inbox"
-        );
-        const [recipientPlayers] = await Promise.all([
-          message.recipient_email ? stageClient.entities.Player.filter({ email: message.recipient_email }, null, 1).catch(() => []) : Promise.resolve([]),
-        ]);
-        const responder = recipientPlayers?.[0] || null;
-        await stageClient.entities.InboxMessage.create({
-          recipient_email: message.sender_email,
-          sender_email:    message.recipient_email,
-          sender_gamertag: myGamertag || responder?.gamertag || message.recipient_email || "Player",
-          sender_avatar_url: responder?.avatar_url || "",
-          sender_club_name: null,
-          subject:         `❌ Match Declined: ${meta.challenger_name} vs ${meta.opponent_name}`,
-          body:            `${meta.opponent_name} has declined your match invitation.`,
-          message_type:    "match_invite_response",
-          action_type:     "none",
-          status:          "pending",
-          is_read:         false,
-        });
-      }
-
-      if (action === "date_change_requested" && message.sender_email) {
-        const newDate = rescheduleDate && rescheduleTime
-          ? combineDateTimeToMysql(rescheduleDate, rescheduleTime)
-          : null;
-        await stageClient.entities.InboxMessage.create({
-          recipient_email: message.sender_email,
-          sender_email:    message.recipient_email,
-          subject:         `📅 Date Change Request: ${meta.challenger_name} vs ${meta.opponent_name}`,
-          body:            `${meta.opponent_name} would like to reschedule your match.\n\nProposed new date: ${rescheduleDate || "—"} at ${rescheduleTime || "—"}\n\nReply to accept or propose another date.`,
-          message_type:    "match_invite",
-          action_type:     "accept_decline_date",
-          related_entity_id:   message.id,
-          related_entity_type: "inbox_message",
-          status:          "pending",
-          is_read:         false,
-          metadata: { ...meta, scheduled_date: newDate || meta.scheduled_date },
-        });
       }
 
       onStatusChanged(message.id, action);

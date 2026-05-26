@@ -927,6 +927,40 @@ async function enrichMatchParticipantSnapshots(payload) {
   return next;
 }
 
+async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenger', scheduledDate } = {}) {
+  const isClubMatch = (meta.invitation_type || 'player_vs_player') === 'club_vs_club';
+  const homePrefix = homeSide === 'opponent' ? 'opponent' : 'challenger';
+  const awayPrefix = homeSide === 'opponent' ? 'challenger' : 'opponent';
+  const payload = await enrichMatchParticipantSnapshots({
+    id: uuidv4(),
+    tournament_id: 'ranked',
+    status: 'scheduled',
+    mode: isClubMatch ? 'club' : 'solo',
+    type: 'ranked',
+    scheduled_date: scheduledDate,
+    stats_processed: 0,
+    home_club_id: isClubMatch ? (meta[`${homePrefix}_club_id`] || null) : null,
+    away_club_id: isClubMatch ? (meta[`${awayPrefix}_club_id`] || null) : null,
+    home_club_name: isClubMatch ? (meta[`${homePrefix}_name`] || null) : null,
+    away_club_name: isClubMatch ? (meta[`${awayPrefix}_name`] || null) : null,
+    home_player_id: !isClubMatch ? (meta[`${homePrefix}_player_id`] || null) : null,
+    away_player_id: !isClubMatch ? (meta[`${awayPrefix}_player_id`] || null) : null,
+    home_player_name: !isClubMatch ? (meta[`${homePrefix}_name`] || null) : null,
+    away_player_name: !isClubMatch ? (meta[`${awayPrefix}_name`] || null) : null,
+    wager_stc: Number(meta.wager_stc || 0),
+    wager_status: Number(meta.wager_stc || 0) > 0 ? 'pending_acceptance' : null,
+    wager_home_locked: false,
+    wager_away_locked: false,
+  });
+  if (!payload.home_player_id && !payload.away_player_id && !payload.home_club_id && !payload.away_club_id) {
+    throw new Error('Cannot schedule match: invitation is missing challenger/opponent ids.');
+  }
+  const match = new Match(payload);
+  await match.create();
+  await Promise.resolve(broadcastMatch(payload)).catch(() => {});
+  return payload;
+}
+
 const CREDIT_PACKS = {
   credits_100:  { priceId: 'price_1TOayT2fnaWmNMFQby00tHqR', credits: 100 },
   credits_300:  { priceId: 'price_1TOb0I2fnaWmNMFQyryD4Rpc', credits: 300 },
@@ -2625,43 +2659,15 @@ const HANDLERS = {
       if (meta.created_match_id) {
         return { success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } };
       }
-      const isClubMatch = (meta.invitation_type || 'player_vs_player') === 'club_vs_club';
       const scheduledDate = toMysqlDateTime(meta.scheduled_date);
-      const matchId = uuidv4();
-      const payload = {
-        id: matchId,
-        tournament_id: 'ranked',
-        status: 'scheduled',
-        mode: isClubMatch ? 'club' : 'solo',
-        type: 'ranked',
-        scheduled_date: scheduledDate,
-        stats_processed: 0,
-        home_club_id: isClubMatch ? (meta.challenger_club_id || null) : null,
-        away_club_id: isClubMatch ? (meta.opponent_club_id || null) : null,
-        home_club_name: isClubMatch ? (meta.challenger_name || null) : null,
-        away_club_name: isClubMatch ? (meta.opponent_name || null) : null,
-        home_player_id: !isClubMatch ? (meta.challenger_player_id || null) : null,
-        away_player_id: !isClubMatch ? (meta.opponent_player_id || null) : null,
-        home_player_name: !isClubMatch ? (meta.challenger_name || null) : null,
-        away_player_name: !isClubMatch ? (meta.opponent_name || null) : null,
-      };
+      const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'challenger', scheduledDate });
       await EXECUTESQL(
-        `INSERT INTO matches
-         (id, tournament_id, status, mode, type, scheduled_date, stats_processed,
-          home_club_id, away_club_id, home_club_name, away_club_name,
-          home_player_id, away_player_id, home_player_name, away_player_name, created_date, updated_date)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
-        [
-          payload.id, payload.tournament_id, payload.status, payload.mode, payload.type, payload.scheduled_date, payload.stats_processed,
-          payload.home_club_id, payload.away_club_id, payload.home_club_name, payload.away_club_name,
-          payload.home_player_id, payload.away_player_id, payload.home_player_name, payload.away_player_name, new Date(),
-        ]
+        'UPDATE inbox_messages SET related_entity_id = ?, related_entity_type = ?, metadata = ? WHERE id = ?',
+        [payload.id, 'match', JSON.stringify({ ...meta, created_match_id: payload.id }), message_id]
       );
-      broadcastMatch(payload);
-      await EXECUTESQL(
-        'UPDATE inbox_messages SET metadata = ? WHERE id = ?',
-        [JSON.stringify({ ...meta, created_match_id: matchId }), message_id]
-      );
+      if (Number(meta.wager_stc || 0) > 0) {
+        await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id }).catch(() => {});
+      }
       if (message.sender_email) {
         await createNotificationIfEnabled({
           recipientEmail: message.sender_email,
@@ -2669,10 +2675,10 @@ const HANDLERS = {
           title: `${user.email} accepted your invite`,
           body: 'Match created and scheduled.',
           link: '/schedule',
-          relatedId: matchId,
+          relatedId: payload.id,
         });
       }
-      return { success: true, message: { id: message_id, status: action }, match: { id: matchId } };
+      return { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
     }
 
     if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
@@ -2726,28 +2732,11 @@ const HANDLERS = {
         await broadcastMatchById(existingMatchId);
       } else if (!existingMatchId) {
         // Confirming a date proposal before match exists -> create now.
-        const isClubMatch = (meta.invitation_type || 'player_vs_player') === 'club_vs_club';
-        const createdId = uuidv4();
+        const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'opponent', scheduledDate: targetDate });
         await EXECUTESQL(
-          `INSERT INTO matches
-           (id, tournament_id, status, mode, type, scheduled_date, stats_processed,
-            home_club_id, away_club_id, home_club_name, away_club_name,
-            home_player_id, away_player_id, home_player_name, away_player_name, created_date, updated_date)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
-          [
-            createdId, 'ranked', 'scheduled', isClubMatch ? 'club' : 'solo', 'ranked', targetDate, 0,
-            isClubMatch ? (meta.opponent_club_id || null) : null,
-            isClubMatch ? (meta.challenger_club_id || null) : null,
-            isClubMatch ? (meta.opponent_name || null) : null,
-            isClubMatch ? (meta.challenger_name || null) : null,
-            !isClubMatch ? (meta.opponent_player_id || null) : null,
-            !isClubMatch ? (meta.challenger_player_id || null) : null,
-            !isClubMatch ? (meta.opponent_name || null) : null,
-            !isClubMatch ? (meta.challenger_name || null) : null,
-            new Date(),
-          ]
+          'UPDATE inbox_messages SET related_entity_id = ?, related_entity_type = ?, metadata = ? WHERE id = ?',
+          [payload.id, 'match', JSON.stringify({ ...meta, created_match_id: payload.id }), message_id]
         );
-        await broadcastMatchById(createdId);
       }
       if (message.sender_email) {
         await createNotificationIfEnabled({
