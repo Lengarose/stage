@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS matches (
   away_player_id         VARCHAR(36),
   home_club_name         VARCHAR(150),
   away_club_name         VARCHAR(150),
+  home_owner_email       VARCHAR(255),
+  away_owner_email       VARCHAR(255),
   home_player_name       VARCHAR(150),
   away_player_name       VARCHAR(150),
   home_player_email      VARCHAR(255),
@@ -858,6 +860,195 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ── unified competition engine ───────────────────────────────
+CREATE TABLE IF NOT EXISTS competition_instances (
+  id                  VARCHAR(36) PRIMARY KEY,
+  product_type        VARCHAR(50) NOT NULL,
+  legacy_source_type  VARCHAR(50) NOT NULL,
+  legacy_source_id    VARCHAR(36) NOT NULL,
+  name                VARCHAR(150) NOT NULL,
+  slug                VARCHAR(180),
+  region              VARCHAR(80),
+  platform            VARCHAR(50),
+  status              VARCHAR(50) DEFAULT 'draft',
+  starts_at           DATETIME,
+  ends_at             DATETIME,
+  created_by_user_id  VARCHAR(36),
+  created_date        DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_instances_source (product_type, legacy_source_type, legacy_source_id),
+  INDEX idx_comp_instances_status (product_type, status, starts_at),
+  INDEX idx_comp_instances_region (region, platform, status)
+);
+
+CREATE TABLE IF NOT EXISTS competition_participants (
+  id                       VARCHAR(36) PRIMARY KEY,
+  competition_instance_id  VARCHAR(36) NOT NULL,
+  participant_type         VARCHAR(20) NOT NULL,
+  club_id                  VARCHAR(36),
+  player_id                VARCHAR(36),
+  user_id                  VARCHAR(36),
+  status                   VARCHAR(50) DEFAULT 'pending',
+  seed                     INT,
+  registered_at            DATETIME,
+  approved_at              DATETIME,
+  created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_participant_club (competition_instance_id, participant_type, club_id),
+  UNIQUE KEY uq_comp_participant_player (competition_instance_id, participant_type, player_id),
+  INDEX idx_comp_participants_club (club_id, status),
+  INDEX idx_comp_participants_player (player_id, status),
+  INDEX idx_comp_participants_instance (competition_instance_id, status, seed)
+);
+
+CREATE TABLE IF NOT EXISTS competition_fixtures (
+  id                       VARCHAR(36) PRIMARY KEY,
+  competition_instance_id  VARCHAR(36) NOT NULL,
+  legacy_fixture_type      VARCHAR(50),
+  legacy_fixture_id        VARCHAR(36),
+  match_id                 VARCHAR(36),
+  participant_type         VARCHAR(20) NOT NULL,
+  format                   VARCHAR(50),
+  phase                    VARCHAR(50),
+  round                    INT,
+  matchday                 INT,
+  group_number             INT,
+  tie_id                   VARCHAR(36),
+  leg                      INT,
+  bracket_side             VARCHAR(20),
+  home_participant_id      VARCHAR(36),
+  away_participant_id      VARCHAR(36),
+  home_club_id             VARCHAR(36),
+  home_club_name           VARCHAR(150),
+  home_owner_email         VARCHAR(255),
+  away_club_id             VARCHAR(36),
+  away_club_name           VARCHAR(150),
+  away_owner_email         VARCHAR(255),
+  player_home_id           VARCHAR(36),
+  player_home_gamertag     VARCHAR(150),
+  player_home_email        VARCHAR(255),
+  player_away_id           VARCHAR(36),
+  player_away_gamertag     VARCHAR(150),
+  player_away_email        VARCHAR(255),
+  status                   VARCHAR(50) DEFAULT 'unscheduled',
+  scheduling_status        VARCHAR(50) DEFAULT 'open',
+  window_start             DATETIME,
+  window_end               DATETIME,
+  scheduled_at             DATETIME,
+  confirmed_at             DATETIME,
+  home_score               INT,
+  away_score               INT,
+  winner_participant_id    VARCHAR(36),
+  stats_processed          TINYINT(1) DEFAULT 0,
+  idempotency_key          VARCHAR(190),
+  created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_fixture_legacy (legacy_fixture_type, legacy_fixture_id),
+  UNIQUE KEY uq_comp_fixture_match (match_id),
+  UNIQUE KEY uq_comp_fixture_idempotency (idempotency_key),
+  INDEX idx_comp_fixtures_schedule (competition_instance_id, status, scheduled_at),
+  INDEX idx_comp_fixtures_round (competition_instance_id, phase, round, group_number),
+  INDEX idx_comp_fixtures_home (home_participant_id, status),
+  INDEX idx_comp_fixtures_away (away_participant_id, status),
+  INDEX idx_comp_fixtures_window (scheduling_status, window_end)
+);
+
+CREATE TABLE IF NOT EXISTS competition_schedule_proposals (
+  id                         VARCHAR(36) PRIMARY KEY,
+  fixture_id                 VARCHAR(36) NOT NULL,
+  proposer_participant_id    VARCHAR(36),
+  recipient_participant_id   VARCHAR(36),
+  proposed_at                DATETIME DEFAULT CURRENT_TIMESTAMP,
+  proposed_for               DATETIME NOT NULL,
+  status                     VARCHAR(50) DEFAULT 'pending',
+  message_id                 VARCHAR(36),
+  notification_id            VARCHAR(36),
+  idempotency_key            VARCHAR(190),
+  created_date               DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_schedule_idempotency (idempotency_key),
+  INDEX idx_comp_schedule_fixture (fixture_id, status, created_date),
+  INDEX idx_comp_schedule_recipient (recipient_participant_id, status)
+);
+
+CREATE TABLE IF NOT EXISTS competition_result_submissions (
+  id                    VARCHAR(36) PRIMARY KEY,
+  fixture_id            VARCHAR(36) NOT NULL,
+  match_id              VARCHAR(36),
+  side                  VARCHAR(10) NOT NULL,
+  submitted_by_user_id  VARCHAR(36),
+  score_home            INT NOT NULL,
+  score_away            INT NOT NULL,
+  payload_json          JSON,
+  proof_url             VARCHAR(500),
+  idempotency_key       VARCHAR(190),
+  created_date          DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_result_match_side (match_id, side),
+  UNIQUE KEY uq_comp_result_fixture_side (fixture_id, side),
+  UNIQUE KEY uq_comp_result_idempotency (idempotency_key),
+  INDEX idx_comp_result_fixture (fixture_id, created_date)
+);
+
+CREATE TABLE IF NOT EXISTS competition_standings (
+  competition_instance_id  VARCHAR(36) NOT NULL,
+  participant_id           VARCHAR(36) NOT NULL,
+  played                   INT DEFAULT 0,
+  wins                     INT DEFAULT 0,
+  draws                    INT DEFAULT 0,
+  losses                   INT DEFAULT 0,
+  goals_for                INT DEFAULT 0,
+  goals_against            INT DEFAULT 0,
+  goal_difference          INT DEFAULT 0,
+  points                   INT DEFAULT 0,
+  rank                     INT,
+  final_position           INT,
+  is_promoted              TINYINT(1) DEFAULT 0,
+  is_relegated             TINYINT(1) DEFAULT 0,
+  is_eliminated            TINYINT(1) DEFAULT 0,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (competition_instance_id, participant_id),
+  INDEX idx_comp_standings_rank (competition_instance_id, rank),
+  INDEX idx_comp_standings_participant (participant_id)
+);
+
+CREATE TABLE IF NOT EXISTS competition_phase_states (
+  id                       VARCHAR(36) PRIMARY KEY,
+  competition_instance_id  VARCHAR(36) NOT NULL,
+  format                   VARCHAR(50),
+  phase                    VARCHAR(50) NOT NULL,
+  round                    INT DEFAULT 1,
+  status                   VARCHAR(50) DEFAULT 'pending',
+  ready_to_advance         TINYINT(1) DEFAULT 0,
+  generated_at             DATETIME,
+  generated_by_user_id     VARCHAR(36),
+  idempotency_key          VARCHAR(190),
+  created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_phase_round (competition_instance_id, phase, round),
+  UNIQUE KEY uq_comp_phase_idempotency (idempotency_key),
+  INDEX idx_comp_phase_status (competition_instance_id, status)
+);
+
+CREATE TABLE IF NOT EXISTS competition_payouts (
+  id                       VARCHAR(36) PRIMARY KEY,
+  competition_instance_id  VARCHAR(36) NOT NULL,
+  fixture_id               VARCHAR(36),
+  match_id                 VARCHAR(36),
+  recipient_type           VARCHAR(20) NOT NULL,
+  club_id                  VARCHAR(36),
+  player_id                VARCHAR(36),
+  amount_stc               DECIMAL(12,2) DEFAULT 0,
+  category                 VARCHAR(80),
+  status                   VARCHAR(50) DEFAULT 'pending',
+  idempotency_key          VARCHAR(190),
+  ledger_transaction_id    VARCHAR(36),
+  created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comp_payout_idempotency (idempotency_key),
+  INDEX idx_comp_payout_instance (competition_instance_id, status),
+  INDEX idx_comp_payout_club (club_id, created_date),
+  INDEX idx_comp_payout_player (player_id, created_date)
+);
+
 -- ── indexes ───────────────────────────────────────────────────
 CREATE INDEX idx_players_club        ON players(club_id);
 CREATE INDEX idx_players_email       ON players(email);
@@ -867,6 +1058,8 @@ CREATE INDEX idx_clubs_user          ON clubs(user_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
+CREATE INDEX idx_matches_home_owner_email ON matches(home_owner_email);
+CREATE INDEX idx_matches_away_owner_email ON matches(away_owner_email);
 CREATE INDEX idx_posts_club          ON posts(club_id);
 CREATE INDEX idx_posts_author        ON posts(author_email);
 CREATE INDEX idx_comments_post       ON comments(post_id);
