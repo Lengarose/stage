@@ -131,6 +131,8 @@ export default function GameDay() {
         stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []),
         stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
         stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
+        stageClient.entities.RegionalLeagueFixture.filter({ scheduling_status: "confirmed" }, "-confirmed_date", 500).catch(() => []),
+        stageClient.entities.RegionalLeagueFixture.filter({ status: "scheduled" }, "-confirmed_date", 500).catch(() => []),
       );
     }
 
@@ -143,7 +145,11 @@ export default function GameDay() {
 
     const confirmedRegionalFixtures = regionalFixtureArrays
       .flat()
-      .filter(f => f?.id && (f.scheduling_status === "confirmed" || f.status === "scheduled"));
+      .filter(f =>
+        f?.id &&
+        (f.scheduling_status === "confirmed" || f.status === "scheduled") &&
+        (f.home_club_id === clubId || f.away_club_id === clubId)
+      );
     for (const fixture of confirmedRegionalFixtures) {
       const match = await createMatchFromFixture(fixture, "regional_league").catch(() => null);
       if (match?.id) matchMap.set(match.id, match);

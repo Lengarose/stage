@@ -83,8 +83,8 @@ function buildWhere(entityType, queryParams) {
       wheres.push(`\`${k}\` = ?`);
       vals.push(v);
     } else {
-      wheres.push(`JSON_EXTRACT(data_json, '$.${k}') = ?`);
-      vals.push(v);
+      wheres.push(`JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.${k}')) = ?`);
+      vals.push(String(v));
     }
   }
   return { where: wheres.join(' AND '), vals };

@@ -8,6 +8,67 @@ const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { validate, rules } = require('../middleware/validate');
 
+async function repairUserProfileLinks(userId, email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!userId || !normalizedEmail) return;
+
+  await EXECUTESQL(
+    `UPDATE players
+     SET user_id = ?, updated_date = NOW()
+     WHERE (user_id IS NULL OR user_id = '')
+       AND LOWER(TRIM(email)) = ?`,
+    [userId, normalizedEmail]
+  ).catch(() => {});
+
+  await EXECUTESQL(
+    `UPDATE clubs
+     SET user_id = ?, updated_date = NOW()
+     WHERE (user_id IS NULL OR user_id = '')
+       AND LOWER(TRIM(owner_email)) = ?`,
+    [userId, normalizedEmail]
+  ).catch(() => {});
+
+  const [players, clubs] = await Promise.all([
+    EXECUTESQL(
+      `SELECT id, club_id
+       FROM players
+       WHERE user_id = ? OR LOWER(TRIM(email)) = ?
+       ORDER BY user_id = ? DESC, updated_date DESC
+       LIMIT 1`,
+      [userId, normalizedEmail, userId]
+    ).catch(() => []),
+    EXECUTESQL(
+      `SELECT id
+       FROM clubs
+       WHERE user_id = ? OR LOWER(TRIM(owner_email)) = ?
+       ORDER BY user_id = ? DESC, updated_date DESC
+       LIMIT 1`,
+      [userId, normalizedEmail, userId]
+    ).catch(() => []),
+  ]);
+
+  await EXECUTESQL(
+    `UPDATE users
+     SET player_id = COALESCE(player_id, ?),
+         owner_id = COALESCE(owner_id, ?),
+         updated_date = NOW()
+     WHERE id = ?`,
+    [players[0]?.id || null, clubs[0]?.id || null, userId]
+  ).catch(() => {});
+
+  const player = players[0];
+  const club = clubs[0];
+  if (player?.id && club?.id && (!player.club_id || player.club_id !== club.id)) {
+    await EXECUTESQL(
+      `UPDATE players
+       SET club_id = ?, role = 'president', club_roles = JSON_ARRAY('president'), status = 'active', updated_date = NOW()
+       WHERE id = ?
+         AND LOWER(TRIM(email)) = ?`,
+      [club.id, player.id, normalizedEmail]
+    ).catch(() => {});
+  }
+}
+
 router.post('/register', validate({
   email:    [rules.required, rules.email, rules.maxLength(255)],
   password: [rules.required, rules.string, rules.minLength(6), rules.maxLength(128)],
@@ -52,8 +113,8 @@ router.post('/login', validate({
     // Allow login by: email OR player gamertag OR club name.
     const rows = await EXECUTESQL(
       `SELECT u.* FROM users u
-       LEFT JOIN players p ON p.user_id = u.id
-       LEFT JOIN clubs c ON c.user_id = u.id
+       LEFT JOIN players p ON p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+       LEFT JOIN clubs c ON c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
        WHERE LOWER(u.email) = LOWER(?)
           OR LOWER(p.gamertag) = LOWER(?)
           OR LOWER(c.name) = LOWER(?)
@@ -66,6 +127,8 @@ router.post('/login', validate({
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
+    await repairUserProfileLinks(user.id, user.email);
+
     const payload = { id: user.id, email: user.email };
     const accessToken  = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
@@ -75,8 +138,14 @@ router.post('/login', validate({
       [uuidv4(), user.email, refreshToken]
     );
 
-    const players = await EXECUTESQL('SELECT id FROM players WHERE user_id = ? LIMIT 1', [user.id]);
-    const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [user.id]);
+    const players = await EXECUTESQL(
+      'SELECT id FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+      [user.id, user.email]
+    );
+    const clubs = await EXECUTESQL(
+      'SELECT id FROM clubs WHERE user_id = ? OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) LIMIT 1',
+      [user.id, user.email]
+    );
     res.json({
       accessToken,
       refreshToken,
@@ -134,6 +203,7 @@ router.get('/me', async (req, res) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token provided' });
     const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+    await repairUserProfileLinks(decoded.id, decoded.email);
 
     const rows = await EXECUTESQL(
       `SELECT
@@ -151,9 +221,10 @@ router.get('/me', async (req, res) => {
          c.name AS club_name
        FROM users u
        LEFT JOIN roles r   ON r.id = u.role_id
-       LEFT JOIN players p ON p.user_id = u.id
-       LEFT JOIN clubs c   ON c.user_id = u.id
+       LEFT JOIN players p ON p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+       LEFT JOIN clubs c   ON c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
        WHERE u.id = ?
+       ORDER BY p.user_id = u.id DESC, c.user_id = u.id DESC, p.updated_date DESC, c.updated_date DESC
        LIMIT 1`,
       [decoded.id]
     );

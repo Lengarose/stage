@@ -594,8 +594,7 @@ function buildQuery(q) {
 // ── Canonical user→player→club resolver ───────────────────────────────────────
 // The correct lookup chain is:
 //   users table (auth.me()) → player_id → players table → club_id → clubs table
-//   Club-owner fallback: users.owner_id → clubs table
-//   Last fallback: clubs.owner_email = user.email
+//   Fallbacks: players.email/users.email, users.owner_id, clubs.owner_email.
 //
 // Usage:
 //   const { user, player, club } = await resolveMyPlayerAndClub();
@@ -612,21 +611,34 @@ export async function resolveMyPlayerAndClub() {
     player = await entities.Player.get(u.player_id).catch(() => null);
   }
 
-  // 2) From player, get club via club_id
+  // 2) Fallback: user/player links can drift on older data; email is the
+  // stable identity claim for this account.
+  if (!player && u.email) {
+    const rows = await entities.Player.filter({ email: u.email }, null, 1).catch(() => []);
+    player = rows[0] || null;
+  }
+
+  // 3) From player, get club via club_id
   //    Club controller supports ?id= but .get() is cleaner.
   if (player?.club_id) {
     club = await entities.Club.get(player.club_id).catch(() => null);
   }
 
-  // 3) Club-only accounts may have no player profile. Use owner_id from users.
+  // 4) Club-only accounts may have no player profile. Use owner_id from users.
   if (!club && u.owner_id) {
     club = await entities.Club.get(u.owner_id).catch(() => null);
   }
 
-  // 4) Final fallback: find club by owner_email
+  // 5) Final fallback: find club by owner_email
   if (!club && u.email) {
     const rows = await entities.Club.filter({ owner_email: u.email }, null, 1).catch(() => []);
     club = rows[0] || null;
+  }
+
+  // 6) If the player record is missing club_id but this user owns a club, keep
+  // frontend callers working immediately. The backend /auth/me repairs the DB.
+  if (player && club && !player.club_id) {
+    player = { ...player, club_id: club.id, club_name: club.name };
   }
 
   return { user: u, player, club };
