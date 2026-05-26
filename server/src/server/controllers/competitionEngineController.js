@@ -54,11 +54,15 @@ router.get('/instances/:id/fixtures', async (req, res) => {
 router.post('/instances/backfill', async (req, res) => {
   try {
     const productType = req.body?.product_type || 'community_tournament';
-    if (productType !== 'community_tournament') {
-      return res.status(400).json({ error: 'Phase 2A backfill currently supports community_tournament only' });
+    if (productType === 'community_tournament') {
+      const result = await service.backfillCommunityTournaments({ status: req.body?.status || null });
+      return res.json(result);
     }
-    const result = await service.backfillCommunityTournaments({ status: req.body?.status || null });
-    res.json(result);
+    if (productType === 'official_competition' || productType === 'regional_league') {
+      const result = await service.backfillLeagueEntities({ productType, status: req.body?.status || null });
+      return res.json(result);
+    }
+    return res.status(400).json({ error: 'product_type must be community_tournament, official_competition, or regional_league' });
   } catch (err) {
     sendError(res, err);
   }

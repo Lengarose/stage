@@ -140,3 +140,64 @@ test('backfillCommunityTournaments writes instance participants and linked fixtu
   assert.ok(calls.some((call) => /INSERT INTO competition_participants/.test(call.sql)));
   assert.ok(calls.some((call) => /INSERT INTO competition_fixtures/.test(call.sql)));
 });
+
+test('backfillLeagueEntities writes official competition seasons from league_entities', async () => {
+  const calls = [];
+  const service = loadService(async (sql, params = []) => {
+    calls.push({ sql, params });
+    if (/FROM league_entities WHERE entity_type = \?/.test(sql) && params[0] === 'competition_season') {
+      return [{
+        id: 'season-1',
+        entity_type: 'competition_season',
+        status: 'in_progress',
+        platform: 'ps5',
+        region: 'EU',
+        data_json: JSON.stringify({ name: 'Supreme Season 1', competition_id: 'competition-1' }),
+        created_date: '2026-05-26 10:00:00',
+      }];
+    }
+    if (/FROM league_entities WHERE entity_type = \? AND `season_id` = \?/.test(sql) && params[0] === 'competition_standing') {
+      return [{
+        id: 'standing-1',
+        entity_type: 'competition_standing',
+        season_id: 'season-1',
+        club_id: 'club-home',
+        data_json: JSON.stringify({ club_name: 'Home FC', rank: 1 }),
+        created_date: '2026-05-26 10:00:00',
+      }];
+    }
+    if (/FROM league_entities WHERE entity_type = \? AND `season_id` = \?/.test(sql) && params[0] === 'competition_fixture') {
+      return [{
+        id: 'fixture-1',
+        entity_type: 'competition_fixture',
+        season_id: 'season-1',
+        status: 'completed',
+        scheduling_status: 'confirmed',
+        data_json: JSON.stringify({
+          match_id: 'match-1',
+          home_club_id: 'club-home',
+          home_club_name: 'Home FC',
+          away_club_id: 'club-away',
+          away_club_name: 'Away FC',
+          home_score: 3,
+          away_score: 1,
+          winner_club_id: 'club-home',
+        }),
+        created_date: '2026-05-26 11:00:00',
+      }];
+    }
+    if (/INSERT INTO competition_instances/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO competition_participants/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO competition_fixtures/.test(sql)) return { affectedRows: 1 };
+    return [];
+  });
+
+  const result = await service.backfillLeagueEntities({ productType: 'official_competition', status: 'in_progress' });
+
+  assert.equal(result.product_type, 'official_competition');
+  assert.equal(result.parents, 1);
+  assert.equal(result.instances, 1);
+  assert.equal(result.participants, 1);
+  assert.equal(result.fixtures, 1);
+  assert.ok(calls.some((call) => call.params.includes('competition_fixture')));
+});

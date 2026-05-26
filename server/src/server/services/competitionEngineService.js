@@ -88,6 +88,29 @@ function normalizeParticipantIdentity(entry, participantType) {
   };
 }
 
+function parseLeagueEntityRow(row) {
+  const data = parseJson(row.data_json, {});
+  return {
+    ...data,
+    id: row.id,
+    entity_type: row.entity_type,
+    status: row.status ?? data.status,
+    scheduling_status: row.scheduling_status ?? data.scheduling_status,
+    slug: row.slug ?? data.slug,
+    league_id: row.league_id ?? data.league_id,
+    season_id: row.season_id ?? data.season_id,
+    competition_id: row.competition_id ?? data.competition_id,
+    club_id: row.club_id ?? data.club_id,
+    tier: row.tier ?? data.tier,
+    division: row.division ?? data.division,
+    region: row.region ?? data.region,
+    platform: row.platform ?? data.platform,
+    season_number: row.season_number ?? data.season_number,
+    created_date: row.created_date,
+    updated_date: row.updated_date,
+  };
+}
+
 function statusToFixtureStatus(status) {
   if (status === 'completed') return 'completed';
   if (status === 'disputed') return 'disputed';
@@ -96,6 +119,25 @@ function statusToFixtureStatus(status) {
   if (status === 'forfeit') return 'forfeit';
   if (status === 'scheduled') return 'scheduled';
   return status || 'unscheduled';
+}
+
+function leagueParentConfig(productType) {
+  if (productType === 'regional_league') {
+    return {
+      product_type: 'regional_league',
+      parent_type: 'regional_league',
+      standing_type: 'regional_league_standing',
+      fixture_type: 'regional_league_fixture',
+      parent_key: 'league_id',
+    };
+  }
+  return {
+    product_type: 'official_competition',
+    parent_type: 'competition_season',
+    standing_type: 'competition_standing',
+    fixture_type: 'competition_fixture',
+    parent_key: 'season_id',
+  };
 }
 
 async function backfillCommunityTournaments({ status } = {}) {
@@ -212,6 +254,122 @@ async function backfillCommunityTournaments({ status } = {}) {
   return summary;
 }
 
+async function backfillLeagueEntities({ productType = 'official_competition', status } = {}) {
+  const cfg = leagueParentConfig(productType);
+  const parentWhere = ['entity_type = ?'];
+  const parentParams = [cfg.parent_type];
+  if (status) {
+    parentWhere.push('status = ?');
+    parentParams.push(status);
+  }
+  const parentRows = await EXECUTESQL(
+    `SELECT * FROM league_entities WHERE ${parentWhere.join(' AND ')} ORDER BY created_date ASC LIMIT 500`,
+    parentParams,
+  );
+
+  const summary = {
+    product_type: cfg.product_type,
+    parents: parentRows.length,
+    instances: 0,
+    participants: 0,
+    fixtures: 0,
+  };
+
+  for (const rawParent of parentRows) {
+    const parent = parseLeagueEntityRow(rawParent);
+    const instanceId = deterministicId(`competition_instance:${cfg.parent_type}:${parent.id}`);
+    await model.upsertInstance({
+      id: instanceId,
+      product_type: cfg.product_type,
+      legacy_source_type: cfg.parent_type,
+      legacy_source_id: parent.id,
+      name: parent.name || parent.season_name || parent.competition_name || parent.league_name || parent.id,
+      slug: parent.slug || parent.id,
+      region: parent.region || null,
+      platform: parent.platform || null,
+      status: parent.status || 'draft',
+      starts_at: parent.starts_at || parent.start_date || null,
+      ends_at: parent.ends_at || parent.end_date || null,
+      created_by_user_id: parent.created_by_user_id || null,
+    });
+    summary.instances += 1;
+
+    const standingRows = await EXECUTESQL(
+      `SELECT * FROM league_entities WHERE entity_type = ? AND \`${cfg.parent_key}\` = ? ORDER BY created_date ASC LIMIT 500`,
+      [cfg.standing_type, parent.id],
+    );
+    const participantIdByClubId = new Map();
+    for (const [index, rawStanding] of standingRows.entries()) {
+      const standing = parseLeagueEntityRow(rawStanding);
+      const clubId = standing.club_id;
+      if (!clubId) continue;
+      const participantId = deterministicId(`competition_participant:${instanceId}:club:${clubId}`);
+      participantIdByClubId.set(clubId, participantId);
+      await model.upsertParticipant({
+        id: participantId,
+        competition_instance_id: instanceId,
+        participant_type: 'club',
+        club_id: clubId,
+        player_id: null,
+        user_id: standing.user_id || standing.owner_id || null,
+        status: standing.is_eliminated ? 'eliminated' : 'active',
+        seed: standing.seed ?? standing.rank ?? index + 1,
+        registered_at: standing.created_date || parent.created_date || null,
+        approved_at: standing.created_date || parent.created_date || null,
+      });
+      summary.participants += 1;
+    }
+
+    const fixtureRows = await EXECUTESQL(
+      `SELECT * FROM league_entities WHERE entity_type = ? AND \`${cfg.parent_key}\` = ? ORDER BY created_date ASC LIMIT 1000`,
+      [cfg.fixture_type, parent.id],
+    );
+    for (const rawFixture of fixtureRows) {
+      const fixture = parseLeagueEntityRow(rawFixture);
+      const homeClubId = fixture.home_club_id || null;
+      const awayClubId = fixture.away_club_id || null;
+      await model.upsertFixture({
+        id: deterministicId(`competition_fixture:${cfg.fixture_type}:${fixture.id}`),
+        competition_instance_id: instanceId,
+        legacy_fixture_type: cfg.fixture_type,
+        legacy_fixture_id: fixture.id,
+        match_id: fixture.match_id || null,
+        participant_type: 'club',
+        format: fixture.format || (cfg.product_type === 'regional_league' ? 'league' : 'official_competition'),
+        phase: fixture.phase || fixture.stage || 'main',
+        round: fixture.round ?? null,
+        matchday: fixture.matchday ?? null,
+        group_number: fixture.group_number ?? fixture.group ?? null,
+        tie_id: fixture.tie_id || null,
+        leg: fixture.leg ?? null,
+        bracket_side: fixture.bracket_side || null,
+        home_participant_id: homeClubId ? (participantIdByClubId.get(homeClubId) || deterministicId(`competition_participant:${instanceId}:club:${homeClubId}`)) : null,
+        away_participant_id: awayClubId ? (participantIdByClubId.get(awayClubId) || deterministicId(`competition_participant:${instanceId}:club:${awayClubId}`)) : null,
+        home_club_id: homeClubId,
+        home_club_name: fixture.home_club_name || fixture.home_name || null,
+        home_owner_email: fixture.home_owner_email || null,
+        away_club_id: awayClubId,
+        away_club_name: fixture.away_club_name || fixture.away_name || null,
+        away_owner_email: fixture.away_owner_email || null,
+        status: statusToFixtureStatus(fixture.status),
+        scheduling_status: fixture.scheduling_status || (fixture.confirmed_date || fixture.scheduled_date ? 'confirmed' : 'open'),
+        window_start: fixture.window_start || null,
+        window_end: fixture.window_end || null,
+        scheduled_at: fixture.scheduled_date || fixture.confirmed_date || null,
+        confirmed_at: fixture.confirmed_date || null,
+        home_score: fixture.home_score ?? null,
+        away_score: fixture.away_score ?? null,
+        winner_participant_id: fixture.winner_club_id ? participantIdByClubId.get(fixture.winner_club_id) : null,
+        stats_processed: fixture.stats_processed ? 1 : 0,
+        idempotency_key: `backfill:${cfg.fixture_type}:${fixture.id}`,
+      });
+      summary.fixtures += 1;
+    }
+  }
+
+  return summary;
+}
+
 async function createMatchFromFixture(fixtureId) {
   const rows = await model.selectFixture(fixtureId);
   if (!rows.length) {
@@ -300,6 +458,7 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
 
 module.exports = {
   backfillCommunityTournaments,
+  backfillLeagueEntities,
   createMatchFromFixture,
   deterministicId,
   submitResult,

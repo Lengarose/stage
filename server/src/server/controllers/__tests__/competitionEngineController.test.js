@@ -104,3 +104,35 @@ test('POST /instances/backfill delegates community tournament backfill to servic
   assert.equal(response.body.tournaments, 1);
   assert.equal(response.body.participants, 2);
 });
+
+test('POST /instances/backfill delegates official competition backfill to service', async () => {
+  const router = loadRouter({
+    backfillLeagueEntities: async ({ productType, status }) => ({
+      product_type: productType,
+      status,
+      parents: 1,
+      instances: 1,
+      participants: 4,
+      fixtures: 8,
+    }),
+  });
+  const handle = findHandler(router, '/instances/backfill', 'post');
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+  await handle({
+    body: { product_type: 'official_competition', status: 'in_progress' },
+    user: { id: 'user-1' },
+  }, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.product_type, 'official_competition');
+  assert.equal(response.body.fixtures, 8);
+});
