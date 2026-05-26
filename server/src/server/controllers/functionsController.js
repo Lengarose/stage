@@ -1975,6 +1975,15 @@ const HANDLERS = {
       return updatedFixture;
     });
 
+    await competitionEngineService.notifyIfPhaseReady({
+      sourceId: result.season_id || result.competition_id,
+      sourceType: 'competition',
+      fixtureType: 'competition_fixture',
+      organizerUserId: result.organizer_user_id || result.admin_user_id || null,
+    }).catch((err) => {
+      console.error('[competitionFixtureResult.notifyIfPhaseReady]', err.message);
+    });
+
     return { data: { success: true, fixture: result } };
   },
 
