@@ -221,6 +221,14 @@ async function runStartupMigrations() {
     'ALTER TABLE players MODIFY COLUMN club_id VARCHAR(36) NULL'
   ).catch((err) => console.error('[migration] players.club_id nullable:', err.message));
 
+  await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
+  await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');
+  await addCol('matches', 'home_player_id', 'VARCHAR(36) NULL');
+  await addCol('matches', 'away_player_id', 'VARCHAR(36) NULL');
+  await addCol('matches', 'home_club_name', 'VARCHAR(150) NULL');
+  await addCol('matches', 'away_club_name', 'VARCHAR(150) NULL');
+  await addCol('matches', 'home_player_name', 'VARCHAR(150) NULL');
+  await addCol('matches', 'away_player_name', 'VARCHAR(150) NULL');
   await addCol('matches', 'home_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'away_player_email', 'VARCHAR(255) NULL');
   await addCol('matches', 'home_owner_email', 'VARCHAR(255) NULL');
