@@ -51,6 +51,19 @@ router.get('/instances/:id/fixtures', async (req, res) => {
   }
 });
 
+router.post('/instances/backfill', async (req, res) => {
+  try {
+    const productType = req.body?.product_type || 'community_tournament';
+    if (productType !== 'community_tournament') {
+      return res.status(400).json({ error: 'Phase 2A backfill currently supports community_tournament only' });
+    }
+    const result = await service.backfillCommunityTournaments({ status: req.body?.status || null });
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 router.post('/fixtures/:id/match/create', async (req, res) => {
   try {
     const match = await service.createMatchFromFixture(req.params.id);
