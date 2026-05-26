@@ -1038,59 +1038,29 @@ export default function Admin(props) {
     setSavingResult(true);
     try {
       if (fixtureType === "competition") {
-        await stageClient.entities.CompetitionFixture.update(fixture.id, {
-          home_score: home, away_score: away, status: "completed", stats_processed: false,
+        const winnerId = home > away ? fixture.home_club_id : away > home ? fixture.away_club_id : null;
+        const winnerName = winnerId === fixture.home_club_id ? fixture.home_club_name
+          : winnerId === fixture.away_club_id ? fixture.away_club_name : null;
+        await stageClient.functions.invoke("competitionFixtureResult", {
+          fixture_id: fixture.id,
+          home_score: home,
+          away_score: away,
+          winner_club_id: winnerId,
+          winner_club_name: winnerName,
+          reason: "Submitted from admin fixtures panel",
         });
-        const { processFixtureResult } = await import("@/lib/competitionUtils");
-        await processFixtureResult({ ...fixture, home_score: home, away_score: away, stats_processed: false });
       } else {
-        // Regional league — update fixture + standings + ranking
-        const isDraw = home === away;
-        const homeWin = home > away;
-        await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, {
-          home_score: home, away_score: away, status: "completed", stats_processed: true,
-        }) ?? Promise.resolve());
-        const [[homeRow], [awayRow]] = await Promise.all([
-          (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.home_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
-          (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: fixture.league_id, club_id: fixture.away_club_id }, null, 1) ?? Promise.resolve([])).catch(() => []),
-        ]);
-        const updates = [];
-        if (homeRow) {
-          const u = {
-            played: (homeRow.played||0)+1, wins: (homeRow.wins||0)+(homeWin?1:0),
-            draws: (homeRow.draws||0)+(isDraw?1:0), losses: (homeRow.losses||0)+(!homeWin&&!isDraw?1:0),
-            goals_for: (homeRow.goals_for||0)+home, goals_against: (homeRow.goals_against||0)+away,
-            points: (homeRow.points||0)+(homeWin?3:isDraw?1:0),
-          };
-          u.goal_difference = u.goals_for - u.goals_against;
-          updates.push(stageClient.entities.RegionalLeagueStanding.update(homeRow.id, u));
-        }
-        if (awayRow) {
-          const u = {
-            played: (awayRow.played||0)+1, wins: (awayRow.wins||0)+(!homeWin&&!isDraw?1:0),
-            draws: (awayRow.draws||0)+(isDraw?1:0), losses: (awayRow.losses||0)+(homeWin?1:0),
-            goals_for: (awayRow.goals_for||0)+away, goals_against: (awayRow.goals_against||0)+home,
-            points: (awayRow.points||0)+(!homeWin&&!isDraw?3:isDraw?1:0),
-          };
-          u.goal_difference = u.goals_for - u.goals_against;
-          updates.push(stageClient.entities.RegionalLeagueStanding.update(awayRow.id, u));
-        }
-        await Promise.all(updates);
-        // Non-fatal ranking update
-        try {
-          const { updateClubRankingAfterMatch } = await import("@/lib/rankingEngine");
-          const [[hc],[ac]] = await Promise.all([
-            stageClient.entities.Club.filter({ id: fixture.home_club_id }, null, 1).catch(()=>[]),
-            stageClient.entities.Club.filter({ id: fixture.away_club_id }, null, 1).catch(()=>[]),
-          ]);
-          if (hc && ac) {
-            await updateClubRankingAfterMatch({
-              homeClub: hc, awayClub: ac, homeScore: home, awayScore: away,
-              competitionType: "regional_league", division: fixture.division || 1,
-              phase: "league", matchId: fixture.id,
-            });
-          }
-        } catch { /* non-fatal */ }
+        const winnerId = home > away ? fixture.home_club_id : away > home ? fixture.away_club_id : null;
+        const winnerName = winnerId === fixture.home_club_id ? fixture.home_club_name
+          : winnerId === fixture.away_club_id ? fixture.away_club_name : null;
+        await stageClient.functions.invoke("regionalLeagueFixtureResult", {
+          fixture_id: fixture.id,
+          home_score: home,
+          away_score: away,
+          winner_club_id: winnerId,
+          winner_club_name: winnerName,
+          reason: "Submitted from admin fixtures panel",
+        });
       }
       setResultDialog(null);
       setResultForm({ home_score: "", away_score: "" });

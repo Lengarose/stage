@@ -1809,6 +1809,151 @@ const HANDLERS = {
     return { data: { success: true, fixture: result } };
   },
 
+  async regionalLeagueFixtureResult({
+    _auth_user_id,
+    fixture_id,
+    home_score,
+    away_score,
+    winner_club_id,
+    winner_club_name,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!fixture_id) throw new Error('fixture_id required');
+    const homeScore = Number(home_score);
+    const awayScore = Number(away_score);
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore < 0 || awayScore < 0) {
+      throw new Error('Valid non-negative scores are required');
+    }
+
+    const result = await withTransaction(async (query) => {
+      const fixtureRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'regional_league_fixture'
+          LIMIT 1 FOR UPDATE`,
+        [fixture_id]
+      );
+      if (!fixtureRows.length) throw new Error('Regional league fixture not found');
+      const fixture = parseLeagueEntityRow(fixtureRows[0]);
+      if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
+        throw new Error('Fixture result has already been processed');
+      }
+
+      const resolvedWinnerId = winner_club_id
+        || (homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null);
+      const resolvedWinnerName = winner_club_name
+        || (String(resolvedWinnerId || '') === String(fixture.home_club_id || '') ? fixture.home_club_name
+          : String(resolvedWinnerId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
+            : null);
+
+      const nextFixture = {
+        ...fixture,
+        home_score: homeScore,
+        away_score: awayScore,
+        winner_club_id: resolvedWinnerId,
+        winner_club_name: resolvedWinnerName,
+        status: 'played',
+        stats_processed: true,
+      };
+      await updateLeagueEntityData(query, 'regional_league_fixture', fixture_id, nextFixture, { status: 'played' });
+
+      const standingRows = await query(
+        `SELECT * FROM league_entities
+           WHERE entity_type = 'regional_league_standing'
+             AND league_id = ?
+             AND club_id IN (?, ?)
+           FOR UPDATE`,
+        [fixture.league_id, fixture.home_club_id, fixture.away_club_id]
+      );
+      const parsedStandings = standingRows.map(parseLeagueEntityRow);
+      const homeRow = parsedStandings.find(row => String(row.club_id) === String(fixture.home_club_id));
+      const awayRow = parsedStandings.find(row => String(row.club_id) === String(fixture.away_club_id));
+      if (!homeRow || !awayRow) throw new Error('Regional league standing rows not found');
+
+      const isDraw = homeScore === awayScore;
+      const homeWin = homeScore > awayScore;
+      const buildUpdate = (row, goalsFor, goalsAgainst, resultCode) => {
+        const wins = Number(row.wins || 0) + (resultCode === 'W' ? 1 : 0);
+        const draws = Number(row.draws || 0) + (resultCode === 'D' ? 1 : 0);
+        const losses = Number(row.losses || 0) + (resultCode === 'L' ? 1 : 0);
+        const nextGoalsFor = Number(row.goals_for || 0) + goalsFor;
+        const nextGoalsAgainst = Number(row.goals_against || 0) + goalsAgainst;
+        return {
+          played: Number(row.played || 0) + 1,
+          wins,
+          draws,
+          losses,
+          goals_for: nextGoalsFor,
+          goals_against: nextGoalsAgainst,
+          goal_difference: nextGoalsFor - nextGoalsAgainst,
+          points: Number(row.points || 0) + (resultCode === 'W' ? 3 : resultCode === 'D' ? 1 : 0),
+          form: [resultCode, ...parseFormList(row.form)].slice(0, 5),
+        };
+      };
+
+      const homeUpdate = buildUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
+      const awayUpdate = buildUpdate(awayRow, awayScore, homeScore, !homeWin && !isDraw ? 'W' : isDraw ? 'D' : 'L');
+      const nextHomeStanding = { ...homeRow, ...homeUpdate };
+      const nextAwayStanding = { ...awayRow, ...awayUpdate };
+
+      await updateLeagueEntityData(query, 'regional_league_standing', homeRow.id, nextHomeStanding);
+      await updateLeagueEntityData(query, 'regional_league_standing', awayRow.id, nextAwayStanding);
+
+      const allStandings = await query(
+        `SELECT * FROM league_entities
+          WHERE entity_type = 'regional_league_standing' AND league_id = ?
+          FOR UPDATE`,
+        [fixture.league_id]
+      );
+      const merged = allStandings.map(row => {
+        if (row.id === homeRow.id) return nextHomeStanding;
+        if (row.id === awayRow.id) return nextAwayStanding;
+        return parseLeagueEntityRow(row);
+      });
+      const sorted = sortCompetitionStandingRows(merged);
+      for (let index = 0; index < sorted.length; index += 1) {
+        await updateLeagueEntityData(
+          query,
+          'regional_league_standing',
+          sorted[index].id,
+          { ...sorted[index], position: index + 1 }
+        );
+      }
+
+      const updatedFixtureRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'regional_league_fixture'
+          LIMIT 1`,
+        [fixture_id]
+      );
+      const updatedFixture = parseLeagueEntityRow(updatedFixtureRows[0] || null);
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'submit_regional_league_fixture_result',
+        entityType: 'regional_league_fixture',
+        entityId: fixture_id,
+        entityName: `${fixture.home_club_name || 'Home'} vs ${fixture.away_club_name || 'Away'}`,
+        oldValue: fixture,
+        newValue: updatedFixture,
+        reason: reason || null,
+      });
+
+      return updatedFixture;
+    });
+
+    await competitionEngineService.notifyIfPhaseReady({
+      sourceId: result.league_id,
+      sourceType: 'regional_league',
+      fixtureType: 'regional_league_fixture',
+      organizerUserId: result.organizer_user_id || result.admin_user_id || null,
+    }).catch((err) => {
+      console.error('[regionalLeagueFixtureResult.notifyIfPhaseReady]', err.message);
+    });
+
+    return { data: { success: true, fixture: result } };
+  },
+
   async resolveClubContact({ _auth_user_id, club_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     return resolveClubContactForInvite(club_id);
