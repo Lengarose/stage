@@ -95,10 +95,7 @@ test('backfillCommunityTournaments writes instance participants and linked fixtu
         status: 'in_progress',
         platform: 'ps5',
         region: 'EU',
-        registered_clubs: JSON.stringify([
-          { id: 'club-home', name: 'Home FC', owner_email: 'home@example.test' },
-          { id: 'club-away', name: 'Away FC', owner_email: 'away@example.test' },
-        ]),
+        registered_clubs: JSON.stringify(['club-home', 'club-away']),
         registered_players: null,
         created_date: '2026-05-26 10:00:00',
       }];
@@ -135,10 +132,56 @@ test('backfillCommunityTournaments writes instance participants and linked fixtu
     instances: 1,
     participants: 2,
     fixtures: 1,
+    conflicts: 0,
   });
   assert.ok(calls.some((call) => /INSERT INTO competition_instances/.test(call.sql)));
   assert.ok(calls.some((call) => /INSERT INTO competition_participants/.test(call.sql)));
   assert.ok(calls.some((call) => /INSERT INTO competition_fixtures/.test(call.sql)));
+});
+
+test('backfillCommunityTournaments skips fixture when match_id belongs to another legacy fixture', async () => {
+  const calls = [];
+  const service = loadService(async (sql, params = []) => {
+    calls.push({ sql, params });
+    if (/SELECT \* FROM tournaments/.test(sql)) {
+      return [{
+        id: 'tournament-1',
+        name: 'Weekend Cup',
+        participant_type: 'club',
+        status: 'in_progress',
+        registered_clubs: JSON.stringify(['club-home', 'club-away']),
+        registered_players: null,
+        created_date: '2026-05-26 10:00:00',
+      }];
+    }
+    if (/SELECT \* FROM matches WHERE tournament_id = \?/.test(sql)) {
+      return [{
+        id: 'match-1',
+        tournament_id: 'tournament-1',
+        home_club_id: 'club-home',
+        away_club_id: 'club-away',
+        status: 'scheduled',
+      }];
+    }
+    if (/SELECT \* FROM competition_fixtures WHERE match_id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: 'existing-fixture',
+        match_id: params[0],
+        legacy_fixture_type: 'competition_fixture',
+        legacy_fixture_id: 'different-fixture',
+      }];
+    }
+    if (/INSERT INTO competition_instances/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO competition_participants/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO competition_fixtures/.test(sql)) return { affectedRows: 1 };
+    return [];
+  });
+
+  const result = await service.backfillCommunityTournaments({ status: 'in_progress' });
+
+  assert.equal(result.fixtures, 0);
+  assert.equal(result.conflicts, 1);
+  assert.equal(calls.filter((call) => /INSERT INTO competition_fixtures/.test(call.sql)).length, 0);
 });
 
 test('backfillLeagueEntities writes official competition seasons from league_entities', async () => {

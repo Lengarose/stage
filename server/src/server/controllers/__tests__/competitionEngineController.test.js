@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-function loadRouter(serviceMock = {}) {
+function loadRouter(serviceMock = {}, executesql = async () => [{ id: 'admin-1', email: 'admin@example.test', role_id: 0 }]) {
   const routerPath = path.resolve(__dirname, '../competitionEngineController.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const modelPath = path.resolve(__dirname, '../../models/competitionEngineModel.js');
@@ -19,7 +19,7 @@ function loadRouter(serviceMock = {}) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { EXECUTESQL: async () => [], pool: {} },
+    exports: { EXECUTESQL: executesql, pool: {} },
   };
   return require(routerPath);
 }
@@ -103,6 +103,59 @@ test('POST /instances/backfill delegates community tournament backfill to servic
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.tournaments, 1);
   assert.equal(response.body.participants, 2);
+});
+
+test('POST /instances/backfill rejects non-admin users', async () => {
+  let called = false;
+  const router = loadRouter({
+    backfillCommunityTournaments: async () => {
+      called = true;
+      return {};
+    },
+  }, async () => [{ id: 'user-1', email: 'player@example.test', role_id: 1 }]);
+  const handle = findHandler(router, '/instances/backfill', 'post');
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+  await handle({
+    body: { product_type: 'community_tournament', status: 'in_progress' },
+    user: { id: 'user-1' },
+  }, response);
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.code, 'admin_required');
+  assert.equal(called, false);
+});
+
+test('POST /instances/backfill allows conservative admin role 2', async () => {
+  const router = loadRouter({
+    backfillCommunityTournaments: async () => ({ tournaments: 1 }),
+  }, async () => [{ id: 'user-2', email: 'organizer@example.test', role_id: 2 }]);
+  const handle = findHandler(router, '/instances/backfill', 'post');
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+  await handle({
+    body: { product_type: 'community_tournament' },
+    user: { id: 'user-2' },
+  }, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.tournaments, 1);
 });
 
 test('POST /instances/backfill delegates official competition backfill to service', async () => {

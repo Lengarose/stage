@@ -1,4 +1,5 @@
 const express = require('express');
+const { EXECUTESQL } = require('../db/database');
 const CompetitionEngineModel = require('../models/competitionEngineModel');
 const service = require('../services/competitionEngineService');
 
@@ -9,6 +10,16 @@ function sendError(res, err) {
   const status = err.status || 500;
   if (status >= 500) console.error(err);
   res.status(status).json({ error: err.message || 'Competition engine error' });
+}
+
+async function requireBackfillAdmin(req, res) {
+  const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id]);
+  const user = rows[0];
+  if (!user || ![0, 2].includes(Number(user.role_id))) {
+    res.status(403).json({ error: 'Admin access required', code: 'admin_required' });
+    return null;
+  }
+  return user;
 }
 
 router.get('/instances', async (req, res) => {
@@ -53,6 +64,8 @@ router.get('/instances/:id/fixtures', async (req, res) => {
 
 router.post('/instances/backfill', async (req, res) => {
   try {
+    const admin = await requireBackfillAdmin(req, res);
+    if (!admin) return;
     const productType = req.body?.product_type || 'community_tournament';
     if (productType === 'community_tournament') {
       const result = await service.backfillCommunityTournaments({ status: req.body?.status || null });

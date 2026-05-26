@@ -67,6 +67,25 @@ function inferTournamentParticipantType(tournament, registeredClubs, registeredP
 }
 
 function normalizeParticipantIdentity(entry, participantType) {
+  if (typeof entry === 'string' || typeof entry === 'number') {
+    const sourceId = String(entry);
+    if (participantType === 'player') {
+      return {
+        id: sourceId,
+        player_id: sourceId,
+        user_id: null,
+        name: null,
+        email: null,
+      };
+    }
+    return {
+      id: sourceId,
+      club_id: sourceId,
+      user_id: null,
+      name: null,
+      email: null,
+    };
+  }
   const row = entry || {};
   if (participantType === 'player') {
     const playerId = row.player_id || row.id;
@@ -121,6 +140,15 @@ function statusToFixtureStatus(status) {
   return status || 'unscheduled';
 }
 
+async function hasFixtureMatchConflict(row) {
+  if (!row.match_id) return false;
+  const existingRows = await model.selectFixtureByMatch(row.match_id);
+  if (!existingRows.length) return false;
+  const existing = existingRows[0];
+  return String(existing.legacy_fixture_type || '') !== String(row.legacy_fixture_type || '') ||
+    String(existing.legacy_fixture_id || '') !== String(row.legacy_fixture_id || '');
+}
+
 function leagueParentConfig(productType) {
   if (productType === 'regional_league') {
     return {
@@ -157,6 +185,7 @@ async function backfillCommunityTournaments({ status } = {}) {
     instances: 0,
     participants: 0,
     fixtures: 0,
+    conflicts: 0,
   };
 
   for (const tournament of tournaments) {
@@ -207,7 +236,7 @@ async function backfillCommunityTournaments({ status } = {}) {
     for (const match of matches) {
       const homeSourceId = participantType === 'player' ? match.home_player_id : match.home_club_id;
       const awaySourceId = participantType === 'player' ? match.away_player_id : match.away_club_id;
-      await model.upsertFixture({
+      const fixtureRow = {
         id: deterministicId(`competition_fixture:match:${match.id}`),
         competition_instance_id: instanceId,
         legacy_fixture_type: 'tournament_match',
@@ -246,7 +275,12 @@ async function backfillCommunityTournaments({ status } = {}) {
             : null,
         stats_processed: match.stats_processed ? 1 : 0,
         idempotency_key: `backfill:tournament_match:${match.id}`,
-      });
+      };
+      if (await hasFixtureMatchConflict(fixtureRow)) {
+        summary.conflicts += 1;
+        continue;
+      }
+      await model.upsertFixture(fixtureRow);
       summary.fixtures += 1;
     }
   }
@@ -273,6 +307,7 @@ async function backfillLeagueEntities({ productType = 'official_competition', st
     instances: 0,
     participants: 0,
     fixtures: 0,
+    conflicts: 0,
   };
 
   for (const rawParent of parentRows) {
@@ -328,7 +363,7 @@ async function backfillLeagueEntities({ productType = 'official_competition', st
       const fixture = parseLeagueEntityRow(rawFixture);
       const homeClubId = fixture.home_club_id || null;
       const awayClubId = fixture.away_club_id || null;
-      await model.upsertFixture({
+      const fixtureRow = {
         id: deterministicId(`competition_fixture:${cfg.fixture_type}:${fixture.id}`),
         competition_instance_id: instanceId,
         legacy_fixture_type: cfg.fixture_type,
@@ -362,7 +397,12 @@ async function backfillLeagueEntities({ productType = 'official_competition', st
         winner_participant_id: fixture.winner_club_id ? participantIdByClubId.get(fixture.winner_club_id) : null,
         stats_processed: fixture.stats_processed ? 1 : 0,
         idempotency_key: `backfill:${cfg.fixture_type}:${fixture.id}`,
-      });
+      };
+      if (await hasFixtureMatchConflict(fixtureRow)) {
+        summary.conflicts += 1;
+        continue;
+      }
+      await model.upsertFixture(fixtureRow);
       summary.fixtures += 1;
     }
   }
