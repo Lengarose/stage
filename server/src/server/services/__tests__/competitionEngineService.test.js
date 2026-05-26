@@ -184,6 +184,39 @@ test('backfillCommunityTournaments skips fixture when match_id belongs to anothe
   assert.equal(calls.filter((call) => /INSERT INTO competition_fixtures/.test(call.sql)).length, 0);
 });
 
+test('backfillCommunityTournaments writes scalar registered player participants', async () => {
+  const participantWrites = [];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM tournaments/.test(sql)) {
+      return [{
+        id: 'tournament-player-1',
+        name: 'Solo Cup',
+        type: 'knockout',
+        participant_type: 'player',
+        status: 'in_progress',
+        registered_clubs: null,
+        registered_players: JSON.stringify(['player-home', 'player-away']),
+        created_date: '2026-05-26 10:00:00',
+      }];
+    }
+    if (/SELECT \* FROM matches WHERE tournament_id = \?/.test(sql)) return [];
+    if (/INSERT INTO competition_instances/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO competition_participants/.test(sql)) {
+      participantWrites.push(params);
+      return { affectedRows: 1 };
+    }
+    return [];
+  });
+
+  const result = await service.backfillCommunityTournaments({ status: 'in_progress' });
+
+  assert.equal(result.participants, 2);
+  assert.equal(participantWrites.length, 2);
+  assert.equal(participantWrites[0][2], 'player');
+  assert.equal(participantWrites[0][4], 'player-home');
+  assert.equal(participantWrites[1][4], 'player-away');
+});
+
 test('backfillLeagueEntities writes official competition seasons from league_entities', async () => {
   const calls = [];
   const service = loadService(async (sql, params = []) => {
