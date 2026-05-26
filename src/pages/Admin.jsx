@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 // Admin sub-components (separation of concerns — moved out of this file)
 import AdminStat from "@/components/admin/shared/AdminStat";
-import EmptyState from "@/components/admin/shared/EmptyState";
 import DisputesTab from "@/components/admin/sections/DisputesTab";
 import ForfeitsTab from "@/components/admin/sections/ForfeitsTab";
 import PlayersTab from "@/components/admin/sections/PlayersTab";
@@ -29,15 +28,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import TrophyCarousel from "@/components/tournament/TrophyCarousel";
 import { cn } from "@/lib/utils";
 import {
   Shield, AlertTriangle, Users, Trophy, Check, X,
-  ArrowLeft, Gavel, Flag, Ban, RefreshCw, Coins, Plus, Trash2,
-  Newspaper, Upload, Building2, LogIn, Search, TrendingUp,
-  Pencil, ChevronDown, ChevronLeft, ChevronRight, ShoppingBag, Ticket, Wallet, Activity,
-  ClipboardList, Filter, Zap, DollarSign, History
+  ArrowLeft, Gavel, Flag, RefreshCw, Coins, Upload, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Shield, Radio, X } from "lucide-react";
+import { ChevronDown, Shield, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "@/lib/momentDate";
 import { Link } from "react-router-dom";

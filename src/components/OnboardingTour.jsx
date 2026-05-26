@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Shield, Coins, FileText, ArrowRight, X, ChevronLeft, ChevronRight, Users, TrendingUp } from "lucide-react";
+import { Shield, Coins, FileText, X, ChevronLeft, ChevronRight, Users, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const STEPS = [

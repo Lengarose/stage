@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
-import { Trophy, Target, Zap } from "lucide-react";
+import { Target } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 
 export default function PredictionLeaderboard() {

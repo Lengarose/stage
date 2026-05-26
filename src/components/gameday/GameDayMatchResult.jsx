@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
-import { Target, Zap, Star, CheckCircle2, Clock, Plus, Trash2, Upload } from "lucide-react";
+import { Target, Zap, Star, CheckCircle2, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

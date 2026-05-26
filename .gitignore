@@ -32,3 +32,4 @@ server/src/constants/*
 
 .env
 .vite
+.superpowers/

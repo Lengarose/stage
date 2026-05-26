@@ -3,8 +3,8 @@ import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  Coins, TrendingUp, TrendingDown, Zap, Wallet, Calendar,
-  ShoppingBag, Dumbbell, Building2, Trophy, Shield, RefreshCw,
+  Coins, TrendingUp, Zap, Wallet,
+  ShoppingBag, Building2, Trophy, RefreshCw,
   ChevronDown, Briefcase, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 

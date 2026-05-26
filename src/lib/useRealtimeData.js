@@ -37,7 +37,6 @@ export function useRealtimeData(entityName, filters = {}, orderBy = null, channe
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityName, filtersKey, orderBy]);
 
   useEffect(() => { load(); }, [load]);

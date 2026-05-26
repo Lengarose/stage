@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Zap, Target } from "lucide-react";
+import { Target } from "lucide-react";
 
 export default function PredictionForm({ matchId, homePlayerName, awayPlayerName, userEmail, userName, onSubmit }) {
   const [homeScore, setHomeScore] = useState("");

@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
-import { getUpgradesForCategory, calcUpgradeCost, getMaintenanceBreakdown, getMaintenanceLabel } from "@/lib/lifestyleUpgrades";
+import { getUpgradesForCategory, calcUpgradeCost, getMaintenanceBreakdown } from "@/lib/lifestyleUpgrades";
 import {
-  MapPin, ArrowUp, Lock, Zap, TrendingUp, Wrench,
+  MapPin, ArrowUp, Lock, Zap, TrendingUp,
   ChevronDown, ChevronUp, ReceiptText, AlertTriangle,
-  CalendarClock, XCircle, Calendar,
+  CalendarClock, XCircle,
 } from "lucide-react";
 
 function formatSTC(v) {

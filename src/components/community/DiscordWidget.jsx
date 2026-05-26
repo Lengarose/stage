@@ -97,7 +97,6 @@ export default function DiscordWidget({ theme = "dark", className = "", compact 
       className={className}
       width="100%"
       height={iframeH}
-      allowTransparency
       frameBorder="0"
       sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
     />

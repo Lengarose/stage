@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
-import { getSubscriptionTier, TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
+import { TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
 import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

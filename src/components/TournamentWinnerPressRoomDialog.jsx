@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Mic, CheckCircle, Newspaper, Camera, Upload, Trophy } from "lucide-react";
+import { CheckCircle, Newspaper, Camera, Upload, Trophy } from "lucide-react";
 
 const REPORTERS = [
   { name: "Marcus Webb",   outlet: "STAGE Daily",      avatar: "MW", color: "bg-blue-500/20 border-blue-500/40 text-blue-400" },

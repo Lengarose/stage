@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
-import { CalendarDays, CheckCircle, XCircle, Play, Loader2, AlertCircle, Zap } from "lucide-react";
+import { CheckCircle, XCircle, Play, Loader2, AlertCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

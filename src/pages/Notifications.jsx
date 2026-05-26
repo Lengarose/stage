@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "@/lib/momentDate";
-import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger

@@ -8,7 +8,7 @@
  *   canEdit    — true if current user owns this profile
  *   wonTournaments — array of Tournament records the owner has won
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Pencil, Check, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";

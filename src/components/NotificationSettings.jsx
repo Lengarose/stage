@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { Bell, BellOff } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { NOTIFICATION_SETTINGS, getDefaultNotificationSettings } from "@/lib/notificationTypes";
 

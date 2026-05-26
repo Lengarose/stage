@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
-import { STADIUM_LEVELS, getStadiumLevel, getNextStadiumLevel, calcTicketRevenue } from "@/lib/stadiumLevels";
+import { STADIUM_LEVELS, getStadiumLevel, getNextStadiumLevel } from "@/lib/stadiumLevels";
 import { formatSTC } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, Lock, TrendingUp } from "lucide-react";
+import { ArrowUp, Lock } from "lucide-react";
 
 // Revenue description helper
 function revenueDesc(lvl) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown, ChevronRight as Next } from "lucide-react";
+import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown } from "lucide-react";
 import BannerPreviewEditor from "../components/BannerPreviewEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import TrophyCarousel from "../components/tournament/TrophyCarousel";
 import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";

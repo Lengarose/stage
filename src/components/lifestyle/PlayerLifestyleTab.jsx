@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { LIFESTYLE_CATEGORIES } from "@/lib/lifestyleItems";
-import { cn } from "@/lib/utils";
 import { Package, TrendingUp, Coins } from "lucide-react";
 
 export default function PlayerLifestyleTab({ player }) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchClub, getClubDashboard } from "@/lib/eafcClient";
-import { ArrowLeft, Shield, Users, Trophy, Swords, Star, Target, TrendingUp, ChevronUp, ChevronDown, Loader2, AlertCircle, Search } from "lucide-react";
+import { ArrowLeft, Shield, Users, Trophy, Swords, Star, TrendingUp, ChevronUp, ChevronDown, Loader2, AlertCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

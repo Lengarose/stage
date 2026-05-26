@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
-import { getUpgradesForCategory, calcUpgradeCost, getMaintenanceBreakdown, getMaintenanceLabel } from "@/lib/lifestyleUpgrades";
+import { getUpgradesForCategory, calcUpgradeCost, getMaintenanceBreakdown } from "@/lib/lifestyleUpgrades";
 import {
   ArrowUp, Lock, Zap, AlertTriangle, Wrench,
   ChevronDown, ChevronUp, ReceiptText, CalendarClock, XCircle,
