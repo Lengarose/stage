@@ -5,6 +5,7 @@ const { EXECUTESQL } = require('../db/database');
 const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadcast');
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi } = require('../utils/datetime');
+const competitionEngineService = require('../services/competitionEngineService');
 
 async function getAuthContext(req) {
   const userId = req.user?.id;
@@ -420,6 +421,11 @@ router.patch('/:id', async (req, res) => {
       if (refreshed.length) {
         Object.assign(record, refreshed[0]);
       }
+    }
+    if (record.status === 'completed') {
+      await competitionEngineService.syncMatchResultToSource(record).catch((err) => {
+        console.error('[match source sync]', err.message);
+      });
     }
     broadcastMatch(record);
     res.json((await enrichMatchRows([record]))[0]);
