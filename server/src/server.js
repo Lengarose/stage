@@ -40,6 +40,32 @@ app.use('/api/stage/clubs',             verifyToken, require('./server/controlle
 app.use('/api/stage/matches',           verifyToken, require('./server/controllers/matchController'));
 app.use('/api/stage/tournaments',       verifyToken, require('./server/controllers/tournamentController'));
 app.use('/api/stage/competition-engine', verifyToken, require('./server/controllers/competitionEngineController'));
+const { makeRouter: makeCompetitionEngineEntityRouter } = require('./server/controllers/competitionEngineEntityController');
+app.use('/api/stage/competition-instances', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_instances',
+  columns: ['product_type', 'legacy_source_type', 'legacy_source_id', 'name', 'slug', 'region', 'platform', 'status', 'starts_at', 'ends_at', 'created_by_user_id', 'created_date', 'updated_date'],
+}));
+app.use('/api/stage/competition-participants', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_participants',
+  columns: ['competition_instance_id', 'participant_type', 'club_id', 'player_id', 'user_id', 'status', 'seed', 'registered_at', 'approved_at', 'created_date', 'updated_date'],
+}));
+app.use('/api/stage/competition-schedule-proposals', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_schedule_proposals',
+  columns: ['fixture_id', 'proposer_participant_id', 'recipient_participant_id', 'proposed_at', 'proposed_for', 'status', 'message_id', 'notification_id', 'idempotency_key', 'created_date'],
+}));
+app.use('/api/stage/competition-result-submissions', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_result_submissions',
+  columns: ['fixture_id', 'match_id', 'side', 'submitted_by_user_id', 'score_home', 'score_away', 'payload_json', 'proof_url', 'idempotency_key', 'created_date'],
+  jsonColumns: ['payload_json'],
+}));
+app.use('/api/stage/competition-phase-states', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_phase_states',
+  columns: ['competition_instance_id', 'format', 'phase', 'round', 'status', 'ready_to_advance', 'generated_at', 'generated_by_user_id', 'idempotency_key', 'created_date', 'updated_date'],
+}));
+app.use('/api/stage/competition-payouts', verifyToken, makeCompetitionEngineEntityRouter({
+  table: 'competition_payouts',
+  columns: ['competition_instance_id', 'fixture_id', 'match_id', 'recipient_type', 'club_id', 'player_id', 'amount_stc', 'category', 'status', 'idempotency_key', 'ledger_transaction_id', 'created_date', 'updated_date'],
+}));
 app.use('/api/stage/international-tournaments', verifyToken, require('./server/controllers/internationalTournamentController'));
 app.use('/api/stage/posts',             verifyToken, require('./server/controllers/postController'));
 app.use('/api/stage/comments',          verifyToken, require('./server/controllers/commentController'));
