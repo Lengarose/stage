@@ -961,6 +961,60 @@ async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenge
   return payload;
 }
 
+async function createMatchInviteResponseMessage({ originalMessage, meta, senderEmail, subject, body, matchId = null }) {
+  if (!originalMessage?.sender_email) return null;
+  const responseId = uuidv4();
+  let senderGamertag = meta.opponent_name || null;
+  let senderAvatar = null;
+  let senderClubName = null;
+  if (senderEmail) {
+    const playerRows = await EXECUTESQL(
+      'SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1',
+      [senderEmail]
+    ).catch(() => []);
+    const player = playerRows[0] || null;
+    senderGamertag = senderGamertag || player?.gamertag || senderEmail;
+    senderAvatar = player?.avatar_url || null;
+    if (player?.club_id) {
+      const clubRows = await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [player.club_id]).catch(() => []);
+      senderClubName = clubRows[0]?.name || null;
+    }
+  }
+  await EXECUTESQL(
+    `INSERT INTO inbox_messages
+       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
+        subject, body, message_type, action_type, status, is_read, related_entity_id, related_entity_type, metadata, created_date)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
+    [
+      responseId,
+      originalMessage.sender_email,
+      senderEmail || originalMessage.recipient_email || null,
+      senderGamertag || senderEmail || 'Player',
+      senderAvatar,
+      senderClubName,
+      subject,
+      body,
+      'match_invite_response',
+      'none',
+      'pending',
+      0,
+      matchId || originalMessage.related_entity_id || null,
+      matchId ? 'match' : (originalMessage.related_entity_type || null),
+      JSON.stringify({ ...meta, response_to_message_id: originalMessage.id, created_match_id: matchId || meta.created_match_id || null }),
+    ]
+  );
+  await Promise.resolve(broadcastInbox({
+    id: responseId,
+    recipient_email: originalMessage.sender_email,
+    sender_email: senderEmail || originalMessage.recipient_email || null,
+    message_type: 'match_invite_response',
+    status: 'pending',
+    is_read: 0,
+    related_entity_id: matchId || originalMessage.related_entity_id || null,
+  })).catch(() => {});
+  return responseId;
+}
+
 const CREDIT_PACKS = {
   credits_100:  { priceId: 'price_1TOayT2fnaWmNMFQby00tHqR', credits: 100 },
   credits_300:  { priceId: 'price_1TOb0I2fnaWmNMFQyryD4Rpc', credits: 300 },
@@ -2642,6 +2696,14 @@ const HANDLERS = {
         await broadcastMatchById(existingMatchId);
       }
       if (message.sender_email) {
+        await createMatchInviteResponseMessage({
+          originalMessage: message,
+          meta,
+          senderEmail: user.email,
+          subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+          body: `${meta.opponent_name || user.email} accepted your reschedule request.\n\nMatch date: ${nextDate || 'TBD'}`,
+          matchId: existingMatchId || null,
+        });
         await createNotificationIfEnabled({
           recipientEmail: message.sender_email,
           type: 'match_scheduled',
@@ -2669,6 +2731,14 @@ const HANDLERS = {
         await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id }).catch(() => {});
       }
       if (message.sender_email) {
+        await createMatchInviteResponseMessage({
+          originalMessage: message,
+          meta,
+          senderEmail: user.email,
+          subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+          body: `${meta.opponent_name || user.email} accepted your match invitation.\n\nMatch date: ${scheduledDate || 'TBD'}`,
+          matchId: payload.id,
+        });
         await createNotificationIfEnabled({
           recipientEmail: message.sender_email,
           type: 'match_scheduled',
@@ -2718,6 +2788,16 @@ const HANDLERS = {
         body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
         link: '/inbox',
         relatedId: responseId,
+      });
+    }
+
+    if (action === 'declined' && isMatchInvite && message.sender_email) {
+      await createMatchInviteResponseMessage({
+        originalMessage: message,
+        meta,
+        senderEmail: user.email,
+        subject: `Match Declined: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+        body: `${meta.opponent_name || user.email} declined your match invitation.`,
       });
     }
 

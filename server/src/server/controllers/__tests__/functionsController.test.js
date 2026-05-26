@@ -356,6 +356,7 @@ test('syncCompletedMatchToSource delegates completed match sync to service', asy
 
 test('respondInboxMessage creates invite match with player email snapshots server-side', async () => {
   const inserts = [];
+  const responseMessages = [];
   const inboxUpdates = [];
   const message = {
     id: 'message-1',
@@ -397,9 +398,16 @@ test('respondInboxMessage creates invite match with player email snapshots serve
       inserts.push(params);
       return { affectedRows: 1 };
     }
+    if (/INSERT INTO inbox_messages/.test(sql)) {
+      responseMessages.push(params);
+      return { affectedRows: 1 };
+    }
     if (/UPDATE inbox_messages SET related_entity_id = \?/.test(sql)) {
       inboxUpdates.push({ sql, params });
       return { affectedRows: 1 };
+    }
+    if (/SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{ id: 'player-away', gamertag: 'AwayTag', avatar_url: 'away.png', club_id: null }];
     }
     if (/SELECT notification_settings FROM players/.test(sql)) return [];
     if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
@@ -433,5 +441,9 @@ test('respondInboxMessage creates invite match with player email snapshots serve
   assert.equal(inserts[0][10], 'home-player@example.test');
   assert.equal(inserts[0][11], 'player-away');
   assert.equal(inserts[0][13], 'away-player@example.test');
+  assert.equal(responseMessages.length, 1);
+  assert.equal(responseMessages[0][1], 'home@example.test');
+  assert.equal(responseMessages[0][8], 'match_invite_response');
+  assert.equal(responseMessages[0][12], inserts[0][0]);
   assert.equal(inboxUpdates.some(update => /related_entity_id/.test(update.sql)), true);
 });
