@@ -3,6 +3,10 @@ const crypto = require('crypto');
 const { EXECUTESQL } = require('../db/database');
 const CompetitionEngineModel = require('../models/competitionEngineModel');
 const Match = require('../models/matchModel');
+const {
+  broadcastInbox,
+  broadcastNotification,
+} = require('../utils/socketBroadcast');
 
 const model = new CompetitionEngineModel();
 
@@ -56,6 +60,48 @@ function mapFixtureToMatch(fixture) {
     source_fixture_type: 'competition_engine',
     competition_context: fixture.competition_instance_id,
   };
+}
+
+async function enrichFixtureSnapshots(fixture) {
+  const next = { ...fixture };
+  const clubIds = [next.home_club_id, next.away_club_id].filter(Boolean);
+  if (clubIds.length) {
+    const rows = await EXECUTESQL(
+      `SELECT id, name, owner_email FROM clubs WHERE id IN (${clubIds.map(() => '?').join(',')})`,
+      clubIds,
+    ).catch(() => []);
+    const byId = new Map(rows.map(row => [String(row.id), row]));
+    const homeClub = next.home_club_id ? byId.get(String(next.home_club_id)) : null;
+    const awayClub = next.away_club_id ? byId.get(String(next.away_club_id)) : null;
+    if (homeClub) {
+      next.home_club_name = next.home_club_name || homeClub.name || null;
+      next.home_owner_email = next.home_owner_email || homeClub.owner_email || null;
+    }
+    if (awayClub) {
+      next.away_club_name = next.away_club_name || awayClub.name || null;
+      next.away_owner_email = next.away_owner_email || awayClub.owner_email || null;
+    }
+  }
+
+  const playerIds = [next.player_home_id, next.player_away_id].filter(Boolean);
+  if (playerIds.length) {
+    const rows = await EXECUTESQL(
+      `SELECT id, gamertag, email FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`,
+      playerIds,
+    ).catch(() => []);
+    const byId = new Map(rows.map(row => [String(row.id), row]));
+    const homePlayer = next.player_home_id ? byId.get(String(next.player_home_id)) : null;
+    const awayPlayer = next.player_away_id ? byId.get(String(next.player_away_id)) : null;
+    if (homePlayer) {
+      next.player_home_gamertag = next.player_home_gamertag || homePlayer.gamertag || null;
+      next.player_home_email = next.player_home_email || homePlayer.email || null;
+    }
+    if (awayPlayer) {
+      next.player_away_gamertag = next.player_away_gamertag || awayPlayer.gamertag || null;
+      next.player_away_email = next.player_away_email || awayPlayer.email || null;
+    }
+  }
+  return next;
 }
 
 function inferTournamentParticipantType(tournament, registeredClubs, registeredPlayers) {
@@ -127,6 +173,62 @@ function parseLeagueEntityRow(row) {
     season_number: row.season_number ?? data.season_number,
     created_date: row.created_date,
     updated_date: row.updated_date,
+  };
+}
+
+function parseFormList(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return value.split(',').map(v => v.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function sortStandingRows(rows) {
+  return [...rows].sort((a, b) => {
+    if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
+    if (Number(b.goal_difference || 0) !== Number(a.goal_difference || 0)) return Number(b.goal_difference || 0) - Number(a.goal_difference || 0);
+    if (Number(b.goals_for || 0) !== Number(a.goals_for || 0)) return Number(b.goals_for || 0) - Number(a.goals_for || 0);
+    return String(a.club_name || '').localeCompare(String(b.club_name || ''));
+  });
+}
+
+async function updateLeagueEntityData(entityType, id, next, indexed = {}) {
+  const sets = ['data_json = ?', 'updated_date = NOW()'];
+  const values = [JSON.stringify(next)];
+  for (const [column, value] of Object.entries(indexed)) {
+    sets.push(`${column} = ?`);
+    values.push(value ?? null);
+  }
+  values.push(id, entityType);
+  await EXECUTESQL(
+    `UPDATE league_entities SET ${sets.join(', ')} WHERE id = ? AND entity_type = ?`,
+    values,
+  );
+}
+
+function buildStandingUpdate(row, goalsFor, goalsAgainst, resultCode) {
+  const wins = Number(row.wins || 0) + (resultCode === 'W' ? 1 : 0);
+  const draws = Number(row.draws || 0) + (resultCode === 'D' ? 1 : 0);
+  const losses = Number(row.losses || 0) + (resultCode === 'L' ? 1 : 0);
+  const nextGoalsFor = Number(row.goals_for || 0) + goalsFor;
+  const nextGoalsAgainst = Number(row.goals_against || 0) + goalsAgainst;
+  return {
+    played: Number(row.played || 0) + 1,
+    wins,
+    draws,
+    losses,
+    goals_for: nextGoalsFor,
+    goals_against: nextGoalsAgainst,
+    goal_difference: nextGoalsFor - nextGoalsAgainst,
+    points: Number(row.points || 0) + (resultCode === 'W' ? 3 : resultCode === 'D' ? 1 : 0),
+    form: [resultCode, ...parseFormList(row.form)].slice(0, 5),
   };
 }
 
@@ -417,7 +519,7 @@ async function createMatchFromFixture(fixtureId) {
     err.status = 404;
     throw err;
   }
-  const fixture = rows[0];
+  const fixture = await enrichFixtureSnapshots(rows[0]);
   if (fixture.match_id) {
     const existing = await EXECUTESQL('SELECT * FROM matches WHERE id = ?', [fixture.match_id]);
     if (existing.length) return existing[0];
@@ -460,7 +562,384 @@ async function finalizeAgreedResult(fixture, home, away) {
      WHERE id = ?`,
     [homeScore, awayScore, winnerParticipantId, fixture.id],
   );
+  await syncMatchResultToSource(fixture.match_id);
   return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId };
+}
+
+async function syncCompetitionFixtureResult(match, sourceFixtureId) {
+  const rows = await EXECUTESQL(
+    `SELECT * FROM league_entities
+      WHERE id = ? AND entity_type = 'competition_fixture'
+      LIMIT 1`,
+    [sourceFixtureId],
+  );
+  if (!rows.length) return { synced: false, reason: 'competition_fixture_not_found' };
+  const fixture = parseLeagueEntityRow(rows[0]);
+  if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
+    return { synced: false, reason: 'already_processed' };
+  }
+
+  const homeScore = Number(match.home_score || 0);
+  const awayScore = Number(match.away_score || 0);
+  const winnerClubId = homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
+  const winnerClubName = String(winnerClubId || '') === String(fixture.home_club_id || '') ? fixture.home_club_name
+    : String(winnerClubId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
+      : null;
+  const nextFixture = {
+    ...fixture,
+    home_score: homeScore,
+    away_score: awayScore,
+    winner_club_id: winnerClubId,
+    winner_club_name: winnerClubName,
+    status: 'completed',
+    stats_processed: true,
+  };
+  await updateLeagueEntityData('competition_fixture', sourceFixtureId, nextFixture, { status: 'completed' });
+
+  if (String(fixture.phase || 'league') === 'league') {
+    const standingRows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE entity_type = 'competition_standing'
+          AND season_id = ?
+          AND club_id IN (?, ?)`,
+      [fixture.season_id, fixture.home_club_id, fixture.away_club_id],
+    );
+    const parsed = standingRows.map(parseLeagueEntityRow);
+    const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
+    const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
+    if (homeRow && awayRow) {
+      const isDraw = homeScore === awayScore;
+      const homeWin = homeScore > awayScore;
+      const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
+      const awayUpdate = buildStandingUpdate(awayRow, awayScore, homeScore, !homeWin && !isDraw ? 'W' : isDraw ? 'D' : 'L');
+      const nextHomeStanding = { ...homeRow, ...homeUpdate };
+      const nextAwayStanding = { ...awayRow, ...awayUpdate };
+      await updateLeagueEntityData('competition_standing', homeRow.id, nextHomeStanding);
+      await updateLeagueEntityData('competition_standing', awayRow.id, nextAwayStanding);
+
+      const allRows = await EXECUTESQL(
+        `SELECT * FROM league_entities
+          WHERE entity_type = 'competition_standing' AND season_id = ?`,
+        [fixture.season_id],
+      );
+      const sorted = sortStandingRows(allRows.map(row => {
+        if (row.id === homeRow.id) return nextHomeStanding;
+        if (row.id === awayRow.id) return nextAwayStanding;
+        return parseLeagueEntityRow(row);
+      }));
+      for (let index = 0; index < sorted.length; index += 1) {
+        await updateLeagueEntityData('competition_standing', sorted[index].id, { ...sorted[index], position: index + 1 });
+      }
+    }
+  }
+
+  return { synced: true, source_fixture_type: 'competition_fixture', fixture: nextFixture };
+}
+
+async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
+  const rows = await EXECUTESQL(
+    `SELECT * FROM league_entities
+      WHERE id = ? AND entity_type = 'regional_league_fixture'
+      LIMIT 1`,
+    [sourceFixtureId],
+  );
+  if (!rows.length) return { synced: false, reason: 'regional_league_fixture_not_found' };
+  const fixture = parseLeagueEntityRow(rows[0]);
+  if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
+    return { synced: false, reason: 'already_processed' };
+  }
+
+  const homeScore = Number(match.home_score || 0);
+  const awayScore = Number(match.away_score || 0);
+  const winnerClubId = homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
+  const winnerClubName = String(winnerClubId || '') === String(fixture.home_club_id || '') ? fixture.home_club_name
+    : String(winnerClubId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
+      : null;
+  const nextFixture = {
+    ...fixture,
+    home_score: homeScore,
+    away_score: awayScore,
+    winner_club_id: winnerClubId,
+    winner_club_name: winnerClubName,
+    status: 'played',
+    stats_processed: true,
+  };
+  await updateLeagueEntityData('regional_league_fixture', sourceFixtureId, nextFixture, { status: 'played' });
+
+  const standingRows = await EXECUTESQL(
+    `SELECT * FROM league_entities
+      WHERE entity_type = 'regional_league_standing'
+        AND league_id = ?
+        AND club_id IN (?, ?)`,
+    [fixture.league_id, fixture.home_club_id, fixture.away_club_id],
+  );
+  const parsed = standingRows.map(parseLeagueEntityRow);
+  const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
+  const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
+  if (homeRow && awayRow) {
+    const isDraw = homeScore === awayScore;
+    const homeWin = homeScore > awayScore;
+    const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
+    const awayUpdate = buildStandingUpdate(awayRow, awayScore, homeScore, !homeWin && !isDraw ? 'W' : isDraw ? 'D' : 'L');
+    const nextHomeStanding = { ...homeRow, ...homeUpdate };
+    const nextAwayStanding = { ...awayRow, ...awayUpdate };
+    await updateLeagueEntityData('regional_league_standing', homeRow.id, nextHomeStanding);
+    await updateLeagueEntityData('regional_league_standing', awayRow.id, nextAwayStanding);
+
+    const allRows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE entity_type = 'regional_league_standing' AND league_id = ?`,
+      [fixture.league_id],
+    );
+    const sorted = sortStandingRows(allRows.map(row => {
+      if (row.id === homeRow.id) return nextHomeStanding;
+      if (row.id === awayRow.id) return nextAwayStanding;
+      return parseLeagueEntityRow(row);
+    }));
+    for (let index = 0; index < sorted.length; index += 1) {
+      await updateLeagueEntityData('regional_league_standing', sorted[index].id, { ...sorted[index], position: index + 1 });
+    }
+  }
+
+  return { synced: true, source_fixture_type: 'regional_league_fixture', fixture: nextFixture };
+}
+
+async function markEngineFixtureCompleted(match) {
+  const fixtureRows = await model.selectFixtureByMatch(match.id);
+  if (!fixtureRows.length) return null;
+  const fixture = fixtureRows[0];
+  const homeScore = Number(match.home_score || 0);
+  const awayScore = Number(match.away_score || 0);
+  const winnerParticipantId = homeScore > awayScore
+    ? fixture.home_participant_id
+    : awayScore > homeScore
+      ? fixture.away_participant_id
+      : null;
+  await EXECUTESQL(
+    `UPDATE competition_fixtures
+      SET status = 'completed',
+          home_score = ?,
+          away_score = ?,
+          winner_participant_id = ?,
+          stats_processed = 1,
+          updated_date = CURRENT_TIMESTAMP
+      WHERE id = ?`,
+    [homeScore, awayScore, winnerParticipantId, fixture.id],
+  );
+  return { ...fixture, status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId };
+}
+
+async function resolveReadyRecipients(instance) {
+  const recipients = new Set();
+  const admins = await EXECUTESQL(
+    'SELECT email FROM users WHERE role_id IN (0, 2) AND email IS NOT NULL LIMIT 50',
+  ).catch(() => []);
+  admins.forEach(user => {
+    if (user.email) recipients.add(user.email);
+  });
+
+  if (instance?.created_by_user_id) {
+    const creatorRows = await EXECUTESQL(
+      'SELECT email FROM users WHERE id = ? AND email IS NOT NULL LIMIT 1',
+      [instance.created_by_user_id],
+    ).catch(() => []);
+    if (creatorRows[0]?.email) recipients.add(creatorRows[0].email);
+  }
+
+  if (instance?.legacy_source_type === 'tournament' && instance.legacy_source_id) {
+    const rows = await EXECUTESQL(
+      'SELECT organizer_email, creator_email FROM tournaments WHERE id = ? LIMIT 1',
+      [instance.legacy_source_id],
+    ).catch(() => []);
+    if (rows[0]?.organizer_email) recipients.add(rows[0].organizer_email);
+    if (rows[0]?.creator_email) recipients.add(rows[0].creator_email);
+  }
+
+  if (instance?.legacy_source_type && instance?.legacy_source_id && instance.legacy_source_type !== 'tournament') {
+    const rows = await EXECUTESQL(
+      'SELECT data_json FROM league_entities WHERE id = ? AND entity_type = ? LIMIT 1',
+      [instance.legacy_source_id, instance.legacy_source_type],
+    ).catch(() => []);
+    const data = parseJson(rows[0]?.data_json, {});
+    for (const key of ['organizer_email', 'creator_email', 'admin_email']) {
+      if (data?.[key]) recipients.add(data[key]);
+    }
+  }
+
+  return [...recipients].filter(Boolean);
+}
+
+async function markPhaseReadyAndNotify({ competitionInstanceId, format, phase, round }) {
+  const stateId = deterministicId(`competition_phase_state:${competitionInstanceId}:${phase}:${round}`);
+  const existingRows = await EXECUTESQL('SELECT * FROM competition_phase_states WHERE id = ? LIMIT 1', [stateId]);
+  if (existingRows[0]?.ready_to_advance) return { notified: false, reason: 'already_ready' };
+
+  await EXECUTESQL(
+    `INSERT INTO competition_phase_states
+      (id, competition_instance_id, format, phase, round, status, ready_to_advance, idempotency_key)
+     VALUES (?, ?, ?, ?, ?, 'ready', 1, ?)
+     ON DUPLICATE KEY UPDATE
+       status = 'ready',
+       ready_to_advance = 1,
+       updated_date = CURRENT_TIMESTAMP`,
+    [
+      stateId,
+      competitionInstanceId,
+      format || null,
+      phase,
+      round,
+      `phase_ready:${competitionInstanceId}:${phase}:${round}`,
+    ],
+  );
+
+  const instanceRows = await model.selectInstance(competitionInstanceId);
+  const instance = instanceRows[0] || null;
+  const recipients = await resolveReadyRecipients(instance);
+  const title = `${instance?.name || 'Competition'} is ready to advance`;
+  const body = `All fixtures for ${phase} round ${round} are completed.`;
+  const link = '/admin/leagues';
+  for (const email of recipients) {
+    const notification = {
+      id: deterministicId(`notification:phase_ready:${stateId}:${email}`),
+      recipient_email: email,
+      type: 'phase_ready',
+      title,
+      body,
+      read: 0,
+      link,
+    };
+    const inbox = {
+      id: deterministicId(`inbox:phase_ready:${stateId}:${email}`),
+      recipient_email: email,
+      sender_email: 'system@stageleagues.com',
+      subject: title,
+      body,
+      message_type: 'phase_ready',
+      status: 'unread',
+      is_read: 0,
+      related_entity_id: stateId,
+      related_entity_type: 'competition_phase_state',
+    };
+    await EXECUTESQL(
+      `INSERT IGNORE INTO notifications
+        (id, recipient_email, type, title, body, \`read\`, link, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [notification.id, notification.recipient_email, notification.type, notification.title, notification.body, notification.read, notification.link],
+    );
+    await EXECUTESQL(
+      `INSERT IGNORE INTO inbox_messages
+        (id, recipient_email, sender_email, subject, body, message_type, status, is_read, related_entity_id, related_entity_type, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        inbox.id,
+        inbox.recipient_email,
+        inbox.sender_email,
+        inbox.subject,
+        inbox.body,
+        inbox.message_type,
+        inbox.status,
+        inbox.is_read,
+        inbox.related_entity_id,
+        inbox.related_entity_type,
+      ],
+    );
+    if (typeof broadcastNotification === 'function') broadcastNotification(notification);
+    if (typeof broadcastInbox === 'function') broadcastInbox(inbox);
+  }
+
+  return { notified: true, recipients: recipients.length, phase_state_id: stateId };
+}
+
+async function notifyPhaseReady(fixture) {
+  if (!fixture?.competition_instance_id) return { notified: false, reason: 'fixture_missing_instance' };
+  const phase = fixture.phase || 'main';
+  const round = Number(fixture.round || fixture.matchday || 1);
+  const rows = await EXECUTESQL(
+    `SELECT * FROM competition_fixtures
+      WHERE competition_instance_id = ?
+        AND COALESCE(phase, 'main') = ?
+        AND COALESCE(round, matchday, 1) = ?`,
+    [fixture.competition_instance_id, phase, round],
+  );
+  if (!rows.length) return { notified: false, reason: 'no_phase_fixtures' };
+  const finished = new Set(['completed', 'forfeit']);
+  if (rows.some(row => !finished.has(String(row.status || '').toLowerCase()))) {
+    return { notified: false, reason: 'phase_not_complete' };
+  }
+
+  return markPhaseReadyAndNotify({
+    competitionInstanceId: fixture.competition_instance_id,
+    format: fixture.format || null,
+    phase,
+    round,
+  });
+}
+
+async function notifyLegacyPhaseReady({ fixture, sourceType }) {
+  if (!fixture) return { notified: false, reason: 'fixture_missing' };
+  const isRegional = sourceType === 'regional_league' || sourceType === 'regional_league_fixture';
+  const productType = isRegional ? 'regional_league' : 'official_competition';
+  const legacySourceType = isRegional ? 'regional_league' : 'competition_season';
+  const legacySourceId = isRegional ? fixture.league_id : fixture.season_id;
+  if (!legacySourceId) return { notified: false, reason: 'legacy_parent_missing' };
+
+  const instanceRows = await model.selectInstanceBySource(productType, legacySourceType, legacySourceId);
+  const instance = instanceRows[0];
+  if (!instance?.id) return { notified: false, reason: 'engine_instance_missing' };
+
+  const phase = fixture.phase || fixture.stage || 'league';
+  const round = Number(fixture.round || fixture.matchday || 1);
+  const parentKey = isRegional ? 'league_id' : 'season_id';
+  const fixtureType = isRegional ? 'regional_league_fixture' : 'competition_fixture';
+  const fixtureRows = await EXECUTESQL(
+    `SELECT * FROM league_entities WHERE entity_type = ? AND \`${parentKey}\` = ? LIMIT 1000`,
+    [fixtureType, legacySourceId],
+  );
+  const matching = fixtureRows
+    .map(parseLeagueEntityRow)
+    .filter(row => String(row.phase || row.stage || 'league') === String(phase))
+    .filter(row => Number(row.round || row.matchday || 1) === round);
+  if (!matching.length) return { notified: false, reason: 'no_legacy_phase_fixtures' };
+  const finished = new Set(isRegional ? ['played', 'completed', 'forfeit'] : ['completed', 'forfeit']);
+  if (matching.some(row => !finished.has(String(row.status || '').toLowerCase()))) {
+    return { notified: false, reason: 'legacy_phase_not_complete' };
+  }
+
+  return markPhaseReadyAndNotify({
+    competitionInstanceId: instance.id,
+    format: fixture.format || (isRegional ? 'regional_league' : 'official_competition'),
+    phase,
+    round,
+  });
+}
+
+async function syncMatchResultToSource(matchOrId) {
+  const match = typeof matchOrId === 'string'
+    ? (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchOrId]))[0]
+    : matchOrId;
+  if (!match?.id || match.status !== 'completed') return { synced: false, reason: 'match_not_completed' };
+
+  const engineFixture = await markEngineFixtureCompleted(match);
+  let sourceType = match.source_fixture_type || null;
+  let sourceId = match.source_fixture_id || null;
+  if (sourceType === 'competition_engine' && engineFixture) {
+    sourceType = engineFixture.legacy_fixture_type;
+    sourceId = engineFixture.legacy_fixture_id;
+  }
+
+  let legacyResult = { synced: false, reason: 'no_supported_source' };
+  if (sourceId && (sourceType === 'competition' || sourceType === 'competition_fixture')) {
+    legacyResult = await syncCompetitionFixtureResult(match, sourceId);
+  } else if (sourceId && (sourceType === 'regional_league' || sourceType === 'regional_league_fixture')) {
+    legacyResult = await syncRegionalLeagueFixtureResult(match, sourceId);
+  }
+
+  const ready = engineFixture
+    ? await notifyPhaseReady(engineFixture)
+    : legacyResult.fixture
+      ? await notifyLegacyPhaseReady({ fixture: legacyResult.fixture, sourceType })
+      : { notified: false, reason: 'no_engine_or_legacy_fixture' };
+  return { synced: Boolean(engineFixture || legacyResult.synced), legacy: legacyResult, ready };
 }
 
 async function submitResult({ matchId, side, submittedByUserId, scoreHome, scoreAway, payloadJson, proofUrl }) {
@@ -503,4 +982,6 @@ module.exports = {
   deterministicId,
   submitResult,
   mapFixtureToMatch,
+  syncMatchResultToSource,
+  notifyPhaseReady,
 };

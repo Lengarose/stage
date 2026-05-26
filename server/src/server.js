@@ -1554,6 +1554,14 @@ async function runStartupMigrations() {
     INDEX idx_comp_fixtures_away (away_participant_id, status),
     INDEX idx_comp_fixtures_window (scheduling_status, window_end)
   )`).catch((err) => console.error('[migration] competition_fixtures:', err.message));
+  await addCol('competition_fixtures', 'home_owner_email', 'VARCHAR(255) NULL');
+  await addCol('competition_fixtures', 'away_owner_email', 'VARCHAR(255) NULL');
+  await addCol('competition_fixtures', 'player_home_id', 'VARCHAR(36) NULL');
+  await addCol('competition_fixtures', 'player_home_gamertag', 'VARCHAR(150) NULL');
+  await addCol('competition_fixtures', 'player_home_email', 'VARCHAR(255) NULL');
+  await addCol('competition_fixtures', 'player_away_id', 'VARCHAR(36) NULL');
+  await addCol('competition_fixtures', 'player_away_gamertag', 'VARCHAR(150) NULL');
+  await addCol('competition_fixtures', 'player_away_email', 'VARCHAR(255) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS competition_schedule_proposals (
     id                         VARCHAR(36) PRIMARY KEY,

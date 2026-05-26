@@ -124,34 +124,42 @@ export default function GameDay() {
       );
     }
 
-    const regionalFixturePromises = [];
+    const fixturePromises = [];
+    if (clubId && stageClient.entities.CompetitionFixture) {
+      fixturePromises.push(
+        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
+      );
+    }
     if (clubId && stageClient.entities.RegionalLeagueFixture) {
-      regionalFixturePromises.push(
-        stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []),
-        stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []),
-        stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
-        stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []),
-        stageClient.entities.RegionalLeagueFixture.filter({ scheduling_status: "confirmed" }, "-confirmed_date", 500).catch(() => []),
-        stageClient.entities.RegionalLeagueFixture.filter({ status: "scheduled" }, "-confirmed_date", 500).catch(() => []),
+      fixturePromises.push(
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ scheduling_status: "confirmed" }, "-confirmed_date", 500).catch(() => []) },
+        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ status: "scheduled" }, "-confirmed_date", 500).catch(() => []) },
       );
     }
 
-    const [arrays, regionalFixtureArrays] = await Promise.all([
+    const [arrays, fixtureResults] = await Promise.all([
       Promise.all(fetchPromises.map(p => p.catch(() => []))),
-      Promise.all(regionalFixturePromises),
+      Promise.all(fixturePromises.map(item => item.promise.then(rows => ({ type: item.type, rows })))),
     ]);
     const matchMap = new Map();
     arrays.flat().forEach(m => matchMap.set(m.id, m));
 
-    const confirmedRegionalFixtures = regionalFixtureArrays
-      .flat()
-      .filter(f =>
-        f?.id &&
-        (f.scheduling_status === "confirmed" || f.status === "scheduled") &&
-        (f.home_club_id === clubId || f.away_club_id === clubId)
+    const confirmedFixtures = fixtureResults
+      .flatMap(result => (result.rows || []).map(fixture => ({ fixture, type: result.type })))
+      .filter(({ fixture }) =>
+        fixture?.id &&
+        (fixture.scheduling_status === "confirmed" || fixture.status === "scheduled") &&
+        (fixture.home_club_id === clubId || fixture.away_club_id === clubId)
       );
-    for (const fixture of confirmedRegionalFixtures) {
-      const match = await createMatchFromFixture(fixture, "regional_league").catch(() => null);
+    for (const { fixture, type } of confirmedFixtures) {
+      const match = await createMatchFromFixture(fixture, type).catch(() => null);
       if (match?.id) matchMap.set(match.id, match);
     }
 
@@ -280,8 +288,10 @@ export default function GameDay() {
       </div>
 
       {/* ── Mobile slide-up detail panel ── */}
+      {/* z-[90] sits above the mobile bottom navigation (z-[80] in Layout.jsx)
+          so the chat input at the bottom of the panel is never hidden behind it. */}
       {selectedGame && (
-        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="lg:hidden fixed inset-0 z-[90] flex flex-col justify-end">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -300,8 +310,12 @@ export default function GameDay() {
               <X className="w-4 h-4" />
               </button>
             </div>
-            {/* Scrollable detail */}
-            <div className="overflow-y-auto flex-1 p-3">
+            {/* Scrollable detail. pb accounts for iPhone home-indicator safe area
+                so the chat input (last element) stays clear of it. */}
+            <div
+              className="overflow-y-auto flex-1 p-3"
+              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+            >
               <GameDayDetail
                 game={selectedGame}
                 myClub={myClub}

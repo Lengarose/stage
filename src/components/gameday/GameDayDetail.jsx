@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
-import { syncFixtureAfterMatch, syncPlayerCareerStats } from "@/lib/gameDayIntegration";
+import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
 import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -154,7 +154,6 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
       processMatchRevenue(updated);
       processSoloMatchRevenue(updated);
       stageClient.functions.invoke("shirtSales", { action: "generate_for_match", match_id: updated.id }).catch(() => {});
-      syncFixtureAfterMatch(updated).catch(() => {});
       syncPlayerCareerStats(updated.id).catch(() => {});
     }
   }

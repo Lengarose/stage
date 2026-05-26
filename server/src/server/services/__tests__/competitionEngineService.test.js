@@ -82,6 +82,177 @@ test('submitResult marks fixture disputed when scores disagree', async () => {
   assert.equal(result.status, 'disputed');
 });
 
+test('syncMatchResultToSource updates official fixture and standings server-side', async () => {
+  const updates = [];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM competition_fixtures WHERE match_id = \? LIMIT 1/.test(sql)) return [];
+    if (/WHERE id = \? AND entity_type = 'competition_fixture'/.test(sql)) {
+      return [{
+        id: 'fixture-legacy',
+        entity_type: 'competition_fixture',
+        status: 'scheduled',
+        data_json: JSON.stringify({
+          season_id: 'season-1',
+          phase: 'league',
+          home_club_id: 'club-home',
+          home_club_name: 'Home FC',
+          away_club_id: 'club-away',
+          away_club_name: 'Away FC',
+          stats_processed: false,
+        }),
+      }];
+    }
+    if (/entity_type = 'competition_standing'\s+AND season_id = \?\s+AND club_id IN/.test(sql)) {
+      return [
+        { id: 'standing-home', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-home', data_json: JSON.stringify({ club_id: 'club-home', club_name: 'Home FC', points: 0, played: 0, wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0, goal_difference: 0, form: [] }) },
+        { id: 'standing-away', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-away', data_json: JSON.stringify({ club_id: 'club-away', club_name: 'Away FC', points: 0, played: 0, wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0, goal_difference: 0, form: [] }) },
+      ];
+    }
+    if (/entity_type = 'competition_standing' AND season_id = \?/.test(sql)) {
+      return [
+        { id: 'standing-home', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-home', data_json: JSON.stringify({ club_id: 'club-home', club_name: 'Home FC', points: 0, goals_for: 0, goals_against: 0, goal_difference: 0 }) },
+        { id: 'standing-away', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-away', data_json: JSON.stringify({ club_id: 'club-away', club_name: 'Away FC', points: 0, goals_for: 0, goals_against: 0, goal_difference: 0 }) },
+      ];
+    }
+    if (/UPDATE league_entities SET/.test(sql)) {
+      updates.push({ sql, params, data: JSON.parse(params[0]) });
+      return { affectedRows: 1 };
+    }
+    return [];
+  });
+
+  const result = await service.syncMatchResultToSource({
+    id: 'match-1',
+    status: 'completed',
+    source_fixture_id: 'fixture-legacy',
+    source_fixture_type: 'competition',
+    home_score: 2,
+    away_score: 1,
+  });
+
+  assert.equal(result.legacy.synced, true);
+  assert.ok(updates.some(update => update.params.includes('fixture-legacy') && update.data.status === 'completed'));
+  assert.ok(updates.some(update => update.params.includes('standing-home') && update.data.points === 3));
+  assert.ok(updates.some(update => update.params.includes('standing-away') && update.data.losses === 1));
+});
+
+test('syncMatchResultToSource marks legacy official phase ready when all fixtures are complete', async () => {
+  const notificationWrites = [];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM competition_fixtures WHERE match_id = \? LIMIT 1/.test(sql)) return [];
+    if (/WHERE id = \? AND entity_type = 'competition_fixture'/.test(sql)) {
+      return [{
+        id: 'fixture-legacy',
+        entity_type: 'competition_fixture',
+        status: 'scheduled',
+        data_json: JSON.stringify({
+          season_id: 'season-1',
+          phase: 'league',
+          round: 1,
+          home_club_id: 'club-home',
+          home_club_name: 'Home FC',
+          away_club_id: 'club-away',
+          away_club_name: 'Away FC',
+          stats_processed: false,
+        }),
+      }];
+    }
+    if (/entity_type = 'competition_standing'\s+AND season_id = \?\s+AND club_id IN/.test(sql)) {
+      return [
+        { id: 'standing-home', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-home', data_json: JSON.stringify({ club_id: 'club-home', club_name: 'Home FC' }) },
+        { id: 'standing-away', entity_type: 'competition_standing', season_id: 'season-1', club_id: 'club-away', data_json: JSON.stringify({ club_id: 'club-away', club_name: 'Away FC' }) },
+      ];
+    }
+    if (/entity_type = 'competition_standing' AND season_id = \?/.test(sql)) return [];
+    if (/UPDATE league_entities SET/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM competition_instances WHERE product_type = \? AND legacy_source_type = \? AND legacy_source_id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'instance-1', name: 'Supreme Season', legacy_source_type: 'competition_season', legacy_source_id: 'season-1' }];
+    }
+    if (/SELECT \* FROM league_entities WHERE entity_type = \? AND `season_id` = \? LIMIT 1000/.test(sql)) {
+      return [{
+        id: 'fixture-legacy',
+        entity_type: 'competition_fixture',
+        season_id: 'season-1',
+        status: 'completed',
+        data_json: JSON.stringify({ phase: 'league', round: 1 }),
+      }];
+    }
+    if (/SELECT \* FROM competition_phase_states/.test(sql)) return [];
+    if (/INSERT INTO competition_phase_states/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM competition_instances WHERE id = \?/.test(sql)) {
+      return [{ id: 'instance-1', name: 'Supreme Season', legacy_source_type: 'competition_season', legacy_source_id: 'season-1' }];
+    }
+    if (/SELECT email FROM users WHERE role_id IN/.test(sql)) return [{ email: 'admin@example.test' }];
+    if (/SELECT data_json FROM league_entities WHERE id = \? AND entity_type = \? LIMIT 1/.test(sql)) return [];
+    if (/INSERT IGNORE INTO notifications/.test(sql)) {
+      notificationWrites.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/INSERT IGNORE INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    return [];
+  });
+
+  const result = await service.syncMatchResultToSource({
+    id: 'match-1',
+    status: 'completed',
+    source_fixture_id: 'fixture-legacy',
+    source_fixture_type: 'competition',
+    home_score: 2,
+    away_score: 1,
+  });
+
+  assert.equal(result.ready.notified, true);
+  assert.equal(notificationWrites.length, 1);
+  assert.equal(notificationWrites[0][1], 'admin@example.test');
+});
+
+test('notifyPhaseReady sends deterministic admin and organizer messages once phase is complete', async () => {
+  const notificationWrites = [];
+  const inboxWrites = [];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM competition_fixtures/.test(sql)) {
+      return [{ id: 'fixture-1', status: 'completed' }];
+    }
+    if (/SELECT \* FROM competition_phase_states/.test(sql)) return [];
+    if (/INSERT INTO competition_phase_states/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM competition_instances WHERE id = \?/.test(sql)) {
+      return [{
+        id: 'instance-1',
+        name: 'Supreme Season',
+        legacy_source_type: 'tournament',
+        legacy_source_id: 'tournament-1',
+      }];
+    }
+    if (/SELECT email FROM users WHERE role_id IN/.test(sql)) {
+      return [{ email: 'admin@example.test' }];
+    }
+    if (/SELECT organizer_email, creator_email FROM tournaments/.test(sql)) {
+      return [{ organizer_email: 'organizer@example.test', creator_email: null }];
+    }
+    if (/INSERT IGNORE INTO notifications/.test(sql)) {
+      notificationWrites.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/INSERT IGNORE INTO inbox_messages/.test(sql)) {
+      inboxWrites.push(params);
+      return { affectedRows: 1 };
+    }
+    return [];
+  });
+
+  const result = await service.notifyPhaseReady({
+    competition_instance_id: 'instance-1',
+    format: 'league',
+    phase: 'league',
+    round: 1,
+  });
+
+  assert.equal(result.notified, true);
+  assert.equal(result.recipients, 2);
+  assert.deepEqual(notificationWrites.map(row => row[1]).sort(), ['admin@example.test', 'organizer@example.test']);
+  assert.deepEqual(inboxWrites.map(row => row[1]).sort(), ['admin@example.test', 'organizer@example.test']);
+});
+
 test('backfillCommunityTournaments writes instance participants and linked fixtures', async () => {
   const calls = [];
   const service = loadService(async (sql, params = []) => {

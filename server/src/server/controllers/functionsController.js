@@ -5,6 +5,7 @@ const axios = require('axios').default;
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { deleteUserAccount } = require('../services/accountDeletion');
+const competitionEngineService = require('../services/competitionEngineService');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -571,16 +572,23 @@ async function settleActiveClubWager(match, winner) {
   return { result: 'settled' };
 }
 
-async function processMatchCompletion(match, acceptedSubmission) {
+async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
   const awayScore = Number(acceptedSubmission.away_score || 0);
-  const playerStats = Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : [];
-  const goalEvents = Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : [];
+  const primaryStats = Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : [];
+  const secondaryStats = Array.isArray(secondarySubmission?.player_stats) ? secondarySubmission.player_stats : [];
+  const playerStats = [...primaryStats, ...secondaryStats];
+  const primaryGoals = Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : [];
+  const secondaryGoals = Array.isArray(secondarySubmission?.goal_events) ? secondarySubmission.goal_events : [];
+  const goalEvents = [...primaryGoals, ...secondaryGoals];
 
   const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   const fresh = freshRows[0] || match;
   if (Number(fresh.stats_processed || 0) === 1) {
+    await competitionEngineService.syncMatchResultToSource(fresh).catch((err) => {
+      console.error('[matchKickoff source sync]', err.message);
+    });
     return { data: { status: 'completed', skipped: true } };
   }
 
@@ -692,6 +700,11 @@ async function processMatchCompletion(match, acceptedSubmission) {
     const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [matchId]).catch(() => []);
     await generateShirtSalesForMatch(completed, stats).catch(() => {});
   }
+
+  const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
+  await competitionEngineService.syncMatchResultToSource(completedForSourceSync).catch((err) => {
+    console.error('[matchKickoff source sync]', err.message);
+  });
 
   await broadcastMatchById(matchId);
   return { data: { status: 'completed' } };
