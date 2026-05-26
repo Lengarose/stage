@@ -66,3 +66,44 @@ test('engine entity mutations require admin role', async () => {
   assert.equal(response.statusCode, 403);
   assert.equal(response.body.code, 'admin_required');
 });
+
+test('engine entity patch writes an admin audit row', async () => {
+  const auditRows = [];
+  const updates = [];
+  const router = loadRouter(async (sql, params = []) => {
+    if (/FROM users WHERE id = \?/.test(sql)) return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    if (/SELECT \* FROM `competition_phase_states` WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], phase: 'league', status: updates.length ? 'complete' : 'open' }];
+    }
+    if (/UPDATE `competition_phase_states` SET/.test(sql)) {
+      updates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) {
+      auditRows.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handler(router, '/:id', 'patch')({
+    params: { id: 'phase-1' },
+    user: { id: 'admin-1' },
+    body: { status: 'complete', unknown: 'ignored' },
+  }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.status, 'complete');
+  assert.equal(updates.length, 1);
+  assert.doesNotMatch(updates[0].sql, /unknown/);
+  assert.equal(auditRows.length, 1);
+  assert.equal(auditRows[0][3], 'update_competition_phase_states');
+  assert.equal(auditRows[0][4], 'competition_phase_states');
+  assert.equal(auditRows[0][5], 'phase-1');
+});

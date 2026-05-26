@@ -52,6 +52,36 @@ function buildWhere(query, columns) {
   };
 }
 
+function auditLogValue(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+async function writeAuditLog({ admin, action, table, id, before, after }) {
+  try {
+    await EXECUTESQL(
+      `INSERT INTO admin_audit_log
+         (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        uuidv4(),
+        admin?.id || null,
+        admin?.email || null,
+        action,
+        table,
+        id || null,
+        table,
+        auditLogValue(before),
+        auditLogValue(after),
+        'Competition engine entity route',
+      ],
+    );
+  } catch (err) {
+    console.error('[competitionEngineEntityController.audit]', err.message);
+  }
+}
+
 function makeRouter({ table, columns, jsonColumns = [] }) {
   const router = express.Router();
   const allowedColumns = [...new Set(['id', ...columns])];
@@ -86,7 +116,8 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
 
   router.post('/', async (req, res) => {
     try {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = req.body || {};
       const row = pickColumns({ ...body, id: body.id || uuidv4() }, allowedColumns, jsonSet, { includeId: true });
       if (!row.id) row.id = uuidv4();
@@ -97,6 +128,14 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
         cols.map(col => row[col]),
       );
       const created = await EXECUTESQL(`SELECT * FROM \`${table}\` WHERE id = ? LIMIT 1`, [row.id]);
+      await writeAuditLog({
+        admin,
+        action: `create_${table}`,
+        table,
+        id: row.id,
+        before: null,
+        after: created[0] || row,
+      });
       res.status(201).json(created[0]);
     } catch (err) {
       console.error(err);
@@ -106,7 +145,8 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
 
   router.patch('/:id', async (req, res) => {
     try {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const existing = await EXECUTESQL(`SELECT * FROM \`${table}\` WHERE id = ? LIMIT 1`, [req.params.id]);
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
       const row = pickColumns(req.body || {}, allowedColumns, jsonSet);
@@ -120,6 +160,14 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
         );
       }
       const updated = await EXECUTESQL(`SELECT * FROM \`${table}\` WHERE id = ? LIMIT 1`, [req.params.id]);
+      await writeAuditLog({
+        admin,
+        action: `update_${table}`,
+        table,
+        id: req.params.id,
+        before: existing[0],
+        after: updated[0] || null,
+      });
       res.json(updated[0]);
     } catch (err) {
       console.error(err);
@@ -129,8 +177,19 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
 
   router.delete('/:id', async (req, res) => {
     try {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const existing = await EXECUTESQL(`SELECT * FROM \`${table}\` WHERE id = ? LIMIT 1`, [req.params.id]);
+      if (!existing.length) return res.status(404).json({ error: 'Not found' });
       await EXECUTESQL(`DELETE FROM \`${table}\` WHERE id = ?`, [req.params.id]);
+      await writeAuditLog({
+        admin,
+        action: `delete_${table}`,
+        table,
+        id: req.params.id,
+        before: existing[0],
+        after: null,
+      });
       res.json({ success: true });
     } catch (err) {
       console.error(err);
