@@ -2,6 +2,7 @@ const express = require('express');
 const { EXECUTESQL } = require('../db/database');
 const CompetitionEngineModel = require('../models/competitionEngineModel');
 const service = require('../services/competitionEngineService');
+const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 const model = new CompetitionEngineModel();
@@ -20,6 +21,26 @@ async function requireBackfillAdmin(req, res) {
     return null;
   }
   return user;
+}
+
+async function writeBackfillAudit(admin, productType, status, result) {
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+       (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+     VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`,
+    [
+      uuidv4(),
+      admin.id,
+      admin.email,
+      'competition_engine_backfill',
+      'competition_engine',
+      productType,
+      productType,
+      null,
+      JSON.stringify(result || {}),
+      status ? `Backfill ${productType} with status ${status}` : `Backfill ${productType}`,
+    ],
+  );
 }
 
 router.get('/instances', async (req, res) => {
@@ -67,12 +88,15 @@ router.post('/instances/backfill', async (req, res) => {
     const admin = await requireBackfillAdmin(req, res);
     if (!admin) return;
     const productType = req.body?.product_type || 'community_tournament';
+    const status = req.body?.status || null;
     if (productType === 'community_tournament') {
-      const result = await service.backfillCommunityTournaments({ status: req.body?.status || null });
+      const result = await service.backfillCommunityTournaments({ status });
+      await writeBackfillAudit(admin, productType, status, result);
       return res.json(result);
     }
     if (productType === 'official_competition' || productType === 'regional_league') {
-      const result = await service.backfillLeagueEntities({ productType, status: req.body?.status || null });
+      const result = await service.backfillLeagueEntities({ productType, status });
+      await writeBackfillAudit(admin, productType, status, result);
       return res.json(result);
     }
     return res.status(400).json({ error: 'product_type must be community_tournament, official_competition, or regional_league' });

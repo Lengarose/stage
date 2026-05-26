@@ -75,6 +75,7 @@ test('POST /matches/:id/results/submit validates side', async () => {
 });
 
 test('POST /instances/backfill delegates community tournament backfill to service', async () => {
+  const auditWrites = [];
   const router = loadRouter({
     backfillCommunityTournaments: async ({ status }) => ({
       status,
@@ -83,6 +84,15 @@ test('POST /instances/backfill delegates community tournament backfill to servic
       participants: 2,
       fixtures: 3,
     }),
+  }, async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: 'admin-1', email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) {
+      auditWrites.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
   });
   const handle = findHandler(router, '/instances/backfill', 'post');
   const response = {
@@ -103,6 +113,10 @@ test('POST /instances/backfill delegates community tournament backfill to servic
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.tournaments, 1);
   assert.equal(response.body.participants, 2);
+  assert.equal(auditWrites.length, 1);
+  assert.equal(auditWrites[0][3], 'competition_engine_backfill');
+  assert.equal(auditWrites[0][4], 'competition_engine');
+  assert.equal(auditWrites[0][5], 'community_tournament');
 });
 
 test('POST /instances/backfill rejects non-admin users', async () => {
@@ -137,7 +151,13 @@ test('POST /instances/backfill rejects non-admin users', async () => {
 test('POST /instances/backfill allows conservative admin role 2', async () => {
   const router = loadRouter({
     backfillCommunityTournaments: async () => ({ tournaments: 1 }),
-  }, async () => [{ id: 'user-2', email: 'organizer@example.test', role_id: 2 }]);
+  }, async (sql) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: 'user-2', email: 'organizer@example.test', role_id: 2 }];
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
   const handle = findHandler(router, '/instances/backfill', 'post');
   const response = {
     statusCode: 200,
@@ -168,6 +188,12 @@ test('POST /instances/backfill delegates official competition backfill to servic
       participants: 4,
       fixtures: 8,
     }),
+  }, async (sql) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: 'admin-1', email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
   });
   const handle = findHandler(router, '/instances/backfill', 'post');
   const response = {
