@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
+const Match = require('../models/matchModel');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -863,6 +864,69 @@ function sortCompetitionStandingRows(rows) {
   });
 }
 
+function buildLeagueMatchContext(fixture, fixtureType) {
+  if (fixtureType === 'regional_league') {
+    return `${fixture.league_name || 'Regional League'} · Division ${fixture.division || 1} · Matchday ${fixture.matchday || ''}`.trim();
+  }
+  const phase = String(fixture.phase || 'league');
+  const phaseLabel = phase === 'league'
+    ? `League Phase - Matchday ${fixture.matchday || ''}`.trim()
+    : phase === 'playoff_round'
+      ? 'Playoff Round'
+      : phase === 'knockout_r16'
+        ? 'Round of 16'
+        : phase === 'knockout_qf'
+          ? 'Quarter-Final'
+          : phase === 'knockout_sf'
+            ? 'Semi-Final'
+            : phase === 'knockout_final'
+              ? 'Final'
+              : phase;
+  return `${fixture.competition_name || 'Competition'} · ${phaseLabel}`;
+}
+
+async function enrichMatchParticipantSnapshots(payload) {
+  const next = { ...payload };
+  const clubIds = [next.home_club_id, next.away_club_id].filter(Boolean);
+  if (clubIds.length) {
+    const placeholders = clubIds.map(() => '?').join(',');
+    const clubRows = await EXECUTESQL(
+      `SELECT id, name, owner_email FROM clubs WHERE id IN (${placeholders})`,
+      clubIds
+    ).catch(() => []);
+    for (const club of clubRows) {
+      if (String(club.id) === String(next.home_club_id)) {
+        next.home_club_name = next.home_club_name || club.name || null;
+        next.home_owner_email = next.home_owner_email || club.owner_email || null;
+      }
+      if (String(club.id) === String(next.away_club_id)) {
+        next.away_club_name = next.away_club_name || club.name || null;
+        next.away_owner_email = next.away_owner_email || club.owner_email || null;
+      }
+    }
+  }
+
+  const playerIds = [next.home_player_id, next.away_player_id].filter(Boolean);
+  if (playerIds.length) {
+    const placeholders = playerIds.map(() => '?').join(',');
+    const playerRows = await EXECUTESQL(
+      `SELECT id, gamertag, email FROM players WHERE id IN (${placeholders})`,
+      playerIds
+    ).catch(() => []);
+    for (const player of playerRows) {
+      if (String(player.id) === String(next.home_player_id)) {
+        next.home_player_name = next.home_player_name || player.gamertag || null;
+        next.home_player_email = next.home_player_email || player.email || null;
+      }
+      if (String(player.id) === String(next.away_player_id)) {
+        next.away_player_name = next.away_player_name || player.gamertag || null;
+        next.away_player_email = next.away_player_email || player.email || null;
+      }
+    }
+  }
+  return next;
+}
+
 const CREDIT_PACKS = {
   credits_100:  { priceId: 'price_1TOayT2fnaWmNMFQby00tHqR', credits: 100 },
   credits_300:  { priceId: 'price_1TOb0I2fnaWmNMFQyryD4Rpc', credits: 300 },
@@ -1669,6 +1733,111 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown clubAdminActions action: ${action}`);
+  },
+
+  async createMatchFromLeagueFixture({ _auth_user_id, fixture_id, fixture_type }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!fixture_id) throw new Error('fixture_id required');
+    const sourceType = fixture_type === 'regional_league' || fixture_type === 'regional_league_fixture'
+      ? 'regional_league'
+      : 'competition';
+    const entityType = sourceType === 'regional_league' ? 'regional_league_fixture' : 'competition_fixture';
+
+    const fixtureRows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE id = ? AND entity_type = ?
+        LIMIT 1`,
+      [fixture_id, entityType]
+    );
+    if (!fixtureRows.length) throw new Error('Fixture not found');
+    const fixture = parseLeagueEntityRow(fixtureRows[0]);
+    const scheduledDate = fixture.confirmed_date || fixture.scheduled_date || null;
+
+    if (fixture.match_id) {
+      const existingRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [fixture.match_id]).catch(() => []);
+      if (existingRows[0]?.id) {
+        if (scheduledDate) {
+          await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [toMysqlDateTime(scheduledDate), fixture.match_id]).catch(() => {});
+        }
+        return { data: { success: true, match: existingRows[0], reused: true } };
+      }
+    }
+
+    const existingMatches = await EXECUTESQL(
+      `SELECT * FROM matches
+        WHERE source_fixture_id = ? AND source_fixture_type = ?
+        ORDER BY created_date DESC
+        LIMIT 1`,
+      [fixture.id, sourceType]
+    ).catch(() => []);
+    if (existingMatches[0]?.id) {
+      if (scheduledDate) {
+        await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [toMysqlDateTime(scheduledDate), existingMatches[0].id]).catch(() => {});
+      }
+      await updateLeagueEntityData(
+        EXECUTESQL,
+        entityType,
+        fixture.id,
+        { ...fixture, match_id: existingMatches[0].id },
+      );
+      return { data: { success: true, match: existingMatches[0], reused: true } };
+    }
+
+    const payload = await enrichMatchParticipantSnapshots({
+      id: uuidv4(),
+      home_club_id: fixture.home_club_id || null,
+      home_club_name: fixture.home_club_name || null,
+      home_owner_email: fixture.home_owner_email || null,
+      away_club_id: fixture.away_club_id || null,
+      away_club_name: fixture.away_club_name || null,
+      away_owner_email: fixture.away_owner_email || null,
+      home_player_id: fixture.home_player_id || null,
+      home_player_name: fixture.home_player_name || null,
+      home_player_email: fixture.home_player_email || null,
+      away_player_id: fixture.away_player_id || null,
+      away_player_name: fixture.away_player_name || null,
+      away_player_email: fixture.away_player_email || null,
+      mode: fixture.home_player_id || fixture.away_player_id ? 'solo' : 'club',
+      status: 'scheduled',
+      scheduled_date: scheduledDate,
+      tournament_id: sourceType === 'competition'
+        ? (fixture.season_id || fixture.competition_id || null)
+        : (fixture.league_id || null),
+      round: fixture.matchday || fixture.round || 1,
+      source_fixture_id: fixture.id,
+      source_fixture_type: sourceType,
+      competition_context: buildLeagueMatchContext(fixture, sourceType),
+      type: sourceType,
+      stats_processed: 0,
+      wager_stc: 0,
+      wager_status: 'none',
+    });
+
+    const match = new Match(payload);
+    await match.create();
+    const [createdMatch] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [payload.id]).catch(() => []);
+    await updateLeagueEntityData(
+      EXECUTESQL,
+      entityType,
+      fixture.id,
+      { ...fixture, match_id: payload.id, status: fixture.status || 'scheduled' },
+    );
+    await Promise.resolve(broadcastMatch(createdMatch || payload)).catch(() => {});
+
+    return { data: { success: true, match: createdMatch || payload, reused: false } };
+  },
+
+  async syncCompletedMatchToSource({ _auth_user_id, match_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!match_id) throw new Error('match_id required');
+    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+    if (!rows.length) throw new Error('Match not found');
+    const match = rows[0];
+    if (match.status !== 'completed') {
+      return { data: { success: false, synced: false, reason: 'match_not_completed' } };
+    }
+    const result = await competitionEngineService.syncMatchResultToSource(match);
+    return { data: { success: true, ...result } };
   },
 
   async competitionFixtureResult({

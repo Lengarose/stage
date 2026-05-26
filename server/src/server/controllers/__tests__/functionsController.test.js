@@ -6,9 +6,13 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const controllerPath = path.resolve(__dirname, '../functionsController.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
+  const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
+  const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
 
   delete require.cache[controllerPath];
   delete require.cache[servicePath];
+  delete require.cache[matchModelPath];
+  delete require.cache[socketPath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
@@ -21,7 +25,20 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
     loaded: true,
     exports: {
       notifyIfPhaseReady: async () => ({ notified: false }),
+      syncMatchResultToSource: async () => ({ synced: false }),
       ...options.serviceMock,
+    },
+  };
+  require.cache[socketPath] = {
+    id: socketPath,
+    filename: socketPath,
+    loaded: true,
+    exports: {
+      broadcastMatch() {},
+      broadcastMatchById() {},
+      broadcastNotification() {},
+      broadcastInbox() {},
+      broadcastMatchPlayerStat() {},
     },
   };
 
@@ -205,4 +222,134 @@ test('regionalLeagueFixtureResult processes fixture and standings on the server'
   assert.equal(homeStandingPayload.played, 1);
   assert.equal(homeStandingPayload.wins, 1);
   assert.equal(homeStandingPayload.points, 3);
+});
+
+test('createMatchFromLeagueFixture creates match snapshots and links fixture server-side', async () => {
+  const inserts = [];
+  const fixtureUpdates = [];
+  const fixture = {
+    id: 'fixture-1',
+    entity_type: 'competition_fixture',
+    data_json: JSON.stringify({
+      id: 'fixture-1',
+      season_id: 'season-1',
+      competition_id: 'competition-1',
+      competition_name: 'Elite League',
+      phase: 'league',
+      matchday: 3,
+      home_club_id: 'club-home',
+      home_club_name: 'Home Snapshot',
+      away_club_id: 'club-away',
+      away_club_name: 'Away Snapshot',
+      confirmed_date: '2026-06-01T20:00:00.000Z',
+      status: 'scheduled',
+    }),
+  };
+  const executesql = async (sql, params = []) => {
+    if (/FROM league_entities\s+WHERE id = \? AND entity_type = \?/.test(sql)) return [fixture];
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) {
+      if (!inserts.length) return [];
+      return [{
+        id: inserts[0][0],
+        home_club_id: 'club-home',
+        away_club_id: 'club-away',
+        home_club_name: 'Home Snapshot',
+        away_club_name: 'Away Snapshot',
+        home_owner_email: 'home-owner@example.test',
+        away_owner_email: 'away-owner@example.test',
+        source_fixture_id: 'fixture-1',
+        source_fixture_type: 'competition',
+      }];
+    }
+    if (/FROM matches\s+WHERE source_fixture_id = \? AND source_fixture_type = \?/.test(sql)) return [];
+    if (/SELECT id, name, owner_email FROM clubs WHERE id IN/.test(sql)) {
+      return [
+        { id: 'club-home', name: 'Home DB', owner_email: 'home-owner@example.test' },
+        { id: 'club-away', name: 'Away DB', owner_email: 'away-owner@example.test' },
+      ];
+    }
+    if (/INSERT INTO matches/.test(sql)) {
+      inserts.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE league_entities SET/.test(sql)) {
+      fixtureUpdates.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+
+  await handle(
+    {
+      params: { name: 'createMatchFromLeagueFixture' },
+      body: { fixture_id: 'fixture-1', fixture_type: 'competition' },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(inserts.length, 1);
+  assert.equal(inserts[0][1], 'season-1');
+  assert.equal(inserts[0][6], 'home-owner@example.test');
+  assert.equal(inserts[0][7], 'away-owner@example.test');
+  assert.equal(inserts[0][55], 'fixture-1');
+  assert.equal(inserts[0][56], 'competition');
+  assert.equal(fixtureUpdates.length, 1);
+  const linkedFixture = JSON.parse(fixtureUpdates[0][0]);
+  assert.equal(linkedFixture.match_id, inserts[0][0]);
+});
+
+test('syncCompletedMatchToSource delegates completed match sync to service', async () => {
+  let syncedMatch = null;
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], status: 'completed', source_fixture_id: 'fixture-1' }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    serviceMock: {
+      syncMatchResultToSource: async (match) => {
+        syncedMatch = match;
+        return { synced: true };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+
+  await handle(
+    { params: { name: 'syncCompletedMatchToSource' }, body: { match_id: 'match-1' }, user: { id: 'user-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.synced, true);
+  assert.equal(syncedMatch.id, 'match-1');
 });

@@ -23,62 +23,12 @@ export function buildMatchContext(fixture, fixtureType) {
 // ─── Match creation from a confirmed fixture ──────────────────────────────────
 
 export async function createMatchFromFixture(fixture, fixtureType) {
-  const fixtureEntity = fixtureType === "regional_league"
-    ? stageClient.entities.RegionalLeagueFixture
-    : stageClient.entities.CompetitionFixture;
-
-  // Guard: already linked — verify the match still exists and keep the date in sync.
-  if (fixture.match_id) {
-    const existing = await stageClient.entities.Match.get(fixture.match_id).catch(() => null);
-    if (existing?.id) {
-      await stageClient.entities.Match.update(fixture.match_id, {
-        scheduled_date: fixture.confirmed_date || fixture.scheduled_date || existing.scheduled_date || null,
-      }).catch(() => {});
-      return existing;
-    }
-  }
-
-  // Guard: another client may already have created the match but not written
-  // match_id back to this fixture yet.
-  const existingMatches = await stageClient.entities.Match.filter({
-    source_fixture_id: fixture.id,
-    source_fixture_type: fixtureType,
-  }, "-created_date", 1).catch(() => []);
-  if (existingMatches[0]?.id) {
-    await stageClient.entities.Match.update(existingMatches[0].id, {
-      scheduled_date: fixture.confirmed_date || fixture.scheduled_date || null,
-    }).catch(() => {});
-    await (fixtureEntity?.update(fixture.id, { match_id: existingMatches[0].id }) ?? Promise.resolve()).catch(() => {});
-    return existingMatches[0];
-  }
-
-  const context = buildMatchContext(fixture, fixtureType);
-
-  const match = await stageClient.entities.Match.create({
-    home_club_id:        fixture.home_club_id,
-    home_club_name:      fixture.home_club_name,
-    away_club_id:        fixture.away_club_id,
-    away_club_name:      fixture.away_club_name,
-    mode:                "club",
-    status:              "scheduled",
-    scheduled_date:      fixture.confirmed_date || fixture.scheduled_date || null,
-    // Use the competition/league ID as tournament_id so existing downstream logic works
-    tournament_id:       fixtureType === "competition"
-      ? (fixture.season_id || fixture.competition_id)
-      : (fixture.league_id),
-    round:               fixture.matchday || fixture.round || 1,
-    source_fixture_id:   fixture.id,
-    source_fixture_type: fixtureType,
-    competition_context: context,
-    stats_processed:     false,
-    wager_stc:           0,
-    wager_status:        "none",
+  if (!fixture?.id) return null;
+  const result = await stageClient.functions.invoke("createMatchFromLeagueFixture", {
+    fixture_id: fixture.id,
+    fixture_type: fixtureType,
   });
-
-  // Link fixture → match
-  await (fixtureEntity?.update(fixture.id, { match_id: match.id }) ?? Promise.resolve()).catch(() => {});
-
-  return match;
+  return result?.data?.match || result?.match || null;
 }
 
 // ─── Sync completed match result back to fixture + standings ──────────────────
@@ -86,61 +36,8 @@ export async function createMatchFromFixture(fixture, fixtureType) {
 export async function syncFixtureAfterMatch(match) {
   if (!match?.source_fixture_id || !match?.source_fixture_type) return;
   if (match.status !== "completed") return;
-
-  const homeScore  = match.home_score  ?? 0;
-  const awayScore  = match.away_score  ?? 0;
-  const homeWon    = homeScore > awayScore;
-  const awayWon    = awayScore > homeScore;
-  const winnerId   = homeWon ? match.home_club_id   : awayWon ? match.away_club_id   : null;
-  const winnerName = homeWon ? match.home_club_name : awayWon ? match.away_club_name : null;
-
   try {
-    if (match.source_fixture_type === "competition") {
-      const rows = await (stageClient.entities.CompetitionFixture?.filter(
-        { id: match.source_fixture_id }, null, 1
-      ) ?? Promise.resolve([])).catch(() => []);
-      const fixture = rows[0];
-      if (!fixture || fixture.stats_processed) return;
-
-      await stageClient.entities.CompetitionFixture.update(fixture.id, {
-        home_score:       homeScore,
-        away_score:       awayScore,
-        status:           "completed",
-        winner_club_id:   winnerId   || "",
-        winner_club_name: winnerName || "",
-      });
-
-      const { processFixtureResult } = await import("./competitionUtils");
-      await processFixtureResult({
-        ...fixture,
-        home_score:      homeScore,
-        away_score:      awayScore,
-        stats_processed: false,
-      });
-
-    } else {
-      const rows = await (stageClient.entities.RegionalLeagueFixture?.filter(
-        { id: match.source_fixture_id }, null, 1
-      ) ?? Promise.resolve([])).catch(() => []);
-      const fixture = rows[0];
-      if (!fixture || fixture.stats_processed) return;
-
-      await (stageClient.entities.RegionalLeagueFixture?.update(fixture.id, {
-        home_score:       homeScore,
-        away_score:       awayScore,
-        status:           "played",
-        winner_club_id:   winnerId   || "",
-        winner_club_name: winnerName || "",
-      }) ?? Promise.resolve());
-
-      const { processRegionalLeagueFixtureResult } = await import("./competitionUtils");
-      await processRegionalLeagueFixtureResult({
-        ...fixture,
-        home_score:      homeScore,
-        away_score:      awayScore,
-        stats_processed: false,
-      });
-    }
+    await stageClient.functions.invoke("syncCompletedMatchToSource", { match_id: match.id });
   } catch {
     // Non-fatal: fixture sync failure must not degrade the match flow
   }
