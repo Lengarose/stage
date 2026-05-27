@@ -24,11 +24,74 @@ export function buildMatchContext(fixture, fixtureType) {
 
 export async function createMatchFromFixture(fixture, fixtureType) {
   if (!fixture?.id) return null;
-  const result = await stageClient.functions.invoke("createMatchFromLeagueFixture", {
-    fixture_id: fixture.id,
-    fixture_type: fixtureType,
+  const sourceType = fixtureType === "regional_league" || fixtureType === "regional_league_fixture"
+    ? "regional_league"
+    : "competition";
+  const fixtureEntity = sourceType === "regional_league"
+    ? stageClient.entities.RegionalLeagueFixture
+    : stageClient.entities.CompetitionFixture;
+
+  const existingByLinkedId = fixture.match_id
+    ? await stageClient.entities.Match.get(fixture.match_id).catch(() => null)
+    : null;
+  if (existingByLinkedId?.id) return existingByLinkedId;
+
+  const existingBySource = await stageClient.entities.Match
+    .filter({ source_fixture_id: fixture.id, source_fixture_type: sourceType }, "-created_date", 1)
+    .catch(() => []);
+  if (existingBySource[0]?.id) {
+    if (!fixture.match_id && fixtureEntity?.update) {
+      await fixtureEntity.update(fixture.id, { match_id: existingBySource[0].id }).catch(() => {});
+    }
+    return existingBySource[0];
+  }
+
+  try {
+    const result = await stageClient.functions.invoke("createMatchFromLeagueFixture", {
+      fixture_id: fixture.id,
+      fixture_type: sourceType,
+    });
+    const match = result?.data?.match || result?.match || null;
+    if (match?.id) return match;
+  } catch (err) {
+    // Older deployments may not have the server function yet. Fall back to the
+    // normal Match route so confirmed fixtures never disappear from Game Day.
+    console.warn("[GameDay] server fixture conversion failed, using direct match fallback", err);
+  }
+
+  const scheduledDate = fixture.confirmed_date || fixture.scheduled_date || null;
+  const created = await stageClient.entities.Match.create({
+    home_club_id: fixture.home_club_id || null,
+    home_club_name: fixture.home_club_name || null,
+    home_owner_email: fixture.home_owner_email || null,
+    away_club_id: fixture.away_club_id || null,
+    away_club_name: fixture.away_club_name || null,
+    away_owner_email: fixture.away_owner_email || null,
+    home_player_id: fixture.home_player_id || null,
+    home_player_name: fixture.home_player_name || null,
+    home_player_email: fixture.home_player_email || null,
+    away_player_id: fixture.away_player_id || null,
+    away_player_name: fixture.away_player_name || null,
+    away_player_email: fixture.away_player_email || null,
+    mode: fixture.home_player_id || fixture.away_player_id ? "solo" : "club",
+    status: "scheduled",
+    scheduled_date: scheduledDate,
+    tournament_id: sourceType === "competition"
+      ? (fixture.season_id || fixture.competition_id || null)
+      : (fixture.league_id || null),
+    round: fixture.matchday || fixture.round || 1,
+    source_fixture_id: fixture.id,
+    source_fixture_type: sourceType,
+    competition_context: buildMatchContext(fixture, sourceType),
+    type: sourceType,
+    stats_processed: 0,
+    wager_stc: 0,
+    wager_status: "none",
   });
-  return result?.data?.match || result?.match || null;
+  if (created?.id && fixtureEntity?.update) {
+    await fixtureEntity.update(fixture.id, { match_id: created.id, status: fixture.status || "scheduled" }).catch(() => {});
+  }
+  return created || null;
 }
 
 // ─── Sync completed match result back to fixture + standings ──────────────────
