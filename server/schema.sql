@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS users (
   role_id               INT          DEFAULT 1,
   player_id             VARCHAR(36),
   owner_id              VARCHAR(36),
+  access_mode           VARCHAR(32)  DEFAULT 'standard',
+  limited_tournament_id VARCHAR(36),
+  limited_mode_expires_at DATETIME,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -805,10 +808,24 @@ CREATE TABLE IF NOT EXISTS trophy_placements (
 -- ── chat_messages ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id           VARCHAR(36)  PRIMARY KEY,
-  match_id     VARCHAR(36)  NOT NULL,
+  -- VARCHAR(64) to support namespaced channels like `club:<uuid>` (not just match UUIDs).
+  match_id     VARCHAR(64)  NOT NULL,
   sender_email VARCHAR(255) NOT NULL,
   content      TEXT         NOT NULL,
-  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP
+  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_chat_messages_match_created (match_id, created_date)
+);
+
+-- ── chat_reads — per-user last-read marker per chat channel ─────────
+CREATE TABLE IF NOT EXISTS chat_reads (
+  id            VARCHAR(36)  PRIMARY KEY,
+  user_email    VARCHAR(255) NOT NULL,
+  channel_id    VARCHAR(64)  NOT NULL,
+  last_read_at  DATETIME     NOT NULL,
+  created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_chat_reads_user_channel (user_email, channel_id),
+  INDEX idx_chat_reads_user (user_email)
 );
 
 -- ── news_items ────────────────────────────────────────────────

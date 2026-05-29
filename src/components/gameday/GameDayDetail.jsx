@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { format, parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket } from "lucide-react";
+import { Shield, Trophy, Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayDressingRoom from "./GameDayDressingRoom";
@@ -13,6 +13,7 @@ import GameDayMatchResult from "./GameDayMatchResult";
 import StreamLinkSection from "./StreamLinkSection";
 import WagerPanel from "./WagerPanel";
 import { cn } from "@/lib/utils";
+import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 
 function parseDate(d) {
   if (!d) return null;
@@ -57,10 +58,19 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   const [stats, setStats] = useState([]);
   const [isHomeClub, setIsHomeClub] = useState(false);
   const [kickoffLoading, setKickoffLoading] = useState(false);
+  const [kickoffError, setKickoffError]     = useState("");
   const [showResultForm, setShowResultForm] = useState(false);
+  // Live "seated player" counts for the home and away dressing rooms; used to
+  // gate the Kickoff button so a match can't start with an empty roster.
+  const [dressingCounts, setDressingCounts] = useState({ home: 0, away: 0 });
 
   // Update game when parent passes new data
   useEffect(() => { setGame(initialGame); }, [initialGame]);
+
+  // Unread badge on the Chat tab trigger. Reads off the global chat
+  // notifications provider; falls back to 0 when no provider is mounted.
+  const { getUnreadCount } = useChatNotifications();
+  const chatUnread = game?.id ? getUnreadCount(game.id) : 0;
 
   const isClubMatchEarly = game?.mode === "club";
 
@@ -79,6 +89,58 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     }
     load();
   }, [game?.id, game?.tournament_id, myClub, isClubMatchEarly]);
+
+  // Load both dressing rooms (home + away) and stay in sync over the socket
+  // so the Kickoff button enables the moment the opposing club seats a
+  // player. Only meaningful for club matches.
+  useEffect(() => {
+    if (!game?.id || !isClubMatchEarly) {
+      setDressingCounts({ home: 0, away: 0 });
+      return;
+    }
+    let cancelled = false;
+    const homeId = game.home_club_id;
+    const awayId = game.away_club_id;
+
+    function countSeated(raw) {
+      if (raw == null || raw === "") return 0;
+      let val = raw;
+      if (typeof val === "string") {
+        try { val = JSON.parse(val); } catch { return 0; }
+      }
+      return Array.isArray(val) ? val.length : 0;
+    }
+
+    async function loadDressing() {
+      const rows = await stageClient.entities.DressingRoom
+        .filter({ match_id: game.id }, null, 10)
+        .catch(() => []);
+      if (cancelled) return;
+      const next = { home: 0, away: 0 };
+      for (const r of rows || []) {
+        const c = countSeated(r.seated_players);
+        if (String(r.club_id) === String(homeId)) next.home = c;
+        else if (String(r.club_id) === String(awayId)) next.away = c;
+      }
+      setDressingCounts(next);
+    }
+
+    loadDressing();
+
+    const unsub = stageClient.entities.DressingRoom.subscribe((event) => {
+      if (event?.type === "delete") return;
+      const d = event?.data;
+      if (!d || d.match_id !== game.id) return;
+      const c = countSeated(d.seated_players);
+      setDressingCounts(prev => {
+        if (String(d.club_id) === String(homeId)) return { ...prev, home: c };
+        if (String(d.club_id) === String(awayId)) return { ...prev, away: c };
+        return prev;
+      });
+    }, { match_id: game.id });
+
+    return () => { cancelled = true; unsub?.(); };
+  }, [game?.id, game?.home_club_id, game?.away_club_id, isClubMatchEarly]);
 
   if (!game?.id) {
     return (
@@ -121,19 +183,35 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   const home = isClubMatch ? game.home_club_name : game.home_player_name;
   const away = isClubMatch ? game.away_club_name : game.away_player_name;
 
+  // Dressing-room gate — both clubs need ≥1 seated player to allow kickoff.
+  // Solo matches don't have dressing rooms, so they're always "ready".
+  const homeSeatReady   = !isClubMatch || dressingCounts.home > 0;
+  const awaySeatReady   = !isClubMatch || dressingCounts.away > 0;
+  const bothClubsReady  = homeSeatReady && awaySeatReady;
+
   async function handleKickoff() {
+    setKickoffError("");
     setKickoffLoading(true);
-    const res = await stageClient.functions.invoke("matchKickoff", {
-      match_id: game.id,
-      action: "kickoff",
-    });
-    // Optimistic update
-    if (res?.data?.success) {
-      const updated = { ...game, status: "in_progress" };
-      setGame(updated);
-      if (onGameUpdate) onGameUpdate(updated);
+    try {
+      const res = await stageClient.functions.invoke("matchKickoff", {
+        match_id: game.id,
+        action: "kickoff",
+      });
+      if (res?.data?.success) {
+        const updated = { ...game, status: "in_progress" };
+        setGame(updated);
+        if (onGameUpdate) onGameUpdate(updated);
+      }
+    } catch (err) {
+      const code = err?.data?.code || err?.code;
+      if (code === "DRESSING_ROOM_NOT_READY" || err?.status === 409) {
+        setKickoffError(err?.message || "Both clubs must seat at least one player before kickoff.");
+      } else {
+        setKickoffError(err?.message || "Could not start the match. Try again.");
+      }
+    } finally {
+      setKickoffLoading(false);
     }
-    setKickoffLoading(false);
   }
 
   async function handleResultSubmitted(status, homeScore, awayScore) {
@@ -185,7 +263,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         <h2 className="text-lg font-bold text-foreground">{home} vs {away}</h2>
         {date && (
           <p className="text-xs text-muted-foreground mt-1">
-            {format(date, "EEEE d MMMM · HH:mm")}
+            {format(date, "EEEE d MMMM yyyy · HH:mm")}
             {minutesUntilMatch !== null && minutesUntilMatch > 0 && game.status === "scheduled" && (
               <span className="ml-2 text-primary font-medium">
                 (in {minutesUntilMatch < 60
@@ -303,9 +381,28 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
                   Kickoff available 15 minutes before match time.
                 </div>
               )}
+              {isClubMatch && !bothClubsReady && (
+                <div className="flex items-start gap-2 text-xs bg-warning/10 rounded-lg px-3 py-2 border border-warning/20 text-warning">
+                  <UserCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Dressing rooms not ready</p>
+                    <p className="text-[10px] opacity-90">
+                      {!homeSeatReady && !awaySeatReady
+                        ? `Both ${home} and ${away} need at least one player seated.`
+                        : !homeSeatReady
+                          ? `Your club needs at least one player to take a seat first.`
+                          : `Waiting for ${away} to seat a player before you can kick off.`}
+                    </p>
+                  </div>
+                </div>
+              )}
               <Button
                 onClick={handleKickoff}
-                disabled={kickoffLoading || minutesUntilMatch > 15}
+                disabled={
+                  kickoffLoading ||
+                  minutesUntilMatch > 15 ||
+                  (isClubMatch && !bothClubsReady)
+                }
                 className="w-full bg-success gap-2 text-white font-bold"
               >
                 {kickoffLoading
@@ -313,12 +410,32 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
                   : <><Play className="w-4 h-4" /> Kickoff</>
                 }
               </Button>
+              {kickoffError && (
+                <p className="text-[11px] text-destructive text-center">{kickoffError}</p>
+              )}
             </div>
           )}
           {canKickoff && !isLive && !showResultForm && !amIHomeTeam && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              Waiting for home team to kick off.
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                Waiting for home team to kick off.
+              </div>
+              {isClubMatch && !bothClubsReady && (
+                <div className="flex items-start gap-2 text-xs bg-warning/10 rounded-lg px-3 py-2 border border-warning/20 text-warning">
+                  <UserCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Kickoff blocked — dressing rooms not ready</p>
+                    <p className="text-[10px] opacity-90">
+                      {!awaySeatReady && !homeSeatReady
+                        ? `Take a seat in your dressing room. ${home} also needs at least one player seated.`
+                        : !awaySeatReady
+                          ? `Take a seat in your dressing room — kickoff is blocked until at least one player from your club is seated.`
+                          : `Waiting for ${home} to seat a player.`}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -393,6 +510,14 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             )}
             <TabsTrigger value="chat" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
               <MessageSquare className="w-3.5 h-3.5" /> Chat
+              {chatUnread > 0 && (
+                <span
+                  aria-label={`${chatUnread} unread chat messages`}
+                  className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none"
+                >
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
             </TabsTrigger>
             {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
               <TabsTrigger value="stats" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">

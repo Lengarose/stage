@@ -33,6 +33,10 @@ class MatchPlayerStat {
     return EXECUTESQL('SELECT * FROM match_player_stats WHERE player_email = ?', [player_email]);
   }
 
+  selectByTournament(tournament_id) {
+    return EXECUTESQL('SELECT * FROM match_player_stats WHERE tournament_id = ?', [tournament_id]);
+  }
+
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO match_player_stats

@@ -1,12 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Zap, X } from "lucide-react";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
-export default function GameDay() {
+// Derive the "league group" a game belongs to for the filter dropdown.
+// We strip the trailing "· Matchday N" so every matchday of the same
+// league/division collapses into one group entry. Falls back to the
+// tournament name for non-league competitions and "Ranked Match" for
+// unstructured games.
+function groupKeyForGame(game, tournamentMap) {
+  const ctx = String(game?.competition_context || "").trim();
+  if (ctx) {
+    return ctx.replace(/\s*·\s*Matchday\s+\d+\s*$/i, "").trim() || ctx;
+  }
+  if (!game?.tournament_id || game.tournament_id === "ranked") return "Ranked Match";
+  const t = tournamentMap?.[game.tournament_id];
+  return t?.name || "Tournament";
+}
+
+export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [searchParams] = useSearchParams();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +33,43 @@ export default function GameDay() {
   const [myClub, setMyClub] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [tournamentMap, setTournamentMap] = useState({});
+  // "all" or a group key (see groupKeyForGame). Stable across re-renders.
+  const [leagueFilter, setLeagueFilter] = useState("all");
+
+  // Keep `selectedGame` in sync with the live `games` list. Without this the
+  // detail panel keeps a stale snapshot — e.g. the away player wouldn't see
+  // the "Submit Result" form unlock when the home side submits.
+  useEffect(() => {
+    if (!selectedGame?.id) return;
+    const fresh = games.find((g) => g.id === selectedGame.id);
+    if (fresh && fresh !== selectedGame) setSelectedGame(fresh);
+  }, [games, selectedGame]);
+
+  // Build the [{key, label, count}] list of league/competition groups used to
+  // populate the filter dropdown. Sorted by descending count so the most
+  // active league surfaces first.
+  const leagueGroups = useMemo(() => {
+    const counts = new Map();
+    for (const g of games) {
+      const key = groupKeyForGame(g, tournamentMap);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([key, count]) => ({ key, label: key, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [games, tournamentMap]);
+
+  // If the currently selected league disappears (all its games rolled off),
+  // gracefully fall back to "all" so the user isn't stuck with an empty list.
+  useEffect(() => {
+    if (leagueFilter === "all") return;
+    if (!leagueGroups.some(g => g.key === leagueFilter)) setLeagueFilter("all");
+  }, [leagueGroups, leagueFilter]);
+
+  const visibleGames = useMemo(() => {
+    if (leagueFilter === "all") return games;
+    return games.filter(g => groupKeyForGame(g, tournamentMap) === leagueFilter);
+  }, [games, tournamentMap, leagueFilter]);
 
   useEffect(() => {
     let userEmail = null;
@@ -53,6 +108,9 @@ export default function GameDay() {
         const data = event.data;
         if (!data) return prev;
 
+        // When scoped to a tournament, ignore matches from other tournaments
+        if (scopedTournamentId && data.tournament_id !== scopedTournamentId) return prev;
+
         // Drop forfeited matches entirely
         if (data.status === "forfeit") return prev.filter(m => m.id !== data.id);
 
@@ -75,7 +133,7 @@ export default function GameDay() {
     });
 
     return () => unsubMatch();
-  }, [searchParams]);
+  }, [searchParams, scopedTournamentId]);
 
   async function loadGames(playerId, clubId, followData) {
     const followedClubIds = followData
@@ -124,23 +182,23 @@ export default function GameDay() {
       );
     }
 
+    // Fixtures with `scheduling_status = confirmed` and `status = scheduled`
+    // travel together (both set the moment a fixture is ready to play), so
+    // filtering on just `scheduling_status` is enough — the post-filter below
+    // still accepts either column. We only fetch fixtures involving the
+    // user's club; no global "scan all leagues" fallback (it pulled ~1000
+    // rows per page load just to throw 99% away).
     const fixturePromises = [];
     if (clubId && stageClient.entities.CompetitionFixture) {
       fixturePromises.push(
         { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
         { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
       );
     }
     if (clubId && stageClient.entities.RegionalLeagueFixture) {
       fixturePromises.push(
         { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
         { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, status: "scheduled" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ scheduling_status: "confirmed" }, "-confirmed_date", 500).catch(() => []) },
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ status: "scheduled" }, "-confirmed_date", 500).catch(() => []) },
       );
     }
 
@@ -174,7 +232,7 @@ export default function GameDay() {
     }
 
     // Keep active matches + completed ones updated within last 24h; drop forfeit
-    const relevantGames = Array.from(matchMap.values()).filter(m => {
+    let relevantGames = Array.from(matchMap.values()).filter(m => {
       if (m.status === "forfeit") return false;
       if (m.status === "completed") {
         const updatedAt = m.updated_date ? new Date(m.updated_date) : null;
@@ -182,6 +240,11 @@ export default function GameDay() {
       }
       return true;
     });
+
+    // When scoped to a specific tournament, only show matches for that tournament
+    if (scopedTournamentId) {
+      relevantGames = relevantGames.filter(m => m.tournament_id === scopedTournamentId);
+    }
 
     setGames(relevantGames);
 
@@ -208,29 +271,64 @@ export default function GameDay() {
   return (
     <div className="max-w-6xl mx-auto p-3 md:p-6">
       {/* Title */}
-      <div className="mb-5 md:mb-8">
-        <h1
-          className="text-4xl md:text-5xl lg:text-6xl font-heading font-black text-foreground mb-1"
-          style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em" }}
-        >
-          GAME DAY
-        </h1>
-        <p className="text-muted-foreground text-xs md:text-sm">
-          {games.length} active or scheduled match{games.length !== 1 ? "es" : ""}
-        </p>
+      <div className="mb-5 md:mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+        <div>
+          <h1
+            className="text-4xl md:text-5xl lg:text-6xl font-heading font-black text-foreground mb-1"
+            style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em" }}
+          >
+            GAME DAY
+          </h1>
+          <p className="text-muted-foreground text-xs md:text-sm">
+            {leagueFilter === "all"
+              ? `${games.length} active or scheduled match${games.length !== 1 ? "es" : ""}`
+              : `${visibleGames.length} of ${games.length} match${games.length !== 1 ? "es" : ""}`}
+          </p>
+        </div>
+
+        {/* League filter — only render when the user has games across more than one league/competition. */}
+        {leagueGroups.length > 1 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              League
+            </span>
+            <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+              <SelectTrigger className="h-9 w-full md:w-[280px] text-xs bg-card border-border">
+                <SelectValue placeholder="All leagues" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[60vh]">
+                <SelectItem value="all" className="text-xs">
+                  All <span className="text-muted-foreground ml-1">({games.length})</span>
+                </SelectItem>
+                {leagueGroups.map(group => (
+                  <SelectItem key={group.key} value={group.key} className="text-xs">
+                    {group.label}
+                    <span className="text-muted-foreground ml-1">({group.count})</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* ── Desktop layout ── */}
       <div className="hidden lg:grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
-          {games.length === 0 ? (
+          {visibleGames.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-12 text-center">
               <Zap className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">No scheduled games today</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Follow clubs and players to see their matches</p>
+              <p className="text-muted-foreground">
+                {games.length === 0 ? "No scheduled games today" : "No matches in this league"}
+              </p>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                {games.length === 0
+                  ? "Follow clubs and players to see their matches"
+                  : "Switch the filter to \"All\" to see your other matches"}
+              </p>
             </div>
           ) : (
-            games.map(game => (
+            visibleGames.map(game => (
               <GameDayCard
                 key={game.id}
                 game={game}
@@ -266,14 +364,20 @@ export default function GameDay() {
 
       {/* ── Mobile / Tablet layout ── */}
       <div className="lg:hidden space-y-3">
-        {games.length === 0 ? (
+        {visibleGames.length === 0 ? (
           <div className="bg-card border border-border rounded-xl p-10 text-center">
             <Zap className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No scheduled games today</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Follow clubs and players to see their matches</p>
+            <p className="text-muted-foreground text-sm">
+              {games.length === 0 ? "No scheduled games today" : "No matches in this league"}
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              {games.length === 0
+                ? "Follow clubs and players to see their matches"
+                : "Switch the filter to \"All\" to see your other matches"}
+            </p>
           </div>
         ) : (
-          games.map(game => (
+          visibleGames.map(game => (
             <GameDayCard
               key={game.id}
               game={game}

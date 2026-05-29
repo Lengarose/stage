@@ -814,6 +814,59 @@ function parseLeagueEntityRow(row) {
   };
 }
 
+function parseTournamentEntranceLinkRow(row) {
+  if (!row) return null;
+  const parsed = parseLeagueEntityRow(row);
+  return {
+    ...parsed,
+    id: row.id,
+    status: parsed.status || row.status || null,
+    token: parsed.token || null,
+    tournament_id: parsed.tournament_id || null,
+    expires_at: parsed.expires_at || null,
+  };
+}
+
+function isDatePassed(value) {
+  if (!value) return false;
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return false;
+  return dt.getTime() <= Date.now();
+}
+
+async function writeAdminAuditLog({
+  admin,
+  action,
+  entityType,
+  entityId,
+  entityName = null,
+  oldValue = null,
+  newValue = null,
+  reason = null,
+}) {
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+      (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [
+      uuidv4(),
+      admin?.id || null,
+      admin?.email || null,
+      action,
+      entityType,
+      entityId,
+      entityName,
+      oldValue ? JSON.stringify(oldValue) : null,
+      newValue ? JSON.stringify(newValue) : null,
+      reason,
+    ],
+  ).catch(() => {});
+}
+
+function generateEntranceToken() {
+  return `${uuidv4().replace(/-/g, '')}${uuidv4().replace(/-/g, '')}`.slice(0, 64);
+}
+
 async function updateLeagueEntityData(query, entityType, id, next, indexed = {}) {
   const sets = ['data_json = ?', 'updated_date = NOW()'];
   const values = [JSON.stringify(next)];
@@ -1328,6 +1381,247 @@ async function resolvePlayerContactForInvite(playerId) {
 }
 
 const HANDLERS = {
+  async createTournamentEntranceLink({ _auth_user_id, tournament_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!tournament_id) throw new Error('tournament_id required');
+    const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournament_id]);
+    const tournament = tournamentRows[0];
+    if (!tournament) throw new Error('Tournament not found');
+    if (!tournament.start_date) throw new Error('Tournament start_date required');
+
+    const id = uuidv4();
+    const token = generateEntranceToken();
+    const link = {
+      id,
+      token,
+      tournament_id,
+      tournament_name: tournament.name || null,
+      status: 'active',
+      expires_at: tournament.start_date,
+      created_by_user_id: admin.id,
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString(),
+    };
+    await EXECUTESQL(
+      `INSERT INTO league_entities
+        (id, entity_type, data_json, status, created_date, updated_date)
+       VALUES (?, 'tournament_entrance_link', ?, 'active', NOW(), NOW())`,
+      [id, JSON.stringify(link)],
+    );
+    await writeAdminAuditLog({
+      admin,
+      action: 'tournament_entrance_link_create',
+      entityType: 'tournament_entrance_link',
+      entityId: id,
+      entityName: tournament.name || null,
+      newValue: link,
+    });
+    return { data: { success: true, link } };
+  },
+
+  async listTournamentEntranceLinks({ _auth_user_id, tournament_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    void admin;
+    if (!tournament_id) throw new Error('tournament_id required');
+    const rows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE entity_type = 'tournament_entrance_link'
+          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?
+        ORDER BY created_date DESC`,
+      [tournament_id],
+    );
+    return {
+      data: {
+        success: true,
+        links: rows.map(parseTournamentEntranceLinkRow),
+      },
+    };
+  },
+
+  async resolveTournamentEntranceToken({ token }) {
+    if (!token) throw new Error('token required');
+    const rows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE entity_type = 'tournament_entrance_link'
+          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.token')) = ?
+        LIMIT 1`,
+      [token],
+    );
+    if (!rows.length) {
+      return { data: { success: false, reason: 'not_found' } };
+    }
+    const link = parseTournamentEntranceLinkRow(rows[0]);
+    if (String(link.status || '').toLowerCase() !== 'active') {
+      return { data: { success: false, reason: 'revoked', link } };
+    }
+    if (isDatePassed(link.expires_at)) {
+      return { data: { success: false, reason: 'expired', link } };
+    }
+    const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [link.tournament_id]);
+    const tournament = tournamentRows[0] || null;
+    if (!tournament) return { data: { success: false, reason: 'tournament_not_found', link } };
+    if (tournament.start_date && isDatePassed(tournament.start_date)) {
+      return { data: { success: false, reason: 'tournament_started', link, tournament } };
+    }
+    return { data: { success: true, link, tournament } };
+  },
+
+  async revokeTournamentEntranceLink({ _auth_user_id, link_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!link_id) throw new Error('link_id required');
+    const rows = await EXECUTESQL(
+      "SELECT * FROM league_entities WHERE id = ? AND entity_type = 'tournament_entrance_link' LIMIT 1",
+      [link_id],
+    );
+    if (!rows.length) throw new Error('Entrance link not found');
+    const current = parseTournamentEntranceLinkRow(rows[0]);
+    const next = {
+      ...current,
+      status: 'revoked',
+      updated_date: new Date().toISOString(),
+    };
+    await updateLeagueEntityData(EXECUTESQL, 'tournament_entrance_link', link_id, next, { status: 'revoked' });
+    await writeAdminAuditLog({
+      admin,
+      action: 'tournament_entrance_link_revoke',
+      entityType: 'tournament_entrance_link',
+      entityId: link_id,
+      oldValue: current,
+      newValue: next,
+    });
+    return { data: { success: true, link: next } };
+  },
+
+  async regenerateTournamentEntranceLink({ _auth_user_id, link_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!link_id) throw new Error('link_id required');
+    const rows = await EXECUTESQL(
+      "SELECT * FROM league_entities WHERE id = ? AND entity_type = 'tournament_entrance_link' LIMIT 1",
+      [link_id],
+    );
+    if (!rows.length) throw new Error('Entrance link not found');
+    const current = parseTournamentEntranceLinkRow(rows[0]);
+    const revoked = {
+      ...current,
+      status: 'revoked',
+      updated_date: new Date().toISOString(),
+    };
+    await updateLeagueEntityData(EXECUTESQL, 'tournament_entrance_link', link_id, revoked, { status: 'revoked' });
+    await writeAdminAuditLog({
+      admin,
+      action: 'tournament_entrance_link_regenerate_revoke',
+      entityType: 'tournament_entrance_link',
+      entityId: link_id,
+      oldValue: current,
+      newValue: revoked,
+    });
+
+    const id = uuidv4();
+    const token = generateEntranceToken();
+    const next = {
+      ...current,
+      id,
+      token,
+      status: 'active',
+      created_by_user_id: admin.id,
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString(),
+    };
+    await EXECUTESQL(
+      `INSERT INTO league_entities
+        (id, entity_type, data_json, status, created_date, updated_date)
+       VALUES (?, 'tournament_entrance_link', ?, 'active', NOW(), NOW())`,
+      [id, JSON.stringify(next)],
+    );
+    await writeAdminAuditLog({
+      admin,
+      action: 'tournament_entrance_link_regenerate_create',
+      entityType: 'tournament_entrance_link',
+      entityId: id,
+      oldValue: null,
+      newValue: next,
+    });
+    return { data: { success: true, link: next } };
+  },
+
+  async applyTournamentEntranceAccessMode({ _auth_user_id, tournament_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!tournament_id) throw new Error('tournament_id required');
+    const tournamentRows = await EXECUTESQL(
+      'SELECT id, status, end_date FROM tournaments WHERE id = ? LIMIT 1',
+      [tournament_id],
+    );
+    if (!tournamentRows.length) throw new Error('Tournament not found');
+
+    await EXECUTESQL(
+      `UPDATE users SET access_mode = 'tournament_limited',
+                        limited_tournament_id = ?,
+                        limited_mode_expires_at = ?,
+                        updated_date = NOW()
+       WHERE id = ?`,
+      [tournament_id, toMysqlDateTime(tournamentRows[0].end_date || null), _auth_user_id],
+    );
+    const users = await EXECUTESQL(
+      'SELECT id, access_mode, limited_tournament_id FROM users WHERE id = ? LIMIT 1',
+      [_auth_user_id],
+    );
+    return {
+      data: {
+        success: true,
+        access_mode: users[0]?.access_mode || 'tournament_limited',
+        limited_tournament_id: users[0]?.limited_tournament_id || tournament_id,
+      },
+    };
+  },
+
+  async releaseTournamentLimitedAccessIfEligible({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const userRows = await EXECUTESQL(
+      'SELECT id, access_mode, limited_tournament_id FROM users WHERE id = ? LIMIT 1',
+      [_auth_user_id],
+    );
+    const user = userRows[0] || null;
+    if (!user || String(user.access_mode || '') !== 'tournament_limited' || !user.limited_tournament_id) {
+      return { data: { success: true, released: false, reason: 'not_limited' } };
+    }
+    const tournamentRows = await EXECUTESQL(
+      'SELECT id, status, end_date FROM tournaments WHERE id = ? LIMIT 1',
+      [user.limited_tournament_id],
+    );
+    const tournament = tournamentRows[0] || null;
+    if (!tournament) {
+      await EXECUTESQL(
+        `UPDATE users SET access_mode = 'standard',
+                          limited_tournament_id = NULL,
+                          limited_mode_expires_at = NULL,
+                          updated_date = NOW()
+         WHERE id = ?`,
+        [_auth_user_id],
+      );
+      return { data: { success: true, released: true, reason: 'tournament_not_found' } };
+    }
+    const endedByStatus = String(tournament.status || '').toLowerCase() === 'completed';
+    const endedByDate = tournament.end_date ? isDatePassed(tournament.end_date) : false;
+    if (!endedByStatus && !endedByDate) {
+      return { data: { success: true, released: false, reason: 'still_active' } };
+    }
+    await EXECUTESQL(
+      `UPDATE users SET access_mode = 'standard',
+                        limited_tournament_id = NULL,
+                        limited_mode_expires_at = NULL,
+                        updated_date = NOW()
+       WHERE id = ?`,
+      [_auth_user_id],
+    );
+    return {
+      data: {
+        success: true,
+        released: true,
+        reason: endedByStatus ? 'completed' : 'end_date_passed',
+      },
+    };
+  },
+
   async stripeCheckout({ _auth_user_id, packId, creditTarget = 'player', successUrl, cancelUrl }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const pack = CREDIT_PACKS[packId];
@@ -1699,8 +1993,25 @@ const HANDLERS = {
 
         let patch;
         if (shouldApprove) {
+          // Refuse to retroactively forfeit a match whose result is already on
+          // the record — approving would silently overwrite the played score
+          // and corrupt standings.
+          if (match.status === 'completed' || match.status === 'forfeit') {
+            const err = new Error(
+              `This match is already ${match.status === 'forfeit' ? 'forfeited' : 'completed'} — ` +
+              'a forfeit can no longer be approved. Reject the claim to dismiss it, or override the score from the match panel.'
+            );
+            err.status = 409;
+            err.code   = 'MATCH_ALREADY_RESOLVED';
+            throw err;
+          }
           const winnerId = match.forfeit_claimed_by;
-          if (!winnerId) throw new Error('Match has no forfeit claimant');
+          if (!winnerId) {
+            const err = new Error('This forfeit claim has no claimant on record — it cannot be approved. Reject the claim to clear it.');
+            err.status = 422;
+            err.code   = 'NO_FORFEIT_CLAIMANT';
+            throw err;
+          }
           const winnerName = String(winnerId) === String(match.home_club_id)
             ? match.home_club_name
             : match.away_club_name;
@@ -1888,9 +2199,10 @@ const HANDLERS = {
       mode: fixture.home_player_id || fixture.away_player_id ? 'solo' : 'club',
       status: 'scheduled',
       scheduled_date: scheduledDate,
-      tournament_id: sourceType === 'competition'
-        ? (fixture.season_id || fixture.competition_id || null)
-        : (fixture.league_id || null),
+      // `matches.tournament_id` has an FK to `tournaments.id`.
+      // Official/regional fixture IDs live in league_entities, so keep FK null
+      // and store competition identity in source_fixture_* + competition_context.
+      tournament_id: null,
       round: fixture.matchday || fixture.round || 1,
       source_fixture_id: fixture.id,
       source_fixture_type: sourceType,
@@ -3649,6 +3961,48 @@ const HANDLERS = {
     if (!match_id) throw new Error('match_id required');
 
     if (action === 'kickoff') {
+      // Dressing-room gate (club matches only): both clubs must have at
+      // least one player seated before the match can start. This stops the
+      // home club from kicking off into an empty away dressing room (which
+      // would then leave the away side unable to earn ratings/stats).
+      // Solo matches keep the existing "home presses Kickoff" flow.
+      const matchRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      if (!matchRows.length) throw new Error('Match not found');
+      const match = matchRows[0];
+
+      if (match.mode === 'club' && match.home_club_id && match.away_club_id) {
+        const dressingRows = await EXECUTESQL(
+          `SELECT club_id, seated_players FROM dressing_rooms
+            WHERE match_id = ? AND club_id IN (?, ?)`,
+          [match_id, match.home_club_id, match.away_club_id]
+        );
+        const seatedCount = (clubId) => {
+          const row = dressingRows.find(r => String(r.club_id) === String(clubId));
+          if (!row) return 0;
+          let raw = row.seated_players;
+          if (raw == null || raw === '') return 0;
+          if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch { return 0; }
+          }
+          return Array.isArray(raw) ? raw.length : 0;
+        };
+        const homeSeated = seatedCount(match.home_club_id);
+        const awaySeated = seatedCount(match.away_club_id);
+
+        if (homeSeated === 0 || awaySeated === 0) {
+          const msg = homeSeated === 0 && awaySeated === 0
+            ? 'Both clubs must seat at least one player in the dressing room before kickoff.'
+            : homeSeated === 0
+              ? 'Home club must seat at least one player in the dressing room before kickoff.'
+              : 'Away club must seat at least one player in the dressing room before kickoff.';
+          const err = new Error(msg);
+          err.status  = 409;
+          err.code    = 'DRESSING_ROOM_NOT_READY';
+          err.details = { home_seated: homeSeated, away_seated: awaySeated };
+          throw err;
+        }
+      }
+
       await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
       await broadcastMatchById(match_id);
       return { data: { success: true } };
@@ -3658,6 +4012,17 @@ const HANDLERS = {
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!rows.length) throw new Error('Match not found');
       const m = rows[0];
+
+      // Enforce submission order: the AWAY side cannot submit until the HOME
+      // side has submitted. This stops away-first races where the away score
+      // gets locked in before the home reporter has had a chance to enter it.
+      // (Home is, by convention, the trusted "first reporter" of the match.)
+      if (!is_home_team && !Number(m.result_home_submitted)) {
+        const err = new Error('Home team must submit their result first.');
+        err.status = 409;
+        err.code   = 'AWAITING_HOME_SUBMISSION';
+        throw err;
+      }
 
       const submission = JSON.stringify({
         home_score:   Number(home_score  ?? 0),
@@ -6914,8 +7279,16 @@ router.post('/:name', async (req, res) => {
     const result = await handler(params);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Allow handlers to opt into specific HTTP statuses + error codes by
+    // attaching `status`/`code` to the thrown Error. Defaults stay at 500.
+    const status = Number(err?.status) >= 400 && Number(err?.status) < 600
+      ? Number(err.status)
+      : 500;
+    const payload = { error: err.message };
+    if (err?.code) payload.code = String(err.code);
+    res.status(status).json(payload);
   }
 });
 
 module.exports = router;
+module.exports.HANDLERS = HANDLERS;

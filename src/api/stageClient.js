@@ -303,7 +303,7 @@ const ENTITY_NAMES = [
   'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'Follow', 'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
-  'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage',
+  'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage', 'ChatRead',
   'NewsItem', 'LiveMatch',
   // Competition & league stack used by frontend pages
   'Competition', 'CompetitionSeason', 'CompetitionFixture', 'CompetitionStanding',
@@ -674,6 +674,33 @@ export async function resolveMyPlayerAndClub() {
   return { user: u, player, club };
 }
 
-export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine };
+// ── Chat read markers ──────────────────────────────────────────────────────────
+// Lightweight wrappers around the /chat-reads REST endpoints so callers don't
+// have to remember the URL shape. All methods scope to the authenticated user
+// server-side (the controller ignores any body-supplied user_email).
+const chatReads = {
+  markRead(channelId, lastReadAt = null) {
+    if (!channelId) return Promise.resolve(null);
+    return apiFetch('/chat-reads/mark-read', {
+      method: 'POST',
+      body: JSON.stringify({
+        channel_id: String(channelId),
+        ...(lastReadAt ? { last_read_at: new Date(lastReadAt).toISOString() } : {}),
+      }),
+    });
+  },
+  // Returns { counts: { [channel_id]: number }, total: number }
+  async getUnreadCounts(channelId = null) {
+    const qs = channelId ? `?channel_id=${encodeURIComponent(channelId)}` : '';
+    return apiFetch(`/chat-reads/unread-counts${qs}`);
+  },
+  // Returns all read markers for the current user (or one if channelId provided).
+  async list(channelId = null) {
+    const qs = channelId ? `?channel_id=${encodeURIComponent(channelId)}` : '';
+    return apiFetch(`/chat-reads${qs}`);
+  },
+};
+
+export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, chatReads };
 // Backward-compat alias during migration
 export const base44 = stageClient;

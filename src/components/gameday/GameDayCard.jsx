@@ -51,7 +51,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         <div className="flex-1">
           {date && (
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {format(date, "EEEE d MMMM")} • {format(date, "HH:mm")}
+              {format(date, "EEE d MMM yyyy")} • {format(date, "HH:mm")}
             </p>
           )}
           <div className="mt-2 flex items-center gap-2">

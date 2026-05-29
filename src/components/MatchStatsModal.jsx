@@ -39,9 +39,9 @@ export default function MatchStatsModal({ match, open, onClose }) {
           )}
           <span className={cn(
             "flex items-center gap-0.5 text-[10px] leading-relaxed font-bold",
-            stat.rating >= 7 ? "text-success" : stat.rating >= 6 ? "text-warning" : "text-muted-foreground"
+            Number(stat.rating) >= 7 ? "text-success" : Number(stat.rating) >= 6 ? "text-warning" : "text-muted-foreground"
           )}>
-            <Star className="w-2.5 h-2.5" />{stat.rating?.toFixed(1) || "6.0"}
+            <Star className="w-2.5 h-2.5" />{Number.isFinite(Number(stat.rating)) ? Number(stat.rating).toFixed(1) : "6.0"}
           </span>
         </div>
       </div>

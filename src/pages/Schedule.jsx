@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 
-export default function Schedule() {
+export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
@@ -229,8 +229,18 @@ export default function Schedule() {
       });
     }
 
+    // When scoped to a specific tournament, only show matches for that tournament
+    // and the tournament's own calendar event; drop unrelated contracts/events.
+    const scopedMatchEvents = scopedTournamentId
+      ? matchEvents.filter(e => e.matchData?.tournament_id === scopedTournamentId)
+      : matchEvents;
+    const scopedContractEvents = scopedTournamentId ? [] : contractEvents;
+    const scopedTournamentEvents = scopedTournamentId
+      ? tournamentEvents.filter(e => e.tournamentData?.id === scopedTournamentId)
+      : tournamentEvents;
+
     // Merge and sort all events by date descending (most recent first)
-    const all = [...matchEvents, ...contractEvents, ...tournamentEvents].sort((a, b) => {
+    const all = [...scopedMatchEvents, ...scopedContractEvents, ...scopedTournamentEvents].sort((a, b) => {
       const da = a.date ? new Date(a.date) : new Date(0);
       const db = b.date ? new Date(b.date) : new Date(0);
       return db - da;
@@ -254,7 +264,9 @@ export default function Schedule() {
               >
                 SCHEDULE
               </h1>
-              <p className="text-xs text-muted-foreground mt-2">All matches, tournaments & contract reminders</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {scopedTournamentId ? "Tournament matches & schedule" : "All matches, tournaments & contract reminders"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 ml-auto">
@@ -285,13 +297,15 @@ export default function Schedule() {
                 Calendar
               </button>
             </div>
-            <Button
-              onClick={() => setArrangeOpen(true)}
-              className="bg-primary text-primary-foreground gap-2 text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Arrange Game</span>
-            </Button>
+            {!scopedTournamentId && (
+              <Button
+                onClick={() => setArrangeOpen(true)}
+                className="bg-primary text-primary-foreground gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Arrange Game</span>
+              </Button>
+            )}
           </div>
         </div>
 

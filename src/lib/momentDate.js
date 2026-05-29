@@ -9,20 +9,25 @@ function toMoment(input) {
 }
 
 function convertDateFnsPattern(pattern = "") {
-  const tokenMap = [
-    ["yyyy", "YYYY"],
-    ["yy", "YY"],
-    ["EEEE", "dddd"],
-    ["EEE", "ddd"],
-    ["dd", "DD"],
-    ["d", "D"],
-  ];
-
-  let converted = String(pattern).replace(/'([^']*)'/g, "[$1]");
-  for (const [dateFnsToken, momentToken] of tokenMap) {
-    converted = converted.replaceAll(dateFnsToken, momentToken);
-  }
-  return converted;
+  // Single-pass conversion. The previous multi-pass implementation cascaded:
+  // `EEEE` → `dddd` first, then the later `dd` → `DD` rule re-matched the
+  // `dd` substring inside `dddd`, leaving `DDDD` (moment's day-of-year-3).
+  // That's why "EEEE d MMMM" was rendering "148 28 MAY" instead of
+  // "Thursday 28 May" on Game Day cards.
+  const tokenMap = {
+    yyyy: "YYYY",
+    yy:   "YY",
+    EEEE: "dddd",
+    EEE:  "ddd",
+    dd:   "DD",
+    d:    "D",
+  };
+  // Match longest tokens first so `yyyy` beats `yy`, `EEEE` beats `EEE`, and
+  // `dd` beats `d`. `'…'` literals are converted to moment's `[…]` escape.
+  return String(pattern).replace(
+    /'([^']*)'|yyyy|yy|EEEE|EEE|dd|d/g,
+    (match, quoted) => (quoted !== undefined ? `[${quoted}]` : (tokenMap[match] ?? match))
+  );
 }
 
 const MYSQL_WALL_CLOCK_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?$/;

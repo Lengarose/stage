@@ -64,10 +64,14 @@ export default function NotificationBell() {
   }, []);
 
   return (
-    <Link to="/notifications" className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+    <Link
+      to="/notifications"
+      aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+      className="relative inline-flex items-center justify-center w-11 h-11 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+    >
       <Bell className="w-4 h-4" />
       {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+        <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}

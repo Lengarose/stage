@@ -5,12 +5,13 @@ const MatchPlayerStat = require('../models/matchPlayerStatModel');
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { match_id, player_email, page } = req.query;
+    const { match_id, player_email, tournament_id, page } = req.query;
     const stat = new MatchPlayerStat();
     let result;
-    if (match_id)      result = await stat.selectByMatch(match_id);
-    else if (player_email) result = await stat.selectByPlayer(player_email);
-    else result = await stat.selectAll(Number(page) || 1);
+    if (match_id)            result = await stat.selectByMatch(match_id);
+    else if (tournament_id)  result = await stat.selectByTournament(tournament_id);
+    else if (player_email)   result = await stat.selectByPlayer(player_email);
+    else                     result = await stat.selectAll(Number(page) || 1);
     res.json(result);
   } catch (err) {
     console.error(err);

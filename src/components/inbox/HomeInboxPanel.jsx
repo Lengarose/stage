@@ -31,24 +31,38 @@ export default function HomeInboxPanel() {
     }
     load();
 
+    // Defensive upsert: stageClient.subscribe only knows ids it has seen via
+    // the socket, so an update broadcast for an initially-fetched message
+    // arrives as type="create". Without an id-check the old logic prepended
+    // the same row again and double-counted the unread badge.
     const unsub = stageClient.entities.InboxMessage.subscribe((event) => {
-      if (event.type === "create") {
-        setMessages(prev => [event.data, ...prev].slice(0, 6));
-        setUnreadCount(c => c + 1);
-      }
-      if (event.type === "update") {
-        setMessages(prev => {
-          const existing = prev.find(m => m.id === event.id);
-          // Only decrement if it was previously unread and is now read
-          if (existing && !existing.is_read && event.data?.is_read) {
-            setUnreadCount(c => Math.max(0, c - 1));
-          }
-          return prev.map(m => m.id === event.id ? event.data : m);
-        });
-      }
       if (event.type === "delete") {
-        setMessages(prev => prev.filter(m => m.id !== event.id));
+        setMessages(prev => {
+          const wasUnread = prev.find(m => m.id === event.id && !m.is_read);
+          if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
+          return prev.filter(m => m.id !== event.id);
+        });
+        return;
       }
+      const incoming = event.data;
+      if (!incoming?.id) return;
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === incoming.id);
+        if (idx >= 0) {
+          const existing = prev[idx];
+          // Adjust unread badge based on read-state transitions only.
+          if (!existing.is_read && incoming.is_read) {
+            setUnreadCount(c => Math.max(0, c - 1));
+          } else if (existing.is_read && !incoming.is_read) {
+            setUnreadCount(c => c + 1);
+          }
+          const next = prev.slice();
+          next[idx] = incoming;
+          return next;
+        }
+        if (!incoming.is_read) setUnreadCount(c => c + 1);
+        return [incoming, ...prev].slice(0, 6);
+      });
     });
 
     return () => unsub();

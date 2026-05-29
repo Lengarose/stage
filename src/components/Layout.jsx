@@ -15,6 +15,7 @@ import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
+import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -667,6 +668,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath }) {
 
 function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const { totalUnread: chatUnreadTotal } = useChatNotifications();
 
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const primaryTabs = getMobilePrimary(accountMode, clubPath);
@@ -675,6 +677,10 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
   const moreLabel = moreActive?.item.label ?? "More";
+  // Anchor the chat badge wherever Game Day lives. If Game Day isn't in the
+  // primary tabs for this account mode, we surface it on the "More" button
+  // instead so the indicator is still visible at app level.
+  const gameDayInPrimary = primaryTabs.some((t) => t.path === "/game-day");
 
   return (
     <>
@@ -719,6 +725,15 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
                       className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
                       style={{ background: "#00E5BD", boxShadow: "0 0 6px #00E5BD" }}
                     />
+                  )}
+                  {tab.path === "/game-day" && chatUnreadTotal > 0 && (
+                    <span
+                      aria-label={`${chatUnreadTotal} unread chat messages`}
+                      className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold"
+                      style={{ background: "#ff4757", color: "#fff", padding: "0 3px" }}
+                    >
+                      {chatUnreadTotal > 9 ? "9+" : chatUnreadTotal}
+                    </span>
                   )}
                 </div>
                 <span
@@ -1019,6 +1034,19 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
 
         <NotificationBell />
 
+        <Link
+          to="/settings"
+          aria-label="Settings"
+          title="Settings"
+          className="w-11 h-11 flex items-center justify-center rounded-full border border-white/10 outline-none"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            color: isNavItemActive("/settings", pathname) ? TEAL : "rgba(255,255,255,0.7)",
+          }}
+        >
+          <Settings className="w-[18px] h-[18px]" />
+        </Link>
+
         {showAdminTakeoverExit && (
           <button
             type="button"
@@ -1062,11 +1090,11 @@ function MobileThemeButton({ theme, setTheme }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="w-9 h-9 flex items-center justify-center rounded-full border border-white/10 outline-none"
+          className="w-11 h-11 flex items-center justify-center rounded-full border border-white/10 outline-none"
           style={{ background: "rgba(255,255,255,0.05)" }}
           aria-label="Theme"
         >
-          <Icon className="w-4 h-4 text-white/70" />
+          <Icon className="w-[18px] h-[18px] text-white/70" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -1250,20 +1278,36 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             {headerTitle}
           </span>
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <NotificationBell />
-          <Link to="/admin" className="rounded p-1.5" style={{ color: isNavItemActive("/admin", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}>
+          <Link
+            to="/admin"
+            aria-label="Admin home"
+            title="Admin home"
+            className="inline-flex items-center justify-center w-11 h-11 rounded-lg"
+            style={{ color: isNavItemActive("/admin", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}
+          >
             <Home className="w-4 h-4" />
+          </Link>
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className="inline-flex items-center justify-center w-11 h-11 rounded-lg"
+            style={{ color: isNavItemActive("/settings", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}
+          >
+            <Settings className="w-4 h-4" />
           </Link>
           <select
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            className="bg-transparent outline-none border border-white/10 rounded px-1.5 py-1 text-[10px] uppercase"
+            aria-label="Theme"
+            className="bg-transparent outline-none border border-white/10 rounded-lg px-3 h-11 min-h-[44px] text-[11px] uppercase appearance-none cursor-pointer"
             style={{
               fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
               fontWeight: 600,
               letterSpacing: "0.08em",
-              color: "rgba(255,255,255,0.55)",
+              color: "rgba(255,255,255,0.7)",
               background: "rgba(255,255,255,0.04)",
             }}
           >

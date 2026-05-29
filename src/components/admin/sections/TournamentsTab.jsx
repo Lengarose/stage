@@ -1,8 +1,155 @@
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Trophy, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban } from "lucide-react";
+
+function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName }) {
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  async function fetchLinks() {
+    if (!tournamentId) return;
+    setLoading(true);
+    try {
+      const result = await stageClient.functions.invoke("listTournamentEntranceLinks", { tournament_id: tournamentId });
+      setLinks(result?.data?.links || []);
+    } catch {
+      setLinks([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleOpenChange(v) {
+    if (v) fetchLinks();
+    onOpenChange(v);
+  }
+
+  async function copyLink(token) {
+    const url = `${window.location.origin}/tournaments/entrance/${token}/signin`;
+    await navigator.clipboard.writeText(url).catch(() => {});
+    window.alert("Link copied to clipboard.");
+  }
+
+  async function revokeLink(linkId) {
+    if (!window.confirm("Revoke this entrance link?")) return;
+    setActionLoading(linkId);
+    try {
+      await stageClient.functions.invoke("revokeTournamentEntranceLink", { link_id: linkId });
+      await fetchLinks();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to revoke link.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function regenerateLink(linkId) {
+    if (!window.confirm("Regenerate this entrance link? The old link will be revoked.")) return;
+    setActionLoading(linkId);
+    try {
+      const result = await stageClient.functions.invoke("regenerateTournamentEntranceLink", { link_id: linkId });
+      const newLink = result?.data?.new_link || result?.new_link || null;
+      if (newLink?.token) {
+        const url = `${window.location.origin}/tournaments/entrance/${newLink.token}/signin`;
+        await navigator.clipboard.writeText(url).catch(() => {});
+        window.alert("New link generated and copied to clipboard.");
+      }
+      await fetchLinks();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to regenerate link.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function createNew() {
+    setActionLoading("create");
+    try {
+      const result = await stageClient.functions.invoke("createTournamentEntranceLink", { tournament_id: tournamentId });
+      const link = result?.data?.link || result?.link || null;
+      if (link?.token) {
+        const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
+        await navigator.clipboard.writeText(url).catch(() => {});
+        window.alert("New entrance link created and copied.");
+      }
+      await fetchLinks();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to create entrance link.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-heading uppercase tracking-tight text-sm">
+            Entrance Links — {tournamentName || "Tournament"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Button size="sm" onClick={createNew} disabled={actionLoading === "create"} className="gap-1.5 text-xs h-7">
+            <Plus className="w-3 h-3" /> Create New Link
+          </Button>
+          {loading ? (
+            <p className="text-xs text-muted-foreground">Loading links...</p>
+          ) : links.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No entrance links yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {links.map((link) => {
+                const isActive = String(link.status || "").toLowerCase() === "active";
+                return (
+                  <div key={link.id} className="border border-border rounded p-3 bg-secondary/30 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={cn(
+                        "text-[10px] px-2 py-0.5 rounded border uppercase tracking-wider font-bold",
+                        isActive
+                          ? "bg-primary/10 text-primary border-primary/20"
+                          : "bg-destructive/10 text-destructive border-destructive/20"
+                      )}>
+                        {link.status || "unknown"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {link.created_date ? new Date(link.created_date).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono break-all">{link.token}</p>
+                    {link.expires_at && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Expires: {new Date(link.expires_at).toLocaleString()}
+                      </p>
+                    )}
+                    {isActive && (
+                      <div className="flex gap-1.5 pt-1">
+                        <Button type="button" size="sm" variant="outline" onClick={() => copyLink(link.token)} className="h-6 text-[10px] gap-1 px-2">
+                          <Copy className="w-3 h-3" /> Copy
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => regenerateLink(link.id)} disabled={actionLoading === link.id} className="h-6 text-[10px] gap-1 px-2">
+                          <RotateCcw className="w-3 h-3" /> Regenerate
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => revokeLink(link.id)} disabled={actionLoading === link.id} className="h-6 text-[10px] gap-1 px-2 border-destructive/30 text-destructive hover:bg-destructive/10">
+                          <Ban className="w-3 h-3" /> Revoke
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function TournamentsTab({
   setCreateTournamentOpen,
@@ -14,6 +161,21 @@ export default function TournamentsTab({
   tournaments,
   cancelTournament,
 }) {
+  const [entranceDialog, setEntranceDialog] = useState(null);
+
+  async function createEntranceLink(tournamentId) {
+    try {
+      const result = await stageClient.functions.invoke("createTournamentEntranceLink", { tournament_id: tournamentId });
+      const link = result?.data?.link || result?.link || null;
+      if (!link?.token) throw new Error("Link token missing");
+      const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
+      await navigator.clipboard.writeText(url).catch(() => {});
+      window.alert(`Entrance link created and copied:\n${url}`);
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to create entrance link.");
+    }
+  }
+
   return (
     <>
       <div className="mb-4 flex gap-2 flex-wrap">
@@ -53,12 +215,24 @@ export default function TournamentsTab({
               </div>
               <div className="flex gap-2 shrink-0">
                 <Link to={`/tournaments/${t.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">View</Button></Link>
+                <Button size="sm" variant="outline" onClick={() => createEntranceLink(t.id)} className="border-border text-muted-foreground text-xs gap-1">
+                  <Link2 className="w-3.5 h-3.5" /> Entrance Link
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: t.id, name: t.name })} className="border-border text-muted-foreground text-xs gap-1">
+                  <Link2 className="w-3.5 h-3.5" /> Manage Links
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"><X className="w-3.5 h-3.5" /> Cancel</Button>
               </div>
             </div>
           ))}
         </div>
       )}
+      <EntranceLinksDialog
+        open={!!entranceDialog}
+        onOpenChange={(v) => { if (!v) setEntranceDialog(null); }}
+        tournamentId={entranceDialog?.id}
+        tournamentName={entranceDialog?.name}
+      />
     </>
   );
 }

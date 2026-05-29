@@ -60,8 +60,9 @@ function getVisibleClubRole(player, club, contracts = []) {
   return player?.role && !["manager", "member", "owner"].includes(player.role) ? player.role : "";
 }
 
-export default function PlayerProfile() {
-  const { id } = useParams();
+export default function PlayerProfile({ overridePlayerId, tournamentId: _tournamentId, editMode: _editMode } = {}) {
+  const params = useParams();
+  const id = overridePlayerId || params.id;
   const [player, setPlayer] = useState(null);
   const [club, setClub] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);

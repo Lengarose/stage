@@ -4,7 +4,8 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
   Check, X, Camera, Send, Loader2, LogOut,
-  Trash2, Swords, Save, Edit2, ClipboardList, Clock, MessageCircle
+  Trash2, Swords, Save, Edit2, ClipboardList, Clock, MessageCircle,
+  Bell, BellOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,6 +34,7 @@ import { notify } from "@/lib/notify";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
+import { useChatChannel } from "@/lib/ChatNotificationsContext";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -98,6 +100,13 @@ export default function ClubDetail() {
   const canEdit = isOwner || isCaptain;
   const canOpenOperations = isOwner || isPresident || isCaptain || isViceCaptain || operationStaffRoles.length > 0 || isAdminTakeover;
   const CLUB_CHAT_CHANNEL = `club:${id}`;
+  // Register the club chat channel with the global notifications provider,
+  // mark it "open" while the page is mounted, and expose mute toggle.
+  const {
+    isMuted: isClubChatMuted,
+    toggleMuted: toggleClubChatMuted,
+    unreadCount: clubChatUnreadCount,
+  } = useChatChannel(CLUB_CHAT_CHANNEL);
 
   useEffect(() => {
     async function load() {
@@ -840,11 +849,19 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                   type="button"
                   onClick={() => changeClubTab(tab)}
                   className={cn(
-                    "shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors",
+                    "shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors inline-flex items-center gap-1.5",
                     activeTab === tab ? "text-white" : "text-white/35 hover:text-white/70"
                   )}
                 >
                   {tabLabels[tab]}
+                  {tab === "chat" && clubChatUnreadCount > 0 && (
+                    <span
+                      aria-label={`${clubChatUnreadCount} unread club chat messages`}
+                      className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none normal-case tracking-normal"
+                    >
+                      {clubChatUnreadCount > 99 ? "99+" : clubChatUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -960,6 +977,18 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-primary" />
                 <p className="text-sm font-semibold text-white">Club Chat</p>
+                <button
+                  type="button"
+                  onClick={toggleClubChatMuted}
+                  title={isClubChatMuted ? "Unmute chat notifications" : "Mute chat notifications"}
+                  aria-label={isClubChatMuted ? "Unmute chat notifications" : "Mute chat notifications"}
+                  className={cn(
+                    "ml-auto p-1.5 rounded-md hover:bg-white/10 transition-colors",
+                    isClubChatMuted ? "text-white/40" : "text-primary"
+                  )}
+                >
+                  {isClubChatMuted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                </button>
               </div>
               <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2">
                 {clubChatMessages.length === 0 ? (

@@ -305,7 +305,7 @@ test('createMatchFromLeagueFixture creates match snapshots and links fixture ser
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.success, true);
   assert.equal(inserts.length, 1);
-  assert.equal(inserts[0][1], 'season-1');
+  assert.equal(inserts[0][1], null);
   assert.equal(inserts[0][6], 'home-owner@example.test');
   assert.equal(inserts[0][7], 'away-owner@example.test');
   assert.equal(inserts[0][55], 'fixture-1');
@@ -446,4 +446,232 @@ test('respondInboxMessage creates invite match with player email snapshots serve
   assert.equal(responseMessages[0][8], 'match_invite_response');
   assert.equal(responseMessages[0][12], inserts[0][0]);
   assert.equal(inboxUpdates.some(update => /related_entity_id/.test(update.sql)), true);
+});
+
+test('createTournamentEntranceLink stores active token expiring at tournament start', async () => {
+  const inserts = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: 'Summer Cup', start_date: '2026-06-10T20:00:00.000Z' }];
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      inserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'admin-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.link.status, 'active');
+  assert.equal(inserts.length, 1);
+  assert.match(inserts[0].sql, /tournament_entrance_link/);
+});
+
+test('resolveTournamentEntranceToken rejects expired tokens', async () => {
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
+      return [{
+        id: 'link-1',
+        entity_type: 'tournament_entrance_link',
+        status: 'active',
+        data_json: JSON.stringify({
+          id: 'link-1',
+          token: params[0],
+          tournament_id: 'tournament-1',
+          expires_at: '2026-01-01T00:00:00.000Z',
+        }),
+      }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'tournament-1', status: 'registration_open', start_date: '2026-06-10T20:00:00.000Z' }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'resolveTournamentEntranceToken' }, body: { token: 'expired-token' }, user: null },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, false);
+  assert.equal(response.body.data.reason, 'expired');
+});
+
+test('revokeTournamentEntranceLink invalidates token', async () => {
+  const updates = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/SELECT \* FROM league_entities WHERE id = \? AND entity_type = 'tournament_entrance_link' LIMIT 1/.test(sql)) {
+      return [{
+        id: 'link-1',
+        entity_type: 'tournament_entrance_link',
+        status: 'active',
+        data_json: JSON.stringify({ id: 'link-1', token: 'tok', tournament_id: 'tournament-1', status: 'active' }),
+      }];
+    }
+    if (/UPDATE league_entities SET/.test(sql)) {
+      updates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'revokeTournamentEntranceLink' }, body: { link_id: 'link-1' }, user: { id: 'admin-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(updates.length, 1);
+  const payload = JSON.parse(updates[0].params[0]);
+  assert.equal(payload.status, 'revoked');
+});
+
+test('applyTournamentEntranceAccessMode marks user as tournament_limited', async () => {
+  const updates = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, status, end_date FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'tournament-1', status: 'registration_open', end_date: '2026-07-01T00:00:00.000Z' }];
+    }
+    if (/UPDATE users SET access_mode = 'tournament_limited'/.test(sql)) {
+      updates.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/SELECT id, access_mode, limited_tournament_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], access_mode: 'tournament_limited', limited_tournament_id: 'tournament-1' }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'applyTournamentEntranceAccessMode' }, body: { tournament_id: 'tournament-1' }, user: { id: 'user-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.access_mode, 'tournament_limited');
+  assert.equal(updates.length, 1);
+});
+
+test('releaseTournamentLimitedAccessIfEligible unlocks on completed or passed end_date', async () => {
+  const updates = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, access_mode, limited_tournament_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], access_mode: 'tournament_limited', limited_tournament_id: 'tournament-1' }];
+    }
+    if (/SELECT id, status, end_date FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'tournament-1', status: 'registration_open', end_date: '2026-01-01T00:00:00.000Z' }];
+    }
+    if (/UPDATE users SET access_mode = 'standard'/.test(sql)) {
+      updates.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'releaseTournamentLimitedAccessIfEligible' }, body: {}, user: { id: 'user-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.released, true);
+  assert.equal(updates.length, 1);
+});
+
+test('listTournamentEntranceLinks returns links for a tournament to admin', async () => {
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
+      return [{
+        id: 'link-1',
+        entity_type: 'tournament_entrance_link',
+        status: 'active',
+        data_json: JSON.stringify({
+          id: 'link-1',
+          tournament_id: params[0],
+          token: 'abc-token',
+          expires_at: '2026-06-10T20:00:00.000Z',
+          status: 'active',
+        }),
+      }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'listTournamentEntranceLinks' }, body: { tournament_id: 'tournament-1' }, user: { id: 'admin-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.links.length, 1);
+  assert.equal(response.body.data.links[0].tournament_id, 'tournament-1');
 });

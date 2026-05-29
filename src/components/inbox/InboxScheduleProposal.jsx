@@ -25,11 +25,30 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
   const [cDate,   setCDate]   = useState("");
   const [cTime,   setCTime]   = useState("");
 
-  useEffect(() => { loadFixture(); }, []); // initial load only
+  // Reload the linked fixture whenever the user opens a different message.
+  // Without this, the parent (InboxMessageDetail) reuses the same
+  // InboxScheduleProposal component instance across selections and the
+  // fixture card stays stale from the first opened message — leading to
+  // "the body says Team A vs B, but the fixture card shows Team C vs D".
+  // Also reset the per-message UI state so counter-proposal inputs and
+  // error banners don't bleed between messages.
+  useEffect(() => {
+    loadFixture();
+    setError("");
+    setCounter(false);
+    setCDate("");
+    setCTime("");
+    setBusy(null);
+  // meta is derived from message.metadata; keying on message.id is the
+  // most reliable signal that the user switched messages.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id, meta.fixture_id, meta.fixture_type]);
 
   async function loadFixture() {
     setLoading(true);
+    setFixture(null);          // clear stale fixture immediately
     try {
+      if (!meta.fixture_id) { setFixture(null); return; }
       const ent = meta.fixture_type === "regional_league"
         ? stageClient.entities.RegionalLeagueFixture
         : stageClient.entities.CompetitionFixture;

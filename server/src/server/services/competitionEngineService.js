@@ -36,7 +36,9 @@ function assertSide(side) {
 function mapFixtureToMatch(fixture) {
   return {
     id: uuidv4(),
-    tournament_id: fixture.competition_instance_id,
+    // `matches.tournament_id` must reference `tournaments.id` when non-null.
+    // Competition-engine fixtures are stored outside `tournaments`.
+    tournament_id: null,
     home_club_id: fixture.home_club_id,
     away_club_id: fixture.away_club_id,
     home_club_name: fixture.home_club_name,

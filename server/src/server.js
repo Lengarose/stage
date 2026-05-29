@@ -30,6 +30,17 @@ app.use('/api/stage/auth/reset-password',  authLimiter);
 app.use('/api/stage/auth', require('./server/controllers/authController'));
 app.use('/api/stage/auth', require('./server/controllers/oauthController'));
 
+// Public endpoint: resolve tournament entrance tokens (must be before verifyToken)
+app.post('/api/stage/public/resolve-entrance-token', async (req, res) => {
+  try {
+    const { HANDLERS } = require('./server/controllers/functionsController');
+    const result = await HANDLERS.resolveTournamentEntranceToken({ token: req.body?.token });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to resolve entrance token' });
+  }
+});
+
 // File upload + server functions (protected)
 app.use('/api/stage/upload',    verifyToken, require('./server/controllers/uploadController'));
 app.use('/api/stage/functions', verifyToken, require('./server/controllers/functionsController'));
@@ -89,6 +100,7 @@ app.use('/api/stage/user-purchases',    verifyToken, require('./server/controlle
 app.use('/api/stage/trophy-items',      verifyToken, require('./server/controllers/trophyItemController'));
 app.use('/api/stage/trophy-placements', verifyToken, require('./server/controllers/trophyPlacementController'));
 app.use('/api/stage/chat-messages',     verifyToken, require('./server/controllers/chatMessageController'));
+app.use('/api/stage/chat-reads',        verifyToken, require('./server/controllers/chatReadController'));
 app.use('/api/stage/news-items',        verifyToken, require('./server/controllers/newsItemController'));
 app.use('/api/stage/live-matches',              verifyToken, require('./server/controllers/liveMatchController'));
 app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/controllers/landingPageContentController'));
@@ -213,6 +225,30 @@ app.get('/api/stage/public/landing-content', async (_req, res) => {
   } catch { res.json({}); }
 });
 
+// ── SPA fallback ──────────────────────────────────────────────────────────
+// Only `/api/...` is the backend API surface. Every other URL is a React
+// Router page route (e.g. /tournaments/entrance/<token>/signin, /game-day,
+// /clubs/<id>, …) and must serve the React shell so react-router-dom can
+// resolve it in the browser. Without this, deep-linking or refreshing on
+// any non-`/` path falls through to `notFoundHandler` and returns JSON 404.
+//
+// Placed AFTER all routes (including the static asset middleware and the
+// `/auth/*` OAuth helpers above) so existing handlers still win, and BEFORE
+// `notFoundHandler` so true 404s on `/api/...` and missing static assets
+// still 404.
+app.get('*', (req, res, next) => {
+  // Only `/api/...` is real backend — everything else is a SPA page route.
+  if (req.path.startsWith('/api/'))   return next();
+  // A path with a file extension that reached this point is a missing
+  // static asset (express.static didn't find it). Don't mask asset 404s
+  // by returning the HTML shell — that breaks caching and troubleshooting.
+  if (/\.[a-z0-9]+$/i.test(req.path)) return next();
+
+  res.sendFile(path.join(__dirname, 'build', 'index.html'), (err) => {
+    if (err) next(err);
+  });
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -246,6 +282,9 @@ async function runStartupMigrations() {
   await EXECUTESQL(
     'ALTER TABLE players MODIFY COLUMN club_id VARCHAR(36) NULL'
   ).catch((err) => console.error('[migration] players.club_id nullable:', err.message));
+  await addCol('users', 'access_mode', "VARCHAR(32) NULL DEFAULT 'standard'");
+  await addCol('users', 'limited_tournament_id', 'VARCHAR(36) NULL');
+  await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
 
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');
@@ -632,6 +671,27 @@ async function runStartupMigrations() {
     created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_coal_club_created (club_id, created_date)
   )`).catch(err => console.error('[migration] club_operation_audit_logs:', err.message));
+
+  // chat_reads — per-user last-read marker per chat channel.
+  // channel_id is a string so it supports both raw match UUIDs and
+  // namespaced channels like `club:<uuid>` (used by ClubDetail club chat).
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS chat_reads (
+    id            VARCHAR(36)  PRIMARY KEY,
+    user_email    VARCHAR(255) NOT NULL,
+    channel_id    VARCHAR(64)  NOT NULL,
+    last_read_at  DATETIME     NOT NULL,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_chat_reads_user_channel (user_email, channel_id),
+    INDEX idx_chat_reads_user (user_email)
+  )`).catch(err => console.error('[migration] chat_reads:', err.message));
+
+  // Widen chat_messages.match_id so namespaced channels (e.g. `club:<uuid>`)
+  // fit without silent truncation. Idempotent: MODIFY is a no-op if already wide.
+  await EXECUTESQL(`ALTER TABLE chat_messages MODIFY COLUMN match_id VARCHAR(64) NOT NULL`)
+    .catch(err => console.error('[migration] chat_messages.match_id widen:', err.message));
+  await EXECUTESQL(`CREATE INDEX idx_chat_messages_match_created ON chat_messages (match_id, created_date)`)
+    .catch(() => { /* index may already exist */ });
 
   await EXECUTESQL(`
     UPDATE clubs c

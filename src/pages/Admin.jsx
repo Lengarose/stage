@@ -521,13 +521,29 @@ export default function Admin(props) {
   async function resolveForfeit(matchId, approve) {
     const m = forfeits.find(f => f.id === matchId);
     if (!m) return;
-    await stageClient.functions.invoke("adminMatchActions", {
-      action: "resolve_forfeit",
-      match_id: matchId,
-      approve,
-      reason: approve ? "Approved from admin forfeits panel" : "Rejected from admin forfeits panel",
-    });
-    setForfeits(prev => prev.filter(f => f.id !== matchId));
+    // Defensive: a forfeit on an already-completed match would overwrite the
+    // real result. Surface a clear message before hitting the server (which
+    // will refuse this same case anyway).
+    if (approve && (m.status === "completed" || m.status === "forfeit")) {
+      await swalAlert(
+        `This match has already been ${m.status === "forfeit" ? "forfeited" : "completed"}. ` +
+        `Approving the forfeit claim would overwrite the recorded result. ` +
+        `Use "Reject" to dismiss the stale claim, or override the score from the match panel.`
+      );
+      return;
+    }
+    try {
+      await stageClient.functions.invoke("adminMatchActions", {
+        action: "resolve_forfeit",
+        match_id: matchId,
+        approve,
+        reason: approve ? "Approved from admin forfeits panel" : "Rejected from admin forfeits panel",
+      });
+      setForfeits(prev => prev.filter(f => f.id !== matchId));
+    } catch (err) {
+      const serverMsg = err?.data?.error || err?.message || "Unknown error";
+      await swalAlert(`Could not ${approve ? "approve" : "reject"} forfeit: ${serverMsg}`);
+    }
   }
 
   async function kickFromClub(playerId) {

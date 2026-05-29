@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Route, Routes, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { SocketProvider } from '@/lib/SocketContext';
+import { ChatNotificationsProvider } from '@/lib/ChatNotificationsContext';
 import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
@@ -11,6 +12,7 @@ import { stageClient } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import TournamentEntranceRouteGuard from '@/components/TournamentEntranceRouteGuard';
 
 import PageNotFound from './lib/PageNotFound';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -60,6 +62,12 @@ const CompetitionDetail = React.lazy(() => import('./pages/CompetitionDetail'));
 const LeagueDetail = React.lazy(() => import('./pages/LeagueDetail'));
 const SeasonRegistrations = React.lazy(() => import('./pages/SeasonRegistrations'));
 const Community = React.lazy(() => import('./pages/Community'));
+const EntranceTournamentSigninPage = React.lazy(() => import('./pages/tournament-entrance/EntranceTournamentSigninPage'));
+const EntranceTournamentSignupPage = React.lazy(() => import('./pages/tournament-entrance/EntranceTournamentSignupPage'));
+const TournamentGameDayPage = React.lazy(() => import('./pages/tournament-entrance/TournamentGameDayPage'));
+const TournamentSchedulePage = React.lazy(() => import('./pages/tournament-entrance/TournamentSchedulePage'));
+const TournamentInboxPage = React.lazy(() => import('./pages/tournament-entrance/TournamentInboxPage'));
+const TournamentPlayerProfilePage = React.lazy(() => import('./pages/tournament-entrance/TournamentPlayerProfilePage'));
 
 // Admin pages — lazy-loaded (only admins need these)
 const AdminDashboardPage = React.lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -139,10 +147,11 @@ const SplashScreen = () => (
 );
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, authError, user } = useAuth();
+  const { isLoadingAuth, authError, user, checkUserAuth } = useAuth();
   const [playerSetupComplete, setPlayerSetupComplete] = React.useState(false);
   const [showLogin, setShowLogin] = React.useState(false);
   const location = useLocation();
+  const isTournamentEntrancePath = location.pathname.startsWith('/tournaments/entrance/');
 
   const handleOnboardingComplete = React.useCallback(() => {
     if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
@@ -180,17 +189,55 @@ const AuthenticatedApp = () => {
     stageClient.functions.invoke('contractManagement', { action: 'auto_pay_salaries' }).catch(() => {});
   }, [user?.id]);
 
+  // Auto-release tournament-limited users when tournament is completed or end_date has passed.
+  React.useEffect(() => {
+    if (!user?.id) return;
+    if (String(user.access_mode || '').toLowerCase() !== 'tournament_limited') return;
+    stageClient.functions
+      .invoke('releaseTournamentLimitedAccessIfEligible', {})
+      .then((res) => {
+        if (res?.data?.released) return checkUserAuth();
+      })
+      .catch(() => {});
+  }, [user?.id, user?.access_mode, checkUserAuth]);
+
   if (isLoadingAuth) return <SplashScreen />;
 
   if (authError) {
     if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
     if (authError.type === 'auth_required') {
+      if (isTournamentEntrancePath) {
+        return (
+          <ErrorBoundary>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
+                <Route path="/tournaments/entrance/:token/signin" element={<EntranceTournamentSigninPage />} />
+                <Route path="/tournaments/entrance/:token/signup" element={<EntranceTournamentSignupPage />} />
+                <Route path="*" element={<Landing onSignIn={() => setShowLogin(true)} />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        );
+      }
       if (showLogin) return <Login />;
       return <Landing onSignIn={() => setShowLogin(true)} />;
     }
   }
 
   if (!user) {
+    if (isTournamentEntrancePath) {
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
+              <Route path="/tournaments/entrance/:token/signin" element={<EntranceTournamentSigninPage />} />
+              <Route path="/tournaments/entrance/:token/signup" element={<EntranceTournamentSignupPage />} />
+              <Route path="*" element={<Landing onSignIn={() => setShowLogin(true)} />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      );
+    }
     if (showLogin) return <Login />;
     return <Landing onSignIn={() => setShowLogin(true)} />;
   }
@@ -219,8 +266,11 @@ const AuthenticatedApp = () => {
   return (
     <ErrorBoundary>
       <Suspense fallback={<RouteLoader />}>
-        <Routes>
-          <Route element={<Layout />}>
+        <TournamentEntranceRouteGuard>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/tournaments/entrance/:token/signin" element={<EntranceTournamentSigninPage />} />
+              <Route path="/tournaments/entrance/:token/signup" element={<EntranceTournamentSignupPage />} />
             <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <Home />} />
             <Route path="/clubs" element={<Clubs />} />
             <Route path="/clubs/:id" element={<ClubDetail />} />
@@ -267,6 +317,11 @@ const AuthenticatedApp = () => {
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/game-day" element={<GameDay />} />
+            <Route path="/tournaments/inbox" element={<TournamentInboxPage />} />
+            <Route path="/tournaments/schedule" element={<TournamentSchedulePage />} />
+            <Route path="/tournaments/game-day" element={<TournamentGameDayPage />} />
+            <Route path="/tournaments/profile-player" element={<TournamentPlayerProfilePage />} />
+            <Route path="/tournaments/profile-player/edit" element={<TournamentPlayerProfilePage />} />
             <Route path="/transfer-market" element={<TransferMarket />} />
             <Route path="/recruitment" element={<Recruitment />} />
             <Route path="/lifestyle" element={<Lifestyle />} />
@@ -277,8 +332,9 @@ const AuthenticatedApp = () => {
             <Route path="/leagues/:slug" element={<LeagueDetail />} />
             <Route path="/register-league" element={<SeasonRegistrations />} />
             <Route path="*" element={<PageNotFound />} />
-          </Route>
-        </Routes>
+            </Route>
+          </Routes>
+        </TournamentEntranceRouteGuard>
       </Suspense>
     </ErrorBoundary>
   );
@@ -295,7 +351,11 @@ function App() {
               <Routes>
                 {/* OAuth callback must be outside AuthenticatedApp so tokens are stored before auth check */}
                 <Route path="/auth/callback" element={<OAuthCallback />} />
-                <Route path="*" element={<AuthenticatedApp />} />
+                <Route path="*" element={
+                  <ChatNotificationsProvider>
+                    <AuthenticatedApp />
+                  </ChatNotificationsProvider>
+                } />
               </Routes>
             </Router>
             <PWAUpdatePrompt />

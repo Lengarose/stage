@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
 
 const AuthContext = createContext(null);
@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     checkUserAuth();
   }, []);
 
-  const checkUserAuth = async () => {
+  const checkUserAuth = useCallback(async () => {
     if (!stageClient.auth.hasToken()) {
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoadingAuth(false);
     }
-  };
+  }, []);
 
   const logout = (shouldRedirect = true) => {
     setUser(null);

@@ -102,7 +102,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
         <div className="border-t border-border px-4 py-3 space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Your Performance</p>
           <div className="grid grid-cols-3 gap-2">
-            <StatMini label="Rating" value={stats.rating?.toFixed(1) ?? "—"} highlight />
+            <StatMini label="Rating" value={Number.isFinite(Number(stats.rating)) ? Number(stats.rating).toFixed(1) : "—"} highlight />
             <StatMini label="Goals" value={stats.goals ?? 0} />
             <StatMini label="Assists" value={stats.assists ?? 0} />
           </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
-import { Target, Zap, Star, CheckCircle2, Plus, Trash2, Upload } from "lucide-react";
+import { Target, Zap, Star, CheckCircle2, Plus, Trash2, Upload, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +31,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   const alreadySubmitted = isHomeTeam ? game.result_home_submitted : game.result_away_submitted;
   const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
+
+  // Submission ordering — the away side stays locked until the home side has
+  // submitted their result. Server enforces the same rule (409 with
+  // code=AWAITING_HOME_SUBMISSION); this UI just hides the form so a user
+  // never gets to fill it in and click submit only to be rejected.
+  const homeHasSubmitted    = Boolean(Number(game.result_home_submitted));
+  const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted;
 
   // ── Load seated players ────────────────────────────────────────────────────
   useEffect(() => {
@@ -123,8 +130,11 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
+  const [submitError, setSubmitError] = useState("");
+
   async function submit() {
     setSubmitting(true);
+    setSubmitError("");
     try {
       let playerStatsArr = [];
 
@@ -173,6 +183,15 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
       const status = res?.data?.status || 'waiting';
       if (onSubmitted) onSubmitted(status, Number(homeScore), Number(awayScore), goalEvents);
+    } catch (err) {
+      // Server enforces the same lock with a 409 + code=AWAITING_HOME_SUBMISSION.
+      // apiFetch surfaces the server payload as err.data, so look there first.
+      const code = err?.data?.code || err?.code;
+      if (code === "AWAITING_HOME_SUBMISSION" || err?.status === 409) {
+        setSubmitError("The home team hasn't submitted their result yet. Please wait for them to submit first.");
+      } else {
+        setSubmitError(err?.message || "Could not submit result. Try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -188,6 +207,22 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           <p className="text-xs font-semibold text-success">Result submitted!</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Waiting for the other {isClubMatch ? "team" : "player"} to submit their score.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (awayLockedWaiting) {
+    const homeLabel = game.home_club_name || game.home_player_name || "the home side";
+    return (
+      <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-secondary/40 border border-border">
+        <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+        <div>
+          <p className="text-xs font-semibold text-foreground">Waiting for {homeLabel} to submit</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            The {isClubMatch ? "home team" : "home player"} reports the result first.
+            You'll be able to confirm your score once they've submitted.
           </p>
         </div>
       </div>
@@ -389,8 +424,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           : <><CheckCircle2 className="w-4 h-4" /> Submit Result</>
         }
       </Button>
+      {submitError && (
+        <p className="text-[11px] text-destructive text-center">{submitError}</p>
+      )}
       <p className="text-[10px] text-muted-foreground text-center">
-        Both {isClubMatch ? "teams" : "players"} must submit. If scores match, the result is confirmed automatically.
+        {isHomeTeam
+          ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
+          : `Both ${isClubMatch ? "teams" : "players"} must submit. If scores match, the result is confirmed automatically.`}
       </p>
     </div>
   );

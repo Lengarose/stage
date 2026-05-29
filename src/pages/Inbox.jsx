@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
 
-export default function InboxPage() {
+export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const [messages, setMessages] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,24 +40,37 @@ export default function InboxPage() {
 
       setLoading(false);
 
-      // Real-time subscription — set up AFTER we have the user's email
+      // Real-time subscription — set up AFTER we have the user's email.
+      //
+      // We treat every non-delete event as an "upsert" against the local list:
+      //  • if the id is already in the array → replace it (update),
+      //  • otherwise → prepend (new message).
+      //
+      // This is required because the stageClient subscribe dedupes by `knownIds`
+      // that ONLY contains messages it has seen via the socket — initial-fetch
+      // rows are unknown to it. So when an existing message gets updated on
+      // the server (e.g. status change after the recipient accepts) the event
+      // arrives with type="create" for an id the local array already holds.
+      // Without an id-check, the prior prepend logic produced visible dupes.
+      // (Same defense protects against any duplicate broadcast paths.)
       unsub = stageClient.entities.InboxMessage.subscribe((event) => {
         const recipientEmail = String(event.data?.recipient_email || "").trim().toLowerCase();
-        if (event.type === "create") {
-          if (recipientEmail === currentEmail) {
-            setMessages(prev => [event.data, ...prev]);
-          }
-        }
-        if (event.type === "update") {
-          if (recipientEmail === currentEmail) {
-            setMessages(prev => prev.map(m => m.id === event.id ? event.data : m));
-            setSelected(prev => prev?.id === event.id ? event.data : prev);
-          }
-        }
         if (event.type === "delete") {
           setMessages(prev => prev.filter(m => m.id !== event.id));
           setSelected(prev => prev?.id === event.id ? null : prev);
+          return;
         }
+        if (recipientEmail !== currentEmail) return;
+        setMessages(prev => {
+          const idx = prev.findIndex(m => m.id === event.id);
+          if (idx >= 0) {
+            const next = prev.slice();
+            next[idx] = event.data;
+            return next;
+          }
+          return [event.data, ...prev];
+        });
+        setSelected(prev => prev?.id === event.id ? event.data : prev);
       });
 
       // Fallback polling to keep inbox consistent when socket updates are missed.

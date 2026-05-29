@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
-import { MessageSquare, Send } from "lucide-react";
+import { Bell, BellOff, MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useChatChannel } from "@/lib/ChatNotificationsContext";
 
 function sortMessages(msgs) {
   return [...msgs].sort(
@@ -16,6 +17,10 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
   const [loading, setLoading] = useState(true);
   const [sendError, setSendError] = useState("");
   const messagesEndRef = useRef(null);
+  // Registers the channel with the global notifications provider, marks it
+  // "open" while this component is mounted (so the badge clears and we don't
+  // self-ding), and exposes a per-channel mute toggle.
+  const { isMuted, toggleMuted } = useChatChannel(game.id);
 
   const senderLabel =
     user?.full_name ||
@@ -103,6 +108,21 @@ export default function GameDayMatchChat({ game, myClub, myPlayer, user }) {
 
   return (
     <div className="flex flex-col h-[400px] gap-3">
+      <div className="flex items-center justify-between px-1 -mb-1">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Match chat</span>
+        <button
+          type="button"
+          onClick={toggleMuted}
+          title={isMuted ? "Unmute chat notifications" : "Mute chat notifications"}
+          aria-label={isMuted ? "Unmute chat notifications" : "Mute chat notifications"}
+          className={cn(
+            "p-1.5 rounded-md hover:bg-secondary/60 transition-colors",
+            isMuted ? "text-muted-foreground" : "text-primary/80"
+          )}
+        >
+          {isMuted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto space-y-2">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
