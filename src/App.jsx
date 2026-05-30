@@ -68,6 +68,11 @@ const TournamentGameDayPage = React.lazy(() => import('./pages/tournament-entran
 const TournamentSchedulePage = React.lazy(() => import('./pages/tournament-entrance/TournamentSchedulePage'));
 const TournamentInboxPage = React.lazy(() => import('./pages/tournament-entrance/TournamentInboxPage'));
 const TournamentPlayerProfilePage = React.lazy(() => import('./pages/tournament-entrance/TournamentPlayerProfilePage'));
+const TournamentPlayersPage = React.lazy(() => import('./pages/tournament-entrance/TournamentPlayersPage'));
+const TournamentClubsPage = React.lazy(() => import('./pages/tournament-entrance/TournamentClubsPage'));
+const TournamentTrophyPage = React.lazy(() => import('./pages/tournament-entrance/TournamentTrophyPage'));
+const TournamentClubProfilePage = React.lazy(() => import('./pages/tournament-entrance/TournamentClubProfilePage'));
+const TournamentSettingsPage = React.lazy(() => import('./pages/tournament-entrance/TournamentSettingsPage'));
 
 // Admin pages — lazy-loaded (only admins need these)
 const AdminDashboardPage = React.lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -322,6 +327,11 @@ const AuthenticatedApp = () => {
             <Route path="/tournaments/game-day" element={<TournamentGameDayPage />} />
             <Route path="/tournaments/profile-player" element={<TournamentPlayerProfilePage />} />
             <Route path="/tournaments/profile-player/edit" element={<TournamentPlayerProfilePage />} />
+            <Route path="/tournaments/players" element={<TournamentPlayersPage />} />
+            <Route path="/tournaments/clubs" element={<TournamentClubsPage />} />
+            <Route path="/tournaments/trophy" element={<TournamentTrophyPage />} />
+            <Route path="/tournaments/profile-club" element={<TournamentClubProfilePage />} />
+            <Route path="/tournaments/settings" element={<TournamentSettingsPage />} />
             <Route path="/transfer-market" element={<TransferMarket />} />
             <Route path="/recruitment" element={<Recruitment />} />
             <Route path="/lifestyle" element={<Lifestyle />} />

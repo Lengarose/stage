@@ -43,8 +43,9 @@ const POSITION_OPTIONS = [
 
 const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
 
-export default function ClubDetail() {
-  const { id } = useParams();
+export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId } = {}) {
+  const params = useParams();
+  const id = overrideClubId || params.id;
   const [club, setClub] = useState(null);
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);

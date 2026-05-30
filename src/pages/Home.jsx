@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import HeroImg from "@/assets/WIS.PNG";
@@ -141,24 +141,115 @@ function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPositio
 }
 
 /* ══════════════════════════════════════════════════════════
-   SECTION A — COMPETITIONS STRIP
-   Full-width cinematic tier bar
+   SECTION A — EVENTS CAROUSEL
+   Tabbed carousel: Competitions → Tournaments → Leagues
    ══════════════════════════════════════════════════════════ */
-function CompetitionsStrip({ seasons, isLiveDarkTheme, isLiveWhiteTheme }) {
+function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLiveWhiteTheme }) {
+  const [activeTab, setActiveTab] = useState("competitions");
+
   const headingClass = isLiveWhiteTheme ? "text-slate-900" : "text-white";
   const subtleTextClass = isLiveWhiteTheme ? "text-slate-700" : "text-white/40";
-  const linkTextClass = isLiveWhiteTheme ? "text-slate-600 hover:text-[hsl(189,100%,42%)]" : "text-white/40 hover:text-[hsl(189,100%,52%)]";
   const cardBorderClass = isLiveWhiteTheme ? "border-slate-300/80 group-hover:border-slate-500/70" : "border-white/8 group-hover:border-white/20";
   const cardTitleClass = isLiveWhiteTheme ? "text-slate-900 group-hover:text-[hsl(189,100%,35%)]" : "text-white group-hover:text-[hsl(189,100%,52%)]";
   const cardBackground = isLiveWhiteTheme ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.03)";
+  const progressBarBg = isLiveWhiteTheme ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
 
-  const statusLabel = (s) => {
+  const TABS = [
+    { key: "competitions", label: "Competitions", accent: "hsl(189,100%,52%)", viewAllTo: "/competitions" },
+    { key: "tournaments",  label: "Tournaments",  accent: "#f59e0b",           viewAllTo: "/tournaments" },
+    { key: "leagues",      label: "Leagues",       accent: "#a78bfa",           viewAllTo: "/leagues" },
+  ];
+  const currentTab = TABS.find(t => t.key === activeTab) || TABS[0];
+
+  const statusBadge = (s) => {
     if (!s) return null;
-    if (s === "league_phase") return { text: "LIVE",         cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
-    if (s === "registration") return { text: "OPEN",         cls: "bg-[hsl(189,100%,52%)]/15 text-[hsl(189,100%,52%)] border-[hsl(189,100%,52%)]/30" };
-    if (s === "playoffs")     return { text: "PLAYOFFS",     cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" };
-    if (s === "knockout")     return { text: "KNOCKOUT",     cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
+    const sl = String(s).toLowerCase();
+    if (["open", "registration"].includes(sl))                        return { text: "OPEN",      cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
+    if (["league_phase", "in_progress", "group_stage"].includes(sl))  return { text: "LIVE",      cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
+    if (sl === "playoffs")                                             return { text: "PLAYOFFS",  cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" };
+    if (sl === "knockout")                                             return { text: "KNOCKOUT",  cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
+    if (sl === "completed")                                            return { text: "COMPLETED", cls: "bg-white/10 text-white/50 border-white/20" };
+    if (sl === "cancelled")                                            return { text: "CANCELLED", cls: "bg-red-500/15 text-red-400 border-red-500/30" };
     return null;
+  };
+
+  const parseJsonArray = (val) => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") { try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch { return []; } }
+    return [];
+  };
+
+  // ── Card renderers ──
+  const renderCompetitions = () =>
+    COMPETITIONS.map((comp, i) => {
+      const season = seasons?.find(s => s.competition_name?.toLowerCase().includes(comp.slug) || s.tier === comp.tier);
+      const badge = season ? statusBadge(season.status) : null;
+      return (
+        <Link key={comp.slug} to="/competitions" className="group block min-w-0">
+          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass)} style={{ background: cardBackground }}>
+            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: comp.color }} />
+            <div className="absolute right-4 top-4 font-heading font-black text-6xl leading-none select-none pointer-events-none" style={{ color: comp.color, opacity: 0.06 }}>{i + 1}</div>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${comp.color}18`, border: `1px solid ${comp.color}30` }}>
+                <Trophy className="w-5 h-5" style={{ color: comp.color }} />
+              </div>
+              {badge && <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>{badge.text}</span>}
+            </div>
+            <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>Tier {comp.tier}</p>
+            <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>{comp.name.replace("STAGE ", "")}</h3>
+            <p className={cn("text-xs leading-relaxed", subtleTextClass)}>{comp.description}</p>
+            <div className={cn("flex items-center gap-1.5 mt-5 text-[10px] font-medium transition-colors", subtleTextClass)}>View bracket <ArrowRight className="w-3 h-3" /></div>
+          </div>
+        </Link>
+      );
+    });
+
+  const renderEventCards = (items, linkPrefix, accent) =>
+    items.slice(0, 6).map((item) => {
+      const badge = statusBadge(item.status);
+      const regPlayers = parseJsonArray(item.registered_players);
+      const regClubs = parseJsonArray(item.registered_clubs);
+      const count = Math.max(regPlayers.length, regClubs.length);
+      const max = Number(item.max_teams || 0);
+      const pct = max > 0 ? Math.min((count / max) * 100, 100) : 0;
+
+      return (
+        <Link key={item.id} to={`${linkPrefix}/${item.id}`} className="group block min-w-0">
+          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass)} style={{ background: cardBackground }}>
+            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: accent }} />
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}18`, border: `1px solid ${accent}30` }}>
+                <Trophy className="w-5 h-5" style={{ color: accent }} />
+              </div>
+              {badge && <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>{badge.text}</span>}
+            </div>
+            <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>{item.name}</h3>
+            {max > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", subtleTextClass)}>{count}/{max} players</span>
+                  {count >= max && <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Full</span>}
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: progressBarBg }}>
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: count >= max ? "#ef4444" : accent }} />
+                </div>
+              </div>
+            )}
+            {item.type && <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>{String(item.type).replace(/_/g, " ")}</p>}
+            <div className={cn("flex items-center gap-1.5 mt-4 text-[10px] font-medium transition-colors", subtleTextClass)}>View details <ArrowRight className="w-3 h-3" /></div>
+          </div>
+        </Link>
+      );
+    });
+
+  const renderContent = () => {
+    if (activeTab === "competitions") return renderCompetitions();
+    if (activeTab === "tournaments") {
+      if (!tournaments?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>No tournaments yet.</p>];
+      return renderEventCards(tournaments, "/tournaments", currentTab.accent);
+    }
+    if (!leagues?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>No leagues yet.</p>];
+    return renderEventCards(leagues, "/leagues", currentTab.accent);
   };
 
   return (
@@ -171,68 +262,46 @@ function CompetitionsStrip({ seasons, isLiveDarkTheme, isLiveWhiteTheme }) {
             ? "linear-gradient(135deg, rgba(2,8,23,0.72) 0%, rgba(8,15,40,0.62) 50%, rgba(2,8,23,0.72) 100%)"
             : "linear-gradient(135deg, #060e1f 0%, #0a1628 50%, #060e1f 100%)" }}
     >
-      {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: isLiveWhiteTheme
-          ? "radial-gradient(ellipse 60% 80% at 50% 50%, hsl(189 100% 52% / 0.10) 0%, transparent 70%)"
-          : "radial-gradient(ellipse 60% 80% at 50% 50%, hsl(189 100% 52% / 0.04) 0%, transparent 70%)"
+          ? `radial-gradient(ellipse 60% 80% at 50% 50%, ${currentTab.accent}14 0%, transparent 70%)`
+          : `radial-gradient(ellipse 60% 80% at 50% 50%, ${currentTab.accent}0a 0%, transparent 70%)`
       }} />
 
       <div className="relative max-w-7xl mx-auto px-6 lg:px-12">
-        <div className="flex items-end justify-between mb-8">
+        {/* Header with tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
-            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">Platform</p>
-            <h2 className={cn("font-heading font-black uppercase leading-none", headingClass)}
-              style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-              Competitions
-            </h2>
+            <p className="text-[10px] uppercase tracking-[0.35em] font-bold mb-1" style={{ color: `${currentTab.accent}b3` }}>Platform</p>
+            <div className="flex items-center gap-1">
+              {TABS.map((tab, i) => (
+                <React.Fragment key={tab.key}>
+                  {i > 0 && <span className={cn("text-lg font-heading font-black mx-1 select-none", isLiveWhiteTheme ? "text-slate-300" : "text-white/15")}>·</span>}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      "font-heading font-black uppercase leading-none transition-all duration-300 cursor-pointer",
+                      activeTab === tab.key
+                        ? headingClass
+                        : isLiveWhiteTheme ? "text-slate-300 hover:text-slate-500" : "text-white/15 hover:text-white/30"
+                    )}
+                    style={{ fontSize: activeTab === tab.key ? "clamp(2rem, 5vw, 3rem)" : "clamp(1.2rem, 3vw, 1.8rem)" }}
+                  >
+                    {tab.label}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
           </div>
-          <Link to="/competitions" className={cn("flex items-center gap-1.5 text-xs transition-colors font-medium uppercase tracking-widest", linkTextClass)}>
+          <Link to={currentTab.viewAllTo} className={cn("flex items-center gap-1.5 text-xs transition-colors font-medium uppercase tracking-widest", isLiveWhiteTheme ? "text-slate-600 hover:text-slate-900" : "text-white/40 hover:text-white/70")}>
             View all <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
+        {/* Cards grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {COMPETITIONS.map((comp, i) => {
-            const season = seasons?.find(s => s.competition_name?.toLowerCase().includes(comp.slug) || s.tier === comp.tier);
-            const badge  = season ? statusLabel(season.status) : null;
-            return (
-              <Link key={comp.slug} to="/competitions" className="group block">
-                <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass)}
-                  style={{ background: cardBackground }}>
-                  {/* Tier accent line */}
-                  <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: comp.color }} />
-                  {/* Rank number watermark */}
-                  <div className="absolute right-4 top-4 font-heading font-black text-6xl leading-none select-none pointer-events-none"
-                    style={{ color: comp.color, opacity: 0.06 }}>
-                    {i + 1}
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: `${comp.color}18`, border: `1px solid ${comp.color}30` }}>
-                      <Trophy className="w-5 h-5" style={{ color: comp.color }} />
-                    </div>
-                    {badge && (
-                      <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>
-                        {badge.text}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>Tier {comp.tier}</p>
-                  <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>
-                    {comp.name.replace("STAGE ", "")}
-                  </h3>
-                  <p className={cn("text-xs leading-relaxed", subtleTextClass)}>{comp.description}</p>
-
-                  <div className={cn("flex items-center gap-1.5 mt-5 text-[10px] font-medium transition-colors", isLiveWhiteTheme ? "text-slate-600 group-hover:text-[hsl(189,100%,35%)]" : "text-white/30 group-hover:text-[hsl(189,100%,52%)]")}>
-                    View bracket <ArrowRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {renderContent()}
         </div>
       </div>
     </section>
@@ -508,6 +577,8 @@ export default function Home() {
   const [cms,        setCms]        = useState(null);
   const [faqItems,   setFaqItems]   = useState([]);
   const [seasons,    setSeasons]    = useState([]);
+  const [tournaments, setTournaments] = useState([]);
+  const [leagues, setLeagues] = useState([]);
   const [newsItems,  setNewsItems]  = useState([]);
   const [matches,    setMatches]    = useState([]);
   const [messages,   setMessages]   = useState([]);
@@ -532,6 +603,12 @@ export default function Home() {
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
       .then(rows => setSeasons(rows || []));
+
+    safe(stageClient.entities.Tournament.filter({}, "-created_date", 20))
+      .then(rows => setTournaments((rows || []).filter(t => t.status !== "deleted")));
+
+    safe(stageClient.entities.RegionalLeague.filter({}, "-created_date", 20))
+      .then(rows => setLeagues((rows || []).filter(l => l.status !== "deleted")));
 
     safe(stageClient.entities.NewsItem.list("-published_at", 6))
       .then(rows => setNewsItems((rows || []).map(i => ({ ...i, _category: i.category || i.type || "general" }))));
@@ -637,8 +714,10 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           A — COMPETITIONS STRIP
          ══════════════════════════════════════════════════════ */}
-      <CompetitionsStrip
+      <EventsCarousel
         seasons={seasons}
+        tournaments={tournaments}
+        leagues={leagues}
         isLiveDarkTheme={isLiveDarkTheme}
         isLiveWhiteTheme={isLiveWhiteTheme}
       />

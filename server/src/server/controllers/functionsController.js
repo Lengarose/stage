@@ -1387,7 +1387,6 @@ const HANDLERS = {
     const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournament_id]);
     const tournament = tournamentRows[0];
     if (!tournament) throw new Error('Tournament not found');
-    if (!tournament.start_date) throw new Error('Tournament start_date required');
 
     const id = uuidv4();
     const token = generateEntranceToken();
@@ -1397,7 +1396,7 @@ const HANDLERS = {
       tournament_id,
       tournament_name: tournament.name || null,
       status: 'active',
-      expires_at: tournament.start_date,
+      max_teams: tournament.max_teams || null,
       created_by_user_id: admin.id,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
@@ -1454,14 +1453,18 @@ const HANDLERS = {
     if (String(link.status || '').toLowerCase() !== 'active') {
       return { data: { success: false, reason: 'revoked', link } };
     }
-    if (isDatePassed(link.expires_at)) {
-      return { data: { success: false, reason: 'expired', link } };
-    }
     const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [link.tournament_id]);
     const tournament = tournamentRows[0] || null;
     if (!tournament) return { data: { success: false, reason: 'tournament_not_found', link } };
-    if (tournament.start_date && isDatePassed(tournament.start_date)) {
-      return { data: { success: false, reason: 'tournament_started', link, tournament } };
+    // Check if tournament is full (registered players/clubs >= max_teams).
+    let registeredPlayers = [];
+    try { registeredPlayers = JSON.parse(tournament.registered_players || '[]'); } catch { /* ignore */ }
+    let registeredClubs = [];
+    try { registeredClubs = JSON.parse(tournament.registered_clubs || '[]'); } catch { /* ignore */ }
+    const registeredCount = Math.max(registeredPlayers.length, registeredClubs.length);
+    const maxTeams = Number(tournament.max_teams || 0);
+    if (maxTeams > 0 && registeredCount >= maxTeams) {
+      return { data: { success: false, reason: 'tournament_full', link, tournament } };
     }
     return { data: { success: true, link, tournament } };
   },
@@ -1620,6 +1623,19 @@ const HANDLERS = {
         reason: endedByStatus ? 'completed' : 'end_date_passed',
       },
     };
+  },
+
+  async clearTournamentLimitedAccess({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    await EXECUTESQL(
+      `UPDATE users SET access_mode = 'standard',
+                        limited_tournament_id = NULL,
+                        limited_mode_expires_at = NULL,
+                        updated_date = NOW()
+       WHERE id = ?`,
+      [_auth_user_id],
+    );
+    return { data: { success: true } };
   },
 
   async stripeCheckout({ _auth_user_id, packId, creditTarget = 'player', successUrl, cancelUrl }) {

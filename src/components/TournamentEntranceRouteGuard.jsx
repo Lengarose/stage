@@ -17,6 +17,11 @@ function isAllowedTournamentLimitedPath(pathname, tournamentId) {
   if (pathname === "/tournaments/inbox") return true;
   if (pathname === "/tournaments/profile-player") return true;
   if (pathname === "/tournaments/profile-player/edit") return true;
+  if (pathname === "/tournaments/players") return true;
+  if (pathname === "/tournaments/clubs") return true;
+  if (pathname === "/tournaments/trophy") return true;
+  if (pathname === "/tournaments/profile-club") return true;
+  if (pathname === "/tournaments/settings") return true;
   if (tournamentId && pathname === `/tournaments/${tournamentId}`) return true;
   return false;
 }

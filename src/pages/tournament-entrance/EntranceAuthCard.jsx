@@ -70,22 +70,12 @@ function formatDateRange(start, end) {
   return null;
 }
 
-function hasPaidPlan(user) {
-  if (!user) return false;
-  const roleId = Number(user.role_id ?? 1);
-  if (roleId === 0 || roleId === 2) return true; // admin / staff
-  const sub = String(user.subscription || "").toLowerCase();
-  if (!sub) return false;
-  return !["rookie", "free", "basic_free"].includes(sub);
-}
-
 // Map server-side `reason` codes into human-readable messages.
 const REASON_MESSAGES = {
   not_found:             "This tournament entrance link does not exist.",
   revoked:               "This entrance link has been revoked.",
-  expired:               "This entrance link has expired.",
   tournament_not_found:  "The tournament linked to this entrance no longer exists.",
-  tournament_started:    "Registration is closed — this tournament has already started.",
+  tournament_full:       "Registration is closed — all spots have been filled.",
 };
 
 // Common input className. Bigger touch target + 16px+ font on mobile to
@@ -120,17 +110,16 @@ export default function EntranceAuthCard({ mode }) {
     const me = await stageClient.auth.me().catch(() => null);
     if (!me) throw new Error("Unable to load your account.");
     if (isAppAdminUser(me)) ensureAdminPanelMode();
-    // Only newly-onboarded / free-tier users get scoped into the tournament-only
-    // experience. Existing paid-plan users keep full access.
-    if (!hasPaidPlan(me) && tournamentId) {
+    // Only new users (signup) get tournament-limited access. Existing users (signin) keep full access.
+    if (isSignup && tournamentId) {
       await stageClient.functions
         .invoke("applyTournamentEntranceAccessMode", { tournament_id: tournamentId })
         .catch(() => {});
-      // Refresh auth so `user.access_mode` reflects the new limited state.
       await checkUserAuth().catch(() => {});
     }
-    navigate(`/tournaments/${tournamentId}`, { replace: true });
-  }, [navigate, checkUserAuth]);
+    // Redirect to home — the route guard handles restriction for limited users.
+    navigate("/", { replace: true });
+  }, [navigate, checkUserAuth, isSignup]);
 
   // 1) Resolve the entrance token, fetch tournament context. If the user is
   // already authed (typical case: they just came back from an OAuth round-trip)
@@ -153,7 +142,9 @@ export default function EntranceAuthCard({ mode }) {
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
         if (isAuthed && t?.id && !postAuthHandledRef.current) {
           postAuthHandledRef.current = true;
-          await finalizeAuthedUser(t.id);
+          // User is already authenticated (e.g. OAuth return or was already logged in).
+          // Redirect home — the route guard handles the rest.
+          navigate("/", { replace: true });
           return;
         }
       } catch (err) {

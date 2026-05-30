@@ -87,6 +87,11 @@ export default function Login() {
         await checkUserAuth();
         const u = await stageClient.auth.me().catch(() => null);
         if (isAppAdminUser(u)) ensureAdminPanelMode();
+        // Users logging in via the normal page should never be tournament-limited.
+        if (u?.access_mode === "tournament_limited") {
+          await stageClient.functions.invoke("clearTournamentLimitedAccess", {}).catch(() => {});
+          await checkUserAuth();
+        }
       } else {
         setError('Sign-in failed. Please try again.');
       }

@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 
-export default function PlayersRegistered() {
-  const { id } = useParams();
+export default function PlayersRegistered({ overrideTournamentId } = {}) {
+  const params = useParams();
+  const id = overrideTournamentId || params.id;
   const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
   const [allPlayers, setAllPlayers] = useState([]);

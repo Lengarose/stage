@@ -10,6 +10,7 @@ import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
+import { useAuth } from "@/lib/AuthContext";
 import { isAppAdminUser, shouldShowAdminHeader } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import ProfileCompletionModal from "./ProfileCompletionModal";
@@ -112,6 +113,37 @@ function getPlayerGroups(_clubPath) {
       items: [
         { path: "/news",  icon: Newspaper,   label: "News" },
         { path: "/store", icon: ShoppingBag, label: "Store" },
+      ],
+    },
+  ];
+}
+
+function getTournamentLimitedGroups(tournamentId) {
+  const tid = tournamentId || "";
+  return [
+    {
+      label: "Tournament",
+      items: [
+        { path: `/tournaments/${tid}`,   icon: Trophy,       label: "Tournament" },
+        { path: "/tournaments/game-day", icon: Zap,          label: "Game Day" },
+        { path: "/tournaments/schedule", icon: CalendarDays, label: "Schedule" },
+        { path: "/tournaments/inbox",    icon: Inbox,        label: "Inbox" },
+      ],
+    },
+    {
+      label: "Community",
+      items: [
+        { path: "/tournaments/players",      icon: UsersRound, label: "Players" },
+        { path: "/tournaments/clubs",        icon: Shield,     label: "Clubs" },
+        { path: "/tournaments/trophy",       icon: Trophy,     label: "Trophy" },
+      ],
+    },
+    {
+      label: "Profile",
+      items: [
+        { path: "/tournaments/profile-player", icon: User,     label: "My Profile" },
+        { path: "/tournaments/profile-club",   icon: Shield,   label: "My Club" },
+        { path: "/tournaments/settings",       icon: Settings, label: "Settings" },
       ],
     },
   ];
@@ -478,7 +510,16 @@ const MOBILE_PRIMARY_PLAYER = [
   { path: "/profile",      icon: User,   label: "Profile" },
 ];
 
-function getMobilePrimary(accountMode, clubPath) {
+function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId) {
+  if (isTournamentLimited) {
+    return [
+      { path: `/tournaments/${tournamentId || ""}`, icon: Trophy,       label: "Tournament" },
+      { path: "/tournaments/game-day",              icon: Zap,          label: "Game Day"   },
+      { path: "/tournaments/schedule",              icon: CalendarDays, label: "Schedule"   },
+      { path: "/tournaments/inbox",                 icon: Inbox,        label: "Inbox"      },
+      { path: "/tournaments/profile-player",        icon: User,         label: "Profile"    },
+    ];
+  }
   if (accountMode === "club") {
     return [
       { path: "/",                          icon: Home,         label: "Home"     },
@@ -576,13 +617,33 @@ function getMobileMoreGroupsOwner(clubPath) {
   ];
 }
 
-function getMobileMoreGroups(accountMode, clubPath) {
+function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId) {
+  if (isTournamentLimited) {
+    return [
+      {
+        label: "Community",
+        items: [
+          { path: "/tournaments/players",    icon: UsersRound, label: "Players" },
+          { path: "/tournaments/clubs",      icon: Shield,     label: "Clubs" },
+          { path: "/tournaments/trophy",     icon: Trophy,     label: "Trophy" },
+        ],
+      },
+      {
+        label: "Profile",
+        items: [
+          { path: "/tournaments/profile-player", icon: User,     label: "My Profile" },
+          { path: "/tournaments/profile-club",   icon: Shield,   label: "My Club" },
+          { path: "/tournaments/settings",       icon: Settings, label: "Settings" },
+        ],
+      },
+    ];
+  }
   if (accountMode === "club") return getMobileMoreGroupsOwner(clubPath);
   return MOBILE_MORE_GROUPS_PLAYER;
 }
 
-function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath }) {
-  const groups = getMobileMoreGroups(accountMode, clubPath);
+function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId }) {
+  const groups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId);
   return (
     <>
       {/* backdrop */}
@@ -666,13 +727,13 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath }) {
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount }) {
+function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount, isTournamentLimited, tournamentId }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal } = useChatNotifications();
 
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
-  const primaryTabs = getMobilePrimary(accountMode, clubPath);
-  const moreGroups = getMobileMoreGroups(accountMode, clubPath);
+  const primaryTabs = getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId);
+  const moreGroups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId);
   const primaryActive = primaryTabs.find((t) => isNavItemActive(t.path, pathname));
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
@@ -690,6 +751,8 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
         pathname={pathname}
         accountMode={accountMode}
         clubPath={clubPath}
+        isTournamentLimited={isTournamentLimited}
+        tournamentId={tournamentId}
       />
 
       <nav
@@ -1351,6 +1414,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
 export default function Layout() {
   const location  = useLocation();
   const navigate  = useNavigate();
+  const { user: authContextUser } = useAuth();
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [authUser,         setAuthUser]         = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
@@ -1463,12 +1527,19 @@ export default function Layout() {
   const showAdminTakeoverChip =
     isAdmin && adminTakeoverClubId && !showAdminHeader;
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
+  const effectiveUser = authContextUser || authUser;
+  const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
+  const tournamentLimitedGroups = getTournamentLimitedGroups(effectiveUser?.limited_tournament_id);
+  // Debug: remove after confirming nav works
+  if (effectiveUser) console.log("[Layout] access_mode:", effectiveUser.access_mode, "limited_tournament_id:", effectiveUser.limited_tournament_id);
   const playerGroups = getPlayerGroups(clubPath);
   const ownerGroups = getOwnerGroups(clubPath);
   const adminGroups = getAdminGroups();
   const headerNavGroups = showAdminHeader
     ? adminGroups
-    : (accountMode === "club" ? ownerGroups : playerGroups);
+    : isTournamentLimited
+      ? tournamentLimitedGroups
+      : (accountMode === "club" ? ownerGroups : playerGroups);
   const activeHeaderNav = findActiveInGroups(headerNavGroups, location.pathname);
   const activePageLabel = activeHeaderNav?.item.label ?? null;
   const [notifCount, setNotifCount] = useState(0);
@@ -1733,6 +1804,8 @@ export default function Layout() {
           accountMode={accountMode}
           subscriptionTier={subscriptionTier}
           notifCount={notifCount}
+          isTournamentLimited={isTournamentLimited}
+          tournamentId={effectiveUser?.limited_tournament_id}
         />
       )}
     </div>
