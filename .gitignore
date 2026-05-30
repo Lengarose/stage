@@ -33,3 +33,7 @@ server/src/constants/*
 .env
 .vite
 .superpowers/
+
+# Installed agent skills (regenerable from skills-lock.json)
+.agents/
+.claude/skills/
