@@ -8,7 +8,7 @@ const PAGE_SIZE = 15;
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const REGIONS   = ["All Regions", "Europe", "North America", "South America", "Asia", "Oceania", "Middle East"];
 
-export default function Clubs() {
+export default function Clubs({ tournamentId } = {}) {
   const [clubs,    setClubs]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState("");
@@ -18,12 +18,33 @@ export default function Clubs() {
 
   useEffect(() => {
     async function load() {
-      const data = await stageClient.entities.Club.list(null, 500);
-      setClubs(data);
-      setLoading(false);
+      try {
+        let data;
+        if (tournamentId) {
+          const tournament = await stageClient.entities.Tournament.get(tournamentId).catch(() => null);
+          const registeredIds = tournament?.registered_clubs || [];
+          let parsed = registeredIds;
+          if (typeof registeredIds === "string") {
+            try { parsed = JSON.parse(registeredIds); } catch { parsed = []; }
+          }
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const all = await stageClient.entities.Club.list(null, 500);
+            data = all.filter(c => parsed.includes(c.id));
+          } else {
+            data = [];
+          }
+        } else {
+          data = await stageClient.entities.Club.list(null, 500);
+        }
+        setClubs(data);
+      } catch {
+        setClubs([]);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
-  }, []);
+  }, [tournamentId]);
 
   const filtered = clubs.filter(c => {
     const name = (c.name || "").toLowerCase();

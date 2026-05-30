@@ -118,8 +118,23 @@ function getPlayerGroups(_clubPath) {
   ];
 }
 
-function getTournamentLimitedGroups(tournamentId) {
+function getTournamentLimitedGroups(tournamentId, participantType) {
   const tid = tournamentId || "";
+  const isPlayerType = participantType === "player";
+
+  const communityItems = isPlayerType
+    ? [{ path: "/tournaments/players", icon: UsersRound, label: "Players" }]
+    : [{ path: "/tournaments/clubs",   icon: Shield,     label: "Clubs" }];
+  communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: "Trophy" });
+
+  const profileItems = [
+    { path: "/tournaments/profile-player", icon: User, label: "My Profile" },
+  ];
+  if (!isPlayerType) {
+    profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: "My Club" });
+  }
+  profileItems.push({ path: "/tournaments/settings", icon: Settings, label: "Settings" });
+
   return [
     {
       label: "Tournament",
@@ -130,22 +145,8 @@ function getTournamentLimitedGroups(tournamentId) {
         { path: "/tournaments/inbox",    icon: Inbox,        label: "Inbox" },
       ],
     },
-    {
-      label: "Community",
-      items: [
-        { path: "/tournaments/players",      icon: UsersRound, label: "Players" },
-        { path: "/tournaments/clubs",        icon: Shield,     label: "Clubs" },
-        { path: "/tournaments/trophy",       icon: Trophy,     label: "Trophy" },
-      ],
-    },
-    {
-      label: "Profile",
-      items: [
-        { path: "/tournaments/profile-player", icon: User,     label: "My Profile" },
-        { path: "/tournaments/profile-club",   icon: Shield,   label: "My Club" },
-        { path: "/tournaments/settings",       icon: Settings, label: "Settings" },
-      ],
-    },
+    { label: isPlayerType ? "Players" : "Clubs", items: communityItems },
+    { label: "Profile", items: profileItems },
   ];
 }
 
@@ -617,33 +618,33 @@ function getMobileMoreGroupsOwner(clubPath) {
   ];
 }
 
-function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId) {
+function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, _tournamentId, participantType) {
   if (isTournamentLimited) {
+    const isPlayerType = participantType === "player";
+    const communityItems = isPlayerType
+      ? [{ path: "/tournaments/players", icon: UsersRound, label: "Players" }]
+      : [{ path: "/tournaments/clubs",   icon: Shield,     label: "Clubs" }];
+    communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: "Trophy" });
+
+    const profileItems = [
+      { path: "/tournaments/profile-player", icon: User, label: "My Profile" },
+    ];
+    if (!isPlayerType) {
+      profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: "My Club" });
+    }
+    profileItems.push({ path: "/tournaments/settings", icon: Settings, label: "Settings" });
+
     return [
-      {
-        label: "Community",
-        items: [
-          { path: "/tournaments/players",    icon: UsersRound, label: "Players" },
-          { path: "/tournaments/clubs",      icon: Shield,     label: "Clubs" },
-          { path: "/tournaments/trophy",     icon: Trophy,     label: "Trophy" },
-        ],
-      },
-      {
-        label: "Profile",
-        items: [
-          { path: "/tournaments/profile-player", icon: User,     label: "My Profile" },
-          { path: "/tournaments/profile-club",   icon: Shield,   label: "My Club" },
-          { path: "/tournaments/settings",       icon: Settings, label: "Settings" },
-        ],
-      },
+      { label: isPlayerType ? "Players" : "Clubs", items: communityItems },
+      { label: "Profile", items: profileItems },
     ];
   }
   if (accountMode === "club") return getMobileMoreGroupsOwner(clubPath);
   return MOBILE_MORE_GROUPS_PLAYER;
 }
 
-function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId }) {
-  const groups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId);
+function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId, participantType }) {
+  const groups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType);
   return (
     <>
       {/* backdrop */}
@@ -727,13 +728,13 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount, isTournamentLimited, tournamentId }) {
+function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount, isTournamentLimited, tournamentId, participantType }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal } = useChatNotifications();
 
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const primaryTabs = getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId);
-  const moreGroups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId);
+  const moreGroups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType);
   const primaryActive = primaryTabs.find((t) => isNavItemActive(t.path, pathname));
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
@@ -753,6 +754,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
         clubPath={clubPath}
         isTournamentLimited={isTournamentLimited}
         tournamentId={tournamentId}
+        participantType={participantType}
       />
 
       <nav
@@ -1419,6 +1421,7 @@ export default function Layout() {
   const [authUser,         setAuthUser]         = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
   const [myClubId,         setMyClubId]         = useState(null);
+  const [tournamentParticipantType, setTournamentParticipantType] = useState(null);
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
   const [subscriptionTier, setSubscriptionTier] = useState("rookie");
@@ -1529,9 +1532,16 @@ export default function Layout() {
   const clubPath = myClubId ? `/clubs/${myClubId}` : null;
   const effectiveUser = authContextUser || authUser;
   const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
-  const tournamentLimitedGroups = getTournamentLimitedGroups(effectiveUser?.limited_tournament_id);
-  // Debug: remove after confirming nav works
-  if (effectiveUser) console.log("[Layout] access_mode:", effectiveUser.access_mode, "limited_tournament_id:", effectiveUser.limited_tournament_id);
+  const limitedTournamentId = effectiveUser?.limited_tournament_id;
+
+  useEffect(() => {
+    if (!isTournamentLimited || !limitedTournamentId) return;
+    stageClient.entities.Tournament.get(limitedTournamentId)
+      .then(t => setTournamentParticipantType(t?.participant_type || "club"))
+      .catch(() => setTournamentParticipantType("club"));
+  }, [isTournamentLimited, limitedTournamentId]);
+
+  const tournamentLimitedGroups = getTournamentLimitedGroups(limitedTournamentId, tournamentParticipantType);
   const playerGroups = getPlayerGroups(clubPath);
   const ownerGroups = getOwnerGroups(clubPath);
   const adminGroups = getAdminGroups();
@@ -1687,7 +1697,7 @@ export default function Layout() {
             ) : (
               <SidebarNavSectionDropdowns
                 variant="header"
-                groups={accountMode === "club" ? ownerGroups : playerGroups}
+                groups={headerNavGroups}
                 pathname={location.pathname}
                 isWhiteTheme={isWhiteTheme}
               />
@@ -1806,6 +1816,7 @@ export default function Layout() {
           notifCount={notifCount}
           isTournamentLimited={isTournamentLimited}
           tournamentId={effectiveUser?.limited_tournament_id}
+          participantType={tournamentParticipantType}
         />
       )}
     </div>

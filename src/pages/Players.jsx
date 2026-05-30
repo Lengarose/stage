@@ -8,7 +8,7 @@ const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PAGE_SIZE = 15;
 
-export default function Players() {
+export default function Players({ tournamentId } = {}) {
   const [players, setPlayers]   = useState([]);
   const [clubs,   setClubs]     = useState({});
   const [loading, setLoading]   = useState(true);
@@ -19,18 +19,39 @@ export default function Players() {
 
   useEffect(() => {
     async function load() {
-      const [data, clubData] = await Promise.all([
-        stageClient.entities.Player.list(null, 500),
-        stageClient.entities.Club.list(),
-      ]);
-      setPlayers(data);
-      const m = {};
-      clubData.forEach(c => { m[c.id] = c; });
-      setClubs(m);
-      setLoading(false);
+      try {
+        // Kick off the (tournament-independent) club fetch in parallel with player resolution.
+        const clubsPromise = stageClient.entities.Club.list();
+        let data;
+        if (tournamentId) {
+          const tournament = await stageClient.entities.Tournament.get(tournamentId).catch(() => null);
+          const registeredIds = tournament?.registered_players || [];
+          let parsed = registeredIds;
+          if (typeof registeredIds === "string") {
+            try { parsed = JSON.parse(registeredIds); } catch { parsed = []; }
+          }
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const all = await stageClient.entities.Player.list(null, 500);
+            data = all.filter(p => parsed.includes(p.id));
+          } else {
+            data = [];
+          }
+        } else {
+          data = await stageClient.entities.Player.list(null, 500);
+        }
+        const clubData = await clubsPromise;
+        setPlayers(data);
+        const m = {};
+        clubData.forEach(c => { m[c.id] = c; });
+        setClubs(m);
+      } catch {
+        setPlayers([]);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
-  }, []);
+  }, [tournamentId]);
 
   const filtered = players.filter(p => {
     const matchSearch   = !search   || (p.gamertag || "").toLowerCase().includes(search.toLowerCase());
