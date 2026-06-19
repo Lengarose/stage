@@ -113,70 +113,84 @@ export default function Profile() {
   const [clubOnboardingOpen, setClubOnboardingOpen] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     async function load() {
-      const isAuthed = await stageClient.auth.isAuthenticated();
-      if (!isAuthed) { setLoading(false); return; }
-      const { user: u, player: resolvedPlayer, club: resolvedClub_ } = await resolveMyPlayerAndClub();
-      if (!u) { setLoading(false); return; }
-      setUser(u);
-      const cl = await stageClient.entities.Club.list("-rating", 200);
-      setClubs(cl);
-      if (resolvedPlayer) {
-        const p = resolvedPlayer;
-        setPlayer(p);
-        stageClient.identityClaims
-          .list({ player_id: p.id }, "-created_date", 20)
-          .then(setIdentityClaims)
-          .catch(() => setIdentityClaims([]));
-        setPlayerForm({
-          gamertag: p.gamertag || "",
-          position: p.position || "CM",
-          secondary_position: p.secondary_position || "none",
-          platform: p.platform || "PlayStation",
-          overall_rating: p.overall_rating || 70,
-          country: p.country || "",
-          country_code: p.country_code || "",
-          bio: p.bio || "",
-          shirt_number: p.shirt_number ?? "",
-        });
-        // Load PvP matches in background
-        stageClient.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpHome => {
-          stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 30).then(pvpAway => {
+      try {
+        const isAuthed = await stageClient.auth.isAuthenticated();
+        if (!isAuthed) return;
+        const { user: u, player: resolvedPlayer, club: resolvedClub_ } = await resolveMyPlayerAndClub();
+        if (!u || !alive) return;
+        setUser(u);
+        const cl = await stageClient.entities.Club.list("-rating", 200).catch(() => []);
+        if (!alive) return;
+        setClubs(cl);
+        if (resolvedPlayer) {
+          const p = resolvedPlayer;
+          setPlayer(p);
+          stageClient.identityClaims
+            .list({ player_id: p.id }, "-created_date", 20)
+            .then(rows => { if (alive) setIdentityClaims(rows); })
+            .catch(() => { if (alive) setIdentityClaims([]); });
+          setPlayerForm({
+            gamertag: p.gamertag || "",
+            position: p.position || "CM",
+            secondary_position: p.secondary_position || "none",
+            platform: p.platform || "PlayStation",
+            overall_rating: p.overall_rating || 70,
+            country: p.country || "",
+            country_code: p.country_code || "",
+            bio: p.bio || "",
+            shirt_number: p.shirt_number ?? "",
+          });
+          // Load PvP matches in background.
+          Promise.all([
+            stageClient.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 30).catch(() => []),
+            stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 30).catch(() => []),
+          ]).then(([pvpHome, pvpAway]) => {
+            if (!alive) return;
             const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
             const pvpMap = new Map();
             allPvp.forEach(m => pvpMap.set(m.id, m));
             setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)));
           });
-        });
 
-        // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
-        const resolvedClub = resolvedClub_;
-        if (resolvedClub) {
-          setMyClub(resolvedClub);
-          setClubForm({
-            name: resolvedClub.name || "",
-            tag: resolvedClub.tag || "",
-            platform: resolvedClub.platform || "PlayStation",
-            region: resolvedClub.region || "Europe",
-            description: resolvedClub.description || "",
-            country_code: resolvedClub.country_code || "",
-          });
+          // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
+          const resolvedClub = resolvedClub_;
+          if (resolvedClub) {
+            setMyClub(resolvedClub);
+            setClubForm({
+              name: resolvedClub.name || "",
+              tag: resolvedClub.tag || "",
+              platform: resolvedClub.platform || "PlayStation",
+              region: resolvedClub.region || "Europe",
+              description: resolvedClub.description || "",
+              country_code: resolvedClub.country_code || "",
+            });
+          }
+        } else {
+          // No player yet — go to edit to create one
+          setView("edit_player");
         }
-      } else {
-        // No player yet — go to edit to create one
-        setView("edit_player");
+        const [notifs, joinReqs] = await Promise.all([
+          stageClient.entities.Notification.filter({ recipient_email: u.email }, "-created_date", 30).catch(() => []),
+          resolvedPlayer?.club_id
+            ? stageClient.entities.JoinRequest.filter({ club_id: resolvedPlayer.club_id, status: "pending" }, "-created_date", 30).catch(() => [])
+            : Promise.resolve([]),
+        ]);
+        if (alive) {
+          setNotifications(notifs);
+          setJoinRequests(joinReqs);
+        }
+      } catch (err) {
+        console.error("[Profile] Failed to load profile", err);
+      } finally {
+        if (alive) setLoading(false);
       }
-      const [notifs, joinReqs] = await Promise.all([
-        stageClient.entities.Notification.filter({ recipient_email: u.email }, "-created_date", 30),
-        pl.length > 0 && pl[0].club_id
-          ? stageClient.entities.JoinRequest.filter({ club_id: pl[0].club_id, status: "pending" }, "-created_date", 30)
-          : Promise.resolve([]),
-      ]);
-      setNotifications(notifs);
-      setJoinRequests(joinReqs);
-      setLoading(false);
     }
     load();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function savePlayer() {

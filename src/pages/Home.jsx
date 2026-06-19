@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import IntroVideoImage from "@/components/shared/IntroVideoImage";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { shouldShowDiscordPrompt } from "@/lib/discordJoin";
 import { COMPETITIONS } from "@/lib/competitionUtils";
@@ -95,27 +94,18 @@ function FaqItem({ question, answer }) {
 }
 
 /* ── Alternating image / text section ───────────────────── */
-function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center", imageZoom, introVideo }) {
+function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "center", imageZoom }) {
   const img = imageUrl ? (
-    introVideo ? (
-      <IntroVideoImage
-        src={imageUrl}
-        alt={title}
-        objectPosition={objectPosition}
-        imgClassName="h-56 sm:h-72"
-      />
-    ) : (
-      <div
-        role="img"
-        aria-label={title}
-        className="w-full h-56 sm:h-72 rounded-2xl border border-border bg-cover bg-no-repeat"
-        style={{
-          backgroundImage: `url(${imageUrl})`,
-          backgroundPosition: objectPosition,
-          backgroundSize: imageZoom ? `${imageZoom}%` : "cover",
-        }}
-      />
-    )
+    <div
+      role="img"
+      aria-label={title}
+      className="w-full h-56 sm:h-72 rounded-2xl border border-border bg-cover bg-no-repeat"
+      style={{
+        backgroundImage: `url(${imageUrl})`,
+        backgroundPosition: objectPosition,
+        backgroundSize: imageZoom ? `${imageZoom}%` : "cover",
+      }}
+    />
   ) : (
     <div className="w-full h-56 sm:h-72 rounded-2xl bg-secondary/40 border border-border flex items-center justify-center">
       <Icon className="w-12 h-12 text-muted-foreground/20" />
@@ -747,7 +737,7 @@ export default function Home() {
           FEATURE SECTION 2 — How It Works
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition={textOrDefault(c.section2_image_position, "center top")} imageZoom={c.section2_image_zoom ? Number(c.section2_image_zoom) : null} introVideo />
+        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition={textOrDefault(c.section2_image_position, "center top")} imageZoom={c.section2_image_zoom ? Number(c.section2_image_zoom) : null} />
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -759,7 +749,7 @@ export default function Home() {
           FEATURE SECTION 3 — Built for Competitors
          ══════════════════════════════════════════════════════ */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition={textOrDefault(c.section3_image_position, "center top")} imageZoom={c.section3_image_zoom ? Number(c.section3_image_zoom) : null} introVideo />
+        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition={textOrDefault(c.section3_image_position, "center top")} imageZoom={c.section3_image_zoom ? Number(c.section3_image_zoom) : null} />
       </div>
 
       {/* ══════════════════════════════════════════════════════

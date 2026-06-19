@@ -221,7 +221,13 @@ app.get('/api/stage/public/landing-content', async (_req, res) => {
   try {
     const LC = require('./server/models/landingConfigModel');
     const rows = await new LC().selectAll(1);
-    res.json(rows[0] || {});
+    const content = { ...(rows[0] || {}) };
+    delete content.intro_video_url;
+    delete content.video_url;
+    delete content.section1_video_url;
+    delete content.section2_video_url;
+    delete content.section3_video_url;
+    res.json(content);
   } catch { res.json({}); }
 });
 

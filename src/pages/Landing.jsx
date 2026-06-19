@@ -5,7 +5,6 @@ import LogoImg from '@/assets/Stadium Logo.png';
 import TrophiesImg from '@/assets/Trophies.PNG';
 import CoachLuisImg from '@/assets/Coach Luis.PNG';
 import DDZImg from '@/assets/DDZ.PNG';
-import IntroVideoImage from '@/components/shared/IntroVideoImage';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -25,17 +24,8 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
 };
 
 /* ─── alternating picture + text section ─────────────────── */
-function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', imageZoom, accent = '#3b82f6', introVideo = false }) {
+function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', imageZoom, accent = '#3b82f6' }) {
   const frame = imageUrl ? (
-    introVideo ? (
-      <IntroVideoImage
-        src={imageUrl}
-        alt={title}
-        objectPosition={objectPosition}
-        className="w-full aspect-[16/10] shadow-2xl"
-        imgClassName="h-full min-h-[240px] aspect-[16/10]"
-      />
-    ) : (
     <div
       role="img"
       aria-label={title}
@@ -47,7 +37,6 @@ function PictureSection({ tag, title, text, imageUrl, flip = false, objectPositi
       }}
     >
     </div>
-    )
   ) : (
     <div className="w-full aspect-[16/10] rounded-2xl border border-white/10 bg-white/4 flex items-center justify-center">
       <p className="text-white/15 text-xs uppercase tracking-widest">Image</p>
@@ -178,7 +167,6 @@ const DEFAULT_PICTURE_SECTIONS = [
     accent: '#3b82f6',
     imageUrl: CoachLuisImg,
     objectPosition: 'center',
-    introVideo: true,
   },
   {
     tag: 'Grow',
@@ -225,7 +213,6 @@ export default function Landing({ onSignIn }) {
     imageUrl: cms?.[`section${i + 1}_image_url`] || s.imageUrl,
     objectPosition: cms?.[`section${i + 1}_image_position`] || s.objectPosition,
     imageZoom: cms?.[`section${i + 1}_image_zoom`] ? Number(cms[`section${i + 1}_image_zoom`]) : null,
-    introVideo: s.introVideo ?? false,
   }));
 
   return (
