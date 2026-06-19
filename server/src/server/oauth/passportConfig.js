@@ -54,7 +54,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
   await EXECUTESQL(
     `INSERT INTO players
        (id, email, gamertag, avatar_url, oauth_provider, oauth_id, credits, subscription, created_date)
-     VALUES (?, ?, ?, ?, ?, ?, 0, 'rookie', NOW())`,
+     VALUES (?, ?, ?, ?, ?, ?, 50, 'free', NOW())`,
     [id, safeEmail, gamertag, avatar || null, provider, oauthId]
   );
 

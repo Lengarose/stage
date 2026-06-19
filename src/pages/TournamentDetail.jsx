@@ -37,6 +37,7 @@ import DressingRoom from "../components/DressingRoom";
 import TournamentWinnerPressRoomDialog from "../components/TournamentWinnerPressRoomDialog";
 import { toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
+import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
 
 export default function TournamentDetail() {
   const { id } = useParams();
@@ -118,15 +119,8 @@ export default function TournamentDetail() {
           }
         }
 
-        const subs = await stageClient.entities.UserPurchase
-          .filter({ buyer_email: u.email, item_type: "subscription" })
-          .catch(() => []);
-        const subIds = subs.map(s => s.item_id);
-        const isElite = subIds.includes("sub_elite");
-        const isPro = subIds.includes("sub_pro") || isElite;
-        setIsBasic(u.role === "admin" || isPro);
-        const cost = u.role === "admin" ? 0 : isElite ? 30 : isPro ? 40 : 50;
-        setTournamentEntryCost(cost);
+        setIsBasic(u.role === "admin");
+        setTournamentEntryCost(u.role === "admin" ? 0 : getTournamentEntryCost());
         setIsAdmin(u.role === "admin");
         setIsCreator(t?.creator_email === u.email);
         if (t?.status === 'completed' && t?.winner_club_id) {
@@ -255,7 +249,7 @@ export default function TournamentDetail() {
     if (!myPlayer || !tournament) return;
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-    const currentCredits = myPlayer.credits ?? 500;
+    const currentCredits = myPlayer.credits ?? 50;
     if (currentCredits < entryCost) { await swalAlert("Not enough credits."); return; }
     if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
       await swalAlert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
@@ -1080,7 +1074,7 @@ function resetUI() {
               })()}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-                <Button onClick={registerPlayer} disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50)}
+                <Button onClick={registerPlayer} disabled={(myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50)}
                 className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                   <Users className="w-4 h-4 mr-2" /> Register as Player
                   <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
@@ -1156,7 +1150,7 @@ function resetUI() {
             })()}
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-              <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 500) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+              <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                 <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
               </Button>
             )}

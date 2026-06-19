@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
 const Match = require('../models/matchModel');
+const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -1075,16 +1076,29 @@ const CREDIT_PACKS = {
   credits_1500: { priceId: 'price_1TOb2Y2fnaWmNMFQArERKaS1', credits: 1500 },
 };
 
+const STAGE_PLUS_MONTHLY_CREDITS = DEFAULT_STORE_SETTINGS.monthly_credits;
+const TOURNAMENT_ENTRY_CREDITS = DEFAULT_STORE_SETTINGS.tournament_entry_credits;
+
 const SUBSCRIPTION_PRICE_ENV = {
-  pro: {
-    monthly: 'STRIPE_PRO_MONTHLY_PRICE_ID',
-    yearly: 'STRIPE_PRO_YEARLY_PRICE_ID',
-  },
-  elite: {
-    monthly: 'STRIPE_ELITE_MONTHLY_PRICE_ID',
-    yearly: 'STRIPE_ELITE_YEARLY_PRICE_ID',
+  stage_plus: {
+    monthly: ['STRIPE_STAGE_PLUS_MONTHLY_PRICE_ID', 'STRIPE_ELITE_MONTHLY_PRICE_ID'],
+    yearly: ['STRIPE_STAGE_PLUS_YEARLY_PRICE_ID', 'STRIPE_ELITE_YEARLY_PRICE_ID'],
   },
 };
+
+function normalizeSubscriptionTier(tier) {
+  const normalized = String(tier || '').toLowerCase();
+  if (['stage_plus', 'plus', 'pro', 'elite'].includes(normalized)) return 'stage_plus';
+  return 'free';
+}
+
+function getFirstConfiguredEnv(keys = []) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return '';
+}
 
 async function createStripeCheckoutSession(fields) {
   const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
@@ -1103,6 +1117,19 @@ async function createStripeCheckoutSession(fields) {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
   });
+  return res.data;
+}
+
+async function retrieveStripeCheckoutSession(sessionId) {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+  if (!stripeSecret) {
+    throw new Error('Stripe checkout is not configured on the server');
+  }
+  if (!sessionId) throw new Error('session_id required');
+  const res = await axios.get(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+    { headers: { Authorization: `Bearer ${stripeSecret}` } }
+  );
   return res.data;
 }
 
@@ -1660,10 +1687,12 @@ const HANDLERS = {
   async stripeSubscription({ _auth_user_id, tier, billing = 'monthly', successUrl, cancelUrl }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!successUrl || !cancelUrl) throw new Error('successUrl and cancelUrl required');
-    const normalizedTier = String(tier || '').toLowerCase();
+    const normalizedTier = normalizeSubscriptionTier(tier);
     const normalizedBilling = String(billing || 'monthly').toLowerCase();
-    const envKey = SUBSCRIPTION_PRICE_ENV[normalizedTier]?.[normalizedBilling];
-    const priceId = envKey ? process.env[envKey] : '';
+    if (normalizedTier !== 'stage_plus') throw new Error('STAGE Plus is the only available subscription');
+    const storeSettings = await getActiveStoreSettings();
+    const envKeys = SUBSCRIPTION_PRICE_ENV.stage_plus?.[normalizedBilling] || [];
+    const priceId = getFirstConfiguredEnv(envKeys);
     if (!priceId) throw new Error(`Stripe price is not configured for ${normalizedTier || 'unknown'} ${normalizedBilling}`);
     const session = await createStripeCheckoutSession({
       mode: 'subscription',
@@ -1674,19 +1703,146 @@ const HANDLERS = {
       'metadata[user_id]': _auth_user_id,
       'metadata[tier]': normalizedTier,
       'metadata[billing]': normalizedBilling,
+      'metadata[monthly_credit_allowance]': storeSettings.monthly_credits,
+      'metadata[credit_policy]': 'refresh_not_stack',
     });
     return { data: { success: true, url: session.url, id: session.id } };
   },
 
-  async fixSubscription({ _auth_user_id }) {
+  async fixSubscription({ _auth_user_id, session_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
+    if (!session_id) {
+      return {
+        data: {
+          success: false,
+          pending: true,
+          error: 'Subscription activation requires a Stripe checkout session id',
+        },
+      };
+    }
+
+    const session = await retrieveStripeCheckoutSession(session_id);
+    if (String(session.mode || '') !== 'subscription') throw new Error('Stripe session is not a subscription checkout');
+    if (!['paid', 'no_payment_required'].includes(String(session.payment_status || ''))) {
+      throw new Error('Stripe subscription payment is not complete yet');
+    }
+    if (String(session.metadata?.user_id || '') !== String(_auth_user_id)) {
+      throw new Error('Stripe session does not belong to this user');
+    }
+    const tier = normalizeSubscriptionTier(session.metadata?.tier);
+    if (tier !== 'stage_plus') throw new Error('Stripe session is not for STAGE Plus');
+    const storeSettings = await getActiveStoreSettings();
+    const billing = String(session.metadata?.billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
+    const expiresAtExpr = billing === 'yearly' ? 'DATE_ADD(NOW(), INTERVAL 1 YEAR)' : 'DATE_ADD(NOW(), INTERVAL 1 MONTH)';
+
+    const playerRows = await EXECUTESQL(
+      `SELECT p.*
+       FROM players p
+       LEFT JOIN users u ON u.id = ?
+       WHERE p.user_id = ?
+          OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+       ORDER BY p.user_id = ? DESC, p.updated_date DESC
+       LIMIT 1`,
+      [_auth_user_id, _auth_user_id, _auth_user_id]
+    );
+    if (!playerRows.length) throw new Error('Player profile not found');
+    const player = playerRows[0];
+    const nextCredits = Math.max(Number(player.credits || 0), Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
+    await EXECUTESQL(
+      `UPDATE players
+       SET subscription = 'stage_plus',
+           subscription_billing = ?,
+           subscription_expires_at = ${expiresAtExpr},
+           stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+           stripe_customer_id = COALESCE(?, stripe_customer_id),
+           credits = ?,
+           updated_date = NOW()
+       WHERE id = ?`,
+      [
+        billing,
+        session.subscription || null,
+        session.customer || null,
+        nextCredits,
+        player.id,
+      ]
+    );
+
     return {
       data: {
-        success: false,
-        pending: true,
-        error: 'Subscription activation must be confirmed by Stripe webhook/admin reconciliation',
+        success: true,
+        tier: 'stage_plus',
+        billing,
+        credits_before: Number(player.credits || 0),
+        credits_after: nextCredits,
+        credits_added: Math.max(0, nextCredits - Number(player.credits || 0)),
+        monthly_credit_allowance: Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS),
+        credit_policy: 'refresh_not_stack',
       },
     };
+  },
+
+  async adminSubscriptionGrant({ _auth_user_id, player_id, action = 'grant_stage_plus', months = 1, billing = 'monthly', reason }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!player_id) throw new Error('player_id required');
+    const playerRows = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+    if (!playerRows.length) throw new Error('Player not found');
+    const before = playerRows[0];
+    const normalizedAction = String(action || '').toLowerCase();
+
+    if (normalizedAction === 'remove_stage_plus') {
+      await EXECUTESQL(
+        `UPDATE players
+         SET subscription = 'free',
+             subscription_billing = NULL,
+             subscription_expires_at = NULL,
+             updated_date = NOW()
+         WHERE id = ?`,
+        [player_id]
+      );
+      const after = (await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]))[0];
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'remove_stage_plus',
+        entityType: 'player',
+        entityId: player_id,
+        entityName: before.gamertag || before.email,
+        oldValue: before,
+        newValue: after,
+        reason,
+      });
+      return { data: { success: true, player: after } };
+    }
+
+    if (normalizedAction !== 'grant_stage_plus') throw new Error('Unsupported subscription action');
+    const storeSettings = await getActiveStoreSettings();
+    const grantMonths = Math.min(Math.max(Number(months) || 1, 1), 24);
+    const normalizedBilling = String(billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
+    const nextCredits = Math.max(Number(before.credits || 0), Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
+
+    await EXECUTESQL(
+      `UPDATE players
+       SET subscription = 'stage_plus',
+           subscription_billing = ?,
+           subscription_expires_at = DATE_ADD(NOW(), INTERVAL ? MONTH),
+           credits = ?,
+           updated_date = NOW()
+       WHERE id = ?`,
+      [normalizedBilling, grantMonths, nextCredits, player_id]
+    );
+    const after = (await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]))[0];
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'grant_stage_plus',
+      entityType: 'player',
+      entityId: player_id,
+      entityName: before.gamertag || before.email,
+      oldValue: before,
+      newValue: after,
+      reason,
+    });
+    return { data: { success: true, player: after } };
   },
 
   async transferPayment({
@@ -6579,7 +6735,8 @@ const HANDLERS = {
         return fail(`Invalid tournament entry fee. Must be between ${MIN_STC} and ${MAX_STC.toLocaleString()} STC`);
       }
 
-      const requiredCredits = Number(tournament.entry_credits ?? 0);
+      const storeSettings = await getActiveStoreSettings();
+      const requiredCredits = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
 
       const participantType = String(tournament.participant_type || 'club').toLowerCase();
       const isClubTourney = participantType !== 'player';
@@ -6848,7 +7005,8 @@ const HANDLERS = {
       if (String(tournament.status || '') === 'cancelled') return fail('Tournament is already cancelled');
 
       const entryFee    = Number(tournament.entry_fee_stc || 0);
-      const entryCost   = Number(tournament.entry_credits ?? 0);
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost   = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
       const isClubTourney = String(tournament.participant_type || 'club').toLowerCase() !== 'player';
 
       // ── Refund clubs ────────────────────────────────────────────────────────

@@ -107,6 +107,7 @@ app.use('/api/stage/landing-page-contents',     verifyToken, require('./server/c
 app.use('/api/stage/home-page-contents',        verifyToken, require('./server/controllers/homePageContentController'));
 app.use('/api/stage/faq-items',                 verifyToken, require('./server/controllers/faqItemController'));
 app.use('/api/stage/landing-configs',           verifyToken, require('./server/controllers/landingConfigController'));
+app.use('/api/stage/store-configs',             verifyToken, require('./server/controllers/storeConfigController'));
 app.use('/api/stage/transfer-windows',          verifyToken, require('./server/controllers/transferWindowController'));
 app.use('/api/stage/fixture-admin-actions',     verifyToken, require('./server/controllers/fixtureAdminActionController'));
 app.use('/api/stage/reward-configs',             verifyToken, require('./server/controllers/rewardConfigController'));
@@ -278,6 +279,12 @@ async function runStartupMigrations() {
   };
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
+    .catch((err) => console.error('[migration] players.subscription default:', err.message));
+  await addCol('players', 'subscription_expires_at', 'DATETIME NULL');
+  await addCol('players', 'subscription_billing', 'VARCHAR(20) NULL');
+  await addCol('players', 'stripe_subscription_id', 'VARCHAR(255) NULL');
+  await addCol('players', 'stripe_customer_id', 'VARCHAR(255) NULL');
   await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
   await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
   await addCol('players', 'verified_platform', 'VARCHAR(50) NULL');
@@ -1232,6 +1239,41 @@ async function runStartupMigrations() {
     INDEX idx_faq_sort (sort_order),
     INDEX idx_faq_active (is_active)
   )`).catch(err => console.error('[migration] faq_items:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS store_configs (
+    id                         VARCHAR(36)   NOT NULL PRIMARY KEY,
+    name                       VARCHAR(100)  NULL,
+    stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 5.99,
+    stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 59.99,
+    monthly_credits            INT           NOT NULL DEFAULT 300,
+    starter_credits            INT           NOT NULL DEFAULT 50,
+    tournament_entry_credits   INT           NOT NULL DEFAULT 50,
+    community_tournament_limit INT           NOT NULL DEFAULT 5,
+    headline                   VARCHAR(255)  NULL,
+    description                TEXT          NULL,
+    perks                      JSON          NULL,
+    is_active                  TINYINT(1)    NOT NULL DEFAULT 1,
+    created_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_store_configs_active (is_active)
+  )`).catch(err => console.error('[migration] store_configs:', err.message));
+
+  const storeConfigCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM store_configs', []).catch(() => [{ n: 1 }]);
+  if (Number(storeConfigCount[0]?.n || 0) === 0) {
+    await EXECUTESQL(
+      `INSERT INTO store_configs
+         (id, name, stage_plus_monthly_price, stage_plus_yearly_price, monthly_credits,
+          starter_credits, tournament_entry_credits, community_tournament_limit, headline,
+          description, perks, is_active, created_date, updated_date)
+       VALUES
+         ('store-stage-plus-default', 'STAGE Plus', 5.99, 59.99, 300, 50, 50, 5,
+          'One membership for serious competitors',
+          'STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.',
+          JSON_ARRAY('Enter official STAGE competitions and regional leagues','Create community tournaments','300 credits refreshed every month','Ranked player and club competition access','Advanced player and club discovery'),
+          1, NOW(), NOW())`,
+      []
+    ).catch(err => console.error('[migration] store_configs seed:', err.message));
+  }
 
   const faqCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM faq_items', []).catch(() => [{ n: 1 }]);
   if (Number(faqCount[0]?.n) === 0) {

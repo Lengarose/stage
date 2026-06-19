@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { stageClient } from "@/api/stageClient";
-import { Shield, Search, Plus, ArrowRight, Loader2, Check } from "lucide-react";
+import { Shield, Search, Plus, ArrowRight, Loader2, Check, Crown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -180,6 +181,22 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                 <p className="font-bold text-foreground text-base">Join Club</p>
                 <p className="text-xs text-muted-foreground mt-1">Browse clubs and send a join request</p>
               </button>
+            </div>
+            <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+                  <Crown className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                    Compete deeper with STAGE Plus
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Free gives you {TOURNAMENT_ENTRY_CREDITS} starter credits for one tournament. Plus unlocks regional league applications, community tournament creation, ranked play, and {STAGE_PLUS_MONTHLY_CREDITS} monthly refreshed credits.
+                  </p>
+                </div>
+              </div>
             </div>
             <Button variant="ghost" onClick={() => onComplete?.(null)} className="w-full text-muted-foreground text-sm">
               Skip for now

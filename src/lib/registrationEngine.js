@@ -1,4 +1,5 @@
 import { stageClient } from "@/api/stageClient";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 // ─── Club → League registration flow ─────────────────────────────────────────
 //
@@ -21,6 +22,12 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
   note = "",
   seasonLabel = "",
 } = {}) {
+  const user = await stageClient.auth.me();
+  const isAdmin = user?.role === "admin" || [0, 2].includes(Number(user?.role_id));
+  if (!isAdmin && !hasStagePlus(user?.subscription)) {
+    throw new Error("STAGE Plus is required to enter STAGE regional leagues and official competitions.");
+  }
+
   // Guard: no duplicate active application for same region + platform
   const existing = await (stageClient.entities.SeasonRegistration?.filter({
     club_id: club.id,

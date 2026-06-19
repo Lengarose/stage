@@ -34,6 +34,10 @@ function serializeVal(v) {
   return v;
 }
 
+function hasStagePlus(subscription) {
+  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
+}
+
 // Parse a stored row back into a plain object the frontend expects.
 function parseRow(row) {
   if (!row) return null;
@@ -126,6 +130,20 @@ function makeRouter(entityType) {
   router.post('/', async (req, res) => {
     try {
       const body = req.body || {};
+      if (entityType === 'season_registration') {
+        const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
+        const user = userRows[0] || null;
+        const isAdmin = [0, 2].includes(Number(user?.role_id));
+        if (!isAdmin) {
+          const playerRows = await EXECUTESQL(
+            'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+            [req.user?.id || null, user?.email || '', req.user?.id || null]
+          );
+          if (!hasStagePlus(playerRows[0]?.subscription)) {
+            return res.status(403).json({ error: 'STAGE Plus is required to enter STAGE regional leagues and official competitions.' });
+          }
+        }
+      }
       const id   = body.id || uuidv4();
       const n    = now();
       const indexed = extractIndexed(body);

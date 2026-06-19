@@ -211,9 +211,9 @@ export default function Profile() {
       const created = await stageClient.entities.Player.create({
         ...formToSave,
         email: user.email,
-        credits: 500,
+        credits: 50,
         stc: 50_000,
-        subscription: "rookie",
+        subscription: "free",
       });
       setPlayer(created);
       setPlayerForm(f => ({

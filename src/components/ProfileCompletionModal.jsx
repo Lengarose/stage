@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { stageClient } from "@/api/stageClient";
-import { Loader2 } from "lucide-react";
+import { Crown, Loader2, Sparkles } from "lucide-react";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import { COUNTRIES } from "@/lib/countries";
 import { swalAlert } from "@/lib/swal";
+import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["PlayStation", "Xbox", "PC"];
@@ -152,6 +153,23 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
               placeholder="Tell us about yourself..."
               className="bg-secondary border-border resize-none h-20"
             />
+          </div>
+
+          <div className="rounded-xl border border-primary/25 bg-primary/10 p-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+                <Crown className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  STAGE Plus is available
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your free account starts with {TOURNAMENT_ENTRY_CREDITS} credits. Plus unlocks official competitions, tournament creation, ranked play, and refreshes {STAGE_PLUS_MONTHLY_CREDITS} credits monthly.
+                </p>
+              </div>
+            </div>
           </div>
 
           <Button

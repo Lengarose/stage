@@ -1,7 +1,16 @@
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
-import { TIER_LABELS, TIER_COLORS } from "@/lib/subscriptionUtils";
+import {
+  COMMUNITY_TOURNAMENT_LIMIT,
+  STAGE_PLUS_MONTHLY_CREDITS,
+  STAGE_PLUS_PRICE,
+  TIER_COLORS,
+  TIER_LABELS,
+  TOURNAMENT_ENTRY_CREDITS,
+  hasStagePlus,
+  normalizeSubscriptionTier,
+} from "@/lib/subscriptionUtils";
 import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,11 +18,19 @@ import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 
 const TYPE_LABELS = { credits: "Credits", subscription: "Subscriptions" };
-const SUB_PRICES = {
-  pro:   { monthly: 3.99, yearly: 35.99 },
-  elite: { monthly: 9.99, yearly: 89.99 },
-};
 const TYPE_ICONS = { credits: Coins, subscription: Crown };
+const DEFAULT_STORE_CONFIG = {
+  name: "STAGE Plus",
+  stage_plus_monthly_price: STAGE_PLUS_PRICE.monthly,
+  stage_plus_yearly_price: STAGE_PLUS_PRICE.yearly,
+  monthly_credits: STAGE_PLUS_MONTHLY_CREDITS,
+  starter_credits: TOURNAMENT_ENTRY_CREDITS,
+  tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
+  community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
+  headline: "One membership for serious competitors",
+  description: "STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.",
+  perks: [],
+};
 
 const CREDIT_PACKS = [
   { id: "credits_100",  credits: 100,  price_eur: 0.99, stripe_price_id: "price_1TOayT2fnaWmNMFQby00tHqR", label: null },
@@ -23,16 +40,13 @@ const CREDIT_PACKS = [
 ];
 
 const BADGE_IMAGES = {
-  sub_rookie: "https://stageleagues.com/uploads/rookie.png",
-  sub_pro:    "https://stageleagues.com/uploads/pro.png",
-  sub_elite:  "https://stageleagues.com/uploads/elite.png",
+  sub_stage_plus: "https://stageleagues.com/uploads/elite.png",
 };
 
 export default function Store() {
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
-  const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -41,18 +55,20 @@ export default function Store() {
   const [creditTarget, setCreditTarget] = useState("player");
   const [subBilling, setSubBilling] = useState("monthly");
   const [subError, setSubError] = useState(null);
+  const [storeConfig, setStoreConfig] = useState(DEFAULT_STORE_CONFIG);
 
   useEffect(() => {
     async function load() {
+      const cfgRows = await stageClient.entities.StoreConfig.filter({ is_active: 1, with_defaults: 1 }, "-updated_date", 1).catch(() => []);
+      const cfg = { ...DEFAULT_STORE_CONFIG, ...(cfgRows?.[0] || {}) };
+      setStoreConfig(cfg);
       const { user: u, player: pl, club } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
       setUser(u);
-      const purch = await stageClient.entities.UserPurchase.filter({ buyer_email: u.email }).catch(() => []);
       if (pl) {
         setPlayer(pl);
         if (club) setMyClub(club);
       }
-      setPurchases(purch);
       const mode = localStorage.getItem("stage-account-mode") || "player";
       if (mode === "club") setCreditTarget("club");
 
@@ -61,13 +77,15 @@ export default function Store() {
         setActiveTab('subscription');
         window.history.replaceState({}, '', '/store');
         try {
-          const fixRes = await stageClient.functions.invoke('fixSubscription', { email: u.email });
+          const fixRes = await stageClient.functions.invoke('fixSubscription', {
+            session_id: params.get('session_id'),
+          });
           if (fixRes.data?.success) {
             const refreshedPl = u.player_id
               ? await stageClient.entities.Player.get(u.player_id).catch(() => null)
               : null;
             if (refreshedPl) setPlayer(refreshedPl);
-            showNotif(`🌟 STAGE ${fixRes.data.tier?.toUpperCase()} activated! +${fixRes.data.credits_added} credits added.`, 'success');
+            showNotif(`STAGE Plus activated. Monthly credits refresh to ${Number(cfg.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS)}.`, 'success');
           } else {
             showNotif('Subscription activated! It may take a moment to reflect.', 'success');
           }
@@ -97,10 +115,6 @@ export default function Store() {
     load();
   }, []);
 
-  function isOwned(itemId) {
-    return purchases.some(p => p.item_id === itemId);
-  }
-
   async function handleCreditPurchase(pack) {
     if (!player) { showNotif("Create a player profile first!", "error"); return; }
     if (window.self !== window.top) { await swalAlert("Checkout is only available from the published app, not the preview."); return; }
@@ -120,22 +134,22 @@ export default function Store() {
     setPurchasing(null);
   }
 
-  async function handleSubscription(tier) {
+  async function handleSubscription() {
     if (window.self !== window.top) { await swalAlert('Checkout is only available from the published app.'); return; }
-    if (player?.subscription !== 'rookie' && player?.subscription_expires_at) {
+    if (hasStagePlus(player?.subscription) && player?.subscription_expires_at) {
       const expires = new Date(player.subscription_expires_at);
       if (expires > new Date()) {
-        setSubError(`Active subscription until ${expires.toLocaleDateString('en-GB')}. Change plans after it expires.`);
+        setSubError(`STAGE Plus is active until ${expires.toLocaleDateString('en-GB')}.`);
         return;
       }
     }
-    setPurchasing(`sub_${tier}`);
+    setPurchasing("sub_stage_plus");
     setSubError(null);
     try {
       const res = await stageClient.functions.invoke('stripeSubscription', {
-        tier,
+        tier: "stage_plus",
         billing: subBilling,
-        successUrl: `${window.location.origin}/store?sub=success&tier=${tier}&billing=${subBilling}`,
+        successUrl: `${window.location.origin}/store?sub=success&tier=stage_plus&billing=${subBilling}&session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${window.location.origin}/store?sub=cancelled`,
       });
       if (res.data?.url) window.location.href = res.data.url;
@@ -158,10 +172,14 @@ export default function Store() {
 
   const credits = creditTarget === "club" ? (myClub?.credits ?? 0) : (player?.credits ?? 0);
   const categories = ["credits", "subscription"];
-  const currentTier = player?.subscription || "rookie";
+  const currentTier = normalizeSubscriptionTier(player?.subscription);
   const badgeImg = BADGE_IMAGES[`sub_${currentTier}`];
   const tierLabel = TIER_LABELS[currentTier];
   const tierColor = TIER_COLORS[currentTier];
+  const monthlyCredits = Number(storeConfig.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
+  const starterCredits = Number(storeConfig.starter_credits || TOURNAMENT_ENTRY_CREDITS);
+  const entryCredits = Number(storeConfig.tournament_entry_credits || TOURNAMENT_ENTRY_CREDITS);
+  const tournamentLimit = Number(storeConfig.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
@@ -268,20 +286,24 @@ export default function Store() {
                   <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-foreground mb-1">Get more with STAGE Pro or Elite</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Subscriptions include monthly credits + exclusive perks.</p>
-                  <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                  <h3 className="font-bold text-foreground mb-1">STAGE Plus unlocks the full competition loop</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Free accounts start with {starterCredits} credits. After that, Plus unlocks tournament creation, official competition access, ranked play, and a monthly credit refresh.</p>
+                  <div className="grid sm:grid-cols-3 gap-3 mb-4">
                     <div className="bg-primary/10 border border-primary/20 rounded-xl p-3">
-                      <p className="font-bold text-primary text-sm">STAGE Pro</p>
-                      <p className="text-xs text-muted-foreground">100 credits/month · Discount on tournaments</p>
+                      <p className="font-bold text-primary text-sm">{monthlyCredits} credits</p>
+                      <p className="text-xs text-muted-foreground">Monthly allowance refresh, not stacked</p>
                     </div>
                     <div className="bg-warning/10 border border-warning/20 rounded-xl p-3">
-                      <p className="font-bold text-warning text-sm">STAGE Elite</p>
-                      <p className="text-xs text-muted-foreground">300 credits/month · All Pro perks · Verified badge</p>
+                      <p className="font-bold text-warning text-sm">{entryCredits} credits</p>
+                      <p className="text-xs text-muted-foreground">Standard tournament entry cost</p>
+                    </div>
+                    <div className="bg-success/10 border border-success/20 rounded-xl p-3">
+                      <p className="font-bold text-success text-sm">{tournamentLimit} tournaments</p>
+                      <p className="text-xs text-muted-foreground">Active community tournament slots</p>
                     </div>
                   </div>
                   <Button onClick={() => setActiveTab("subscription")} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 gap-2">
-                    <Crown className="w-4 h-4" /> View Subscription Plans
+                    <Crown className="w-4 h-4" /> View STAGE Plus
                   </Button>
                 </div>
               </div>
@@ -296,7 +318,7 @@ export default function Store() {
                   Yearly <span className="text-[10px] font-bold bg-success/20 text-success px-1.5 py-0.5 rounded-full">Save 25%</span>
                 </button>
               </div>
-              {player?.subscription !== 'rookie' && player?.subscription_expires_at && (
+              {hasStagePlus(player?.subscription) && player?.subscription_expires_at && (
                 <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
                   Expires: <strong className="text-foreground">{new Date(player.subscription_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                 </div>
@@ -305,14 +327,35 @@ export default function Store() {
             {subError && (
               <div className="mb-4 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-xl px-4 py-3">{subError}</div>
             )}
-            <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4 sm:gap-6">
               {STORE_ITEMS.filter(i => i.type === "subscription").map(item => (
-                <SubCard key={item.id} item={item} owned={isOwned(item.id)} credits={credits}
-                  purchasing={purchasing === `sub_${item.id.replace('sub_', '')}`}
-                  onBuy={() => handleSubscription(item.id.replace('sub_', ''))}
+                <SubCard key={item.id} item={item}
+                  purchasing={purchasing === item.id}
+                  onBuy={handleSubscription}
                   currentTier={currentTier} billing={subBilling} expiresAt={player?.subscription_expires_at}
+                  storeConfig={storeConfig}
                 />
               ))}
+              <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 space-y-4">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Free Account</p>
+                  <h3 className="text-2xl font-bold text-foreground">Start with {starterCredits} credits</h3>
+                  <p className="text-sm text-muted-foreground mt-2">Enough for one tournament entry. Credit packs stay available for extra entries or club spending without changing your subscription.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border bg-secondary/60 p-3">
+                    <p className="text-2xl font-black text-warning">{starterCredits}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Starter credits</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-secondary/60 p-3">
+                    <p className="text-2xl font-black text-primary">1</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Tournament entry</p>
+                  </div>
+                </div>
+                <Button onClick={() => setActiveTab("credits")} variant="outline" className="w-full border-warning/30 text-warning hover:bg-warning/10 gap-2">
+                  <Coins className="w-4 h-4" /> Buy Credits Separately
+                </Button>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -357,36 +400,60 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
   );
 }
 
-function SubCard({ item, owned, credits, purchasing, onBuy, currentTier, billing, expiresAt }) {
+function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, storeConfig = DEFAULT_STORE_CONFIG }) {
   const rarity = RARITY_STYLES[item.rarity];
   const badgeImg = BADGE_IMAGES[item.id];
   const tier = item.id.replace('sub_', '');
   const isCurrentTier = item.id === `sub_${currentTier}`;
-  const hasActiveSub = currentTier !== 'rookie' && expiresAt && new Date(expiresAt) > new Date();
-  const prices = SUB_PRICES[tier];
+  const hasActiveSub = hasStagePlus(currentTier) && expiresAt && new Date(expiresAt) > new Date();
+  const prices = tier === "stage_plus"
+    ? {
+        monthly: Number(storeConfig.stage_plus_monthly_price || STAGE_PLUS_PRICE.monthly),
+        yearly: Number(storeConfig.stage_plus_yearly_price || STAGE_PLUS_PRICE.yearly),
+      }
+    : null;
   const displayPrice = prices ? (billing === 'yearly' ? prices.yearly : prices.monthly) : null;
   const monthlyEquiv = prices && billing === 'yearly' ? (prices.yearly / 12).toFixed(2) : null;
+  const monthlyCredits = Number(storeConfig.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
+  const entryCredits = Number(storeConfig.tournament_entry_credits || TOURNAMENT_ENTRY_CREDITS);
+  const tournamentLimit = Number(storeConfig.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
+  const perks = Array.isArray(storeConfig.perks) && storeConfig.perks.length ? storeConfig.perks : item.perks;
 
   return (
-    <div className={cn("bg-card border rounded-2xl p-5 sm:p-6 space-y-4 relative overflow-hidden transition-all", rarity.bg)}>
-      <div className="absolute top-0 right-0 w-28 h-28 rounded-full blur-3xl opacity-20" style={{ background: item.id === "sub_elite" ? "#ffd200" : item.id === "sub_pro" ? "#00e5ff" : "#22ff88" }} />
+    <div className={cn("bg-card border rounded-2xl p-5 sm:p-6 space-y-5 relative overflow-hidden transition-all", rarity.bg)}>
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-cyan-300 to-success" />
+      <div className="absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl opacity-20 bg-primary" />
       <div className="relative flex items-center gap-3">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-black/20">
-          {badgeImg ? <img src={badgeImg} alt={item.name} className="w-full h-full object-cover" /> : <Shield className={cn("w-6 h-6", rarity.color)} />}
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-primary/15 border border-primary/30">
+          {badgeImg ? <img src={badgeImg} alt={item.name} className="w-full h-full object-cover" /> : <Crown className={cn("w-6 h-6", rarity.color)} />}
         </div>
         <div className="min-w-0">
-          <h3 className={cn("text-xl sm:text-2xl font-bold", rarity.color)}>{item.name}</h3>
+          <h3 className={cn("text-xl sm:text-2xl font-bold", rarity.color)}>{storeConfig.name || item.name}</h3>
           {displayPrice && (
             <div>
               <p className={cn("text-sm font-bold", rarity.color)}>€{displayPrice.toFixed(2)}<span className="text-xs font-normal text-muted-foreground">/{billing === 'yearly' ? 'year' : 'month'}</span></p>
               {monthlyEquiv && <p className="text-[10px] text-muted-foreground">≈ €{monthlyEquiv}/month</p>}
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{item.description}</p>
+          <p className="text-xs text-muted-foreground">{storeConfig.description || item.description}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-background/60 border border-border p-3">
+          <p className="font-black text-warning">{monthlyCredits}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Monthly credits</p>
+        </div>
+        <div className="rounded-xl bg-background/60 border border-border p-3">
+          <p className="font-black text-primary">{entryCredits}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry cost</p>
+        </div>
+        <div className="rounded-xl bg-background/60 border border-border p-3">
+          <p className="font-black text-success">{tournamentLimit}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Active events</p>
         </div>
       </div>
       <ul className="space-y-1.5">
-        {item.perks.map(perk => (
+        {perks.map(perk => (
           <li key={perk} className="flex items-center gap-2 text-sm text-foreground">
             <Check className={cn("w-4 h-4 shrink-0", rarity.color)} />
             {perk}
@@ -397,8 +464,6 @@ function SubCard({ item, owned, credits, purchasing, onBuy, currentTier, billing
         <div className={cn("flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-xl border", rarity.color, rarity.bg)}>
           <Check className="w-4 h-4" /> Current Plan
         </div>
-      ) : item.id === "sub_rookie" ? (
-        <div className="text-xs text-muted-foreground italic">Free — available to all users</div>
       ) : hasActiveSub ? (
         <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
           Available after {new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}

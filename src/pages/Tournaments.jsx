@@ -12,6 +12,7 @@ import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
+import { COMMUNITY_TOURNAMENT_LIMIT, TOURNAMENT_ENTRY_CREDITS, hasStagePlus } from "@/lib/subscriptionUtils";
 
 const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
@@ -81,9 +82,8 @@ export default function Tournaments() {
       } else {
         const { player } = await resolveMyPlayerAndClub();
         setMyPlayer(player);
-        const tier = player?.subscription || "rookie";
-        const allowed = ["pro", "elite"].includes(tier);
-        const limit = tier === "elite" ? 6 : tier === "pro" ? 3 : 0;
+        const allowed = hasStagePlus(player?.subscription);
+        const limit = allowed ? COMMUNITY_TOURNAMENT_LIMIT : 0;
         const active = data.filter(t =>
           t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)
         ).length;
@@ -118,9 +118,8 @@ export default function Tournaments() {
   async function createTournament() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
-      const tier = myPlayer?.subscription || "rookie";
-      if (!["pro", "elite"].includes(tier)) { await swalAlert("Pro/Elite required to create tournaments."); return; }
-      const limit = tier === "elite" ? 6 : 3;
+      if (!hasStagePlus(myPlayer?.subscription)) { await swalAlert("STAGE Plus is required to create tournaments."); return; }
+      const limit = COMMUNITY_TOURNAMENT_LIMIT;
       const active = tournaments.filter(t => t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)).length;
       if (active >= limit) { await swalAlert(`Limit of ${limit} active tournaments reached.`); return; }
     }
@@ -132,7 +131,7 @@ export default function Tournaments() {
         ...form,
         name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
         max_teams: parseInt(form.max_teams),
-        entry_credits: 0,
+        entry_credits: TOURNAMENT_ENTRY_CREDITS,
         entry_fee_stc: feeSTC,
         organizer_email: user.email,
         creator_email: user.email,
@@ -220,7 +219,7 @@ export default function Tournaments() {
               </>
             ) : (
               <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
-                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} — wait for slot` : "Pro/Elite required"}
+                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} — wait for slot` : "STAGE Plus required"}
               </div>
             )}
           </div>

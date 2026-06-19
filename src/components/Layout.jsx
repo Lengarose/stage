@@ -13,6 +13,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { isAppAdminUser, shouldShowAdminHeader } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
+import { normalizeSubscriptionTier } from "@/lib/subscriptionUtils";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
@@ -56,9 +57,12 @@ function findActiveInGroups(groups, pathname) {
 
 /* ── constants ─────────────────────────────────────────────── */
 const BADGE_IMAGES = {
-  rookie: "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e3c8b3841_generated_image.png",
-  pro:    "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/613a73d38_generated_image.png",
-  elite:  "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
+  stage_plus: "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
+};
+
+const SUBSCRIPTION_LABELS = {
+  free: "free",
+  stage_plus: "stage plus",
 };
 
 const THEMES = [
@@ -212,6 +216,7 @@ function getAdminGroups() {
         { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
         { path: "/admin/international-tournaments", icon: Globe2, label: "International" },
         { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
+        { path: "/admin/store", icon: ShoppingBag, label: "Store" },
       ],
     },
     {
@@ -445,7 +450,7 @@ function HeaderIdentityMenu({
                   {BADGE_IMAGES[subscriptionTier] && myPlayer && (
                     <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" />
                   )}
-                  <span style={subLabelStyle}>{myPlayer ? subscriptionTier : "Club"}</span>
+                  <span style={subLabelStyle}>{myPlayer ? (SUBSCRIPTION_LABELS[subscriptionTier] || subscriptionTier) : "Club"}</span>
                 </>
               )}
             </div>
@@ -1424,7 +1429,7 @@ export default function Layout() {
   const [tournamentParticipantType, setTournamentParticipantType] = useState(null);
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
-  const [subscriptionTier, setSubscriptionTier] = useState("rookie");
+  const [subscriptionTier, setSubscriptionTier] = useState("free");
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -1502,7 +1507,7 @@ export default function Layout() {
       // Player
       if (!p) return;
       setMyPlayer(p);
-      setSubscriptionTier((p.subscription || "rookie").toLowerCase());
+      setSubscriptionTier(normalizeSubscriptionTier(p.subscription));
       // Fire-and-forget: pay any pending weekly salary on app load
       processPlayerSalary(p).catch(() => {});
       if (!p.gamertag) {

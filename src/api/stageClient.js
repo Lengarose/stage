@@ -315,7 +315,7 @@ const ENTITY_NAMES = [
   // New reward/achievement entities
   'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
   // Pre-login landing page config
-  'LandingConfig',
+  'LandingConfig', 'StoreConfig',
   // Legacy/compat entities used in some screens
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
   // Post-login home page editor (separate from LandingPageContent)

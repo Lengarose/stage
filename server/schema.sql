@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS players (
   goals                 INT          DEFAULT 0,
   assists               INT          DEFAULT 0,
   credits               INT          DEFAULT 0,
-  subscription          VARCHAR(50)  DEFAULT 'rookie',
+  subscription          VARCHAR(50)  DEFAULT 'free',
   is_verified           TINYINT(1)   DEFAULT 0,
   verified_platform     VARCHAR(50),
   verified_platform_handle VARCHAR(150),
@@ -1711,6 +1711,26 @@ CREATE TABLE IF NOT EXISTS faq_items (
   updated_date DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_faq_sort (sort_order),
   INDEX idx_faq_active (is_active)
+);
+
+-- Store / STAGE Plus settings. Admin-editable source for the Store page and
+-- subscription credit refresh values.
+CREATE TABLE IF NOT EXISTS store_configs (
+  id                         VARCHAR(36)   NOT NULL PRIMARY KEY,
+  name                       VARCHAR(100)  NULL,
+  stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 5.99,
+  stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 59.99,
+  monthly_credits            INT           NOT NULL DEFAULT 300,
+  starter_credits            INT           NOT NULL DEFAULT 50,
+  tournament_entry_credits   INT           NOT NULL DEFAULT 50,
+  community_tournament_limit INT           NOT NULL DEFAULT 5,
+  headline                   VARCHAR(255)  NULL,
+  description                TEXT          NULL,
+  perks                      JSON          NULL,
+  is_active                  TINYINT(1)    NOT NULL DEFAULT 1,
+  created_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_store_configs_active (is_active)
 );
 
 -- Fixture admin actions — audit log for admin interventions on expired fixtures

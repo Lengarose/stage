@@ -19,6 +19,7 @@ import TrophiesTab from "@/components/admin/sections/TrophiesTab";
 import RewardsTab from "@/components/admin/sections/RewardsTab";
 import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
+import StoreTab from "@/components/admin/sections/StoreTab";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
 import { stageClient } from "@/api/stageClient";
 import { base44 } from "@/api/base44Client";
@@ -553,6 +554,44 @@ export default function Admin(props) {
       reason: "Removed from club in admin players panel",
     });
     setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" } : p));
+  }
+
+  async function grantStagePlus(player) {
+    const reason = await swalPrompt(`Grant STAGE Plus to ${player.gamertag || player.email}?`, {
+      placeholder: "Reason",
+      confirmText: "Grant Plus",
+    });
+    if (reason === null) return;
+    try {
+      const res = await stageClient.functions.invoke("adminSubscriptionGrant", {
+        player_id: player.id,
+        action: "grant_stage_plus",
+        months: 1,
+        billing: "monthly",
+        reason: reason || "Admin test access",
+      });
+      const updated = res?.data?.player;
+      if (updated?.id) setPlayers(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+      await swalAlert("STAGE Plus granted for 1 month.");
+    } catch (err) {
+      await swalAlert(`Could not grant STAGE Plus: ${err?.message || "Unknown error"}`);
+    }
+  }
+
+  async function removeStagePlus(player) {
+    if (!(await swalConfirm(`Remove STAGE Plus from ${player.gamertag || player.email}?`))) return;
+    try {
+      const res = await stageClient.functions.invoke("adminSubscriptionGrant", {
+        player_id: player.id,
+        action: "remove_stage_plus",
+        reason: "Admin removed STAGE Plus",
+      });
+      const updated = res?.data?.player;
+      if (updated?.id) setPlayers(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+      await swalAlert("STAGE Plus removed.");
+    } catch (err) {
+      await swalAlert(`Could not remove STAGE Plus: ${err?.message || "Unknown error"}`);
+    }
   }
 
   async function deleteUserCompletely(emailOrPlayer) {
@@ -1481,6 +1520,8 @@ export default function Admin(props) {
               setCreditsAmount={setCreditsAmount}
               openPlayerWallet={openPlayerWallet}
               kickFromClub={kickFromClub}
+              grantStagePlus={grantStagePlus}
+              removeStagePlus={removeStagePlus}
               reviewIdentityClaim={reviewIdentityClaim}
               deleteUserCompletely={deleteUserCompletely}
               onPlayerAccountDeleted={(playerId) => {
@@ -1702,6 +1743,10 @@ export default function Admin(props) {
 
           {adminTab === "home" && (
             <HomeTab />
+          )}
+
+          {adminTab === "store" && (
+            <StoreTab />
           )}
         </>
       )}

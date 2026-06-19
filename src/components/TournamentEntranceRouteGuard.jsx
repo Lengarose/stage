@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 function hasActivePlan(user) {
   const roleId = Number(user?.role_id ?? 1);
   if (roleId === 0 || roleId === 2 || user?.role === "admin") return true;
-  const sub = String(user?.subscription || "").toLowerCase();
-  return Boolean(sub) && !["", "rookie", "free", "basic_free"].includes(sub);
+  return hasStagePlus(user?.subscription);
 }
 
 function isAllowedTournamentLimitedPath(pathname, tournamentId) {
@@ -46,4 +46,3 @@ export default function TournamentEntranceRouteGuard({ children }) {
 
   return children;
 }
-

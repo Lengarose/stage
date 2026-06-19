@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { stageClient } from "@/api/stageClient";
-import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
+import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle, Crown } from "lucide-react";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 export default function PlayersTab({
   players = [],
@@ -22,6 +23,8 @@ export default function PlayersTab({
   setCreditsAmount,
   openPlayerWallet,
   kickFromClub,
+  grantStagePlus,
+  removeStagePlus,
   reviewIdentityClaim,
   deleteUserCompletely,
   onPlayerAccountDeleted,
@@ -159,6 +162,15 @@ export default function PlayersTab({
               )}
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
+              {hasStagePlus(p.subscription) ? (
+                <Button size="sm" variant="outline" onClick={() => removeStagePlus?.(p)} className="border-primary/30 text-primary hover:bg-primary/10 gap-1 text-xs">
+                  <Crown className="w-3.5 h-3.5" /> Plus
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => grantStagePlus?.(p)} className="border-primary/30 text-primary hover:bg-primary/10 gap-1 text-xs">
+                  <Crown className="w-3.5 h-3.5" /> Grant Plus
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
               <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(""); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
               <Button size="sm" variant="outline" onClick={() => deleteUserCompletely?.(p)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> Delete User</Button>

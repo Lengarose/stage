@@ -1,7 +1,16 @@
 const express    = require('express');
 const router     = express.Router();
 const Tournament = require('../models/tournamentModel');
+const { EXECUTESQL } = require('../db/database');
 const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
+const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
+
+const TOURNAMENT_ENTRY_CREDITS = DEFAULT_STORE_SETTINGS.tournament_entry_credits;
+const COMMUNITY_TOURNAMENT_LIMIT = DEFAULT_STORE_SETTINGS.community_tournament_limit;
+
+function hasStagePlus(subscription) {
+  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
+}
 
 // GET /
 router.get('/', async (req, res) => {
@@ -41,7 +50,41 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
-    const tournament = new Tournament(req.body);
+    const storeSettings = await getActiveStoreSettings();
+    const userId = req.user?.id;
+    const users = userId
+      ? await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId])
+      : [];
+    const user = users[0] || null;
+    const isAdmin = [0, 2].includes(Number(user?.role_id));
+
+    if (!isAdmin) {
+      const playerRows = await EXECUTESQL(
+        'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+        [userId, user?.email || '', userId]
+      );
+      const player = playerRows[0] || null;
+      if (!hasStagePlus(player?.subscription)) {
+        return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
+      }
+      const activeRows = await EXECUTESQL(
+        `SELECT COUNT(*) AS count
+         FROM tournaments
+         WHERE organizer_email = ?
+           AND status IN ('registration', 'in_progress')`,
+        [user?.email || req.body.organizer_email || '']
+      );
+      const tournamentLimit = Number(storeSettings.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
+      if (Number(activeRows[0]?.count || 0) >= tournamentLimit) {
+        return res.status(403).json({ error: `STAGE Plus allows ${tournamentLimit} active community tournaments.` });
+      }
+    }
+
+    const body = {
+      ...req.body,
+      entry_credits: Number(req.body.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS) || TOURNAMENT_ENTRY_CREDITS,
+    };
+    const tournament = new Tournament(body);
     await tournament.create();
     const created = await tournament.selectOne(tournament.id);
     const record  = created[0];
