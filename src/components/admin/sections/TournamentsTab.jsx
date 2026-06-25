@@ -5,7 +5,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban } from "lucide-react";
+import { Database, Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban, Trash2, Wand2 } from "lucide-react";
 
 function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName }) {
   const [links, setLinks] = useState([]);
@@ -160,8 +160,11 @@ export default function TournamentsTab({
   setTournamentSearch,
   tournaments,
   cancelTournament,
+  onRefresh,
 }) {
   const [entranceDialog, setEntranceDialog] = useState(null);
+  const [testPackBusy, setTestPackBusy] = useState(null);
+  const [simulatingTournamentId, setSimulatingTournamentId] = useState(null);
 
   async function createEntranceLink(tournamentId) {
     try {
@@ -176,6 +179,55 @@ export default function TournamentsTab({
     }
   }
 
+  async function seedTestClubs() {
+    if (!window.confirm("Create the disposable STAGE test club pack? Existing test-pack clubs will be replaced.")) return;
+    setTestPackBusy("seed");
+    try {
+      const result = await stageClient.functions.invoke("seedTournamentTestClubs", {});
+      const data = result?.data || result || {};
+      window.alert(`Test pack ready: ${data.clubs || 8} clubs and ${data.players || 0} players created.`);
+      await onRefresh?.();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to create test clubs.");
+    } finally {
+      setTestPackBusy(null);
+    }
+  }
+
+  async function deleteTestClubs() {
+    if (!window.confirm("Delete all disposable STAGE test-pack clubs and players? This removes their linked test records too.")) return;
+    setTestPackBusy("delete");
+    try {
+      const result = await stageClient.functions.invoke("deleteTournamentTestClubs", {});
+      const deleted = result?.data?.deleted || result?.deleted || {};
+      window.alert(`Deleted ${deleted.clubs || 0} test clubs and ${deleted.players || 0} test players.`);
+      await onRefresh?.();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to delete test clubs.");
+    } finally {
+      setTestPackBusy(null);
+    }
+  }
+
+  async function simulateNextMatch(tournamentId) {
+    setSimulatingTournamentId(tournamentId);
+    try {
+      const matches = await stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round", 200);
+      const match = (matches || []).find((item) => !["completed", "forfeit", "cancelled"].includes(String(item.status || "").toLowerCase()));
+      if (!match) {
+        window.alert("No open match found to simulate for this tournament.");
+        return;
+      }
+      await stageClient.functions.invoke("simulateScore", { tournamentId, matchId: match.id });
+      window.alert("Match simulated with full-time score and player stats.");
+      await onRefresh?.();
+    } catch (err) {
+      window.alert(err?.error || err?.message || "Failed to simulate match.");
+    } finally {
+      setSimulatingTournamentId(null);
+    }
+  }
+
   return (
     <>
       <div className="mb-4 flex gap-2 flex-wrap">
@@ -187,6 +239,12 @@ export default function TournamentsTab({
         </Button>
         <Button variant="outline" size="sm" onClick={reseedLifestyle} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
           Reseed Lifestyle Prices
+        </Button>
+        <Button variant="outline" size="sm" onClick={seedTestClubs} disabled={!!testPackBusy} className="border-primary/30 text-primary hover:text-primary text-xs h-8 rounded gap-1.5">
+          <Database className="w-3.5 h-3.5" /> Create Test Clubs
+        </Button>
+        <Button variant="outline" size="sm" onClick={deleteTestClubs} disabled={!!testPackBusy} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-8 rounded gap-1.5">
+          <Trash2 className="w-3.5 h-3.5" /> Delete Test Clubs
         </Button>
       </div>
       <div className="relative mb-3">
@@ -220,6 +278,9 @@ export default function TournamentsTab({
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: t.id, name: t.name })} className="border-border text-muted-foreground text-xs gap-1">
                   <Link2 className="w-3.5 h-3.5" /> Manage Links
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => simulateNextMatch(t.id)} disabled={simulatingTournamentId === t.id} className="border-primary/30 text-primary hover:text-primary text-xs gap-1">
+                  <Wand2 className="w-3.5 h-3.5" /> Simulate Next
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"><X className="w-3.5 h-3.5" /> Cancel</Button>
               </div>

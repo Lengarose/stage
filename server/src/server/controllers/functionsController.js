@@ -21,6 +21,32 @@ const EA_ENDPOINTS = {
   playoffMatches:   (p) => `clubs/matches?platform=${p.platform}&clubIds=${p.clubId}&matchType=playoffMatch`,
 };
 
+const TEST_PACK_DOMAIN = 'stage-test.local';
+const TEST_PACK_TAG = '[STAGE TEST PACK]';
+const TEST_CLUBS = [
+  { name: 'Neon Harbor FC', tag: 'NHF', country_code: 'NL' },
+  { name: 'Iron Vale United', tag: 'IVU', country_code: 'BE' },
+  { name: 'Metro Nova FC', tag: 'MNV', country_code: 'FR' },
+  { name: 'Apex District SC', tag: 'ADX', country_code: 'DE' },
+  { name: 'Quartz Albion', tag: 'QZA', country_code: 'GB' },
+  { name: 'Vortex Rovers', tag: 'VXR', country_code: 'PT' },
+  { name: 'Cobalt City FC', tag: 'CBL', country_code: 'ES' },
+  { name: 'Summit Forge FC', tag: 'SFF', country_code: 'IT' },
+];
+
+const TEST_PLAYER_NAMES = [
+  ['Mika Stone', 'Noah Cross', 'Jules Ferry', 'Kai Vos', 'Rami Holt', 'Eden Pike', 'Luca Voss', 'Timo Lane'],
+  ['Ilias Verne', 'Theo March', 'Nico Brandt', 'Maceo Lenz', 'Finn Keane', 'Owen Frost', 'Miro Dale'],
+  ['Ari Vale', 'Sacha Reed', 'Dante Wolfe', 'Remy Cole', 'Ivo Hart', 'Enzo Wren', 'Taj Price', 'Leon Ash'],
+  ['Kian Moss', 'Ruben Knox', 'Milan Fox', 'Nate Rowe', 'Aron West', 'Lio Grey'],
+  ['Jay Sol', 'Robin North', 'Mauro Quinn', 'Ezra Stone', 'Cal Rivers', 'Benji Hale', 'Oscar Finch'],
+  ['Rayan Cruz', 'Milo Saint', 'Kobe Ray', 'Yanis Lock', 'Samir Bloom', 'Ty Ellis', 'Jonah Pierce', 'Ali Rhodes'],
+  ['Lenn Ward', 'Dion Ellis', 'Mateo Lux', 'Ciro Bell', 'Evan Hayes', 'Zion Reid'],
+  ['Nolan King', 'Amir Wells', 'Jude Knox', 'Rio Chase', 'Felix Ray', 'Otis Ford', 'Maxen Brooks'],
+];
+
+const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
+
 const { toMysqlDateTime } = require('../utils/datetime');
 const {
   broadcastMatch,
@@ -623,20 +649,24 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
       match_id: matchId,
       tournament_id: fresh.tournament_id || null,
       club_id: stat.club_id || null,
+      player_id: stat.player_id || null,
       player_email: stat.player_email || '',
       player_gamertag: stat.player_gamertag || null,
       goals: Number(stat.goals || 0),
       assists: Number(stat.assists || 0),
+      position: stat.position || null,
+      clean_sheet: Number(stat.clean_sheet || 0),
+      is_motm: Number(stat.is_motm || 0),
       rating: Number(stat.rating || 0),
     };
     await EXECUTESQL(
       `INSERT INTO match_player_stats
-       (id, match_id, tournament_id, club_id, player_email, player_gamertag, goals, assists, rating, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       (id, match_id, tournament_id, club_id, player_id, player_email, player_gamertag, goals, assists, position, clean_sheet, is_motm, rating, created_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        statRow.id, statRow.match_id, statRow.tournament_id, statRow.club_id,
+        statRow.id, statRow.match_id, statRow.tournament_id, statRow.club_id, statRow.player_id,
         statRow.player_email, statRow.player_gamertag, statRow.goals,
-        statRow.assists, statRow.rating,
+        statRow.assists, statRow.position, statRow.clean_sheet, statRow.is_motm, statRow.rating,
       ]
     ).catch(() => {});
     broadcastMatchPlayerStat(statRow);
@@ -700,6 +730,56 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
       await settleActiveClubWager(completed, winner).catch(() => {});
     }
     const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [matchId]).catch(() => []);
+    if (stats.length) {
+      const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
+      const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+      for (const stat of stats) {
+        const playerRows = stat.player_id
+          ? await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [stat.player_id]).catch(() => [])
+          : await EXECUTESQL('SELECT * FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1', [stat.player_email]).catch(() => []);
+        const player = playerRows[0];
+        if (!player) continue;
+        const result = String(stat.club_id) === String(fresh.home_club_id) ? homeResult : awayResult;
+        await EXECUTESQL(
+          `UPDATE players
+             SET matches_played = IFNULL(matches_played,0) + 1,
+                 matches_played_club = IFNULL(matches_played_club,0) + 1,
+                 goals = IFNULL(goals,0) + ?,
+                 goals_player = IFNULL(goals_player,0) + ?,
+                 assists = IFNULL(assists,0) + ?,
+                 wins_count = IFNULL(wins_count,0) + ?,
+                 wins_club = IFNULL(wins_club,0) + ?,
+                 losses_count = IFNULL(losses_count,0) + ?,
+                 losses_club = IFNULL(losses_club,0) + ?,
+                 draws_count = IFNULL(draws_count,0) + ?,
+                 draws_club = IFNULL(draws_club,0) + ?,
+                 clean_sheets = IFNULL(clean_sheets,0) + ?,
+                 man_of_the_match = IFNULL(man_of_the_match,0) + ?,
+                 avg_match_rating = CASE
+                   WHEN IFNULL(matches_played,0) <= 0 THEN ?
+                   ELSE ((IFNULL(avg_match_rating,0) * IFNULL(matches_played,0)) + ?) / (IFNULL(matches_played,0) + 1)
+                 END,
+                 updated_date = NOW()
+           WHERE id = ?`,
+          [
+            Number(stat.goals || 0),
+            Number(stat.goals || 0),
+            Number(stat.assists || 0),
+            result === 'win' ? 1 : 0,
+            result === 'win' ? 1 : 0,
+            result === 'loss' ? 1 : 0,
+            result === 'loss' ? 1 : 0,
+            result === 'draw' ? 1 : 0,
+            result === 'draw' ? 1 : 0,
+            Number(stat.clean_sheet || 0),
+            Number(stat.is_motm || 0),
+            Number(stat.rating || 0),
+            Number(stat.rating || 0),
+            player.id,
+          ]
+        );
+      }
+    }
     await generateShirtSalesForMatch(completed, stats).catch(() => {});
   }
 
@@ -1215,6 +1295,168 @@ async function requireAdminUser(userId) {
   const user = rows[0];
   if (!user || ![0, 2].includes(Number(user.role_id))) throw new Error('Admin only');
   return user;
+}
+
+function testEmailFor(clubIndex, playerIndex = 'owner') {
+  return `test-${clubIndex + 1}-${playerIndex}@${TEST_PACK_DOMAIN}`.toLowerCase();
+}
+
+function placeholders(items) {
+  return items.map(() => '?').join(',');
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null || value === '') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function cleanupStageTestPack(admin = null) {
+  const clubs = await EXECUTESQL(
+    `SELECT id, owner_email FROM clubs
+      WHERE LOWER(owner_email) LIKE ?
+         OR description LIKE ?
+         OR tag IN (${TEST_CLUBS.map(() => '?').join(',')})`,
+    [`%@${TEST_PACK_DOMAIN}`, `%${TEST_PACK_TAG}%`, ...TEST_CLUBS.map(c => c.tag)]
+  ).catch(() => []);
+  const players = await EXECUTESQL(
+    'SELECT id, email FROM players WHERE LOWER(email) LIKE ? OR bio LIKE ?',
+    [`%@${TEST_PACK_DOMAIN}`, `%${TEST_PACK_TAG}%`]
+  ).catch(() => []);
+  const clubIds = clubs.map(c => c.id).filter(Boolean);
+  const playerIds = players.map(p => p.id).filter(Boolean);
+  const emails = Array.from(new Set([
+    ...players.map(p => String(p.email || '').toLowerCase()).filter(Boolean),
+    ...clubs.map(c => String(c.owner_email || '').toLowerCase()).filter(Boolean),
+  ]));
+  let deletedUsers = 0;
+
+  if (clubIds.length) {
+    const inClubs = placeholders(clubIds);
+    const matchRows = await EXECUTESQL(
+      `SELECT id FROM matches WHERE home_club_id IN (${inClubs}) OR away_club_id IN (${inClubs})`,
+      [...clubIds, ...clubIds]
+    ).catch(() => []);
+    const matchIds = matchRows.map(m => m.id).filter(Boolean);
+    if (matchIds.length) {
+      const inMatches = placeholders(matchIds);
+      await EXECUTESQL(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+      await EXECUTESQL(`DELETE FROM matches WHERE id IN (${inMatches})`, matchIds).catch(() => {});
+    }
+    await EXECUTESQL(`DELETE FROM club_staff_roles WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM club_applicants WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM recruitment_posts WHERE author_club_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM recruitment_interests WHERE sender_club_id IN (${inClubs}) OR recipient_club_id IN (${inClubs})`, [...clubIds, ...clubIds]).catch(() => {});
+    await EXECUTESQL(`DELETE FROM player_contracts WHERE team_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM stc_transactions WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM club_fixture_availability WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM club_fixture_lineups WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
+  }
+
+  if (playerIds.length) {
+    const inPlayers = placeholders(playerIds);
+    await EXECUTESQL(`DELETE FROM club_staff_roles WHERE player_id IN (${inPlayers})`, playerIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM match_player_stats WHERE player_id IN (${inPlayers})`, playerIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM player_stc_transactions WHERE player_id IN (${inPlayers})`, playerIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM lifestyle_purchases WHERE player_id IN (${inPlayers})`, playerIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM player_identity_claims WHERE player_id IN (${inPlayers})`, playerIds).catch(() => {});
+  }
+
+  if (emails.length) {
+    const inEmails = placeholders(emails);
+    await EXECUTESQL(`DELETE FROM notifications WHERE LOWER(recipient_email) IN (${inEmails})`, emails).catch(() => {});
+    await EXECUTESQL(`DELETE FROM inbox_messages WHERE LOWER(recipient_email) IN (${inEmails}) OR LOWER(sender_email) IN (${inEmails})`, [...emails, ...emails]).catch(() => {});
+    await EXECUTESQL(`DELETE FROM match_player_stats WHERE LOWER(player_email) IN (${inEmails})`, emails).catch(() => {});
+  }
+
+  const tournaments = await EXECUTESQL('SELECT id, registered_clubs, registered_players FROM tournaments').catch(() => []);
+  for (const tournament of tournaments) {
+    const registeredClubs = parseJsonArray(tournament.registered_clubs).filter(id => !clubIds.includes(id));
+    const registeredPlayers = parseJsonArray(tournament.registered_players).filter(id => !playerIds.includes(id));
+    await EXECUTESQL(
+      'UPDATE tournaments SET registered_clubs = ?, registered_players = ?, updated_date = NOW() WHERE id = ?',
+      [JSON.stringify(registeredClubs), JSON.stringify(registeredPlayers), tournament.id]
+    ).catch(() => {});
+  }
+
+  if (clubIds.length) {
+    await EXECUTESQL(`DELETE FROM clubs WHERE id IN (${placeholders(clubIds)})`, clubIds).catch(() => {});
+  }
+  if (playerIds.length) {
+    await EXECUTESQL(`DELETE FROM players WHERE id IN (${placeholders(playerIds)})`, playerIds).catch(() => {});
+  }
+  if (emails.length) {
+    const result = await EXECUTESQL(`DELETE FROM users WHERE LOWER(email) IN (${placeholders(emails)})`, emails).catch(() => null);
+    deletedUsers = Number(result?.affectedRows || 0);
+  }
+
+  if (admin) {
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'delete_test_club_pack',
+      entityType: 'test_data',
+      oldValue: { clubs: clubIds.length, players: playerIds.length, users: deletedUsers },
+      reason: 'Admin removed disposable tournament test clubs',
+    });
+  }
+
+  return { clubs: clubIds.length, players: playerIds.length, users: deletedUsers };
+}
+
+function pickSquadPlayer(players, preferredPositions, fallbackIndex = 0) {
+  return players.find(p => preferredPositions.includes(String(p.position || '').toUpperCase())) || players[fallbackIndex % Math.max(players.length, 1)];
+}
+
+function buildSimulatedPlayerStats(homePlayers, awayPlayers, match, homeScore, awayScore) {
+  const stats = [];
+  const addBase = (player, clubId, rating) => {
+    if (!player) return null;
+    const row = {
+      player_id: player.id,
+      club_id: clubId,
+      player_email: player.email,
+      player_gamertag: player.gamertag,
+      goals: 0,
+      assists: 0,
+      rating,
+      position: player.position,
+      clean_sheet: 0,
+      is_motm: 0,
+    };
+    stats.push(row);
+    return row;
+  };
+  const homeRows = homePlayers.map((p, i) => addBase(p, match.home_club_id, 6.4 + (i % 4) * 0.2)).filter(Boolean);
+  const awayRows = awayPlayers.map((p, i) => addBase(p, match.away_club_id, 6.4 + (i % 4) * 0.2)).filter(Boolean);
+  const assignGoal = (rows, players, goalIndex) => {
+    if (!rows.length) return;
+    const scorer = pickSquadPlayer(players, ['ST', 'LW', 'RW', 'CAM', 'CM'], goalIndex);
+    const scorerRow = rows.find(r => r.player_id === scorer?.id) || rows[goalIndex % rows.length];
+    scorerRow.goals += 1;
+    scorerRow.rating += 0.8;
+    const assister = pickSquadPlayer(players.filter(p => p.id !== scorerRow.player_id), ['CAM', 'CM', 'LW', 'RW', 'CDM'], goalIndex + 1);
+    const assistRow = rows.find(r => r.player_id === assister?.id);
+    if (assistRow && goalIndex % 4 !== 0) {
+      assistRow.assists += 1;
+      assistRow.rating += 0.35;
+    }
+  };
+  for (let i = 0; i < homeScore; i++) assignGoal(homeRows, homePlayers, i);
+  for (let i = 0; i < awayScore; i++) assignGoal(awayRows, awayPlayers, i);
+  if (awayScore === 0) homeRows.forEach(r => { if (['GK', 'CB', 'LB', 'RB', 'CDM'].includes(String(r.position || '').toUpperCase())) r.clean_sheet = 1; });
+  if (homeScore === 0) awayRows.forEach(r => { if (['GK', 'CB', 'LB', 'RB', 'CDM'].includes(String(r.position || '').toUpperCase())) r.clean_sheet = 1; });
+  const motm = stats.reduce((best, row) => !best || row.rating > best.rating ? row : best, null);
+  if (motm) motm.is_motm = 1;
+  return stats.map(row => ({
+    ...row,
+    rating: Math.min(10, Number(row.rating.toFixed(1))),
+  }));
 }
 
 function isReachableInviteEmail(email) {
@@ -2056,6 +2298,7 @@ const HANDLERS = {
 
   async simulateScore({ _auth_user_id, matchId, match_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
+    await requireAdminUser(_auth_user_id);
     const id = matchId || match_id;
     if (!id) throw new Error('matchId required');
     const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [id]);
@@ -2071,13 +2314,125 @@ const HANDLERS = {
       Math.random() > 0.5 ? homeScore++ : awayScore++;
     }
 
+    const [homePlayers, awayPlayers] = await Promise.all([
+      match.home_club_id
+        ? EXECUTESQL('SELECT * FROM players WHERE club_id = ? ORDER BY FIELD(position, "ST","LW","RW","CAM","CM","CDM","CB","LB","RB","GK"), gamertag LIMIT 11', [match.home_club_id]).catch(() => [])
+        : Promise.resolve([]),
+      match.away_club_id
+        ? EXECUTESQL('SELECT * FROM players WHERE club_id = ? ORDER BY FIELD(position, "ST","LW","RW","CAM","CM","CDM","CB","LB","RB","GK"), gamertag LIMIT 11', [match.away_club_id]).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+    const simulatedStats = buildSimulatedPlayerStats(homePlayers, awayPlayers, match, homeScore, awayScore);
+
     const result = await processMatchCompletion(match, {
       home_score: homeScore,
       away_score: awayScore,
-      player_stats: [],
+      player_stats: simulatedStats,
       goal_events: [],
     });
-    return { data: { success: true, ...result.data, home_score: homeScore, away_score: awayScore } };
+    return { data: { success: true, ...result.data, home_score: homeScore, away_score: awayScore, player_stats: simulatedStats.length } };
+  },
+
+  async seedTournamentTestClubs({ _auth_user_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    await cleanupStageTestPack();
+
+    const createdClubs = [];
+    const createdPlayers = [];
+    const passwordHash = await bcrypt.hash('StageTest123!', 10);
+    for (let clubIndex = 0; clubIndex < TEST_CLUBS.length; clubIndex++) {
+      const clubDef = TEST_CLUBS[clubIndex];
+      const clubId = uuidv4();
+      const ownerUserId = uuidv4();
+      const ownerEmail = testEmailFor(clubIndex, 'owner');
+      await EXECUTESQL(
+        `INSERT INTO clubs
+          (id, user_id, owner_email, name, tag, platform, region, country_code, description,
+           wins, losses, draws, goals_scored, goals_conceded, rating, peak_rating, matches_ranked,
+           is_provisional, credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
+           stadium_capacity, tier, form, status, formation, created_date, updated_date)
+         VALUES (?, ?, ?, ?, ?, 'PlayStation', 'Europe', ?, ?, 0, 0, 0, 0, 0, 70, 70, 0,
+           1, 500, 1000000, 250000, 250000, 0, 5000, 'TEST', '[]', 'active', '4-2-3-1', NOW(), NOW())`,
+        [clubId, ownerUserId, ownerEmail, clubDef.name, clubDef.tag, clubDef.country_code, `${TEST_PACK_TAG} Disposable test club for tournament/game simulation.`]
+      );
+      createdClubs.push({ id: clubId, name: clubDef.name, tag: clubDef.tag });
+
+      const names = TEST_PLAYER_NAMES[clubIndex];
+      for (let playerIndex = 0; playerIndex < names.length; playerIndex++) {
+        const isOwner = playerIndex === 0;
+        const isCaptain = playerIndex === 1;
+        const playerId = uuidv4();
+        const playerUserId = isOwner ? ownerUserId : uuidv4();
+        const position = TEST_POSITIONS[playerIndex % TEST_POSITIONS.length];
+        const playerEmail = isOwner ? ownerEmail : testEmailFor(clubIndex, playerIndex);
+        const roles = isOwner ? ['president'] : isCaptain ? ['captain'] : [];
+        await EXECUTESQL(
+          `INSERT INTO users
+            (id, email, password_hash, role_id, player_id, owner_id, access_mode, created_date, updated_date)
+           VALUES (?, ?, ?, 1, ?, ?, 'standard', NOW(), NOW())`,
+          [playerUserId, playerEmail, passwordHash, playerId, isOwner ? clubId : null]
+        );
+        await EXECUTESQL(
+          `INSERT INTO players
+            (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
+             shirt_number, overall_rating, goals, goals_player, assists, matches_played, matches_played_club,
+             wins_count, wins_club, losses_count, losses_club, draws_count, draws_club, clean_sheets,
+             man_of_the_match, avg_match_rating, credits, stc, subscription, is_verified,
+             role, status, is_ready, club_id, club_roles, created_date, updated_date)
+           VALUES (?, ?, ?, ?, ?, ?, 'PlayStation', 'Belgium', ?, ?, ?, ?, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 100000, 'stage_plus', 1,
+             ?, 'active', 1, ?, ?, NOW(), NOW())`,
+          [
+            playerId,
+            playerUserId,
+            playerEmail,
+            names[playerIndex],
+            position,
+            TEST_POSITIONS[(playerIndex + 2) % TEST_POSITIONS.length],
+            clubDef.country_code,
+            `${TEST_PACK_TAG} Disposable test player for tournament/game simulation.`,
+            playerIndex + 1,
+            69 + ((clubIndex + playerIndex) % 8),
+            isOwner ? 'president' : isCaptain ? 'captain' : 'player',
+            clubId,
+            JSON.stringify(roles),
+          ]
+        );
+        createdPlayers.push({ id: playerId, gamertag: names[playerIndex], club_id: clubId });
+        if (isOwner || isCaptain) {
+          await EXECUTESQL(
+            `INSERT IGNORE INTO club_staff_roles
+              (id, club_id, player_id, role, permissions, assigned_by_user_id, created_date, updated_date)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              uuidv4(),
+              clubId,
+              playerId,
+              isOwner ? 'president' : 'captain',
+              JSON.stringify(isOwner ? ['manage_recruitment', 'review_applicants', 'offer_contracts', 'manage_lineup', 'manage_staff'] : ['manage_lineup', 'review_applicants']),
+              admin.id,
+            ]
+          ).catch(() => {});
+        }
+      }
+    }
+
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'seed_test_club_pack',
+      entityType: 'test_data',
+      newValue: { clubs: createdClubs.length, players: createdPlayers.length, domain: TEST_PACK_DOMAIN },
+      reason: 'Admin generated disposable tournament test clubs',
+    });
+
+    return { data: { success: true, clubs: createdClubs.length, players: createdPlayers.length, created_clubs: createdClubs } };
+  },
+
+  async deleteTournamentTestClubs({ _auth_user_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    const deleted = await cleanupStageTestPack(admin);
+    return { data: { success: true, deleted } };
   },
 
   async advanceRound({ _auth_user_id, tournamentId, tournament_id }) {

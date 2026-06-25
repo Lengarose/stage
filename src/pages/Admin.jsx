@@ -1659,6 +1659,7 @@ export default function Admin(props) {
               setTournamentSearch={setTournamentSearch}
               tournaments={tournaments}
               cancelTournament={cancelTournament}
+              onRefresh={loadAll}
             />
           )}
 
