@@ -12,7 +12,15 @@ import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
-import { COMMUNITY_TOURNAMENT_LIMIT, TOURNAMENT_ENTRY_CREDITS, hasStagePlus } from "@/lib/subscriptionUtils";
+import { COMMUNITY_TOURNAMENT_LIMIT, hasStagePlus } from "@/lib/subscriptionUtils";
+import {
+  TOURNAMENT_CREDIT_COST,
+  applyTournamentFormat,
+  calculateTournamentPrizeBreakdown,
+  getTournamentFormatRule,
+  getTournamentMaxTeamOptions,
+  normalizeTournamentMaxTeams,
+} from "@/lib/tournamentRules";
 
 const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
@@ -41,11 +49,10 @@ export default function Tournaments() {
   const [tournamentLimit, setTournamentLimit] = useState(0);
   const [myActiveCount, setMyActiveCount] = useState(0);
 
-  const [entryType, setEntryType] = useState("free"); // "free" | "stc"
   const [form, setForm] = useState({
     name: "", description: "", type: "knockout", platform: "PlayStation",
-    region: "Global", country_code: "", max_teams: "8", prize_description: "",
-    start_date: "", entry_fee_stc: "500",
+    region: "Global", country_code: "", max_teams: "8",
+    start_date: "", entry_fee_stc: "1000",
     banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%",
     participant_type: "club", custom_rules: "", rules_file_url: "",
     trophy_item_id: "",
@@ -125,14 +132,21 @@ export default function Tournaments() {
     }
     setCreating(true);
     try {
-      const feeSTC = entryType === "stc" ? Math.max(0, parseInt(form.entry_fee_stc) || 0) : 0;
+      const maxTeams = normalizeTournamentMaxTeams(form.type, form.max_teams);
+      const prizes = calculateTournamentPrizeBreakdown(form.entry_fee_stc, maxTeams);
       const selectedTrophy = trophyItems.find(t => t.id === form.trophy_item_id);
       await stageClient.entities.Tournament.create({
         ...form,
         name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
-        max_teams: parseInt(form.max_teams),
-        entry_credits: TOURNAMENT_ENTRY_CREDITS,
-        entry_fee_stc: feeSTC,
+        max_teams: maxTeams,
+        entry_credits: TOURNAMENT_CREDIT_COST,
+        entry_fee_stc: prizes.entryFee,
+        prize_pool_stc: prizes.pool,
+        prize_winner_stc: prizes.winner,
+        prize_runner_up_stc: prizes.runnerUp,
+        prize_semi_final_stc: prizes.thirdPlace,
+        prize_participation_stc: 0,
+        prize_description: "",
         organizer_email: user.email,
         creator_email: user.email,
         creator_id: myPlayer?.id || null,
@@ -154,10 +168,9 @@ export default function Tournaments() {
   }
 
   function resetForm() {
-    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", prize_description: "", start_date: "", entry_fee_stc: "500", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "", trophy_item_id: "" });
+    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", start_date: "", entry_fee_stc: "1000", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "", trophy_item_id: "" });
     setBannerPreview(null);
     setBannerFile(null);
-    setEntryType("free");
     setModalStep(1);
     setTrophyPickerOpen(false);
   }
@@ -175,8 +188,9 @@ export default function Tournaments() {
     .filter(t => t.status !== "completed")
     .slice(0, 12);
 
-  const feeSTC = entryType === "stc" ? (parseInt(form.entry_fee_stc) || 0) : 0;
-  const prizePool = feeSTC * parseInt(form.max_teams || 8);
+  const formatRule = getTournamentFormatRule(form.type);
+  const maxTeamOptions = getTournamentMaxTeamOptions(form.type);
+  const prizeBreakdown = calculateTournamentPrizeBreakdown(form.entry_fee_stc, form.max_teams);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -353,7 +367,7 @@ export default function Tournaments() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label-xs">Format</label>
-                    <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v, max_teams: v === "swiss_ucl" ? "36" : f.max_teams }))}>
+                    <Select value={form.type} onValueChange={v => setForm(f => applyTournamentFormat(f, v))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="knockout">Knockout</SelectItem>
@@ -369,9 +383,10 @@ export default function Tournaments() {
                     <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {["4","8","16","20","32","36","64"].map(n => <SelectItem key={n} value={n}>{n} teams</SelectItem>)}
+                        {maxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{n} teams</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">{formatRule.hint}</p>
                   </div>
                 </div>
 
@@ -415,45 +430,29 @@ export default function Tournaments() {
               <>
                 <div>
                   <label className="label-xs">Entry Fee</label>
-                  <div className="flex gap-2 mb-3">
-                    {[["free","Free"], ["stc","STC Fee"]].map(([v, label]) => (
-                      <button key={v} type="button" onClick={() => setEntryType(v)}
-                        className={cn("flex-1 py-2 rounded border text-sm font-bold transition-all",
-                          entryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
-                        )}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {entryType === "stc" && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min="100" max="1000000"
-                          value={form.entry_fee_stc}
-                          onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                          className="bg-secondary border-border" placeholder="STC per entry" />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
-                      </div>
-                      {feeSTC > 0 && (
-                        <div className="border border-warning/20 bg-warning/5 rounded p-3 text-sm space-y-1.5">
-                          <p className="text-[10px] font-bold text-warning uppercase tracking-widest">Winner Takes All</p>
-                          <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry fee</span><span className="font-bold text-xs">{feeSTC.toLocaleString()} STC</span></div>
-                          <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{form.max_teams}</span></div>
-                          <div className="h-px bg-warning/20" />
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">1st Place</span></div>
-                            <span className="font-black text-warning">{prizePool.toLocaleString()} STC</span>
-                          </div>
-                        </div>
-                      )}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min="0" max="1000000"
+                        value={form.entry_fee_stc}
+                        onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
+                        className="bg-secondary border-border" placeholder="STC per entry" />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="label-xs">Prize Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
-                  <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))}
-                    className="bg-secondary border-border" placeholder="e.g. Custom badge + bragging rights" />
+                    <div className="border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Create cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {prizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{form.max_teams}</span></div>
+                      <div className="h-px bg-primary/20" />
+                      <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">Winner 70%</span><span className="font-black text-warning">{prizeBreakdown.winner.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Runner-up 20%</span><span className="font-bold text-foreground">{prizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Third place 10%</span><span className="font-bold text-foreground">{prizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                      <div className="h-px bg-primary/20" />
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">Prize pool</span></div>
+                        <span className="font-black text-warning">{prizeBreakdown.pool.toLocaleString()} STC</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -815,13 +814,6 @@ function TournamentCard({ tournament: t, trophyItems }) {
               </div>
             )}
           </div>
-
-          {t.prize_description && (
-            <div className="flex items-center gap-1.5 bg-warning/5 border border-warning/10 rounded px-2 py-1.5 mt-1">
-              <Crown className="w-3 h-3 text-warning shrink-0" />
-              <span className="text-[10px] text-warning font-medium leading-snug truncate">{t.prize_description}</span>
-            </div>
-          )}
 
           {t.start_date && new Date(t.start_date) > new Date() && t.status === "registration" && (
             <TournamentCountdown startDate={t.start_date} />

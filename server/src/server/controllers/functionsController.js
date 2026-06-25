@@ -2107,6 +2107,20 @@ const HANDLERS = {
         }));
       if (winners.length < 1) throw new Error('No winners found for current round');
 
+      const finalMatch = currentMatches.find((m) => String(m.type || '').includes('final'));
+      if (finalMatch?.winner_club_id) {
+        const winnerName = String(finalMatch.winner_club_id) === String(finalMatch.home_club_id)
+          ? finalMatch.home_club_name
+          : finalMatch.away_club_name;
+        await query(
+          `UPDATE tournaments
+             SET status = 'completed', winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
+           WHERE id = ?`,
+          [finalMatch.winner_club_id, winnerName || 'Winner', id]
+        );
+        return { completed: true, winner: { id: finalMatch.winner_club_id, name: winnerName }, created: 0 };
+      }
+
       if (winners.length === 1) {
         await query(
           `UPDATE tournaments
@@ -2130,6 +2144,7 @@ const HANDLERS = {
       let created = 0;
       for (let i = 0; i < winners.length; i += 2) {
         if (!winners[i + 1]) continue;
+        const isFinalRound = winners.length === 2;
         await insertTournamentMatch(query, {
           tournament_id: id,
           home_club_id: winners[i].id,
@@ -2137,10 +2152,33 @@ const HANDLERS = {
           away_club_id: winners[i + 1].id,
           away_club_name: winners[i + 1].name,
           round: nextRound,
-          type: winners.length === 2 ? 'final' : 'knockout',
+          type: isFinalRound ? 'final' : 'knockout',
           status: 'scheduled',
         });
         created++;
+        if (isFinalRound) {
+          const loserA = {
+            id: String(winners[i].id) === String(currentMatches[i]?.home_club_id) ? currentMatches[i]?.away_club_id : currentMatches[i]?.home_club_id,
+            name: String(winners[i].id) === String(currentMatches[i]?.home_club_id) ? currentMatches[i]?.away_club_name : currentMatches[i]?.home_club_name,
+          };
+          const loserB = {
+            id: String(winners[i + 1].id) === String(currentMatches[i + 1]?.home_club_id) ? currentMatches[i + 1]?.away_club_id : currentMatches[i + 1]?.home_club_id,
+            name: String(winners[i + 1].id) === String(currentMatches[i + 1]?.home_club_id) ? currentMatches[i + 1]?.away_club_name : currentMatches[i + 1]?.home_club_name,
+          };
+          if (loserA.id && loserB.id) {
+            await insertTournamentMatch(query, {
+              tournament_id: id,
+              home_club_id: loserA.id,
+              home_club_name: loserA.name,
+              away_club_id: loserB.id,
+              away_club_name: loserB.name,
+              round: nextRound,
+              type: 'third_place',
+              status: 'scheduled',
+            });
+            created++;
+          }
+        }
       }
       await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
       return { completed: false, current_round: nextRound, created };
@@ -3355,15 +3393,103 @@ const HANDLERS = {
     const [t] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ?', [tournament_id]);
     if (!t) throw new Error('Tournament not found');
 
-    const prizes = t.prize_pool
-      ? (typeof t.prize_pool === 'string' ? JSON.parse(t.prize_pool) : t.prize_pool)
-      : { first: 5000, second: 2500, third: 1000 };
-
-    if (t.winner_club_id) {
-      await EXECUTESQL('UPDATE clubs SET stc = stc + ? WHERE id = ?', [prizes.first || 0, t.winner_club_id]);
+    const existing = await EXECUTESQL(
+      "SELECT COUNT(*) AS count FROM stc_transactions WHERE reference_id = ? AND category = 'tournament_prize'",
+      [tournament_id],
+    );
+    const existingPlayer = await EXECUTESQL(
+      "SELECT COUNT(*) AS count FROM player_stc_transactions WHERE reference_id = ? AND category = 'tournament_prize'",
+      [tournament_id],
+    );
+    if (Number(existing[0]?.count || 0) + Number(existingPlayer[0]?.count || 0) > 0) {
+      return { success: true, skipped: true, reason: 'already_distributed' };
     }
-    await EXECUTESQL("UPDATE tournaments SET status = 'prizes_distributed' WHERE id = ?", [tournament_id]);
-    return { success: true };
+
+    const matches = await EXECUTESQL(
+      "SELECT * FROM matches WHERE tournament_id = ? AND status IN ('completed','forfeit') ORDER BY round DESC, created_date DESC",
+      [tournament_id],
+    );
+
+    const isPlayerTournament = String(t.participant_type || '').toLowerCase() === 'player';
+    const finalMatch = matches.find(m => String(m.type || '').includes('final') && (isPlayerTournament ? m.winner_player_id : m.winner_club_id))
+      || matches.find(m => (isPlayerTournament ? m.winner_player_id : m.winner_club_id));
+    const thirdPlaceMatch = matches.find(m => ['third_place', 'placement_third', 'bronze'].includes(String(m.type || '')) && (isPlayerTournament ? m.winner_player_id : m.winner_club_id));
+
+    const loserOf = (match) => {
+      if (!match) return null;
+      if (isPlayerTournament) {
+        if (!match.winner_player_id) return null;
+        if (String(match.winner_player_id) === String(match.home_player_id)) {
+          return { id: match.away_player_id, name: match.away_player_name };
+        }
+        return { id: match.home_player_id, name: match.home_player_name };
+      }
+      if (!match.winner_club_id) return null;
+      if (String(match.winner_club_id) === String(match.home_club_id)) {
+        return { id: match.away_club_id, name: match.away_club_name };
+      }
+      return { id: match.home_club_id, name: match.home_club_name };
+    };
+
+    const payouts = [
+      {
+        label: 'Winner',
+        clubId: isPlayerTournament ? null : (t.winner_club_id || finalMatch?.winner_club_id),
+        playerId: isPlayerTournament ? (t.winner_player_id || finalMatch?.winner_player_id) : null,
+        amount: Number(t.prize_winner_stc || 0),
+      },
+      {
+        label: 'Runner-up',
+        clubId: isPlayerTournament ? null : loserOf(finalMatch)?.id,
+        playerId: isPlayerTournament ? loserOf(finalMatch)?.id : null,
+        amount: Number(t.prize_runner_up_stc || 0),
+      },
+      {
+        label: 'Third place',
+        clubId: isPlayerTournament ? null : thirdPlaceMatch?.winner_club_id,
+        playerId: isPlayerTournament ? thirdPlaceMatch?.winner_player_id : null,
+        amount: Number(t.prize_semi_final_stc || 0),
+      },
+    ].filter(p => (p.clubId || p.playerId) && p.amount > 0);
+
+    let paid = 0;
+    for (const payout of payouts) {
+      if (payout.playerId) {
+        await createPlayerTx({
+          playerId: payout.playerId,
+          amount: payout.amount,
+          type: 'income',
+          category: 'tournament_prize',
+          source: 'tournament',
+          description: `${payout.label} prize: ${t.name}`,
+          referenceId: tournament_id,
+        });
+        paid += 1;
+        continue;
+      }
+      const clubRows = await EXECUTESQL('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1', [payout.clubId]);
+      if (!clubRows.length) continue;
+      const balanceAfter = Number(clubRows[0].stc || 0) + payout.amount;
+      await EXECUTESQL('UPDATE clubs SET stc = ? WHERE id = ?', [balanceAfter, payout.clubId]);
+      await EXECUTESQL(
+        `INSERT INTO stc_transactions
+          (id, club_id, amount, balance_after, type, category, description, reference_id)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [
+          uuidv4(),
+          payout.clubId,
+          payout.amount,
+          balanceAfter,
+          'income',
+          'tournament_prize',
+          `${payout.label} prize: ${t.name}`,
+          tournament_id,
+        ],
+      );
+      paid += 1;
+    }
+
+    return { success: true, paid };
   },
 
   async getTransferMarket() {

@@ -16,9 +16,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
   const [form, setForm] = useState({
     name: tournament.name || "",
     description: tournament.description || "",
-    prize_description: tournament.prize_description || "",
     start_date: tournament.start_date ? new Date(tournament.start_date).toISOString().slice(0, 16) : "",
-    entry_credits: tournament.entry_credits?.toString() || "50",
     banner_url: tournament.banner_url || "",
     banner_color: tournament.banner_color || "#1a2a4a",
     banner_position: tournament.banner_position || "50% 50%",
@@ -62,9 +60,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
     const updates = {
       name: form.name,
       description: form.description,
-      prize_description: form.prize_description,
       start_date: form.start_date ? new Date(form.start_date).toISOString() : "",
-      entry_credits: parseInt(form.entry_credits) || 50,
       banner_url: form.banner_url,
       banner_color: form.banner_color,
       banner_position: form.banner_position,
@@ -93,18 +89,8 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
               <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border" rows={3} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Prize Description</label>
-              <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} className="bg-secondary border-border" placeholder="e.g. Custom badge + credits" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Start Date</label>
-                <Input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary border-border" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Entry Credits</label>
-                <Input type="number" min="0" value={form.entry_credits} onChange={e => setForm(f => ({ ...f, entry_credits: e.target.value }))} className="bg-secondary border-border" />
-              </div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Start Date</label>
+              <Input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary border-border" />
             </div>
 
             {/* Banner */}

@@ -4,8 +4,8 @@ const Tournament = require('../models/tournamentModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
 const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
+const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
 
-const TOURNAMENT_ENTRY_CREDITS = DEFAULT_STORE_SETTINGS.tournament_entry_credits;
 const COMMUNITY_TOURNAMENT_LIMIT = DEFAULT_STORE_SETTINGS.community_tournament_limit;
 
 function hasStagePlus(subscription) {
@@ -57,13 +57,15 @@ router.post('/', async (req, res) => {
       : [];
     const user = users[0] || null;
     const isAdmin = [0, 2].includes(Number(user?.role_id));
+    let creatorPlayerId = null;
 
     if (!isAdmin) {
       const playerRows = await EXECUTESQL(
-        'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+        'SELECT id, subscription, credits FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
         [userId, user?.email || '', userId]
       );
       const player = playerRows[0] || null;
+      creatorPlayerId = player?.id || null;
       if (!hasStagePlus(player?.subscription)) {
         return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
       }
@@ -78,14 +80,20 @@ router.post('/', async (req, res) => {
       if (Number(activeRows[0]?.count || 0) >= tournamentLimit) {
         return res.status(403).json({ error: `STAGE Plus allows ${tournamentLimit} active community tournaments.` });
       }
+      if (Number(player?.credits || 0) < TOURNAMENT_CREDIT_COST) {
+        return res.status(402).json({ error: `Creating a tournament costs ${TOURNAMENT_CREDIT_COST} credits.` });
+      }
     }
 
-    const body = {
-      ...req.body,
-      entry_credits: Number(req.body.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS) || TOURNAMENT_ENTRY_CREDITS,
-    };
+    const body = normalizeTournamentEconomics(req.body);
     const tournament = new Tournament(body);
     await tournament.create();
+    if (!isAdmin && creatorPlayerId) {
+      await EXECUTESQL(
+        'UPDATE players SET credits = credits - ? WHERE id = ?',
+        [TOURNAMENT_CREDIT_COST, creatorPlayerId]
+      );
+    }
     const created = await tournament.selectOne(tournament.id);
     const record  = created[0];
     broadcastTournament(record);
@@ -102,7 +110,9 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    const tournament = new Tournament({ ...existing[0], ...req.body });
+    const shouldNormalize = ['type', 'max_teams', 'entry_fee_stc'].some(key => req.body[key] !== undefined);
+    const merged = { ...existing[0], ...req.body };
+    const tournament = new Tournament(shouldNormalize ? normalizeTournamentEconomics(merged) : merged);
     await tournament.update(id);
     const updated = await tournament.selectOne(id);
     const record  = updated[0];

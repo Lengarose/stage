@@ -81,7 +81,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
 
   // ── Group Stage Standings ──────────────────────────────────────────────────
   const GroupStandings = () => {
-    const groupMatches = matches.filter(m => m.type === "group_stage" || !m.type);
+    const groupMatches = matches.filter(m => m.type === "group" || m.type === "group_stage" || !m.type);
     const allGroupDone = groupMatches.length > 0 && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
 
     if (groupStandingsData.length === 0) return (

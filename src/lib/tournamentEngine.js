@@ -120,27 +120,48 @@ export function knockoutRounds(numTeams) {
 
 // Generate next knockout round from completed matches
 export function generateNextKnockoutRound(completedMatches, round) {
-  const winners = completedMatches
-    .filter(m => m.round === round && (m.status === "completed" || m.status === "forfeit") && m.winner_club_id)
+  const roundMatches = completedMatches
+    .filter(m => m.round === round && (m.status === "completed" || m.status === "forfeit") && m.winner_club_id);
+  const winners = roundMatches
     .map(m => ({
       id: m.winner_club_id,
       name: m.winner_club_id === m.home_club_id ? m.home_club_name : m.away_club_name,
     }));
+  const losers = roundMatches.map(m => ({
+      id: m.winner_club_id === m.home_club_id ? m.away_club_id : m.home_club_id,
+      name: m.winner_club_id === m.home_club_id ? m.away_club_name : m.home_club_name,
+  }));
+
+  if (roundMatches.some(m => String(m.type || "").includes("final"))) return [];
 
   const matches = [];
   for (let i = 0; i < winners.length; i += 2) {
     if (winners[i + 1]) {
+      const isFinalRound = winners.length === 2;
       matches.push({
         home_club_id: winners[i].id,
         home_club_name: winners[i].name,
         away_club_id: winners[i + 1].id,
         away_club_name: winners[i + 1].name,
         round: round + 1,
-        type: round + 1 === knockoutRounds(completedMatches.length * 2) ? "final" : "knockout",
+        type: isFinalRound ? "final" : "knockout",
         status: "scheduled",
         home_score: 0,
         away_score: 0,
       });
+      if (isFinalRound && losers[i] && losers[i + 1]) {
+        matches.push({
+          home_club_id: losers[i].id,
+          home_club_name: losers[i].name,
+          away_club_id: losers[i + 1].id,
+          away_club_name: losers[i + 1].name,
+          round: round + 1,
+          type: "third_place",
+          status: "scheduled",
+          home_score: 0,
+          away_score: 0,
+        });
+      }
     }
   }
   return matches;

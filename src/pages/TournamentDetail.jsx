@@ -16,7 +16,7 @@ import {
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Crown, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -399,7 +399,8 @@ export default function TournamentDetail() {
           if (tournament.type === "knockout" || tournament.type === "double_elimination") {
             const nextRoundMatches = generateNextKnockoutRound(updatedMatches, tournament.current_round);
             if (nextRoundMatches.length === 0) {
-              const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && m.status === "completed");
+              const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && String(m.type || "").includes("final") && m.status === "completed")
+                || updatedMatches.find(m => m.round === tournament.current_round && m.status === "completed");
               if (finalMatch) {
                 const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
                 await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
@@ -519,6 +520,69 @@ export default function TournamentDetail() {
 
   await refreshMatches();
   resetUI();
+}
+
+function GroupStageVisual({ matches, registeredClubs, numGroups }) {
+  const groups = Array.from({ length: Math.max(1, Number(numGroups) || 2) }, (_, index) => ({
+    index,
+    name: String.fromCharCode(65 + index),
+    clubs: [],
+  }));
+  const clubMap = Object.fromEntries(registeredClubs.map(club => [club.id, club]));
+
+  matches
+    .filter(match => match.group !== undefined && match.group !== null)
+    .forEach(match => {
+      const group = groups[Number(match.group)];
+      if (!group) return;
+      [
+        { id: match.home_club_id, name: match.home_club_name },
+        { id: match.away_club_id, name: match.away_club_name },
+      ].forEach(team => {
+        if (!team.id || group.clubs.some(club => club.id === team.id)) return;
+        group.clubs.push({ ...team, ...clubMap[team.id] });
+      });
+    });
+
+  if (!groups.some(group => group.clubs.length)) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-foreground">Group Draw</p>
+          <p className="text-[11px] text-muted-foreground">Top teams advance into the knockout bracket.</p>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 bg-primary/10 rounded px-2 py-1">
+          {groups.length} groups
+        </span>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        {groups.map(group => (
+          <div key={group.name} className="rounded-xl border border-border bg-secondary/30 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-widest text-primary">Group {group.name}</span>
+              <span className="text-[10px] text-muted-foreground">{group.clubs.length} teams</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {group.clubs.map((club, index) => (
+                <div key={club.id} className="flex items-center gap-2 px-3 py-2">
+                  <span className="w-5 text-[10px] font-bold text-muted-foreground">{index + 1}</span>
+                  <div className="w-7 h-7 rounded-lg bg-card border border-border overflow-hidden flex items-center justify-center shrink-0">
+                    {club.logo_url
+                      ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                      : <Shield className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </div>
+                  <span className="text-sm font-bold text-foreground truncate">{club.name}</span>
+                  {club.tag && <span className="ml-auto text-[10px] text-muted-foreground font-mono">[{club.tag}]</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 async function validatePlayerGoals(hs, as_, isHome) {
@@ -683,7 +747,8 @@ async function maybeAdvanceTournament() {
   if (tournament.type === "knockout" || tournament.type === "double_elimination") {
     const nextRoundMatches = generateNextKnockoutRound(updatedMatches, tournament.current_round);
     if (nextRoundMatches.length === 0) {
-      const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && (m.status === "completed" || m.status === "forfeit"));
+      const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && String(m.type || "").includes("final") && (m.status === "completed" || m.status === "forfeit"))
+        || updatedMatches.find(m => m.round === tournament.current_round && (m.status === "completed" || m.status === "forfeit"));
       if (finalMatch) {
         const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
         await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
@@ -963,6 +1028,11 @@ function resetUI() {
     const incomplete = rounds.find(r => matches.filter(m => m.round === r).some(m => m.status !== "completed" && m.status !== "forfeit"));
     return incomplete ?? rounds[rounds.length - 1] ?? null;
   })();
+  const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
+    || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
+  const bracketMatches = tournament.type === "group_stage"
+    ? matches.filter(m => !["group", "group_stage"].includes(String(m.type || "")))
+    : matches;
 
   const TYPE_COLOR = {
     knockout: "#ef4444",
@@ -1111,7 +1181,7 @@ function resetUI() {
       </div>
 
       {/* ── INFO STRIP ────────────────────────────────── */}
-      {(tournament.prize_description || tournament.entry_fee_stc > 0 || (!isPlayerTournament && myPlayer?.club_id)) && (
+      {(tournament.entry_fee_stc > 0 || (!isPlayerTournament && myPlayer?.club_id)) && (
         <div className="border-b border-border bg-card/60">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center gap-5">
             {tournament.entry_fee_stc > 0 && (
@@ -1122,14 +1192,9 @@ function resetUI() {
                   : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}
                 {tournament.prize_winner_stc && (
                   <span className="text-success/55 ml-1">
-                    (1st: {tournament.prize_winner_stc.toLocaleString()} | 2nd: {(tournament.prize_runner_up_stc || 0).toLocaleString()})
+                    (1st: {tournament.prize_winner_stc.toLocaleString()} | 2nd: {(tournament.prize_runner_up_stc || 0).toLocaleString()} | 3rd: {(tournament.prize_semi_final_stc || 0).toLocaleString()})
                   </span>
                 )}
-              </span>
-            )}
-            {tournament.prize_description && (
-              <span className="flex items-center gap-1.5 text-xs text-warning">
-                <Crown className="w-3.5 h-3.5" /> {tournament.prize_description}
               </span>
             )}
             {!isPlayerTournament && myPlayer?.club_id && (() => {
@@ -1366,15 +1431,20 @@ function resetUI() {
                 : <p className="text-muted-foreground text-sm">Bracket will appear once the tournament starts.</p>
               }
             </div>
-          ) : (tournament.type === "knockout" || tournament.type === "double_elimination") ? (
+          ) : hasKnockoutTree ? (
             <div className="bg-card border border-border rounded-2xl p-6">
               {tournament.status === "registration" && matches.length > 0 && (
                 <div className="mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
                   Draw preview — tournament has not started yet.
                 </div>
               )}
+              {tournament.type === "group_stage" && (
+                <div className="mb-5">
+                  <GroupStageVisual matches={matches} registeredClubs={registeredClubs} numGroups={tournament.num_groups || 2} />
+                </div>
+              )}
               <KnockoutBracket
-                matches={matches}
+                matches={bracketMatches}
                 myClubId={myClubId}
                 onSubmit={(match) => { setActiveMatch(match); setResultDialogOpen(true); }}
                 onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
@@ -1390,6 +1460,10 @@ function resetUI() {
                 <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
                   Draw preview — tournament has not started yet.
                 </div>
+              )}
+
+              {tournament.type === "group_stage" && (
+                <GroupStageVisual matches={matches} registeredClubs={registeredClubs} numGroups={tournament.num_groups || 2} />
               )}
 
               {/* Round selector pills */}

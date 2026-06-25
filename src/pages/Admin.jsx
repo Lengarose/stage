@@ -38,6 +38,14 @@ import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
+import {
+  TOURNAMENT_CREDIT_COST,
+  applyTournamentFormat,
+  calculateTournamentPrizeBreakdown,
+  getTournamentFormatRule,
+  getTournamentMaxTeamOptions,
+  normalizeTournamentMaxTeams,
+} from "@/lib/tournamentRules";
 
 /** @param {{ forcedSection?: string }} [props] */
 export default function Admin(props) {
@@ -85,8 +93,8 @@ export default function Admin(props) {
   const [createTournamentOpen, setCreateTournamentOpen] = useState(false);
   const [tournamentForm, setTournamentForm] = useState({
     name: "", type: "knockout", participant_type: "club", platform: "PlayStation",
-    region: "Global", country_code: "", max_teams: 8, start_date: "", description: "", prize_description: "",
-    entry_credits: 50, win_credits: 200, entry_fee_stc: "", custom_rules: "",
+    region: "Global", country_code: "", max_teams: 8, start_date: "", description: "",
+    entry_credits: 50, win_credits: 200, entry_fee_stc: "1000", custom_rules: "",
     prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "",
   });
   const [rulesFile, setRulesFile] = useState(null);
@@ -106,7 +114,6 @@ export default function Admin(props) {
   const trophyFileRef = useRef(null);
 
   // Admin create tournament extras
-  const [adminEntryType, setAdminEntryType] = useState("free"); // "free" | "stc"
   const [adminTrophyItemId, setAdminTrophyItemId] = useState("");
   const [adminModalStep, setAdminModalStep] = useState(1);
 
@@ -669,15 +676,20 @@ export default function Admin(props) {
       }
       const resolvedTrophyUrl = trophy_url || trophyItems.find(t => t.id === resolvedTrophyItemId)?.image_url || "";
 
+      const maxTeams = normalizeTournamentMaxTeams(tournamentForm.type, tournamentForm.max_teams);
+      const prizes = calculateTournamentPrizeBreakdown(tournamentForm.entry_fee_stc, maxTeams);
+
       await stageClient.entities.Tournament.create({
         ...tournamentForm,
-        max_teams: Number(tournamentForm.max_teams),
-        entry_credits: 0,
-        entry_fee_stc: adminEntryType === "stc" ? (Number(tournamentForm.entry_fee_stc) || 0) : 0,
-        prize_winner_stc: Number(tournamentForm.prize_winner_stc) || 0,
-        prize_runner_up_stc: Number(tournamentForm.prize_runner_up_stc) || 0,
-        prize_semi_final_stc: Number(tournamentForm.prize_semi_final_stc) || 0,
-        prize_participation_stc: Number(tournamentForm.prize_participation_stc) || 0,
+        max_teams: maxTeams,
+        entry_credits: TOURNAMENT_CREDIT_COST,
+        entry_fee_stc: prizes.entryFee,
+        prize_pool_stc: prizes.pool,
+        prize_winner_stc: prizes.winner,
+        prize_runner_up_stc: prizes.runnerUp,
+        prize_semi_final_stc: prizes.thirdPlace,
+        prize_participation_stc: 0,
+        prize_description: "",
         start_date: new Date(tournamentForm.start_date).toISOString(),
         organizer_email: user.email,
         creator_email: user.email,
@@ -694,12 +706,12 @@ export default function Admin(props) {
       setCreateTournamentOpen(false);
       setTournamentForm({
         name: "", type: "knockout", participant_type: "club", platform: "PlayStation", region: "Global", country_code: "",
-        max_teams: 8, start_date: "", description: "", prize_description: "",
-        entry_credits: 50, win_credits: 200, entry_fee_stc: "", custom_rules: "",
+        max_teams: 8, start_date: "", description: "",
+        entry_credits: 50, win_credits: 200, entry_fee_stc: "1000", custom_rules: "",
         prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "",
       });
       setRulesFile(null); setBannerFile(null); setBannerColor("#1e2a3a"); setAdminTrophyFile(null);
-      setAdminTrophyItemId(""); setAdminEntryType("free"); setAdminModalStep(1);
+      setAdminTrophyItemId(""); setAdminModalStep(1);
       loadAll();
     } catch (err) {
       console.error("createTournament error:", err);
@@ -1448,6 +1460,10 @@ export default function Admin(props) {
     </div>
   );
 
+  const adminFormatRule = getTournamentFormatRule(tournamentForm.type);
+  const adminMaxTeamOptions = getTournamentMaxTeamOptions(tournamentForm.type);
+  const adminPrizeBreakdown = calculateTournamentPrizeBreakdown(tournamentForm.entry_fee_stc, tournamentForm.max_teams);
+
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -1823,9 +1839,10 @@ export default function Admin(props) {
                   <div>
                     <label className="label-xs">Format</label>
                     <Select value={tournamentForm.type} onValueChange={v => {
-                      const updates = { type: v };
-                      if (v === 'swiss_ucl') updates.max_teams = 36;
-                      setTournamentForm(f => ({ ...f, ...updates }));
+                      setTournamentForm(f => ({
+                        ...applyTournamentFormat(f, v),
+                        max_teams: Number(getTournamentFormatRule(v).defaultMaxTeams),
+                      }));
                     }}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1842,9 +1859,10 @@ export default function Admin(props) {
                     <Select value={String(tournamentForm.max_teams)} onValueChange={v => setTournamentForm(f => ({ ...f, max_teams: Number(v) }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {[4, 8, 16, 20, 32, 36, 64].map(n => <SelectItem key={n} value={String(n)}>{n} Teams</SelectItem>)}
+                        {adminMaxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{n} Teams</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">{adminFormatRule.hint}</p>
                   </div>
                 </div>
 
@@ -1899,46 +1917,18 @@ export default function Admin(props) {
               <>
                 <div>
                   <label className="label-xs">Entry Fee</label>
-                  <div className="flex gap-2 mb-2">
-                    {[["free","Free"],["stc","STC Fee"]].map(([v,label]) => (
-                      <button key={v} type="button" onClick={() => setAdminEntryType(v)}
-                        className={cn("flex-1 py-2 rounded border text-sm font-bold transition-all",
-                          adminEntryType === v ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
-                        )}>
-                        {label}
-                      </button>
-                    ))}
+                  <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
+                  <div className="mt-3 border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
+                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {adminPrizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{tournamentForm.max_teams}</span></div>
+                    <div className="h-px bg-primary/20" />
+                    <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">Winner 70%</span><span className="font-black text-warning">{adminPrizeBreakdown.winner.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Runner-up 20%</span><span className="font-bold text-foreground">{adminPrizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Third place 10%</span><span className="font-bold text-foreground">{adminPrizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                    <div className="h-px bg-primary/20" />
+                    <div className="flex justify-between"><span className="text-xs text-warning font-bold">Prize pool</span><span className="font-black text-warning">{adminPrizeBreakdown.pool.toLocaleString()} STC</span></div>
                   </div>
-                  {adminEntryType === "stc" && (
-                    <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="label-xs">Prize Pool (STC) <span className="font-normal lowercase text-muted-foreground">— paid automatically on completion</span></label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { key: "prize_winner_stc",        label: "🥇 Winner",        placeholder: "5000000" },
-                      { key: "prize_runner_up_stc",      label: "🥈 Runner-Up",     placeholder: "2000000" },
-                      { key: "prize_semi_final_stc",     label: "🥉 Semi-Final",    placeholder: "500000"  },
-                      { key: "prize_participation_stc",  label: "🎖️ Participation", placeholder: "100000"  },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{f.label}</label>
-                        <input type="number" min="0" value={tournamentForm[f.key] || ""}
-                          onChange={e => setTournamentForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-                          placeholder={f.placeholder} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label-xs">Prize Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
-                  <input value={tournamentForm.prize_description} onChange={e => setTournamentForm(f => ({ ...f, prize_description: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Bragging rights + custom badge" />
                 </div>
 
                 <div>
