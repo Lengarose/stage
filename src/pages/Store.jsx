@@ -29,6 +29,7 @@ const DEFAULT_STORE_CONFIG = {
   community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
   headline: "One membership for serious competitors",
   description: "STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.",
+  badge_image_url: "/uploads/stage-plus-badge.png",
   perks: [],
 };
 
@@ -39,9 +40,7 @@ const CREDIT_PACKS = [
   { id: "credits_1500", credits: 1500, price_eur: 9.99, stripe_price_id: "price_1TOb2Y2fnaWmNMFQArERKaS1", label: null },
 ];
 
-const BADGE_IMAGES = {
-  sub_stage_plus: "https://stageleagues.com/uploads/elite.png",
-};
+const BADGE_IMAGES = {};
 
 export default function Store() {
   const [user, setUser] = useState(null);
@@ -173,7 +172,7 @@ export default function Store() {
   const credits = creditTarget === "club" ? (myClub?.credits ?? 0) : (player?.credits ?? 0);
   const categories = ["credits", "subscription"];
   const currentTier = normalizeSubscriptionTier(player?.subscription);
-  const badgeImg = BADGE_IMAGES[`sub_${currentTier}`];
+  const badgeImg = currentTier === "stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[`sub_${currentTier}`];
   const tierLabel = TIER_LABELS[currentTier];
   const tierColor = TIER_COLORS[currentTier];
   const monthlyCredits = Number(storeConfig.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
@@ -402,7 +401,7 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
 
 function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, storeConfig = DEFAULT_STORE_CONFIG }) {
   const rarity = RARITY_STYLES[item.rarity];
-  const badgeImg = BADGE_IMAGES[item.id];
+  const badgeImg = item.id === "sub_stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[item.id];
   const tier = item.id.replace('sub_', '');
   const isCurrentTier = item.id === `sub_${currentTier}`;
   const hasActiveSub = hasStagePlus(currentTier) && expiresAt && new Date(expiresAt) > new Date();

@@ -611,6 +611,8 @@ export default function LeagueDetail() {
         {league && (
           <TrophyHistorySection
             sourceId={league.id}
+            sourceType="regional_league"
+            winnersOnly
             trophyImageUrl={league.trophy_image_url}
             className="bg-card border border-border rounded-xl p-4"
           />

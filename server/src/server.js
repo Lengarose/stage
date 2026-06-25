@@ -1251,12 +1251,16 @@ async function runStartupMigrations() {
     community_tournament_limit INT           NOT NULL DEFAULT 5,
     headline                   VARCHAR(255)  NULL,
     description                TEXT          NULL,
+    badge_image_url            VARCHAR(500)  NULL,
     perks                      JSON          NULL,
     is_active                  TINYINT(1)    NOT NULL DEFAULT 1,
     created_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_store_configs_active (is_active)
   )`).catch(err => console.error('[migration] store_configs:', err.message));
+  await addCol('store_configs', 'badge_image_url', 'VARCHAR(500) NULL');
+  await EXECUTESQL("UPDATE store_configs SET badge_image_url = '/uploads/stage-plus-badge.png' WHERE badge_image_url IS NULL OR badge_image_url = ''")
+    .catch(err => console.error('[migration] store_configs badge_image_url:', err.message));
 
   const storeConfigCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM store_configs', []).catch(() => [{ n: 1 }]);
   if (Number(storeConfigCount[0]?.n || 0) === 0) {
@@ -1264,11 +1268,12 @@ async function runStartupMigrations() {
       `INSERT INTO store_configs
          (id, name, stage_plus_monthly_price, stage_plus_yearly_price, monthly_credits,
           starter_credits, tournament_entry_credits, community_tournament_limit, headline,
-          description, perks, is_active, created_date, updated_date)
+          description, badge_image_url, perks, is_active, created_date, updated_date)
        VALUES
          ('store-stage-plus-default', 'STAGE Plus', 5.99, 59.99, 300, 50, 50, 5,
           'One membership for serious competitors',
           'STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.',
+          '/uploads/stage-plus-badge.png',
           JSON_ARRAY('Enter official STAGE competitions and regional leagues','Create community tournaments','300 credits refreshed every month','Ranked player and club competition access','Advanced player and club discovery'),
           1, NOW(), NOW())`,
       []

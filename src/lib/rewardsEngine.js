@@ -99,7 +99,7 @@ export async function distributeSeasonRewards({
       position_label:   posLabel,
       badge_type:       badge,
       stc_awarded:      stcAmount,
-      trophy_image_url: trophyImageUrl || "",
+      trophy_image_url: badge === "winner" ? (trophyImageUrl || "") : "",
       awarded_at:       nowIso,
     };
     const achievement = existingAchievement
@@ -195,7 +195,7 @@ async function _distributePlayerAchievements({
         position:         pos,
         position_label:   posLabel,
         badge_type:       badge,
-        trophy_image_url: trophyImageUrl || "",
+        trophy_image_url: badge === "winner" ? (trophyImageUrl || "") : "",
         awarded_at:       nowIso,
       }) ?? Promise.resolve())
       .catch(() => {})

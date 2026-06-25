@@ -9,6 +9,7 @@ const DEFAULT_STORE_SETTINGS = {
   community_tournament_limit: 5,
   headline: 'One membership for serious competitors',
   description: 'STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.',
+  badge_image_url: '/uploads/stage-plus-badge.png',
   perks: [
     'Enter official STAGE competitions and regional leagues',
     'Create community tournaments',
@@ -38,6 +39,7 @@ function normalizeStoreSettings(row = {}) {
     starter_credits: Number(row.starter_credits ?? DEFAULT_STORE_SETTINGS.starter_credits),
     tournament_entry_credits: Number(row.tournament_entry_credits ?? DEFAULT_STORE_SETTINGS.tournament_entry_credits),
     community_tournament_limit: Number(row.community_tournament_limit ?? DEFAULT_STORE_SETTINGS.community_tournament_limit),
+    badge_image_url: row.badge_image_url || DEFAULT_STORE_SETTINGS.badge_image_url,
     perks: parsePerks(row.perks),
   };
 }

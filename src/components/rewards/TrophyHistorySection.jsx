@@ -13,7 +13,7 @@ function BadgePill({ badgeType }) {
   );
 }
 
-export default function TrophyHistorySection({ sourceId, trophyImageUrl, className }) {
+export default function TrophyHistorySection({ sourceId, trophyImageUrl, className, sourceType, winnersOnly = false }) {
   const [items, setItems]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen]       = useState(false);
@@ -23,14 +23,25 @@ export default function TrophyHistorySection({ sourceId, trophyImageUrl, classNa
     (stageClient.entities.ClubAchievement?.filter({ source_id: sourceId }, "-season_number", 50) ?? Promise.resolve([]))
       .catch(() => [])
       .then(rows => {
-        // Keep only notable positions (winner + runner-up + semi-final) and sort by season desc
-        const notable = rows
-          .filter(r => r.badge_type !== "participant" && r.badge_type !== "top_4")
-          .sort((a, b) => (b.season_number || 0) - (a.season_number || 0));
+        const isLeagueHistory = winnersOnly || sourceType === "regional_league";
+        const matchingSourceRows = sourceType
+          ? rows.filter(r => !r.source_type || r.source_type === sourceType)
+          : rows;
+
+        // League history is champion-only. Knockout competitions can still show
+        // notable placements such as runner-up and semi-finalists.
+        const notable = matchingSourceRows
+          .filter(r => isLeagueHistory
+            ? r.badge_type === "winner" || Number(r.position) === 1
+            : r.badge_type !== "participant" && r.badge_type !== "top_4")
+          .sort((a, b) =>
+            (b.season_number || 0) - (a.season_number || 0) ||
+            (a.position || 99) - (b.position || 99)
+          );
         setItems(notable);
         setLoading(false);
       });
-  }, [sourceId]);
+  }, [sourceId, sourceType, winnersOnly]);
 
   if (loading || items.length === 0) return null;
 

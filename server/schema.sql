@@ -1726,6 +1726,7 @@ CREATE TABLE IF NOT EXISTS store_configs (
   community_tournament_limit INT           NOT NULL DEFAULT 5,
   headline                   VARCHAR(255)  NULL,
   description                TEXT          NULL,
+  badge_image_url            VARCHAR(500)  NULL,
   perks                      JSON          NULL,
   is_active                  TINYINT(1)    NOT NULL DEFAULT 1,
   created_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -24,6 +24,7 @@ const DEFAULT_FORM = {
   community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
   headline: "One membership for serious competitors",
   description: "STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.",
+  badge_image_url: "/uploads/stage-plus-badge.png",
   perks: [
     "Enter official STAGE competitions and regional leagues",
     "Create community tournaments",
@@ -71,6 +72,7 @@ export default function StoreTab() {
       community_tournament_limit: Number(form.community_tournament_limit) || COMMUNITY_TOURNAMENT_LIMIT,
       headline: form.headline || DEFAULT_FORM.headline,
       description: form.description || DEFAULT_FORM.description,
+      badge_image_url: form.badge_image_url || DEFAULT_FORM.badge_image_url,
       perks: perksText.split("\n").map((p) => p.trim()).filter(Boolean),
       is_active: 1,
       reason: "Updated from admin Store panel",
@@ -166,6 +168,10 @@ export default function StoreTab() {
             <Textarea value={form.description || ""} onChange={(e) => setField("description", e.target.value)} className="bg-secondary border-border min-h-24" />
           </div>
           <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Badge image URL</label>
+            <Input value={form.badge_image_url || ""} onChange={(e) => setField("badge_image_url", e.target.value)} className="bg-secondary border-border" />
+          </div>
+          <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Perks (one per line)</label>
             <Textarea value={perksText} onChange={(e) => setField("perks", e.target.value.split("\n"))} className="bg-secondary border-border min-h-36" />
           </div>
@@ -174,7 +180,11 @@ export default function StoreTab() {
         <div className="bg-card border border-primary/20 rounded p-5 h-fit space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
-              <Crown className="w-6 h-6 text-primary" />
+              {form.badge_image_url ? (
+                <img src={form.badge_image_url} alt="STAGE Plus badge" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Crown className="w-6 h-6 text-primary" />
+              )}
             </div>
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Store preview</p>
