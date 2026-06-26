@@ -2801,6 +2801,11 @@ const HANDLERS = {
 
     const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
     for (const match of matches) broadcastMatch(match);
+    if (result.completed) {
+      await HANDLERS.distributeTournamentPrizes({ tournament_id: id }).catch((err) => {
+        console.error('[advanceRound prize distribution]', err.message);
+      });
+    }
     return { data: { success: true, ...result } };
   },
 
@@ -4008,27 +4013,21 @@ const HANDLERS = {
     const [t] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ?', [tournament_id]);
     if (!t) throw new Error('Tournament not found');
 
-    const existing = await EXECUTESQL(
-      "SELECT COUNT(*) AS count FROM stc_transactions WHERE reference_id = ? AND category = 'tournament_prize'",
-      [tournament_id],
-    );
-    const existingPlayer = await EXECUTESQL(
-      "SELECT COUNT(*) AS count FROM player_stc_transactions WHERE reference_id = ? AND category = 'tournament_prize'",
-      [tournament_id],
-    );
-    if (Number(existing[0]?.count || 0) + Number(existingPlayer[0]?.count || 0) > 0) {
-      return { success: true, skipped: true, reason: 'already_distributed' };
-    }
-
     const matches = await EXECUTESQL(
       "SELECT * FROM matches WHERE tournament_id = ? AND status IN ('completed','forfeit') ORDER BY round DESC, created_date DESC",
       [tournament_id],
     );
 
     const isPlayerTournament = String(t.participant_type || '').toLowerCase() === 'player';
-    const finalMatch = matches.find(m => String(m.type || '').includes('final') && (isPlayerTournament ? m.winner_player_id : m.winner_club_id))
+    const hasWinner = (match) => Boolean(isPlayerTournament ? match?.winner_player_id : match?.winner_club_id);
+    const isFinalMatch = (match) => {
+      const type = String(match?.type || '').toLowerCase();
+      if (type.includes('semi') || type.includes('quarter') || type.includes('third') || type.includes('bronze')) return false;
+      return type === 'final' || type === 'grand_final' || type === 'championship' || type.endsWith('_final');
+    };
+    const finalMatch = matches.find(m => isFinalMatch(m) && hasWinner(m))
       || matches.find(m => (isPlayerTournament ? m.winner_player_id : m.winner_club_id));
-    const thirdPlaceMatch = matches.find(m => ['third_place', 'placement_third', 'bronze'].includes(String(m.type || '')) && (isPlayerTournament ? m.winner_player_id : m.winner_club_id));
+    const thirdPlaceMatch = matches.find(m => ['third_place', 'third-place', 'placement_third', 'bronze'].includes(String(m.type || '').toLowerCase()) && hasWinner(m));
 
     const loserOf = (match) => {
       if (!match) return null;
@@ -4046,30 +4045,47 @@ const HANDLERS = {
       return { id: match.home_club_id, name: match.home_club_name };
     };
 
+    const registeredClubs = parseMaybeJson(t.registered_clubs, []);
+    const registeredPlayers = parseMaybeJson(t.registered_players, []);
+    const registeredCount = isPlayerTournament ? registeredPlayers.length : registeredClubs.length;
+    const fallbackPool = Number(t.prize_pool_stc || 0) || Number(t.entry_fee_stc || 0) * registeredCount;
+    const fallbackWinner = fallbackPool > 0 ? Math.round(fallbackPool * 0.7) : 0;
+    const fallbackRunnerUp = fallbackPool > 0 ? Math.round(fallbackPool * 0.2) : 0;
+    const fallbackThirdPlace = fallbackPool > 0 ? Math.max(0, fallbackPool - fallbackWinner - fallbackRunnerUp) : 0;
+
     const payouts = [
       {
         label: 'Winner',
         clubId: isPlayerTournament ? null : (t.winner_club_id || finalMatch?.winner_club_id),
         playerId: isPlayerTournament ? (t.winner_player_id || finalMatch?.winner_player_id) : null,
-        amount: Number(t.prize_winner_stc || 0),
+        amount: Number(t.prize_winner_stc || 0) || fallbackWinner,
       },
       {
         label: 'Runner-up',
         clubId: isPlayerTournament ? null : loserOf(finalMatch)?.id,
         playerId: isPlayerTournament ? loserOf(finalMatch)?.id : null,
-        amount: Number(t.prize_runner_up_stc || 0),
+        amount: Number(t.prize_runner_up_stc || 0) || fallbackRunnerUp,
       },
       {
         label: 'Third place',
         clubId: isPlayerTournament ? null : thirdPlaceMatch?.winner_club_id,
         playerId: isPlayerTournament ? thirdPlaceMatch?.winner_player_id : null,
-        amount: Number(t.prize_semi_final_stc || 0),
+        amount: Number(t.prize_third_place_stc || t.prize_semi_final_stc || 0) || fallbackThirdPlace,
       },
     ].filter(p => (p.clubId || p.playerId) && p.amount > 0);
 
     let paid = 0;
+    let skipped = 0;
     for (const payout of payouts) {
       if (payout.playerId) {
+        const existingRows = await EXECUTESQL(
+          "SELECT id FROM player_stc_transactions WHERE reference_id = ? AND category = 'tournament_prize' AND player_id = ? LIMIT 1",
+          [tournament_id, payout.playerId],
+        );
+        if (existingRows.length) {
+          skipped += 1;
+          continue;
+        }
         await createPlayerTx({
           playerId: payout.playerId,
           amount: payout.amount,
@@ -4082,29 +4098,26 @@ const HANDLERS = {
         paid += 1;
         continue;
       }
-      const clubRows = await EXECUTESQL('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1', [payout.clubId]);
-      if (!clubRows.length) continue;
-      const balanceAfter = Number(clubRows[0].stc || 0) + payout.amount;
-      await EXECUTESQL('UPDATE clubs SET stc = ? WHERE id = ?', [balanceAfter, payout.clubId]);
-      await EXECUTESQL(
-        `INSERT INTO stc_transactions
-          (id, club_id, amount, balance_after, type, category, description, reference_id)
-         VALUES (?,?,?,?,?,?,?,?)`,
-        [
-          uuidv4(),
-          payout.clubId,
-          payout.amount,
-          balanceAfter,
-          'income',
-          'tournament_prize',
-          `${payout.label} prize: ${t.name}`,
-          tournament_id,
-        ],
+      const existingRows = await EXECUTESQL(
+        "SELECT id FROM stc_transactions WHERE reference_id = ? AND category = 'tournament_prize' AND club_id = ? LIMIT 1",
+        [tournament_id, payout.clubId],
       );
+      if (existingRows.length) {
+        skipped += 1;
+        continue;
+      }
+      await createClubTx({
+        clubId: payout.clubId,
+        amount: payout.amount,
+        type: 'income',
+        category: 'tournament_prize',
+        description: `${payout.label} prize: ${t.name}`,
+        referenceId: tournament_id,
+      });
       paid += 1;
     }
 
-    return { success: true, paid };
+    return { success: true, paid, skipped, payout_count: payouts.length };
   },
 
   async getTransferMarket() {

@@ -85,6 +85,15 @@ export default function TournamentDetail() {
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
 
+  async function distributeTournamentPrizesOnce(tournamentId = id) {
+    if (!tournamentId) return;
+    try {
+      await stageClient.functions.invoke("distributeTournamentPrizes", { tournament_id: tournamentId });
+    } catch (err) {
+      console.error("Prize distribution failed:", err);
+    }
+  }
+
   useEffect(() => {
     async function load() {
       try {
@@ -124,6 +133,7 @@ export default function TournamentDetail() {
         setIsAdmin(u.role === "admin");
         setIsCreator(t?.creator_email === u.email);
         if (t?.status === 'completed' && t?.winner_club_id) {
+          await distributeTournamentPrizesOnce(t.id);
           const existingConfs = await stageClient.entities.PressConference
             .filter({ match_id: t.id })
             .catch(() => []);
@@ -415,6 +425,7 @@ export default function TournamentDetail() {
                 await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
                 awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
+                await distributeTournamentPrizesOnce(id);
               }
             } else {
               for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
@@ -442,6 +453,7 @@ export default function TournamentDetail() {
                 await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
                 setTournament(prev => ({ ...prev, status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
                 awardTournamentTrophy({ ...tournament, id }, winnerId).catch(() => {});
+                await distributeTournamentPrizesOnce(id);
               }
             }
           }
@@ -763,15 +775,7 @@ async function maybeAdvanceTournament() {
         await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
         setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
         awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
-
-        // Distribute prize pool
-        if (tournament.entry_fee_stc > 0) {
-          try {
-            await stageClient.functions.invoke('distributeTournamentPrizes', { tournament_id: id });
-          } catch (err) {
-            console.error('Prize distribution failed:', err);
-          }
-        }
+        await distributeTournamentPrizesOnce(id);
       }
     } else {
       for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });

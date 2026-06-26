@@ -9,7 +9,7 @@
  * Because cabinetWidth changes on resize, the trophy scales with the cabinet.
  */
 import { useState, useRef, useEffect } from "react";
-import { Trophy, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Move, Trophy, X, ZoomIn, ZoomOut } from "lucide-react";
 
 // scale=1 → 12% of cabinet width
 const BASE_SIZE_RATIO = 0.12;
@@ -17,21 +17,33 @@ const BASE_SIZE_RATIO = 0.12;
 export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetSize, onMove, onMoveSave, onRemove, wonTournaments }) {
   const [tooltip, setTooltip] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [draftPosition, setDraftPosition] = useState(null);
+  const [draftScale, setDraftScale] = useState(null);
   const dragStart = useRef(null);
+  const scaleDraftRef = useRef(null);
+  const frameRef = useRef(null);
+
+  const xPercent = draftPosition?.x_percent ?? placement.x_percent;
+  const yPercent = draftPosition?.y_percent ?? placement.y_percent;
+  const scale = draftScale ?? placement.scale ?? 1;
 
   function handlePointerDown(e) {
     if (!editMode) return;
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     const rect = cabinetRef.current.getBoundingClientRect();
     dragStart.current = {
       startX: e.clientX,
       startY: e.clientY,
-      origX: placement.x_percent,
-      origY: placement.y_percent,
+      origX: xPercent,
+      origY: yPercent,
       rectW: rect.width,
       rectH: rect.height,
+      lastX: xPercent,
+      lastY: yPercent,
     };
+    setDraftPosition({ x_percent: xPercent, y_percent: yPercent });
     setDragging(true);
   }
 
@@ -45,19 +57,36 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
       const dy = ((e.clientY - startY) / rectH) * 100;
       const newX = Math.max(5, Math.min(95, origX + dx));
       const newY = Math.max(5, Math.min(95, origY + dy));
-      onMove(placement.id, { x_percent: newX, y_percent: newY });
-      dragStart.current._lastX = newX;
-      dragStart.current._lastY = newY;
+      dragStart.current.lastX = newX;
+      dragStart.current.lastY = newY;
+      if (frameRef.current) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        setDraftPosition({
+          x_percent: dragStart.current?.lastX ?? newX,
+          y_percent: dragStart.current?.lastY ?? newY,
+        });
+      });
     }
 
     function handlePointerUp() {
-      if (dragStart.current?._lastX !== undefined) {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      if (dragStart.current) {
+        const next = {
+          x_percent: dragStart.current.lastX,
+          y_percent: dragStart.current.lastY,
+        };
+        onMove(placement.id, next);
         onMoveSave(placement.id, {
-          x_percent: dragStart.current._lastX,
-          y_percent: dragStart.current._lastY,
+          x_percent: next.x_percent,
+          y_percent: next.y_percent,
         });
       }
       setDragging(false);
+      setDraftPosition(null);
       dragStart.current = null;
     }
 
@@ -67,23 +96,44 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [dragging, placement.id, onMove]);
+  }, [dragging, placement.id, onMove, onMoveSave]);
+
+  function commitScale(nextScale) {
+    const safeScale = Math.max(0.3, Math.min(3, Number(nextScale) || 1));
+    scaleDraftRef.current = safeScale;
+    setDraftScale(safeScale);
+    onMove(placement.id, { scale: safeScale });
+    onMoveSave(placement.id, { scale: safeScale });
+    setDraftScale(null);
+  }
+
+  function handleScaleChange(e) {
+    const nextScale = Math.max(0.3, Math.min(3, Number(e.target.value) || 1));
+    scaleDraftRef.current = nextScale;
+    setDraftScale(nextScale);
+    onMove(placement.id, { scale: nextScale });
+  }
+
+  function handleScaleCommit() {
+    const nextScale = scaleDraftRef.current ?? scale;
+    onMoveSave(placement.id, { scale: nextScale });
+    setDraftScale(null);
+  }
 
   function scaleBy(delta) {
-    const newScale = Math.max(0.3, Math.min(3, (placement.scale || 1) + delta));
-    onMoveSave(placement.id, { scale: newScale });
+    commitScale(scale + delta);
   }
 
   // Responsive size: always proportional to current cabinet width
   const cabinetWidth = cabinetSize?.width || 400;
-  const size = Math.round(cabinetWidth * BASE_SIZE_RATIO * (placement.scale || 1));
+  const size = Math.round(cabinetWidth * BASE_SIZE_RATIO * scale);
 
   return (
     <div
       className="absolute group"
       style={{
-        left: `${placement.x_percent}%`,
-        top: `${placement.y_percent}%`,
+        left: `${xPercent}%`,
+        top: `${yPercent}%`,
         transform: "translate(-50%, -50%)",
         zIndex: dragging ? 50 : editMode ? 20 : 10,
         cursor: editMode ? (dragging ? "grabbing" : "grab") : "pointer",
@@ -126,13 +176,27 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
       {/* Edit controls */}
       {editMode && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/80 rounded-full px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/85 border border-white/10 rounded-full px-2 py-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shadow-xl"
           style={{ top: -Math.max(20, size * 0.35), pointerEvents: "all" }}
           onPointerDown={e => e.stopPropagation()}
         >
-          <button onClick={(e) => { e.stopPropagation(); scaleBy(-0.15); }} className="text-white hover:text-primary p-0.5"><ZoomOut className="w-3 h-3" /></button>
-          <button onClick={(e) => { e.stopPropagation(); scaleBy(0.15); }} className="text-white hover:text-primary p-0.5"><ZoomIn className="w-3 h-3" /></button>
-          <button onClick={(e) => { e.stopPropagation(); onRemove(placement.id); }} className="text-white hover:text-destructive p-0.5"><X className="w-3 h-3" /></button>
+          <Move className="w-3.5 h-3.5 text-white/70" />
+          <button type="button" onClick={(e) => { e.stopPropagation(); scaleBy(-0.15); }} className="text-white hover:text-primary p-0.5"><ZoomOut className="w-3.5 h-3.5" /></button>
+          <input
+            aria-label="Resize trophy"
+            type="range"
+            min="0.3"
+            max="3"
+            step="0.05"
+            value={scale}
+            onChange={handleScaleChange}
+            onPointerUp={handleScaleCommit}
+            onBlur={handleScaleCommit}
+            className="w-24 accent-cyan-300"
+          />
+          <button type="button" onClick={(e) => { e.stopPropagation(); scaleBy(0.15); }} className="text-white hover:text-primary p-0.5"><ZoomIn className="w-3.5 h-3.5" /></button>
+          <span className="min-w-9 text-center text-[10px] font-bold text-white/70">{Math.round(scale * 100)}%</span>
+          <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(placement.id); }} className="text-white hover:text-destructive p-0.5"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
 
