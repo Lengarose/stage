@@ -48,10 +48,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
         stageClient.entities.Player.filter({ club_id: myClub.id }),
       ]);
-      const seatedIds = dressing?.[0]?.seated_players || [];
-      const seated    = seatedIds.length > 0
-        ? allPlayers.filter(p => seatedIds.includes(p.id))
-        : allPlayers;
+      const parseIds = (value) => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value;
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      };
+      const seatedIds = parseIds(dressing?.[0]?.seated_players);
+      const seated    = allPlayers.filter(p => seatedIds.includes(p.id));
       setSeatedPlayers(seated);
       const initRatings = {};
       seated.forEach(p => { initRatings[p.id] = 6; });

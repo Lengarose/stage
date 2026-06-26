@@ -31,7 +31,14 @@ function parseJson(value, fallback) {
 }
 
 async function getUser(req) {
-  const rows = await EXECUTESQL('SELECT id, email, role_id, role FROM users WHERE id = ? LIMIT 1', [req.user?.id]);
+  const rows = await EXECUTESQL(
+    `SELECT id, email, role_id,
+      CASE WHEN role_id = 0 THEN 'admin' ELSE 'user' END AS role
+     FROM users
+     WHERE id = ?
+     LIMIT 1`,
+    [req.user?.id]
+  );
   return rows[0] || null;
 }
 

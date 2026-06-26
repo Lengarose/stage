@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   email                 VARCHAR(255) NOT NULL UNIQUE,
   password_hash         VARCHAR(255),
   role_id               INT          DEFAULT 1,
+  role                  VARCHAR(50)  DEFAULT 'user',
   player_id             VARCHAR(36),
   owner_id              VARCHAR(36),
   access_mode           VARCHAR(32)  DEFAULT 'standard',

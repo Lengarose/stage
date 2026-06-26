@@ -6,28 +6,47 @@ import { cn } from "@/lib/utils";
 
 export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
   const [clubPlayers, setClubPlayers] = useState([]);
+  const [availablePlayerIds, setAvailablePlayerIds] = useState(new Set());
   const [seatedPlayerIds, setSeatedPlayerIds] = useState([]);
   const [dressingRoomId, setDressingRoomId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const matchStarted = game.status === "in_progress" || game.status === "completed";
   const myPlayerId = myPlayer?.id;
   const iAmSeated = seatedPlayerIds.includes(myPlayerId);
+  const iAmAvailable = !!myPlayerId && availablePlayerIds.has(myPlayerId);
+
+  function parseIds(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
 
   useEffect(() => {
     async function load() {
       if (!myClub) { setLoading(false); return; }
 
-      const [players, dressing] = await Promise.all([
+      const [players, dressing, availabilityRows] = await Promise.all([
         stageClient.entities.Player.filter({ club_id: myClub.id }),
         stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
+        stageClient.entities.ClubFixtureAvailability.filter({ club_id: myClub.id, fixture_id: game.id }, "-updated_date", 200).catch(() => []),
       ]);
 
-      setClubPlayers(players || []);
+      const availableIds = new Set((availabilityRows || [])
+        .filter((row) => row.status === "available")
+        .map((row) => row.player_id));
+      setAvailablePlayerIds(availableIds);
+      setClubPlayers((players || []).filter((player) => availableIds.has(player.id)));
 
       if (dressing.length > 0) {
-        setSeatedPlayerIds(dressing[0].seated_players || []);
+        setSeatedPlayerIds(parseIds(dressing[0].seated_players).filter((id) => availableIds.has(id)));
         setDressingRoomId(dressing[0].id);
       }
       setLoading(false);
@@ -39,34 +58,46 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
   useEffect(() => {
     const unsub = stageClient.entities.DressingRoom.subscribe((event) => {
       if (event.data?.match_id === game.id && event.data?.club_id === myClub?.id) {
-        setSeatedPlayerIds(event.data.seated_players || []);
+        setSeatedPlayerIds(parseIds(event.data.seated_players).filter((id) => availablePlayerIds.has(id)));
         if (event.data.id) setDressingRoomId(event.data.id);
       }
     }, { match_id: game.id });
     return () => unsub();
-  }, [game.id, myClub]);
+  }, [game.id, myClub, availablePlayerIds]);
 
   async function takeMySeat() {
     if (!myPlayerId || saving || matchStarted) return;
+    if (!iAmAvailable) {
+      setError("Mark yourself available in Club Operations before taking a dressing-room seat.");
+      return;
+    }
     setSaving(true);
+    setError(null);
 
     const newSeated = iAmSeated
       ? seatedPlayerIds.filter(id => id !== myPlayerId)
       : [...seatedPlayerIds, myPlayerId];
+    const previousSeated = seatedPlayerIds;
 
     setSeatedPlayerIds(newSeated);
 
-    if (dressingRoomId) {
-      await stageClient.entities.DressingRoom.update(dressingRoomId, { seated_players: newSeated });
-    } else {
-      const created = await stageClient.entities.DressingRoom.create({
-        match_id: game.id,
-        club_id: myClub.id,
-        seated_players: newSeated,
-      });
-      setDressingRoomId(created.id);
+    try {
+      if (dressingRoomId) {
+        await stageClient.entities.DressingRoom.update(dressingRoomId, { seated_players: newSeated });
+      } else {
+        const created = await stageClient.entities.DressingRoom.create({
+          match_id: game.id,
+          club_id: myClub.id,
+          seated_players: newSeated,
+        });
+        setDressingRoomId(created.id);
+      }
+    } catch (err) {
+      setSeatedPlayerIds(previousSeated);
+      setError(err?.message || "Could not update your dressing-room seat.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   if (loading) return <div className="text-xs text-muted-foreground p-2">Loading dressing room...</div>;
@@ -103,8 +134,14 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
           <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
           <p className="text-[11px] text-warning">
-            Each player must take their own seat. Only seated players receive ratings & stats.
+            Mark yourself available in Club Operations first. Only available seated players receive ratings & stats.
           </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+          {error}
         </div>
       )}
 
@@ -112,12 +149,14 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
       {myPlayer && !matchStarted && (
         <Button
           onClick={takeMySeat}
-          disabled={saving}
+          disabled={saving || !iAmAvailable}
           variant={iAmSeated ? "outline" : "default"}
           className={cn("w-full gap-2", iAmSeated && "border-success text-success hover:text-success")}
         >
           {iAmSeated ? (
             <><CheckCircle2 className="w-4 h-4" /> Leave My Seat</>
+          ) : !iAmAvailable ? (
+            <><Lock className="w-4 h-4" /> Mark Available First</>
           ) : (
             <><Users className="w-4 h-4" /> Take My Seat ({myPlayer.gamertag})</>
           )}
@@ -126,6 +165,11 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
 
       {/* Player grid (read-only display) */}
       <div className="grid grid-cols-2 gap-2">
+        {clubPlayers.length === 0 && (
+          <div className="col-span-2 rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-center text-[11px] text-muted-foreground">
+            No players have marked themselves available yet.
+          </div>
+        )}
         {clubPlayers.map(player => {
           const isSeated = seatedPlayerIds.includes(player.id);
           const isMe = player.id === myPlayerId;

@@ -285,6 +285,7 @@ async function runStartupMigrations() {
   await addCol('players', 'subscription_billing', 'VARCHAR(20) NULL');
   await addCol('players', 'stripe_subscription_id', 'VARCHAR(255) NULL');
   await addCol('players', 'stripe_customer_id', 'VARCHAR(255) NULL');
+  await addCol('players', 'role', 'VARCHAR(50) NULL');
   await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
   await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
   await addCol('players', 'verified_platform', 'VARCHAR(50) NULL');
@@ -298,6 +299,7 @@ async function runStartupMigrations() {
   await addCol('users', 'access_mode', "VARCHAR(32) NULL DEFAULT 'standard'");
   await addCol('users', 'limited_tournament_id', 'VARCHAR(36) NULL');
   await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
+  await addCol('users', 'role', "VARCHAR(50) NULL DEFAULT 'user'");
 
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');

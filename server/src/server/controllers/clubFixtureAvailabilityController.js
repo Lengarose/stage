@@ -36,7 +36,8 @@ router.get('/', async (req, res) => {
     const filters = { ...req.query };
     if (filters.club_id) {
       const access = await getClubAccess(user, filters.club_id);
-      if (!isAdmin(user) && !access.permissions.includes('manage_lineup')) {
+      const isClubMember = access.player && String(access.player.club_id) === String(filters.club_id);
+      if (!isAdmin(user) && !access.permissions.includes('manage_lineup') && !isClubMember) {
         const mine = await getPlayerForUser(user, filters.club_id);
         filters.player_id = mine?.id || '__none__';
       }

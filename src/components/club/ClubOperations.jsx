@@ -73,6 +73,16 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
     notes: "",
   });
 
+  const myClubRoles = normalizeList(myPlayer?.club_roles);
+  const isAdmin = Number(currentUser?.role_id) === 0 || currentUser?.role === "admin";
+  const isOwner = isAdmin || currentUser?.email?.toLowerCase?.() === club?.owner_email?.toLowerCase?.();
+  const isClubMember = !!myPlayer?.id && myPlayer?.club_id === club?.id;
+  const isCaptain = myPlayer?.role === "captain" || myPlayer?.role === "vice-captain" || myClubRoles.includes("captain") || myClubRoles.includes("vice-captain");
+  const isPresident = myPlayer?.role === "president" || myClubRoles.includes("president");
+  const myStaffRoles = staffRoles.filter((role) => role.user_id === currentUser?.id || role.player_id === myPlayer?.id);
+  const staffPermissions = new Set(myStaffRoles.flatMap((role) => normalizeList(role.permissions)));
+  const hasOperationalPower = isOwner || isPresident || isCaptain || myStaffRoles.length > 0 || staffPermissions.size > 0;
+
   useEffect(() => {
     load();
   }, [club?.id]);
@@ -80,6 +90,12 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   useEffect(() => {
     if (!lineupFixtureId && upcomingFixtures[0]?.id) setLineupFixtureId(upcomingFixtures[0].id);
   }, [upcomingFixtures, lineupFixtureId]);
+
+  useEffect(() => {
+    if (!hasOperationalPower && activeSection !== "availability") {
+      setActiveSection("availability");
+    }
+  }, [activeSection, hasOperationalPower]);
 
   useEffect(() => {
     const existing = lineups.find((row) => row.fixture_id === lineupFixtureId);
@@ -281,12 +297,16 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   }
 
   const sections = [
-    ["overview", "Overview", Shield],
-    ["applicants", "Applicants", ClipboardList],
-    ["staff", "Staff", UserCog],
+    ...(hasOperationalPower ? [
+      ["overview", "Overview", Shield],
+      ["applicants", "Applicants", ClipboardList],
+      ["staff", "Staff", UserCog],
+    ] : []),
     ["availability", "Availability", CalendarDays],
-    ["lineup", "Lineup", Users],
-    ["audit", "Audit", History],
+    ...(hasOperationalPower ? [
+      ["lineup", "Lineup", Users],
+      ["audit", "Audit", History],
+    ] : []),
   ];
 
   if (loading) {
@@ -322,6 +342,12 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
           </button>
         ))}
       </div>
+
+      {isClubMember && !hasOperationalPower && (
+        <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+          Mark yourself available here before match day. Only available players can take a Game Day dressing-room seat.
+        </div>
+      )}
 
       {activeSection === "overview" && (
         <div className="grid md:grid-cols-3 gap-3">

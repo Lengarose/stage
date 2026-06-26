@@ -281,7 +281,7 @@ export default function TournamentDetail() {
     if (!tournament) return;
     if (registeredCount < 2) { await swalAlert("Need at least 2 registered participants to generate a draw."); return; }
     try {
-      const result = await generateTournamentDraw(id);
+      const result = await generateTournamentDraw(id, tournament, registeredClubs);
       if (result.tournament) setTournament(prev => ({ ...prev, ...result.tournament }));
       setMatches(result.matches || []);
     } catch (err) {

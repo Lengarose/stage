@@ -99,7 +99,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
   const isViceCaptain = isMember && (myPlayer?.role === "vice-captain" || myPlayer?.club_roles?.includes("vice-captain"));
   const canEdit = isOwner || isCaptain;
-  const canOpenOperations = isOwner || isPresident || isCaptain || isViceCaptain || operationStaffRoles.length > 0 || isAdminTakeover;
+  const canOpenOperations = isMember || isOwner || isPresident || isCaptain || isViceCaptain || operationStaffRoles.length > 0 || isAdminTakeover;
   const CLUB_CHAT_CHANNEL = `club:${id}`;
   // Register the club chat channel with the global notifications provider,
   // mark it "open" while the page is mounted, and expose mute toggle.
