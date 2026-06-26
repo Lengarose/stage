@@ -1316,6 +1316,197 @@ function parseJsonArray(value) {
   }
 }
 
+function seedTournamentClubs(clubs) {
+  return [...clubs].sort((a, b) => {
+    const ptsDiff = Number(b.ranking_points || 0) - Number(a.ranking_points || 0);
+    if (ptsDiff !== 0) return ptsDiff;
+    const winsDiff = Number(b.wins || 0) - Number(a.wins || 0);
+    if (winsDiff !== 0) return winsDiff;
+    return Number(a.losses || 0) - Number(b.losses || 0);
+  });
+}
+
+function shuffleTournamentEntries(entries) {
+  const copy = [...entries];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function makeClubMatch(home, away, round, type, extra = {}) {
+  return {
+    home_club_id: home.id,
+    home_club_name: home.name,
+    home_owner_email: home.owner_email || null,
+    away_club_id: away.id,
+    away_club_name: away.name,
+    away_owner_email: away.owner_email || null,
+    round,
+    type,
+    mode: 'club',
+    status: 'scheduled',
+    home_score: 0,
+    away_score: 0,
+    ...extra,
+  };
+}
+
+function makePlayerMatch(home, away, round, type, extra = {}) {
+  return {
+    home_player_id: home.id,
+    home_player_name: home.gamertag,
+    home_player_email: home.email || null,
+    away_player_id: away.id,
+    away_player_name: away.gamertag,
+    away_player_email: away.email || null,
+    round,
+    type,
+    mode: 'player',
+    status: 'scheduled',
+    home_score: 0,
+    away_score: 0,
+    ...extra,
+  };
+}
+
+function buildTournamentDrawMatches(tournament, entries) {
+  const participantType = String(tournament.participant_type || 'club').toLowerCase();
+  const isPlayerTournament = participantType === 'player';
+  const type = String(tournament.type || 'knockout').toLowerCase();
+  const seeded = isPlayerTournament
+    ? shuffleTournamentEntries(entries)
+    : seedTournamentClubs(entries);
+  const makeMatch = isPlayerTournament ? makePlayerMatch : makeClubMatch;
+  const matches = [];
+  let numGroups = Number(tournament.num_groups || 0) || 2;
+
+  if (type === 'league') {
+    for (let i = 0; i < seeded.length; i += 1) {
+      for (let j = i + 1; j < seeded.length; j += 1) {
+        matches.push(makeMatch(seeded[i], seeded[j], 1, 'league'));
+        matches.push(makeMatch(seeded[j], seeded[i], 2, 'league'));
+      }
+    }
+    return { matches, numGroups: null };
+  }
+
+  if (type === 'group_stage') {
+    numGroups = Math.max(1, Math.ceil(seeded.length / 4));
+    const groups = Array.from({ length: numGroups }, () => []);
+    shuffleTournamentEntries(seeded).forEach((entry, index) => {
+      groups[index % numGroups].push(entry);
+    });
+    groups.forEach((group, groupIndex) => {
+      for (let i = 0; i < group.length; i += 1) {
+        for (let j = i + 1; j < group.length; j += 1) {
+          matches.push(makeMatch(group[i], group[j], 1, 'group', { group_number: groupIndex }));
+        }
+      }
+    });
+    return { matches, numGroups };
+  }
+
+  const shuffled = shuffleTournamentEntries(seeded);
+  for (let i = 0; i < shuffled.length; i += 2) {
+    if (shuffled[i + 1]) {
+      matches.push(makeMatch(shuffled[i], shuffled[i + 1], 1, type === 'swiss_ucl' ? 'ucl_league' : 'knockout'));
+    }
+  }
+  return { matches, numGroups: null };
+}
+
+async function assertTournamentOrganizer(userId, tournament) {
+  const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId]);
+  const user = userRows[0];
+  if (!user) throw new Error('User not found');
+  const isAdmin = [0, 2].includes(Number(user.role_id));
+  const email = String(user.email || '').toLowerCase();
+  const isOwner = email && (
+    email === String(tournament.creator_email || '').toLowerCase()
+    || email === String(tournament.organizer_email || '').toLowerCase()
+  );
+  if (!isAdmin && !isOwner) throw new Error('Only the tournament creator or admin can do this');
+  return { user, isAdmin };
+}
+
+async function getTournamentEntries(tournament) {
+  const participantType = String(tournament.participant_type || 'club').toLowerCase();
+  const ids = participantType === 'player'
+    ? parseMaybeJson(tournament.registered_players, [])
+    : parseMaybeJson(tournament.registered_clubs, []);
+  const normalizedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+  if (normalizedIds.length < 2) throw new Error('Need at least 2 registered participants');
+  const inIds = placeholders(normalizedIds);
+  if (participantType === 'player') {
+    return EXECUTESQL(`SELECT * FROM players WHERE id IN (${inIds})`, normalizedIds);
+  }
+  return EXECUTESQL(`SELECT * FROM clubs WHERE id IN (${inIds})`, normalizedIds);
+}
+
+async function notifyTournamentStarted(tournament) {
+  const participantType = String(tournament.participant_type || 'club').toLowerCase();
+  const title = `${tournament.name} has started`;
+  const body = `The tournament is officially live. Open the tournament page to see your draw and match schedule.`;
+  const recipients = new Set();
+
+  if (participantType === 'player') {
+    const playerIds = parseMaybeJson(tournament.registered_players, []).map(String).filter(Boolean);
+    if (playerIds.length) {
+      const rows = await EXECUTESQL(`SELECT email FROM players WHERE id IN (${placeholders(playerIds)})`, playerIds).catch(() => []);
+      rows.forEach(row => { if (row.email) recipients.add(String(row.email).toLowerCase()); });
+    }
+  } else {
+    const clubIds = parseMaybeJson(tournament.registered_clubs, []).map(String).filter(Boolean);
+    if (clubIds.length) {
+      const rows = await EXECUTESQL(
+        `SELECT email FROM players WHERE club_id IN (${placeholders(clubIds)}) AND email IS NOT NULL AND email <> ''`,
+        clubIds
+      ).catch(() => []);
+      rows.forEach(row => { if (row.email) recipients.add(String(row.email).toLowerCase()); });
+    }
+  }
+
+  let notified = 0;
+  for (const email of recipients) {
+    const result = await createNotificationIfEnabled({
+      recipientEmail: email,
+      type: 'tournament_start',
+      title,
+      body,
+      link: `/tournaments/${tournament.id}`,
+      relatedId: tournament.id,
+    }).catch(() => ({ skipped: true }));
+    if (!result.skipped) notified += 1;
+  }
+  return notified;
+}
+
+async function createTournamentDraw(tournament) {
+  const existing = await EXECUTESQL('SELECT id FROM matches WHERE tournament_id = ? LIMIT 1', [tournament.id]);
+  if (existing.length) {
+    return { created: 0, matches: await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC', [tournament.id]) };
+  }
+
+  const entries = await getTournamentEntries(tournament);
+  const { matches, numGroups } = buildTournamentDrawMatches(tournament, entries);
+  if (!matches.length) throw new Error('Could not generate a draw with the registered participants');
+
+  for (const payload of matches) {
+    const match = new Match({ ...payload, tournament_id: tournament.id });
+    await match.create();
+  }
+  if (numGroups) {
+    await EXECUTESQL('UPDATE tournaments SET num_groups = ?, updated_date = NOW() WHERE id = ?', [numGroups, tournament.id]);
+  }
+  return {
+    created: matches.length,
+    numGroups,
+    matches: await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC', [tournament.id]),
+  };
+}
+
 async function cleanupStageTestPack(admin = null) {
   const clubs = await EXECUTESQL(
     `SELECT id, owner_email FROM clubs
@@ -2331,6 +2522,75 @@ const HANDLERS = {
       goal_events: [],
     });
     return { data: { success: true, ...result.data, home_score: homeScore, away_score: awayScore, player_stats: simulatedStats.length } };
+  },
+
+  async generateTournamentDraw({ _auth_user_id, tournamentId, tournament_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournament_id required');
+
+    const rows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) throw new Error('Tournament not found');
+    const tournament = rows[0];
+    await assertTournamentOrganizer(_auth_user_id, tournament);
+
+    const result = await createTournamentDraw(tournament);
+    const updatedRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    return {
+      data: {
+        success: true,
+        created: result.created,
+        matches: result.matches,
+        tournament: updatedRows[0] || tournament,
+      },
+    };
+  },
+
+  async startTournament({ _auth_user_id, tournamentId, tournament_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournament_id required');
+
+    const rows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) throw new Error('Tournament not found');
+    const tournament = rows[0];
+    await assertTournamentOrganizer(_auth_user_id, tournament);
+
+    if (String(tournament.status || '') === 'completed') throw new Error('Tournament is already completed');
+    if (String(tournament.status || '') === 'cancelled') throw new Error('Cancelled tournament cannot be started');
+
+    const draw = await createTournamentDraw(tournament);
+    await EXECUTESQL(
+      `UPDATE tournaments
+          SET status = 'in_progress',
+              current_round = COALESCE(NULLIF(current_round, 0), 1),
+              num_groups = COALESCE(?, num_groups),
+              updated_date = NOW()
+        WHERE id = ?`,
+      [draw.numGroups || null, id]
+    );
+    const updatedRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    const updated = updatedRows[0] || { ...tournament, status: 'in_progress', current_round: 1 };
+    const notified = await notifyTournamentStarted(updated).catch(() => 0);
+
+    await createAuditLog({
+      adminUserId: _auth_user_id,
+      action: 'start_tournament',
+      entityType: 'tournament',
+      entityId: id,
+      newValue: { status: 'in_progress', notified },
+      reason: 'Tournament officially started',
+    }).catch(() => {});
+
+    return {
+      data: {
+        success: true,
+        notified,
+        created_matches: draw.created,
+        matches: draw.matches,
+        tournament: updated,
+      },
+    };
   },
 
   async seedTournamentTestClubs({ _auth_user_id }) {

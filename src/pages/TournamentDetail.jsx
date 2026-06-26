@@ -238,7 +238,7 @@ export default function TournamentDetail() {
       notifyTournamentRegistration(tournament.id, effectiveId).catch(() => {});
 
       if (updated.length >= tournament.max_teams) {
-        await initializeTournament({ ...tournament, registered_clubs: updated }, allClubs.filter(c => updated.includes(c.id)));
+        await swalAlert("Tournament is full. The creator or an admin can now generate the draw and start it officially.");
       }
     } catch (err) {
       await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
@@ -279,11 +279,14 @@ export default function TournamentDetail() {
 
   async function generateDraw() {
     if (!tournament) return;
-    const t = tournament;
-    const registeredClubs = allClubs.filter(c => t.registered_clubs?.includes(c.id));
-    if (registeredClubs.length < 2) { await swalAlert("Need at least 2 registered teams to generate a draw."); return; }
-    const newMatches = await generateTournamentDraw(id, t, registeredClubs);
-    setMatches(newMatches);
+    if (registeredCount < 2) { await swalAlert("Need at least 2 registered participants to generate a draw."); return; }
+    try {
+      const result = await generateTournamentDraw(id);
+      if (result.tournament) setTournament(prev => ({ ...prev, ...result.tournament }));
+      setMatches(result.matches || []);
+    } catch (err) {
+      await swalAlert(err?.message || "Could not generate draw.");
+    }
   }
 
   async function clearDraw() {
@@ -293,9 +296,15 @@ export default function TournamentDetail() {
   }
 
   async function initializeTournament(t, registeredClubs) {
-    const result = await initializeTournamentDraw(id, t, registeredClubs);
-    setTournament(prev => ({ ...prev, ...result.tournamentPatch }));
-    setMatches(result.matches);
+    if (!(await swalConfirm("Start this tournament officially? Registered players will be notified."))) return;
+    try {
+      const result = await initializeTournamentDraw(id, t, registeredClubs);
+      setTournament(prev => ({ ...prev, ...(result.tournament || result.tournamentPatch) }));
+      setMatches(result.matches);
+      await swalAlert(`Tournament started. ${result.notified || 0} players notified.`);
+    } catch (err) {
+      await swalAlert(err?.message || "Could not start tournament.");
+    }
   }
 
   async function _scheduleAllMatches() {
@@ -984,6 +993,7 @@ function resetUI() {
     : (tournament.registered_clubs?.length || 0);
   const isFull = registeredCount >= tournament.max_teams;
   const isOrganizer = tournament.organizer_email === user?.email;
+  const canManageTournament = isAdmin || isCreator || isOrganizer;
   const myClubId = effectiveClubId;
   const allMatchesPlayed = matches.length > 0 && matches.every(m => m.status === "completed" || m.status === "forfeit");
   const winnerClub = allMatchesPlayed && tournament.winner_club_id ? clubs.find(c => c.id === tournament.winner_club_id) || allClubs.find(c => c.id === tournament.winner_club_id) : null;
@@ -1220,7 +1230,7 @@ function resetUI() {
               </Button>
             )}
 
-            {isCreator && tournament.status === "in_progress" && (tournament.type === "knockout" || tournament.type === "double_elimination") && (() => {
+            {canManageTournament && tournament.status === "in_progress" && (tournament.type === "knockout" || tournament.type === "double_elimination") && (() => {
               const crm = matches.filter(m => m.round === tournament.current_round);
               const allDone = crm.length > 0 && crm.every(m => m.status === "completed" || m.status === "forfeit");
               return allDone && (
@@ -1231,38 +1241,38 @@ function resetUI() {
               );
             })()}
 
-            {isCreator && ["registration", "in_progress"].includes(tournament.status) && (tournament.registered_clubs?.length || 0) >= 2 && matches.length === 0 && (
+            {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs hover:bg-primary/20">
                 🎲 Generate Draw
               </Button>
             )}
 
-            {isCreator && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && (
+            {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && (
               <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
                 🔄 Regenerate Draw
               </Button>
             )}
 
-            {isOrganizer && tournament.status === "registration" && isFull && (
+            {canManageTournament && tournament.status === "registration" && registeredCount >= 2 && (
               <Button type="button" onClick={() => initializeTournament(tournament, registeredClubs)} size="sm"
                 className="bg-primary text-primary-foreground text-xs">
                 <Play className="w-3 h-3 mr-1.5" /> Start Tournament
               </Button>
             )}
 
-            {isOrganizer && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
+            {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
               <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
                 Cancel
               </Button>
             )}
 
-            {isCreator && !allMatchesPlayed && (
+            {canManageTournament && !allMatchesPlayed && (
               <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 text-xs">
                 Edit
               </Button>
             )}
 
-            {isOrganizer && ["cancelled", "registration"].includes(tournament.status) && (
+            {canManageTournament && ["cancelled", "registration"].includes(tournament.status) && (
               <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
                 Delete
               </Button>
@@ -1426,7 +1436,7 @@ function resetUI() {
           matches.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-10 text-center">
               <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              {tournament.status === "registration" && isCreator && (tournament.registered_clubs?.length || 0) >= 2
+              {tournament.status === "registration" && canManageTournament && registeredCount >= 2
                 ? <p className="text-muted-foreground text-sm">Use the <span className="text-primary font-semibold">Generate Draw</span> button above to preview matchups.</p>
                 : <p className="text-muted-foreground text-sm">Bracket will appear once the tournament starts.</p>
               }

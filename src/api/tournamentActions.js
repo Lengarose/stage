@@ -1,29 +1,4 @@
 import { stageClient } from "@/api/stageClient";
-import {
-  generateKnockoutRound1,
-  generateLeagueMatches,
-  generateGroupStageMatches,
-  generateUCLLeaguePhase,
-} from "@/lib/tournamentEngine";
-import { seedClubs } from "@/lib/rankingEngine";
-
-function buildTournamentMatches(tournament, registeredClubs) {
-  const seededClubs = seedClubs(registeredClubs);
-  const type = tournament.type;
-  const numGroups = type === "group_stage"
-    ? Math.max(1, Math.ceil(seededClubs.length / 4))
-    : (tournament.num_groups || 2);
-
-  let matches = [];
-  if (type === "knockout") matches = generateKnockoutRound1(seededClubs);
-  else if (type === "league") matches = generateLeagueMatches(seededClubs);
-  else if (type === "group_stage") matches = generateGroupStageMatches(seededClubs, numGroups);
-  else if (type === "double_elimination") matches = generateKnockoutRound1(seededClubs);
-  else if (type === "swiss_ucl") matches = generateUCLLeaguePhase(seededClubs);
-
-  return { matches, numGroups };
-}
-
 export async function fetchTournamentMatches(tournamentId) {
   return stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round");
 }
@@ -50,15 +25,12 @@ export function notifyTournamentRegistration(tournamentId, clubId) {
   });
 }
 
-export async function generateTournamentDraw(tournamentId, tournament, registeredClubs) {
-  const { matches, numGroups } = buildTournamentMatches(tournament, registeredClubs);
-  await stageClient.entities.Match.bulkCreate(matches.map(match => ({
-    ...match,
-    tournament_id: tournamentId,
-    status: "scheduled",
-  })));
-  await stageClient.entities.Tournament.update(tournamentId, { num_groups: numGroups });
-  return fetchTournamentMatches(tournamentId);
+export async function generateTournamentDraw(tournamentId) {
+  const result = await stageClient.functions.invoke("generateTournamentDraw", { tournament_id: tournamentId });
+  return {
+    matches: result?.data?.matches || await fetchTournamentMatches(tournamentId),
+    tournament: result?.data?.tournament || null,
+  };
 }
 
 export async function clearTournamentDraw(matches) {
@@ -66,45 +38,15 @@ export async function clearTournamentDraw(matches) {
 }
 
 export async function initializeTournamentDraw(tournamentId, tournament, registeredClubs) {
-  const existingMatches = await fetchTournamentMatches(tournamentId);
-  if (existingMatches.length > 0) {
-    await stageClient.entities.Tournament.update(tournamentId, {
-      status: "in_progress",
-      current_round: 1,
-    });
-    return {
-      matches: existingMatches,
-      tournamentPatch: { status: "in_progress", current_round: 1 },
-    };
-  }
-
-  const { matches, numGroups } = buildTournamentMatches(tournament, registeredClubs);
-  await stageClient.entities.Match.bulkCreate(matches.map(match => ({
-    ...match,
-    tournament_id: tournamentId,
-  })));
-  await stageClient.entities.Tournament.update(tournamentId, {
-    status: "in_progress",
-    current_round: 1,
-    num_groups: numGroups,
-  });
-
-  if (tournament.type === "group_stage") {
-    const groupAssignments = {};
-    for (let groupIndex = 0; groupIndex < numGroups; groupIndex += 1) {
-      const groupSize = Math.ceil(registeredClubs.length / numGroups);
-      const startIndex = groupIndex * groupSize;
-      const endIndex = Math.min(startIndex + groupSize, registeredClubs.length);
-      groupAssignments[`group${String.fromCharCode(65 + groupIndex)}`] = registeredClubs
-        .slice(startIndex, endIndex)
-        .map(club => club.id);
-    }
-    await stageClient.functions.invoke("assignGroups", { tournamentId, groupAssignments });
-  }
-
+  void tournament;
+  void registeredClubs;
+  const result = await stageClient.functions.invoke("startTournament", { tournament_id: tournamentId });
+  const updatedTournament = result?.data?.tournament || null;
   return {
-    matches: await fetchTournamentMatches(tournamentId),
-    tournamentPatch: { status: "in_progress", current_round: 1, num_groups: numGroups },
+    matches: result?.data?.matches || await fetchTournamentMatches(tournamentId),
+    tournamentPatch: updatedTournament || { status: "in_progress", current_round: 1 },
+    tournament: updatedTournament,
+    notified: result?.data?.notified || 0,
   };
 }
 
