@@ -138,3 +138,12 @@ export async function advanceTournamentRound(tournamentId) {
   ]);
   return { matches, tournament: tournaments[0] || null };
 }
+
+export async function officializeTournament(tournamentId) {
+  const res = await stageClient.functions.invoke("officializeTournament", { tournamentId });
+  const [matches, tournaments] = await Promise.all([
+    fetchTournamentMatches(tournamentId),
+    stageClient.entities.Tournament.filter({ id: tournamentId }, null, 1),
+  ]);
+  return { ...res?.data, matches, tournament: tournaments[0] || res?.data?.tournament || null };
+}

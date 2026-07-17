@@ -11,6 +11,7 @@ import {
   generateTournamentDraw,
   initializeTournamentDraw,
   notifyTournamentRegistration,
+  officializeTournament,
   registerTournamentClub,
   registerTournamentPlayer,
   simulateTournamentScore,
@@ -26,7 +27,6 @@ import {
   calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
-import { awardTournamentTrophy } from "@/lib/awardTrophy";
 import KnockoutBracket from "../components/KnockoutBracket";
 import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
@@ -85,15 +85,6 @@ export default function TournamentDetail() {
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
 
-  async function distributeTournamentPrizesOnce(tournamentId = id) {
-    if (!tournamentId) return;
-    try {
-      await stageClient.functions.invoke("distributeTournamentPrizes", { tournament_id: tournamentId });
-    } catch (err) {
-      console.error("Prize distribution failed:", err);
-    }
-  }
-
   useEffect(() => {
     async function load() {
       try {
@@ -133,7 +124,6 @@ export default function TournamentDetail() {
         setIsAdmin(u.role === "admin");
         setIsCreator(t?.creator_email === u.email);
         if (t?.status === 'completed' && t?.winner_club_id) {
-          await distributeTournamentPrizesOnce(t.id);
           const existingConfs = await stageClient.entities.PressConference
             .filter({ match_id: t.id })
             .catch(() => []);
@@ -421,11 +411,7 @@ export default function TournamentDetail() {
               const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && String(m.type || "").includes("final") && m.status === "completed")
                 || updatedMatches.find(m => m.round === tournament.current_round && m.status === "completed");
               if (finalMatch) {
-                const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
-                await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
-                setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
-                awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
-                await distributeTournamentPrizesOnce(id);
+                setTournament(prev => ({ ...prev }));
               }
             } else {
               for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
@@ -450,10 +436,7 @@ export default function TournamentDetail() {
               const winnerId = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0];
               const winnerClub = allClubs.find(c => c.id === winnerId);
               if (winnerId) {
-                await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" });
-                setTournament(prev => ({ ...prev, status: "completed", winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
-                awardTournamentTrophy({ ...tournament, id }, winnerId).catch(() => {});
-                await distributeTournamentPrizesOnce(id);
+                setTournament(prev => ({ ...prev, winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
               }
             }
           }
@@ -772,10 +755,7 @@ async function maybeAdvanceTournament() {
         || updatedMatches.find(m => m.round === tournament.current_round && (m.status === "completed" || m.status === "forfeit"));
       if (finalMatch) {
         const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
-        await stageClient.entities.Tournament.update(id, { status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName });
-        setTournament(prev => ({ ...prev, status: "completed", winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
-        awardTournamentTrophy({ ...tournament, id }, finalMatch.winner_club_id).catch(() => {});
-        await distributeTournamentPrizesOnce(id);
+        setTournament(prev => ({ ...prev, winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
       }
     } else {
       for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
@@ -997,6 +977,18 @@ function resetUI() {
     }
   }
 
+  async function officializeCurrentTournament() {
+    if (!(await swalConfirm("Officialize this tournament, distribute prize money, and award the trophy?"))) return;
+    try {
+      const result = await officializeTournament(id);
+      setMatches(result.matches || []);
+      if (result.tournament) setTournament(result.tournament);
+      await swalAlert("Tournament officialized. Prize money and trophy have been awarded.");
+    } catch (err) {
+      await swalAlert(err?.data?.error || err?.message || "Could not officialize the tournament.");
+    }
+  }
+
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">Tournament not found.</p><Link to="/tournaments"><Button variant="outline" className="mt-4">Back</Button></Link></div>;
 
@@ -1046,6 +1038,28 @@ function resetUI() {
     && tournament.status === "in_progress"
     && groupStageComplete
     && (!knockoutStarted || groupKnockoutNeedsRepair);
+  const currentRoundMatches = matches.filter(m => Number(m.round) === Number(tournament.current_round || 1));
+  const currentRoundComplete = currentRoundMatches.length > 0
+    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
+  const canAdvanceActiveRound = canManageTournament
+    && tournament.status === "in_progress"
+    && currentRoundComplete
+    && knockoutStarted
+    && !groupKnockoutNeedsRepair;
+  const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
+  const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
+  const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
+  const thirdPlaceWinnerId = isPlayerTournament ? thirdPlaceMatch?.winner_player_id : thirdPlaceMatch?.winner_club_id;
+  const finalComplete = finalMatch && (finalMatch.status === "completed" || finalMatch.status === "forfeit") && finalWinnerId;
+  const thirdPlaceComplete = !thirdPlaceMatch || ((thirdPlaceMatch.status === "completed" || thirdPlaceMatch.status === "forfeit") && thirdPlaceWinnerId);
+  const canOfficializeTournament = canManageTournament
+    && tournament.status === "in_progress"
+    && finalComplete
+    && thirdPlaceComplete;
+  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
+  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
+    ? "Create Final & 3rd Place"
+    : "Advance Tournament";
   const allMatchesPlayed = matches.length > 0
     && matches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
@@ -1302,6 +1316,20 @@ function resetUI() {
               <Button type="button" onClick={advanceRound} size="sm"
                 className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
                 <Play className="w-3 h-3 mr-1.5" /> {groupKnockoutNeedsRepair ? "Repair Knockout Round" : "Start Next Round"}
+              </Button>
+            )}
+
+            {canAdvanceActiveRound && !canOfficializeTournament && (
+              <Button type="button" onClick={advanceRound} size="sm"
+                className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
+                <Play className="w-3 h-3 mr-1.5" /> {advanceButtonLabel}
+              </Button>
+            )}
+
+            {canOfficializeTournament && (
+              <Button type="button" onClick={officializeCurrentTournament} size="sm"
+                className="bg-warning/15 text-warning border border-warning/40 text-xs animate-pulse">
+                <Trophy className="w-3 h-3 mr-1.5" /> Officialize Tournament
               </Button>
             )}
 

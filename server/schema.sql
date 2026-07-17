@@ -231,6 +231,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
   num_groups          INT          DEFAULT 4,
   winner_club_id      VARCHAR(36),
   winner_club_name    VARCHAR(150),
+  winner_player_id    VARCHAR(36),
+  winner_player_name  VARCHAR(150),
   trophy_url          TEXT,
   registered_players  JSON,
   registered_clubs    JSON,

@@ -301,6 +301,9 @@ async function runStartupMigrations() {
   await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
   await addCol('users', 'role', "VARCHAR(50) NULL DEFAULT 'user'");
 
+  await addCol('tournaments', 'winner_player_id', 'VARCHAR(36) NULL');
+  await addCol('tournaments', 'winner_player_name', 'VARCHAR(150) NULL');
+
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'home_player_id', 'VARCHAR(36) NULL');
@@ -1398,6 +1401,13 @@ async function runStartupMigrations() {
     INDEX idx_tp_owner (owner_id, owner_type),
     INDEX idx_tp_item  (trophy_item_id)
   )`).catch(err => console.error('[migration] trophy_placements:', err.message));
+  await addCol('trophy_placements', 'trophy_image_url', 'TEXT NULL');
+  await addCol('trophy_placements', 'trophy_name', 'VARCHAR(255) NULL');
+  await addCol('trophy_placements', 'x_percent', 'DECIMAL(6,2) NULL DEFAULT 50');
+  await addCol('trophy_placements', 'y_percent', 'DECIMAL(6,2) NULL DEFAULT 50');
+  await addCol('trophy_placements', 'scale', 'DECIMAL(5,3) NULL DEFAULT 1');
+  await addCol('trophy_placements', 'won_tournament_ids', 'JSON NULL');
+  await addCol('trophy_placements', 'win_count', 'INT NULL DEFAULT 1');
 
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
