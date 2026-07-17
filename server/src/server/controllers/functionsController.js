@@ -2843,7 +2843,17 @@ const HANDLERS = {
       const clubDef = TEST_CLUBS[clubIndex];
       const clubId = uuidv4();
       const ownerUserId = uuidv4();
+      const ownerPlayerId = uuidv4();
       const ownerEmail = testEmailFor(clubIndex, 'owner');
+
+      // Owner user must exist before club insert (fk_clubs_user_id).
+      await EXECUTESQL(
+        `INSERT INTO users
+          (id, email, password_hash, role_id, player_id, owner_id, access_mode, created_date, updated_date)
+         VALUES (?, ?, ?, 1, ?, NULL, 'standard', NOW(), NOW())`,
+        [ownerUserId, ownerEmail, passwordHash, ownerPlayerId]
+      );
+
       await EXECUTESQL(
         `INSERT INTO clubs
           (id, user_id, owner_email, name, tag, platform, region, country_code, description,
@@ -2856,21 +2866,28 @@ const HANDLERS = {
       );
       createdClubs.push({ id: clubId, name: clubDef.name, tag: clubDef.tag });
 
+      await EXECUTESQL(
+        'UPDATE users SET owner_id = ?, updated_date = NOW() WHERE id = ?',
+        [clubId, ownerUserId]
+      );
+
       const names = TEST_PLAYER_NAMES[clubIndex];
       for (let playerIndex = 0; playerIndex < names.length; playerIndex++) {
         const isOwner = playerIndex === 0;
         const isCaptain = playerIndex === 1;
-        const playerId = uuidv4();
+        const playerId = isOwner ? ownerPlayerId : uuidv4();
         const playerUserId = isOwner ? ownerUserId : uuidv4();
         const position = TEST_POSITIONS[playerIndex % TEST_POSITIONS.length];
         const playerEmail = isOwner ? ownerEmail : testEmailFor(clubIndex, playerIndex);
         const roles = isOwner ? ['president'] : isCaptain ? ['captain'] : [];
-        await EXECUTESQL(
-          `INSERT INTO users
-            (id, email, password_hash, role_id, player_id, owner_id, access_mode, created_date, updated_date)
-           VALUES (?, ?, ?, 1, ?, ?, 'standard', NOW(), NOW())`,
-          [playerUserId, playerEmail, passwordHash, playerId, isOwner ? clubId : null]
-        );
+        if (!isOwner) {
+          await EXECUTESQL(
+            `INSERT INTO users
+              (id, email, password_hash, role_id, player_id, owner_id, access_mode, created_date, updated_date)
+             VALUES (?, ?, ?, 1, ?, NULL, 'standard', NOW(), NOW())`,
+            [playerUserId, playerEmail, passwordHash, playerId]
+          );
+        }
         await EXECUTESQL(
           `INSERT INTO players
             (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
@@ -7426,9 +7443,9 @@ const HANDLERS = {
       }),
 
       club_default_finances: () => runTest('club_default_finances', 'New club has positive STC and non-negative budgets', async (add) => {
-        const cid = uuidv4(), uid = uuidv4();
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,5000000,0,0,NOW())`,
-          [cid, `__TEST__cf_${cid.slice(0,6)}`, 'TCC', uid]);
+        const cid = uuidv4();
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,5000000,0,0,NOW())`,
+          [cid, `__TEST__cf_${cid.slice(0,6)}`, 'TCC']);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id = ?', [cid]));
         const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc, wage_budget_stc FROM clubs WHERE id = ?', [cid]);
         assert(Number(c.stc) > 0, `stc must be > 0, got ${c.stc}`);
@@ -7442,8 +7459,8 @@ const HANDLERS = {
         const SALARY = 5000, P_START = 100000, C_START = 10000000;
         await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
           [pid, `__TEST__sal_${pid.slice(0,6)}`, `__test__sal_${pid.slice(0,6)}@s.t`, uid1, P_START]);
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
-          [cid, `__TEST__salc_${cid.slice(0,6)}`, 'TSL', uid2, C_START]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
+          [cid, `__TEST__salc_${cid.slice(0,6)}`, 'TSL', C_START]);
         add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
@@ -7584,10 +7601,10 @@ const HANDLERS = {
       }),
 
       ticket_revenue: () => runTest('ticket_revenue', 'Home match revenue: correct attendance calc, club credited, 15% to transfer budget, idempotency guard, match fields updated', async (add) => {
-        const cid = uuidv4(), mid = uuidv4(), uid = uuidv4();
+        const cid = uuidv4(), mid = uuidv4();
         const WINS = 5, LOSSES = 1, STREAK = 3, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,wins,losses,win_streak,created_date) VALUES (?,?,?,?,?,0,0,?,?,?,NOW())`,
-          [cid, `__TEST__tr_${cid.slice(0,6)}`, 'TTR', uid, START, WINS, LOSSES, STREAK]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,wins,losses,win_streak,created_date) VALUES (?,?,?,NULL,?,0,0,?,?,?,NOW())`,
+          [cid, `__TEST__tr_${cid.slice(0,6)}`, 'TTR', START, WINS, LOSSES, STREAK]);
         await EXECUTESQL(`INSERT INTO matches (id,home_club_id,status,stats_processed,home_ticket_revenue,created_date) VALUES (?,?,'completed',0,0,NOW())`,
           [mid, cid]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
@@ -7628,10 +7645,10 @@ const HANDLERS = {
       }),
 
       shirt_sales_revenue: () => runTest('shirt_sales_revenue', 'Shirt sales: club receives revenue, shirt_revenue tx recorded', async (add) => {
-        const cid = uuidv4(), uid = uuidv4();
+        const cid = uuidv4();
         const REV = 3750, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
-          [cid, `__TEST__ss_${cid.slice(0,6)}`, 'TSS', uid, START]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
+          [cid, `__TEST__ss_${cid.slice(0,6)}`, 'TSS', START]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
         await createClubTx({ clubId: cid, amount: REV, type: 'income', category: 'shirt_revenue', description: 'Test shirt sales' });
@@ -7643,10 +7660,10 @@ const HANDLERS = {
       }),
 
       competition_reward: () => runTest('competition_reward', 'Competition reward: correct STC credited, competition_reward tx created', async (add) => {
-        const cid = uuidv4(), uid = uuidv4();
+        const cid = uuidv4();
         const PRIZE = 1000000, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,0,0,NOW())`,
-          [cid, `__TEST__cr_${cid.slice(0,6)}`, 'TCP', uid, START]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
+          [cid, `__TEST__cr_${cid.slice(0,6)}`, 'TCP', START]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
         await createClubTx({ clubId: cid, amount: PRIZE, type: 'income', category: 'competition_reward', description: 'Test 1st place prize' });
@@ -7658,10 +7675,10 @@ const HANDLERS = {
       }),
 
       transfer_budget_change: () => runTest('transfer_budget_change', 'Transfer fee deducted from both STC balance and transfer budget atomically', async (add) => {
-        const cid = uuidv4(), uid = uuidv4();
+        const cid = uuidv4();
         const FEE = 2000000, START = 10000000, BUDGET = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,0,NOW())`,
-          [cid, `__TEST__tb_${cid.slice(0,6)}`, 'TTB', uid, START, BUDGET]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,?,0,NOW())`,
+          [cid, `__TEST__tb_${cid.slice(0,6)}`, 'TTB', START, BUDGET]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
         await createClubTx({ clubId: cid, amount: -FEE, type: 'expense', category: 'transfer_fee', description: 'Test transfer fee' });
@@ -7675,10 +7692,10 @@ const HANDLERS = {
       }),
 
       wage_budget_change: () => runTest('wage_budget_change', 'Wage budget tracks contracted salaries: increases on sign, decreases on expiry', async (add) => {
-        const cid = uuidv4(), uid = uuidv4();
+        const cid = uuidv4();
         const SALARY = 25000, BUDGET = 1000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,10000000,0,?,NOW())`,
-          [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', uid, BUDGET]);
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,10000000,0,?,NOW())`,
+          [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', BUDGET]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc + ? WHERE id=?', [SALARY, cid]);
         const [after] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);

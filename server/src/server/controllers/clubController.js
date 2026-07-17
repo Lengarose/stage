@@ -13,6 +13,18 @@ const {
 } = require('../services/clubOperationsService');
 const { v4: uuidv4 } = require('uuid');
 
+async function resolveClubUserId(req, body = {}) {
+  const candidate = req.user?.id || body.user_id || null;
+  if (!candidate) return null;
+  const rows = await EXECUTESQL('SELECT id FROM users WHERE id = ? LIMIT 1', [candidate]);
+  if (!rows.length) {
+    const err = new Error('Your session user no longer exists. Please log out and sign in again.');
+    err.status = 400;
+    throw err;
+  }
+  return candidate;
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
@@ -64,7 +76,7 @@ router.post('/', async (req, res) => {
     }
 
     const body = { ...req.body };
-    if (!body.user_id && req.user?.id) body.user_id = req.user.id;
+    body.user_id = await resolveClubUserId(req, body);
     if (!body.owner_email && req.user?.email) body.owner_email = req.user.email;
     if (body.stc               == null) body.stc                = 30_000_000;
     if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
@@ -124,7 +136,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ ...record, owner_contract_id: ownerContractId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -143,7 +155,14 @@ router.patch('/:id', async (req, res) => {
         return res.status(409).json({ error: 'A club with this name already exists' });
       }
     }
-    const club = new Club({ ...existing[0], ...req.body });
+    const merged = { ...existing[0], ...req.body };
+    if (merged.user_id) {
+      const rows = await EXECUTESQL('SELECT id FROM users WHERE id = ? LIMIT 1', [merged.user_id]);
+      if (!rows.length) {
+        return res.status(400).json({ error: 'Invalid user_id: user does not exist' });
+      }
+    }
+    const club = new Club(merged);
     await club.update(id);
     const updated = await club.selectOne(id);
     const record  = updated[0];
