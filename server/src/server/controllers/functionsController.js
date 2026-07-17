@@ -1948,6 +1948,9 @@ const HANDLERS = {
     if (String(link.status || '').toLowerCase() !== 'active') {
       return { data: { success: false, reason: 'revoked', link } };
     }
+    if (isDatePassed(link.expires_at)) {
+      return { data: { success: false, reason: 'expired', link } };
+    }
     const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [link.tournament_id]);
     const tournament = tournamentRows[0] || null;
     if (!tournament) return { data: { success: false, reason: 'tournament_not_found', link } };

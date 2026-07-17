@@ -22,16 +22,15 @@ const ENV = {
   DB_PASSWORD: '',
   DB_NAME: 'stage_league',
 
-  // JWT
-  ACCESS_TOKEN_SECRET:
-    'SKLQMJKSDpooapeosdfqhjgfhjkaeErpuaurJLMFQ334JSLKD34J43FMQLKDSJFFjkdhsjkfhdskqljsdfqsf',
-  REFRESH_TOKEN_SECRET:
-    'PAZEJFNSWJSIDAOEZRAOZERJAJ?FSLDK?FSDLFKQSLDKFLQSDKFHAZEFNEARARarrabjhsdbhjfsqsdf',
+  // JWT — secrets live in env.local.js (git-ignored) or host env vars, NEVER here.
+  // The server refuses to boot without them (see applyToProcessEnv below).
+  ACCESS_TOKEN_SECRET: '',
+  REFRESH_TOKEN_SECRET: '',
 
   // Socket server on Render (socket-server/). URL = https://<service>.onrender.com (no trailing slash).
-  // SECRET must match EMIT_SECRET on the Render socket service.
+  // SECRET must match EMIT_SECRET on the Render socket service. Value in env.local.js.
   SOCKET_SERVER_URL:    'https://stage-7osn.onrender.com',
-  SOCKET_SERVER_SECRET: '#1?BCJw[JrZ}Y|>?6CVpCHrSCm$6><#)1O_{mRgIdlw',
+  SOCKET_SERVER_SECRET: '',
 
   // Google OAuth — redirect: https://stageleagues.com/api/stage/auth/google/callback
   GOOGLE_CLIENT_ID: '',
@@ -48,11 +47,33 @@ const ENV = {
   APPLE_PRIVATE_KEY: '',
 };
 
+// Local overrides (secrets) — env.local.js is git-ignored and lives only on
+// dev machines and the production host. Copy env.local.example.js to start.
+try {
+  // eslint-disable-next-line global-require
+  Object.assign(ENV, require('./env.local'));
+} catch (err) {
+  if (err.code !== 'MODULE_NOT_FOUND') throw err;
+}
+
 /** Sets missing process.env keys from ENV. Existing vars (e.g. host dashboard) win. */
 function applyToProcessEnv() {
   for (const [key, value] of Object.entries(ENV)) {
     if (process.env[key] !== undefined) continue;
     process.env[key] = value == null ? '' : String(value);
+  }
+  // Fail fast: without JWT secrets every issued token would be forgeable.
+  for (const key of ['ACCESS_TOKEN_SECRET', 'REFRESH_TOKEN_SECRET']) {
+    if (!process.env[key]) {
+      console.error(
+        `[env] FATAL: ${key} is not set. Create server/src/constants/env.local.js ` +
+        '(see env.local.example.js) or set it as a host environment variable.'
+      );
+      process.exit(1);
+    }
+  }
+  if (!process.env.SOCKET_SERVER_SECRET) {
+    console.warn('[env] WARNING: SOCKET_SERVER_SECRET not set — realtime /emit calls will fail.');
   }
 }
 

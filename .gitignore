@@ -17,7 +17,8 @@ dist
 dist-ssr
 *.local
 
-server/src/constants/*
+# Secrets — only env.local.js is ignored; other constants files stay tracked
+server/src/constants/env.local.js
 
 # Editor directories and files
 .vscode/*
