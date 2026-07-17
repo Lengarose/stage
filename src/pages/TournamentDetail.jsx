@@ -987,9 +987,14 @@ function resetUI() {
   }
 
   async function advanceRound() {
-    const result = await advanceTournamentRound(id);
-    setMatches(result.matches);
-    setTournament(result.tournament);
+    try {
+      const result = await advanceTournamentRound(id);
+      setMatches(result.matches || []);
+      if (result.tournament) setTournament(result.tournament);
+      setVisibleRound(result.tournament?.current_round ?? null);
+    } catch (err) {
+      await swalAlert(err?.data?.error || err?.message || "Could not start the next round.");
+    }
   }
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -1007,7 +1012,43 @@ function resetUI() {
   const isOrganizer = tournament.organizer_email === user?.email;
   const canManageTournament = isAdmin || isCreator || isOrganizer;
   const myClubId = effectiveClubId;
-  const allMatchesPlayed = matches.length > 0 && matches.every(m => m.status === "completed" || m.status === "forfeit");
+  const isGroupStageTournament = tournament.type === "group_stage";
+  const groupMatches = isGroupStageTournament
+    ? matches.filter(m => ["group", "group_stage"].includes(String(m.type || "")))
+    : [];
+  const knockoutMatches = isGroupStageTournament
+    ? matches.filter(m => !["group", "group_stage"].includes(String(m.type || "")))
+    : matches;
+  const groupStageComplete = isGroupStageTournament
+    && groupMatches.length > 0
+    && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
+  const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
+  const knockoutHasResults = knockoutMatches.some(m => m.status === "completed" || m.status === "forfeit");
+  const qualifiedGroupClubIds = new Set(
+    groupStandingsData.flatMap(group => (group.standings || []).slice(0, 2).map(club => String(club.id)))
+  );
+  const expectedGroupKnockoutMatchCount = groupStandingsData
+    .flatMap(group => (group.standings || []).slice(0, 2))
+    .length;
+  const groupKnockoutNeedsRepair = isGroupStageTournament
+    && groupStageComplete
+    && knockoutStarted
+    && !knockoutHasResults
+    && (
+      knockoutMatches.length !== expectedGroupKnockoutMatchCount
+      || knockoutMatches.some((match) => {
+        const homeId = String(match.home_club_id || "");
+        const awayId = String(match.away_club_id || "");
+        return !homeId || !awayId || homeId === awayId || !qualifiedGroupClubIds.has(homeId) || !qualifiedGroupClubIds.has(awayId);
+      })
+    );
+  const canStartGroupNextRound = canManageTournament
+    && tournament.status === "in_progress"
+    && groupStageComplete
+    && (!knockoutStarted || groupKnockoutNeedsRepair);
+  const allMatchesPlayed = matches.length > 0
+    && matches.every(m => m.status === "completed" || m.status === "forfeit")
+    && (!isGroupStageTournament || knockoutStarted);
   const winnerClub = allMatchesPlayed && tournament.winner_club_id ? clubs.find(c => c.id === tournament.winner_club_id) || allClubs.find(c => c.id === tournament.winner_club_id) : null;
   // Compute winner points for display
   const winnerPoints = (() => {
@@ -1031,6 +1072,10 @@ function resetUI() {
     if (matchType === "ucl_r16") return "Round of 16";
     if (matchType === "ucl_qf") return "Quarter-Finals";
     if (matchType === "ucl_sf") return "Semi-Finals";
+    if (matchType === "round_of_16") return "Round of 16";
+    if (matchType === "quarter_final") return "Quarter-Finals";
+    if (matchType === "semi_final") return "Semi-Finals";
+    if (matchType === "third_place") return "Third Place";
     if (matchType === "final") return "Final";
     if (matchType === "swiss") return `Round ${round}`;
     // Fallback: for generic tournaments infer from total rounds
@@ -1253,13 +1298,20 @@ function resetUI() {
               );
             })()}
 
+            {canStartGroupNextRound && (
+              <Button type="button" onClick={advanceRound} size="sm"
+                className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
+                <Play className="w-3 h-3 mr-1.5" /> {groupKnockoutNeedsRepair ? "Repair Knockout Round" : "Start Next Round"}
+              </Button>
+            )}
+
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs hover:bg-primary/20">
                 🎲 Generate Draw
               </Button>
             )}
 
-            {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && (
+            {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && !groupStageComplete && (
               <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
                 🔄 Regenerate Draw
               </Button>

@@ -30,25 +30,30 @@ export default function TournamentLeaderboard({ tournamentId }) {
   // Aggregate per player
   const playerMap = {};
   for (const s of stats) {
-    const key = s.player_email;
+    const key = s.player_id || s.player_email || s.player_gamertag;
+    if (!key) continue;
     if (!playerMap[key]) {
-      playerMap[key] = { email: key, gamertag: s.player_gamertag, goals: 0, assists: 0, matches: 0, rating_sum: 0 };
+      playerMap[key] = { email: key, gamertag: s.player_gamertag, goals: 0, assists: 0, matches: 0, rating_sum: 0, rating_count: 0 };
     }
-    playerMap[key].goals += s.goals || 0;
-    playerMap[key].assists += s.assists || 0;
+    const rating = Number(s.rating);
+    playerMap[key].goals += Number(s.goals || 0);
+    playerMap[key].assists += Number(s.assists || 0);
     playerMap[key].matches += 1;
-    playerMap[key].rating_sum += s.rating || 0;
+    if (Number.isFinite(rating) && rating > 0) {
+      playerMap[key].rating_sum += rating;
+      playerMap[key].rating_count += 1;
+    }
   }
 
   const players = Object.values(playerMap).map(p => ({
     ...p,
-    avg_rating: p.matches > 0 ? (p.rating_sum / p.matches).toFixed(1) : "—",
+    avg_rating: p.rating_count > 0 ? (p.rating_sum / p.rating_count).toFixed(1) : "—",
   }));
 
   const tabs = [
     { key: "goals", label: "Top Scorers", icon: Target, sort: (a, b) => b.goals - a.goals },
     { key: "assists", label: "Top Assists", icon: Zap, sort: (a, b) => b.assists - a.assists },
-    { key: "rating", label: "Best Rating", icon: Star, sort: (a, b) => parseFloat(b.avg_rating) - parseFloat(a.avg_rating) },
+    { key: "rating", label: "Best Rating", icon: Star, sort: (a, b) => (Number.parseFloat(b.avg_rating) || 0) - (Number.parseFloat(a.avg_rating) || 0) },
   ];
 
   const activeTab = tabs.find(t => t.key === tab);
@@ -101,7 +106,7 @@ export default function TournamentLeaderboard({ tournamentId }) {
                 <span className="text-muted-foreground text-xs">{p.matches}g</span>
                 {tab === "goals" && <span className="leading-relaxed font-bold text-success w-6 text-right">{p.goals}</span>}
                 {tab === "assists" && <span className="leading-relaxed font-bold text-primary w-6 text-right">{p.assists}</span>}
-                {tab === "rating" && <span className={cn("leading-relaxed font-bold w-10 text-right", parseFloat(p.avg_rating) >= 7 ? "text-success" : parseFloat(p.avg_rating) >= 6 ? "text-warning" : "text-muted-foreground")}>{p.avg_rating}</span>}
+                {tab === "rating" && <span className={cn("leading-relaxed font-bold w-10 text-right", Number.parseFloat(p.avg_rating) >= 7 ? "text-success" : Number.parseFloat(p.avg_rating) >= 6 ? "text-warning" : "text-muted-foreground")}>{p.avg_rating}</span>}
               </div>
             </div>
           ))}

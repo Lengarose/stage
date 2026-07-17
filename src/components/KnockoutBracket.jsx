@@ -168,6 +168,16 @@ export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedul
   const lastRound = rounds[rounds.length - 1];
 
   function getRoundLabel(round) {
+    const roundMatches = matches.filter(m => Number(m.round) === Number(round));
+    const types = new Set(roundMatches.map(m => String(m.type || "")));
+    if (types.has("round_of_16") || types.has("ucl_r16")) return "Round of 16";
+    if (types.has("quarter_final") || types.has("ucl_qf")) return "Quarter-Finals";
+    if (types.has("semi_final") || types.has("ucl_sf")) return "Semi-Finals";
+    if (types.has("third_place") && !types.has("final")) return "Third Place";
+    if (types.has("final")) return types.has("third_place") ? "Final / Third Place" : "Final";
+    if (roundMatches.length === 8) return "Round of 16";
+    if (roundMatches.length === 4) return "Quarter-Finals";
+    if (roundMatches.length === 2) return "Semi-Finals";
     const remaining = lastRound - round;
     if (remaining === 0) return "Final";
     if (remaining === 1) return "Semi-Finals";

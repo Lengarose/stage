@@ -171,8 +171,8 @@ export function generateNextKnockoutRound(completedMatches, round) {
 export function calculateGroupStandings(matches, numGroups) {
   const groups = Array.from({ length: numGroups }, () => ({}));
 
-  matches.filter(m => m.group !== undefined && m.group !== null && (m.status === "completed" || m.status === "forfeit")).forEach(m => {
-    const g = m.group;
+  matches.filter(m => ["group", "group_stage"].includes(String(m.type || "")) && (m.group !== undefined || m.group_number !== undefined) && (m.status === "completed" || m.status === "forfeit")).forEach(m => {
+    const g = Number(m.group_number ?? m.group ?? 0);
     if (g >= groups.length) return;
     if (!groups[g][m.home_club_id]) groups[g][m.home_club_id] = { id: m.home_club_id, name: m.home_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
     if (!groups[g][m.away_club_id]) groups[g][m.away_club_id] = { id: m.away_club_id, name: m.away_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
