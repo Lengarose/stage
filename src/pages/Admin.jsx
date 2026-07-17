@@ -234,7 +234,7 @@ export default function Admin(props) {
       setIdentityClaims(pendingIdentityClaims);
       setRecruitmentPosts(allRecruitmentPosts);
       setClubs(allClubs);
-      setTournaments(allTournaments);
+      setTournaments((allTournaments || []).filter(t => !["archived", "cancelled"].includes(String(t.status || "").toLowerCase())));
       setTrophyItems(allTrophies);
       setCompetitions(allComps);
       setCompSeasons(allCompSeasons);
@@ -643,6 +643,23 @@ export default function Admin(props) {
       return;
     }
     setTournaments(prev => prev.filter(t => t.id !== tournamentId));
+  }
+
+  async function deleteTournament(tournamentId) {
+    if (!(await swalConfirm("End and permanently delete this tournament? Completed community tournaments can only be deleted after 7 days."))) return;
+    try {
+      const res = await stageClient.functions.invoke("adminDeleteTournament", {
+        tournament_id: tournamentId,
+        reason: "Deleted from admin tournaments panel",
+      });
+      if (!res?.data?.success) {
+        await swalAlert(res?.data?.error || "Tournament deletion failed");
+        return;
+      }
+      setTournaments(prev => prev.filter(t => t.id !== tournamentId));
+    } catch (err) {
+      await swalAlert(err?.data?.error || err?.message || "Tournament deletion failed");
+    }
   }
 
   async function createTournament() {
@@ -1659,6 +1676,7 @@ export default function Admin(props) {
               setTournamentSearch={setTournamentSearch}
               tournaments={tournaments}
               cancelTournament={cancelTournament}
+              deleteTournament={deleteTournament}
               onRefresh={loadAll}
             />
           )}

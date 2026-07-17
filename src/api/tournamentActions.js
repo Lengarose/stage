@@ -122,7 +122,7 @@ export async function cancelTournamentById(tournamentId) {
 }
 
 export async function deleteTournamentById(tournamentId) {
-  return stageClient.entities.Tournament.delete(tournamentId);
+  return stageClient.functions.invoke("adminDeleteTournament", { tournament_id: tournamentId });
 }
 
 export async function simulateTournamentScore(tournamentId, matchId) {

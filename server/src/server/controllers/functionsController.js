@@ -54,6 +54,7 @@ const {
   broadcastNotification,
   broadcastInbox,
   broadcastMatchPlayerStat,
+  broadcastTournamentDeleted,
 } = require('../utils/socketBroadcast');
 
 async function getMe(_auth_user_id) {
@@ -1295,6 +1296,40 @@ async function requireAdminUser(userId) {
   const user = rows[0];
   if (!user || ![0, 2].includes(Number(user.role_id))) throw new Error('Admin only');
   return user;
+}
+
+async function deleteTournamentRecords(query, tournamentId) {
+  const matches = await query('SELECT id FROM matches WHERE tournament_id = ?', [tournamentId]);
+  const matchIds = matches.map((row) => row.id).filter(Boolean);
+  if (matchIds.length) {
+    const inMatches = placeholders(matchIds);
+    await query(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query('DELETE FROM match_player_stats WHERE tournament_id = ?', [tournamentId]).catch(() => {});
+    await query(`DELETE FROM dressing_rooms WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query(`DELETE FROM predictions WHERE live_match_id IN (SELECT id FROM live_matches WHERE match_id IN (${inMatches}))`, matchIds).catch(() => {});
+    await query(`DELETE FROM live_matches WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query(`DELETE FROM matches WHERE id IN (${inMatches})`, matchIds);
+  }
+  await query(
+    `DELETE FROM league_entities
+      WHERE entity_type = 'tournament_entrance_link'
+        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?`,
+    [tournamentId],
+  ).catch(() => {});
+  await query('DELETE FROM tournaments WHERE id = ?', [tournamentId]);
+  return { matches: matchIds.length };
+}
+
+function isCommunityTournament(tournament) {
+  return Boolean(tournament?.creator_gamertag) || Boolean(tournament?.creator_id);
+}
+
+function completedTournamentDeleteWaitMs(tournament) {
+  if (String(tournament?.status || '').toLowerCase() !== 'completed') return 0;
+  if (!isCommunityTournament(tournament)) return 0;
+  const completedAt = new Date(tournament.end_date || tournament.updated_date || tournament.created_date).getTime();
+  if (!Number.isFinite(completedAt)) return 7 * 24 * 60 * 60 * 1000;
+  return Math.max(0, completedAt + 7 * 24 * 60 * 60 * 1000 - Date.now());
 }
 
 function testEmailFor(clubIndex, playerIndex = 'owner') {
@@ -3384,7 +3419,7 @@ const HANDLERS = {
     if (!admin || Number(admin.role_id) !== 0) throw new Error('Admin only');
 
     const cfg = leagueEntityTypeConfig(target_type);
-    return withTransaction(async (query) => {
+    const result = await withTransaction(async (query) => {
       const parentRows = await query(
         `SELECT * FROM league_entities WHERE id = ? AND entity_type = ? LIMIT 1 FOR UPDATE`,
         [target_id, cfg.parentType]
@@ -3514,6 +3549,7 @@ const HANDLERS = {
         num_clubs: nextParent.num_clubs,
       };
     });
+    return { data: result };
   },
 
   async awardClubSeasonPrize({
@@ -7742,7 +7778,7 @@ const HANDLERS = {
     );
     if (!users.length) return fail('User not found');
     const user = users[0];
-    const isAdmin = Number(user.role_id) === 2;
+    const isAdmin = [0, 2].includes(Number(user.role_id));
 
     return withTransaction(async (query) => {
       const tRows = await query(
@@ -7828,14 +7864,72 @@ const HANDLERS = {
         }
       }
 
-      // ── Mark cancelled ──────────────────────────────────────────────────────
+      // ── Mark cancelled, then remove the tournament from active surfaces ─────
       await query(
         "UPDATE tournaments SET status = 'cancelled', updated_date = NOW() WHERE id = ?",
         [tournament_id],
       );
+      const deleted = await deleteTournamentRecords(query, tournament_id);
 
-      return { data: { success: true, refunded_count: refundedCount } };
+      await createAuditLog({
+        adminUserId: isAdmin ? user.id : null,
+        adminEmail: isAdmin ? user.email : null,
+        action: 'tournament_cancelled_deleted',
+        entityType: 'tournament',
+        entityId: tournament_id,
+        entityName: tournament.name,
+        oldValue: { status: tournament.status, registered_clubs: tournament.registered_clubs, registered_players: tournament.registered_players },
+        newValue: { status: 'cancelled', deleted: true, deleted_matches: deleted.matches },
+        reason: isAdmin ? 'Cancelled from admin panel' : 'Cancelled by organizer',
+      });
+
+      return { data: { success: true, deleted: true, refunded_count: refundedCount, deleted_matches: deleted.matches } };
     });
+    if (result?.data?.success) broadcastTournamentDeleted(tournament_id);
+    return result;
+  },
+
+  async adminDeleteTournament({ _auth_user_id, tournament_id, reason }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!tournament_id) throw new Error('tournament_id required');
+
+    const result = await withTransaction(async (query) => {
+      const rows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      if (!rows.length) throw new Error('Tournament not found');
+      const tournament = rows[0];
+      const status = String(tournament.status || '').toLowerCase();
+      const waitMs = completedTournamentDeleteWaitMs(tournament);
+      if (waitMs > 0) {
+        const days = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
+        const err = new Error(`Community tournaments can only be deleted 7 days after completion. Try again in ${days} day${days === 1 ? '' : 's'}.`);
+        err.status = 409;
+        err.code = 'TOURNAMENT_DELETE_LOCKED';
+        throw err;
+      }
+      if (!['completed', 'cancelled', 'registration'].includes(status)) {
+        const err = new Error('Only completed, cancelled, or not-started tournaments can be deleted.');
+        err.status = 409;
+        err.code = 'TOURNAMENT_DELETE_STATUS_BLOCKED';
+        throw err;
+      }
+      const deleted = await deleteTournamentRecords(query, tournament_id);
+      return { tournament, deleted };
+    });
+
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'tournament_deleted',
+      entityType: 'tournament',
+      entityId: tournament_id,
+      entityName: result.tournament.name,
+      oldValue: result.tournament,
+      newValue: { deleted: true, deleted_matches: result.deleted.matches },
+      reason: reason || 'Deleted from admin tournament panel',
+    });
+
+    broadcastTournamentDeleted(tournament_id);
+    return { data: { success: true, deleted: true, deleted_matches: result.deleted.matches } };
   },
 
   // ── Claim a Daily/Weekly Objective reward ──────────────────────────────────

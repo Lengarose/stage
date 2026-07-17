@@ -974,8 +974,16 @@ function resetUI() {
 
   async function deleteTournament() {
     if (!(await swalConfirm("Permanently DELETE this tournament and all its matches? This cannot be undone."))) return;
-    await deleteTournamentById(id);
-    window.location.href = "/tournaments";
+    try {
+      const res = await deleteTournamentById(id);
+      if (!res?.data?.success) {
+        await swalAlert(res?.data?.error || "Tournament deletion failed");
+        return;
+      }
+      window.location.href = "/tournaments";
+    } catch (err) {
+      await swalAlert(err?.data?.error || err?.message || "Tournament deletion failed");
+    }
   }
 
   async function advanceRound() {
@@ -1276,9 +1284,9 @@ function resetUI() {
               </Button>
             )}
 
-            {canManageTournament && ["cancelled", "registration"].includes(tournament.status) && (
+            {isAdmin && ["cancelled", "registration", "completed"].includes(tournament.status) && (
               <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
-                Delete
+                {tournament.status === "completed" ? "End & Delete" : "Delete"}
               </Button>
             )}
           </div>

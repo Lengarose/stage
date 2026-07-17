@@ -269,8 +269,15 @@ async function getOfficialFixtures() {
             t.name AS tournament_name
        FROM matches m
        LEFT JOIN tournaments t ON t.id = m.tournament_id
+       LEFT JOIN users creator_user ON LOWER(creator_user.email) = LOWER(t.creator_email)
+       LEFT JOIN users organizer_user ON LOWER(organizer_user.email) = LOWER(t.organizer_email)
       WHERE m.tournament_id IS NOT NULL
-        AND m.status IN ('completed','confirmed','played','forfeit')`
+        AND m.status IN ('completed','confirmed','played','forfeit')
+        AND (
+          creator_user.role_id IN (0, 2)
+          OR organizer_user.role_id IN (0, 2)
+          OR (t.creator_gamertag IS NULL AND t.creator_id IS NULL)
+        )`
   );
   tournamentMatches.forEach((row) => add(mapPhysicalFixture(row, 'tournament')));
 
@@ -299,7 +306,18 @@ async function getTitleBonuses() {
       if (item.runner_up_club_id) rows.push({ club_id: item.runner_up_club_id, points: 160, source_type: sourceType });
     }
   };
-  addRows(await query(`SELECT winner_club_id, runner_up_club_id FROM tournaments WHERE winner_club_id IS NOT NULL`), 'tournament');
+  addRows(await query(
+    `SELECT t.winner_club_id, t.runner_up_club_id
+       FROM tournaments t
+       LEFT JOIN users creator_user ON LOWER(creator_user.email) = LOWER(t.creator_email)
+       LEFT JOIN users organizer_user ON LOWER(organizer_user.email) = LOWER(t.organizer_email)
+      WHERE t.winner_club_id IS NOT NULL
+        AND (
+          creator_user.role_id IN (0, 2)
+          OR organizer_user.role_id IN (0, 2)
+          OR (t.creator_gamertag IS NULL AND t.creator_id IS NULL)
+        )`
+  ), 'tournament');
 
   const entitySeasons = await query(
     `SELECT data_json FROM league_entities

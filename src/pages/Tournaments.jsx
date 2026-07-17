@@ -81,7 +81,7 @@ export default function Tournaments() {
         stageClient.auth.me(),
         stageClient.entities.TrophyItem.list("sort_order", 50).catch(() => []),
       ]);
-      setTournaments(data);
+      setTournaments((data || []).filter(t => !["cancelled", "archived"].includes(String(t.status || "").toLowerCase())));
       const adminUser = user.role === "admin";
       setTrophyItems(adminUser ? items : items.filter(t => !t.admin_only));
       if (adminUser) {

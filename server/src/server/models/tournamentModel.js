@@ -59,7 +59,10 @@ class Tournament {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM tournaments ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL(
+      "SELECT * FROM tournaments WHERE status NOT IN ('cancelled', 'archived') ORDER BY created_date DESC LIMIT ? OFFSET ?",
+      [pageSize, offset]
+    );
   }
 
   selectOne(id) {

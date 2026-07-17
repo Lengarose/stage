@@ -160,11 +160,32 @@ export default function TournamentsTab({
   setTournamentSearch,
   tournaments,
   cancelTournament,
+  deleteTournament,
   onRefresh,
 }) {
   const [entranceDialog, setEntranceDialog] = useState(null);
   const [testPackBusy, setTestPackBusy] = useState(null);
   const [simulatingTournamentId, setSimulatingTournamentId] = useState(null);
+  const [deletingTournamentId, setDeletingTournamentId] = useState(null);
+
+  function deleteLockDays(tournament) {
+    if (String(tournament.status || "").toLowerCase() !== "completed") return 0;
+    if (!tournament.creator_gamertag && !tournament.creator_id) return 0;
+    const completedAt = new Date(tournament.end_date || tournament.updated_date || tournament.created_date).getTime();
+    if (!Number.isFinite(completedAt)) return 7;
+    const waitMs = completedAt + 7 * 24 * 60 * 60 * 1000 - Date.now();
+    return waitMs > 0 ? Math.ceil(waitMs / (24 * 60 * 60 * 1000)) : 0;
+  }
+
+  async function handleDeleteTournament(tournament) {
+    if (!deleteTournament) return;
+    setDeletingTournamentId(tournament.id);
+    try {
+      await deleteTournament(tournament.id);
+    } finally {
+      setDeletingTournamentId(null);
+    }
+  }
 
   async function createEntranceLink(tournamentId) {
     try {
@@ -257,7 +278,11 @@ export default function TournamentsTab({
         <EmptyState icon={Trophy} text="No active tournaments." />
       ) : (
         <div className="space-y-3">
-          {tournaments.filter(t => t.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && t.status !== "archived" && t.status !== "cancelled").map(t => (
+          {tournaments.filter(t => t.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && t.status !== "archived" && t.status !== "cancelled").map(t => {
+            const status = String(t.status || "").toLowerCase();
+            const lockDays = deleteLockDays(t);
+            const canDeleteNow = ["completed", "registration"].includes(status) && lockDays === 0;
+            return (
             <div key={t.id} className="bg-card border border-border rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
                 <p className="font-bold text-foreground">{t.name}</p>
@@ -282,10 +307,26 @@ export default function TournamentsTab({
                 <Button size="sm" variant="outline" onClick={() => simulateNextMatch(t.id)} disabled={simulatingTournamentId === t.id} className="border-primary/30 text-primary hover:text-primary text-xs gap-1">
                   <Wand2 className="w-3.5 h-3.5" /> Simulate Next
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"><X className="w-3.5 h-3.5" /> Cancel</Button>
+                {status === "completed" || status === "registration" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeleteTournament(t)}
+                    disabled={!canDeleteNow || deletingTournamentId === t.id}
+                    title={lockDays > 0 ? `Community tournament can be deleted in ${lockDays} day${lockDays === 1 ? "" : "s"}.` : "Permanently delete this tournament"}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? "End & Delete" : "Delete"}
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1">
+                    <X className="w-3.5 h-3.5" /> Cancel
+                  </Button>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <EntranceLinksDialog

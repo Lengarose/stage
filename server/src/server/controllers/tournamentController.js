@@ -12,6 +12,44 @@ function hasStagePlus(subscription) {
   return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
 }
 
+function isCommunityTournament(tournament) {
+  return Boolean(tournament?.creator_gamertag) || Boolean(tournament?.creator_id);
+}
+
+function completedTournamentDeleteWaitMs(tournament) {
+  if (String(tournament?.status || '').toLowerCase() !== 'completed') return 0;
+  if (!isCommunityTournament(tournament)) return 0;
+  const completedAt = new Date(tournament.end_date || tournament.updated_date || tournament.created_date).getTime();
+  if (!Number.isFinite(completedAt)) return 7 * 24 * 60 * 60 * 1000;
+  return Math.max(0, completedAt + 7 * 24 * 60 * 60 * 1000 - Date.now());
+}
+
+function placeholders(items) {
+  return items.map(() => '?').join(',');
+}
+
+async function deleteTournamentRecords(id) {
+  const matches = await EXECUTESQL('SELECT id FROM matches WHERE tournament_id = ?', [id]);
+  const matchIds = matches.map(row => row.id).filter(Boolean);
+  if (matchIds.length) {
+    const inMatches = placeholders(matchIds);
+    await EXECUTESQL(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await EXECUTESQL('DELETE FROM match_player_stats WHERE tournament_id = ?', [id]).catch(() => {});
+    await EXECUTESQL(`DELETE FROM dressing_rooms WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM predictions WHERE live_match_id IN (SELECT id FROM live_matches WHERE match_id IN (${inMatches}))`, matchIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM live_matches WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await EXECUTESQL(`DELETE FROM matches WHERE id IN (${inMatches})`, matchIds);
+  }
+  await EXECUTESQL(
+    `DELETE FROM league_entities
+      WHERE entity_type = 'tournament_entrance_link'
+        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?`,
+    [id],
+  ).catch(() => {});
+  await EXECUTESQL('DELETE FROM tournaments WHERE id = ?', [id]);
+  return { matches: matchIds.length };
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
@@ -128,11 +166,45 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const users = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id]);
+    const admin = users[0] || null;
+    if (![0, 2].includes(Number(admin?.role_id))) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    await new Tournament().delete(id);
+    const tournament = existing[0];
+    const waitMs = completedTournamentDeleteWaitMs(tournament);
+    if (waitMs > 0) {
+      const days = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
+      return res.status(409).json({
+        error: `Community tournaments can only be deleted 7 days after completion. Try again in ${days} day${days === 1 ? '' : 's'}.`,
+        code: 'TOURNAMENT_DELETE_LOCKED',
+      });
+    }
+    const status = String(tournament.status || '').toLowerCase();
+    if (!['completed', 'cancelled', 'registration'].includes(status)) {
+      return res.status(409).json({
+        error: 'Only completed, cancelled, or not-started tournaments can be deleted.',
+        code: 'TOURNAMENT_DELETE_STATUS_BLOCKED',
+      });
+    }
+    const deleted = await deleteTournamentRecords(id);
+    await EXECUTESQL(
+      `INSERT INTO admin_audit_log
+         (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+       VALUES (UUID(), ?, ?, 'tournament_deleted_crud', 'tournament', ?, ?, ?, ?, 'Deleted through tournament CRUD route', NOW())`,
+      [
+        admin.id,
+        admin.email,
+        id,
+        tournament.name,
+        JSON.stringify(tournament),
+        JSON.stringify({ deleted: true, deleted_matches: deleted.matches }),
+      ],
+    ).catch(() => {});
     broadcastTournamentDeleted(id);
-    res.json({ success: true });
+    res.json({ success: true, deleted: true, deleted_matches: deleted.matches });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
