@@ -7,6 +7,7 @@ import {
   cancelTournamentById,
   clearTournamentDraw,
   deleteTournamentById,
+  fetchTournamentPublic,
   fetchTournamentMatches,
   generateTournamentDraw,
   initializeTournamentDraw,
@@ -89,18 +90,18 @@ export default function TournamentDetail() {
     async function load() {
       try {
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
-        if (!isAuthed) return;
-        const u = await stageClient.auth.me().catch(() => null);
-        if (!u) return;
+        const u = isAuthed ? await stageClient.auth.me().catch(() => null) : null;
         setUser(u);
 
         // Each call gets its own fallback so a single failure can never block
         // the rest of the page from rendering — the spinner used to stick
         // forever when (for example) the tournament id was stale and the
         // backend returned a non-2xx the SDK didn't recover from.
-        const { player: myPl } = await resolveMyPlayerAndClub();
+        const { player: myPl } = isAuthed
+          ? await resolveMyPlayerAndClub().catch(() => ({ player: null, club: null }))
+          : { player: null, club: null };
         const [tData, clubData, matchData] = await Promise.all([
-          stageClient.entities.Tournament.filter({ id }, null, 1).catch(() => []),
+          fetchTournamentPublic(id).then(t => t ? [t] : []).catch(() => []),
           stageClient.entities.Club.list("-rating", 200).catch(() => []),
           fetchTournamentMatches(id).catch(() => []),
         ]);
@@ -119,17 +120,17 @@ export default function TournamentDetail() {
           }
         }
 
-        setIsBasic(u.role === "admin");
-        setTournamentEntryCost(u.role === "admin" ? 0 : getTournamentEntryCost());
-        setIsAdmin(u.role === "admin");
-        setIsCreator(t?.creator_email === u.email);
+        setIsBasic(u?.role === "admin");
+        setTournamentEntryCost(u?.role === "admin" ? 0 : getTournamentEntryCost());
+        setIsAdmin(u?.role === "admin");
+        setIsCreator(Boolean(u?.email && t?.creator_email === u.email));
         if (t?.status === 'completed' && t?.winner_club_id) {
           const existingConfs = await stageClient.entities.PressConference
             .filter({ match_id: t.id })
             .catch(() => []);
           setWinnerConferenceDone(existingConfs.some(c => c.context === 'tournament_winner'));
         }
-        if (u.role === "admin") {
+        if (u?.role === "admin") {
           const tcId = localStorage.getItem('admin_takeover_club_id');
           if (tcId) {
             const tcArr = await stageClient.entities.Club.filter({ id: tcId }).catch(() => []);

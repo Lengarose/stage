@@ -28,8 +28,51 @@ function isMissingFunctionError(error, functionName) {
   const message = String(error?.message || error?.error || "");
   return message.includes(`Function '${functionName}' not found`) || message.includes("not found");
 }
+
+function parseJsonList(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeTournament(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    registered_clubs: parseJsonList(row.registered_clubs),
+    registered_players: parseJsonList(row.registered_players),
+  };
+}
+
+function normalizeMatch(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    group: row.group ?? row.group_number,
+  };
+}
+
 export async function fetchTournamentMatches(tournamentId) {
-  return stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round");
+  try {
+    const rows = await stageClient.http.get(`/public/tournaments/${encodeURIComponent(tournamentId)}/matches`);
+    return Array.isArray(rows) ? rows.map(normalizeMatch) : [];
+  } catch (error) {
+    return stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round");
+  }
+}
+
+export async function fetchTournamentPublic(tournamentId) {
+  try {
+    return normalizeTournament(await stageClient.http.get(`/public/tournaments/${encodeURIComponent(tournamentId)}`));
+  } catch (error) {
+    const rows = await stageClient.entities.Tournament.filter({ id: tournamentId }, null, 1);
+    return normalizeTournament(rows[0] || null);
+  }
 }
 
 export async function registerTournamentClub(tournamentId, clubId) {

@@ -1692,6 +1692,45 @@ async function createNextRoundFromTieResults(query, tournamentId, tieResults, ne
   return created;
 }
 
+function sameIdPair(actualA, actualB, expectedA, expectedB) {
+  const actual = [actualA, actualB].map(String).sort().join('|');
+  const expected = [expectedA, expectedB].map(String).sort().join('|');
+  return Boolean(actualA && actualB && expectedA && expectedB && actual === expected);
+}
+
+function finalAndThirdPlaceRoundMatchesTieResults(existingMatches, tieResults) {
+  if (tieResults.length !== 2) return false;
+  const finalMatch = existingMatches.find((match) => String(match.type || '').toLowerCase() === 'final');
+  const thirdPlaceMatch = existingMatches.find((match) => ['third_place', 'third-place', 'bronze'].includes(String(match.type || '').toLowerCase()));
+  return Boolean(
+    finalMatch
+    && sameIdPair(finalMatch.home_club_id, finalMatch.away_club_id, tieResults[0].winner.id, tieResults[1].winner.id)
+    && (
+      !tieResults[0].loser?.id
+      || !tieResults[1].loser?.id
+      || (
+        thirdPlaceMatch
+        && sameIdPair(thirdPlaceMatch.home_club_id, thirdPlaceMatch.away_club_id, tieResults[0].loser.id, tieResults[1].loser.id)
+      )
+    )
+  );
+}
+
+async function createOrRepairNextRoundFromTieResults(query, tournamentId, tieResults, nextRound) {
+  const existing = await query(
+    'SELECT * FROM matches WHERE tournament_id = ? AND round = ? FOR UPDATE',
+    [tournamentId, nextRound]
+  );
+  if (!existing.length) return createNextRoundFromTieResults(query, tournamentId, tieResults, nextRound);
+
+  const hasResults = existing.some((match) => ['completed', 'forfeit'].includes(String(match.status || '')));
+  if (tieResults.length === 2 && !hasResults && !finalAndThirdPlaceRoundMatchesTieResults(existing, tieResults)) {
+    await query('DELETE FROM matches WHERE tournament_id = ? AND round = ?', [tournamentId, nextRound]);
+    return createNextRoundFromTieResults(query, tournamentId, tieResults, nextRound);
+  }
+  return 0;
+}
+
 async function awardTournamentTrophyServer(query, tournament, winnerClubId) {
   if (!tournament?.trophy_item_id || !winnerClubId) return { awarded: false, reason: 'missing_trophy_or_winner' };
   const items = await query('SELECT * FROM trophy_items WHERE id = ? LIMIT 1', [tournament.trophy_item_id]).catch(() => []);
@@ -3130,17 +3169,9 @@ const HANDLERS = {
           const tieResults = Array.from(byTie.values()).map(getTwoLegTieResult).filter(Boolean);
           if (tieResults.length !== currentMatches.length) throw new Error('Could not resolve all two-leg ties');
           const targetRound = currentRound + 2;
-          const existingAfterTie = await query(
-            'SELECT id FROM matches WHERE tournament_id = ? AND round = ? LIMIT 1',
-            [id, targetRound]
-          );
-          if (existingAfterTie.length) {
-            await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [targetRound, id]);
-            return { completed: false, current_round: targetRound, created: 0, skipped_existing: true };
-          }
-          const created = await createNextRoundFromTieResults(query, id, tieResults, targetRound);
+          const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, targetRound);
           await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [targetRound, id]);
-          return { completed: false, current_round: targetRound, created, aggregate: true };
+          return { completed: false, current_round: targetRound, created, aggregate: true, skipped_existing: created === 0 };
         }
 
         const previousLegs = await query(
@@ -3158,18 +3189,9 @@ const HANDLERS = {
           if (tieResults.length !== currentMatches.length) throw new Error('Could not resolve all two-leg ties');
 
           const nextRound = currentRound + 1;
-          const existingNext = await query(
-            'SELECT id FROM matches WHERE tournament_id = ? AND round = ? LIMIT 1',
-            [id, nextRound]
-          );
-          if (existingNext.length) {
-            await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-            return { completed: false, current_round: nextRound, created: 0, skipped_existing: true };
-          }
-
-          const created = await createNextRoundFromTieResults(query, id, tieResults, nextRound);
+          const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, nextRound);
           await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-          return { completed: false, current_round: nextRound, created, aggregate: true };
+          return { completed: false, current_round: nextRound, created, aggregate: true, skipped_existing: created === 0 };
         }
       }
 
