@@ -3092,7 +3092,7 @@ const HANDLERS = {
       const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
       if (!tournaments.length) throw new Error('Tournament not found');
       const tournament = tournaments[0];
-      const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
+      await assertTournamentOrganizer(_auth_user_id, tournament);
       const currentRound = Number(tournament.current_round || 1);
 
       if (String(tournament.type || '').toLowerCase() === 'group_stage') {
@@ -3342,7 +3342,7 @@ const HANDLERS = {
       const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
       if (!tournaments.length) throw new Error('Tournament not found');
       const tournament = tournaments[0];
-      await assertTournamentOrganizer(_auth_user_id, tournament);
+      const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
 
       const matches = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC FOR UPDATE', [id]);
       const finalMatch = matches.find((match) => String(match.type || '').toLowerCase() === 'final');
