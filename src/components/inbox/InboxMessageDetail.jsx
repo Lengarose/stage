@@ -12,6 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const STATUS_COLORS = {
   accepted:              "text-success bg-success/10 border-success/20",
@@ -21,7 +22,16 @@ const STATUS_COLORS = {
   pending:               "text-muted-foreground bg-muted border-border",
 };
 
+const STATUS_LABEL_KEYS = {
+  accepted: "accepted",
+  confirmed: "confirmed",
+  declined: "declined",
+  date_change_requested: "dateChangeRequested",
+  pending: "pending",
+};
+
 export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -50,7 +60,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       onStatusChanged(message.id, action);
     } catch (err) {
       console.error("[InboxMessageDetail] action failed:", err);
-      setActionError(err?.response?.data?.error || err?.message || "Action failed. Please try again.");
+      setActionError(err?.response?.data?.error || err?.message || t("matchFlow.actionFailed"));
     }
     setLoading(null);
     setShowDatePicker(false);
@@ -96,7 +106,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
             <div>
               <p className="text-sm font-bold text-foreground">
-                {message.is_system ? "STAGE System" : (message.sender_gamertag || "Unknown")}
+                {message.is_system ? t("matchFlow.stageSystem") : (message.sender_gamertag || t("matchFlow.unknown"))}
               </p>
               {message.sender_club_name && (
                 <div className="flex items-center gap-1 mt-0.5">
@@ -116,7 +126,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
               <AlertDialogTrigger asChild>
                 <button
                   className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                  title="Delete message"
+                  title={t("matchFlow.deleteMessage")}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -125,19 +135,19 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 <AlertDialogHeader>
                   <AlertDialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-warning" />
-                    Delete without responding?
+                    {t("matchFlow.deleteWithoutResponding")}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    This message requires your response. If you delete it now, the sender will not receive any answer and the action will be lost.
+                    {t("matchFlow.deleteWarning")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Keep message</AlertDialogCancel>
+                  <AlertDialogCancel>{t("matchFlow.keepMessage")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDelete}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    Delete anyway
+                    {t("matchFlow.deleteAnyway")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -146,7 +156,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             <button
               onClick={handleDelete}
               className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-              title="Delete message"
+              title={t("matchFlow.deleteMessage")}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -162,7 +172,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             "inline-block mt-2 text-xs px-2 py-0.5 rounded border font-medium",
             STATUS_COLORS[status] || STATUS_COLORS.pending
           )}>
-            {status.replace(/_/g, " ")}
+            {STATUS_LABEL_KEYS[status] ? t(`matchFlow.${STATUS_LABEL_KEYS[status]}`) : status.replace(/_/g, " ")}
           </span>
         )}
       </div>
@@ -171,7 +181,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       {hasAction && (
         <div className="mx-5 mt-4 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-warning/10 border border-warning/30">
           <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-          <p className="text-xs font-semibold text-warning">This message requires your response. See options below.</p>
+          <p className="text-xs font-semibold text-warning">{t("matchFlow.responseRequiredNotice")}</p>
         </div>
       )}
       {actionError && (
@@ -189,7 +199,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         {message.related_entity_type === "match" && (
           <div className="mt-4 p-3 rounded-lg bg-secondary border border-border text-xs text-muted-foreground flex items-center gap-1.5">
             <span>⚽</span>
-            <span>This message is linked to a scheduled match. Check your <span className="text-foreground font-medium">Schedule</span> for details.</span>
+            <span>
+              {t("matchFlow.linkedMatchNotice", { schedule: t("matchFlow.scheduleTitle") })}
+            </span>
           </div>
         )}
 
@@ -234,7 +246,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         <div className="p-4 border-t border-warning/20 bg-warning/5">
           <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />
-            Your response required
+            {t("matchFlow.yourResponseRequired")}
           </p>
           <div className="flex flex-wrap gap-2">
             {(effectiveActionType === "accept_decline" || effectiveActionType === "accept_decline_date") && (
@@ -246,7 +258,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   className="bg-success text-white hover:bg-success/90 gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {loading === "accepted" ? "Accepting…" : "Accept"}
+                  {loading === "accepted" ? t("matchFlow.accepting") : t("matchFlow.accept")}
                 </Button>
                 <Button
                   size="sm"
@@ -256,7 +268,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-1.5"
                 >
                   <X className="w-3.5 h-3.5" />
-                  {loading === "declined" ? "Declining…" : "Decline"}
+                  {loading === "declined" ? t("matchFlow.declining") : t("matchFlow.decline")}
                 </Button>
               </>
             )}
@@ -268,14 +280,14 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 className="bg-success text-white hover:bg-success/90 gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" />
-                {loading === "confirmed" ? "Confirming…" : "Confirm"}
+                {loading === "confirmed" ? t("matchFlow.confirming") : t("matchFlow.confirm")}
               </Button>
             )}
             {effectiveActionType === "accept_decline_date" && (
               <>
                 {showDatePicker ? (
                   <div className="flex flex-col gap-2 w-full">
-                    <p className="text-xs text-warning font-semibold">Propose new date/time:</p>
+                    <p className="text-xs text-warning font-semibold">{t("matchFlow.proposeDateTime")}</p>
                     <div className="flex gap-2">
                       <Input
                         type="date"
@@ -300,10 +312,10 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                         variant="outline"
                       >
                         <Calendar className="w-3.5 h-3.5" />
-                        {loading === "date_change_requested" ? "Sending…" : "Send Proposal"}
+                        {loading === "date_change_requested" ? t("matchFlow.sending") : t("matchFlow.sendProposal")}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setShowDatePicker(false)} className="text-muted-foreground">
-                        Cancel
+                        {t("matchFlow.cancel")}
                       </Button>
                     </div>
                   </div>
@@ -316,7 +328,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                     className="gap-1.5 text-warning border-warning/40 hover:bg-warning/10"
                   >
                     <Calendar className="w-3.5 h-3.5" />
-                    Request different date
+                    {t("matchFlow.requestDifferentDate")}
                   </Button>
                 )}
               </>

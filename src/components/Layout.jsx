@@ -4,7 +4,8 @@ import {
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
-  AlertTriangle, Flag, MessagesSquare, Globe2,
+  AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -14,6 +15,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { isAppAdminUser, shouldShowAdminHeader } from "@/lib/adminAuth";
 import { processPlayerSalary } from "@/lib/salaryProcessor";
 import { normalizeSubscriptionTier } from "@/lib/subscriptionUtils";
+import { useTranslation } from "@/hooks/useTranslation";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import NotificationBell from "./NotificationBell";
@@ -212,6 +214,7 @@ function getAdminGroups() {
         { path: "/admin/identity-claims", icon: User, label: "Identity Claims" },
         { path: "/admin/clubs", icon: Shield, label: "Clubs" },
         { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
+        { path: "/admin/analytics", icon: Activity, label: "Analytics" },
         { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
         { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
         { path: "/admin/international-tournaments", icon: Globe2, label: "International" },
@@ -244,6 +247,360 @@ function getAdminGroups() {
 /* ── EAFC26 design tokens ─────────────────────────────────── */
 const TEAL = "#00E5BD";
 const headingFont = { fontFamily: "var(--font-heading), 'Barlow Condensed', sans-serif", fontStyle: "italic" };
+
+const MOBILE_WALKTHROUGHS = [
+  {
+    path: "/tournaments/game-day",
+    label: "Tournament match",
+    title: "Tournament match day",
+    steps: [
+      "Use this screen for tournament fixtures that need to be played or confirmed.",
+      "Open a match to see opponent, rules, deadline and result actions.",
+      "Submit results carefully because tournament standings depend on this flow.",
+    ],
+  },
+  {
+    path: "/tournaments/schedule",
+    label: "Tournament schedule",
+    title: "Tournament schedule",
+    steps: [
+      "Check tournament fixtures, rounds and deadlines here.",
+      "Use this before match day to understand what is coming next.",
+      "If timing needs coordination, continue through Inbox or the match detail.",
+    ],
+  },
+  {
+    path: "/tournaments/inbox",
+    label: "Tournament inbox",
+    title: "Tournament inbox",
+    steps: [
+      "Tournament invites, match messages and admin decisions arrive here.",
+      "Open each item to accept, respond, or continue the tournament flow.",
+      "Unread items usually mean your tournament progress needs attention.",
+    ],
+  },
+  {
+    path: "/tournaments/players",
+    label: "Tournament players",
+    title: "Tournament players",
+    steps: [
+      "Review registered players and tournament participants here.",
+      "Open profiles to inspect identity, eligibility and performance context.",
+      "Use this page before matches to understand who is active in the bracket or league.",
+    ],
+  },
+  {
+    path: "/tournaments/clubs",
+    label: "Tournament clubs",
+    title: "Tournament clubs",
+    steps: [
+      "Review registered clubs and tournament teams here.",
+      "Open club profiles to inspect squad, owner and tournament context.",
+      "Use this page before matches to understand opponents and participants.",
+    ],
+  },
+  {
+    path: "/game-day",
+    label: "Matchs",
+    title: "Match day",
+    steps: [
+      "Start here when you have a fixture to play, confirm, or follow live.",
+      "Open the match card to see opponent, deadline, chat, stream and result actions.",
+      "After the game, submit the result and keep evidence ready if there is a dispute.",
+    ],
+  },
+  {
+    path: "/competitions",
+    label: "Compete",
+    title: "Compete",
+    steps: [
+      "Use this page to choose what kind of competition you want to enter.",
+      "Open a competition to see format, entry rules, standings and available actions.",
+      "If you are not sure where to start, go from Competitions to Register or Tournaments.",
+    ],
+  },
+  {
+    path: "/clubs",
+    label: "Club",
+    title: "Club hub",
+    steps: [
+      "Find clubs, open your club profile, or inspect another team before a match.",
+      "Club owners manage identity, squad, finance and operations from the club detail page.",
+      "Players can use club pages to understand rosters, activity and recruitment fit.",
+    ],
+  },
+  {
+    path: "/schedule",
+    label: "Schedule",
+    title: "Schedule",
+    steps: [
+      "Check upcoming fixtures and deadlines here before going to Match Day.",
+      "Use filters or calendar views to find the match that needs attention.",
+      "If a time needs to be arranged, use the match details or inbox proposal flow.",
+    ],
+  },
+  {
+    path: "/inbox",
+    label: "Inbox",
+    title: "Inbox",
+    steps: [
+      "This is where match proposals, contract offers, club messages and requests arrive.",
+      "Open a message to accept, decline, reply, or continue the related action.",
+      "Unread items usually mean something needs a decision before you continue.",
+    ],
+  },
+  {
+    path: "/tournaments",
+    label: "Tournament",
+    title: "Tournaments",
+    steps: [
+      "Browse available tournaments and open one to inspect rules, teams and schedule.",
+      "Admins and eligible club owners can create or manage tournaments from tournament controls.",
+      "Players should check registration status and deadlines before match day starts.",
+    ],
+  },
+  {
+    path: "/international",
+    label: "International",
+    title: "International",
+    steps: [
+      "Use this area for national competitions and international tournament formats.",
+      "Open a tournament card to see eligibility, squad rules and current phase.",
+      "Follow the page prompts to register, vote, build squads, or track progress.",
+    ],
+  },
+  {
+    path: "/register-league",
+    label: "Register",
+    title: "Register",
+    steps: [
+      "Start registration here when a league or season opens.",
+      "Check the requirements, choose your club or player entry, then submit before the deadline.",
+      "After registering, use Schedule and Inbox to follow next steps.",
+    ],
+  },
+  {
+    path: "/rankings",
+    label: "Rankings",
+    title: "Rankings",
+    steps: [
+      "Compare players, clubs and competition performance here.",
+      "Use ranking context to understand form, activity and who is moving up.",
+      "Open profiles from rankings when you want deeper stats or scouting context.",
+    ],
+  },
+  {
+    path: "/players-list",
+    label: "Players",
+    title: "Players",
+    steps: [
+      "Search the player pool and open profiles to inspect stats, role and activity.",
+      "Club owners can use this page as a scouting starting point.",
+      "Players can compare themselves and discover potential teammates or rivals.",
+    ],
+  },
+  {
+    path: "/free-agents",
+    label: "Free Agents",
+    title: "Free agents",
+    steps: [
+      "Find players who are available for clubs or looking for opportunities.",
+      "Open a player profile before contacting or recruiting them.",
+      "Use Recruitment or Inbox when you are ready to move from interest to action.",
+    ],
+  },
+  {
+    path: "/recruitment",
+    label: "Recruitment",
+    title: "Recruitment",
+    steps: [
+      "Club owners manage scouting and recruitment conversations from here.",
+      "Review player fit, availability and current status before making an offer.",
+      "Use Inbox to continue conversations and contract flows after contact starts.",
+    ],
+  },
+  {
+    path: "/transfer-market",
+    label: "Transfers",
+    title: "Transfers",
+    steps: [
+      "Browse players and transfer opportunities across the market.",
+      "Use filters to narrow by role, value, availability or club context.",
+      "Open a transfer detail before making a move so the terms are clear.",
+    ],
+  },
+  {
+    path: "/wallet",
+    label: "Wallet",
+    title: "Wallet",
+    steps: [
+      "Track your balance, rewards and financial activity here.",
+      "Check recent movements before making club, contract or store decisions.",
+      "If something looks wrong, keep the transaction visible before contacting an admin.",
+    ],
+  },
+  {
+    path: "/social",
+    label: "Feed",
+    title: "Feed",
+    steps: [
+      "Use the feed to follow community updates, club moments and player activity.",
+      "Post or react when the page offers social actions.",
+      "Open profiles, clubs or news items from the feed when something needs context.",
+    ],
+  },
+  {
+    path: "/community",
+    label: "Discord",
+    title: "Discord",
+    steps: [
+      "This page connects the app community and Discord-style coordination.",
+      "Use it when you need broader discussion, announcements or community links.",
+      "For private match or contract actions, use Inbox instead.",
+    ],
+  },
+  {
+    path: "/follow-back",
+    label: "Follow Back",
+    title: "Follow back",
+    steps: [
+      "See who follows you and decide who to follow back.",
+      "Use this to build a useful player and club network without searching manually.",
+      "Open profiles first when you want to check who someone is before following.",
+    ],
+  },
+  {
+    path: "/profile",
+    label: "Profile",
+    title: "Profile",
+    steps: [
+      "This is your player identity: stats, reputation, trophies and public information.",
+      "Keep your profile complete so clubs and tournament admins can understand your role.",
+      "Use club links, trophy sections and activity to move into deeper details.",
+    ],
+  },
+  {
+    path: "/search",
+    label: "Search",
+    title: "Search",
+    steps: [
+      "Search across players, clubs and key app content from one place.",
+      "Use precise names when you know them, or broad terms when discovering.",
+      "Open a result to continue into the correct page flow.",
+    ],
+  },
+  {
+    path: "/lifestyle",
+    label: "Lifestyle",
+    title: "Lifestyle",
+    steps: [
+      "Browse lifestyle items and identity upgrades for your STAGE presence.",
+      "Open an item to understand its price, effect and availability.",
+      "Check Wallet first if you are planning purchases or rewards spending.",
+    ],
+  },
+  {
+    path: "/store",
+    label: "Store",
+    title: "Store",
+    steps: [
+      "Use the store for purchasable items, upgrades and unlocks.",
+      "Open an item before buying so you understand cost and ownership.",
+      "Wallet shows your balance and recent transactions after store activity.",
+    ],
+  },
+  {
+    path: "/news",
+    label: "News",
+    title: "News",
+    steps: [
+      "Read announcements, competition updates and platform news here.",
+      "Open articles when you need the full context behind a change or event.",
+      "Important news may affect registration windows, schedules or admin decisions.",
+    ],
+  },
+];
+
+const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
+  "/tournaments/game-day": "tournamentMatch",
+  "/tournaments/schedule": "tournamentSchedule",
+  "/tournaments/inbox": "tournamentInbox",
+  "/tournaments/players": "tournamentPlayers",
+  "/tournaments/clubs": "tournamentClubs",
+  "/game-day": "matches",
+  "/competitions": "compete",
+  "/clubs": "club",
+  "/schedule": "schedule",
+  "/inbox": "inbox",
+  "/tournaments": "tournaments",
+  "/international": "international",
+  "/register-league": "register",
+  "/rankings": "rankings",
+  "/players-list": "players",
+  "/free-agents": "freeAgents",
+  "/recruitment": "recruitment",
+  "/transfer-market": "transfers",
+  "/wallet": "wallet",
+  "/social": "feed",
+  "/community": "discord",
+  "/follow-back": "followBack",
+  "/profile": "profile",
+  "/search": "search",
+  "/lifestyle": "lifestyle",
+  "/store": "store",
+  "/news": "news",
+};
+
+const NAV_LABEL_KEYS = {
+  "Home": "home",
+  "Matchs": "matches",
+  "Matches": "matches",
+  "Game Day": "gameDay",
+  "Compete": "compete",
+  "Competitions": "compete",
+  "Club": "club",
+  "Clubs": "club",
+  "My Club": "myClub",
+  "More": "more",
+  "Schedule": "schedule",
+  "Inbox": "inbox",
+  "Notifications": "notifications",
+  "Tournaments": "tournaments",
+  "Tournament": "tournament",
+  "International": "international",
+  "Register": "register",
+  "Rankings": "rankings",
+  "Players": "players",
+  "Free Agents": "freeAgents",
+  "Recruitment": "recruitment",
+  "Transfers": "transfers",
+  "Wallet": "wallet",
+  "Feed": "feed",
+  "Discord": "discord",
+  "Follow Back": "followBack",
+  "Profile": "profile",
+  "My Profile": "myProfile",
+  "Search": "search",
+  "Lifestyle": "lifestyle",
+  "Store": "store",
+  "News": "news",
+  "Settings": "settings",
+  "Trophy": "trophy",
+};
+
+function translateNavLabel(t, label) {
+  const key = NAV_LABEL_KEYS[label];
+  return key ? t(`nav.${key}`) : label;
+}
+
+function getMobileWalkthrough(pathname) {
+  if (!pathname || pathname.startsWith("/settings")) return null;
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  const sorted = [...MOBILE_WALKTHROUGHS].sort((a, b) => b.path.length - a.path.length);
+  const guide = sorted.find((item) => normalized === item.path || normalized.startsWith(`${item.path}/`));
+  if (!guide) return null;
+  return { ...guide, i18nKey: MOBILE_WALKTHROUGH_KEYS_BY_PATH[guide.path] };
+}
 
 const getEafcDropdownStyle = (isWhiteTheme = false) => ({
   background: isWhiteTheme
@@ -508,14 +865,6 @@ function HeaderIdentityMenu({
 }
 
 /* ── Mobile primary tabs ──────────────────────────────────── */
-const MOBILE_PRIMARY_PLAYER = [
-  { path: "/",             icon: Home,   label: "Home"    },
-  { path: "/competitions", icon: Trophy, label: "Compete" },
-  { path: "/search",       icon: Search, label: "Search"  },
-  { path: "/social",       icon: Rss,    label: "Social"  },
-  { path: "/profile",      icon: User,   label: "Profile" },
-];
-
 function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId) {
   if (isTournamentLimited) {
     return [
@@ -523,26 +872,36 @@ function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournament
       { path: "/tournaments/game-day",              icon: Zap,          label: "Game Day"   },
       { path: "/tournaments/schedule",              icon: CalendarDays, label: "Schedule"   },
       { path: "/tournaments/inbox",                 icon: Inbox,        label: "Inbox"      },
-      { path: "/tournaments/profile-player",        icon: User,         label: "Profile"    },
     ];
   }
   if (accountMode === "club") {
     return [
       { path: "/",                          icon: Home,         label: "Home"     },
-      { path: clubPath || "/clubs",         icon: Shield,       label: "My Club"  },
-      { path: "/schedule",                  icon: CalendarDays, label: "Schedule" },
-      { path: "/players-list",              icon: UsersRound,   label: "Squad"    },
-      { path: "/profile",                   icon: User,         label: "Profile"  },
+      { path: "/game-day",                  icon: Zap,          label: "Matchs"   },
+      { path: "/competitions",              icon: Trophy,       label: "Compete"  },
+      { path: clubPath || "/clubs",         icon: Shield,       label: "Club"     },
     ];
   }
-  return MOBILE_PRIMARY_PLAYER;
+  return [
+    { path: "/",                          icon: Home,         label: "Home"    },
+    { path: "/game-day",                  icon: Zap,          label: "Matchs"  },
+    { path: "/competitions",              icon: Trophy,       label: "Compete" },
+    { path: clubPath || "/clubs",         icon: Shield,       label: "Club"    },
+  ];
 }
 
 const MOBILE_MORE_GROUPS_PLAYER = [
   {
-    label: "Play",
+    label: "Matchs",
     items: [
-      { path: "/game-day",        icon: Zap,           label: "Game Day"      },
+      { path: "/schedule",        icon: CalendarDays,  label: "Schedule"      },
+      { path: "/inbox",           icon: Inbox,         label: "Inbox"         },
+      { path: "/notifications",   icon: Bell,          label: "Notifications" },
+    ],
+  },
+  {
+    label: "Compete",
+    items: [
       { path: "/tournaments",     icon: Trophy,        label: "Tournaments"   },
       { path: "/international",   icon: Globe2,        label: "International" },
       { path: "/register-league", icon: Shield,        label: "Register"      },
@@ -550,31 +909,31 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     ],
   },
   {
-    label: "Community",
+    label: "Club",
     items: [
-      { path: "/community",       icon: MessagesSquare, label: "Discord"       },
-      { path: "/clubs",           icon: Shield,        label: "Clubs"         },
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
-      { path: "/follow-back",     icon: Heart,         label: "Follow Back"   },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
-    ],
-  },
-  {
-    label: "Market",
-    items: [
       { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
-      { path: "/lifestyle",       icon: Coins,           label: "Lifestyle"  },
-      { path: "/store",           icon: ShoppingBag,     label: "Store"      },
+      { path: "/wallet",          icon: Zap,            label: "Wallet"      },
     ],
   },
   {
-    label: "Info",
+    label: "Community",
     items: [
+      { path: "/social",          icon: Rss,            label: "Feed"          },
+      { path: "/community",       icon: MessagesSquare, label: "Discord"       },
+      { path: "/follow-back",     icon: Heart,          label: "Follow Back"   },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { path: "/profile",         icon: User,          label: "Profile"       },
+      { path: "/search",          icon: Search,        label: "Search"        },
+      { path: "/lifestyle",       icon: Coins,           label: "Lifestyle"  },
+      { path: "/store",           icon: ShoppingBag,     label: "Store"      },
       { path: "/news",            icon: Newspaper,     label: "News"          },
-      { path: "/inbox",           icon: Inbox,         label: "Inbox"         },
-      { path: "/schedule",        icon: CalendarDays,  label: "Schedule"      },
-      { path: "/notifications",   icon: Bell,          label: "Notifications" },
       { path: "/settings",        icon: Settings,      label: "Settings"      },
     ],
   },
@@ -583,29 +942,28 @@ const MOBILE_MORE_GROUPS_PLAYER = [
 function getMobileMoreGroupsOwner(clubPath) {
   return [
     {
+      label: "Matchs",
+      items: [
+        { path: "/schedule",        icon: CalendarDays,  label: "Schedule"     },
+        { path: "/inbox",           icon: Inbox,         label: "Inbox"        },
+        { path: "/notifications",   icon: Bell,          label: "Notifications" },
+      ],
+    },
+    {
       label: "Club",
       items: [
         ...(clubPath ? [{ path: clubPath, icon: Shield, label: "My Club" }] : []),
-        { path: "/players-list",    icon: UsersRound,    label: "Players"      },
-        { path: "/game-day",        icon: Zap,           label: "Game Day"     },
-        { path: "/inbox",           icon: Inbox,         label: "Inbox"        },
-        { path: "/social",          icon: Rss,          label: "Feed"          },
-      ],
-    },
-    {
-      label: "Market",
-      items: [
+        { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
         { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
+        { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle"   },
         { path: "/wallet",          icon: Zap,            label: "Wallet"      },
-        { path: "/store",           icon: ShoppingBag,    label: "Store"       },
       ],
     },
     {
-      label: "Competitions",
+      label: "Compete",
       items: [
-        { path: "/competitions",    icon: Star,           label: "Competitions" },
         { path: "/tournaments",     icon: Trophy,         label: "Tournaments"  },
         { path: "/international",   icon: Globe2,         label: "International" },
         { path: "/register-league", icon: Shield,         label: "Register"     },
@@ -613,9 +971,13 @@ function getMobileMoreGroupsOwner(clubPath) {
       ],
     },
     {
-      label: "Info",
+      label: "Account",
       items: [
+        { path: "/profile",         icon: User,           label: "Profile"       },
+        { path: "/social",          icon: Rss,            label: "Feed"          },
+        { path: "/search",          icon: Search,         label: "Search"        },
         { path: "/news",            icon: Newspaper,      label: "News"          },
+        { path: "/store",           icon: ShoppingBag,    label: "Store"         },
         { path: "/notifications",   icon: Bell,           label: "Notifications" },
         { path: "/settings",        icon: Settings,       label: "Settings"      },
       ],
@@ -649,6 +1011,7 @@ function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, _tourna
 }
 
 function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId, participantType }) {
+  const { t } = useTranslation();
   const groups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType);
   return (
     <>
@@ -662,20 +1025,17 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
       )}
       {/* sheet */}
       <div
-        className="fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out"
+        className="mobile-liquid-sheet fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out"
         style={{
           bottom: 0,
           transform: open ? "translateY(0)" : "translateY(110%)",
-          background: "linear-gradient(180deg, #0e1530 0%, #090d1c 100%)",
-          borderTop: "1.5px solid rgba(0,229,189,0.2)",
-          boxShadow: "0 -12px 60px rgba(0,0,0,0.8)",
           paddingBottom: "calc(var(--mobile-tab-h) + var(--safe-bottom))",
           maxHeight: "82vh",
         }}
       >
         {/* drag handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+          <div className="mobile-liquid-handle w-10 h-1 rounded-full" />
         </div>
 
         <div
@@ -688,7 +1048,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
                 className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
                 style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 600, color: "rgba(0,229,189,0.45)" }}
               >
-                {group.label}
+                {translateNavLabel(t, group.label)}
               </p>
               <div className="grid grid-cols-3 gap-2.5">
                 {group.items.map((item) => {
@@ -699,11 +1059,10 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
                       key={item.path}
                       to={item.path}
                       onClick={onClose}
-                      className="flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95"
-                      style={{
-                        background: isActive ? "rgba(0,229,189,0.12)" : "rgba(255,255,255,0.04)",
-                        border: isActive ? "1px solid rgba(0,229,189,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                      }}
+                      className={cn(
+                        "mobile-liquid-menu-tile flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95",
+                        isActive && "is-active"
+                      )}
                     >
                       <Icon
                         className="w-7 h-7"
@@ -719,7 +1078,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
                           color: isActive ? "#00E5BD" : "rgba(255,255,255,0.55)",
                         }}
                       >
-                        {item.label}
+                        {translateNavLabel(t, item.label)}
                       </span>
                     </Link>
                   );
@@ -733,7 +1092,130 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscriptionTier, notifCount, isTournamentLimited, tournamentId, participantType }) {
+function MobileWalkthrough({ pathname }) {
+  const { t } = useTranslation();
+  const guide = getMobileWalkthrough(pathname);
+  const [open, setOpen] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+  const translatedGuide = guide?.i18nKey ? t(`walkthrough.${guide.i18nKey}`) : null;
+  const translatedSteps = Array.isArray(translatedGuide?.steps) ? translatedGuide.steps : guide?.steps;
+  const guideLabel = translatedGuide?.label || guide?.label;
+  const guideTitle = translatedGuide?.title || guide?.title;
+  const totalSteps = translatedSteps?.length || 0;
+  const activeStep = translatedSteps?.[stepIndex] || "";
+
+  useEffect(() => {
+    setOpen(false);
+    setStepIndex(0);
+  }, [pathname]);
+
+  if (!guide) return null;
+
+  const canGoBack = stepIndex > 0;
+  const canGoNext = stepIndex < totalSteps - 1;
+
+  return (
+    <>
+      {!open && (
+        <button
+          type="button"
+          className="mobile-guide-chip md:hidden fixed right-4 z-[79] inline-flex items-center gap-2 rounded-full px-3.5 py-2 active:scale-95"
+          style={{ bottom: "calc(var(--mobile-tab-h) + var(--safe-bottom) + 20px)" }}
+          onClick={() => setOpen(true)}
+          aria-label={t("mobile.openGuide", { label: guideLabel })}
+        >
+          <HelpCircle className="h-4 w-4" />
+          <span>{t("mobile.guide")}</span>
+        </button>
+      )}
+
+      {open && (
+        <div
+          className="fixed inset-0 z-[92] bg-black/55 backdrop-blur-sm md:hidden"
+          style={{ WebkitBackdropFilter: "blur(5px)" }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <section
+        className="mobile-guide-sheet md:hidden fixed left-0 right-0 z-[93] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out"
+        style={{
+          bottom: 0,
+          transform: open ? "translateY(0)" : "translateY(110%)",
+          paddingBottom: "calc(var(--safe-bottom) + 18px)",
+        }}
+        aria-hidden={!open}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="mobile-liquid-handle w-10 h-1 rounded-full" />
+        </div>
+
+        <div className="px-5 pb-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="mobile-guide-kicker">{guideLabel}</p>
+              <h2 className="mobile-guide-title">{guideTitle}</h2>
+            </div>
+            <button
+              type="button"
+              className="mobile-guide-icon-button h-11 w-11 shrink-0 rounded-full"
+              onClick={() => setOpen(false)}
+              aria-label={t("mobile.closeGuide")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mobile-guide-card mt-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="mobile-guide-step-label">{t("mobile.stepCount", { current: stepIndex + 1, total: totalSteps })}</span>
+              <div className="flex gap-1">
+                {guide.steps.map((_, index) => (
+                  <span
+                    key={index}
+                    className={cn("mobile-guide-dot", index === stepIndex && "is-active")}
+                  />
+                ))}
+              </div>
+            </div>
+            <p className="mobile-guide-copy">{activeStep}</p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-[44px_1fr_44px] gap-3">
+            <button
+              type="button"
+              className="mobile-guide-icon-button rounded-2xl disabled:opacity-35"
+              onClick={() => setStepIndex((v) => Math.max(0, v - 1))}
+              disabled={!canGoBack}
+              aria-label={t("mobile.previousStep")}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="mobile-guide-primary rounded-2xl"
+              onClick={() => (canGoNext ? setStepIndex((v) => v + 1) : setOpen(false))}
+            >
+              {canGoNext ? t("mobile.next") : t("mobile.done")}
+            </button>
+            <button
+              type="button"
+              className="mobile-guide-icon-button rounded-2xl disabled:opacity-35"
+              onClick={() => setStepIndex((v) => Math.min(totalSteps - 1, v + 1))}
+              disabled={!canGoNext}
+              aria-label={t("mobile.nextStep")}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType }) {
+  const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal } = useChatNotifications();
 
@@ -744,11 +1226,6 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
   const moreLabel = moreActive?.item.label ?? "More";
-  // Anchor the chat badge wherever Game Day lives. If Game Day isn't in the
-  // primary tabs for this account mode, we surface it on the "More" button
-  // instead so the indicator is still visible at app level.
-  const gameDayInPrimary = primaryTabs.some((t) => t.path === "/game-day");
-
   return (
     <>
       <MobileMoreSheet
@@ -763,17 +1240,12 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
       />
 
       <nav
-        className="fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
+        className="mobile-liquid-nav fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
         style={{
-          background: "rgba(8,11,24,0.92)",
-          backdropFilter: "blur(32px)",
-          WebkitBackdropFilter: "blur(32px)",
-          borderTop: "1px solid rgba(0,229,189,0.12)",
-          boxShadow: "0 -4px 30px rgba(0,0,0,0.6)",
           paddingBottom: "var(--safe-bottom)",
         }}
       >
-        <div className="flex w-full">
+        <div className="mobile-liquid-bar flex w-full">
           {primaryTabs.map((tab) => {
             const isActive = isNavItemActive(tab.path, pathname);
             const Icon = tab.icon;
@@ -781,7 +1253,10 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
               <Link
                 key={tab.path}
                 to={tab.path}
-                className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+                className={cn(
+                  "mobile-liquid-tab flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-95",
+                  isActive && "is-active"
+                )}
                 style={{ minHeight: "var(--mobile-tab-h)" }}
                 onClick={() => setMoreOpen(false)}
               >
@@ -816,7 +1291,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
                     color: isActive ? "#00E5BD" : "rgba(255,255,255,0.3)",
                   }}
                 >
-                  {tab.label}
+                  {translateNavLabel(t, tab.label)}
                 </span>
               </Link>
             );
@@ -825,7 +1300,10 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
           {/* More */}
           <button
             onClick={() => setMoreOpen((v) => !v)}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+            className={cn(
+              "mobile-liquid-tab flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-95",
+              (moreOpen || inMore) && "is-active"
+            )}
             style={{ minHeight: "var(--mobile-tab-h)" }}
           >
             <div className="relative">
@@ -863,7 +1341,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
                 color: (moreOpen || inMore) ? "#00E5BD" : "rgba(255,255,255,0.3)",
               }}
             >
-              {moreLabel}
+              {translateNavLabel(t, moreLabel)}
             </span>
           </button>
         </div>
@@ -874,13 +1352,53 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, subscription
 
 const ADMIN_MOBILE_PRIMARY = [
   { path: "/admin", icon: ShieldAlert, label: "Dash" },
+  { path: "/admin/tournaments", icon: Trophy, label: "Tournois" },
+  { path: "/admin/disputes", icon: AlertTriangle, label: "Matchs" },
   { path: "/admin/players", icon: UsersRound, label: "Players" },
-  { path: "/admin/clubs", icon: Shield, label: "Clubs" },
-  { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
+];
+
+const ADMIN_MOBILE_MORE_GROUPS = [
+  {
+    label: "Operations",
+    items: [
+      { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
+      { path: "/admin/clubs", icon: Shield, label: "Clubs" },
+      { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
+      { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
+    ],
+  },
+  {
+    label: "Competitions",
+    items: [
+      { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
+      { path: "/admin/international-tournaments", icon: Globe2, label: "International" },
+      { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
+      { path: "/admin/analytics", icon: Activity, label: "Analytics" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { path: "/admin/news", icon: Newspaper, label: "News" },
+      { path: "/admin/press-conferences", icon: Newspaper, label: "Press" },
+      { path: "/admin/store", icon: ShoppingBag, label: "Store" },
+      { path: "/admin/lifestyles", icon: Coins, label: "Lifestyle" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { path: "/admin/trophies", icon: Trophy, label: "Trophies" },
+      { path: "/admin/rewards", icon: Star, label: "Rewards" },
+      { path: "/admin/home", icon: Palette, label: "Home Page" },
+      { path: "/admin/landing", icon: Palette, label: "Landing Page" },
+      { path: "/community", icon: MessagesSquare, label: "Discord" },
+    ],
+  },
 ];
 
 function AdminMobileMoreSheet({ open, onClose, pathname }) {
-  const groups = getAdminGroups();
+  const groups = ADMIN_MOBILE_MORE_GROUPS;
 
   return (
     <>
@@ -892,19 +1410,16 @@ function AdminMobileMoreSheet({ open, onClose, pathname }) {
         />
       )}
       <div
-        className="fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out md:hidden"
+        className="mobile-liquid-sheet mobile-liquid-sheet-admin fixed left-0 right-0 z-[91] rounded-t-3xl overflow-hidden transition-transform duration-300 ease-out md:hidden"
         style={{
           bottom: 0,
           transform: open ? "translateY(0)" : "translateY(110%)",
-          background: "linear-gradient(180deg, #1a0d16 0%, #090d1c 100%)",
-          borderTop: "1.5px solid rgba(248,113,113,0.28)",
-          boxShadow: "0 -12px 60px rgba(0,0,0,0.82)",
           paddingBottom: "calc(var(--mobile-tab-h) + var(--safe-bottom))",
           maxHeight: "82vh",
         }}
       >
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(248,113,113,0.35)" }} />
+          <div className="mobile-liquid-handle w-10 h-1 rounded-full" />
         </div>
 
         <div
@@ -928,11 +1443,10 @@ function AdminMobileMoreSheet({ open, onClose, pathname }) {
                       key={item.path}
                       to={item.path}
                       onClick={onClose}
-                      className="flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95"
-                      style={{
-                        background: isActive ? "rgba(248,113,113,0.14)" : "rgba(255,255,255,0.04)",
-                        border: isActive ? "1px solid rgba(248,113,113,0.38)" : "1px solid rgba(255,255,255,0.07)",
-                      }}
+                      className={cn(
+                        "mobile-liquid-menu-tile flex flex-col items-center gap-2 rounded-2xl py-5 px-2 transition-all active:scale-95",
+                        isActive && "is-active"
+                      )}
                     >
                       <Icon
                         className="w-7 h-7"
@@ -964,9 +1478,8 @@ function AdminMobileMoreSheet({ open, onClose, pathname }) {
 
 function AdminMobileBottomBar({ pathname }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const adminGroups = getAdminGroups();
   const primaryActive = ADMIN_MOBILE_PRIMARY.find((t) => isNavItemActive(t.path, pathname));
-  const moreActive = findActiveInGroups(adminGroups, pathname);
+  const moreActive = findActiveInGroups(ADMIN_MOBILE_MORE_GROUPS, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
   const moreLabel = inMore ? moreActive.item.label : "More";
 
@@ -979,17 +1492,12 @@ function AdminMobileBottomBar({ pathname }) {
       />
 
       <nav
-        className="fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
+        className="mobile-liquid-nav mobile-liquid-nav-admin fixed left-0 right-0 bottom-0 z-[80] md:hidden flex items-end"
         style={{
-          background: "rgba(12,8,20,0.94)",
-          backdropFilter: "blur(32px)",
-          WebkitBackdropFilter: "blur(32px)",
-          borderTop: "1px solid rgba(248,113,113,0.22)",
-          boxShadow: "0 -4px 30px rgba(0,0,0,0.65)",
           paddingBottom: "var(--safe-bottom)",
         }}
       >
-        <div className="flex w-full">
+        <div className="mobile-liquid-bar flex w-full">
           {ADMIN_MOBILE_PRIMARY.map((tab) => {
             const isActive = isNavItemActive(tab.path, pathname);
             const Icon = tab.icon;
@@ -997,7 +1505,10 @@ function AdminMobileBottomBar({ pathname }) {
               <Link
                 key={tab.path}
                 to={tab.path}
-                className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+                className={cn(
+                  "mobile-liquid-tab flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-95",
+                  isActive && "is-active"
+                )}
                 style={{ minHeight: "var(--mobile-tab-h)" }}
                 onClick={() => setMoreOpen(false)}
               >
@@ -1032,7 +1543,10 @@ function AdminMobileBottomBar({ pathname }) {
           <button
             type="button"
             onClick={() => setMoreOpen((v) => !v)}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-90"
+            className={cn(
+              "mobile-liquid-tab flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all active:scale-95",
+              (moreOpen || inMore) && "is-active"
+            )}
             style={{ minHeight: "var(--mobile-tab-h)" }}
           >
             <div className="w-[22px] h-[22px] flex flex-col items-center justify-center gap-[3px]">
@@ -1068,21 +1582,18 @@ function AdminMobileBottomBar({ pathname }) {
 }
 
 function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin, activePageLabel }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
 
   return (
     <header
-      className="md:hidden relative z-50 shrink-0 flex items-center justify-between px-4"
+      className="mobile-liquid-topbar md:hidden relative z-50 shrink-0 flex items-center justify-between px-4"
       style={{
         paddingTop: "calc(var(--safe-top) + 10px)",
         paddingBottom: 10,
         position: "relative",
-        background: "linear-gradient(180deg, #090d1c 0%, rgba(9,13,28,0.92) 100%)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(0,229,189,0.1)",
       }}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1094,7 +1605,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
             className="text-[12px] uppercase truncate"
             style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", color: TEAL }}
           >
-            {activePageLabel}
+            {translateNavLabel(t, activePageLabel)}
           </span>
         )}
       </div>
@@ -1108,9 +1619,8 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
           to="/settings"
           aria-label="Settings"
           title="Settings"
-          className="w-11 h-11 flex items-center justify-center rounded-full border border-white/10 outline-none"
+          className="mobile-liquid-icon-button w-11 h-11 flex items-center justify-center rounded-full outline-none"
           style={{
-            background: "rgba(255,255,255,0.05)",
             color: isNavItemActive("/settings", pathname) ? TEAL : "rgba(255,255,255,0.7)",
           }}
         >
@@ -1160,8 +1670,7 @@ function MobileThemeButton({ theme, setTheme }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="w-11 h-11 flex items-center justify-center rounded-full border border-white/10 outline-none"
-          style={{ background: "rgba(255,255,255,0.05)" }}
+          className="mobile-liquid-icon-button w-11 h-11 flex items-center justify-center rounded-full outline-none"
           aria-label="Theme"
         >
           <Icon className="w-[18px] h-[18px] text-white/70" />
@@ -1212,8 +1721,8 @@ function MobileIdentityMenu({ myPlayer, myClub, accountMode, switchMode }) {
     <div
       className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border"
       style={{
-        border: "1.5px solid rgba(0,229,189,0.4)",
-        backgroundColor: "rgba(255,255,255,0.08)",
+        border: "1.5px solid rgba(255,255,255,0.22)",
+        backgroundColor: "rgba(255,255,255,0.12)",
         ...(showPlayerAvatarBg && {
           backgroundImage: `url(${myPlayer.avatar_url})`,
           backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
@@ -1328,14 +1837,10 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
 
   return (
     <header
-      className="md:hidden relative z-50 shrink-0"
+      className="mobile-liquid-topbar mobile-liquid-topbar-admin md:hidden relative z-50 shrink-0"
       style={{
         paddingTop: "calc(var(--safe-top) + 8px)",
         paddingBottom: 8,
-        background: "linear-gradient(180deg, #160a12 0%, #090d1c 100%)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(248,113,113,0.22)",
       }}
     >
       <div className="flex items-center justify-between px-3">
@@ -1354,7 +1859,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             to="/admin"
             aria-label="Admin home"
             title="Admin home"
-            className="inline-flex items-center justify-center w-11 h-11 rounded-lg"
+            className="mobile-liquid-icon-button inline-flex items-center justify-center w-11 h-11 rounded-lg"
             style={{ color: isNavItemActive("/admin", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}
           >
             <Home className="w-4 h-4" />
@@ -1363,7 +1868,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             to="/settings"
             aria-label="Settings"
             title="Settings"
-            className="inline-flex items-center justify-center w-11 h-11 rounded-lg"
+            className="mobile-liquid-icon-button inline-flex items-center justify-center w-11 h-11 rounded-lg"
             style={{ color: isNavItemActive("/settings", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}
           >
             <Settings className="w-4 h-4" />
@@ -1808,6 +2313,8 @@ export default function Layout() {
         </main>
       </div>
 
+      <MobileWalkthrough pathname={location.pathname} />
+
       {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
       {showAdminHeader ? (
         <AdminMobileBottomBar pathname={location.pathname} />
@@ -1817,7 +2324,6 @@ export default function Layout() {
           myPlayer={myPlayer}
           myClub={myClub}
           accountMode={accountMode}
-          subscriptionTier={subscriptionTier}
           notifCount={notifCount}
           isTournamentLimited={isTournamentLimited}
           tournamentId={effectiveUser?.limited_tournament_id}

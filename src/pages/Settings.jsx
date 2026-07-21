@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
+import { SUPPORTED_LANGUAGES } from "@/lib/languages";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
@@ -228,19 +229,8 @@ function getSoundDuration(soundId) {
   return { cyber_ping: 0.3, stadium_cheer: 0.7, whistle: 0.55, trophy: 0.9 }[soundId] || 0.5;
 }
 
-const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "French (Français)" },
-  { value: "es", label: "Spanish (Español)" },
-  { value: "de", label: "German (Deutsch)" },
-  { value: "it", label: "Italian (Italiano)" },
-  { value: "nl", label: "Dutch (Nederlands)" },
-  { value: "pt", label: "Portuguese (Português)" },
-  { value: "ru", label: "Russian (Русский)" },
-];
-
 export default function Settings() {
-  const { language, setLanguage: setContextLanguage } = useTranslation();
+  const { language, setLanguage: setContextLanguage, t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [localLanguage, setLocalLanguage] = useState(language);
@@ -494,22 +484,24 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-3xl leading-relaxed font-bold text-foreground mb-8">Settings</h1>
+      <h1 className="text-3xl leading-relaxed font-bold text-foreground mb-8">{t("settingsPage.title")}</h1>
       
       <div className="space-y-8">
         {/* Language */}
         <div className="space-y-3">
           <div>
-            <h3 className="text-lg leading-relaxed font-bold text-foreground">Language</h3>
-            <p className="text-sm text-muted-foreground">Choose your preferred language</p>
+            <h3 className="text-lg leading-relaxed font-bold text-foreground">{t("settingsPage.languageTitle")}</h3>
+            <p className="text-sm text-muted-foreground">{t("settingsPage.languageDescription")}</p>
           </div>
           <Select value={localLanguage} onValueChange={(val) => { setLocalLanguage(val); setContextLanguage(val); }}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {LANGUAGES.map(l => (
-                <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+              {SUPPORTED_LANGUAGES.map(l => (
+                <SelectItem key={l.value} value={l.value}>
+                  {t(`languageNames.${l.value}`)} · {l.nativeLabel}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -861,7 +853,7 @@ export default function Settings() {
           disabled={loading}
           className="w-full"
         >
-          {loading ? "Saving..." : "Save Settings"}
+          {loading ? t("settingsPage.saving") : t("settingsPage.saveChanges")}
         </Button>
 
         <Button

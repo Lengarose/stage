@@ -658,42 +658,42 @@ export default function Home() {
           HERO
          ══════════════════════════════════════════════════════ */}
       <section
-        className="relative flex items-center overflow-hidden"
+        className="stage-home-hero relative flex items-center overflow-hidden"
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", minHeight: "88vh" }}
       >
         <div
-          className="absolute inset-0 bg-cover bg-no-repeat"
+          className="stage-home-hero-bg absolute inset-0 bg-cover bg-no-repeat"
           style={{
             backgroundImage: `url(${heroBg})`,
             backgroundSize: heroBgZoom ? `${heroBgZoom}%` : "cover",
             backgroundPosition: heroBgPosition,
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
+        <div className="stage-home-hero-readable absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
+        <div className="stage-home-hero-fade absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
+        <div className="stage-home-hero-content relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
           <p className="font-heading font-bold uppercase mb-1 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
             {textOrDefault(c.hero_title, DEFAULTS.hero_title)}
           </p>
-          <h1 className="font-heading font-black leading-none" style={{ fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
+          <h1 className="stage-home-hero-title font-heading font-black leading-none" style={{ fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
             {textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)}
           </h1>
           <p className="mt-6 max-w-md text-sm sm:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
             {textOrDefault(c.hero_description, DEFAULTS.hero_description)}
           </p>
-          <div className="flex flex-wrap gap-3 mt-9">
+          <div className="stage-home-hero-actions flex flex-wrap gap-3 mt-9">
             <Link to={textOrDefault(c.hero_cta_1_url, DEFAULTS.hero_cta_1_url)}>
-              <Button size="lg" className="h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button size="lg" className="stage-home-liquid-cta is-primary h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm bg-primary text-primary-foreground hover:bg-primary/90">
                 <Trophy className="w-4 h-4" /> {textOrDefault(c.hero_cta_1_label, DEFAULTS.hero_cta_1_label)}
               </Button>
             </Link>
             <Link to={textOrDefault(c.hero_cta_2_url, DEFAULTS.hero_cta_2_url)}>
-              <Button size="lg" variant="outline" className="h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
+              <Button size="lg" variant="outline" className="stage-home-liquid-cta h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
                 <Zap className="w-4 h-4" /> {textOrDefault(c.hero_cta_2_label, DEFAULTS.hero_cta_2_label)}
               </Button>
             </Link>
             <Link to={textOrDefault(c.hero_cta_3_url, DEFAULTS.hero_cta_3_url)}>
-              <Button size="lg" variant="outline" className="h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
+              <Button size="lg" variant="outline" className="stage-home-liquid-cta h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
                 <ShoppingBag className="w-4 h-4" /> {textOrDefault(c.hero_cta_3_label, DEFAULTS.hero_cta_3_label)}
               </Button>
             </Link>

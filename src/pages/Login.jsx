@@ -6,6 +6,8 @@ import { ensureAdminPanelMode, isAppAdminUser } from '@/lib/adminAuth';
 import { isDiscordConfigured } from '@/lib/discordConfig';
 import { openDiscordInvite } from '@/lib/discordJoin';
 import { DISCORD_INVITE_URL } from '@/lib/discordConfig';
+import { SUPPORTED_LANGUAGES } from '@/lib/languages';
+import { useTranslation } from '@/hooks/useTranslation';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Stadium Logo.png';
 
@@ -59,6 +61,7 @@ const ProviderButton = ({ onClick, icon, label, className = '' }) => (
 
 export default function Login() {
   const { checkUserAuth } = useAuth();
+  const { language, setLanguage, t } = useTranslation();
   const [mode, setMode] = useState('signin');
   const isSignup = mode === 'signup';
 
@@ -74,7 +77,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     if (isSignup && password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.passwordsDoNotMatch'));
       return;
     }
     setIsLoading(true);
@@ -93,14 +96,14 @@ export default function Login() {
           await checkUserAuth();
         }
       } else {
-        setError('Sign-in failed. Please try again.');
+        setError(t('auth.signinFailed'));
       }
     } catch (err) {
       const serverError = err?.error || err?.message || '';
       if (isSignup && String(serverError).toLowerCase().includes('this user with this email exist')) {
-        setError('An account with this email already exists.');
+        setError(t('auth.accountExists'));
       } else {
-        setError(serverError || (isSignup ? 'Unable to create account. Please try again.' : 'Invalid email, gamertag, or password.'));
+        setError(serverError || (isSignup ? t('auth.signupFailed') : t('auth.invalidSignin')));
       }
     } finally {
       setIsLoading(false);
@@ -131,7 +134,7 @@ export default function Login() {
           <div className="flex flex-col items-center mb-7 gap-2">
             <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
             <p className="text-white/50 text-xs uppercase tracking-[0.25em]">
-              {isSignup ? 'Create account' : 'Welcome back'}
+              {isSignup ? t('auth.createAccount') : t('auth.welcomeBack')}
             </p>
           </div>
 
@@ -140,19 +143,19 @@ export default function Login() {
             <ProviderButton
               onClick={() => stageClient.auth.loginWithProvider('google', window.location.href)}
               icon={<GoogleIcon />}
-              label="Continue with Google"
+              label={t('auth.continueGoogle')}
               className="bg-white text-gray-800 hover:bg-gray-100 active:bg-gray-200"
             />
             <ProviderButton
               onClick={() => stageClient.auth.loginWithProvider('microsoft', window.location.href)}
               icon={<MicrosoftIcon />}
-              label="Continue with Outlook"
+              label={t('auth.continueOutlook')}
               className="bg-[#0078D4] text-white hover:bg-[#006CBE] active:bg-[#005EA6]"
             />
             <ProviderButton
               onClick={() => stageClient.auth.loginWithProvider('apple', window.location.href)}
               icon={<AppleIcon />}
-              label="Continue with Apple"
+              label={t('auth.continueApple')}
               className="bg-black text-white hover:bg-neutral-900 active:bg-neutral-800"
             />
           </div>
@@ -160,7 +163,7 @@ export default function Login() {
           {/* Divider */}
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-white/20" />
-            <span className="text-white/35 text-[11px] uppercase tracking-widest">or</span>
+            <span className="text-white/35 text-[11px] uppercase tracking-widest">{t('auth.or')}</span>
             <div className="flex-1 h-px bg-white/20" />
           </div>
 
@@ -168,7 +171,7 @@ export default function Login() {
           <form onSubmit={handleAuthSubmit} className="space-y-3">
             <input
               type={isSignup ? 'email' : 'text'}
-              placeholder={isSignup ? 'Email address' : 'Email, gamertag, or club name'}
+              placeholder={isSignup ? t('auth.emailAddress') : t('auth.identifier')}
               value={identifier}
               onChange={e => setIdentifier(e.target.value)}
               required
@@ -178,7 +181,7 @@ export default function Login() {
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
+                placeholder={t('auth.password')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -197,7 +200,7 @@ export default function Login() {
               <div className="relative">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm password"
+                  placeholder={t('auth.confirmPassword')}
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   required
@@ -235,10 +238,27 @@ export default function Login() {
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-[#0d2461]/25 border-t-[#0d2461] rounded-full animate-spin" />
-                  {isSignup ? 'Creating account…' : 'Signing in…'}
+                  {isSignup ? t('auth.creating') : t('auth.signingIn')}
                 </span>
-              ) : (isSignup ? 'Create Account' : 'Sign In')}
+              ) : (isSignup ? t('auth.createAccount') : t('auth.signIn'))}
             </motion.button>
+
+            <label className="block pt-1">
+              <span className="mb-2 block text-center text-[11px] font-semibold text-white/45">
+                {t('auth.chooseLanguage')}
+              </span>
+              <select
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+                className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-center text-sm font-semibold text-white outline-none transition-all focus:border-white/50 focus:bg-white/15"
+              >
+                {SUPPORTED_LANGUAGES.map((item) => (
+                  <option key={item.value} value={item.value} className="bg-[#081021] text-white">
+                    {t(`languageNames.${item.value}`)} · {item.nativeLabel}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <button
               type="button"
@@ -248,20 +268,20 @@ export default function Login() {
               }}
               className="w-full text-center text-xs text-white/60 hover:text-white/90 transition-colors pt-1"
             >
-              {isSignup ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+              {isSignup ? t('auth.switchToSignin') : t('auth.switchToSignup')}
             </button>
 
             {isSignup && isDiscordConfigured() && DISCORD_INVITE_URL && (
               <div className="mt-4 pt-4 border-t border-white/15 text-center space-y-2">
-                <p className="text-white/45 text-[10px] uppercase tracking-widest">After you sign up</p>
+                <p className="text-white/45 text-[10px] uppercase tracking-widest">{t('auth.afterSignup')}</p>
                 <button
                   type="button"
                   onClick={() => openDiscordInvite(DISCORD_INVITE_URL)}
                   className="w-full py-2.5 rounded-xl bg-[#5865F2]/90 hover:bg-[#5865F2] text-white text-xs font-bold uppercase tracking-wider transition-colors"
                 >
-                  Join our Discord community
+                  {t('auth.joinDiscord')}
                 </button>
-                <p className="text-white/35 text-[10px]">You can also join anytime from Community in the app</p>
+                <p className="text-white/35 text-[10px]">{t('auth.discordAnytime')}</p>
               </div>
             )}
           </form>

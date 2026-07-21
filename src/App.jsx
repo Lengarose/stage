@@ -92,6 +92,7 @@ const AdminLifestylesPage = React.lazy(() => import('./pages/admin/AdminLifestyl
 const AdminTransfersPage = React.lazy(() => import('./pages/admin/AdminTransfersPage'));
 const AdminLandingPage = React.lazy(() => import('./pages/admin/AdminLandingPage'));
 const AdminHomePage = React.lazy(() => import('./pages/admin/AdminHomePage'));
+const AdminAnalyticsPage = React.lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminSectionRoutePage = React.lazy(() => import('./pages/admin/AdminSectionRoutePage'));
 
 // Lightweight loading spinner for lazy-loaded route chunks
@@ -314,6 +315,7 @@ const AuthenticatedApp = () => {
             <Route path="/admin/transfers" element={<AdminTransfersPage />} />
             <Route path="/admin/landing" element={<AdminLandingPage />} />
             <Route path="/admin/home" element={<AdminHomePage />} />
+            <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
             <Route path="/admin/:section" element={<AdminSectionRoutePage />} />
             <Route path="/tournaments/:id/clubs" element={<ClubsRegistered />} />
             <Route path="/tournaments/:id/players" element={<PlayersRegistered />} />

@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
-  advanceTournamentRound,
   cancelTournamentById,
   clearTournamentDraw,
   createTournamentFinalAndThirdPlace,
@@ -19,14 +18,13 @@ import {
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  generateNextKnockoutRound, calculateGroupStandings,
-  calculateUCLStandings, generateUCLPlayoffMatches, generateUCLKnockoutLegs, getAggregateWinner
+  calculateGroupStandings,
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
 import KnockoutBracket from "../components/KnockoutBracket";
@@ -55,7 +53,7 @@ export default function TournamentDetail() {
   const [loading, setLoading] = useState(true);
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(null);
-  const [resultForm, setResultForm] = useState({ home_score: "", away_score: "", video_url: "" });
+  const [resultForm, setResultForm] = useState({ home_score: "", away_score: "", video_url: "", proof_url: "" });
   const [_scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleMatch, setScheduleMatch] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -71,6 +69,118 @@ export default function TournamentDetail() {
   const [forfeitMatch, setForfeitMatch] = useState(null);
   const [forfeitDialogOpen, setForfeitDialogOpen] = useState(false);
   const [forfeitProof, setForfeitProof] = useState("");
+  const [registrationProofUrl, setRegistrationProofUrl] = useState("");
+  const [uploadingRegistrationProof, setUploadingRegistrationProof] = useState(false);
+  const registrationProofInputRef = useRef(null);
+
+  const parseSubmission = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === "object") return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  };
+
+  const scoreFromSubmission = (submission) => {
+    if (!submission) return null;
+    if (submission.home_score == null || submission.away_score == null) return null;
+    return `${submission.home_score}-${submission.away_score}`;
+  };
+
+  const proofLinksForMatch = (match) => {
+    const homeSub = parseSubmission(match.home_submission);
+    const awaySub = parseSubmission(match.away_submission);
+    return [
+      { label: `${match.home_club_name || "Home"} proof`, url: homeSub?.proof_url, score: scoreFromSubmission(homeSub) },
+      { label: `${match.away_club_name || "Away"} proof`, url: awaySub?.proof_url, score: scoreFromSubmission(awaySub) },
+      { label: "Match proof", url: !homeSub?.proof_url && !awaySub?.proof_url ? (match.proof_url || match.forfeit_proof_url) : null, score: null },
+    ].filter(link => link.url);
+  };
+
+  const adminNoteText = (notes) => {
+    if (!notes) return "";
+    try {
+      const parsed = typeof notes === "string" ? JSON.parse(notes) : notes;
+      return parsed?.reason || parsed?.proof_verification?.reason || String(notes);
+    } catch {
+      return String(notes);
+    }
+  };
+
+  const renderProofLinks = (match) => {
+    const links = proofLinksForMatch(match);
+    if (!links.length) return null;
+    return (
+      <div className="flex flex-wrap gap-2 mt-2">
+        {links.map(link => (
+          <a
+            key={`${match.id}-${link.label}`}
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            {link.label}{link.score ? ` (${link.score})` : ""}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ))}
+      </div>
+    );
+  };
+
+  async function uploadRegistrationProof(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type?.startsWith("image/")) {
+      await swalAlert("Please upload an image.");
+      e.target.value = "";
+      return;
+    }
+    setUploadingRegistrationProof(true);
+    try {
+      const result = await stageClient.integrations.Core.UploadFile({ file });
+      setRegistrationProofUrl(result?.file_url || "");
+    } catch (err) {
+      await swalAlert(err?.message || "Could not upload registration photo.");
+    } finally {
+      setUploadingRegistrationProof(false);
+      e.target.value = "";
+    }
+  }
+
+  const renderRegistrationProofUpload = (kind) => (
+    <div className="w-full sm:w-72 rounded-lg border border-white/15 bg-black/25 p-2.5 text-left">
+      <input
+        ref={registrationProofInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={uploadRegistrationProof}
+      />
+      <button
+        type="button"
+        onClick={() => registrationProofInputRef.current?.click()}
+        disabled={uploadingRegistrationProof}
+        className="w-full inline-flex items-center justify-between gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15 disabled:opacity-60"
+      >
+        <span className="inline-flex items-center gap-2">
+          <Upload className="w-3.5 h-3.5" />
+          {kind === "player" ? "Ultimate Team photo" : "Pro Club photo"}
+        </span>
+        <span className="text-[10px] text-white/60">
+          {uploadingRegistrationProof ? "Uploading" : registrationProofUrl ? "Ready" : "Required"}
+        </span>
+      </button>
+      {registrationProofUrl && (
+        <a href={registrationProofUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-success underline underline-offset-2">
+          <ImageIcon className="w-3 h-3" /> View uploaded photo
+        </a>
+      )}
+    </div>
+  );
   const [isCreator, setIsCreator] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
@@ -151,13 +261,21 @@ export default function TournamentDetail() {
     }
     load();
 
-    const unsub = stageClient.entities.Match.subscribe((event) => {
+    const unsubMatches = stageClient.entities.Match.subscribe((event) => {
       if (event.data?.tournament_id === id) {
         fetchTournamentMatches(id).then(setMatches);
       }
     });
+    const unsubTournament = stageClient.entities.Tournament.subscribe((event) => {
+      if (event.data?.id === id) {
+        setTournament(prev => ({ ...(prev || {}), ...event.data }));
+      }
+    }, { id });
 
-    return () => { unsub(); };
+    return () => {
+      unsubMatches();
+      unsubTournament();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -191,6 +309,10 @@ export default function TournamentDetail() {
     const current = tournament.registered_clubs || [];
     if (current.includes(effectiveId)) return;
     if (current.length >= tournament.max_teams) return;
+    if (!registrationProofUrl) {
+      await swalAlert("Upload a Pro Club photo before registering.");
+      return;
+    }
     
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
@@ -219,7 +341,7 @@ export default function TournamentDetail() {
 
     // Lock both credits and STC
     try {
-      const res = await registerTournamentClub(tournament.id, effectiveId);
+      const res = await registerTournamentClub(tournament.id, effectiveId, registrationProofUrl);
       
       if (!res.data.success) {
         await swalAlert(res.data.error || 'Registration failed');
@@ -243,6 +365,7 @@ export default function TournamentDetail() {
       if (updated.length >= tournament.max_teams) {
         await swalAlert("Tournament is full. The creator or an admin can now generate the draw and start it officially.");
       }
+      setRegistrationProofUrl("");
     } catch (err) {
       await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
     }
@@ -250,6 +373,10 @@ export default function TournamentDetail() {
 
   async function registerPlayer() {
     if (!myPlayer || !tournament) return;
+    if (!registrationProofUrl) {
+      await swalAlert("Upload your Ultimate Team photo before registering.");
+      return;
+    }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = myPlayer.credits ?? 50;
@@ -263,7 +390,7 @@ export default function TournamentDetail() {
       return;
     }
     try {
-      const res = await registerTournamentPlayer(tournament.id, myPlayer.id);
+      const res = await registerTournamentPlayer(tournament.id, myPlayer.id, registrationProofUrl);
       if (!res.data.success) {
         await swalAlert(res.data.error || 'Registration failed');
         return;
@@ -275,6 +402,7 @@ export default function TournamentDetail() {
         stc: res.data.new_player_stc ?? prev.stc,
       }));
       setTournament(prev => ({ ...prev, registered_players: updated }));
+      setRegistrationProofUrl("");
     } catch (err) {
       await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
     }
@@ -357,142 +485,6 @@ export default function TournamentDetail() {
     setActiveDispute(null);
     setDisputeForm({ home_score: "", away_score: "", admin_notes: "" });
   }
-
-  /*async function submitResult() {
-    if (!activeMatch) return;
-    const hs = parseInt(resultForm.home_score);
-    const as_ = parseInt(resultForm.away_score);
-    if (isNaN(hs) || isNaN(as_)) return;
-
-    // Stats validation: total goals must not exceed the submitted score
-    const myGoals = Object.values(playerStats).reduce((sum, s) => sum + (s.goals || 0), 0);
-    const isHome = activeMatch.home_club_id === myPlayer?.club_id;
-    const myScore = isHome ? hs : as_;
-    if (myGoals > myScore) {
-      await swalAlert(`Total goals entered (${myGoals}) exceeds your team's score (${myScore}). Please check the stats.`);
-      return;
-    }
-
-    const submittedScore = `${hs}-${as_}`;
-    const otherSubmitted = isHome ? activeMatch.result_away_submitted : activeMatch.result_home_submitted;
-    const otherScore = isHome ? activeMatch.away_submitted_score : activeMatch.home_submitted_score;
-    const proofData = resultForm.proof_url ? { proof_url: resultForm.proof_url } : {};
-    const now = new Date().toISOString();
-    const mySubmitData = isHome
-      ? { result_home_submitted: true, home_submitted_score: submittedScore, ...proofData }
-      : { result_away_submitted: true, away_submitted_score: submittedScore, ...proofData };
-
-    if (otherSubmitted && otherScore) {
-      if (otherScore === submittedScore) {
-        // Both agree → complete
-        const winnerId = hs > as_ ? activeMatch.home_club_id : as_ > hs ? activeMatch.away_club_id : null;
-        await stageClient.entities.Match.update(activeMatch.id, {
-          ...mySubmitData, home_score: hs, away_score: as_,
-          winner_club_id: winnerId, status: "completed",
-          ...(resultForm.video_url ? { video_url: resultForm.video_url } : {}),
-        });
-        for (const [email, stat] of Object.entries(playerStats)) {
-          if (stat.goals > 0 || stat.assists > 0 || stat.rating) {
-            const player = myClubPlayers.find(p => p.email === email);
-            await stageClient.entities.MatchPlayerStat.create({
-              tournament_id: id, match_id: activeMatch.id, club_id: myPlayer.club_id,
-              player_email: email, player_gamertag: player?.gamertag || email,
-              goals: stat.goals || 0, assists: stat.assists || 0, rating: parseFloat(stat.rating) || 6.0,
-            });
-          }
-        }
-        const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-        setMatches(updatedMatches);
-        const roundMatches = updatedMatches.filter(m => m.round === tournament.current_round);
-        const allDone = roundMatches.every(m => m.status === "completed");
-        // Auto-advance guard: only proceed if next round doesn't exist yet
-        const existingNext = updatedMatches.filter(m => m.round === tournament.current_round + 1);
-        if (allDone && existingNext.length === 0) {
-          if (tournament.type === "knockout" || tournament.type === "double_elimination") {
-            const nextRoundMatches = generateNextKnockoutRound(updatedMatches, tournament.current_round);
-            if (nextRoundMatches.length === 0) {
-              const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && String(m.type || "").includes("final") && m.status === "completed")
-                || updatedMatches.find(m => m.round === tournament.current_round && m.status === "completed");
-              if (finalMatch) {
-                setTournament(prev => ({ ...prev }));
-              }
-            } else {
-              for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-              await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
-              setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
-            }
-          } else if (tournament.type === "swiss") {
-            const swissRounds = tournament.swiss_rounds || Math.ceil(Math.log2(tournament.max_teams || 8));
-            if (tournament.current_round < swissRounds) {
-              const clubIds = tournament.registered_clubs || [];
-              const clubsMap = Object.fromEntries(allClubs.map(c => [c.id, c]));
-              const nextSwiss = generateSwissNextRound(clubIds, updatedMatches, tournament.current_round, clubsMap);
-              for (const m of nextSwiss) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-              await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
-              setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
-            } else {
-              const scores = {};
-              updatedMatches.filter(m => m.type === "swiss" && m.status === "completed").forEach(m => {
-                if (m.winner_club_id) scores[m.winner_club_id] = (scores[m.winner_club_id] || 0) + 3;
-                else { scores[m.home_club_id] = (scores[m.home_club_id] || 0) + 1; scores[m.away_club_id] = (scores[m.away_club_id] || 0) + 1; }
-              });
-              const winnerId = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0];
-              const winnerClub = allClubs.find(c => c.id === winnerId);
-              if (winnerId) {
-                setTournament(prev => ({ ...prev, winner_club_id: winnerId, winner_club_name: winnerClub?.name || "Unknown" }));
-              }
-            }
-          }
-          const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-          setMatches(refreshed);
-        }
-      } else {
-        // Disagreement → disputed, notify admins/both teams
-        await stageClient.entities.Match.update(activeMatch.id, { ...mySubmitData, status: "disputed" });
-        // Notify both clubs
-        for (const clubId of [activeMatch.home_club_id, activeMatch.away_club_id]) {
-          const players = await stageClient.entities.Player.filter({ club_id: clubId });
-          for (const p of players) {
-            await stageClient.entities.Notification.create({
-              recipient_email: p.email, type: "result_submitted",
-              title: "⚠️ Match Score Disputed",
-              body: `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Scores don't match. An admin will resolve this.`,
-              link: `/tournaments/${id}`, related_id: activeMatch.id, read: false,
-            });
-          }
-        }
-        await swalAlert(`Score disputed! You submitted ${submittedScore}, opponent submitted ${otherScore}. An admin will resolve this.`);
-        const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-        setMatches(updatedMatches);
-      }
-    } else {
-      // First submission — save timestamp + move to awaiting_confirmation
-      await stageClient.entities.Match.update(activeMatch.id, {
-        ...mySubmitData,
-        status: "awaiting_confirmation",
-        first_submission_at: now,
-        first_submitter_club_id: isHome ? activeMatch.home_club_id : activeMatch.away_club_id,
-      });
-      // Notify opponent
-      const opponentClubId = isHome ? activeMatch.away_club_id : activeMatch.home_club_id;
-      const opponentPlayers = await stageClient.entities.Player.filter({ club_id: opponentClubId });
-      for (const p of opponentPlayers) {
-        await stageClient.entities.Notification.create({
-          recipient_email: p.email, type: "result_submitted",
-          title: "Opponent Submitted Match Result",
-          body: `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Your opponent submitted ${submittedScore}. Please confirm within 24h.`,
-          link: `/tournaments/${id}`, related_id: activeMatch.id, read: false,
-        });
-      }
-      await swalAlert("Result submitted! Your opponent has 24 hours to confirm the score.");
-      const updatedMatches = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-      setMatches(updatedMatches);
-    }
-    setResultDialogOpen(false);
-    setActiveMatch(null);
-    setResultForm({ home_score: "", away_score: "", video_url: "", proof_url: "" });
-    setPlayerStats({});
-  }*/
 
   async function submitResult() {
   if (!activeMatch) return;
@@ -612,10 +604,18 @@ function buildSubmissionContext({ hs, as_, isHome, submittedScore, now }) {
   const proofData = resultForm.proof_url
     ? { proof_url: resultForm.proof_url }
     : {};
+  const submissionPayload = {
+    home_score: hs,
+    away_score: as_,
+    player_stats: [],
+    goal_events: [],
+    proof_url: resultForm.proof_url || null,
+    submitted_at: now,
+  };
 
   const mySubmitData = isHome
-    ? { result_home_submitted: true, home_submitted_score: submittedScore, ...proofData }
-    : { result_away_submitted: true, away_submitted_score: submittedScore, ...proofData };
+    ? { result_home_submitted: true, home_submitted_score: submittedScore, home_submission: submissionPayload, ...proofData }
+    : { result_away_submitted: true, away_submitted_score: submittedScore, away_submission: submissionPayload, ...proofData };
 
   return {
     hs,
@@ -660,7 +660,6 @@ async function handleAgreement(ctx) {
     `✅ Result Confirmed: ${activeMatch.home_club_name} ${hs}-${as_} ${activeMatch.away_club_name}`,
     `Both sides agreed on the score. Match is now complete.`
   );
-  await maybeAdvanceTournament();
 }
 
 async function handleDispute(ctx) {
@@ -730,46 +729,6 @@ async function notifyClubs(_clubIds, _title, _body) {
   // Notifications removed
 }
 
-async function maybeAdvanceTournament() {
-  // swiss_ucl handles its own phase advancement via the UCL Controls panel — never auto-complete it
-  if (tournament.type === "swiss_ucl") return;
-
-  const updatedMatches = await stageClient.entities.Match.filter(
-    { tournament_id: id },
-    "round"
-  );
-
-  const roundMatches = updatedMatches.filter(
-    (m) => m.round === tournament.current_round
-  );
-
-  const allDone = roundMatches.every((m) => m.status === "completed" || m.status === "forfeit");
-  if (!allDone) return;
-
-  const existingNext = updatedMatches.filter(
-    (m) => m.round === tournament.current_round + 1
-  );
-  if (existingNext.length > 0) return;
-
-  if (tournament.type === "knockout" || tournament.type === "double_elimination") {
-    const nextRoundMatches = generateNextKnockoutRound(updatedMatches, tournament.current_round);
-    if (nextRoundMatches.length === 0) {
-      const finalMatch = updatedMatches.find(m => m.round === tournament.current_round && String(m.type || "").includes("final") && (m.status === "completed" || m.status === "forfeit"))
-        || updatedMatches.find(m => m.round === tournament.current_round && (m.status === "completed" || m.status === "forfeit"));
-      if (finalMatch) {
-        const winnerName = finalMatch.winner_club_id === finalMatch.home_club_id ? finalMatch.home_club_name : finalMatch.away_club_name;
-        setTournament(prev => ({ ...prev, winner_club_id: finalMatch.winner_club_id, winner_club_name: winnerName }));
-      }
-    } else {
-      for (const m of nextRoundMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-      await stageClient.entities.Tournament.update(id, { current_round: tournament.current_round + 1 });
-      setTournament(prev => ({ ...prev, current_round: prev.current_round + 1 }));
-    }
-  }
-}
-
-
-
 function resetUI() {
   setResultDialogOpen(false);
   setActiveMatch(null);
@@ -811,98 +770,6 @@ function resetUI() {
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
-  }
-
-  async function generateUCLPlayoff() {
-    const leagueMatches = matches.filter(m => m.type === "ucl_league");
-    const standings = calculateUCLStandings(leagueMatches);
-    const clubs9to24 = standings.slice(8, 24).map(s => ({ id: s.id, name: s.name }));
-    if (clubs9to24.length < 16) { await swalAlert("Not enough teams ranked 9-24 yet."); return; }
-    const playoffMatches = generateUCLPlayoffMatches(clubs9to24);
-    for (const m of playoffMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-    await stageClient.entities.Tournament.update(id, { current_round: 9, ucl_phase: "playoff" });
-    setTournament(prev => ({ ...prev, current_round: 9, ucl_phase: "playoff" }));
-    const refreshed = await fetchTournamentMatches(id);
-    setMatches(refreshed);
-  }
-
-  async function generateUCLR16() {
-    const leagueMatches = matches.filter(m => m.type === "ucl_league");
-    const standings = calculateUCLStandings(leagueMatches);
-    const top8 = standings.slice(0, 8).map(s => ({ id: s.id, name: s.name }));
-    // Determine playoff winners by aggregate (with optional leg3)
-    const playoffByTie = {};
-    matches.filter(m => m.type === "ucl_playoff").forEach(m => {
-      if (!playoffByTie[m.group]) playoffByTie[m.group] = [];
-      playoffByTie[m.group].push(m);
-    });
-    const playoffWinners = [];
-    for (let i = 0; i < 8; i++) {
-      const legs = (playoffByTie[i] || []).sort((a, b) => a.round - b.round);
-      const leg1 = legs[0], leg2 = legs[1], leg3 = legs[2];
-      const winner = getAggregateWinner(leg1, leg2, leg3);
-      if (winner) playoffWinners.push(winner);
-    }
-    const r16Teams = [...top8, ...playoffWinners];
-    const r16Matches = generateUCLKnockoutLegs(r16Teams, 11, "ucl_r16");
-    for (const m of r16Matches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-    await stageClient.entities.Tournament.update(id, { current_round: 11, ucl_phase: "r16" });
-    setTournament(prev => ({ ...prev, current_round: 11, ucl_phase: "r16" }));
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    setMatches(refreshed);
-  }
-
-  async function generateUCLNextKnockoutPhase(phaseLabel, startRound, matchType, tieMatchType) {
-    // Determine winners from previous 2-legged phase (with optional leg3)
-    const prevByTie = {};
-    matches.filter(m => m.type === tieMatchType).forEach(m => {
-      if (!prevByTie[m.group]) prevByTie[m.group] = [];
-      prevByTie[m.group].push(m);
-    });
-    const winners = [];
-    for (const tieLegs of Object.values(prevByTie)) {
-      const sorted = tieLegs.sort((a, b) => a.round - b.round);
-      const winner = getAggregateWinner(sorted[0], sorted[1], sorted[2]);
-      if (winner) winners.push(winner);
-    }
-    const half = Math.floor(winners.length / 2);
-    const legMatches = [];
-    for (let i = 0; i < half; i++) {
-      const a = winners[i], b = winners[half + i];
-      legMatches.push({ home_club_id: b.id, home_club_name: b.name, away_club_id: a.id, away_club_name: a.name, round: startRound, type: matchType, group: i, status: "scheduled", home_score: 0, away_score: 0 });
-      legMatches.push({ home_club_id: a.id, home_club_name: a.name, away_club_id: b.id, away_club_name: b.name, round: startRound + 1, type: matchType, group: i, status: "scheduled", home_score: 0, away_score: 0 });
-    }
-    for (const m of legMatches) await stageClient.entities.Match.create({ ...m, tournament_id: id });
-    await stageClient.entities.Tournament.update(id, { current_round: startRound, ucl_phase: phaseLabel });
-    setTournament(prev => ({ ...prev, current_round: startRound, ucl_phase: phaseLabel }));
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    setMatches(refreshed);
-  }
-
-  async function generateUCLFinal() {
-    const sfByTie = {};
-    matches.filter(m => m.type === "ucl_sf").forEach(m => {
-      if (!sfByTie[m.group]) sfByTie[m.group] = [];
-      sfByTie[m.group].push(m);
-    });
-    const finalists = [];
-    for (const legs of Object.values(sfByTie)) {
-      const sorted = legs.sort((a, b) => a.round - b.round);
-      const winner = getAggregateWinner(sorted[0], sorted[1], sorted[2]);
-      if (winner) finalists.push(winner);
-    }
-    if (finalists.length < 2) { await swalAlert("Not enough finalists determined yet."); return; }
-    const finalRound = Math.max(...matches.map(m => m.round)) + 1;
-    await stageClient.entities.Match.create({
-      home_club_id: finalists[0].id, home_club_name: finalists[0].name,
-      away_club_id: finalists[1].id, away_club_name: finalists[1].name,
-      round: finalRound, match_type: "final", status: "scheduled", home_score: 0, away_score: 0,
-      tournament_id: id,
-    });
-    await stageClient.entities.Tournament.update(id, { current_round: finalRound, ucl_phase: "final" });
-    setTournament(prev => ({ ...prev, ucl_phase: "final", current_round: finalRound }));
-    const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-    setMatches(refreshed);
   }
 
   async function refreshMatches() {
@@ -1030,37 +897,6 @@ function resetUI() {
     && groupMatches.length > 0
     && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
   const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
-  const knockoutHasResults = knockoutMatches.some(m => m.status === "completed" || m.status === "forfeit");
-  const qualifiedGroupClubIds = new Set(
-    groupStandingsData.flatMap(group => (group.standings || []).slice(0, 2).map(club => String(club.id)))
-  );
-  const expectedGroupKnockoutMatchCount = groupStandingsData
-    .flatMap(group => (group.standings || []).slice(0, 2))
-    .length;
-  const groupKnockoutNeedsRepair = isGroupStageTournament
-    && groupStageComplete
-    && knockoutStarted
-    && !knockoutHasResults
-    && (
-      knockoutMatches.length !== expectedGroupKnockoutMatchCount
-      || knockoutMatches.some((match) => {
-        const homeId = String(match.home_club_id || "");
-        const awayId = String(match.away_club_id || "");
-        return !homeId || !awayId || homeId === awayId || !qualifiedGroupClubIds.has(homeId) || !qualifiedGroupClubIds.has(awayId);
-      })
-    );
-  const canStartGroupNextRound = canManageTournament
-    && tournament.status === "in_progress"
-    && groupStageComplete
-    && (!knockoutStarted || groupKnockoutNeedsRepair);
-  const currentRoundMatches = matches.filter(m => Number(m.round) === Number(tournament.current_round || 1));
-  const currentRoundComplete = currentRoundMatches.length > 0
-    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
-  const canAdvanceActiveRound = canManageTournament
-    && tournament.status === "in_progress"
-    && currentRoundComplete
-    && knockoutStarted
-    && !groupKnockoutNeedsRepair;
   const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
   const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
   const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
@@ -1071,10 +907,6 @@ function resetUI() {
     && tournament.status === "in_progress"
     && finalComplete
     && thirdPlaceComplete;
-  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
-  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
-    ? "Create Final & 3rd Place"
-    : "Advance Tournament";
   const allMatchesPlayed = matches.length > 0
     && matches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
@@ -1230,21 +1062,27 @@ function resetUI() {
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const canAfford = (clubData?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
-                  <Button onClick={registerClub} disabled={!takeoverClub && !canAfford}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
-                    <Shield className="w-4 h-4 mr-2" />
-                    {takeoverClub ? `Register ${takeoverClub.name}` : "Register My Club"}
-                    <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
-                  </Button>
+                  <>
+                    {renderRegistrationProofUpload("club")}
+                    <Button onClick={registerClub} disabled={uploadingRegistrationProof || !registrationProofUrl || (!takeoverClub && !canAfford)}
+                      className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                      <Shield className="w-4 h-4 mr-2" />
+                      {takeoverClub ? `Register ${takeoverClub.name}` : "Register My Club"}
+                      <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
+                    </Button>
+                  </>
                 );
               })()}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-                <Button onClick={registerPlayer} disabled={(myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50)}
-                className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
-                  <Users className="w-4 h-4 mr-2" /> Register as Player
-                  <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
-                </Button>
+                <>
+                  {renderRegistrationProofUpload("player")}
+                  <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50)}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                    <Users className="w-4 h-4 mr-2" /> Register as Player
+                    <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
+                  </Button>
+                </>
               )}
 
               {!isPlayerTournament && myClubRegistered && tournament.status === "registration" && (
@@ -1311,21 +1149,13 @@ function resetUI() {
             })()}
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-              <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={(myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
-                <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
-              </Button>
-            )}
-
-            {canManageTournament && tournament.status === "in_progress" && (tournament.type === "knockout" || tournament.type === "double_elimination") && (() => {
-              const crm = matches.filter(m => m.round === tournament.current_round);
-              const allDone = crm.length > 0 && crm.every(m => m.status === "completed" || m.status === "forfeit");
-              return allDone && (
-                <Button type="button" onClick={advanceRound} size="sm"
-                  className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
-                  ⬆️ Advance to Round {tournament.current_round + 1}
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                {renderRegistrationProofUpload("player")}
+                <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                  <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
-              );
-            })()}
+              </div>
+            )}
 
             {canStartGroupNextRound && (
               <Button type="button" onClick={advanceRound} disabled={advancingRound} size="sm"
@@ -1504,32 +1334,16 @@ function resetUI() {
                   );
                 });
               })}
-              {allLeagueDone && !playoffExists && (
-                <Button type="button" onClick={generateUCLPlayoff} className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
-                  🎲 Generate Playoff Draw (9–24)
-                </Button>
-              )}
-              {allPlayoffDone && !r16Exists && (
-                <Button type="button" onClick={generateUCLR16} className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
-                  🎲 Generate Round of 16
-                </Button>
-              )}
-              {allR16Done && !qfExists && (
-                <Button type="button" onClick={() => generateUCLNextKnockoutPhase("qf", Math.max(...matches.map(m=>m.round))+1, "ucl_qf", "ucl_r16")}
-                  className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
-                  🎲 Generate Quarter-Finals
-                </Button>
-              )}
-              {allQFDone && !sfExists && (
-                <Button type="button" onClick={() => generateUCLNextKnockoutPhase("sf", Math.max(...matches.map(m=>m.round))+1, "ucl_sf", "ucl_qf")}
-                  className="bg-primary/10 text-primary border border-primary/30 text-xs animate-pulse">
-                  🎲 Generate Semi-Finals
-                </Button>
-              )}
-              {allSFDone && !finalExists && (
-                <Button type="button" onClick={generateUCLFinal} className="bg-warning/10 text-warning border border-warning/30 text-xs animate-pulse">
-                  🏆 Generate Final
-                </Button>
+              {(
+                (allLeagueDone && !playoffExists) ||
+                (allPlayoffDone && !r16Exists) ||
+                (allR16Done && !qfExists) ||
+                (allQFDone && !sfExists) ||
+                (allSFDone && !finalExists)
+              ) && (
+                <span className="rounded border border-success/30 bg-success/5 px-2.5 py-1 text-xs font-semibold text-success">
+                  Next phase will be generated automatically after result processing.
+                </span>
               )}
               <span className="text-xs text-muted-foreground ml-auto">
                 Phase: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
@@ -1840,11 +1654,8 @@ function resetUI() {
                     {match.forfeit_claimed_by && (
                       <p>🚩 Claimed by: <strong className="text-foreground">{match.forfeit_claimed_by === match.home_club_id ? match.home_club_name : match.away_club_name}</strong></p>
                     )}
-                    {(match.proof_url || match.forfeit_proof_url) && (
-                      <a href={match.proof_url || match.forfeit_proof_url} target="_blank" rel="noreferrer"
-                        className="text-primary underline flex items-center gap-1">📎 View Proof</a>
-                    )}
-                    {match.admin_notes && <p className="italic">{match.admin_notes}</p>}
+                    {renderProofLinks(match)}
+                    {match.admin_notes && <p className="italic">{adminNoteText(match.admin_notes)}</p>}
                   </div>
                   <div className="flex gap-2">
                     {match.forfeit_claimed_by && (
@@ -1943,10 +1754,7 @@ function resetUI() {
               <div className="space-y-1 text-xs text-muted-foreground bg-destructive/5 border border-destructive/20 rounded-lg p-3">
                 {activeDispute.home_submitted_score && <p>🏠 {activeDispute.home_club_name}: <strong>{activeDispute.home_submitted_score}</strong></p>}
                 {activeDispute.away_submitted_score && <p>✈️ {activeDispute.away_club_name}: <strong>{activeDispute.away_submitted_score}</strong></p>}
-                {(activeDispute.proof_url || activeDispute.forfeit_proof_url) && (
-                  <a href={activeDispute.proof_url || activeDispute.forfeit_proof_url} target="_blank" rel="noreferrer"
-                    className="text-primary underline flex items-center gap-1 mt-1">📎 View Proof</a>
-                )}
+                {renderProofLinks(activeDispute)}
               </div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Enter the correct final score:</p>
               <div className="flex items-center gap-4">

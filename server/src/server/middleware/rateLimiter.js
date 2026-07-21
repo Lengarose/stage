@@ -29,12 +29,14 @@ function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message } = {}) {
     purge();
 
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    const identity = req.user?.id || req.user?.email || '';
+    const key = identity ? `${ip}:${identity}` : ip;
     const now = Date.now();
-    let entry = hits.get(ip);
+    let entry = hits.get(key);
 
     if (!entry || entry.resetAt <= now) {
       entry = { count: 0, resetAt: now + windowMs };
-      hits.set(ip, entry);
+      hits.set(key, entry);
     }
 
     entry.count += 1;

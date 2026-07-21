@@ -38,6 +38,12 @@ class Match {
     this.scheduled_date        = toMysqlDateTime(body.scheduled_date);
     this.result_home_submitted = body.result_home_submitted;
     this.result_away_submitted = body.result_away_submitted;
+    this.home_submission       = body.home_submission
+      ? (typeof body.home_submission === 'string' ? body.home_submission : JSON.stringify(body.home_submission))
+      : null;
+    this.away_submission       = body.away_submission
+      ? (typeof body.away_submission === 'string' ? body.away_submission : JSON.stringify(body.away_submission))
+      : null;
     this.home_submitted_score  = body.home_submitted_score;
     this.away_submitted_score  = body.away_submitted_score;
     this.first_submission_at   = toMysqlDateTime(body.first_submission_at);
@@ -108,6 +114,7 @@ class Match {
        loser_club_id, loser_club_name, loser_player_id, loser_player_name,
        round, group_number, bracket_side, scheduled_date,
        result_home_submitted, result_away_submitted,
+       home_submission, away_submission,
        home_submitted_score, away_submitted_score,
        first_submission_at, first_submitter_club_id,
        video_url, proof_url,
@@ -118,7 +125,7 @@ class Match {
        wager_home_player_id, wager_away_player_id,
        source_fixture_id, source_fixture_type, competition_context,
        home_goal_events, away_goal_events)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.tournament_id,
       this.home_club_id, this.away_club_id, this.home_club_name, this.away_club_name,
@@ -130,6 +137,7 @@ class Match {
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,
       this.round, this.group_number, this.bracket_side, this.scheduled_date,
       this.result_home_submitted, this.result_away_submitted,
+      this.home_submission, this.away_submission,
       this.home_submitted_score, this.away_submitted_score,
       this.first_submission_at, this.first_submitter_club_id,
       this.video_url, this.proof_url,
@@ -156,6 +164,7 @@ class Match {
       loser_club_id=?, loser_club_name=?, loser_player_id=?, loser_player_name=?,
       round=?, group_number=?, bracket_side=?, scheduled_date=?,
       result_home_submitted=?, result_away_submitted=?,
+      home_submission=?, away_submission=?,
       home_submitted_score=?, away_submitted_score=?,
       first_submission_at=?, first_submitter_club_id=?,
       video_url=?, proof_url=?,
@@ -178,6 +187,7 @@ class Match {
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,
       this.round, this.group_number, this.bracket_side, this.scheduled_date,
       this.result_home_submitted, this.result_away_submitted,
+      this.home_submission, this.away_submission,
       this.home_submitted_score, this.away_submitted_score,
       this.first_submission_at, this.first_submitter_club_id,
       this.video_url, this.proof_url,

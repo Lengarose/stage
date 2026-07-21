@@ -4,8 +4,10 @@ import { Inbox, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +145,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
           className="font-heading font-black text-3xl md:text-4xl text-foreground uppercase"
           style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
         >
-          INBOX
+          {t("matchFlow.inboxTitle")}
         </h1>
         {unreadCount > 0 && (
           <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
@@ -158,7 +160,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
             className="ml-auto text-muted-foreground hover:text-foreground gap-1.5 text-xs"
           >
             <CheckCheck className="w-3.5 h-3.5" />
-            Mark all as read
+            {t("matchFlow.markAllRead")}
           </Button>
         )}
       </div>
@@ -173,7 +175,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 p-8 text-center">
               <Inbox className="w-12 h-12 text-muted-foreground/20 mb-3" />
-              <p className="text-sm text-muted-foreground">Your inbox is empty</p>
+              <p className="text-sm text-muted-foreground">{t("matchFlow.inboxEmpty")}</p>
             </div>
           ) : (
             <InboxMessageList
@@ -196,7 +198,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
                 className="lg:hidden flex items-center gap-2 px-4 py-3 text-sm text-primary border-b border-border"
                 onClick={() => setSelected(null)}
               >
-                ← Back to inbox
+                ← {t("matchFlow.backToInbox")}
               </button>
               <InboxMessageDetail
                 message={selected}
@@ -210,7 +212,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
               <Inbox className="w-16 h-16 text-muted-foreground/10 mb-4" />
-              <p className="text-sm text-muted-foreground">Select a message to read it</p>
+              <p className="text-sm text-muted-foreground">{t("matchFlow.selectMessage")}</p>
             </div>
           )}
         </div>

@@ -8,23 +8,25 @@ import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/hooks/useTranslation";
 
 // Derive the "league group" a game belongs to for the filter dropdown.
 // We strip the trailing "· Matchday N" so every matchday of the same
 // league/division collapses into one group entry. Falls back to the
 // tournament name for non-league competitions and "Ranked Match" for
 // unstructured games.
-function groupKeyForGame(game, tournamentMap) {
+function groupKeyForGame(game, tournamentMap, t) {
   const ctx = String(game?.competition_context || "").trim();
   if (ctx) {
     return ctx.replace(/\s*·\s*Matchday\s+\d+\s*$/i, "").trim() || ctx;
   }
-  if (!game?.tournament_id || game.tournament_id === "ranked") return "Ranked Match";
-  const t = tournamentMap?.[game.tournament_id];
-  return t?.name || "Tournament";
+  if (!game?.tournament_id || game.tournament_id === "ranked") return t("matchFlow.rankedMatch");
+  const tournament = tournamentMap?.[game.tournament_id];
+  return tournament?.name || t("matchFlow.tournament");
 }
 
 export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,13 +53,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const leagueGroups = useMemo(() => {
     const counts = new Map();
     for (const g of games) {
-      const key = groupKeyForGame(g, tournamentMap);
+      const key = groupKeyForGame(g, tournamentMap, t);
       counts.set(key, (counts.get(key) || 0) + 1);
     }
     return Array.from(counts.entries())
       .map(([key, count]) => ({ key, label: key, count }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [games, tournamentMap]);
+  }, [games, tournamentMap, t]);
 
   // If the currently selected league disappears (all its games rolled off),
   // gracefully fall back to "all" so the user isn't stuck with an empty list.
@@ -68,8 +70,8 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   const visibleGames = useMemo(() => {
     if (leagueFilter === "all") return games;
-    return games.filter(g => groupKeyForGame(g, tournamentMap) === leagueFilter);
-  }, [games, tournamentMap, leagueFilter]);
+    return games.filter(g => groupKeyForGame(g, tournamentMap, t) === leagueFilter);
+  }, [games, tournamentMap, leagueFilter, t]);
 
   useEffect(() => {
     let userEmail = null;
@@ -277,12 +279,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             className="text-4xl md:text-5xl lg:text-6xl font-heading font-black text-foreground mb-1"
             style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em" }}
           >
-            GAME DAY
+            {t("matchFlow.gameDayTitle")}
           </h1>
           <p className="text-muted-foreground text-xs md:text-sm">
             {leagueFilter === "all"
-              ? `${games.length} active or scheduled match${games.length !== 1 ? "es" : ""}`
-              : `${visibleGames.length} of ${games.length} match${games.length !== 1 ? "es" : ""}`}
+              ? t("matchFlow.activeScheduledCount", { count: games.length })
+              : t("matchFlow.filteredCount", { visible: visibleGames.length, total: games.length })}
           </p>
         </div>
 
@@ -290,15 +292,15 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         {leagueGroups.length > 1 && (
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              League
+              {t("matchFlow.league")}
             </span>
             <Select value={leagueFilter} onValueChange={setLeagueFilter}>
               <SelectTrigger className="h-9 w-full md:w-[280px] text-xs bg-card border-border">
-                <SelectValue placeholder="All leagues" />
+                <SelectValue placeholder={t("matchFlow.allLeagues")} />
               </SelectTrigger>
               <SelectContent className="max-h-[60vh]">
                 <SelectItem value="all" className="text-xs">
-                  All <span className="text-muted-foreground ml-1">({games.length})</span>
+                  {t("matchFlow.all")} <span className="text-muted-foreground ml-1">({games.length})</span>
                 </SelectItem>
                 {leagueGroups.map(group => (
                   <SelectItem key={group.key} value={group.key} className="text-xs">
@@ -319,12 +321,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             <div className="bg-card border border-border rounded-xl p-12 text-center">
               <Zap className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground">
-                {games.length === 0 ? "No scheduled games today" : "No matches in this league"}
+                {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 {games.length === 0
-                  ? "Follow clubs and players to see their matches"
-                  : "Switch the filter to \"All\" to see your other matches"}
+                  ? t("matchFlow.followToSeeMatches")
+                  : t("matchFlow.switchToAll")}
               </p>
             </div>
           ) : (
@@ -356,7 +358,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           ) : (
             <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center justify-center text-center min-h-[300px]">
               <Zap className="w-10 h-10 text-muted-foreground/20 mb-3" />
-              <p className="text-sm text-muted-foreground">Select a game to view details</p>
+              <p className="text-sm text-muted-foreground">{t("matchFlow.selectGameDetails")}</p>
             </div>
           )}
         </div>
@@ -368,12 +370,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           <div className="bg-card border border-border rounded-xl p-10 text-center">
             <Zap className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">
-              {games.length === 0 ? "No scheduled games today" : "No matches in this league"}
+              {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
             </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               {games.length === 0
-                ? "Follow clubs and players to see their matches"
-                : "Switch the filter to \"All\" to see your other matches"}
+                ? t("matchFlow.followToSeeMatches")
+                : t("matchFlow.switchToAll")}
             </p>
           </div>
         ) : (
@@ -406,7 +408,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             {/* Handle + header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border shrink-0">
               <div className="absolute left-1/2 -translate-x-1/2 top-2 w-10 h-1 rounded-full bg-border" />
-              <p className="text-sm font-semibold text-foreground">Match Details</p>
+              <p className="text-sm font-semibold text-foreground">{t("matchFlow.matchDetails")}</p>
               <button
               onClick={() => setSelectedGame(null)}
               className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"

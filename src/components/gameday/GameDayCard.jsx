@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Shield, Trophy, Radio } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function parseDate(d) {
   if (!d) return null;
@@ -9,12 +10,13 @@ function parseDate(d) {
 }
 
 const STATUS_BADGE = {
-  scheduled: { label: "Scheduled", cls: "bg-primary/10 text-primary" },
-  in_progress: { label: "Live", cls: "bg-success/10 text-success animate-pulse" },
-  awaiting_confirmation: { label: "Pending", cls: "bg-warning/10 text-warning" },
+  scheduled: { key: "scheduled", cls: "bg-primary/10 text-primary" },
+  in_progress: { key: "live", cls: "bg-success/10 text-success animate-pulse" },
+  awaiting_confirmation: { key: "pending", cls: "bg-warning/10 text-warning" },
 };
 
 export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament }) {
+  const { t } = useTranslation();
   const date = parseDate(game.scheduled_date);
   const status = STATUS_BADGE[game.status] || { label: game.status, cls: "bg-secondary text-muted-foreground" };
 
@@ -25,15 +27,15 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
   const isMyClubInvolved = myClub && (game.home_club_id === myClub.id || game.away_club_id === myClub.id);
 
   // Determine competition label — same logic as Schedule and ClubDetail
-  function deriveCompetition(match, t) {
-    if (!match.tournament_id || match.tournament_id === "ranked") return "Ranked Match";
-    if (!t) return "Tournament";
-    if (t.type === "knockout") return `${t.name} · Knockout`;
-    if (t.type === "league") return `${t.name} · League`;
-    if (t.type === "group_stage") return `${t.name} · Group Stage`;
-    if (t.type === "swiss" || t.type === "swiss_ucl") return `${t.name} · Swiss`;
-    if (t.type === "double_elimination") return `${t.name} · Double Elim.`;
-    return t.name || "Tournament";
+  function deriveCompetition(match, tournament) {
+    if (!match.tournament_id || match.tournament_id === "ranked") return t("matchFlow.rankedMatch");
+    if (!tournament) return t("matchFlow.tournament");
+    if (tournament.type === "knockout") return `${tournament.name} · ${t("matchFlow.knockout")}`;
+    if (tournament.type === "league") return `${tournament.name} · ${t("matchFlow.leagueFormat")}`;
+    if (tournament.type === "group_stage") return `${tournament.name} · ${t("matchFlow.groupStage")}`;
+    if (tournament.type === "swiss" || tournament.type === "swiss_ucl") return `${tournament.name} · ${t("matchFlow.swiss")}`;
+    if (tournament.type === "double_elimination") return `${tournament.name} · ${t("matchFlow.doubleElim")}`;
+    return tournament.name || t("matchFlow.tournament");
   }
   const competition = game.competition_context || deriveCompetition(game, tournament);
 
@@ -57,12 +59,12 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
           <div className="mt-2 flex items-center gap-2">
             <Shield className="w-4 h-4 text-primary shrink-0" />
             <h3 className="text-sm font-bold text-foreground">
-              {home || "TBD"} vs {away || "TBD"}
+              {home || t("matchFlow.tbd")} {t("matchFlow.versus")} {away || t("matchFlow.tbd")}
             </h3>
           </div>
         </div>
         <span className={cn("text-[10px] px-2 py-1 rounded-full font-medium whitespace-nowrap shrink-0", status.cls)}>
-          {status.label}
+          {status.key ? t(`matchFlow.${status.key}`) : status.label}
         </span>
       </div>
 
@@ -82,12 +84,12 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         <div className="mt-2 pt-2 border-t border-border flex items-center gap-2 flex-wrap">
           {isMyClubInvolved && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              Your Club
+              {t("matchFlow.yourClub")}
             </span>
           )}
           {(game.home_stream_url || game.away_stream_url) && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium flex items-center gap-1">
-              <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Stream
+              <Radio className="w-2.5 h-2.5 animate-pulse" /> {t("matchFlow.liveStream")}
             </span>
           )}
         </div>

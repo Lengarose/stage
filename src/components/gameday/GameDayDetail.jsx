@@ -14,6 +14,7 @@ import StreamLinkSection from "./StreamLinkSection";
 import WagerPanel from "./WagerPanel";
 import { cn } from "@/lib/utils";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function parseDate(d) {
   if (!d) return null;
@@ -44,15 +45,16 @@ const STATUS_COLORS = {
   forfeit: "bg-destructive/10 text-destructive",
 };
 
-const STATUS_LABELS = {
-  scheduled: "Scheduled",
-  in_progress: "● Live",
-  awaiting_confirmation: "Pending",
-  completed: "Full Time",
-  forfeit: "Forfeit",
+const STATUS_LABEL_KEYS = {
+  scheduled: "scheduled",
+  in_progress: "live",
+  awaiting_confirmation: "pending",
+  completed: "fullTime",
+  forfeit: "forfeit",
 };
 
 export default function GameDayDetail({ game: initialGame, myClub, myPlayer, user, onGameUpdate }) {
+  const { t } = useTranslation();
   const [game, setGame] = useState(initialGame);
   const [tournament, setTournament] = useState(null);
   const [stats, setStats] = useState([]);
@@ -145,7 +147,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   if (!game?.id) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-        Match not found.
+        {t("matchFlow.matchNotFound")}
       </div>
     );
   }
@@ -205,9 +207,9 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     } catch (err) {
       const code = err?.data?.code || err?.code;
       if (code === "DRESSING_ROOM_NOT_READY" || err?.status === 409) {
-        setKickoffError(err?.message || "Both clubs must seat at least one player before kickoff.");
+        setKickoffError(err?.message || t("matchFlow.bothNeedSeat", { home, away }));
       } else {
-        setKickoffError(err?.message || "Could not start the match. Try again.");
+        setKickoffError(err?.message || t("matchFlow.actionFailed"));
       }
     } finally {
       setKickoffLoading(false);
@@ -236,7 +238,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
     }
   }
 
-  const statusLabel = STATUS_LABELS[game.status] || game.status;
+  const statusLabel = STATUS_LABEL_KEYS[game.status] ? t(`matchFlow.${STATUS_LABEL_KEYS[game.status]}`) : game.status;
   const statusCls = STATUS_COLORS[game.status] || "bg-secondary text-muted-foreground";
 
   const allGoalEvents = [
@@ -253,14 +255,14 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-primary" />
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              Match Details
+              {t("matchFlow.matchDetails")}
             </span>
           </div>
           <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", statusCls)}>
             {statusLabel}
           </span>
         </div>
-        <h2 className="text-lg font-bold text-foreground">{home} vs {away}</h2>
+        <h2 className="text-lg font-bold text-foreground">{home} {t("matchFlow.versus")} {away}</h2>
         {date && (
           <p className="text-xs text-muted-foreground mt-1">
             {format(date, "EEEE d MMMM yyyy · HH:mm")}
@@ -284,7 +286,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             <span className="text-xs text-muted-foreground">{tournament.name}</span>
           </div>
         ) : game.tournament_id === "ranked" ? (
-          <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Ranked Match</p>
+          <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{t("matchFlow.rankedMatch")}</p>
         ) : null}
       </div>
 
@@ -324,22 +326,22 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         <div className="mx-5 mb-3 rounded-xl border border-success/25 bg-success/5 px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <Ticket className="w-4 h-4 text-success shrink-0" />
-            <span className="text-sm font-bold text-foreground">Gate Receipts</span>
+            <span className="text-sm font-bold text-foreground">{t("matchFlow.gateReceipts")}</span>
             <span className="ml-auto text-sm font-black text-success">
               +{Number(game.home_ticket_revenue).toLocaleString()} STC
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-black/15 rounded-lg px-2 py-1.5">
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Attendance</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("matchFlow.attendance")}</p>
               <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_attendance || 0).toLocaleString()}</p>
             </div>
             <div className="bg-black/15 rounded-lg px-2 py-1.5">
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Capacity</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("matchFlow.capacity")}</p>
               <p className="text-xs font-bold text-foreground">{Number(game.home_ticket_capacity || 0).toLocaleString()}</p>
             </div>
             <div className="bg-black/15 rounded-lg px-2 py-1.5">
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Full</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("matchFlow.full")}</p>
               <p className={cn("text-xs font-bold", Number(game.home_ticket_pct || 0) >= 80 ? "text-success" : Number(game.home_ticket_pct || 0) >= 50 ? "text-warning" : "text-muted-foreground")}>
                 {game.home_ticket_pct || 0}%
               </p>
@@ -369,7 +371,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
           {/* Solo: show home/away role label */}
           {isSoloMatch && (
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              You are the {amIHomeTeam ? "Home" : "Away"} player
+              {t("matchFlow.youArePlayer", { side: amIHomeTeam ? t("matchFlow.home") : t("matchFlow.away") })}
             </p>
           )}
           {/* Kickoff — home team only */}
@@ -378,20 +380,20 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               {minutesUntilMatch !== null && minutesUntilMatch > 15 && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
                   <Clock className="w-3.5 h-3.5 shrink-0" />
-                  Kickoff available 15 minutes before match time.
+                  {t("matchFlow.kickoffAvailable")}
                 </div>
               )}
               {isClubMatch && !bothClubsReady && (
                 <div className="flex items-start gap-2 text-xs bg-warning/10 rounded-lg px-3 py-2 border border-warning/20 text-warning">
                   <UserCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="font-semibold">Dressing rooms not ready</p>
+                    <p className="font-semibold">{t("matchFlow.dressingRoomsNotReady")}</p>
                     <p className="text-[10px] opacity-90">
                       {!homeSeatReady && !awaySeatReady
-                        ? `Both ${home} and ${away} need at least one player seated.`
+                        ? t("matchFlow.bothNeedSeat", { home, away })
                         : !homeSeatReady
-                          ? `Your club needs at least one player to take a seat first.`
-                          : `Waiting for ${away} to seat a player before you can kick off.`}
+                          ? t("matchFlow.yourClubNeedsSeat")
+                          : t("matchFlow.waitingAwaySeat", { away })}
                     </p>
                   </div>
                 </div>
@@ -407,7 +409,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               >
                 {kickoffLoading
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <><Play className="w-4 h-4" /> Kickoff</>
+                  : <><Play className="w-4 h-4" /> {t("matchFlow.kickoff")}</>
                 }
               </Button>
               {kickoffError && (
@@ -419,19 +421,19 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
                 <Clock className="w-3.5 h-3.5 shrink-0" />
-                Waiting for home team to kick off.
+                {t("matchFlow.waitingHomeKickoff")}
               </div>
               {isClubMatch && !bothClubsReady && (
                 <div className="flex items-start gap-2 text-xs bg-warning/10 rounded-lg px-3 py-2 border border-warning/20 text-warning">
                   <UserCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="font-semibold">Kickoff blocked — dressing rooms not ready</p>
+                    <p className="font-semibold">{t("matchFlow.kickoffBlocked")}</p>
                     <p className="text-[10px] opacity-90">
                       {!awaySeatReady && !homeSeatReady
-                        ? `Take a seat in your dressing room. ${home} also needs at least one player seated.`
+                        ? t("matchFlow.takeSeatBoth", { home })
                         : !awaySeatReady
-                          ? `Take a seat in your dressing room — kickoff is blocked until at least one player from your club is seated.`
-                          : `Waiting for ${home} to seat a player.`}
+                          ? t("matchFlow.takeSeatYourClub")
+                          : t("matchFlow.waitingHomeSeat", { home })}
                     </p>
                   </div>
                 </div>
@@ -445,7 +447,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               onClick={() => setShowResultForm(true)}
               className="w-full bg-destructive gap-2 text-white font-bold"
             >
-              <Flag className="w-4 h-4" /> Full Time — Submit Result
+              <Flag className="w-4 h-4" /> {t("matchFlow.submitFullTime")}
             </Button>
           )}
           {isLive && !showResultForm && !amIHomeTeam && !game.result_away_submitted && (
@@ -454,19 +456,19 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               variant="outline"
               className="w-full gap-2 border-warning text-warning hover:text-warning font-bold"
             >
-              <Flag className="w-4 h-4" /> Submit My Result
+              <Flag className="w-4 h-4" /> {t("matchFlow.submitMyResult")}
             </Button>
           )}
           {isLive && !showResultForm && amIHomeTeam && game.result_home_submitted && (
             <div className="flex items-center gap-2 text-xs text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              Result submitted — waiting for away team.
+              {t("matchFlow.resultWaitingAway")}
             </div>
           )}
           {isLive && !showResultForm && !amIHomeTeam && game.result_away_submitted && (
             <div className="flex items-center gap-2 text-xs text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              Result submitted — waiting for home team.
+              {t("matchFlow.resultWaitingHome")}
             </div>
           )}
 
@@ -486,7 +488,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
       {/* Disputed banner */}
       {isDisputed && isMyMatch && (
         <div className="px-5 py-3 border-b border-border bg-destructive/10">
-          <p className="text-xs font-semibold text-destructive">⚠️ Result disputed — admin is reviewing. You will be notified when resolved.</p>
+          <p className="text-xs font-semibold text-destructive">{t("matchFlow.resultDisputed")}</p>
         </div>
       )}
 
@@ -500,19 +502,19 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
           <TabsList className="w-full rounded-none border-b border-border bg-secondary/20 justify-start h-auto p-0 overflow-x-auto">
             {isClubMatch && myClub && (
               <TabsTrigger value="dressing_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-                <Users className="w-3.5 h-3.5" /> Dressing Room
+                <Users className="w-3.5 h-3.5" /> {t("matchFlow.dressingRoom")}
               </TabsTrigger>
             )}
             {isClubMatch && myClub && canAccessPressRoom && (
               <TabsTrigger value="press_room" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-                <Mic className="w-3.5 h-3.5" /> Press Room
+                <Mic className="w-3.5 h-3.5" /> {t("matchFlow.pressRoom")}
               </TabsTrigger>
             )}
             <TabsTrigger value="chat" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-              <MessageSquare className="w-3.5 h-3.5" /> Chat
+              <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
               {chatUnread > 0 && (
                 <span
-                  aria-label={`${chatUnread} unread chat messages`}
+                  aria-label={t("matchFlow.unreadChat", { count: chatUnread })}
                   className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none"
                 >
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -521,7 +523,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </TabsTrigger>
             {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
               <TabsTrigger value="stats" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary flex items-center gap-1.5 text-xs whitespace-nowrap">
-                <Target className="w-3.5 h-3.5" /> Stats
+                <Target className="w-3.5 h-3.5" /> {t("matchFlow.stats")}
               </TabsTrigger>
             )}
           </TabsList>
@@ -546,7 +548,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             <TabsContent value="stats" className="p-4 space-y-4">
               {hasGoalTimeline && (
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Goals</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.goals")}</p>
                   <div className="space-y-0.5">
                     {allGoalEvents.map((ev, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs py-1.5 border-b border-border last:border-0">
@@ -571,7 +573,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               )}
               {stats.length > 0 && (
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Player Ratings</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.playerRatings")}</p>
                   {stats.map(stat => (
                     <div key={stat.id} className="text-xs border border-border rounded px-2 py-2 flex items-center justify-between">
                       <span className="text-foreground font-medium">{stat.player_gamertag}</span>
@@ -594,7 +596,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         <div className="p-4">
           {isCompleted && stats.length > 0 ? (
             <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Stats</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.stats")}</p>
               <div className="space-y-1.5">
                 {stats.map(stat => (
                   <div key={stat.id} className="text-xs border border-border rounded px-2 py-1.5 flex items-center justify-between">
@@ -606,7 +608,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              {isLive ? "Match is in progress." : "No details available yet."}
+              {isLive ? t("matchFlow.matchInProgress") : t("matchFlow.noDetailsYet")}
             </p>
           )}
         </div>

@@ -30,6 +30,8 @@ export const ADMIN_SECTION_ALIASES = {
   recruitment: "recruitment",
   landing: "landing",
   home: "home",
+  analytics: "analytics",
+  guide: "analytics",
 };
 
 // Economy test suite — names + descriptions used by AdminEconomyTestPanel.

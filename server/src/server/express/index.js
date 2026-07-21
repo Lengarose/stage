@@ -8,12 +8,19 @@ const app    = express();
 const server = http.createServer(app);
 
 // CORS — allow production origin + localhost dev. Add origins as needed.
-const ALLOWED_ORIGINS = [
+const DEFAULT_ALLOWED_ORIGINS = [
   'https://stageleagues.com',
   'https://www.stageleagues.com',
   'http://localhost:5173',    // Vite dev
   'http://localhost:5174',    // Vite dev (alt port)
   'http://localhost:3000',    // alt dev
+];
+const ALLOWED_ORIGINS = [
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...String(get('CORS_ORIGIN') || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
 ];
 app.use(cors({
   origin(origin, cb) {

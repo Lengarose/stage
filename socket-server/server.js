@@ -6,7 +6,8 @@ const jwt        = require('jsonwebtoken');
 const app    = express();
 const server = http.createServer(app);
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '256kb' }));
 app.set('trust proxy', 1);
 
 const PORT =  3001;
@@ -49,18 +50,46 @@ io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication required'));
   try {
-    socket.user = jwt.verify(token, ACCESS_TOKEN_SECRET);
+    socket.user = jwt.verify(token, ACCESS_TOKEN_SECRET, { algorithms: ['HS256'] });
+    if (!socket.user?.id && !socket.user?.email) return next(new Error('Invalid token payload'));
     next();
   } catch {
     next(new Error('Invalid token'));
   }
 });
 
+function canJoinChannel(user, channel) {
+  const value = String(channel || '');
+  if (!value || value.length > 160) return false;
+  if (!/^STAGE_[A-Z_]+(?:_[A-Za-z0-9@._:-]+)?$/.test(value)) return false;
+
+  const email = String(user?.email || '').toLowerCase();
+  const userId = String(user?.id || '');
+  const playerId = String(user?.player_id || '');
+
+  if (value.startsWith('STAGE_NOTIFICATION_')) {
+    return Boolean(email && value.slice('STAGE_NOTIFICATION_'.length).toLowerCase() === email);
+  }
+  if (value.startsWith('STAGE_INBOX_')) {
+    const target = value.slice('STAGE_INBOX_'.length);
+    return Boolean(
+      (email && target.toLowerCase() === email) ||
+      (playerId && target === playerId) ||
+      (userId && target === userId)
+    );
+  }
+  return true;
+}
+
 io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id} (user: ${socket.user?.id})`);
 
   socket.on('JOINLEAVEROOM', ({ action, channel } = {}) => {
     if (!channel) return;
+    if (!canJoinChannel(socket.user, channel)) {
+      socket.emit('join_error', { channel, error: 'Forbidden channel' });
+      return;
+    }
     action === 'join' ? socket.join(channel) : socket.leave(channel);
   });
 
@@ -74,6 +103,9 @@ app.post('/emit', (req, res) => {
   }
   const { channel, data } = req.body;
   if (!channel) return res.status(400).json({ error: 'channel required' });
+  if (typeof channel !== 'string' || channel.length > 160 || !/^STAGE_[A-Z_]+(?:_[A-Za-z0-9@._:-]+)?$/.test(channel)) {
+    return res.status(400).json({ error: 'invalid channel' });
+  }
   io.to(channel).emit('update', { _channel: channel, ...(data || {}) });
   res.json({ ok: true });
 });

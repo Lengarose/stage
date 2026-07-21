@@ -1,28 +1,30 @@
 import { formatDistanceToNow } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const TYPE_BADGE = {
-  match_invite:    { label: "Match Invite",     color: "bg-accent/10 text-accent border-accent/20" },
-  contract_offer:  { label: "Contract",         color: "bg-warning/10 text-warning border-warning/20" },
-  club_invite:     { label: "Club Invite",      color: "bg-primary/10 text-primary border-primary/20" },
-  challenge:       { label: "Challenge",        color: "bg-destructive/10 text-destructive border-destructive/20" },
-  announcement:    { label: "Announcement",     color: "bg-muted text-muted-foreground border-border" },
-  general:         { label: "Message",          color: "bg-secondary text-secondary-foreground border-border" },
+  match_invite:    { key: "matchInvite",     color: "bg-accent/10 text-accent border-accent/20" },
+  contract_offer:  { key: "contractBadge",   color: "bg-warning/10 text-warning border-warning/20" },
+  club_invite:     { key: "clubInvite",      color: "bg-primary/10 text-primary border-primary/20" },
+  challenge:       { key: "challenge",       color: "bg-destructive/10 text-destructive border-destructive/20" },
+  announcement:    { key: "announcement",    color: "bg-muted text-muted-foreground border-border" },
+  general:         { key: "message",         color: "bg-secondary text-secondary-foreground border-border" },
 };
 
 const STATUS_LABEL = {
-  accepted:              { label: "Accepted",              color: "bg-success/10 text-success" },
-  confirmed:             { label: "Confirmed",             color: "bg-success/10 text-success" },
-  declined:              { label: "Declined",              color: "bg-destructive/10 text-destructive" },
-  date_change_requested: { label: "Date Change Requested", color: "bg-warning/10 text-warning" },
+  accepted:              { key: "accepted",              color: "bg-success/10 text-success" },
+  confirmed:             { key: "confirmed",             color: "bg-success/10 text-success" },
+  declined:              { key: "declined",              color: "bg-destructive/10 text-destructive" },
+  date_change_requested: { key: "dateChangeRequested", color: "bg-warning/10 text-warning" },
 };
 
 export default function InboxMessageList({ messages, selectedId, onSelect }) {
+  const { t } = useTranslation();
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground p-6">
-        <p className="text-sm">No messages</p>
+        <p className="text-sm">{t("matchFlow.noMessages")}</p>
       </div>
     );
   }
@@ -78,7 +80,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
                   "text-xs font-semibold truncate",
                   !msg.is_read ? "text-foreground" : "text-muted-foreground"
                 )}>
-                  {msg.is_system ? "STAGE System" : (msg.sender_gamertag || "Unknown")}
+                  {msg.is_system ? t("matchFlow.stageSystem") : (msg.sender_gamertag || t("matchFlow.unknown"))}
                 </span>
                 <span className="text-[10px] text-muted-foreground/50 shrink-0">
                   {formatDistanceToNow(new Date(msg.created_date), { addSuffix: false })}
@@ -96,19 +98,19 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
               {/* Row 3: badges */}
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium", badge.color)}>
-                  {badge.label}
+                  {t(`matchFlow.${badge.key}`)}
                 </span>
 
                 {needsAction && (
                   <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border font-semibold bg-warning/10 text-warning border-warning/30">
                     <AlertCircle className="w-2.5 h-2.5" />
-                    Needs Action
+                    {t("matchFlow.needsAction")}
                   </span>
                 )}
 
                 {statusInfo && (
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", statusInfo.color)}>
-                    {statusInfo.label}
+                    {t(`matchFlow.${statusInfo.key}`)}
                   </span>
                 )}
               </div>

@@ -426,6 +426,9 @@ router.patch('/:id', async (req, res) => {
       await competitionEngineService.syncMatchResultToSource(record).catch((err) => {
         console.error('[match source sync]', err.message);
       });
+      await competitionEngineService.advanceCommunityTournamentIfReady(record).catch((err) => {
+        console.error('[community tournament advance]', err.message);
+      });
     }
     broadcastMatch(record);
     res.json((await enrichMatchRows([record]))[0]);

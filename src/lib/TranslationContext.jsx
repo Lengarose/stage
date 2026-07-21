@@ -10,18 +10,54 @@ import de from '../translations/de.json';
 import it from '../translations/it.json';
 import ru from '../translations/ru.json';
 import pt from '../translations/pt.json';
+import zh from '../translations/zh.json';
+import ja from '../translations/ja.json';
+import { DEFAULT_LANGUAGE, isSupportedLanguage } from '@/lib/languages';
+import { getCoreTranslations } from '@/translations/coreTranslations';
 
-const translations = { en, fr, es, nl, de, it, ru, pt };
+function mergeTranslations(base, extension) {
+  const output = { ...base };
+  for (const [key, value] of Object.entries(extension || {})) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      output[key] &&
+      typeof output[key] === "object" &&
+      !Array.isArray(output[key])
+    ) {
+      output[key] = mergeTranslations(output[key], value);
+    } else {
+      output[key] = value;
+    }
+  }
+  return output;
+}
+
+const baseTranslations = { en, fr, es, nl, de, it, ru, pt, zh, ja };
+const translations = Object.fromEntries(
+  Object.entries(baseTranslations).map(([languageCode, messages]) => [
+    languageCode,
+    mergeTranslations(messages, getCoreTranslations(languageCode)),
+  ])
+);
 
 export const TranslationContext = createContext();
 
 export function TranslationProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('language') || 'en';
+    const savedLanguage = localStorage.getItem('language') || DEFAULT_LANGUAGE;
+    return isSupportedLanguage(savedLanguage) ? savedLanguage : DEFAULT_LANGUAGE;
   });
 
   useEffect(() => {
+    const normalizedLanguage = isSupportedLanguage(language) ? language : DEFAULT_LANGUAGE;
+    if (normalizedLanguage !== language) {
+      setLanguage(normalizedLanguage);
+      return;
+    }
     localStorage.setItem('language', language);
+    document.documentElement.lang = language;
     // Also save to user profile
     stageClient.auth.me().then(user => {
       if (user) {
@@ -30,7 +66,7 @@ export function TranslationProvider({ children }) {
     }).catch(() => {});
   }, [language]);
 
-  const t = (key) => {
+  const t = (key, params = {}) => {
     const keys = key.split('.');
     let value = translations[language];
     
@@ -38,11 +74,29 @@ export function TranslationProvider({ children }) {
       if (value && typeof value === 'object') {
         value = value[k];
       } else {
-        return key; // Return key if not found
+        value = null;
+        break;
       }
     }
     
-    return value || key;
+    if (!value) {
+      value = translations[DEFAULT_LANGUAGE];
+      for (const k of keys) {
+        if (value && typeof value === 'object') {
+          value = value[k];
+        } else {
+          value = null;
+          break;
+        }
+      }
+    }
+
+    if (typeof value !== "string") return value || key;
+
+    return Object.entries(params).reduce(
+      (text, [paramKey, paramValue]) => text.replaceAll(`{${paramKey}}`, String(paramValue)),
+      value
+    );
   };
 
   return (

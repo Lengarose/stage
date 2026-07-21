@@ -10,6 +10,8 @@ const { securityHeaders } = require('./server/middleware/securityHeaders');
 const { passport } = require('./server/oauth/passportConfig');
 const path = require("path");
 
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 app.use(securityHeaders());
 app.use(require('express').json({ limit: '2mb' }));
@@ -21,10 +23,16 @@ const { ensureUploadsDir } = require('./constants/paths');
 // Rate-limit only brute-force-sensitive auth routes (login/register/password).
 // `/me`, `/refresh`, `/logout` are called on every page load — never throttle them.
 const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+const publicReadLimiter = rateLimiter({ windowMs: 60 * 1000, max: 120 });
+const uploadLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
+const apiLimiter = rateLimiter({ windowMs: 60 * 1000, max: 600 });
 app.use('/api/stage/auth/login',           authLimiter);
 app.use('/api/stage/auth/register',        authLimiter);
 app.use('/api/stage/auth/forgot-password', authLimiter);
 app.use('/api/stage/auth/reset-password',  authLimiter);
+app.use('/api/stage/public',               publicReadLimiter);
+app.use('/api/stage/upload',               uploadLimiter);
+app.use('/api/stage',                      apiLimiter);
 
 // Auth (public) — email/password + OAuth
 app.use('/api/stage/auth', require('./server/controllers/authController'));
@@ -147,6 +155,7 @@ app.use('/api/stage/player-identity-claims',    verifyToken, require('./server/c
 app.use('/api/stage/recruitment-posts',         verifyToken, require('./server/controllers/recruitmentPostController'));
 app.use('/api/stage/recruitment-interests',     verifyToken, require('./server/controllers/recruitmentInterestController'));
 app.use('/api/stage/rankings',                  verifyToken, require('./server/controllers/rankingController'));
+app.use('/api/stage/admin-analytics',           verifyToken, require('./server/controllers/adminAnalyticsController'));
 app.use('/api/stage/club-applicants',           verifyToken, require('./server/controllers/clubApplicantController'));
 app.use('/api/stage/club-staff-roles',          verifyToken, require('./server/controllers/clubStaffRoleController'));
 app.use('/api/stage/club-fixture-availability', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
@@ -332,6 +341,7 @@ async function runStartupMigrations() {
 
   await addCol('tournaments', 'winner_player_id', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'winner_player_name', 'VARCHAR(150) NULL');
+  await addCol('tournaments', 'registration_proofs', 'JSON NULL');
 
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');

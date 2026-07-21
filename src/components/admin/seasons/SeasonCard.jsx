@@ -18,9 +18,8 @@ export default function SeasonCard({ season: s, onRefresh }) {
   async function advance(action) {
     setBusy(true);
     try {
-      const { generateLeaguePhaseFixtures, generatePlayoffRound, generateKnockoutR16, generateNextKnockoutRound } = await import("@/lib/competitionUtils");
-
       if (action === "generate_fixtures") {
+        const { generateLeaguePhaseFixtures } = await import("@/lib/competitionUtils");
         const standings = await stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
         const expectedClubs = Number(s.max_clubs || s.target_clubs || s.max_clubs_per_season || s.num_clubs || 36);
         if (!standings.length) { await swalAlert("No clubs qualified yet. Confirm qualification entries first."); return; }
@@ -30,44 +29,6 @@ export default function SeasonCard({ season: s, onRefresh }) {
         }
         await generateLeaguePhaseFixtures(s, standings);
         await swalAlert(`League phase fixtures generated! ${standings.length} clubs, 8 matchdays.`);
-
-      } else if (action === "playoff_round") {
-        const standings = await stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []);
-        await generatePlayoffRound(s, standings);
-        await swalAlert("Playoff round generated! Positions 9-24 play off. Positions 25-36 eliminated.");
-
-      } else if (action === "knockout_r16") {
-        const [standings, fixtures] = await Promise.all([
-          stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
-          stageClient.entities.CompetitionFixture.filter({ season_id: s.id, phase: "playoff_round" }, null, 30).catch(() => []),
-        ]);
-        await generateKnockoutR16(s, standings, fixtures);
-        await swalAlert("Round of 16 generated!");
-
-      } else if (["knockout_qf", "knockout_sf", "knockout_final"].includes(action)) {
-        const prevPhase = { knockout_qf: "knockout_r16", knockout_sf: "knockout_qf", knockout_final: "knockout_sf" }[action];
-        const fixtures = await stageClient.entities.CompetitionFixture.filter({ season_id: s.id, phase: prevPhase }, null, 30).catch(() => []);
-        await generateNextKnockoutRound(s, fixtures, prevPhase);
-        await swalAlert(`${SEASON_STATUS_LABEL[action]} fixtures generated!`);
-
-      } else if (action === "complete") {
-        await stageClient.entities.CompetitionSeason.update(s.id, { status: "completed" });
-        // Trigger cross-competition qualification (e.g. Elite winner → Supreme)
-        try {
-          const { processCompetitionSeasonEnd } = await import("@/lib/competitionUtils");
-          const [standings, competitions] = await Promise.all([
-            stageClient.entities.CompetitionStanding.filter({ season_id: s.id }, null, 50).catch(() => []),
-            stageClient.entities.Competition.filter({}, null, 10).catch(() => []),
-          ]);
-          const result = await processCompetitionSeasonEnd(s, standings, competitions);
-          if (result?.qualified > 0) {
-            await swalAlert(`Season marked as completed.\n\n${result.qualified} cross-competition qualification entr${result.qualified === 1 ? "y" : "ies"} created (check Qualification Entries).`);
-          } else {
-            await swalAlert("Season marked as completed.");
-          }
-        } catch {
-          await swalAlert("Season marked as completed.");
-        }
 
       } else if (action === "archive") {
         const { archiveCompetitionSeason } = await import("@/lib/seasonLifecycle");
@@ -118,43 +79,7 @@ export default function SeasonCard({ season: s, onRefresh }) {
           {canGenerateLeaguePhase && (
             <Button size="sm" disabled={busy} onClick={() => advance("generate_fixtures")}
               className="h-7 text-[10px] rounded bg-success/20 text-success border-0 hover:bg-success/30 gap-1">
-              {busy ? "..." : "Generate Fixtures"}
-            </Button>
-          )}
-          {s.status === "league_phase" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("playoff_round")}
-              className="h-7 text-[10px] rounded border-warning/40 text-warning hover:bg-warning/10">
-              {busy ? "..." : "→ Playoff Round"}
-            </Button>
-          )}
-          {s.status === "playoff_round" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_r16")}
-              className="h-7 text-[10px] rounded border-border">
-              {busy ? "..." : "→ Round of 16"}
-            </Button>
-          )}
-          {s.status === "knockout_r16" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_qf")}
-              className="h-7 text-[10px] rounded border-border">
-              {busy ? "..." : "→ Quarter-Finals"}
-            </Button>
-          )}
-          {s.status === "knockout_qf" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_sf")}
-              className="h-7 text-[10px] rounded border-border">
-              {busy ? "..." : "→ Semi-Finals"}
-            </Button>
-          )}
-          {s.status === "knockout_sf" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("knockout_final")}
-              className="h-7 text-[10px] rounded border-border">
-              {busy ? "..." : "→ Final"}
-            </Button>
-          )}
-          {s.status === "knockout_final" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => advance("complete")}
-              className="h-7 text-[10px] rounded border-border">
-              {busy ? "..." : "Complete Season"}
+              {busy ? "..." : "Start Competition"}
             </Button>
           )}
           {s.status === "completed" && (

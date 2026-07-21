@@ -54,6 +54,11 @@ class Tournament {
           ? body.registered_clubs
           : JSON.stringify(body.registered_clubs))
       : null;
+    this.registration_proofs     = body.registration_proofs
+      ? (typeof body.registration_proofs === 'string'
+          ? body.registration_proofs
+          : JSON.stringify(body.registration_proofs))
+      : null;
   }
 
   selectAll(page = 1) {
@@ -107,8 +112,8 @@ class Tournament {
        winner_club_id, winner_club_name,
        banner_url, banner_color, banner_position,
        trophy_url, trophy_item_id,
-       registered_players, registered_clubs)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       registered_players, registered_clubs, registration_proofs)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.name, this.description, this.type, this.participant_type,
       this.platform, this.region, this.max_teams,
@@ -122,7 +127,7 @@ class Tournament {
       this.winner_club_id, this.winner_club_name,
       this.banner_url, this.banner_color, this.banner_position,
       this.trophy_url, this.trophy_item_id,
-      this.registered_players, this.registered_clubs,
+      this.registered_players, this.registered_clubs, this.registration_proofs,
     ];
     return EXECUTESQL(sql, values);
   }
@@ -140,7 +145,7 @@ class Tournament {
       winner_club_id=?, winner_club_name=?,
       banner_url=?, banner_color=?, banner_position=?,
       trophy_url=?, trophy_item_id=?,
-      registered_players=?, registered_clubs=?
+      registered_players=?, registered_clubs=?, registration_proofs=?
       WHERE id=?`;
     const values = [
       this.name, this.description, this.type, this.participant_type,
@@ -155,7 +160,7 @@ class Tournament {
       this.winner_club_id, this.winner_club_name,
       this.banner_url, this.banner_color, this.banner_position,
       this.trophy_url, this.trophy_item_id,
-      this.registered_players, this.registered_clubs,
+      this.registered_players, this.registered_clubs, this.registration_proofs,
       id,
     ];
     return EXECUTESQL(sql, values);

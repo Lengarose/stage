@@ -6,6 +6,10 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
+const {
+  recognizeScoreFromImageUrl,
+  verifyScoreProofs,
+} = require('../services/scoreProofService');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
 
@@ -3812,8 +3816,14 @@ const HANDLERS = {
     }).catch((err) => {
       console.error('[competitionFixtureResult.notifyIfPhaseReady]', err.message);
     });
+    const advance = typeof competitionEngineService.advanceLegacyOfficialCompetitionIfReady === 'function'
+      ? await competitionEngineService.advanceLegacyOfficialCompetitionIfReady(result).catch((err) => {
+        console.error('[competitionFixtureResult.advance]', err.message);
+        return { advanced: false, reason: 'advance_error', error: err.message };
+      })
+      : { advanced: false, reason: 'advance_unavailable' };
 
-    return { data: { success: true, fixture: result } };
+    return { data: { success: true, fixture: result, advance } };
   },
 
   async regionalLeagueFixtureResult({
@@ -3957,8 +3967,14 @@ const HANDLERS = {
     }).catch((err) => {
       console.error('[regionalLeagueFixtureResult.notifyIfPhaseReady]', err.message);
     });
+    const advance = typeof competitionEngineService.advanceRegionalLeagueIfReady === 'function'
+      ? await competitionEngineService.advanceRegionalLeagueIfReady(result).catch((err) => {
+        console.error('[regionalLeagueFixtureResult.advance]', err.message);
+        return { advanced: false, reason: 'advance_error', error: err.message };
+      })
+      : { advanced: false, reason: 'advance_unavailable' };
 
-    return { data: { success: true, fixture: result } };
+    return { data: { success: true, fixture: result, advance } };
   },
 
   async resolveClubContact({ _auth_user_id, club_id }) {
@@ -5550,12 +5566,22 @@ const HANDLERS = {
         throw err;
       }
 
+      const proofOcr = proof_url
+        ? await recognizeScoreFromImageUrl(proof_url).catch((err) => ({
+            ok: false,
+            reason: 'ocr_failed',
+            error: err.message,
+            text: '',
+          }))
+        : null;
+
       const submission = JSON.stringify({
         home_score:   Number(home_score  ?? 0),
         away_score:   Number(away_score  ?? 0),
         player_stats: player_stats  || [],
         goal_events:  goal_events   || [],
         proof_url:    proof_url     || null,
+        proof_ocr:    proofOcr,
         submitted_at: new Date().toISOString(),
       });
 
@@ -5582,9 +5608,57 @@ const HANDLERS = {
 
       if (Number(homeSub.home_score) !== Number(awaySub.home_score) ||
           Number(homeSub.away_score) !== Number(awaySub.away_score)) {
-        await EXECUTESQL("UPDATE matches SET status = 'disputed', updated_date = NOW() WHERE id = ?", [match_id]);
+        await EXECUTESQL(
+          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
+          [
+            JSON.stringify({
+              reason: 'submitted_scores_disagree',
+              home_score: Number(homeSub.home_score),
+              away_score: Number(homeSub.away_score),
+              away_submitted_home_score: Number(awaySub.home_score),
+              away_submitted_away_score: Number(awaySub.away_score),
+              home_proof_url: homeSub.proof_url || null,
+              away_proof_url: awaySub.proof_url || null,
+            }),
+            match_id,
+          ]
+        );
         await broadcastMatchById(match_id);
-        return { data: { status: 'disputed' } };
+        return {
+          data: {
+            status: 'disputed',
+            reason: 'submitted_scores_disagree',
+            home_submission: homeSub,
+            away_submission: awaySub,
+          },
+        };
+      }
+
+      const proofVerification = verifyScoreProofs({ homeSubmission: homeSub, awaySubmission: awaySub });
+      if (proofVerification.status !== 'verified') {
+        await EXECUTESQL(
+          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
+          [
+            JSON.stringify({
+              reason: proofVerification.reason,
+              proof_verification: proofVerification,
+              home_score: Number(homeSub.home_score),
+              away_score: Number(homeSub.away_score),
+              home_proof_url: homeSub.proof_url || null,
+              away_proof_url: awaySub.proof_url || null,
+            }),
+            match_id,
+          ]
+        );
+        await broadcastMatchById(match_id);
+        return {
+          data: {
+            status: 'disputed',
+            proof_verification: proofVerification,
+            home_submission: homeSub,
+            away_submission: awaySub,
+          },
+        };
       }
 
       return processMatchCompletion(updated, homeSub, awaySub);
@@ -8044,7 +8118,7 @@ const HANDLERS = {
   // Mirrors base44/functions/tournamentRegistration — frontend expects:
   //   { data: { success, error?, ... } }
   async tournamentRegistration({
-    tournament_id, club_id, player_id, _auth_user_id,
+    tournament_id, club_id, player_id, registration_proof_url, _auth_user_id,
   }) {
     const MIN_STC = 100;
     const MAX_STC = 1_000_000;
@@ -8071,6 +8145,19 @@ const HANDLERS = {
         return [];
       }
     };
+    const parseProofs = (raw) => {
+      if (!raw) return { club: {}, player: {} };
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return {
+          club: parsed?.club && typeof parsed.club === 'object' ? parsed.club : {},
+          player: parsed?.player && typeof parsed.player === 'object' ? parsed.player : {},
+        };
+      } catch {
+        return { club: {}, player: {} };
+      }
+    };
+    const cleanProofUrl = registration_proof_url ? String(registration_proof_url).trim() : '';
 
     return withTransaction(async (query) => {
       const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
@@ -8097,6 +8184,7 @@ const HANDLERS = {
 
       if (isClubTourney) {
         if (!club_id) return fail('club_id required for club tournament');
+        if (!cleanProofUrl) return fail('Pro Club photo is required for club registration');
 
         const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
         if (!clubs.length) return fail('Club not found');
@@ -8163,9 +8251,17 @@ const HANDLERS = {
         }
 
         registered = [...registered, String(club_id)];
+        const proofs = parseProofs(tournament.registration_proofs);
+        proofs.club[String(club_id)] = {
+          participant_id: String(club_id),
+          proof_type: 'pro_club',
+          proof_url: cleanProofUrl,
+          submitted_by_user_id: _auth_user_id,
+          submitted_at: new Date().toISOString(),
+        };
         await query(
-          'UPDATE tournaments SET registered_clubs = ?, updated_date = NOW() WHERE id = ?',
-          [JSON.stringify(registered), tournament_id],
+          'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
+          [JSON.stringify(registered), JSON.stringify(proofs), tournament_id],
         );
 
         return {
@@ -8181,6 +8277,7 @@ const HANDLERS = {
       }
 
       if (!player_id) return fail('player_id required for player tournament');
+      if (!cleanProofUrl) return fail('Ultimate Team photo is required for player registration');
 
       const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [player_id]);
       if (!players.length) return fail('Player not found');
@@ -8246,9 +8343,17 @@ const HANDLERS = {
       }
 
       registeredPl = [...registeredPl, String(player_id)];
+      const proofs = parseProofs(tournament.registration_proofs);
+      proofs.player[String(player_id)] = {
+        participant_id: String(player_id),
+        proof_type: 'ultimate_team',
+        proof_url: cleanProofUrl,
+        submitted_by_user_id: _auth_user_id,
+        submitted_at: new Date().toISOString(),
+      };
       await query(
-        'UPDATE tournaments SET registered_players = ?, updated_date = NOW() WHERE id = ?',
-        [JSON.stringify(registeredPl), tournament_id],
+        'UPDATE tournaments SET registered_players = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(registeredPl), JSON.stringify(proofs), tournament_id],
       );
 
       return {

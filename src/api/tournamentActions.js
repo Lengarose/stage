@@ -75,17 +75,19 @@ export async function fetchTournamentPublic(tournamentId) {
   }
 }
 
-export async function registerTournamentClub(tournamentId, clubId) {
+export async function registerTournamentClub(tournamentId, clubId, registrationProofUrl = null) {
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,
     club_id: clubId,
+    registration_proof_url: registrationProofUrl,
   });
 }
 
-export async function registerTournamentPlayer(tournamentId, playerId) {
+export async function registerTournamentPlayer(tournamentId, playerId, registrationProofUrl = null) {
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,
     player_id: playerId,
+    registration_proof_url: registrationProofUrl,
   });
 }
 

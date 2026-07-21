@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Shield, Trophy, AlertTriangle, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -17,11 +18,12 @@ const OUTCOME_STYLE = {
 };
 
 export default function MatchDetail({ event, myPlayer, myClub }) {
+  const { t } = useTranslation();
   if (!event) {
     return (
       <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center min-h-[260px]">
         <Trophy className="w-8 h-8 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">Select a match to see details</p>
+        <p className="text-sm text-muted-foreground">{t("matchFlow.selectMatchDetails")}</p>
       </div>
     );
   }
@@ -32,7 +34,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
 
   const m = event.matchData;
   if (!m) return null;
-  const t = event.tournament;
+  const tournament = event.tournament;
   const stats = event.playerStats;
 
   const homeScore = m.home_score ?? 0;
@@ -63,13 +65,13 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
                 </div>
                 {event.result && (
                   <span className={cn("mt-1.5 text-xs font-bold px-3 py-0.5 rounded border", OUTCOME_STYLE[event.result.outcome])}>
-                    {event.result.outcome === "W" ? "WIN" : event.result.outcome === "L" ? "LOSS" : "DRAW"}
+                    {event.result.outcome === "W" ? t("matchFlow.win") : event.result.outcome === "L" ? t("matchFlow.loss") : t("matchFlow.draw")}
                   </span>
                 )}
               </>
             ) : (
               <div className="text-center">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">{m.status === "scheduled" ? "vs" : m.status}</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">{m.status === "scheduled" ? t("matchFlow.versus") : m.status}</span>
               </div>
             )}
           </div>
@@ -80,19 +82,19 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
 
       {/* Info rows */}
       <div className="border-t border-border divide-y divide-border">
-        <InfoRow label="Date & Time" value={fmtDate(m.scheduled_date)} />
-        <InfoRow label="Venue" value={event.venue} />
-        <InfoRow label="Round" value={m.round ? `Round ${m.round}` : "—"} />
+        <InfoRow label={t("matchFlow.dateTime")} value={fmtDate(m.scheduled_date)} />
+        <InfoRow label={t("matchFlow.venue")} value={event.venue} />
+        <InfoRow label={t("matchFlow.round")} value={m.round ? t("matchFlow.roundValue", { round: m.round }) : "—"} />
         {m.video_url && (
           <div className="px-4 py-3 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground uppercase tracking-wider">Match Video</span>
-            <a href={m.video_url} target="_blank" rel="noreferrer" className="text-primary underline">Watch</a>
+            <span className="text-muted-foreground uppercase tracking-wider">{t("matchFlow.matchVideo")}</span>
+            <a href={m.video_url} target="_blank" rel="noreferrer" className="text-primary underline">{t("matchFlow.watch")}</a>
           </div>
         )}
-        {t && (
+        {tournament && (
           <div className="px-4 py-3 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground uppercase tracking-wider">Tournament</span>
-            <Link to={`/tournaments/${t.id}`} className="text-primary hover:underline truncate max-w-[160px]">{t.name}</Link>
+            <span className="text-muted-foreground uppercase tracking-wider">{t("matchFlow.tournament")}</span>
+            <Link to={`/tournaments/${tournament.id}`} className="text-primary hover:underline truncate max-w-[160px]">{tournament.name}</Link>
           </div>
         )}
       </div>
@@ -100,11 +102,11 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
       {/* Player rating & stats */}
       {stats && (
         <div className="border-t border-border px-4 py-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Your Performance</p>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.yourPerformance")}</p>
           <div className="grid grid-cols-3 gap-2">
-            <StatMini label="Rating" value={Number.isFinite(Number(stats.rating)) ? Number(stats.rating).toFixed(1) : "—"} highlight />
-            <StatMini label="Goals" value={stats.goals ?? 0} />
-            <StatMini label="Assists" value={stats.assists ?? 0} />
+            <StatMini label={t("matchFlow.rating")} value={Number.isFinite(Number(stats.rating)) ? Number(stats.rating).toFixed(1) : "—"} highlight />
+            <StatMini label={t("matchFlow.goals")} value={stats.goals ?? 0} />
+            <StatMini label={t("matchFlow.assists")} value={stats.assists ?? 0} />
           </div>
         </div>
       )}
@@ -126,7 +128,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
         }
         return displayNotes ? (
           <div className="border-t border-border px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Notes</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{t("matchFlow.notes")}</p>
             <p className="text-xs text-foreground">{displayNotes}</p>
           </div>
         ) : null;
@@ -136,6 +138,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
 }
 
 function TeamBlock({ name, avatarUrl, isHome }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
       <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
@@ -145,25 +148,26 @@ function TeamBlock({ name, avatarUrl, isHome }) {
         }
       </div>
       <span className="text-xs font-semibold text-foreground text-center leading-tight truncate w-full text-center">
-        {name || "TBD"}
+        {name || t("matchFlow.tbd")}
       </span>
-      {isHome && <span className="text-[9px] uppercase tracking-widest text-primary">Home</span>}
-      {!isHome && <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Away</span>}
+      {isHome && <span className="text-[9px] uppercase tracking-widest text-primary">{t("matchFlow.home")}</span>}
+      {!isHome && <span className="text-[9px] uppercase tracking-widest text-muted-foreground">{t("matchFlow.away")}</span>}
     </div>
   );
 }
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const map = {
-    scheduled: ["Scheduled", "text-primary"],
-    in_progress: ["Live", "text-success"],
-    awaiting_confirmation: ["Pending Confirm", "text-warning"],
-    disputed: ["Disputed", "text-destructive"],
-    completed: ["Full Time", "text-muted-foreground"],
-    forfeit: ["Forfeit", "text-destructive"],
+    scheduled: ["scheduled", "text-primary"],
+    in_progress: ["live", "text-success"],
+    awaiting_confirmation: ["pendingConfirm", "text-warning"],
+    disputed: ["disputed", "text-destructive"],
+    completed: ["fullTime", "text-muted-foreground"],
+    forfeit: ["forfeit", "text-destructive"],
   };
-  const [label, cls] = map[status] || [status, "text-muted-foreground"];
-  return <span className={cn("text-[10px] font-semibold uppercase tracking-wider", cls)}>{label}</span>;
+  const [key, cls] = map[status] || [status, "text-muted-foreground"];
+  return <span className={cn("text-[10px] font-semibold uppercase tracking-wider", cls)}>{map[status] ? t(`matchFlow.${key}`) : key}</span>;
 }
 
 function InfoRow({ label, value }) {
@@ -185,37 +189,38 @@ function StatMini({ label, value, highlight }) {
 }
 
 function TournamentStartDetail({ event }) {
-  const t = event.tournamentData;
-  if (!t) return null;
-  const startLabel = t.start_date ? fmtDate(t.start_date) : "—";
+  const { t } = useTranslation();
+  const tournament = event.tournamentData;
+  if (!tournament) return null;
+  const startLabel = tournament.start_date ? fmtDate(tournament.start_date) : "—";
   const now = new Date();
-  const startDate = t.start_date ? new Date(t.start_date) : null;
+  const startDate = tournament.start_date ? new Date(tournament.start_date) : null;
   const diffDays = startDate ? Math.ceil((startDate - now) / (1000 * 60 * 60 * 24)) : null;
   return (
     <div className="bg-card border border-accent/30 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 bg-accent/10 border-b border-accent/20 flex items-center gap-2">
         <Trophy className="w-4 h-4 text-accent" />
-        <span className="text-xs font-semibold text-accent uppercase tracking-wider">Tournament Start</span>
+        <span className="text-xs font-semibold text-accent uppercase tracking-wider">{t("matchFlow.tournamentStart")}</span>
       </div>
       <div className="p-5 space-y-4">
-        <p className="font-heading text-lg font-bold text-foreground">{t.name}</p>
+        <p className="font-heading text-lg font-bold text-foreground">{tournament.name}</p>
         <div className="divide-y divide-border">
-          <InfoRow label="Start Date" value={startLabel} />
-          <InfoRow label="Platform" value={t.platform} />
-          <InfoRow label="Region" value={t.region} />
-          <InfoRow label="Type" value={t.type} />
-          <InfoRow label="Max Teams" value={t.max_teams} />
+          <InfoRow label={t("matchFlow.startDate")} value={startLabel} />
+          <InfoRow label={t("matchFlow.platform")} value={tournament.platform} />
+          <InfoRow label={t("matchFlow.region")} value={tournament.region} />
+          <InfoRow label={t("matchFlow.type")} value={tournament.type} />
+          <InfoRow label={t("matchFlow.maxTeams")} value={tournament.max_teams} />
           {diffDays !== null && diffDays > 0 && (
-            <InfoRow label="Countdown" value={`In ${diffDays} day${diffDays !== 1 ? "s" : ""}`} />
+            <InfoRow label={t("matchFlow.countdown")} value={t("matchFlow.inDays", { count: diffDays })} />
           )}
-          {diffDays === 0 && <InfoRow label="Countdown" value="Today!" />}
+          {diffDays === 0 && <InfoRow label={t("matchFlow.countdown")} value={t("matchFlow.today")} />}
         </div>
-        {t.id && (
+        {tournament.id && (
           <a
-            href={`/tournaments/${t.id}`}
+            href={`/tournaments/${tournament.id}`}
             className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
           >
-            <Trophy className="w-3 h-3" /> View Tournament
+            <Trophy className="w-3 h-3" /> {t("matchFlow.viewTournament")}
           </a>
         )}
       </div>
@@ -224,40 +229,42 @@ function TournamentStartDetail({ event }) {
 }
 
 function ContractReminderDetail({ event }) {
+  const { t } = useTranslation();
   const c = event.contractData;
   return (
     <div className="bg-card border border-warning/30 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 bg-warning/10 border-b border-warning/20 flex items-center gap-2">
         <AlertTriangle className="w-4 h-4 text-warning" />
-        <span className="text-xs font-semibold text-warning uppercase tracking-wider">Contract Expiring Soon</span>
+        <span className="text-xs font-semibold text-warning uppercase tracking-wider">{t("matchFlow.contractExpiringSoon")}</span>
       </div>
       <div className="p-5 space-y-4">
         <div className="divide-y divide-border">
-          <InfoRow label="Type" value={c?.contract_type} />
-          <InfoRow label="Games Left" value={event.gamesLeft !== null ? `${event.gamesLeft} games` : "—"} />
-          <InfoRow label="Days Left" value={event.daysLeft !== null ? `${event.daysLeft} days` : "—"} />
-          <InfoRow label="End Date" value={c?.end_date || "—"} />
+          <InfoRow label={t("matchFlow.type")} value={c?.contract_type} />
+          <InfoRow label={t("matchFlow.gamesLeft")} value={event.gamesLeft !== null ? t("matchFlow.gamesUnit", { count: event.gamesLeft }) : "—"} />
+          <InfoRow label={t("matchFlow.daysLeft")} value={event.daysLeft !== null ? t("matchFlow.daysUnit", { count: event.daysLeft }) : "—"} />
+          <InfoRow label={t("matchFlow.endDate")} value={c?.end_date || "—"} />
         </div>
-        <p className="text-xs text-muted-foreground">Your contract is close to expiring. Contact your club captain or president to renew.</p>
+        <p className="text-xs text-muted-foreground">{t("matchFlow.contractExpiringMessage")}</p>
       </div>
     </div>
   );
 }
 
 function ContractEndDetail({ event }) {
+  const { t } = useTranslation();
   const c = event.contractData;
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 bg-secondary/60 border-b border-border flex items-center gap-2">
         <FileText className="w-4 h-4 text-muted-foreground" />
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contract End Date</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("matchFlow.contractEndDate")}</span>
       </div>
       <div className="p-5">
         <div className="divide-y divide-border">
-          <InfoRow label="Contract Type" value={c?.contract_type} />
-          <InfoRow label="Max Games" value={c?.max_games} />
-          <InfoRow label="Games Played" value={c?.games_played ?? 0} />
-          <InfoRow label="End Date" value={c?.end_date || "—"} />
+          <InfoRow label={t("matchFlow.contractType")} value={c?.contract_type} />
+          <InfoRow label={t("matchFlow.maxGames")} value={c?.max_games} />
+          <InfoRow label={t("matchFlow.gamesPlayed")} value={c?.games_played ?? 0} />
+          <InfoRow label={t("matchFlow.endDate")} value={c?.end_date || "—"} />
         </div>
       </div>
     </div>

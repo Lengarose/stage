@@ -19,6 +19,7 @@ import TrophiesTab from "@/components/admin/sections/TrophiesTab";
 import RewardsTab from "@/components/admin/sections/RewardsTab";
 import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
+import AnalyticsTab from "@/components/admin/sections/AnalyticsTab";
 import StoreTab from "@/components/admin/sections/StoreTab";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
 import { stageClient } from "@/api/stageClient";
@@ -1778,6 +1779,10 @@ export default function Admin(props) {
 
           {adminTab === "home" && (
             <HomeTab />
+          )}
+
+          {adminTab === "analytics" && (
+            <AnalyticsTab />
           )}
 
           {adminTab === "store" && (

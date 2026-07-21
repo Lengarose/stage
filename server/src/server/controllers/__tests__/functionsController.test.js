@@ -308,8 +308,8 @@ test('createMatchFromLeagueFixture creates match snapshots and links fixture ser
   assert.equal(inserts[0][1], null);
   assert.equal(inserts[0][6], 'home-owner@example.test');
   assert.equal(inserts[0][7], 'away-owner@example.test');
-  assert.equal(inserts[0][55], 'fixture-1');
-  assert.equal(inserts[0][56], 'competition');
+  assert.equal(inserts[0][57], 'fixture-1');
+  assert.equal(inserts[0][58], 'competition');
   assert.equal(fixtureUpdates.length, 1);
   const linkedFixture = JSON.parse(fixtureUpdates[0][0]);
   assert.equal(linkedFixture.match_id, inserts[0][0]);
@@ -674,4 +674,236 @@ test('listTournamentEntranceLinks returns links for a tournament to admin', asyn
   assert.equal(response.body.data.success, true);
   assert.equal(response.body.data.links.length, 1);
   assert.equal(response.body.data.links[0].tournament_id, 'tournament-1');
+});
+
+test('matchKickoff keeps matching scores in review when uploaded proofs do not verify', async () => {
+  const updates = [];
+  const match = {
+    id: 'match-1',
+    status: 'in_progress',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    result_home_submitted: 1,
+    result_away_submitted: 0,
+    home_submission: JSON.stringify({
+      home_score: 2,
+      away_score: 1,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/home-proof.png',
+      proof_ocr: { ok: true, text: 'Unreadable menu screen' },
+    }),
+    away_submission: null,
+  };
+
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET away_submission = \?/.test(sql)) {
+      updates.push({ sql, params });
+      match.away_submission = params[0];
+      match.result_away_submitted = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET status = 'disputed'/.test(sql)) {
+      updates.push({ sql, params });
+      match.status = 'disputed';
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'submit_result',
+        match_id: 'match-1',
+        is_home_team: false,
+        home_score: 2,
+        away_score: 1,
+        proof_url: '/uploads/away-proof.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'disputed');
+  assert.equal(response.body.data.proof_verification.reason, 'proofs_differ_without_readable_score');
+  assert.ok(updates.some((call) => /UPDATE matches SET status = 'disputed'/.test(call.sql)));
+  assert.match(match.away_submission, /away-proof\.png/);
+});
+
+test('tournamentRegistration stores club registration proof photo', async () => {
+  const updates = [];
+  const tournament = {
+    id: 'tournament-1',
+    name: 'Pro Club Cup',
+    status: 'registration',
+    participant_type: 'club',
+    max_teams: 8,
+    entry_fee_stc: 0,
+    entry_credits: 0,
+    registered_clubs: JSON.stringify([]),
+    registered_players: JSON.stringify([]),
+    registration_proofs: JSON.stringify({}),
+  };
+  const club = {
+    id: 'club-1',
+    owner_email: 'owner@example.test',
+    user_id: 'user-1',
+    credits: 10,
+    stc: 5000,
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/UPDATE tournaments SET registered_clubs = \?, registration_proofs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'owner@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM store_settings/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'tournamentRegistration' },
+      body: {
+        tournament_id: 'tournament-1',
+        club_id: 'club-1',
+        registration_proof_url: '/uploads/pro-club.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(updates.length, 1);
+  const proofs = JSON.parse(updates[0].params[1]);
+  assert.equal(proofs.club['club-1'].proof_url, '/uploads/pro-club.png');
+  assert.equal(proofs.club['club-1'].proof_type, 'pro_club');
+});
+
+test('tournamentRegistration stores player Ultimate Team registration proof photo', async () => {
+  const updates = [];
+  const tournament = {
+    id: 'tournament-1',
+    name: 'Ultimate Team Cup',
+    status: 'registration',
+    participant_type: 'player',
+    max_teams: 8,
+    entry_fee_stc: 0,
+    entry_credits: 0,
+    registered_clubs: JSON.stringify([]),
+    registered_players: JSON.stringify([]),
+    registration_proofs: JSON.stringify({}),
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-1',
+    email: 'player@example.test',
+    credits: 10,
+    stc: 5000,
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+              if (/UPDATE tournaments SET registered_players = \?, registration_proofs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'player@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM store_configs/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'tournamentRegistration' },
+      body: {
+        tournament_id: 'tournament-1',
+        player_id: 'player-1',
+        registration_proof_url: '/uploads/ultimate-team.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(updates.length, 1);
+  const proofs = JSON.parse(updates[0].params[1]);
+  assert.equal(proofs.player['player-1'].proof_url, '/uploads/ultimate-team.png');
+  assert.equal(proofs.player['player-1'].proof_type, 'ultimate_team');
 });

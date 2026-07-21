@@ -8,8 +8,10 @@ import { CalendarDays, Plus, X, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
@@ -123,7 +125,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     // Build schedule events from matches
     const matchEvents = matches.map(m => {
       const tournament = tournamentMap.get(m.tournament_id);
-      const competition = deriveCompetition(m, tournament);
+      const competition = deriveCompetition(m, tournament, t);
       // Determine home/away and opposition — handle both club matches and solo (PvP) matches
       const isSoloMatch = m.mode === "solo" || (!m.home_club_id && !m.away_club_id);
       const isHome = isSoloMatch
@@ -132,11 +134,11 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           ? m.home_club_id === club.id
           : m.home_player_id === player?.id;
       const opposition = isSoloMatch
-        ? (isHome ? (m.away_player_name || "Unknown") : (m.home_player_name || "Unknown"))
+        ? (isHome ? (m.away_player_name || t("matchFlow.unknown")) : (m.home_player_name || t("matchFlow.unknown")))
         : club
           ? (isHome ? (m.away_club_name || m.away_player_name) : (m.home_club_name || m.home_player_name))
           : (isHome ? (m.away_player_name || m.away_club_name) : (m.home_player_name || m.home_club_name));
-      const venue = isHome ? "Home" : "Away";
+      const venue = isHome ? t("matchFlow.home") : t("matchFlow.away");
       const result = getResult(m, club, player);
       const stats = statsByMatch.get(m.id) || null;
 
@@ -154,6 +156,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         date: m.scheduled_date || m.created_date,
         opposition,
         venue,
+        venueKey: isHome ? "home" : "away",
         result,
         competition,
         status: m.status,
@@ -184,7 +187,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           id: `contract-end-${c.id}`,
           type: "contract_end",
           date: c.end_date,
-          competition: "Contract",
+          competition: t("matchFlow.contract"),
           opposition: "",
           venue: "",
           result: null,
@@ -197,7 +200,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           id: `contract-reminder-${c.id}`,
           type: "contract_reminder",
           date: today.toISOString(),
-          competition: "Contract",
+          competition: t("matchFlow.contract"),
           opposition: "",
           venue: "",
           result: null,
@@ -262,10 +265,10 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                SCHEDULE
+                {t("matchFlow.scheduleTitle")}
               </h1>
               <p className="text-xs text-muted-foreground mt-2">
-                {scopedTournamentId ? "Tournament matches & schedule" : "All matches, tournaments & contract reminders"}
+                {scopedTournamentId ? t("matchFlow.scheduleSubtitleTournament") : t("matchFlow.scheduleSubtitleAll")}
               </p>
             </div>
           </div>
@@ -282,7 +285,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 )}
               >
                 <List className="w-3.5 h-3.5" />
-                Fixtures
+                {t("matchFlow.fixtures")}
               </button>
               <button
                 onClick={() => setView("calendar")}
@@ -294,7 +297,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 )}
               >
                 <CalendarDays className="w-3.5 h-3.5" />
-                Calendar
+                {t("matchFlow.calendar")}
               </button>
             </div>
             {!scopedTournamentId && (
@@ -303,7 +306,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 className="bg-primary text-primary-foreground gap-2 text-sm"
               >
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Arrange Game</span>
+                <span className="hidden sm:inline">{t("matchFlow.arrangeGame")}</span>
               </Button>
             )}
           </div>
@@ -351,7 +354,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                   {/* Drag handle + close */}
                   <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
                     <div className="w-10 h-1 rounded-full bg-border mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                    <span className="text-sm font-semibold text-foreground">Match Details</span>
+                    <span className="text-sm font-semibold text-foreground">{t("matchFlow.matchDetails")}</span>
                     <button
                       onClick={() => setSelectedEvent(null)}
                       className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
@@ -381,18 +384,17 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   );
 }
 
-function deriveCompetition(match, tournament) {
+function deriveCompetition(match, tournament, t) {
   // Arranged games (no real tournament) — tournament_id is "ranked" sentinel
   if (!tournament || match.tournament_id === "ranked") {
-    return "Ranked Match";
+    return t("matchFlow.rankedMatch");
   }
-  const t = tournament;
-  if (t.type === "knockout") return `${t.name} · Knockout`;
-  if (t.type === "league") return `${t.name} · League`;
-  if (t.type === "group_stage") return `${t.name} · Group Stage`;
-  if (t.type === "swiss" || t.type === "swiss_ucl") return `${t.name} · Swiss`;
-  if (t.type === "double_elimination") return `${t.name} · Double Elim.`;
-  return t.name || "Tournament";
+  if (tournament.type === "knockout") return `${tournament.name} · ${t("matchFlow.knockout")}`;
+  if (tournament.type === "league") return `${tournament.name} · ${t("matchFlow.leagueFormat")}`;
+  if (tournament.type === "group_stage") return `${tournament.name} · ${t("matchFlow.groupStage")}`;
+  if (tournament.type === "swiss" || tournament.type === "swiss_ucl") return `${tournament.name} · ${t("matchFlow.swiss")}`;
+  if (tournament.type === "double_elimination") return `${tournament.name} · ${t("matchFlow.doubleElim")}`;
+  return tournament.name || t("matchFlow.tournament");
 }
 
 function getResult(match, club, player) {

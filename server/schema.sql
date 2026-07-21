@@ -236,6 +236,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
   trophy_url          TEXT,
   registered_players  JSON,
   registered_clubs    JSON,
+  registration_proofs JSON,
   created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -1321,6 +1322,7 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='banner_color'),'SELECT 1','ALTER TABLE tournaments ADD COLUMN banner_color VARCHAR(20) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='banner_position'),'SELECT 1','ALTER TABLE tournaments ADD COLUMN banner_position VARCHAR(50) NULL DEFAULT ''50% 50%''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='trophy_item_id'),'SELECT 1','ALTER TABLE tournaments ADD COLUMN trophy_item_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='registration_proofs'),'SELECT 1','ALTER TABLE tournaments ADD COLUMN registration_proofs JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- END inlined: player_club_tournament_migration.sql
 
 -- BEGIN inlined: new_tables_migration.sql

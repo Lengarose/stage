@@ -664,7 +664,7 @@ export default function LeaguesTab({
                           <Button size="sm" disabled={generatingRegionalFixtures === league.id}
                             onClick={() => generateRegionalFixturesForAdmin(league)}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
-                            {generatingRegionalFixtures === league.id ? "Generating..." : "Generate Fixtures"}
+                            {generatingRegionalFixtures === league.id ? "Starting..." : "Start League"}
                           </Button>
                         )}
                         {league.status === "in_progress" && (
