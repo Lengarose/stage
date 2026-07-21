@@ -3,9 +3,9 @@ import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
+  advanceTournamentRound,
   cancelTournamentById,
   clearTournamentDraw,
-  createTournamentFinalAndThirdPlace,
   deleteTournamentById,
   fetchTournamentPublic,
   fetchTournamentMatches,
@@ -196,7 +196,8 @@ export default function TournamentDetail() {
   const [winnerConferenceDone, setWinnerConferenceDone] = useState(false);
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
-  const [advancingRound, setAdvancingRound] = useState(false);
+  const [autoAdvancingRound, setAutoAdvancingRound] = useState(false);
+  const autoAdvanceAttemptsRef = useRef(new Set());
 
   useEffect(() => {
     async function load() {
@@ -298,6 +299,63 @@ export default function TournamentDetail() {
       setGroupStandingsData(formatted);
     }
   }, [matches, tournament?.type, tournament?.num_groups]);
+
+  useEffect(() => {
+    if (loading || !tournament || autoAdvancingRound) return;
+    if (tournament.status !== "in_progress") return;
+
+    const canManage = isAdmin || isCreator || tournament.organizer_email === user?.email;
+    if (!canManage) return;
+
+    const isFinished = (match) => ["completed", "forfeit"].includes(String(match.status || ""));
+    const tournamentType = String(tournament.type || "").toLowerCase();
+    const finalMatch = matches.find(match => String(match.type || "").toLowerCase() === "final");
+    const thirdPlaceMatch = matches.find(match => ["third_place", "third-place", "bronze"].includes(String(match.type || "").toLowerCase()));
+    const finalWinnerId = tournament.participant_type === "player" ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
+    const thirdPlaceWinnerId = tournament.participant_type === "player" ? thirdPlaceMatch?.winner_player_id : thirdPlaceMatch?.winner_club_id;
+    const finalComplete = finalMatch && isFinished(finalMatch) && finalWinnerId;
+    const thirdPlaceComplete = !thirdPlaceMatch || (isFinished(thirdPlaceMatch) && thirdPlaceWinnerId);
+    if (finalComplete && thirdPlaceComplete) return;
+
+    const currentRound = Number(tournament.current_round || 1);
+    const groupMatches = tournamentType === "group_stage"
+      ? matches.filter(match => ["group", "group_stage"].includes(String(match.type || "")))
+      : [];
+    const knockoutMatches = tournamentType === "group_stage"
+      ? matches.filter(match => !["group", "group_stage"].includes(String(match.type || "")))
+      : matches;
+    const groupStageComplete = tournamentType === "group_stage"
+      && groupMatches.length > 0
+      && groupMatches.every(isFinished);
+    const currentRoundMatches = matches.filter(match => Number(match.round || 1) === currentRound);
+    const currentRoundComplete = currentRoundMatches.length > 0 && currentRoundMatches.every(isFinished);
+    const shouldAdvance = tournamentType === "group_stage"
+      ? groupStageComplete && (knockoutMatches.length === 0 || currentRoundComplete)
+      : currentRoundComplete;
+
+    if (!shouldAdvance) return;
+
+    const signature = [
+      tournament.id,
+      currentRound,
+      matches.length,
+      matches.map(match => `${match.id}:${match.status}:${match.winner_club_id || match.winner_player_id || ""}`).join("|"),
+    ].join(":");
+    if (autoAdvanceAttemptsRef.current.has(signature)) return;
+    autoAdvanceAttemptsRef.current.add(signature);
+
+    setAutoAdvancingRound(true);
+    advanceTournamentRound(tournament.id)
+      .then((result) => {
+        if (result.matches) setMatches(result.matches);
+        if (result.tournament) setTournament(result.tournament);
+        setVisibleRound(result.tournament?.current_round ?? null);
+      })
+      .catch((err) => {
+        console.warn("[TournamentDetail.autoAdvanceRound]", err?.data?.error || err?.message || err);
+      })
+      .finally(() => setAutoAdvancingRound(false));
+  }, [autoAdvancingRound, isAdmin, isCreator, loading, matches, tournament, user?.email]);
 
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : myPlayer?.club_id;
@@ -836,29 +894,6 @@ function resetUI() {
     }
   }
 
-  async function advanceRound() {
-    if (advancingRound) return;
-    setAdvancingRound(true);
-    try {
-      const shouldCreateFinalAndThirdPlace = advanceButtonLabel === "Create Final & 3rd Place";
-      const result = shouldCreateFinalAndThirdPlace
-        ? await createTournamentFinalAndThirdPlace(id)
-        : await advanceTournamentRound(id);
-      setMatches(result.matches || []);
-      if (result.tournament) setTournament(result.tournament);
-      setVisibleRound(result.tournament?.current_round ?? null);
-      if (shouldCreateFinalAndThirdPlace) {
-        await swalAlert(result.skipped_existing
-          ? "Final and 3rd place match are already created."
-          : "Final and 3rd place match are ready.");
-      }
-    } catch (err) {
-      await swalAlert(err?.data?.error || err?.message || "Could not start the next round.");
-    } finally {
-      setAdvancingRound(false);
-    }
-  }
-
   async function officializeCurrentTournament() {
     if (!(await swalConfirm("Officialize this tournament, distribute prize money, and award the trophy?"))) return;
     try {
@@ -897,37 +932,6 @@ function resetUI() {
     && groupMatches.length > 0
     && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
   const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
-  const knockoutHasResults = knockoutMatches.some(m => m.status === "completed" || m.status === "forfeit");
-  const qualifiedGroupClubIds = new Set(
-    groupStandingsData.flatMap(group => (group.standings || []).slice(0, 2).map(club => String(club.id)))
-  );
-  const expectedGroupKnockoutMatchCount = groupStandingsData
-    .flatMap(group => (group.standings || []).slice(0, 2))
-    .length;
-  const groupKnockoutNeedsRepair = isGroupStageTournament
-    && groupStageComplete
-    && knockoutStarted
-    && !knockoutHasResults
-    && (
-      knockoutMatches.length !== expectedGroupKnockoutMatchCount
-      || knockoutMatches.some((match) => {
-        const homeId = String(match.home_club_id || "");
-        const awayId = String(match.away_club_id || "");
-        return !homeId || !awayId || homeId === awayId || !qualifiedGroupClubIds.has(homeId) || !qualifiedGroupClubIds.has(awayId);
-      })
-    );
-  const canStartGroupNextRound = canManageTournament
-    && tournament.status === "in_progress"
-    && groupStageComplete
-    && (!knockoutStarted || groupKnockoutNeedsRepair);
-  const currentRoundMatches = matches.filter(m => Number(m.round) === Number(tournament.current_round || 1));
-  const currentRoundComplete = currentRoundMatches.length > 0
-    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
-  const canAdvanceActiveRound = canManageTournament
-    && tournament.status === "in_progress"
-    && currentRoundComplete
-    && knockoutStarted
-    && !groupKnockoutNeedsRepair;
   const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
   const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
   const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
@@ -938,10 +942,6 @@ function resetUI() {
     && tournament.status === "in_progress"
     && finalComplete
     && thirdPlaceComplete;
-  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
-  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
-    ? "Create Final & 3rd Place"
-    : "Advance Tournament";
   const allMatchesPlayed = matches.length > 0
     && matches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
@@ -1204,20 +1204,6 @@ function resetUI() {
                   <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
-            )}
-
-            {canStartGroupNextRound && (
-              <Button type="button" onClick={advanceRound} disabled={advancingRound} size="sm"
-                className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
-                <Play className="w-3 h-3 mr-1.5" /> {advancingRound ? "Working..." : groupKnockoutNeedsRepair ? "Repair Knockout Round" : "Start Next Round"}
-              </Button>
-            )}
-
-            {canAdvanceActiveRound && !canOfficializeTournament && (
-              <Button type="button" onClick={advanceRound} disabled={advancingRound} size="sm"
-                className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
-                <Play className="w-3 h-3 mr-1.5" /> {advancingRound ? "Working..." : advanceButtonLabel}
-              </Button>
             )}
 
             {canOfficializeTournament && (
