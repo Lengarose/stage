@@ -10,13 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { REGIONS } from "@/lib/qualificationConfig";
 import { applyForLeague } from "@/lib/registrationEngine";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const STATUS_CONFIG = {
-  pending:    { label: "Pending",     cls: "text-warning border-warning/30 bg-warning/5",                icon: Clock         },
-  approved:   { label: "Approved",    cls: "text-success border-success/30 bg-success/5",                icon: CheckCircle   },
-  rejected:   { label: "Rejected",    cls: "text-destructive border-destructive/30 bg-destructive/5",    icon: X             },
-  waitlisted: { label: "Waitlisted",  cls: "text-muted-foreground border-border bg-secondary",           icon: Clock         },
-  removed:    { label: "Removed",     cls: "text-muted-foreground border-border bg-secondary",           icon: X             },
+  pending:    { key: "pending",     cls: "text-warning border-warning/30 bg-warning/5",                icon: Clock         },
+  approved:   { key: "approved",    cls: "text-success border-success/30 bg-success/5",                icon: CheckCircle   },
+  rejected:   { key: "rejected",    cls: "text-destructive border-destructive/30 bg-destructive/5",    icon: X             },
+  waitlisted: { key: "waitlisted",  cls: "text-muted-foreground border-border bg-secondary",           icon: Clock         },
+  removed:    { key: "removed",     cls: "text-muted-foreground border-border bg-secondary",           icon: X             },
 };
 
 const ACTIVE_APPLICATION_STATUSES = new Set(["pending", "waitlisted", "approved"]);
@@ -27,6 +28,7 @@ function isRemovedApplication(app) {
 }
 
 export default function SeasonRegistrations() {
+  const { t } = useTranslation();
   const [_user,        setUser]         = useState(null);
   const [myClub,       setMyClub]       = useState(null);
   const [leagues,      setLeagues]      = useState([]);  // all open leagues
@@ -170,17 +172,17 @@ export default function SeasonRegistrations() {
 
         {/* Back */}
         <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back
+          <ArrowLeft className="w-3.5 h-3.5" /> {t("competitionFlow.back")}
         </Link>
 
         {/* Header */}
         <div>
           <h1 className="font-heading font-black text-3xl md:text-4xl text-foreground uppercase tracking-tight"
             style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}>
-            Season Registration
+            {t("competitionFlow.registrationTitle")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Register your club for a STAGE Regional League. Spots are limited — apply early.
+            {t("competitionFlow.registrationSubtitle")}
           </p>
         </div>
 
@@ -189,10 +191,9 @@ export default function SeasonRegistrations() {
           <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-start gap-3">
             <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-warning">No club found</p>
+              <p className="text-sm font-semibold text-warning">{t("competitionFlow.noClubFound")}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                You need a club to register for a league. Create one first from the{" "}
-                <Link to="/clubs" className="text-primary underline">Clubs</Link> page.
+                {t("competitionFlow.needClub", { clubs: t("competitionFlow.clubs") })}
               </p>
             </div>
           </div>
@@ -201,7 +202,7 @@ export default function SeasonRegistrations() {
         {/* My applications summary */}
         {myApps.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">My Applications</h2>
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">{t("competitionFlow.myApplications")}</h2>
             {myApps.map(app => {
               const cfg = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending;
               const Icon = cfg.icon;
@@ -211,16 +212,16 @@ export default function SeasonRegistrations() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
                       {app.region_name || app.region_slug}
-                      {app.preferred_division ? ` — Div ${app.preferred_division} preferred` : ""}
+                      {app.preferred_division ? ` - ${t("competitionFlow.divisionPreferred", { division: app.preferred_division })}` : ""}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {app.season_label || ""} · Applied {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : "—"}
-                      {app.assigned_league_name ? ` · Assigned to ${app.assigned_league_name}` : ""}
+                      {app.season_label || ""} · {t("competitionFlow.applied")} {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : "—"}
+                      {app.assigned_league_name ? ` · ${t("competitionFlow.assignedTo", { league: app.assigned_league_name })}` : ""}
                       {app.admin_notes ? ` · "${app.admin_notes}"` : ""}
                     </p>
                   </div>
                   <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", cfg.cls)}>
-                    {cfg.label}
+                    {t(`competitionFlow.${cfg.key}`)}
                   </span>
                 </div>
               );
@@ -233,10 +234,10 @@ export default function SeasonRegistrations() {
           <div className="border border-dashed border-border rounded-xl p-12 text-center">
             <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground uppercase tracking-widest">
-              No league registrations are currently open
+              {t("competitionFlow.noOpenRegistrations")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Check back when a season is in Registration status.
+              {t("competitionFlow.checkBackRegistration")}
             </p>
           </div>
         )}
@@ -269,17 +270,17 @@ export default function SeasonRegistrations() {
                     {region.name}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {regionLeagues.length} division{regionLeagues.length !== 1 ? "s" : ""} open
-                    {spotsLeft > 0 ? ` · ${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} available` : " · Full"}
+                    {t("competitionFlow.divisionsOpen", { count: regionLeagues.length })}
+                    {spotsLeft > 0 ? ` · ${t("competitionFlow.spotsAvailable", { count: spotsLeft })}` : ` · ${t("competitionFlow.full")}`}
                   </p>
                 </div>
                 {myApp ? (
                   <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", STATUS_CONFIG[myApp.status]?.cls)}>
-                    {STATUS_CONFIG[myApp.status]?.label}
+                    {t(`competitionFlow.${STATUS_CONFIG[myApp.status]?.key || "pending"}`)}
                   </span>
                 ) : spotsLeft <= 0 ? (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground uppercase tracking-wider shrink-0">
-                    Full
+                    {t("competitionFlow.full")}
                   </span>
                 ) : null}
                 <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", isOpen && "rotate-180")} />
@@ -302,7 +303,7 @@ export default function SeasonRegistrations() {
                               <Shield className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                               <p className="text-sm font-semibold text-foreground truncate">{league.name}</p>
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wider shrink-0">
-                                Division {league.division || 1}
+                                {t("competitionFlow.division")} {league.division || 1}
                               </span>
                             </div>
                             <div className="mt-2 flex items-center gap-2">
@@ -318,7 +319,7 @@ export default function SeasonRegistrations() {
                             </div>
                           </div>
                           <Link to={`/leagues/${league.slug}`} className="text-[10px] text-primary hover:underline shrink-0">
-                            View →
+                            {t("competitionFlow.viewFullStandings")} →
                           </Link>
                         </div>
                       );
@@ -328,22 +329,22 @@ export default function SeasonRegistrations() {
                   {/* Apply / status footer */}
                   <div className="px-5 py-4 bg-secondary/20 flex items-center justify-between gap-3">
                     <div className="text-xs text-muted-foreground space-y-0.5">
-                      <p>Register your club for <span className="text-foreground font-semibold">{region.name}</span>.</p>
-                      <p>Admin will assign you to a division after reviewing your application.</p>
+                      <p>{t("competitionFlow.registerClubForRegion", { region: region.name })}</p>
+                      <p>{t("competitionFlow.adminAssignsDivision")}</p>
                     </div>
                     {myApp ? (
                       <div className="shrink-0 text-right">
                         <span className={cn("text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-wider", STATUS_CONFIG[myApp.status]?.cls)}>
-                          {STATUS_CONFIG[myApp.status]?.label}
+                          {t(`competitionFlow.${STATUS_CONFIG[myApp.status]?.key || "pending"}`)}
                         </span>
                         {myApp.preferred_division && (
-                          <p className="text-[10px] text-muted-foreground mt-1">Preferred Div {myApp.preferred_division}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">{t("competitionFlow.preferredDiv", { division: myApp.preferred_division })}</p>
                         )}
                       </div>
                     ) : !myClub ? (
                       <Link to="/clubs">
                         <Button size="sm" variant="outline" className="shrink-0 h-8 text-xs">
-                          Create Club First
+                          {t("competitionFlow.createClubFirst")}
                         </Button>
                       </Link>
                     ) : (
@@ -357,7 +358,7 @@ export default function SeasonRegistrations() {
                             : "bg-primary text-primary-foreground"
                         )}
                       >
-                        {spotsLeft <= 0 ? "Join Waitlist" : "Apply Now"}
+                        {spotsLeft <= 0 ? t("competitionFlow.joinWaitlist") : t("competitionFlow.applyNow")}
                       </Button>
                     )}
                   </div>
@@ -369,13 +370,13 @@ export default function SeasonRegistrations() {
 
         {/* How it works */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">How It Works</h2>
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t("competitionFlow.howItWorks")}</h2>
           <ol className="space-y-2 text-xs text-muted-foreground list-decimal list-inside">
-            <li>Submit your application for a region before registration closes.</li>
-            <li>State your preferred division (1 or 2) — admin will consider it based on availability and club history.</li>
-            <li>Admin reviews and assigns you to a division. You'll see your status update here.</li>
-            <li>Once approved, your club appears in the league standings automatically.</li>
-            <li>Registration closes when the season goes Active. Late applications are not accepted.</li>
+            <li>{t("competitionFlow.registrationStep1")}</li>
+            <li>{t("competitionFlow.registrationStep2")}</li>
+            <li>{t("competitionFlow.registrationStep3")}</li>
+            <li>{t("competitionFlow.registrationStep4")}</li>
+            <li>{t("competitionFlow.registrationStep5")}</li>
           </ol>
         </div>
 
@@ -387,7 +388,7 @@ export default function SeasonRegistrations() {
           <DialogContent className="bg-card border-border text-foreground max-w-md">
             <DialogHeader>
               <DialogTitle className="font-heading uppercase tracking-tight">
-                Apply — {applyDialog.name}
+                {t("competitionFlow.applyTo", { region: applyDialog.name })}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
@@ -405,30 +406,30 @@ export default function SeasonRegistrations() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Preferred Division
+                  {t("competitionFlow.preferredDivision")}
                 </label>
                 <Select value={prefDiv} onValueChange={setPrefDiv}>
                   <SelectTrigger className="bg-secondary border-border text-foreground h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border text-foreground">
-                    <SelectItem value="1">Division 1 — Top flight</SelectItem>
-                    <SelectItem value="2">Division 2 — Development</SelectItem>
+                    <SelectItem value="1">{t("competitionFlow.divisionOne")}</SelectItem>
+                    <SelectItem value="2">{t("competitionFlow.divisionTwo")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground">
-                  This is a preference — final placement is decided by the admin.
+                  {t("competitionFlow.placementPreference")}
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Note (optional)
+                  {t("competitionFlow.noteOptional")}
                 </label>
                 <Textarea
                   value={appNote}
                   onChange={e => setAppNote(e.target.value)}
-                  placeholder="Any context for the admin — club history, previous season results, etc."
+                  placeholder={t("competitionFlow.adminContextPlaceholder")}
                   className="bg-secondary border-border text-foreground text-sm resize-none h-20"
                   maxLength={300}
                 />
@@ -436,11 +437,11 @@ export default function SeasonRegistrations() {
 
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1 border-border h-9 text-sm" onClick={() => setApplyDialog(null)}>
-                  Cancel
+                  {t("competitionFlow.cancel")}
                 </Button>
                 <Button disabled={applying || !myClub} onClick={submitApplication}
                   className="flex-1 bg-primary text-primary-foreground h-9 text-sm font-bold">
-                  {applying ? "Submitting…" : "Submit Application"}
+                  {applying ? t("competitionFlow.submitting") : t("competitionFlow.submitApplication")}
                 </Button>
               </div>
             </div>

@@ -10,11 +10,22 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '256kb' }));
 app.set('trust proxy', 1);
 
-const PORT =  3001;
+const PORT = Number(process.env.PORT || 3001);
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || '';
 // REST server uses SOCKET_SERVER_SECRET; socket server accepts either name.
 const EMIT_SECRET =
   process.env.EMIT_SECRET || process.env.SOCKET_SERVER_SECRET || '';
+const startedAt = new Date();
+const metrics = {
+  totalConnections: 0,
+  currentConnections: 0,
+  joinAccepted: 0,
+  joinRejected: 0,
+  emitsAccepted: 0,
+  emitsRejected: 0,
+  emittedPackets: 0,
+  authRejected: 0,
+};
 
 if (!ACCESS_TOKEN_SECRET) console.warn('[socket] WARNING: ACCESS_TOKEN_SECRET not set');
 if (!EMIT_SECRET) console.warn('[socket] WARNING: EMIT_SECRET / SOCKET_SERVER_SECRET not set');
@@ -48,12 +59,19 @@ const io = new Server(server, {
 // Verify JWT on every socket connection
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error('Authentication required'));
+  if (!token) {
+    metrics.authRejected += 1;
+    return next(new Error('Authentication required'));
+  }
   try {
     socket.user = jwt.verify(token, ACCESS_TOKEN_SECRET, { algorithms: ['HS256'] });
-    if (!socket.user?.id && !socket.user?.email) return next(new Error('Invalid token payload'));
+    if (!socket.user?.id && !socket.user?.email) {
+      metrics.authRejected += 1;
+      return next(new Error('Invalid token payload'));
+    }
     next();
   } catch {
+    metrics.authRejected += 1;
     next(new Error('Invalid token'));
   }
 });
@@ -82,41 +100,70 @@ function canJoinChannel(user, channel) {
 }
 
 io.on('connection', (socket) => {
+  metrics.totalConnections += 1;
+  metrics.currentConnections += 1;
   console.log(`[socket] connected: ${socket.id} (user: ${socket.user?.id})`);
 
   socket.on('JOINLEAVEROOM', ({ action, channel } = {}) => {
     if (!channel) return;
     if (!canJoinChannel(socket.user, channel)) {
+      metrics.joinRejected += 1;
       socket.emit('join_error', { channel, error: 'Forbidden channel' });
       return;
     }
+    metrics.joinAccepted += 1;
     action === 'join' ? socket.join(channel) : socket.leave(channel);
   });
 
-  socket.on('disconnect', () => console.log(`[socket] disconnected: ${socket.id}`));
+  socket.on('disconnect', () => {
+    metrics.currentConnections = Math.max(0, metrics.currentConnections - 1);
+    console.log(`[socket] disconnected: ${socket.id}`);
+  });
 });
 
 // Internal endpoint — called by the Gandi REST server to broadcast events
 app.post('/emit', (req, res) => {
   if (!EMIT_SECRET || req.headers['x-emit-secret'] !== EMIT_SECRET) {
+    metrics.emitsRejected += 1;
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const { channel, data } = req.body;
-  if (!channel) return res.status(400).json({ error: 'channel required' });
+  if (!channel) {
+    metrics.emitsRejected += 1;
+    return res.status(400).json({ error: 'channel required' });
+  }
   if (typeof channel !== 'string' || channel.length > 160 || !/^STAGE_[A-Z_]+(?:_[A-Za-z0-9@._:-]+)?$/.test(channel)) {
+    metrics.emitsRejected += 1;
     return res.status(400).json({ error: 'invalid channel' });
   }
-  io.to(channel).emit('update', { _channel: channel, ...(data || {}) });
-  res.json({ ok: true });
+  const packet = { _channel: channel, ...(data || {}) };
+  io.to(channel).emit('update', packet);
+  metrics.emitsAccepted += 1;
+  metrics.emittedPackets += io.sockets.adapter.rooms.get(channel)?.size || 0;
+  res.json({ ok: true, recipients: io.sockets.adapter.rooms.get(channel)?.size || 0, eventId: packet.event_id || packet.id || null });
 });
 
 app.get('/health', (_req, res) =>
   res.json({
     ok: true,
     service: 'stage-socket-server',
+    uptimeSeconds: Math.round(process.uptime()),
+    startedAt: startedAt.toISOString(),
     connections: io.engine?.clientsCount ?? 0,
   })
 );
+
+app.get('/metrics', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'stage-socket-server',
+    uptimeSeconds: Math.round(process.uptime()),
+    startedAt: startedAt.toISOString(),
+    rooms: Math.max(0, io.sockets.adapter.rooms.size - (io.engine?.clientsCount ?? 0)),
+    ...metrics,
+    currentConnections: io.engine?.clientsCount ?? metrics.currentConnections,
+  });
+});
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[socket] running on 0.0.0.0:${PORT}`);

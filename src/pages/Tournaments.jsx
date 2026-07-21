@@ -21,6 +21,7 @@ import {
   getTournamentMaxTeamOptions,
   normalizeTournamentMaxTeams,
 } from "@/lib/tournamentRules";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
@@ -36,6 +37,7 @@ const TYPE_COLOR = {
 };
 
 export default function Tournaments() {
+  const { t } = useTranslation();
   const [tournaments, setTournaments] = useState([]);
   const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function Tournaments() {
   async function createTournament() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
-      if (!hasStagePlus(myPlayer?.subscription)) { await swalAlert("STAGE Plus is required to create tournaments."); return; }
+      if (!hasStagePlus(myPlayer?.subscription)) { await swalAlert(t("competitionFlow.stagePlusRequired")); return; }
       const limit = COMMUNITY_TOURNAMENT_LIMIT;
       const active = tournaments.filter(t => t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)).length;
       if (active >= limit) { await swalAlert(`Limit of ${limit} active tournaments reached.`); return; }
@@ -211,14 +213,14 @@ export default function Tournaments() {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                TOURNAMENTS
+                {t("competitionFlow.tournamentsTitle")}
               </h1>
-              <p className="text-xs text-muted-foreground mt-1">Compete, win, and claim your trophy</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("competitionFlow.tournamentsSubtitle")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" className="border-border h-9 gap-2 rounded text-xs" onClick={() => setRulesOpen(true)}>
-              <BookOpen className="w-3.5 h-3.5" /> Rules
+              <BookOpen className="w-3.5 h-3.5" /> {t("competitionFlow.rules")}
             </Button>
             {canCreate ? (
               <>
@@ -228,12 +230,12 @@ export default function Tournaments() {
                   </span>
                 )}
                 <Button onClick={() => setDialogOpen(true)} className="bg-primary text-primary-foreground h-9 gap-2 rounded text-xs">
-                  <Plus className="w-3.5 h-3.5" /> Create Tournament
+                  <Plus className="w-3.5 h-3.5" /> {t("competitionFlow.createTournament")}
                 </Button>
               </>
             ) : (
               <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
-                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} — wait for slot` : "STAGE Plus required"}
+                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} - ${t("competitionFlow.waitForSlot")}` : t("competitionFlow.stagePlusRequired")}
               </div>
             )}
           </div>
@@ -247,20 +249,20 @@ export default function Tournaments() {
         {/* ── By STAGE ────────────────────────────────────────── */}
         {stageTournaments.length > 0 && (
           <section>
-            <SectionHeader label="By STAGE" badge="Official" badgeColor="text-warning border-warning/30 bg-warning/5" />
+            <SectionHeader label={t("competitionFlow.byStage")} badge={t("competitionFlow.official")} badgeColor="text-warning border-warning/30 bg-warning/5" />
             <TournamentGrid tournaments={stageTournaments} trophyItems={trophyItems} now={now} />
           </section>
         )}
 
         {/* ── Community ───────────────────────────────────────── */}
         <section>
-          <SectionHeader label="Community" />
+          <SectionHeader label={t("competitionFlow.community")} />
           <Tabs defaultValue="open" className="w-full">
             <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-6">
               {[
-                { value: "open", label: "Open", count: open.length },
-                { value: "live", label: "Live", count: live.length },
-                { value: "done", label: "Done", count: done.length },
+                { value: "open", label: t("competitionFlow.open"), count: open.length },
+                { value: "live", label: t("competitionFlow.live"), count: live.length },
+                { value: "done", label: t("competitionFlow.done"), count: done.length },
               ].map(tab => (
                 <TabsTrigger key={tab.value} value={tab.value}
                   className="rounded-none border-b-2 border-transparent px-5 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent">
@@ -278,7 +280,7 @@ export default function Tournaments() {
                 {data.length === 0 ? (
                   <div className="border border-border rounded bg-card p-12 text-center">
                     <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">No {key} tournaments</p>
+                    <p className="text-sm text-muted-foreground">{t("competitionFlow.noTabTournaments", { status: key })}</p>
                   </div>
                 ) : (
                   <TournamentGrid tournaments={data} trophyItems={trophyItems} now={now} />
@@ -296,7 +298,7 @@ export default function Tournaments() {
           {/* Header */}
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
             <DialogTitle className="font-heading text-lg uppercase tracking-tight flex items-center gap-2 m-0">
-              <Trophy className="w-4 h-4 text-primary" /> Create Tournament
+              <Trophy className="w-4 h-4 text-primary" /> {t("competitionFlow.createTournament")}
             </DialogTitle>
             <button type="button" onClick={() => { resetForm(); setDialogOpen(false); }}
               className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
@@ -307,9 +309,9 @@ export default function Tournaments() {
           {/* Step tabs */}
           <div className="flex border-b border-border shrink-0 px-6">
             {[
-              { n: 1, label: "Setup" },
-              { n: 2, label: "Rules & Entry" },
-              { n: 3, label: "Look & Feel" },
+              { n: 1, label: t("competitionFlow.setup") },
+              { n: 2, label: t("competitionFlow.rulesEntry") },
+              { n: 3, label: t("competitionFlow.lookFeel") },
             ].map(({ n, label }) => (
               <button key={n} type="button" onClick={() => setModalStep(n)}
                 className={cn(
@@ -595,7 +597,7 @@ export default function Tournaments() {
               onClick={() => setModalStep(s => Math.max(1, s - 1))}
               disabled={modalStep === 1}
               className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-1 transition-colors">
-              <ChevronLeft className="w-3.5 h-3.5" /> Back
+              <ChevronLeft className="w-3.5 h-3.5" /> {t("competitionFlow.back")}
             </button>
             <div className="flex items-center gap-1.5">
               {[1,2,3].map(n => (
@@ -607,13 +609,13 @@ export default function Tournaments() {
                 onClick={() => setModalStep(s => Math.min(3, s + 1))}
                 disabled={modalStep === 1 && !form.name}
                 className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-30 flex items-center gap-1 transition-colors">
-                Next <ChevronRight className="w-3.5 h-3.5" />
+                {t("competitionFlow.next")} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <Button onClick={createTournament} disabled={creating || !form.name || !form.start_date}
                 className="bg-primary text-primary-foreground gap-2 h-9 text-xs font-bold rounded">
                 <Trophy className="w-3.5 h-3.5" />
-                {creating ? "Creating…" : "Create Tournament"}
+                {creating ? t("competitionFlow.creating") : t("competitionFlow.createTournament")}
               </Button>
             )}
           </div>
@@ -624,7 +626,7 @@ export default function Tournaments() {
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <DialogContent className="bg-card border-border max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Tournament Rules</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> {t("competitionFlow.rules")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <Select value={rulesType} onValueChange={setRulesType}>
@@ -657,6 +659,7 @@ export default function Tournaments() {
 
 /* ─── Trophy Showcase Strip ─────────────────────────────────────── */
 function TrophyShowcase({ tournaments, trophyItems }) {
+  const { t } = useTranslation();
   const scrollRef = useRef(null);
   function scroll(dir) { scrollRef.current?.scrollBy({ left: dir * 200, behavior: "smooth" }); }
 
@@ -664,7 +667,7 @@ function TrophyShowcase({ tournaments, trophyItems }) {
     <div className="border border-border rounded bg-card/50 p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] uppercase tracking-widest font-bold text-warning flex items-center gap-1.5">
-          <Trophy className="w-3.5 h-3.5" /> Trophies At Stake
+          <Trophy className="w-3.5 h-3.5" /> {t("competitionFlow.trophiesAtStake")}
         </span>
         <div className="flex gap-1">
           <button onClick={() => scroll(-1)} className="w-6 h-6 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft className="w-3.5 h-3.5" /></button>
@@ -703,10 +706,11 @@ function SectionHeader({ label, badge, badgeColor }) {
 
 /* ─── Tournament Grid ───────────────────────────────────────────── */
 function TournamentGrid({ tournaments, trophyItems, now }) {
+  const { t } = useTranslation();
   if (!tournaments.length) return (
     <div className="border border-border rounded bg-card p-10 text-center">
       <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-      <p className="text-sm text-muted-foreground">No tournaments</p>
+      <p className="text-sm text-muted-foreground">{t("competitionFlow.noTournaments")}</p>
     </div>
   );
   return (
@@ -718,6 +722,7 @@ function TournamentGrid({ tournaments, trophyItems, now }) {
 
 /* ─── Tournament Card ───────────────────────────────────────────── */
 function TournamentCard({ tournament: t, trophyItems }) {
+  const { t: translate } = useTranslation();
   const registered = t.registered_clubs?.length || 0;
   const fillPct = Math.round((registered / Math.max(t.max_teams, 1)) * 100);
   const isFull = registered >= t.max_teams;
@@ -727,9 +732,9 @@ function TournamentCard({ tournament: t, trophyItems }) {
     : { background: t.banner_color || "#0d1830" };
 
   const statusBadge = {
-    registration: { label: "OPEN", cls: "bg-success text-black" },
-    in_progress:  { label: "LIVE", cls: "bg-primary text-primary-foreground" },
-    completed:    { label: "DONE", cls: "bg-muted text-muted-foreground" },
+    registration: { label: translate("competitionFlow.open"), cls: "bg-success text-black" },
+    in_progress:  { label: translate("competitionFlow.live"), cls: "bg-primary text-primary-foreground" },
+    completed:    { label: translate("competitionFlow.done"), cls: "bg-muted text-muted-foreground" },
   }[t.status] || { label: t.status, cls: "bg-muted text-muted-foreground" };
 
   const typeColor = TYPE_COLOR[t.type] || "text-primary border-primary/30";
@@ -754,7 +759,7 @@ function TournamentCard({ tournament: t, trophyItems }) {
 
           {/* Status badge */}
           {isFull ? (
-            <div className="absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm bg-destructive/80 text-white">FULL</div>
+            <div className="absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm bg-destructive/80 text-white">{translate("competitionFlow.full")}</div>
           ) : (
             <div className={cn("absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm", statusBadge.cls)}>{statusBadge.label}</div>
           )}
@@ -768,7 +773,7 @@ function TournamentCard({ tournament: t, trophyItems }) {
 
           {/* Participant type */}
           <div className="absolute bottom-2 left-2 text-[9px] text-white/70 font-medium">
-            {t.participant_type === "player" ? "👤 Players" : "🏟️ Clubs"}
+            {t.participant_type === "player" ? `👤 ${translate("competitionFlow.players")}` : `🏟️ ${translate("competitionFlow.clubs")}`}
           </div>
         </div>
 
@@ -779,7 +784,7 @@ function TournamentCard({ tournament: t, trophyItems }) {
               {t.name}
             </h3>
             {t.creator_gamertag && (
-              <p className="text-[10px] text-muted-foreground">By {t.creator_gamertag}</p>
+              <p className="text-[10px] text-muted-foreground">{translate("competitionFlow.by", { name: t.creator_gamertag })}</p>
             )}
           </div>
 
@@ -799,18 +804,18 @@ function TournamentCard({ tournament: t, trophyItems }) {
             {hasFee ? (
               <>
                 <div className="flex-1 bg-secondary/60 rounded px-2 py-1.5 text-center">
-                  <div className="text-[8px] uppercase tracking-widest text-muted-foreground">Entry</div>
+                  <div className="text-[8px] uppercase tracking-widest text-muted-foreground">{translate("competitionFlow.entry")}</div>
                   <div className="text-xs font-black text-foreground">{(t.entry_fee_stc || 0).toLocaleString()} <span className="font-normal text-muted-foreground text-[9px]">STC</span></div>
                 </div>
                 <div className="flex-1 bg-warning/5 border border-warning/20 rounded px-2 py-1.5 text-center">
-                  <div className="text-[8px] uppercase tracking-widest text-warning flex items-center justify-center gap-0.5"><Crown className="w-2.5 h-2.5" /> Prize</div>
+                  <div className="text-[8px] uppercase tracking-widest text-warning flex items-center justify-center gap-0.5"><Crown className="w-2.5 h-2.5" /> {translate("competitionFlow.prize")}</div>
                   <div className="text-sm font-black text-warning">{pool.toLocaleString()} <span className="font-normal text-warning/60 text-[9px]">STC</span></div>
                 </div>
               </>
             ) : (
               <div className="flex-1 bg-success/5 border border-success/20 rounded px-2 py-1.5 text-center">
-                <div className="text-[8px] uppercase tracking-widest text-success">Entry</div>
-                <div className="text-sm font-black text-success">FREE</div>
+                <div className="text-[8px] uppercase tracking-widest text-success">{translate("competitionFlow.entry")}</div>
+                <div className="text-sm font-black text-success">{translate("competitionFlow.free")}</div>
               </div>
             )}
           </div>

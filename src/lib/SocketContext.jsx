@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const viteEnv = /** @type {any} */ (import.meta).env;
-const rawSocketUrl = 'https://stage-7osn.onrender.com';
+const rawSocketUrl = viteEnv.VITE_SOCKET_URL || 'https://stage-7osn.onrender.com';
 let SOCKET_URL = rawSocketUrl;
 
 const ACCESS_KEY = 'stage_access_token';

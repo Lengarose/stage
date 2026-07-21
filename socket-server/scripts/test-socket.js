@@ -17,7 +17,11 @@
 const jwt = require('jsonwebtoken');
 const { io } = require('socket.io-client');
 
-const baseUrl = ('https://stage-7osn.onrender.com'
+const baseUrl = (
+  process.argv[2] ||
+  process.env.SOCKET_SERVER_URL ||
+  process.env.SOCKET_URL ||
+  'http://localhost:3001'
 ).replace(/\/$/, '');
 
 const emitSecret =
