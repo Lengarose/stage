@@ -14,6 +14,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
 
@@ -28,13 +29,14 @@ function formatNumber(value) {
   return Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(Number(value) || 0);
 }
 
-function scopeLabel(scope, selected) {
-  if (scope === "regional") return selected.region || "All Regions";
-  if (scope === "country") return selected.country || "All Countries";
-  return "Global";
+function scopeLabel(scope, selected, t) {
+  if (scope === "regional") return selected.region || t("competitionFlow.allRegions");
+  if (scope === "country") return selected.country || t("competitionFlow.allCountries");
+  return t("competitionFlow.global");
 }
 
 function ClubRow({ club, rank }) {
+  const { t } = useTranslation();
   const winRate = club.matches_ranked ? Math.round((club.wins / club.matches_ranked) * 100) : 0;
   return (
     <Link to={`/clubs/${club.id}`} className="block group">
@@ -65,13 +67,13 @@ function ClubRow({ club, rank }) {
             <p className="mt-1 text-xs text-white/45">{club.region || "Global"}{club.country_code ? ` · ${club.country_code}` : ""}</p>
           </div>
           <div className="hidden items-center gap-6 sm:flex">
-            <Metric label="Record" value={`${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`} />
+            <Metric label={t("competitionFlow.record")} value={`${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`} />
             <Metric label="WR" value={`${winRate}%`} tone={winRate >= 60 ? "good" : winRate >= 40 ? "warn" : "muted"} />
-            <Metric label="Titles" value={club.competition_wins || 0} />
+            <Metric label={t("competitionFlow.titles")} value={club.competition_wins || 0} />
           </div>
           <div className="min-w-[64px] text-right">
             <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(club.ranking_points)}</div>
-            <div className="text-[10px] uppercase text-white/35">PTS</div>
+            <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
           </div>
         </div>
       </div>
@@ -80,6 +82,7 @@ function ClubRow({ club, rank }) {
 }
 
 function PlayerRow({ player, rank }) {
+  const { t } = useTranslation();
   return (
     <Link to={`/players/${player.id}`} className="block group">
       <div className="grid gap-3 rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 transition-colors group-hover:border-cyan-300/35 md:grid-cols-[auto_auto_1fr_auto] md:items-center">
@@ -106,7 +109,7 @@ function PlayerRow({ player, rank }) {
         </div>
         <div className="text-left md:text-right">
           <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(player.ranking_points)}</div>
-          <div className="text-[10px] uppercase text-white/35">PTS</div>
+          <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
         </div>
       </div>
     </Link>
@@ -135,6 +138,7 @@ function EmptyState({ label }) {
 }
 
 export default function Rankings() {
+  const { t } = useTranslation();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("clubs");
@@ -173,35 +177,35 @@ export default function Rankings() {
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-cyan-300">STAGE</p>
-          <h1 className="font-heading text-5xl font-black uppercase leading-none text-white sm:text-6xl">Rankings</h1>
+          <h1 className="font-heading text-5xl font-black uppercase leading-none text-white sm:text-6xl">{t("competitionFlow.rankingsTitle")}</h1>
           <p className="mt-4 max-w-3xl text-sm text-white/50">
-            Official rankings based on STAGE competitions, leagues, and tournaments. Arrange Game results are excluded.
+            {t("competitionFlow.rankingsSubtitle")}
           </p>
         </header>
 
         <div className="mb-6 grid gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4 md:grid-cols-4">
-          <Stat icon={Trophy} label="Official Fixtures" value={summary?.meta?.official_fixtures_count || 0} />
-          <Stat icon={ShieldCheck} label="Ranked Clubs" value={clubs.length} />
-          <Stat icon={Users} label="Ranked Players" value={players.length} />
-          <Stat icon={Activity} label="Scope" value={scopeLabel(scope, { region, country })} />
+          <Stat icon={Trophy} label={t("competitionFlow.officialFixtures")} value={summary?.meta?.official_fixtures_count || 0} />
+          <Stat icon={ShieldCheck} label={t("competitionFlow.rankedClubs")} value={clubs.length} />
+          <Stat icon={Users} label={t("competitionFlow.rankedPlayers")} value={players.length} />
+          <Stat icon={Activity} label={t("competitionFlow.scope")} value={scopeLabel(scope, { region, country }, t)} />
         </div>
 
         <div className="mb-6 flex flex-wrap items-end gap-3 border-b border-white/10 pb-4">
           <Segment value={view} onChange={setView} items={[
-            { value: "clubs", label: "Clubs", icon: Shield },
-            { value: "players", label: "Players", icon: Users },
-            { value: "positions", label: "Best By Position", icon: Crosshair },
+            { value: "clubs", label: t("competitionFlow.clubs"), icon: Shield },
+            { value: "players", label: t("competitionFlow.players"), icon: Users },
+            { value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair },
           ]} />
           <Segment value={scope} onChange={setScope} items={[
-            { value: "global", label: "Global", icon: Globe },
-            { value: "regional", label: "Regional", icon: MapPin },
-            { value: "country", label: "Country", icon: Medal },
+            { value: "global", label: t("competitionFlow.global"), icon: Globe },
+            { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
+            { value: "country", label: t("competitionFlow.country"), icon: Medal },
           ]} />
           {scope === "regional" ? (
-            <Select value={region} onChange={setRegion} options={regions} placeholder="All Regions" />
+            <Select value={region} onChange={setRegion} options={regions} placeholder={t("competitionFlow.allRegions")} />
           ) : null}
           {scope === "country" ? (
-            <Select value={country} onChange={setCountry} options={countries} placeholder="All Countries" />
+            <Select value={country} onChange={setCountry} options={countries} placeholder={t("competitionFlow.allCountries")} />
           ) : null}
           {view === "positions" ? (
             <Select value={position} onChange={setPosition} options={POSITIONS} placeholder="Position" />
@@ -217,13 +221,13 @@ export default function Rankings() {
             <div className="space-y-3">
               {filteredClubs.map((club, index) => <ClubRow key={club.id} club={club} rank={index + 1} />)}
             </div>
-          ) : <EmptyState label="No clubs have official ranking data yet." />
+          ) : <EmptyState label={t("competitionFlow.noRankedClubs")} />
         ) : (
           filteredPlayers.length ? (
             <div className="space-y-3">
               {filteredPlayers.map((player, index) => <PlayerRow key={player.id} player={player} rank={index + 1} />)}
             </div>
-          ) : <EmptyState label="No players have official ranking data yet." />
+          ) : <EmptyState label={t("competitionFlow.noRankedPlayers")} />
         )}
       </div>
     </div>

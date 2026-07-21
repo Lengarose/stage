@@ -4,6 +4,7 @@ import { stageClient } from "@/api/stageClient";
 import { Trophy, Globe, ChevronRight, Star, TrendingUp, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COMPETITIONS, getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const TIER_LABEL = { 1: "TIER I", 2: "TIER II", 3: "TIER III" };
 
@@ -19,16 +20,17 @@ function FormBadge({ result }) {
 }
 
 function MiniStandingsTable({ standings }) {
+  const { t } = useTranslation();
   const rows = sortStandings(standings).slice(0, 5);
   if (!rows.length) return (
     <div className="py-8 text-center text-xs text-muted-foreground uppercase tracking-widest">
-      Season not started
+      {t("competitionFlow.seasonNotStarted")}
     </div>
   );
   return (
     <div className="w-full">
       <div className="grid grid-cols-[1.5rem_1fr_repeat(4,2.5rem)] gap-x-1 px-3 mb-1">
-        {["#", "Club", "P", "GD", "Pts", ""].map((h, i) => (
+        {["#", t("competitionFlow.club"), t("competitionFlow.playedShort"), t("competitionFlow.goalDifferenceShort"), t("competitionFlow.pointsShort"), ""].map((h, i) => (
           <span key={i} className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold text-center first:text-left">{h}</span>
         ))}
       </div>
@@ -59,6 +61,7 @@ function MiniStandingsTable({ standings }) {
 }
 
 function CompetitionCard({ meta, season, standings }) {
+  const { t } = useTranslation();
   const activeSeason = season;
   return (
     <Link to={`/competitions/${meta.slug}`} className="block group">
@@ -82,8 +85,8 @@ function CompetitionCard({ meta, season, standings }) {
                     activeSeason.status === "playoffs" || activeSeason.status === "knockout" ? "text-warning border-warning/30 bg-warning/5" :
                     "text-muted-foreground border-border bg-muted"
                   )}>
-                    {activeSeason.status === "league_phase" ? "Live" :
-                     activeSeason.status === "registration" ? "Open" :
+                    {activeSeason.status === "league_phase" ? t("competitionFlow.live") :
+                     activeSeason.status === "registration" ? t("competitionFlow.open") :
                      activeSeason.status === "playoffs" ? "Playoffs" :
                      activeSeason.status === "knockout" ? "Knockout" :
                      activeSeason.status}
@@ -104,12 +107,12 @@ function CompetitionCard({ meta, season, standings }) {
           {activeSeason && (
             <div className="flex items-center gap-3 mt-3">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                {activeSeason.season_label || `Season ${activeSeason.season_number}`}
+                {activeSeason.season_label || t("competitionFlow.seasonNumber", { number: activeSeason.season_number })}
               </span>
               <span className="text-[10px] text-muted-foreground">·</span>
-              <span className="text-[10px] text-muted-foreground">{activeSeason.num_clubs || 0} clubs</span>
+              <span className="text-[10px] text-muted-foreground">{t("competitionFlow.clubsCount", { count: activeSeason.num_clubs || 0 })}</span>
               <span className="text-[10px] text-muted-foreground">·</span>
-              <span className="text-[10px] text-muted-foreground">MD {activeSeason.current_matchday || 1}/{activeSeason.league_matchday_total || "—"}</span>
+              <span className="text-[10px] text-muted-foreground">{t("competitionFlow.matchdayShort", { current: activeSeason.current_matchday || 1, total: activeSeason.league_matchday_total || "—" })}</span>
             </div>
           )}
         </div>
@@ -120,9 +123,9 @@ function CompetitionCard({ meta, season, standings }) {
         </div>
 
         <div className={cn("mx-5 mb-4 pt-3 border-t border-border/40 flex items-center justify-between")}>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">View full standings →</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{t("competitionFlow.viewFullStandings")} →</span>
           {activeSeason?.prize_pool_stc > 0 && (
-            <span className="text-[10px] font-bold text-warning">{(activeSeason.prize_pool_stc / 1_000_000).toFixed(1)}M STC prize</span>
+            <span className="text-[10px] font-bold text-warning">{t("competitionFlow.stcPrize", { amount: (activeSeason.prize_pool_stc / 1_000_000).toFixed(1) })}</span>
           )}
         </div>
       </div>
@@ -131,6 +134,7 @@ function CompetitionCard({ meta, season, standings }) {
 }
 
 export default function Competitions() {
+  const { t } = useTranslation();
   const [competitions, setCompetitions] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [standingsMap, setStandingsMap] = useState({});
@@ -203,10 +207,10 @@ export default function Competitions() {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                COMPETITIONS
+                {t("competitionFlow.competitionsTitle")}
               </h1>
               <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">
-                The STAGE competition pyramid
+                {t("competitionFlow.competitionsSubtitle")}
               </p>
             </div>
           </div>
@@ -216,8 +220,8 @@ export default function Competitions() {
         {competitions.length === 0 ? (
           <div className="border border-dashed border-border rounded p-16 text-center">
             <Trophy className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground uppercase tracking-widest mb-2">No competitions found</p>
-            <p className="text-xs text-muted-foreground">An admin needs to seed the 3 permanent competitions first.</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-widest mb-2">{t("competitionFlow.noCompetitions")}</p>
+            <p className="text-xs text-muted-foreground">{t("competitionFlow.seedCompetitions")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -236,13 +240,13 @@ export default function Competitions() {
         <section>
           <div className="flex items-center gap-3 mb-4">
             <TrendingUp className="w-4 h-4 text-primary" />
-            <h2 className="text-xs font-black uppercase tracking-widest text-foreground">How Qualification Works</h2>
+            <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("competitionFlow.howQualificationWorks")}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { icon: Globe, label: "Regional Leagues", desc: "Compete in your country's league. Top finishers earn a qualification spot.", color: "text-violet-400" },
-              { icon: Trophy, label: "STAGE Challenger", desc: "Challengers prove themselves. Top clubs promote to Elite League.", color: "text-violet-400" },
-              { icon: Star, label: "Supreme League", desc: "The best Elite League clubs earn the right to compete at the highest level.", color: "text-yellow-400" },
+              { icon: Globe, label: t("competitionFlow.regionalLeagues"), desc: t("competitionFlow.regionalLeaguesDesc"), color: "text-violet-400" },
+              { icon: Trophy, label: t("competitionFlow.stageChallenger"), desc: t("competitionFlow.stageChallengerDesc"), color: "text-violet-400" },
+              { icon: Star, label: t("competitionFlow.supremeLeague"), desc: t("competitionFlow.supremeLeagueDesc"), color: "text-yellow-400" },
             ].map(step => (
               <div key={step.label} className="bg-card border border-border rounded p-4 flex gap-3">
                 <step.icon className={cn("w-4 h-4 mt-0.5 shrink-0", step.color)} />
@@ -260,7 +264,7 @@ export default function Competitions() {
           <section>
             <div className="flex items-center gap-3 mb-4">
               <Globe className="w-4 h-4 text-primary" />
-              <h2 className="text-xs font-black uppercase tracking-widest text-foreground">Regional Leagues</h2>
+              <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("competitionFlow.regionalLeagues")}</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[...activeLeagues, ...openLeagues].map(league => {
@@ -272,20 +276,20 @@ export default function Competitions() {
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <p className="text-sm font-bold text-foreground leading-tight">{league.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{league.region} · Season {league.season_number}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{league.region} · {t("competitionFlow.seasonNumber", { number: league.season_number })}</p>
                       </div>
                       <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0",
                         league.status === "in_progress" ? "text-success border-success/30 bg-success/5" :
                         "text-primary border-primary/30 bg-primary/5"
                       )}>
-                        {league.status === "in_progress" ? "Live" : "Open"}
+                        {league.status === "in_progress" ? t("competitionFlow.live") : t("competitionFlow.open")}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{league.num_clubs || 0}/{league.max_clubs} clubs</span>
+                      <span>{t("competitionFlow.clubsCount", { count: `${league.num_clubs || 0}/${league.max_clubs}` })}</span>
                       <span>·</span>
                       <span className={targetMeta.textColor}>→ {league.target_competition_name || "STAGE"}</span>
-                      {league.promoted_slots > 0 && <span className="text-muted-foreground">({league.promoted_slots} spots)</span>}
+                      {league.promoted_slots > 0 && <span className="text-muted-foreground">({t("competitionFlow.spots", { count: league.promoted_slots })})</span>}
                     </div>
                   </Link>
                 );

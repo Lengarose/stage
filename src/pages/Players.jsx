@@ -3,12 +3,14 @@ import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { Shield, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PAGE_SIZE = 15;
 
 export default function Players({ tournamentId } = {}) {
+  const { t } = useTranslation();
   const [players, setPlayers]   = useState([]);
   const [clubs,   setClubs]     = useState({});
   const [loading, setLoading]   = useState(true);
@@ -76,10 +78,10 @@ export default function Players({ tournamentId } = {}) {
           className="font-heading font-black uppercase leading-none text-foreground"
           style={{ fontSize: "clamp(2rem, 5vw, 3.25rem)", letterSpacing: "-0.02em" }}
         >
-          PLAYERS
+          {t("competitionFlow.playersTitle")}
         </h1>
         <p className="text-muted-foreground text-sm mt-3">
-          {loading ? "Loading…" : `${filtered.length} player${filtered.length !== 1 ? "s" : ""} registered`}
+          {loading ? t("competitionFlow.loading") : t("competitionFlow.registeredPlayersCount", { count: filtered.length })}
         </p>
       </div>
 
@@ -91,15 +93,15 @@ export default function Players({ tournamentId } = {}) {
             type="text"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search players…"
+            placeholder={t("competitionFlow.searchPlayers")}
             className={cn(inputCls, "pl-10 w-full")}
           />
         </div>
         <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls}>
-          {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+          {PLATFORMS.map(p => <option key={p} value={p}>{p === "All Platforms" ? t("competitionFlow.allPlatforms") : p}</option>)}
         </select>
         <select value={position} onChange={e => { setPosition(e.target.value); setPage(1); }} className={selectCls}>
-          {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+          {POSITIONS.map(p => <option key={p} value={p}>{p === "All Positions" ? t("competitionFlow.allPositions") : p}</option>)}
         </select>
       </div>
 
@@ -109,14 +111,14 @@ export default function Players({ tournamentId } = {}) {
           <div className="w-9 h-9 border-4 border-[hsl(189,100%,52%)]/20 border-t-[hsl(189,100%,52%)] rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-24 text-white/30 text-sm">No players found.</div>
+        <div className="text-center py-24 text-white/30 text-sm">{t("competitionFlow.noPlayersFound")}</div>
       ) : (
         <>
           {/* Column labels */}
           <div className="hidden sm:grid grid-cols-[3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
-            <span className="text-white/25 text-[9px] uppercase tracking-widest">Avatar</span>
-            <span className="text-white/25 text-[9px] uppercase tracking-widest">Player</span>
-            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">Profile</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">{t("competitionFlow.avatar")}</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">{t("competitionFlow.player")}</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">{t("competitionFlow.profile")}</span>
           </div>
 
           <div className="space-y-2">
@@ -197,7 +199,7 @@ export default function Players({ tournamentId } = {}) {
                       </div>
 
                       <div className="hidden sm:block shrink-0 text-xs font-bold uppercase tracking-wider text-white/35 group-hover:text-[hsl(189,100%,52%)]/80 transition-colors">
-                        View Profile
+                        {t("competitionFlow.viewProfile")}
                       </div>
                     </div>
                   </div>

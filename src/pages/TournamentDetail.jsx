@@ -897,6 +897,37 @@ function resetUI() {
     && groupMatches.length > 0
     && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
   const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
+  const knockoutHasResults = knockoutMatches.some(m => m.status === "completed" || m.status === "forfeit");
+  const qualifiedGroupClubIds = new Set(
+    groupStandingsData.flatMap(group => (group.standings || []).slice(0, 2).map(club => String(club.id)))
+  );
+  const expectedGroupKnockoutMatchCount = groupStandingsData
+    .flatMap(group => (group.standings || []).slice(0, 2))
+    .length;
+  const groupKnockoutNeedsRepair = isGroupStageTournament
+    && groupStageComplete
+    && knockoutStarted
+    && !knockoutHasResults
+    && (
+      knockoutMatches.length !== expectedGroupKnockoutMatchCount
+      || knockoutMatches.some((match) => {
+        const homeId = String(match.home_club_id || "");
+        const awayId = String(match.away_club_id || "");
+        return !homeId || !awayId || homeId === awayId || !qualifiedGroupClubIds.has(homeId) || !qualifiedGroupClubIds.has(awayId);
+      })
+    );
+  const canStartGroupNextRound = canManageTournament
+    && tournament.status === "in_progress"
+    && groupStageComplete
+    && (!knockoutStarted || groupKnockoutNeedsRepair);
+  const currentRoundMatches = matches.filter(m => Number(m.round) === Number(tournament.current_round || 1));
+  const currentRoundComplete = currentRoundMatches.length > 0
+    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
+  const canAdvanceActiveRound = canManageTournament
+    && tournament.status === "in_progress"
+    && currentRoundComplete
+    && knockoutStarted
+    && !groupKnockoutNeedsRepair;
   const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
   const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
   const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
@@ -907,6 +938,10 @@ function resetUI() {
     && tournament.status === "in_progress"
     && finalComplete
     && thirdPlaceComplete;
+  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
+  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
+    ? "Create Final & 3rd Place"
+    : "Advance Tournament";
   const allMatchesPlayed = matches.length > 0
     && matches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
