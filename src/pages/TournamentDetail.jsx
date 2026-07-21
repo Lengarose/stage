@@ -897,6 +897,29 @@ function resetUI() {
     && groupMatches.length > 0
     && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
   const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
+  const knockoutHasResults = knockoutMatches.some(m => m.status === "completed" || m.status === "forfeit");
+  const qualifiedGroupClubIds = new Set(
+    groupStandingsData.flatMap(group => (group.standings || []).slice(0, 2).map(club => String(club.id)))
+  );
+  const expectedGroupKnockoutMatchCount = groupStandingsData
+    .flatMap(group => (group.standings || []).slice(0, 2))
+    .length;
+  const groupKnockoutNeedsRepair = isGroupStageTournament
+    && groupStageComplete
+    && knockoutStarted
+    && !knockoutHasResults
+    && (
+      knockoutMatches.length !== expectedGroupKnockoutMatchCount
+      || knockoutMatches.some((match) => {
+        const homeId = String(match.home_club_id || "");
+        const awayId = String(match.away_club_id || "");
+        return !homeId || !awayId || homeId === awayId || !qualifiedGroupClubIds.has(homeId) || !qualifiedGroupClubIds.has(awayId);
+      })
+    );
+  const canStartGroupNextRound = canManageTournament
+    && tournament.status === "in_progress"
+    && groupStageComplete
+    && (!knockoutStarted || groupKnockoutNeedsRepair);
   const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
   const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
   const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
@@ -956,6 +979,20 @@ function resetUI() {
     const incomplete = rounds.find(r => matches.filter(m => m.round === r).some(m => m.status !== "completed" && m.status !== "forfeit"));
     return incomplete ?? rounds[rounds.length - 1] ?? null;
   })();
+  const currentRoundMatches = activeRound === null
+    ? []
+    : matches.filter(m => Number(m.round) === Number(activeRound));
+  const currentRoundComplete = currentRoundMatches.length > 0
+    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
+  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
+  const canAdvanceActiveRound = canManageTournament
+    && tournament.status === "in_progress"
+    && currentRoundComplete
+    && knockoutStarted
+    && !groupKnockoutNeedsRepair;
+  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
+    ? "Create Final & 3rd Place"
+    : "Advance Tournament";
   const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
     || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
   const bracketMatches = tournament.type === "group_stage"
