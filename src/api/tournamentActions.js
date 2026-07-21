@@ -182,6 +182,15 @@ export async function advanceTournamentRound(tournamentId) {
   return { matches, tournament: tournaments[0] || null };
 }
 
+export async function createTournamentFinalAndThirdPlace(tournamentId) {
+  const res = await stageClient.functions.invoke("createFinalAndThirdPlace", { tournamentId });
+  const [matches, tournament] = await Promise.all([
+    fetchTournamentMatches(tournamentId),
+    fetchTournamentPublic(tournamentId),
+  ]);
+  return { ...res?.data, matches, tournament };
+}
+
 export async function officializeTournament(tournamentId) {
   const res = await stageClient.functions.invoke("officializeTournament", { tournamentId });
   const [matches, tournaments] = await Promise.all([

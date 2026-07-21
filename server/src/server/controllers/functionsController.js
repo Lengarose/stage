@@ -3278,6 +3278,57 @@ const HANDLERS = {
     return { data: { success: true, ...result } };
   },
 
+  async createFinalAndThirdPlace({ _auth_user_id, tournamentId, tournament_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournamentId required');
+
+    const result = await withTransaction(async (query) => {
+      const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
+      if (!tournaments.length) throw new Error('Tournament not found');
+      const tournament = tournaments[0];
+      await assertTournamentOrganizer(_auth_user_id, tournament);
+      if (String(tournament.status || '') !== 'in_progress') {
+        throw new Error('Tournament must be in progress before creating the final');
+      }
+
+      const semiFinals = await query(
+        `SELECT *
+           FROM matches
+          WHERE tournament_id = ?
+            AND type = 'semi_final'
+          ORDER BY round ASC, group_number ASC, created_date ASC
+          FOR UPDATE`,
+        [id]
+      );
+      if (!semiFinals.length) throw new Error('No semi-final matches found');
+      const incomplete = semiFinals.find((match) => !['completed', 'forfeit'].includes(String(match.status || '')));
+      if (incomplete) throw new Error('All semi-final matches must be completed first');
+
+      const byTie = new Map();
+      for (const match of semiFinals) {
+        const key = String(match.group_number ?? match.id);
+        if (!byTie.has(key)) byTie.set(key, []);
+        byTie.get(key).push(match);
+      }
+      const tieGroups = Array.from(byTie.values()).filter((legs) => legs.length >= 1);
+      if (tieGroups.length !== 2) {
+        throw new Error('Exactly two semi-final ties are required to create the final and third-place match');
+      }
+      const tieResults = tieGroups.map(getTwoLegTieResult).filter(Boolean);
+      if (tieResults.length !== 2) throw new Error('Could not resolve both semi-final winners');
+
+      const nextRound = Math.max(...semiFinals.map((match) => Number(match.round || 0)).filter(Boolean)) + 1;
+      const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, nextRound);
+      await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
+      return { current_round: nextRound, created, skipped_existing: created === 0 };
+    });
+
+    const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
+    for (const match of matches) broadcastMatch(match);
+    return { data: { success: true, ...result } };
+  },
+
   async officializeTournament({ _auth_user_id, tournamentId, tournament_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const id = tournamentId || tournament_id;

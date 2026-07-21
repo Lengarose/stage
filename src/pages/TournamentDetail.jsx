@@ -6,6 +6,7 @@ import {
   advanceTournamentRound,
   cancelTournamentById,
   clearTournamentDraw,
+  createTournamentFinalAndThirdPlace,
   deleteTournamentById,
   fetchTournamentPublic,
   fetchTournamentMatches,
@@ -85,6 +86,7 @@ export default function TournamentDetail() {
   const [winnerConferenceDone, setWinnerConferenceDone] = useState(false);
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
+  const [advancingRound, setAdvancingRound] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -968,13 +970,25 @@ function resetUI() {
   }
 
   async function advanceRound() {
+    if (advancingRound) return;
+    setAdvancingRound(true);
     try {
-      const result = await advanceTournamentRound(id);
+      const shouldCreateFinalAndThirdPlace = advanceButtonLabel === "Create Final & 3rd Place";
+      const result = shouldCreateFinalAndThirdPlace
+        ? await createTournamentFinalAndThirdPlace(id)
+        : await advanceTournamentRound(id);
       setMatches(result.matches || []);
       if (result.tournament) setTournament(result.tournament);
       setVisibleRound(result.tournament?.current_round ?? null);
+      if (shouldCreateFinalAndThirdPlace) {
+        await swalAlert(result.skipped_existing
+          ? "Final and 3rd place match are already created."
+          : "Final and 3rd place match are ready.");
+      }
     } catch (err) {
       await swalAlert(err?.data?.error || err?.message || "Could not start the next round.");
+    } finally {
+      setAdvancingRound(false);
     }
   }
 
@@ -1314,16 +1328,16 @@ function resetUI() {
             })()}
 
             {canStartGroupNextRound && (
-              <Button type="button" onClick={advanceRound} size="sm"
+              <Button type="button" onClick={advanceRound} disabled={advancingRound} size="sm"
                 className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
-                <Play className="w-3 h-3 mr-1.5" /> {groupKnockoutNeedsRepair ? "Repair Knockout Round" : "Start Next Round"}
+                <Play className="w-3 h-3 mr-1.5" /> {advancingRound ? "Working..." : groupKnockoutNeedsRepair ? "Repair Knockout Round" : "Start Next Round"}
               </Button>
             )}
 
             {canAdvanceActiveRound && !canOfficializeTournament && (
-              <Button type="button" onClick={advanceRound} size="sm"
+              <Button type="button" onClick={advanceRound} disabled={advancingRound} size="sm"
                 className="bg-success/10 text-success border border-success/30 text-xs animate-pulse">
-                <Play className="w-3 h-3 mr-1.5" /> {advanceButtonLabel}
+                <Play className="w-3 h-3 mr-1.5" /> {advancingRound ? "Working..." : advanceButtonLabel}
               </Button>
             )}
 
