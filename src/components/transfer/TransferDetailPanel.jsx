@@ -4,6 +4,7 @@ import { FileText, ExternalLink, Clock, Users, Shield, Star, TrendingUp } from "
 import { cn } from "@/lib/utils";
 import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const CONTRACT_TYPE_LABELS = {
   trial:     { label: "Trial", desc: "Short-term evaluation" },
@@ -14,12 +15,13 @@ const CONTRACT_TYPE_LABELS = {
 };
 
 export default function TransferDetailPanel({ entry, canManage, hasConflict, onOffer, windowOpen }) {
+  const { t } = useTranslation();
   if (!entry) {
     return (
       <div className="bg-card border border-border rounded-2xl p-10 text-center flex flex-col items-center justify-center h-full min-h-[320px]">
         <Users className="w-10 h-10 text-muted-foreground/30 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">Select a player</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Click any player to view their details</p>
+        <p className="text-sm font-medium text-muted-foreground">{t("commonPages.selectPlayer")}</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">{t("commonPages.selectPlayerDetails")}</p>
       </div>
     );
   }
@@ -64,9 +66,9 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         {/* Stats grid */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
-            { label: "Position", value: [player.position, player.secondary_position].filter(Boolean).join(" / ") || "—" },
-            { label: "OVR", value: player.overall_rating || "—" },
-            { label: "Platform", value: player.platform || "—" },
+            { label: t("commonPages.position"), value: [player.position, player.secondary_position].filter(Boolean).join(" / ") || "—" },
+            { label: t("commonPages.ovr"), value: player.overall_rating || "—" },
+            { label: t("commonPages.platform"), value: player.platform || "—" },
           ].map(s => (
             <div key={s.label} className="bg-secondary rounded-xl p-3 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">{s.label}</p>
@@ -79,7 +81,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-4 py-2.5 mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Market Value</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("commonPages.marketValue")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className={cn("text-xs font-semibold", valueTier.color)}>{valueTier.label}</span>
@@ -92,12 +94,12 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
           <div className="bg-secondary rounded-xl p-3 mb-4 flex items-center gap-3">
             <Shield className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Current Club</p>
-              <p className="text-sm font-semibold text-foreground truncate">Under Contract</p>
+              <p className="text-xs text-muted-foreground">{t("commonPages.currentClub")}</p>
+              <p className="text-sm font-semibold text-foreground truncate">{t("commonPages.underContract")}</p>
             </div>
             {contract && (
               <div className="ml-auto text-right">
-                <p className="text-[10px] text-muted-foreground">Games left</p>
+                <p className="text-[10px] text-muted-foreground">{t("commonPages.gamesLeft")}</p>
                 <p className="text-sm font-bold text-warning">
                   {Math.max(0, (contract.max_games || 0) - (contract.games_played || 0))}
                 </p>
@@ -108,8 +110,8 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
           <div className="bg-success/10 border border-success/20 rounded-xl p-3 mb-4 flex items-center gap-3">
             <Users className="w-4 h-4 text-success shrink-0" />
             <div>
-              <p className="text-xs text-muted-foreground">Status</p>
-              <p className="text-sm font-semibold text-success">Free Agent — Available Now</p>
+              <p className="text-xs text-muted-foreground">{t("commonPages.status")}</p>
+              <p className="text-sm font-semibold text-success">{t("commonPages.freeAgentAvailable")}</p>
             </div>
           </div>
         )}
@@ -117,7 +119,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         {/* Bio */}
         {player.bio && (
           <div className="mb-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5">Bio</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5">{t("commonPages.bio")}</p>
             <p className="text-sm text-foreground/80 leading-relaxed">{player.bio}</p>
           </div>
         )}
@@ -125,10 +127,10 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         {/* Country + win stats */}
         <div className="grid grid-cols-2 gap-2 mb-5">
           {[
-            { label: "Country", value: player.country || "—" },
-            { label: "Goals", value: player.goals ?? 0 },
-            { label: "Assists", value: player.assists ?? 0 },
-            { label: "Matches", value: player.matches_played ?? 0 },
+            { label: t("commonPages.country"), value: player.country || "—" },
+            { label: t("commonPages.goals"), value: player.goals ?? 0 },
+            { label: t("commonPages.assists"), value: player.assists ?? 0 },
+            { label: t("commonPages.matches"), value: player.matches_played ?? 0 },
           ].map(s => (
             <div key={s.label} className="flex items-center justify-between px-3 py-2 bg-secondary/60 rounded-lg">
               <span className="text-xs text-muted-foreground">{s.label}</span>
@@ -141,7 +143,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         {windowOpen === false && (
           <div className="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 mb-4 text-xs text-blue-400">
             <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>Transfer window is closed. Offers sent now will execute when the window opens.</span>
+            <span>{t("commonPages.transferWindowClosed")}</span>
           </div>
         )}
 
@@ -153,18 +155,18 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               <FileText className="w-4 h-4" />
-              Send Contract Offer
+              {t("commonPages.sendContractOffer")}
             </Button>
           )}
           {conflict && (
             <div className="w-full text-center py-2.5 rounded-xl bg-muted border border-border text-sm text-muted-foreground font-medium">
-              Offer Already Sent
+              {t("commonPages.offerAlreadySent")}
             </div>
           )}
           <Link to={`/players/${player.id}`} className="w-full">
             <Button variant="outline" className="w-full gap-2 border-border">
               <ExternalLink className="w-4 h-4" />
-              View Full Profile
+              {t("commonPages.viewFullProfile")}
             </Button>
           </Link>
         </div>

@@ -5,11 +5,13 @@ import { User, Star, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["All", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["All", "PlayStation", "Xbox", "PC"];
 
 export default function FreeAgents() {
+  const { t } = useTranslation();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -62,14 +64,14 @@ export default function FreeAgents() {
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="leading-relaxed text-3xl font-bold text-foreground">Free Agent Board</h1>
-        <p className="text-muted-foreground text-sm mt-1">Players looking for a club</p>
+        <h1 className="leading-relaxed text-3xl font-bold text-foreground">{t("commonPages.freeAgentTitle")}</h1>
+        <p className="text-muted-foreground text-sm mt-1">{t("commonPages.freeAgentSubtitle")}</p>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Input
-          placeholder="Search gamertag..."
+          placeholder={t("commonPages.searchGamertag")}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="bg-secondary border-border w-48"
@@ -99,7 +101,7 @@ export default function FreeAgents() {
       ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">No free agents found.</p>
+          <p className="text-muted-foreground">{t("commonPages.noFreeAgentsFound")}</p>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
@@ -132,7 +134,7 @@ export default function FreeAgents() {
               {myClub && player.email !== user?.email && (
                 <Button size="sm" variant="outline" onClick={() => !invitedIds.includes(player.id) && invite(player)}
                   className="border-primary/30 text-primary hover:bg-primary/10 shrink-0 text-xs gap-1">
-                  <Send className="w-3 h-3" /> Invite
+                  <Send className="w-3 h-3" /> {t("commonPages.invite")}
                 </Button>
               )}
             </div>

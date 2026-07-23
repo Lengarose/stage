@@ -13,7 +13,7 @@
 | Frontend | Vite + React 18, Tailwind, Radix UI, react-router-dom | `src/` | Build artefacts deployed to Gandi |
 | Backend (REST) | Express, MySQL (mysql2), JWT auth | `server/` | `https://stageleagues.com` on Gandi |
 | Realtime | socket.io server, secret-protected `/emit` endpoint | `socket-server/` | separate process |
-| Auth | Email/password + OAuth (Google, Microsoft, Apple) via Passport | `server/src/server/oauth/`, `server/src/server/controllers/authController.js`, `oauthController.js` | — |
+| Auth | Email/password + OAuth (Google, Microsoft, Twitch via Passport; Kick via manual OAuth 2.1 PKCE) | `server/src/server/oauth/`, `server/src/server/controllers/authController.js`, `oauthController.js` | — |
 | Storage (file uploads) | multer, served from `/uploads/*` | `server/uploads/`, `server/src/server/controllers/uploadController.js` | Gandi disk |
 
 **Key URLs**
@@ -132,7 +132,7 @@ pages/admin/    Thin route wrappers that pass `forcedSection` prop to <Admin />
   `stageClient.js` — don't touch `localStorage` directly.
 - 401 responses trigger automatic refresh via `_refreshPromise` in `apiFetch`.
 - OAuth callback URL: `https://stageleagues.com/api/stage/auth/<provider>/callback`.
-- `auth.loginWithProvider('google'|'microsoft'|'apple')` does the redirect dance.
+- `auth.loginWithProvider('google'|'microsoft'|'twitch'|'kick')` does the redirect dance.
 
 ---
 
@@ -180,15 +180,23 @@ When you build a new admin action:
 
 ## 8. Deployment
 
-- **Backend** (`server/`) is deployed manually to Gandi:
-  ```bash
-  ssh <user>@stageleagues.com
-  cd <app>/server && git pull && npm install --omit=dev
-  pm2 restart stage-server   # or equivalent
-  ```
+Gandi **Web Hosting** (Node.js), deployed **via FTP/SFTP** — not git+SSH, not pm2.
+See https://docs.gandi.net/en/web_hosting/languages/nodejs.html
+
+- **Backend** (`server/`) — upload changed files via FTP, then **restart the app
+  from the Gandi admin console** (FTP uploads do NOT trigger a restart, and
+  `npm install` only runs on git+SSH deploys — so a new dependency must either
+  already be present in the server's `node_modules` or be uploaded manually).
+- Secrets live in `server/src/constants/env.local.js` (git-ignored) — it must be
+  uploaded/maintained on the host by hand. Non-secret config: `env.js`.
 - DB migrations run automatically at boot via `server.js` startup block.
-- **Socket server** (`socket-server/`) is a separate process; restart independently.
-- **Frontend** (`dist/`) — produced by `npm run build`, served by Gandi.
+- MySQL on the host is reached through the Unix socket `/srv/run/mysqld/mysqld.sock`.
+- Logs (via SFTP): `/lamp0/var/log/www/nodejs.log` (app + npm output) and
+  `nodejs-watchd.log` (boot supervisor).
+- **Socket server** (`socket-server/`) runs on Render (Gandi Web Hosting has no
+  websocket support); restart independently.
+- **Frontend** (`build/`) — produced by `npm run build` (Vite `outDir: 'build'`),
+  uploaded to Gandi via FTP.
 
 **Pre-deploy checklist**
 1. `npm run lint` clean

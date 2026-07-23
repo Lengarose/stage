@@ -1,8 +1,10 @@
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { CATEGORY_CONFIG, timeAgo } from "@/pages/News";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function NewsFeaturedCard({ item }) {
+  const { t } = useTranslation();
   const cat = CATEGORY_CONFIG[item._category] || CATEGORY_CONFIG.general;
   const Icon = cat.icon;
 
@@ -28,14 +30,14 @@ export default function NewsFeaturedCard({ item }) {
             cat.bg, cat.color
           )}>
             <Icon className="w-3 h-3" />
-            {cat.label}
+            {t(`commonPages.${cat.labelKey}`)}
             {item.is_featured && (
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse ml-0.5" />
             )}
           </div>
           {item.is_featured && (
             <span className="text-[10px] font-bold uppercase tracking-wider text-warning border border-warning/30 bg-warning/10 px-2 py-0.5 rounded-full">
-              ⭐ Featured
+              {t("commonPages.featured")}
             </span>
           )}
         </div>

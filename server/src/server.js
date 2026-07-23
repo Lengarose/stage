@@ -15,7 +15,7 @@ app.set('trust proxy', 1);
 
 app.use(securityHeaders());
 app.use(require('express').json({ limit: '2mb' }));
-app.use(require('express').urlencoded({ extended: true })); // needed for Apple POST callback
+app.use(require('express').urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 const { ensureUploadsDir } = require('./constants/paths');

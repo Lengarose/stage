@@ -8,8 +8,10 @@ import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferMarket() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [freeAgents, setFreeAgents] = useState([]);
   const [expiringPlayers, setExpiringPlayers] = useState([]);
@@ -134,9 +136,9 @@ export default function TransferMarket() {
               className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
               style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
             >
-              TRANSFERS
+              {t("commonPages.transferTitle")}
             </h1>
-            <p className="text-xs text-muted-foreground mt-2">Browse available players and send contract offers</p>
+            <p className="text-xs text-muted-foreground mt-2">{t("commonPages.transferSubtitle")}</p>
           </div>
         </div>
 
@@ -160,10 +162,10 @@ export default function TransferMarket() {
                   platform={platformFilter} onPlatform={setPlatformFilter}
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                  <span>{filteredEntries.length} player{filteredEntries.length !== 1 ? "s" : ""} found</span>
+                  <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
                   <span className="flex gap-3">
-                    <span className="text-success font-medium">{freeAgents.length} free agents</span>
-                    <span className="text-warning font-medium">{expiringPlayers.length} expiring</span>
+                    <span className="text-success font-medium">{t("commonPages.freeAgentsShort", { count: freeAgents.length })}</span>
+                    <span className="text-warning font-medium">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
                   </span>
                 </div>
                 <TransferPlayerList
@@ -197,10 +199,10 @@ export default function TransferMarket() {
                 platform={platformFilter} onPlatform={setPlatformFilter}
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                <span>{filteredEntries.length} player{filteredEntries.length !== 1 ? "s" : ""} found</span>
+                <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
                 <span className="flex gap-3">
-                  <span className="text-success font-medium">{freeAgents.length} free</span>
-                  <span className="text-warning font-medium">{expiringPlayers.length} expiring</span>
+                  <span className="text-success font-medium">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
+                  <span className="text-warning font-medium">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
                 </span>
               </div>
               <TransferPlayerList
@@ -224,7 +226,7 @@ export default function TransferMarket() {
                   {/* Handle bar + close */}
                   <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
                     <div className="w-10 h-1 rounded-full bg-border absolute left-1/2 -translate-x-1/2 top-2" />
-                    <span className="text-sm font-semibold text-foreground">Player Details</span>
+                    <span className="text-sm font-semibold text-foreground">{t("commonPages.playerDetails")}</span>
                     <button
                       onClick={() => setSelected(null)}
                       className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"

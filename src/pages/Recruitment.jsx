@@ -13,15 +13,16 @@ import {
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 const PLATFORMS = ["PlayStation", "Xbox", "PC", "Cross-Platform"];
 const REGIONS = ["Europe", "North America", "South America", "Africa", "Asia", "Oceania", "Global"];
 
 const TYPE_META = {
-  player_lfg: { label: "Players Looking", singular: "Looking for Club", icon: User, tone: "text-primary border-primary/30 bg-primary/10" },
-  club_recruiting: { label: "Clubs Recruiting", singular: "Club Recruiting", icon: Shield, tone: "text-success border-success/30 bg-success/10" },
-  trial_request: { label: "Trials", singular: "Trial Request", icon: CalendarClock, tone: "text-warning border-warning/30 bg-warning/10" },
+  player_lfg: { labelKey: "playersLooking", singularKey: "lookingForClub", icon: User, tone: "text-primary border-primary/30 bg-primary/10" },
+  club_recruiting: { labelKey: "clubsRecruiting", singularKey: "clubRecruiting", icon: Shield, tone: "text-success border-success/30 bg-success/10" },
+  trial_request: { labelKey: "trials", singularKey: "trialRequest", icon: CalendarClock, tone: "text-warning border-warning/30 bg-warning/10" },
 };
 
 function normalizeList(value) {
@@ -31,6 +32,7 @@ function normalizeList(value) {
 }
 
 export default function Recruitment() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -138,7 +140,7 @@ export default function Recruitment() {
   function openCreate(type = activeType) {
     setForm({
       post_type: type,
-      title: type === "club_recruiting" ? `${myClub?.name || "Club"} is recruiting` : `${myPlayer?.gamertag || "Player"} looking for a club`,
+      title: type === "club_recruiting" ? `${myClub?.name || t("competitionFlow.club")} ${t("commonPages.clubRecruiting").toLowerCase()}` : `${myPlayer?.gamertag || t("competitionFlow.player")} ${t("commonPages.lookingForClub").toLowerCase()}`,
       body: "",
       positions: [],
       platform: myClub?.platform || myPlayer?.platform || "PlayStation",
@@ -201,7 +203,7 @@ export default function Recruitment() {
         sender_club_id: interestTarget.post_type !== "club_recruiting" ? myClub?.id : null,
         message: interestMessage.trim() || null,
       });
-      setNotice("Interest sent.");
+      setNotice(t("commonPages.interestSent"));
       setInterestTarget(null);
       setInterestMessage("");
     } finally {
@@ -249,7 +251,7 @@ export default function Recruitment() {
       }).catch((err) => console.warn("[Recruitment] inbox fallback failed:", err?.message || err));
     }
     setOfferTarget(null);
-    setNotice("Contract offer sent.");
+    setNotice(t("commonPages.contractOfferSent"));
   }
 
   return (
@@ -260,17 +262,17 @@ export default function Recruitment() {
             <Handshake className="w-6 h-6 text-primary" />
             <div>
               <h1 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase" style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}>
-                Recruitment
+                {t("commonPages.recruitmentTitle")}
               </h1>
-              <p className="text-xs text-muted-foreground mt-2">Find players, clubs, and trials. Official signings still go through contracts.</p>
+              <p className="text-xs text-muted-foreground mt-2">{t("commonPages.recruitmentSubtitle")}</p>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {canCreatePlayerPost && (
-              <Button onClick={() => openCreate("player_lfg")} className="gap-1.5"><Plus className="w-4 h-4" /> Player Post</Button>
+              <Button onClick={() => openCreate("player_lfg")} className="gap-1.5"><Plus className="w-4 h-4" /> {t("commonPages.playerPost")}</Button>
             )}
             {canCreateClubPost && (
-              <Button onClick={() => openCreate("club_recruiting")} variant="outline" className="gap-1.5"><Briefcase className="w-4 h-4" /> Club Post</Button>
+              <Button onClick={() => openCreate("club_recruiting")} variant="outline" className="gap-1.5"><Briefcase className="w-4 h-4" /> {t("commonPages.clubPost")}</Button>
             )}
           </div>
         </div>
@@ -293,7 +295,7 @@ export default function Recruitment() {
                 className={cn("flex items-center gap-2 rounded border px-3 py-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap",
                   activeType === key ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}
               >
-                <Icon className="w-4 h-4" /> {meta.label}
+                <Icon className="w-4 h-4" /> {t(`commonPages.${meta.labelKey}`)}
               </button>
             );
           })}
@@ -303,23 +305,23 @@ export default function Recruitment() {
           <div className="grid md:grid-cols-[1.3fr_repeat(4,1fr)] gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search posts..." className="pl-9" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("commonPages.searchPosts")} className="pl-9" />
             </div>
             <select value={position} onChange={e => setPosition(e.target.value)} className="rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-              <option value="">All positions</option>
+              <option value="">{t("commonPages.allPositions")}</option>
               {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
             <select value={platform} onChange={e => setPlatform(e.target.value)} className="rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-              <option value="">All platforms</option>
+              <option value="">{t("commonPages.allPlatforms")}</option>
               {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
             <select value={region} onChange={e => setRegion(e.target.value)} className="rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-              <option value="">All regions</option>
+              <option value="">{t("commonPages.allRegions")}</option>
               {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
             <label className="flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm text-muted-foreground">
               <input type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} />
-              Verified only
+              {t("commonPages.verifiedOnly")}
             </label>
           </div>
         </div>
@@ -329,8 +331,8 @@ export default function Recruitment() {
         ) : filtered.length === 0 ? (
           <div className="rounded border border-dashed border-border bg-card/40 p-10 text-center">
             <Filter className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm font-semibold text-foreground">No open posts found</p>
-            <p className="text-xs text-muted-foreground mt-1">Change filters or create the first recruitment post.</p>
+            <p className="text-sm font-semibold text-foreground">{t("commonPages.noOpenPostsFound")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("commonPages.changeFiltersRecruitment")}</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -354,23 +356,23 @@ export default function Recruitment() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Recruitment Post</DialogTitle>
+            <DialogTitle>{t("commonPages.createRecruitmentPost")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <select value={form.post_type} onChange={e => setForm(f => ({ ...f, post_type: e.target.value }))} className="rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-                <option value="player_lfg" disabled={!canCreatePlayerPost}>Player looking</option>
-                <option value="trial_request" disabled={!canCreatePlayerPost}>Trial request</option>
-                <option value="club_recruiting" disabled={!canCreateClubPost}>Club recruiting</option>
+                <option value="player_lfg" disabled={!canCreatePlayerPost}>{t("commonPages.playerLooking")}</option>
+                <option value="trial_request" disabled={!canCreatePlayerPost}>{t("commonPages.trialRequest")}</option>
+                <option value="club_recruiting" disabled={!canCreateClubPost}>{t("commonPages.clubRecruiting")}</option>
               </select>
               <select value={form.platform} onChange={e => setForm(f => ({ ...f, platform: e.target.value }))} className="rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground">
                 {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Title" />
-            <Textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} placeholder="Describe what you are looking for..." rows={4} />
+            <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={t("commonPages.title")} />
+            <Textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} placeholder={t("commonPages.describeLooking")} rows={4} />
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{form.post_type === "club_recruiting" ? "Positions needed" : "Preferred positions"}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{form.post_type === "club_recruiting" ? t("commonPages.positionsNeeded") : t("commonPages.preferredPositions")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {POSITIONS.map(pos => (
                   <button key={pos} type="button" onClick={() => togglePosition(pos)} className={cn("rounded border px-2 py-1 text-xs", form.positions.includes(pos) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>{pos}</button>
@@ -383,24 +385,24 @@ export default function Recruitment() {
               </select>
               <Input type="datetime-local" value={form.expires_at} onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))} />
             </div>
-            <Input value={form.availability_text} onChange={e => setForm(f => ({ ...f, availability_text: e.target.value }))} placeholder="Availability, e.g. Tonight 21:00 CET" />
-            <Input value={form.discord_handle} onChange={e => setForm(f => ({ ...f, discord_handle: e.target.value }))} placeholder="Discord handle optional" />
+            <Input value={form.availability_text} onChange={e => setForm(f => ({ ...f, availability_text: e.target.value }))} placeholder={t("commonPages.availabilityExample")} />
+            <Input value={form.discord_handle} onChange={e => setForm(f => ({ ...f, discord_handle: e.target.value }))} placeholder={t("commonPages.discordOptional")} />
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={form.mic_required} onChange={e => setForm(f => ({ ...f, mic_required: e.target.checked }))} /> Mic required</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={form.verified_only} onChange={e => setForm(f => ({ ...f, verified_only: e.target.checked }))} /> Verified only</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.mic_required} onChange={e => setForm(f => ({ ...f, mic_required: e.target.checked }))} /> {t("commonPages.micRequired")}</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={form.verified_only} onChange={e => setForm(f => ({ ...f, verified_only: e.target.checked }))} /> {t("commonPages.verifiedOnly")}</label>
             </div>
-            <Button onClick={savePost} disabled={saving || !form.title.trim()} className="w-full">{saving ? "Saving..." : "Post"}</Button>
+            <Button onClick={savePost} disabled={saving || !form.title.trim()} className="w-full">{saving ? t("commonPages.saving") : t("commonPages.postButton")}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!interestTarget} onOpenChange={(v) => !v && setInterestTarget(null)}>
         <DialogContent className="bg-card border-border max-w-md">
-          <DialogHeader><DialogTitle>Show Interest</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("commonPages.showInterest")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{interestTarget?.title}</p>
-            <Textarea value={interestMessage} onChange={e => setInterestMessage(e.target.value)} rows={4} placeholder="Write a short message..." />
-            <Button onClick={showInterest} disabled={saving} className="w-full gap-1.5"><MessageSquare className="w-4 h-4" /> Send Interest</Button>
+            <Textarea value={interestMessage} onChange={e => setInterestMessage(e.target.value)} rows={4} placeholder={t("commonPages.writeShortMessage")} />
+            <Button onClick={showInterest} disabled={saving} className="w-full gap-1.5"><MessageSquare className="w-4 h-4" /> {t("commonPages.sendInterest")}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -426,6 +428,7 @@ export default function Recruitment() {
 }
 
 function RecruitmentCard({ post, user, myClub, canManageClub, myContracts, onInterest, onOffer, onClosePost }) {
+  const { t } = useTranslation();
   const meta = TYPE_META[post.post_type] || TYPE_META.player_lfg;
   const Icon = meta.icon;
   const positions = post.post_type === "club_recruiting" ? normalizeList(post.positions_needed) : normalizeList(post.preferred_positions);
@@ -443,13 +446,13 @@ function RecruitmentCard({ post, user, myClub, canManageClub, myContracts, onInt
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-bold text-foreground truncate">{post.author_club_name || post.author_player_gamertag || "Recruitment"}</p>
+              <p className="font-bold text-foreground truncate">{post.author_club_name || post.author_player_gamertag || t("commonPages.recruitmentTitle")}</p>
               {Number(post.author_player_is_verified) === 1 && <BadgeCheck className="w-4 h-4 text-primary" />}
             </div>
-            <p className="text-xs text-muted-foreground">{post.platform || "Any platform"} · {post.region || "Global"}</p>
+            <p className="text-xs text-muted-foreground">{post.platform || t("commonPages.anyPlatform")} · {post.region || t("commonPages.global")}</p>
           </div>
         </div>
-        <span className={cn("rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wider", meta.tone)}>{meta.singular}</span>
+        <span className={cn("rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wider", meta.tone)}>{t(`commonPages.${meta.singularKey}`)}</span>
       </div>
 
       <div>
@@ -464,21 +467,21 @@ function RecruitmentCard({ post, user, myClub, canManageClub, myContracts, onInt
       )}
 
       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-        <div className="rounded bg-secondary/60 px-2 py-2">{post.availability_text || "Availability open"}</div>
-        <div className="rounded bg-secondary/60 px-2 py-2 flex items-center gap-1">{post.mic_required ? <Mic className="w-3 h-3" /> : null}{post.mic_required ? "Mic required" : "Mic optional"}</div>
+        <div className="rounded bg-secondary/60 px-2 py-2">{post.availability_text || t("commonPages.availabilityOpen")}</div>
+        <div className="rounded bg-secondary/60 px-2 py-2 flex items-center gap-1">{post.mic_required ? <Mic className="w-3 h-3" /> : null}{post.mic_required ? t("commonPages.micRequired") : t("commonPages.micOptional")}</div>
       </div>
 
       {post.verified_only ? (
         <p className="text-xs text-primary bg-primary/10 border border-primary/20 rounded px-2 py-2">
-          Verified players preferred. Unverified players may need identity review before acceptance.
+          {t("commonPages.verifiedPreferred")}
         </p>
       ) : null}
 
       <div className="flex gap-2 flex-wrap pt-1">
-        <Link to={targetLink}><Button size="sm" variant="outline" className="text-xs">View {post.author_club_id ? "Club" : "Profile"}</Button></Link>
-        {!isMine && <Button size="sm" onClick={onInterest} className="text-xs gap-1"><MessageSquare className="w-3.5 h-3.5" /> Show Interest</Button>}
-        {canOffer && <Button size="sm" variant="outline" disabled={hasContractConflict} onClick={onOffer} className="text-xs">Offer Contract</Button>}
-        {isMine && <Button size="sm" variant="outline" onClick={onClosePost} className="text-xs">{post.status === "open" ? "Close" : "Reopen"}</Button>}
+        <Link to={targetLink}><Button size="sm" variant="outline" className="text-xs">{post.author_club_id ? t("commonPages.viewClub") : t("commonPages.viewProfile")}</Button></Link>
+        {!isMine && <Button size="sm" onClick={onInterest} className="text-xs gap-1"><MessageSquare className="w-3.5 h-3.5" /> {t("commonPages.showInterest")}</Button>}
+        {canOffer && <Button size="sm" variant="outline" disabled={hasContractConflict} onClick={onOffer} className="text-xs">{t("commonPages.offerContract")}</Button>}
+        {isMine && <Button size="sm" variant="outline" onClick={onClosePost} className="text-xs">{post.status === "open" ? t("commonPages.close") : t("commonPages.reopen")}</Button>}
       </div>
     </div>
   );

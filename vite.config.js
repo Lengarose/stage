@@ -95,6 +95,10 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     logLevel: 'info',
+    build: {
+      // Deployed to Gandi via FTP from this folder (renamed from Vite's default `dist`).
+      outDir: 'build',
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

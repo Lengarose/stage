@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Search() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [players, setPlayers] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -48,7 +50,7 @@ export default function Search() {
 
   async function sendChallenge(opponentClubId, opponentClubName) {
     if (!myPlayer?.club_id) {
-      await swalAlert("You need to be in a club to challenge.");
+      await swalAlert(t("commonPages.needClubToChallenge"));
       return;
     }
     const myClub = await stageClient.entities.Club.get(myPlayer.club_id).catch(() => null);
@@ -79,12 +81,12 @@ export default function Search() {
         read: false,
       });
     }
-    await swalAlert(`Challenge sent to ${opponentClubName}! A live match room has been created.`);
+    await swalAlert(t("commonPages.challengeSentClub", { name: opponentClubName }));
   }
 
   async function challengePlayer(player) {
     if (!myPlayer) {
-      await swalAlert("You need a player profile to challenge.");
+      await swalAlert(t("commonPages.needPlayerToChallenge"));
       return;
     }
     if (player.email === myPlayer.email) return;
@@ -109,7 +111,7 @@ export default function Search() {
       link: `/live/${liveMatch.id}`,
       read: false,
     });
-    await swalAlert(`Challenge sent to ${player.gamertag}! They'll see it in Live Matches.`);
+    await swalAlert(t("commonPages.challengeSentPlayer", { name: player.gamertag }));
   }
 
   async function inviteToClub(playerEmail, playerGamertag) {
@@ -123,14 +125,14 @@ export default function Search() {
       related_id: myPlayer.club_id,
       read: false,
     });
-    await swalAlert(`Invite sent to ${playerGamertag}!`);
+    await swalAlert(t("commonPages.inviteSent", { name: playerGamertag }));
   }
 
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="leading-relaxed text-3xl font-bold text-foreground">SEARCH</h1>
-        <p className="text-sm text-muted-foreground">Find players and clubs</p>
+        <h1 className="leading-relaxed text-3xl font-bold text-foreground">{t("commonPages.searchTitle").toUpperCase()}</h1>
+        <p className="text-sm text-muted-foreground">{t("commonPages.searchSubtitle")}</p>
       </div>
 
       {/* Platform selector + Search Bar */}
@@ -149,31 +151,31 @@ export default function Search() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === "Enter" && doSearch()}
-            placeholder="Search players or clubs..."
+            placeholder={t("commonPages.searchPlaceholder")}
             className="pl-10 bg-card border-border"
           />
         </div>
         <Button onClick={doSearch} className="bg-primary text-primary-foreground leading-relaxed shrink-0" disabled={loading}>
-          {loading ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : "Search"}
+          {loading ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : t("commonPages.searchCta")}
         </Button>
       </div>
 
       {!searched ? (
         <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <SearchIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Search for players or clubs by name</p>
+          <p className="text-muted-foreground">{t("commonPages.searchEmptyPrompt")}</p>
         </div>
       ) : (
         <Tabs defaultValue="players" className="w-full">
           <TabsList className="bg-secondary border border-border mb-6">
             <TabsTrigger value="players" className="leading-relaxed">
-              <User className="w-3.5 h-3.5 mr-1.5" /> Players ({players.length})
+              <User className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.playersTab")} ({players.length})
             </TabsTrigger>
             <TabsTrigger value="clubs" className="leading-relaxed">
-              <Shield className="w-3.5 h-3.5 mr-1.5" /> My Clubs ({clubs.length})
+              <Shield className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.myClubsTab")} ({clubs.length})
             </TabsTrigger>
             <TabsTrigger value="eafc" className="leading-relaxed">
-              <Trophy className="w-3.5 h-3.5 mr-1.5" /> EA FC ({eafcClubs.length})
+              <Trophy className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.eafcTab")} ({eafcClubs.length})
             </TabsTrigger>
           </TabsList>
 
@@ -182,7 +184,7 @@ export default function Search() {
             {players.length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-8 text-center">
                 <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No players found.</p>
+                <p className="text-muted-foreground text-sm">{t("competitionFlow.noPlayersFound")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -196,23 +198,23 @@ export default function Search() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="leading-relaxed font-bold text-foreground">{p.gamertag}</p>
-                      <p className="text-xs text-muted-foreground">{p.position} · {p.platform} · {p.matches_played || 0} matches</p>
+                      <p className="text-xs text-muted-foreground">{p.position} · {p.platform} · {t("commonPages.matchesCount", { count: p.matches_played || 0 })}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right mr-2">
                         <p className="leading-relaxed font-bold text-lg text-primary">{p.overall_rating}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">OVR</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">{t("commonPages.ovr")}</p>
                       </div>
                       {myPlayer && p.email !== user?.email && myPlayer.club_id && (
                         <>
                           <Button size="sm" onClick={e => { e.preventDefault(); inviteToClub(p.email, p.gamertag); }}
                             className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs">
-                            <UserPlus className="w-3.5 h-3.5 mr-1" /> Invite
+                            <UserPlus className="w-3.5 h-3.5 mr-1" /> {t("commonPages.invite")}
                           </Button>
                           {p.club_id && (
                             <Button size="sm" onClick={e => { e.preventDefault(); challengePlayer(p); }}
                               className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-0 text-xs">
-                              <Swords className="w-3.5 h-3.5 mr-1" /> Challenge
+                              <Swords className="w-3.5 h-3.5 mr-1" /> {t("commonPages.challenge")}
                             </Button>
                           )}
                         </>
@@ -229,7 +231,7 @@ export default function Search() {
             {clubs.length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-8 text-center">
                 <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No clubs found.</p>
+                <p className="text-muted-foreground text-sm">{t("commonPages.noClubsFound")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -240,17 +242,17 @@ export default function Search() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="leading-relaxed font-bold text-foreground">{c.name} <span className="text-xs text-primary font-mono">[{c.tag}]</span></p>
-                      <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · {c.wins || 0}W {c.losses || 0}L</p>
+                      <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · {t("commonPages.winsLosses", { wins: c.wins || 0, losses: c.losses || 0 })}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {myPlayer && myPlayer.club_id !== c.id && (
                         <Button size="sm" onClick={() => sendChallenge(c.id, c.name)}
                           className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-0 text-xs">
-                          <Swords className="w-3.5 h-3.5 mr-1" /> Challenge
+                          <Swords className="w-3.5 h-3.5 mr-1" /> {t("commonPages.challenge")}
                         </Button>
                       )}
                       <Link to={`/clubs/${c.id}`}>
-                        <Button size="sm" variant="outline" className="border-border text-xs">View</Button>
+                        <Button size="sm" variant="outline" className="border-border text-xs">{t("commonPages.view")}</Button>
                       </Link>
                     </div>
                   </div>
@@ -264,7 +266,7 @@ export default function Search() {
               {eafcClubs.length === 0 ? (
                 <div className="bg-card border border-border rounded-xl p-8 text-center">
                   <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No EA FC clubs found.</p>
+                  <p className="text-muted-foreground text-sm">{t("commonPages.noEafcClubsFound")}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -276,14 +278,14 @@ export default function Search() {
                       <div className="flex-1 min-w-0">
                         <p className="leading-relaxed font-bold text-foreground">{c.name} {c.clubInfo?.clubAbbr && <span className="text-xs text-primary font-mono">[{c.clubInfo.clubAbbr}]</span>}</p>
                         <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> {c.memberCount || 0} members</span>
-                          <span className="text-xs text-muted-foreground">Div {c.divisionOffset || "?"}</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> {t("commonPages.membersCount", { count: c.memberCount || 0 })}</span>
+                          <span className="text-xs text-muted-foreground">{t("commonPages.divisionShort", { division: c.divisionOffset || "?" })}</span>
                           {c.seasons?.[0] && <span className="text-xs text-success">W{c.seasons[0].wins || 0} D{c.seasons[0].draws || 0} L{c.seasons[0].losses || 0}</span>}
                         </div>
                       </div>
                       <Link to={`/eafc?clubId=${c.clubId}&platform=${platform}&name=${encodeURIComponent(c.name || "")}`}>
                         <Button size="sm" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs gap-1">
-                          <ExternalLink className="w-3.5 h-3.5" /> View
+                          <ExternalLink className="w-3.5 h-3.5" /> {t("commonPages.view")}
                         </Button>
                       </Link>
                     </div>

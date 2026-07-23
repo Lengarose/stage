@@ -15,9 +15,9 @@
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.5",
     "passport": "^0.7.0",
-    "passport-apple": "^2.0.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-microsoft": "^1.0.0",
+    "passport-oauth2": "^1.8.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^9.0.0"
   },

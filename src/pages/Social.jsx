@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Social() {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
@@ -111,28 +113,28 @@ export default function Social() {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                FEED
+                {t("commonPages.feedTitle")}
               </h1>
-              <p className="text-xs text-muted-foreground mt-1">Community highlights &amp; updates</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("commonPages.feedSubtitle")}</p>
             </div>
           </div>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary text-primary-foreground gap-2 shrink-0">
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Post</span>
+                <span className="hidden sm:inline">{t("commonPages.post")}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader>
-                <DialogTitle className="text-xl">Create Post</DialogTitle>
+                <DialogTitle className="text-xl">{t("commonPages.createPost")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <Textarea
                   value={postForm.content}
                   onChange={e => setPostForm(f => ({ ...f, content: e.target.value }))}
                   className="bg-secondary border-border min-h-[100px]"
-                  placeholder="Share something with the community..."
+                  placeholder={t("commonPages.shareWithCommunity")}
                 />
                 {mediaFile && (
                   <div className="relative">
@@ -148,13 +150,13 @@ export default function Social() {
                 )}
                 <div className="flex items-center gap-3">
                   <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary">
-                    <Image className="w-4 h-4" /> Photo/Video
+                    <Image className="w-4 h-4" /> {t("commonPages.photoVideo")}
                   </button>
                   <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={e => setMediaFile(e.target.files[0])} />
                 </div>
                 <Button onClick={createPost} disabled={posting || (!postForm.content.trim() && !mediaFile)}
                   className="w-full bg-primary text-primary-foreground">
-                  {posting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Posting...</> : <><Send className="w-4 h-4 mr-2" /> Share</>}
+                  {posting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("commonPages.posting")}</> : <><Send className="w-4 h-4 mr-2" /> {t("commonPages.share")}</>}
                 </Button>
               </div>
             </DialogContent>
@@ -165,8 +167,8 @@ export default function Social() {
         {posts.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-12 text-center">
             <MessageCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-foreground font-medium">No posts yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Be the first to share something with the community!</p>
+            <p className="text-foreground font-medium">{t("commonPages.noPostsYet")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("commonPages.firstToShare")}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -183,14 +185,15 @@ export default function Social() {
 }
 
 const NEWS_TYPE_CONFIG = {
-  tournament:   { label: "Tournament",    icon: Trophy,    color: "text-accent",   bg: "bg-accent/10 border-accent/30" },
-  achievement:  { label: "Achievement",   icon: Star,      color: "text-warning",  bg: "bg-warning/10 border-warning/30" },
-  app_update:   { label: "App Update",    icon: Zap,       color: "text-primary",  bg: "bg-primary/10 border-primary/30" },
-  ranking:      { label: "Rankings",      icon: BarChart3, color: "text-success",  bg: "bg-success/10 border-success/30" },
-  announcement: { label: "Announcement", icon: Megaphone, color: "text-primary",  bg: "bg-primary/10 border-primary/30" },
+  tournament:   { labelKey: "tournaments", icon: Trophy,    color: "text-accent",   bg: "bg-accent/10 border-accent/30" },
+  achievement:  { labelKey: "achievement", icon: Star,      color: "text-warning",  bg: "bg-warning/10 border-warning/30" },
+  app_update:   { labelKey: "appUpdate",   icon: Zap,       color: "text-primary",  bg: "bg-primary/10 border-primary/30" },
+  ranking:      { labelKey: "rankings",    icon: BarChart3, color: "text-success",  bg: "bg-success/10 border-success/30" },
+  announcement: { labelKey: "announcement", icon: Megaphone, color: "text-primary",  bg: "bg-primary/10 border-primary/30" },
 };
 
 function NewsPostCard({ item }) {
+  const { t } = useTranslation();
   const cfg = NEWS_TYPE_CONFIG[item.type] || NEWS_TYPE_CONFIG.announcement;
   const Icon = cfg.icon;
   return (
@@ -203,7 +206,7 @@ function NewsPostCard({ item }) {
           </div>
           <span className="text-xs font-bold text-primary">STAGE</span>
           <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ml-auto", cfg.bg, cfg.color)}>
-            <Icon className="w-2.5 h-2.5" /> {cfg.label}
+            <Icon className="w-2.5 h-2.5" /> {t(`commonPages.${cfg.labelKey || "pressRoom"}`)}
           </div>
         </div>
         <h3 className="font-bold text-foreground text-sm leading-snug">{item.title}</h3>
@@ -215,6 +218,7 @@ function NewsPostCard({ item }) {
 }
 
 function PressPostCard({ item }) {
+  const { t } = useTranslation();
   return (
     <div className="bg-card border border-purple-500/20 rounded-2xl overflow-hidden">
       {(item.photo_url || item.player_avatar_url) && (
@@ -223,7 +227,7 @@ function PressPostCard({ item }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-3 left-4">
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-500/40 text-purple-300 text-[10px] font-bold uppercase tracking-wider">
-              <Mic className="w-2.5 h-2.5" /> Press Conference
+              <Mic className="w-2.5 h-2.5" /> {t("commonPages.pressConference")}
             </div>
           </div>
         </div>
@@ -231,7 +235,7 @@ function PressPostCard({ item }) {
       <div className="p-4">
         {!(item.photo_url || item.player_avatar_url) && (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-bold uppercase tracking-wider mb-2">
-            <Mic className="w-2.5 h-2.5" /> Press Conference
+            <Mic className="w-2.5 h-2.5" /> {t("commonPages.pressConference")}
           </div>
         )}
         <div className="flex items-center gap-2 mb-2">
@@ -248,6 +252,7 @@ function PressPostCard({ item }) {
 }
 
 function PostCard({ post, user, onLike, onDelete }) {
+  const { t } = useTranslation();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState("");
@@ -294,7 +299,7 @@ function PostCard({ post, user, onLike, onDelete }) {
         </div>
         {post.author_email === user?.email && (
           <button onClick={() => onDelete(post.id)} className="text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-destructive/10 shrink-0">
-            Delete
+            {t("commonPages.delete")}
           </button>
         )}
       </div>
@@ -349,7 +354,7 @@ function PostCard({ post, user, onLike, onDelete }) {
             <input
               value={commentInput}
               onChange={e => setCommentInput(e.target.value)}
-              placeholder="Add a comment..."
+              placeholder={t("commonPages.addComment")}
               className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
             />
             <Button type="submit" size="icon" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 w-8 h-8 shrink-0" disabled={!commentInput.trim()}>

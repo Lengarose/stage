@@ -4,8 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FollowedClubRow from "@/components/followback/FollowedClubRow";
 import FollowedPlayerRow from "@/components/followback/FollowedPlayerRow";
 import { Shield, UsersRound } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function FollowBack() {
+  const { t } = useTranslation();
   const [myPlayer, setMyPlayer] = useState(null);
   const [follows, setFollows] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -80,15 +82,15 @@ export default function FollowBack() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-heading uppercase tracking-widest text-foreground mb-6">Follow Back</h1>
+      <h1 className="text-2xl font-heading uppercase tracking-widest text-foreground mb-6">{t("commonPages.followBackTitle")}</h1>
 
       <Tabs defaultValue="clubs">
         <TabsList className="mb-6 bg-secondary border border-border">
           <TabsTrigger value="clubs" className="gap-2 uppercase tracking-wider text-xs">
-            <Shield className="w-3.5 h-3.5" /> Clubs
+            <Shield className="w-3.5 h-3.5" /> {t("competitionFlow.clubs")}
           </TabsTrigger>
           <TabsTrigger value="players" className="gap-2 uppercase tracking-wider text-xs">
-            <UsersRound className="w-3.5 h-3.5" /> Players
+            <UsersRound className="w-3.5 h-3.5" /> {t("competitionFlow.players")}
           </TabsTrigger>
         </TabsList>
 
@@ -98,7 +100,7 @@ export default function FollowBack() {
               {[1, 2, 3].map(i => <div key={i} className="h-16 bg-secondary rounded-lg animate-pulse" />)}
             </div>
           ) : clubs.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-12">You're not following any clubs yet.</p>
+            <p className="text-muted-foreground text-sm text-center py-12">{t("commonPages.followedClubsEmpty")}</p>
           ) : (
             <div className="space-y-2">
               {clubs.map(club => (
@@ -114,7 +116,7 @@ export default function FollowBack() {
               {[1, 2, 3].map(i => <div key={i} className="h-16 bg-secondary rounded-lg animate-pulse" />)}
             </div>
           ) : players.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-12">You're not following any players yet.</p>
+            <p className="text-muted-foreground text-sm text-center py-12">{t("commonPages.followedPlayersEmpty")}</p>
           ) : (
             <div className="space-y-2">
               {players.map(player => (

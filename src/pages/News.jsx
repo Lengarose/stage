@@ -8,33 +8,34 @@ import {
 import NewsArticleCard from "@/components/news/NewsArticleCard";
 import NewsFeaturedCard from "@/components/news/NewsFeaturedCard";
 import PressArticleCard from "@/components/news/PressArticleCard";
+import { useTranslation } from "@/hooks/useTranslation";
 
 // ── Category config ────────────────────────────────────────────────────────
 export const CATEGORY_CONFIG = {
-  transfers:        { label: "Transfers",       icon: ArrowRightLeft,  color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
-  contracts:        { label: "Contracts",       icon: FileSignature,   color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
-  club_news:        { label: "Club News",       icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
-  player_news:      { label: "Player News",     icon: User,            color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
-  market:           { label: "Market",          icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
-  tournament:       { label: "Tournament",      icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
-  press_conference: { label: "Press Room",      icon: Mic,             color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
-  general:          { label: "General",         icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
+  transfers:        { label: "Transfers",       labelKey: "transfers", icon: ArrowRightLeft,  color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
+  contracts:        { label: "Contracts",       labelKey: "contracts", icon: FileSignature,   color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
+  club_news:        { label: "Club News",       labelKey: "clubNews", icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  player_news:      { label: "Player News",     labelKey: "playerNews", icon: User,            color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
+  market:           { label: "Market",          labelKey: "market", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
+  tournament:       { label: "Tournament",      labelKey: "tournaments", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  press_conference: { label: "Press Room",      labelKey: "pressRoom", icon: Mic,             color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
+  general:          { label: "General",         labelKey: "general", icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
   // legacy fallbacks
-  achievement:      { label: "Achievement",     icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
-  app_update:       { label: "App Update",      icon: Zap,             color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
-  ranking:          { label: "Rankings",        icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
-  announcement:     { label: "Announcement",    icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
+  achievement:      { label: "Achievement",     labelKey: "achievement", icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
+  app_update:       { label: "App Update",      labelKey: "appUpdate", icon: Zap,             color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
+  ranking:          { label: "Rankings",        labelKey: "rankings", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
+  announcement:     { label: "Announcement",    labelKey: "announcement", icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
 };
 
 const FILTERS = [
-  { id: "all",              label: "All" },
-  { id: "transfers",        label: "Transfers" },
-  { id: "contracts",        label: "Contracts" },
-  { id: "club_news",        label: "Club News" },
-  { id: "player_news",      label: "Player News" },
-  { id: "market",           label: "Market" },
-  { id: "tournament",       label: "Tournaments" },
-  { id: "press_conference", label: "Press Room" },
+  { id: "all",              labelKey: "all" },
+  { id: "transfers",        labelKey: "transfers" },
+  { id: "contracts",        labelKey: "contracts" },
+  { id: "club_news",        labelKey: "clubNews" },
+  { id: "player_news",      labelKey: "playerNews" },
+  { id: "market",           labelKey: "market" },
+  { id: "tournament",       labelKey: "tournaments" },
+  { id: "press_conference", labelKey: "pressRoom" },
 ];
 
 export function timeAgo(dateStr) {
@@ -125,6 +126,7 @@ function isVisible(item, myPlayer, myClub, followedIds) {
 }
 
 export default function News() {
+  const { t } = useTranslation();
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
@@ -205,9 +207,9 @@ export default function News() {
               className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
               style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
             >
-              NEWS
+              {t("commonPages.newsTitle")}
             </h1>
-            <p className="text-xs text-muted-foreground mt-1">Transfers · Contracts · Club & Player news · Press Room</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("commonPages.newsSubtitle")}</p>
           </div>
         </div>
 
@@ -224,7 +226,7 @@ export default function News() {
                   : "bg-secondary border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
               )}
             >
-              {f.label}
+              {t(`commonPages.${f.labelKey}`)}
             </button>
           ))}
         </div>
@@ -240,9 +242,9 @@ export default function News() {
         {!loading && filtered.length === 0 && (
           <div className="bg-card border border-border rounded-2xl p-12 text-center space-y-3">
             <Newspaper className="w-12 h-12 text-muted-foreground/20 mx-auto" />
-            <p className="text-foreground font-semibold">Nothing here yet</p>
+            <p className="text-foreground font-semibold">{t("commonPages.nothingHere")}</p>
             <p className="text-sm text-muted-foreground">
-              News will appear as transfers, contracts, matches and tournaments happen.
+              {t("commonPages.newsEmptyDesc")}
             </p>
           </div>
         )}

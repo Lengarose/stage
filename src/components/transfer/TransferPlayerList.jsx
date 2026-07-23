@@ -2,14 +2,16 @@ import { cn } from "@/lib/utils";
 import { Shield, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TransferBadge from "./TransferBadge";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferPlayerList({ players, selectedId, onSelect, canManage, hasConflict, onOffer }) {
+  const { t } = useTranslation();
   if (players.length === 0) {
     return (
       <div className="bg-card border border-border rounded-2xl p-12 text-center">
         <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-        <p className="text-sm font-medium text-muted-foreground">No players found</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Try adjusting your filters</p>
+        <p className="text-sm font-medium text-muted-foreground">{t("competitionFlow.noPlayersFound")}</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">{t("commonPages.tryAdjustingFilters")}</p>
       </div>
     );
   }
@@ -52,7 +54,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
                 )}
                 {player.overall_rating && (
                   <span className="text-[11px] text-muted-foreground font-medium">
-                    OVR {player.overall_rating}
+                    {t("commonPages.ovr")} {player.overall_rating}
                   </span>
                 )}
                 {player.platform && (
@@ -67,7 +69,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
             <div className="shrink-0" onClick={e => e.stopPropagation()}>
               {conflict ? (
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-1 rounded-lg">
-                  <FileText className="w-3 h-3" /> Sent
+                  <FileText className="w-3 h-3" /> {t("commonPages.sent")}
                 </span>
               ) : canManage ? (
                 <Button
@@ -76,7 +78,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
                   className="h-7 px-2.5 text-xs bg-primary/10 text-primary hover:bg-primary/20 border-0 gap-1"
                 >
                   <FileText className="w-3 h-3" />
-                  <span className="hidden sm:inline">Offer</span>
+                  <span className="hidden sm:inline">{t("commonPages.offer")}</span>
                 </Button>
               ) : null}
             </div>

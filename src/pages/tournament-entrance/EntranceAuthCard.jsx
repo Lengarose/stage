@@ -28,9 +28,15 @@ const MicrosoftIcon = () => (
   </svg>
 );
 
-const AppleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 814 1000" fill="currentColor">
-    <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.3 269-317.3 70.1 0 128.4 46.4 172.5 46.4 42.8 0 109.5-49 191.3-49 30.8 0 110.7 2.6 162.6 63.1zm-234.5-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
+const KickIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M1.5 0h7.5v6h3V3h3V0h7.5v9h-3v3h3v9H15v-3h-3v-3h-3v6H1.5z" />
+  </svg>
+);
+
+const TwitchIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
   </svg>
 );
 
@@ -308,10 +314,16 @@ export default function EntranceAuthCard({ mode }) {
                   className="bg-[#0078D4] text-white hover:bg-[#006CBE] active:bg-[#005EA6]"
                 />
                 <ProviderButton
-                  onClick={() => stageClient.auth.loginWithProvider("apple", window.location.href)}
-                  icon={<AppleIcon />}
-                  label="Continue with Apple"
-                  className="bg-black text-white hover:bg-neutral-900 active:bg-neutral-800"
+                  onClick={() => stageClient.auth.loginWithProvider("kick", window.location.href)}
+                  icon={<KickIcon />}
+                  label="Continue with Kick"
+                  className="bg-[#53FC18] text-black hover:bg-[#45E010] active:bg-[#3CC70E]"
+                />
+                <ProviderButton
+                  onClick={() => stageClient.auth.loginWithProvider("twitch", window.location.href)}
+                  icon={<TwitchIcon />}
+                  label="Continue with Twitch"
+                  className="bg-[#9146FF] text-white hover:bg-[#7C2BFF] active:bg-[#6F22E6]"
                 />
               </div>
 

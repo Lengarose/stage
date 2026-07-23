@@ -1,8 +1,10 @@
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { CATEGORY_CONFIG, timeAgo } from "@/pages/News";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function NewsArticleCard({ item }) {
+  const { t } = useTranslation();
   const cat = CATEGORY_CONFIG[item._category] || CATEGORY_CONFIG.general;
   const Icon = cat.icon;
 
@@ -18,7 +20,7 @@ export default function NewsArticleCard({ item }) {
           cat.bg, cat.color
         )}>
           <Icon className="w-2.5 h-2.5" />
-          {cat.label}
+          {t(`commonPages.${cat.labelKey}`)}
         </div>
         <span className="text-[10px] text-muted-foreground/60 shrink-0">{timeAgo(item.published_at)}</span>
       </div>

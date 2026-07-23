@@ -33,18 +33,25 @@ const ENV = {
   SOCKET_SERVER_SECRET: '',
 
   // Google OAuth — redirect: https://stageleagues.com/api/stage/auth/google/callback
-  GOOGLE_CLIENT_ID: '',
+  // Secret lives in env.local.js.
+  GOOGLE_CLIENT_ID: '163642598978-bl0ldq16coinp32hpqigmbb3744a2qp6.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: '',
 
   // Microsoft — redirect: https://stageleagues.com/api/stage/auth/microsoft/callback
   MICROSOFT_CLIENT_ID: '',
   MICROSOFT_CLIENT_SECRET: '',
 
-  // Apple — return URL: https://stageleagues.com/api/stage/auth/apple/callback
-  APPLE_CLIENT_ID: 'com.stageleagues.web',
-  APPLE_TEAM_ID: '',
-  APPLE_KEY_ID: '',
-  APPLE_PRIVATE_KEY: '',
+  // Twitch — app "stageleagues-web" (Confidential) on dev.twitch.tv/console/apps
+  // Redirect: https://stageleagues.com/api/stage/auth/twitch/callback
+  // Secret lives in env.local.js.
+  TWITCH_CLIENT_ID: 'c62t540445m5n12uatyjjpd3czrvwi',
+  TWITCH_CLIENT_SECRET: '',
+
+  // Kick — app registered at kick.com/settings/developer (2FA required)
+  // Redirect: https://stageleagues.com/api/stage/auth/kick/callback
+  // Secret lives in env.local.js.
+  KICK_CLIENT_ID: '01KY6TJV8WCWJ0KYM52B77W1EA',
+  KICK_CLIENT_SECRET: '',
 };
 
 // Local overrides (secrets) — env.local.js is git-ignored and lives only on

@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { resolveMyPlayerAndClub } from "@/api/stageClient";
 import STCWallet from "@/components/lifestyle/STCWallet";
 import { Wallet as WalletIcon } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Wallet() {
+  const { t } = useTranslation();
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,8 +30,8 @@ export default function Wallet() {
           <WalletIcon className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-black text-2xl uppercase tracking-tight text-foreground">STC Wallet</h1>
-          <p className="text-xs text-muted-foreground">Your full transaction history and income sources</p>
+          <h1 className="font-heading font-black text-2xl uppercase tracking-tight text-foreground">{t("commonPages.walletTitle")}</h1>
+          <p className="text-xs text-muted-foreground">{t("commonPages.walletSubtitle")}</p>
         </div>
       </div>
       <STCWallet player={player} compact={false} />

@@ -4,8 +4,10 @@ import { internationalTournamentsApi } from '@/api/internationalTournaments';
 import InternationalTournamentCard from '@/components/international/InternationalTournamentCard';
 import CountryElectionPanel from '@/components/international/CountryElectionPanel';
 import NationalSquadBuilder from '@/components/international/NationalSquadBuilder';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function InternationalTournaments() {
+  const { t } = useTranslation();
   const [myPlayer, setMyPlayer] = useState(null);
   const [myOwnerClub, setMyOwnerClub] = useState(null);
   const [tournaments, setTournaments] = useState([]);
@@ -65,7 +67,7 @@ export default function InternationalTournaments() {
       setPlayersByTournament(playerMap);
       setSquadsByTournament(squadMap);
     } catch (err) {
-      setLoadError(err?.message || err?.error || 'Could not load international tournaments.');
+      setLoadError(err?.message || err?.error || t('commonPages.internationalLoadFailed'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +86,7 @@ export default function InternationalTournaments() {
       await internationalTournamentsApi.vote(electionId, candidateOwnerClubId);
       await load();
     } catch (err) {
-      setActionError(err?.message || err?.error || 'Could not submit your vote.');
+      setActionError(err?.message || err?.error || t('commonPages.voteFailed'));
     } finally {
       setBusyAction('');
     }
@@ -97,7 +99,7 @@ export default function InternationalTournaments() {
       await internationalTournamentsApi.saveSquad(tournamentId, myCountryCode, playerIds);
       await load();
     } catch (err) {
-      setActionError(err?.message || err?.error || 'Could not save the national squad.');
+      setActionError(err?.message || err?.error || t('commonPages.squadSaveFailed'));
     } finally {
       setBusyAction('');
     }
@@ -111,17 +113,17 @@ export default function InternationalTournaments() {
   return (
     <main className="max-w-6xl mx-auto px-4 py-8 space-y-5">
       <div>
-        <h1 className="font-heading text-3xl uppercase text-foreground">International</h1>
-        <p className="text-sm text-muted-foreground">Club owners vote for the national team owner, then the winner selects the squad.</p>
+        <h1 className="font-heading text-3xl uppercase text-foreground">{t('commonPages.internationalTitle')}</h1>
+        <p className="text-sm text-muted-foreground">{t('commonPages.internationalSubtitle')}</p>
       </div>
-      {loading && <p className="text-sm text-muted-foreground">Loading international tournaments...</p>}
+      {loading && <p className="text-sm text-muted-foreground">{t('commonPages.internationalLoading')}</p>}
       {loadError && <p className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</p>}
       {actionError && <p className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{actionError}</p>}
       {!loading && !loadError && visibleTournaments.length === 0 && (
         <section className="bg-card border border-border rounded p-4">
-          <p className="text-sm font-semibold text-foreground">No international tournaments are open yet.</p>
+          <p className="text-sm font-semibold text-foreground">{t('commonPages.noInternationalOpen')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            An admin needs to create an international tournament and open voting before club owners can vote for the national team owner.
+            {t('commonPages.noInternationalOpenDesc')}
           </p>
         </section>
       )}

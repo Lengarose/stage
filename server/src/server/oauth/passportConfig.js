@@ -1,7 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
-const AppleStrategy = require('passport-apple');
+const OAuth2Strategy = require('passport-oauth2');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { get } = require('../../constants/env');
@@ -66,7 +66,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
 const oauthProvidersEnabled = {
   google: false,
   microsoft: false,
-  apple: false,
+  twitch: false,
 };
 
 // ── Google ──────────────────────────────────────────────────────────────────
@@ -123,44 +123,68 @@ if (get('MICROSOFT_CLIENT_ID') && get('MICROSOFT_CLIENT_SECRET')) {
   console.warn('[oauth] Microsoft OAuth disabled: set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET');
 }
 
-// ── Apple ───────────────────────────────────────────────────────────────────
-// Apple sends name+email only on the VERY FIRST login — store them immediately.
-const appleReady =
-  get('APPLE_CLIENT_ID') &&
-  get('APPLE_TEAM_ID') &&
-  get('APPLE_KEY_ID') &&
-  get('APPLE_PRIVATE_KEY');
+// ── Twitch ──────────────────────────────────────────────────────────────────
+// Twitch has no maintained passport strategy — we use the generic OAuth2
+// strategy with a custom userProfile against the Helix API.
+// https://dev.twitch.tv/docs/authentication (Authorization Code Grant Flow)
+class TwitchStrategy extends OAuth2Strategy {
+  constructor(options, verify) {
+    super(
+      {
+        authorizationURL: 'https://id.twitch.tv/oauth2/authorize',
+        tokenURL:         'https://id.twitch.tv/oauth2/token',
+        ...options,
+      },
+      verify
+    );
+    this.name = 'twitch';
+    // Helix requires the Client-ID header alongside the Bearer token
+    this._oauth2.useAuthorizationHeaderforGET(true);
+    this._oauth2._customHeaders = { 'Client-ID': options.clientID };
+  }
 
-if (appleReady) {
-  passport.use('apple', new AppleStrategy(
-    {
-      clientID:         get('APPLE_CLIENT_ID'),
-      teamID:           get('APPLE_TEAM_ID'),
-      keyID:            get('APPLE_KEY_ID'),
-      privateKeyString: get('APPLE_PRIVATE_KEY'),
-      callbackURL:      `${SERVER_URL}/api/stage/auth/apple/callback`,
-      passReqToCallback: false,
-    },
-    async (_at, _rt, idToken, profile, done) => {
+  userProfile(accessToken, done) {
+    this._oauth2.get('https://api.twitch.tv/helix/users', accessToken, (err, body) => {
+      if (err) return done(err);
       try {
-        const email    = idToken?.email || profile?.email || null;
-        const oauthId  = idToken?.sub   || profile?.id;
-        const firstName = profile?.name?.firstName || '';
-        const lastName  = profile?.name?.lastName  || '';
+        const u = JSON.parse(body)?.data?.[0];
+        if (!u) return done(new Error('Twitch: empty user profile'));
+        done(null, {
+          id:          u.id,
+          login:       u.login,
+          displayName: u.display_name,
+          email:       u.email || null, // requires user:read:email scope + verified email
+          avatar:      u.profile_image_url || null,
+        });
+      } catch (e) { done(e); }
+    });
+  }
+}
+
+if (get('TWITCH_CLIENT_ID') && get('TWITCH_CLIENT_SECRET')) {
+  passport.use('twitch', new TwitchStrategy(
+    {
+      clientID:     get('TWITCH_CLIENT_ID'),
+      clientSecret: get('TWITCH_CLIENT_SECRET'),
+      callbackURL:  `${SERVER_URL}/api/stage/auth/twitch/callback`,
+      scope: ['user:read:email'],
+    },
+    async (_at, _rt, profile, done) => {
+      try {
         const player = await findOrCreateOAuthPlayer({
-          oauthId,
-          provider: 'apple',
-          email,
-          fullName: [firstName, lastName].filter(Boolean).join(' ') || null,
-          avatar:   null,
+          oauthId:  profile.id,
+          provider: 'twitch',
+          email:    profile.email,
+          fullName: profile.displayName || profile.login,
+          avatar:   profile.avatar,
         });
         done(null, player);
       } catch (err) { done(err); }
     }
   ));
-  oauthProvidersEnabled.apple = true;
+  oauthProvidersEnabled.twitch = true;
 } else {
-  console.warn('[oauth] Apple OAuth disabled: set APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY');
+  console.warn('[oauth] Twitch OAuth disabled: set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET');
 }
 
 module.exports = { passport, findOrCreateOAuthPlayer, oauthProvidersEnabled };
