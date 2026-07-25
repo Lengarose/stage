@@ -9,8 +9,10 @@ import {
 import { cn } from "@/lib/utils";
 import { fmtStc, fmtDate } from "../shared/adminFormatters";
 import { TX_CATEGORIES } from "../shared/adminConstants";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function AdminEconomyPanel() {
+  const { t } = useTranslation();
   const [open, setOpen]         = useState(false);
   const [section, setSection]   = useState('health'); // health | player | club | txs | audit
   const [msg, setMsg]           = useState(null);
@@ -30,7 +32,7 @@ export default function AdminEconomyPanel() {
     try {
       const res = await stageClient.functions.invoke('adminEconomyControl', { action: 'health_check' });
       setHealth(res?.data);
-    } catch (err) { flash('error', err?.message || 'Health check failed'); }
+    } catch (err) { flash('error', err?.message || t('admin.economy.healthCheckFailed')); }
     setHealthLoading(false);
   }
 
@@ -243,11 +245,11 @@ export default function AdminEconomyPanel() {
   }
 
   const SECTION_TABS = [
-    { id: 'health', label: 'Health', icon: Activity },
-    { id: 'player', label: 'Player', icon: Wallet },
-    { id: 'club',   label: 'Club',   icon: Building2 },
-    { id: 'txs',    label: 'Transactions', icon: Filter },
-    { id: 'audit',  label: 'Audit Log', icon: ClipboardList },
+    { id: 'health', label: t('admin.economy.tabs.health'), icon: Activity },
+    { id: 'player', label: t('admin.economy.tabs.player'), icon: Wallet },
+    { id: 'club',   label: t('admin.economy.tabs.club'),   icon: Building2 },
+    { id: 'txs',    label: t('admin.economy.tabs.transactions'), icon: Filter },
+    { id: 'audit',  label: t('admin.economy.tabs.audit'), icon: ClipboardList },
   ];
 
   return (
@@ -257,7 +259,7 @@ export default function AdminEconomyPanel() {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
         <span className="text-xs font-bold text-foreground flex items-center gap-2">
-          <DollarSign className="w-3.5 h-3.5 text-primary" /> Economy Control Centre
+          <DollarSign className="w-3.5 h-3.5 text-primary" /> {t('admin.economy.controlCentreTitle')}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
@@ -293,9 +295,9 @@ export default function AdminEconomyPanel() {
             {section === 'health' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Economy Health Check</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{t('admin.economy.healthCheckTitle')}</p>
                   <Button size="sm" variant="ghost" onClick={runHealthCheck} disabled={healthLoading} className="text-xs gap-1 h-7">
-                    <RefreshCw className={cn("w-3 h-3", healthLoading && "animate-spin")} /> {healthLoading ? 'Checking…' : 'Run Check'}
+                    <RefreshCw className={cn("w-3 h-3", healthLoading && "animate-spin")} /> {healthLoading ? t('admin.economy.checking') : t('admin.economy.runCheck')}
                   </Button>
                 </div>
 

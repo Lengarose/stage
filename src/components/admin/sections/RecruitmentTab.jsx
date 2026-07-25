@@ -1,3 +1,4 @@
+import { useTranslation } from "@/hooks/useTranslation";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -14,11 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-const TYPE_LABELS = {
-  player_lfg: "Player LFG",
-  club_recruiting: "Club Recruiting",
-  trial_request: "Trial Request",
-};
+
 
 function normalizeList(value) {
   if (!value) return [];
@@ -31,6 +28,12 @@ function normalizeList(value) {
 }
 
 export default function RecruitmentTab({ posts = [], onRefresh }) {
+  const { t } = useTranslation();
+  const typeLabels = useMemo(() => ({
+    player_lfg: t("admin.recruitment.playerLfg"),
+    club_recruiting: t("admin.recruitment.clubRecruiting"),
+    trial_request: t("admin.recruitment.trialRequest"),
+  }), [t]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [busyId, setBusyId] = useState(null);
@@ -66,7 +69,7 @@ export default function RecruitmentTab({ posts = [], onRefresh }) {
     try {
       await stageClient.entities.RecruitmentPost.update(post.id, {
         status: nextStatus,
-        reason: nextStatus === "closed" ? "Admin closed recruitment post" : "Admin reopened recruitment post",
+        reason: nextStatus === "closed" ? t("admin.recruitment.closedPost") : t("admin.recruitment.reopenedPost"),
       });
       await onRefresh?.();
     } finally {
@@ -79,15 +82,15 @@ export default function RecruitmentTab({ posts = [], onRefresh }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-heading uppercase tracking-tight text-foreground flex items-center gap-2">
-            <Handshake className="w-5 h-5 text-primary" /> Recruitment
+            <Handshake className="w-5 h-5 text-primary" /> {t("admin.recruitment.title")}
           </h2>
           <p className="text-xs text-muted-foreground">
-            Moderate LFG, club recruiting, and trial posts without changing transfers or contracts.
+            {t("admin.recruitment.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded border border-border bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-            {filteredPosts.length} shown
+            {t("admin.recruitment.shown", { count: filteredPosts.length })}
           </span>
         </div>
       </div>
@@ -98,7 +101,7 @@ export default function RecruitmentTab({ posts = [], onRefresh }) {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by title, player, club, position..."
+            placeholder={t("admin.recruitment.searchPlaceholder")}
             className="pl-9"
           />
         </div>

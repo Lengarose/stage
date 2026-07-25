@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Mic, Newspaper } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function parseJsonField(value) {
   if (!value) return null;
@@ -26,6 +27,7 @@ function conferenceEmbeddedQuestion(pc) {
 }
 
 export default function PressConferencesTab({ pressConferences, seedPressQuestions, saving }) {
+  const { t } = useTranslation();
   const [pressQuestions, setPressQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
 
@@ -68,10 +70,10 @@ export default function PressConferencesTab({ pressConferences, seedPressQuestio
           <div>
             <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2">
               <Mic className="w-4 h-4 text-primary" />
-              Press question bank
+              {t("admin.pressConferences.questionBank")}
             </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-              Template questions players answer in the Live Match press room. Seed once, then start a conference from a match or tournament.
+              {t("admin.pressConferences.questionBankDesc")}
             </p>
           </div>
           {seedPressQuestions && (
@@ -83,15 +85,15 @@ export default function PressConferencesTab({ pressConferences, seedPressQuestio
               disabled={saving}
               className="text-xs h-8"
             >
-              Seed default questions
+              {t("admin.pressConferences.seedQuestions")}
             </Button>
           )}
         </div>
 
         {loadingQuestions ? (
-          <p className="text-sm text-muted-foreground">Loading questions…</p>
+          <p className="text-sm text-muted-foreground">{t("admin.pressConferences.loadingQuestions")}</p>
         ) : pressQuestions.length === 0 ? (
-          <EmptyState icon={Mic} text="No questions in press_questions yet. Click Seed default questions." />
+          <EmptyState icon={Mic} text={t("admin.pressConferences.noQuestions")} />
         ) : (
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {pressQuestions.map((q) => (
@@ -108,13 +110,13 @@ export default function PressConferencesTab({ pressConferences, seedPressQuestio
       </div>
 
       <div className="bg-card border border-border rounded p-5 space-y-3">
-        <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">Press conference sessions</h3>
+        <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">{t("admin.pressConferences.sessions")}</h3>
         <p className="text-xs text-muted-foreground">
-          One row per match/club press event. Questions are picked from the bank when a manager opens the press room.
+          {t("admin.pressConferences.sessionsDesc")}
         </p>
 
         {realSessions.length === 0 && legacyMisimported.length === 0 ? (
-          <EmptyState icon={Newspaper} text="No press conferences found." />
+          <EmptyState icon={Newspaper} text={t("admin.pressConferences.noSessions")} />
         ) : (
           <div className="space-y-2">
             {realSessions.map((pc) => {

@@ -9,6 +9,7 @@ import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import LanguageFlagPicker from "@/components/settings/LanguageFlagPicker";
+import { DISPLAY_LANGUAGES } from "@/lib/languages";
 import SoundIconPicker from "@/components/settings/SoundIconPicker";
 import GamerSettingsSection from "@/components/settings/GamerSettingsSection";
 import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
@@ -430,7 +431,9 @@ export default function Settings() {
           icon={Globe}
         >
           <LanguageFlagPicker value={localLanguage} onChange={(val) => { setLocalLanguage(val); setContextLanguage(val); }} />
-          <p className="text-[10px] text-white/35 mt-3">{t("settingsPage.languageComingSoon")}</p>
+          {DISPLAY_LANGUAGES.some((lang) => !lang.enabled) ? (
+            <p className="text-[10px] text-white/35 mt-3">{t("settingsPage.languageComingSoon")}</p>
+          ) : null}
         </GamerSettingsSection>
 
         {/* Custom Theme */}

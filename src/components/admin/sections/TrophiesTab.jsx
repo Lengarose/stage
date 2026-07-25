@@ -1,3 +1,4 @@
+import { useTranslation } from "@/hooks/useTranslation";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,12 @@ import { cn } from "@/lib/utils";
 const COMP_SLUGS = ["supreme", "elite", "challenger"];
 
 function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
+  const { t } = useTranslation();
   const type = value?.type || "";
   const id   = value?.id   || "";
 
-  function setType(t) {
-    onChange(t ? { type: t, id: "", name: "" } : null);
+  function setType(nextType) {
+    onChange(nextType ? { type: nextType, id: "", name: "" } : null);
   }
 
   function setSource(sourceId) {
@@ -31,9 +33,9 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
     <div className="space-y-2">
       <div className="flex gap-2">
         {[
-          { v: "",               label: "No Link" },
-          { v: "competition",    label: "STAGE Competition" },
-          { v: "regional_league", label: "Regional League" },
+          { v: "", label: t("admin.trophies.noLink") },
+          { v: "competition", label: t("admin.trophies.stageCompetition") },
+          { v: "regional_league", label: t("admin.trophies.regionalLeague") },
         ].map(opt => (
           <button key={opt.v} type="button"
             onClick={() => setType(opt.v)}
@@ -51,7 +53,7 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
         <select value={id}
           onChange={e => setSource(e.target.value)}
           className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
-          <option value="">— select competition —</option>
+          <option value="">{t("admin.trophies.selectCompetition")}</option>
           {officialComps.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
@@ -59,7 +61,7 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
         <select value={id}
           onChange={e => setSource(e.target.value)}
           className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
-          <option value="">— select league —</option>
+          <option value="">{t("admin.trophies.selectLeague")}</option>
           {regionalLeagues
             .slice()
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
@@ -89,6 +91,7 @@ export default function TrophiesTab({
   competitions,
   regionalLeagues,
 }) {
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [replaceFile, setReplaceFile] = useState(null);

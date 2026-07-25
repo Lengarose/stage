@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { swalConfirm } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function MarketValueConfigPanel() {
+  const { t } = useTranslation();
   const [cfg, setCfg] = useState(null);
   const [saving, setSaving] = useState(false);
   const [recalcBusy, setRecalcBusy] = useState(false);
@@ -62,7 +64,7 @@ export default function MarketValueConfigPanel() {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
         <span className="text-xs font-bold text-foreground flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-primary" /> Market Value Engine — Config
+          <TrendingUp className="w-3.5 h-3.5 text-primary" /> {t("admin.economy.marketValueConfig")}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
@@ -72,7 +74,7 @@ export default function MarketValueConfigPanel() {
             <p className={cn("text-xs font-medium", msg.type === "success" ? "text-success" : "text-destructive")}>{msg.text}</p>
           )}
           {!cfg ? (
-            <p className="text-xs text-muted-foreground">Loading config…</p>
+            <p className="text-xs text-muted-foreground">{t("admin.actions.loading")}</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               {fields.map(f => (
@@ -92,11 +94,11 @@ export default function MarketValueConfigPanel() {
           <div className="flex gap-2 pt-1">
             <Button size="sm" onClick={save} disabled={saving || !cfg}
               className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40 text-xs">
-              {saving ? "Saving…" : "Save Config"}
+              {saving ? t("admin.actions.saving") : t("admin.economy.saveConfig")}
             </Button>
             <Button size="sm" variant="outline" onClick={recalcAll} disabled={recalcBusy}
               className="text-xs border-warning/30 text-warning hover:bg-warning/10">
-              {recalcBusy ? "Recalculating…" : "Recalculate All Player Values"}
+              {recalcBusy ? t("admin.economy.recalculating") : t("admin.economy.recalculateAll")}
             </Button>
           </div>
         </div>

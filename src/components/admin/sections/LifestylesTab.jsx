@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Building2, RefreshCw, Plus, Pencil, X, Upload, Check } from "lucide-react";
 
 export default function LifestylesTab({
@@ -22,6 +23,7 @@ export default function LifestylesTab({
   lifestyleSaving,
   saveLifestyleAsset,
 }) {
+  const { t } = useTranslation();
   const totalAssets = lifestyleItems.length;
   const rentableAssets = lifestyleItems.filter(item => item.can_rent && Number(item.rent_price_stc || 0) > 0).length;
   const investableAssets = lifestyleItems.filter(item => item.can_invest && Number(item.invest_price_stc || 0) > 0).length;
@@ -32,25 +34,25 @@ export default function LifestylesTab({
 <div className="space-y-4">
   {/* Header row */}
   <div className="flex items-center justify-between gap-3 flex-wrap">
-    <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">Lifestyle Assets</h3>
+    <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">{t("admin.lifestyles.title")}</h3>
     <div className="flex gap-2">
       <Button size="sm" variant="outline" onClick={reseedLifestyle} disabled={saving}
         className="border-border text-muted-foreground hover:text-foreground text-xs h-8 gap-1.5">
-        <RefreshCw className="w-3.5 h-3.5" /> Reseed Defaults
+        <RefreshCw className="w-3.5 h-3.5" /> {t("admin.lifestyles.reseedDefaults")}
       </Button>
       <Button size="sm" onClick={openAddAsset}
         className="bg-primary text-primary-foreground text-xs h-8 gap-1.5">
-        <Plus className="w-3.5 h-3.5" /> Add Asset
+        <Plus className="w-3.5 h-3.5" /> {t("admin.lifestyles.addAsset")}
       </Button>
     </div>
   </div>
 
   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
     {[
-      ['Assets', totalAssets],
-      ['Properties', propertyAssets],
-      ['Rentable', rentableAssets],
-      ['Investable', investableAssets],
+      [t('admin.lifestyles.assets'), totalAssets],
+      [t('admin.lifestyles.properties'), propertyAssets],
+      [t('admin.lifestyles.rentable'), rentableAssets],
+      [t('admin.lifestyles.investable'), investableAssets],
     ].map(([label, value]) => (
       <div key={label} className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
         <p className="text-lg font-semibold text-foreground leading-none">{value}</p>
@@ -61,7 +63,7 @@ export default function LifestylesTab({
 
   {/* Asset list */}
   {lifestyleItems.length === 0 ? (
-    <EmptyState icon={Building2} text="No lifestyle assets found. Add one or reseed defaults." />
+    <EmptyState icon={Building2} text={t("admin.lifestyles.noAssets")} />
   ) : (
     <div className="space-y-2">
       {lifestyleItems.map(item => (

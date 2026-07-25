@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useMemo, useState } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/admin/shared/EmptyState';
 import { Globe2, Plus, Vote, Lock, Pencil, X, Check } from 'lucide-react';
@@ -90,6 +91,7 @@ function validateCountrySelection(form) {
 }
 
 function InternationalTournamentFields({ form, set, setTournamentType }) {
+  const { t } = useTranslation();
   const availableCountries = useMemo(
     () => getCountriesForTournamentType(form.tournament_type),
     [form.tournament_type]
@@ -103,7 +105,7 @@ function InternationalTournamentFields({ form, set, setTournamentType }) {
     <>
       <input
         className="bg-secondary border border-border rounded px-3 py-2 text-sm"
-        placeholder="Tournament name"
+        placeholder={t("admin.international.namePlaceholder")}
         value={form.name}
         onChange={(event) => set('name', event.target.value)}
       />
@@ -121,7 +123,7 @@ function InternationalTournamentFields({ form, set, setTournamentType }) {
       </select>
       <input
         className="bg-secondary border border-border rounded px-3 py-2 text-sm"
-        placeholder="Region"
+        placeholder={t("admin.international.regionPlaceholder")}
         value={form.region}
         onChange={(event) => set('region', event.target.value)}
       />
@@ -219,6 +221,7 @@ export default function InternationalTournamentsTab({
   onLockSquad,
   saving,
 }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(buildEmptyForm);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(buildEmptyForm);
@@ -276,7 +279,7 @@ export default function InternationalTournamentsTab({
       <form onSubmit={submitCreate} className="bg-card border border-border rounded p-4 grid gap-3 md:grid-cols-2">
         <div className="md:col-span-2 flex items-center gap-2">
           <Globe2 className="w-4 h-4 text-primary" />
-          <h3 className="font-heading uppercase text-sm tracking-wide text-foreground">Create International Tournament</h3>
+          <h3 className="font-heading uppercase text-sm tracking-wide text-foreground">{t("admin.international.create")}</h3>
         </div>
         <InternationalTournamentFields form={form} set={set} setTournamentType={setTournamentType} />
         <Button type="submit" disabled={saving || !form.name} className="md:col-span-2 rounded gap-2">
@@ -285,7 +288,7 @@ export default function InternationalTournamentsTab({
       </form>
 
       {!tournaments.length ? (
-        <EmptyState icon={Globe2} text="No international tournaments yet." />
+        <EmptyState icon={Globe2} text={t("admin.international.noTournaments")} />
       ) : (
         <div className="space-y-3">
           {tournaments.map((tournament) => {

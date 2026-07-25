@@ -6,8 +6,10 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Database, Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban, Trash2, Wand2 } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName }) {
+  const { t } = useTranslation();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -33,24 +35,24 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
   async function copyLink(token) {
     const url = `${window.location.origin}/tournaments/entrance/${token}/signin`;
     await navigator.clipboard.writeText(url).catch(() => {});
-    window.alert("Link copied to clipboard.");
+    window.alert(t("admin.tournaments.linkCopied"));
   }
 
   async function revokeLink(linkId) {
-    if (!window.confirm("Revoke this entrance link?")) return;
+    if (!window.confirm(t("admin.tournaments.revokeLink"))) return;
     setActionLoading(linkId);
     try {
       await stageClient.functions.invoke("revokeTournamentEntranceLink", { link_id: linkId });
       await fetchLinks();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to revoke link.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.revokeFailed"));
     } finally {
       setActionLoading(null);
     }
   }
 
   async function regenerateLink(linkId) {
-    if (!window.confirm("Regenerate this entrance link? The old link will be revoked.")) return;
+    if (!window.confirm(t("admin.tournaments.regenerateLinkConfirm"))) return;
     setActionLoading(linkId);
     try {
       const result = await stageClient.functions.invoke("regenerateTournamentEntranceLink", { link_id: linkId });
@@ -58,11 +60,11 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
       if (newLink?.token) {
         const url = `${window.location.origin}/tournaments/entrance/${newLink.token}/signin`;
         await navigator.clipboard.writeText(url).catch(() => {});
-        window.alert("New link generated and copied to clipboard.");
+        window.alert(t("admin.tournaments.newLinkCopied"));
       }
       await fetchLinks();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to regenerate link.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.regenerateFailed"));
     } finally {
       setActionLoading(null);
     }
@@ -76,11 +78,11 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
       if (link?.token) {
         const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
         await navigator.clipboard.writeText(url).catch(() => {});
-        window.alert("New entrance link created and copied.");
+        window.alert(t("admin.tournaments.entranceLinkCopied"));
       }
       await fetchLinks();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to create entrance link.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.createLinkFailed"));
     } finally {
       setActionLoading(null);
     }
@@ -91,17 +93,17 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
       <DialogContent className="max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-heading uppercase tracking-tight text-sm">
-            Entrance Links — {tournamentName || "Tournament"}
+            {t("admin.tournaments.entranceLinksTitle", { name: tournamentName || t("admin.sections.tournaments") })}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <Button size="sm" onClick={createNew} disabled={actionLoading === "create"} className="gap-1.5 text-xs h-7">
-            <Plus className="w-3 h-3" /> Create New Link
+            <Plus className="w-3 h-3" /> {t("admin.tournaments.createNewLink")}
           </Button>
           {loading ? (
-            <p className="text-xs text-muted-foreground">Loading links...</p>
+            <p className="text-xs text-muted-foreground">{t("admin.tournaments.loadingLinks")}</p>
           ) : links.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No entrance links yet.</p>
+            <p className="text-xs text-muted-foreground">{t("admin.tournaments.noEntranceLinks")}</p>
           ) : (
             <div className="space-y-2">
               {links.map((link) => {
@@ -124,19 +126,19 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
                     <p className="text-xs text-muted-foreground font-mono break-all">{link.token}</p>
                     {link.expires_at && (
                       <p className="text-[10px] text-muted-foreground">
-                        Expires: {new Date(link.expires_at).toLocaleString()}
+                        {t("admin.tournaments.expires", { date: new Date(link.expires_at).toLocaleString() })}
                       </p>
                     )}
                     {isActive && (
                       <div className="flex gap-1.5 pt-1">
                         <Button type="button" size="sm" variant="outline" onClick={() => copyLink(link.token)} className="h-6 text-[10px] gap-1 px-2">
-                          <Copy className="w-3 h-3" /> Copy
+                          <Copy className="w-3 h-3" /> {t("admin.tournaments.copy")}
                         </Button>
                         <Button type="button" size="sm" variant="outline" onClick={() => regenerateLink(link.id)} disabled={actionLoading === link.id} className="h-6 text-[10px] gap-1 px-2">
-                          <RotateCcw className="w-3 h-3" /> Regenerate
+                          <RotateCcw className="w-3 h-3" /> {t("admin.tournaments.regenerate")}
                         </Button>
                         <Button type="button" size="sm" variant="outline" onClick={() => revokeLink(link.id)} disabled={actionLoading === link.id} className="h-6 text-[10px] gap-1 px-2 border-destructive/30 text-destructive hover:bg-destructive/10">
-                          <Ban className="w-3 h-3" /> Revoke
+                          <Ban className="w-3 h-3" /> {t("admin.tournaments.revoke")}
                         </Button>
                       </div>
                     )}
@@ -163,6 +165,7 @@ export default function TournamentsTab({
   deleteTournament,
   onRefresh,
 }) {
+  const { t } = useTranslation();
   const [entranceDialog, setEntranceDialog] = useState(null);
   const [testPackBusy, setTestPackBusy] = useState(null);
   const [simulatingTournamentId, setSimulatingTournamentId] = useState(null);
@@ -191,40 +194,40 @@ export default function TournamentsTab({
     try {
       const result = await stageClient.functions.invoke("createTournamentEntranceLink", { tournament_id: tournamentId });
       const link = result?.data?.link || result?.link || null;
-      if (!link?.token) throw new Error("Link token missing");
+      if (!link?.token) throw new Error(t("admin.tournaments.linkTokenMissing"));
       const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
       await navigator.clipboard.writeText(url).catch(() => {});
-      window.alert(`Entrance link created and copied:\n${url}`);
+      window.alert(t("admin.tournaments.entranceLinkCreated", { url }));
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to create entrance link.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.createLinkFailed"));
     }
   }
 
   async function seedTestClubs() {
-    if (!window.confirm("Create the disposable STAGE test club pack? Existing test-pack clubs will be replaced.")) return;
+    if (!window.confirm(t("admin.tournaments.seedTestClubsConfirm"))) return;
     setTestPackBusy("seed");
     try {
       const result = await stageClient.functions.invoke("seedTournamentTestClubs", {});
       const data = result?.data || result || {};
-      window.alert(`Test pack ready: ${data.clubs || 8} clubs and ${data.players || 0} players created.`);
+      window.alert(t("admin.tournaments.testPackReady", { clubs: data.clubs || 8, players: data.players || 0 }));
       await onRefresh?.();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to create test clubs.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.createTestClubsFailed"));
     } finally {
       setTestPackBusy(null);
     }
   }
 
   async function deleteTestClubs() {
-    if (!window.confirm("Delete all disposable STAGE test-pack clubs and players? This removes their linked test records too.")) return;
+    if (!window.confirm(t("admin.tournaments.deleteTestClubsConfirm"))) return;
     setTestPackBusy("delete");
     try {
       const result = await stageClient.functions.invoke("deleteTournamentTestClubs", {});
       const deleted = result?.data?.deleted || result?.deleted || {};
-      window.alert(`Deleted ${deleted.clubs || 0} test clubs and ${deleted.players || 0} test players.`);
+      window.alert(t("admin.tournaments.testPackDeleted", { clubs: deleted.clubs || 0, players: deleted.players || 0 }));
       await onRefresh?.();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to delete test clubs.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.deleteTestClubsFailed"));
     } finally {
       setTestPackBusy(null);
     }
@@ -236,14 +239,14 @@ export default function TournamentsTab({
       const matches = await stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round", 200);
       const match = (matches || []).find((item) => !["completed", "forfeit", "cancelled"].includes(String(item.status || "").toLowerCase()));
       if (!match) {
-        window.alert("No open match found to simulate for this tournament.");
+        window.alert(t("admin.tournaments.noOpenMatch"));
         return;
       }
       await stageClient.functions.invoke("simulateScore", { tournamentId, matchId: match.id });
-      window.alert("Match simulated with full-time score and player stats.");
+      window.alert(t("admin.tournaments.matchSimulated"));
       await onRefresh?.();
     } catch (err) {
-      window.alert(err?.error || err?.message || "Failed to simulate match.");
+      window.alert(err?.error || err?.message || t("admin.tournaments.simulateMatchFailed"));
     } finally {
       setSimulatingTournamentId(null);
     }
@@ -253,29 +256,29 @@ export default function TournamentsTab({
     <>
       <div className="mb-4 flex gap-2 flex-wrap">
         <Button onClick={() => setCreateTournamentOpen(true)} className="bg-primary text-primary-foreground gap-2 text-xs h-8 rounded">
-          <Plus className="w-3.5 h-3.5" /> Create Tournament
+          <Plus className="w-3.5 h-3.5" /> {t("admin.tournaments.create")}
         </Button>
         <Button variant="outline" size="sm" onClick={seedPressQuestions} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
-          Seed Press Questions
+          {t("admin.pressConferences.seedQuestions")}
         </Button>
         <Button variant="outline" size="sm" onClick={reseedLifestyle} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
-          Reseed Lifestyle Prices
+          {t("admin.lifestyles.reseedPrices")}
         </Button>
         <Button variant="outline" size="sm" onClick={seedTestClubs} disabled={!!testPackBusy} className="border-primary/30 text-primary hover:text-primary text-xs h-8 rounded gap-1.5">
-          <Database className="w-3.5 h-3.5" /> Create Test Clubs
+          <Database className="w-3.5 h-3.5" /> {t("admin.tournaments.seedTestPack")}
         </Button>
         <Button variant="outline" size="sm" onClick={deleteTestClubs} disabled={!!testPackBusy} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-8 rounded gap-1.5">
-          <Trash2 className="w-3.5 h-3.5" /> Delete Test Clubs
+          <Trash2 className="w-3.5 h-3.5" /> {t("admin.tournaments.deleteTestPack")}
         </Button>
       </div>
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={tournamentSearch} onChange={e => setTournamentSearch(e.target.value)}
           className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-          placeholder="Search by tournament name..." />
+          placeholder={t("admin.tournaments.searchPlaceholder")} />
       </div>
       {tournaments.length === 0 ? (
-        <EmptyState icon={Trophy} text="No active tournaments." />
+        <EmptyState icon={Trophy} text={t("admin.tournaments.noActive")} />
       ) : (
         <div className="space-y-3">
           {tournaments.filter(t => t.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && t.status !== "archived" && t.status !== "cancelled").map(t => {
@@ -297,15 +300,15 @@ export default function TournamentsTab({
                 )}>{t.status}</span>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Link to={`/tournaments/${t.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">View</Button></Link>
+                <Link to={`/tournaments/${t.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">{t("admin.actions.view")}</Button></Link>
                 <Button size="sm" variant="outline" onClick={() => createEntranceLink(t.id)} className="border-border text-muted-foreground text-xs gap-1">
-                  <Link2 className="w-3.5 h-3.5" /> Entrance Link
+                  <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.quickLink")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: t.id, name: t.name })} className="border-border text-muted-foreground text-xs gap-1">
-                  <Link2 className="w-3.5 h-3.5" /> Manage Links
+                  <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.manageLinks")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => simulateNextMatch(t.id)} disabled={simulatingTournamentId === t.id} className="border-primary/30 text-primary hover:text-primary text-xs gap-1">
-                  <Wand2 className="w-3.5 h-3.5" /> Simulate Next
+                  <Wand2 className="w-3.5 h-3.5" /> {t("admin.tournaments.simulateNextMatch")}
                 </Button>
                 {status === "completed" || status === "registration" ? (
                   <Button
@@ -313,14 +316,14 @@ export default function TournamentsTab({
                     variant="outline"
                     onClick={() => handleDeleteTournament(t)}
                     disabled={!canDeleteNow || deletingTournamentId === t.id}
-                    title={lockDays > 0 ? `Community tournament can be deleted in ${lockDays} day${lockDays === 1 ? "" : "s"}.` : "Permanently delete this tournament"}
+                    title={lockDays > 0 ? t("admin.tournaments.deleteInDays", { days: lockDays }) : t("admin.tournaments.deletePermanently")}
                     className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"
                   >
-                    <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? "End & Delete" : "Delete"}
+                    <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? t("admin.tournaments.endAndDelete") : t("admin.actions.delete")}
                   </Button>
                 ) : (
                   <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1">
-                    <X className="w-3.5 h-3.5" /> Cancel
+                    <X className="w-3.5 h-3.5" /> {t("admin.tournaments.cancel")}
                   </Button>
                 )}
               </div>

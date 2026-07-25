@@ -7,12 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const DEFAULT_STATS = [
-  { value: "2 000+",  label: "Active Players" },
-  { value: "200+",    label: "Clubs" },
-  { value: "500+",    label: "Competitions Played" },
-  { value: "10 000+", label: "Matches Recorded" },
+const DEFAULT_STATS = (t) => [
+  { value: "2 000+",  label: t("admin.editors.activePlayers") },
+  { value: "200+",    label: t("admin.editors.clubs") },
+  { value: "500+",    label: t("admin.editors.competitionsPlayed") },
+  { value: "10 000+", label: t("admin.editors.matchesRecorded") },
 ];
 
 
@@ -50,6 +51,7 @@ function Field({ label, children }) {
 
 /* ── main export ─────────────────────────────────────────────── */
 export default function LandingPageEditor() {
+  const { t } = useTranslation();
   const [record, setRecord] = useState(null);
   const [form, setForm]     = useState(null);
   const [saving, setSaving] = useState(false);
@@ -71,7 +73,7 @@ export default function LandingPageEditor() {
         const s = typeof r.stats_json === 'string' ? JSON.parse(r.stats_json || '[]') : r.stats_json;
         if (Array.isArray(s) && s.length) return s;
       } catch {}
-      return DEFAULT_STATS.map(s => ({ ...s }));
+      return DEFAULT_STATS(t).map(s => ({ ...s }));
     })();
     return {
       hero_title:         r.hero_title         ?? "The Competitive EA FC Platform",
@@ -132,13 +134,13 @@ export default function LandingPageEditor() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.editors.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
     }
   }
 
-  if (!form) return <div className="text-xs text-muted-foreground py-6 text-center">Loading…</div>;
+  if (!form) return <div className="text-xs text-muted-foreground py-6 text-center">{t("admin.actions.loading")}</div>;
 
   const SaveButton = ({ full }) => (
     <Button
@@ -150,7 +152,7 @@ export default function LandingPageEditor() {
       {saving
         ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" />
         : <Check className="w-3.5 h-3.5" />}
-      {saving ? "Saving…" : saved ? "Saved!" : "Save All Changes"}
+      {saving ? t("admin.actions.saving") : saved ? t("admin.actions.saved") : t("admin.editors.saveAll")}
     </Button>
   );
 
@@ -158,22 +160,22 @@ export default function LandingPageEditor() {
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">Landing Page Editor</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Changes go live immediately after saving.</p>
+          <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">{t("admin.editors.landingTitle")}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("admin.editors.landingSubtitle")}</p>
         </div>
         <SaveButton />
       </div>
 
       {/* ── Hero ── */}
-      <EditorSection title="Hero Section" defaultOpen>
-        <Field label="Eyebrow text (small label above title)">
-          <Input value={form.hero_title} onChange={e => set("hero_title", e.target.value)} className="h-8 text-xs" placeholder="The Competitive EA FC Platform" />
+      <EditorSection title={t("admin.editors.heroSection")} defaultOpen>
+        <Field label={t("admin.editors.eyebrowText")}>
+          <Input value={form.hero_title} onChange={e => set("hero_title", e.target.value)} className="h-8 text-xs" placeholder={t("admin.editors.competitivePlatform")} />
         </Field>
-        <Field label="Hero description">
-          <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} placeholder="Leagues, competitions, clubs..." />
+        <Field label={t("admin.editors.heroDescription")}>
+          <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} placeholder={t("admin.editors.heroDescPlaceholder")} />
         </Field>
         <PositionedImageUploadField
-          label="Hero background image (full-screen, blurred)"
+          label={t("admin.editors.heroBackground")}
           value={form.hero_image_url}
           onChange={v => set("hero_image_url", v)}
           position={form.hero_image_position}
@@ -181,25 +183,25 @@ export default function LandingPageEditor() {
           zoom={form.hero_image_zoom}
           onZoomChange={v => set("hero_image_zoom", v)}
           preview="hero"
-          placeholder="https://… or drop image above"
-          title="Your Stage Awaits"
+          placeholder={t("admin.editors.imageUrlPlaceholder")}
+          title={t("admin.editors.yourStageAwaits")}
           subtitle={form.hero_title}
         />
       </EditorSection>
 
       {/* ── Stats Bar ── */}
-      <EditorSection title="Stats Bar" badge={form.stats?.length}>
-        <p className="text-[10px] text-muted-foreground">The 4 numbers shown under the hero. Edit values like "2 000+" and labels like "Active Players".</p>
+      <EditorSection title={t("admin.editors.statsBar")} badge={form.stats?.length}>
+        <p className="text-[10px] text-muted-foreground">{t("admin.editors.statsBarHint")}</p>
         <div className="space-y-2">
           {(form.stats || []).map((stat, i) => (
             <div key={i} className="grid grid-cols-2 gap-2 bg-secondary/30 rounded-lg p-3">
               <div>
-                <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Value</p>
+                <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">{t("admin.editors.value")}</p>
                 <Input value={stat.value} onChange={e => setStat(i, "value", e.target.value)} className="h-7 text-xs" placeholder="2 000+" />
               </div>
               <div>
-                <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Label</p>
-                <Input value={stat.label} onChange={e => setStat(i, "label", e.target.value)} className="h-7 text-xs" placeholder="Active Players" />
+                <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">{t("admin.editors.label")}</p>
+                <Input value={stat.label} onChange={e => setStat(i, "label", e.target.value)} className="h-7 text-xs" placeholder={t("admin.editors.activePlayers")} />
               </div>
             </div>
           ))}
@@ -208,22 +210,22 @@ export default function LandingPageEditor() {
 
       {/* ── Picture Sections ── */}
       {[
-        { n: 1, defaultTag: "Compete" },
-        { n: 2, defaultTag: "Manage" },
-        { n: 3, defaultTag: "Grow"   },
+        { n: 1, defaultTag: t("admin.editors.compete") },
+        { n: 2, defaultTag: t("admin.editors.manage") },
+        { n: 3, defaultTag: t("admin.editors.grow")   },
       ].map(({ n, defaultTag }) => (
-        <EditorSection key={n} title={`Frame ${n} — Picture + Text`}>
-          <Field label="Tag / label (small coloured text above title)">
+        <EditorSection key={n} title={t("admin.editors.frameSection", { n })}>
+          <Field label={t("admin.editors.tagLabel")}>
             <Input value={form[`section${n}_tag`]} onChange={e => set(`section${n}_tag`, e.target.value)} className="h-8 text-xs" placeholder={defaultTag} />
           </Field>
-          <Field label="Title">
+          <Field label={t("admin.editors.title")}>
             <Input value={form[`section${n}_title`]} onChange={e => set(`section${n}_title`, e.target.value)} className="h-8 text-xs" />
           </Field>
-          <Field label="Description">
+          <Field label={t("admin.editors.description")}>
             <Textarea value={form[`section${n}_text`]} onChange={e => set(`section${n}_text`, e.target.value)} className="text-xs resize-none" rows={4} />
           </Field>
           <PositionedImageUploadField
-            label="Frame image (16:10 ratio looks best)"
+            label={t("admin.editors.frameImage")}
             value={form[`section${n}_image_url`]}
             onChange={v => set(`section${n}_image_url`, v)}
             position={form[`section${n}_image_position`]}
@@ -238,9 +240,9 @@ export default function LandingPageEditor() {
       ))}
 
       {/* ── Footer ── */}
-      <EditorSection title="Footer">
-        <Field label="Tagline">
-          <Input value={form.footer_tagline} onChange={e => set("footer_tagline", e.target.value)} className="h-8 text-xs" placeholder="The premier competitive football gaming platform." />
+      <EditorSection title={t("admin.editors.footer")}>
+        <Field label={t("admin.editors.tagline")}>
+          <Input value={form.footer_tagline} onChange={e => set("footer_tagline", e.target.value)} className="h-8 text-xs" placeholder={t("admin.editors.footerTaglinePlaceholder")} />
         </Field>
       </EditorSection>
 

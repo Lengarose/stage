@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Coins, RefreshCw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function AdminWagersPanel() {
+  const { t } = useTranslation();
   const [open, setOpen]       = useState(false);
   const [wagers, setWagers]   = useState(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ export default function AdminWagersPanel() {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
         <span className="text-xs font-bold text-foreground flex items-center gap-2">
-          <Coins className="w-3.5 h-3.5 text-warning" /> Wager Management
+          <Coins className="w-3.5 h-3.5 text-warning" /> {t("admin.economy.wagerManagement")}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>

@@ -12,30 +12,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DashboardGamerStatCard from "@/components/dashboard/DashboardGamerStatCard";
 import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
+import { useTranslation } from "@/hooks/useTranslation";
+import { getAdminSectionLabel } from "@/lib/adminI18n";
 
-export const ADMIN_SECTION_LABELS = {
-  disputes: "Disputes",
-  forfeits: "Forfeits",
-  players: "Players",
-  clubs: "Clubs",
-  rankings: "Rankings",
-  leagues: "Leagues",
-  tournaments: "Tournaments",
-  "international-tournaments": "International",
-  news: "News",
-  "press-conferences": "Press Conferences",
-  lifestyles: "Lifestyles",
-  transfers: "Transfers",
-  recruitment: "Recruitment",
-  trophies: "Trophies",
-  rewards: "Rewards",
-  landing: "Landing Page",
-  home: "Home Page",
-  analytics: "Analytics",
-  store: "Store",
-};
+/** @deprecated Use getAdminSectionLabel(t, slug) from @/lib/adminI18n */
+export const ADMIN_SECTION_LABELS = {};
+
+export { getAdminSectionLabel };
 
 export function AdminPulseRing({ openIssues, healthPct, size = 88 }) {
+  const { t } = useTranslation();
   const pct = Math.min(100, Math.max(0, Number(healthPct) || 0));
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
@@ -66,7 +52,7 @@ export function AdminPulseRing({ openIssues, healthPct, size = 88 }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-heading text-xl font-black text-white leading-none">{openIssues}</span>
-        <span className="text-[8px] font-bold uppercase tracking-wider text-white/40 mt-0.5">Open</span>
+        <span className="text-[8px] font-bold uppercase tracking-wider text-white/40 mt-0.5">{t("admin.stats.open")}</span>
       </div>
     </div>
   );
@@ -99,35 +85,36 @@ export function AdminGamerSection({ title, subtitle, icon: Icon, children, class
 }
 
 export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, identityClaims = [] }) {
+  const { t } = useTranslation();
   const activeTournaments = tournaments.filter(
-    (t) => !["archived", "cancelled"].includes(String(t.status || "").toLowerCase())
+    (tourn) => !["archived", "cancelled"].includes(String(tourn.status || "").toLowerCase())
   );
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <DashboardGamerStatCard
-        label="Disputes"
+        label={t("admin.sections.disputes")}
         value={disputes.length}
-        sub={disputes.length ? "Needs resolution" : "All clear"}
+        sub={disputes.length ? t("admin.stats.needsResolution") : t("admin.stats.allClear")}
         accent="rose"
         icon={AlertTriangle}
       />
       <DashboardGamerStatCard
-        label="Forfeits"
+        label={t("admin.sections.forfeits")}
         value={forfeits.length}
-        sub={forfeits.length ? "Pending review" : "None pending"}
+        sub={forfeits.length ? t("admin.stats.pendingReview") : t("admin.stats.nonePending")}
         accent="gold"
         icon={Flag}
       />
       <DashboardGamerStatCard
-        label="Players"
+        label={t("admin.sections.players")}
         value={players.length}
-        sub={identityClaims.length ? `${identityClaims.length} identity claims` : "Registered profiles"}
+        sub={identityClaims.length ? t("admin.stats.identityClaims", { count: identityClaims.length }) : t("admin.stats.registeredProfiles")}
         accent="cyan"
         icon={Users}
       />
       <DashboardGamerStatCard
-        label="Tournaments"
+        label={t("admin.sections.tournaments")}
         value={activeTournaments.length}
         accent="green"
         icon={Trophy}
@@ -149,7 +136,8 @@ export default function AdminGamerLayout({
   onRefresh,
   children,
 }) {
-  const sectionTitle = sectionKey ? ADMIN_SECTION_LABELS[sectionKey] || sectionKey : "Admin";
+  const { t } = useTranslation();
+  const sectionTitle = sectionKey ? getAdminSectionLabel(t, sectionKey) : t("admin.shell.title");
   const openIssues = disputes.length + forfeits.length;
   const backTo = sectionKey ? "/admin" : "/";
 
@@ -169,14 +157,14 @@ export default function AdminGamerLayout({
               <div className="flex items-start gap-4 min-w-0">
                 <AdminPulseRing openIssues={openIssues} healthPct={100 - Math.min(openIssues * 8, 80)} />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-red-400 mb-1">Control Center</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-red-400 mb-1">{t("admin.shell.controlCenter")}</p>
                   <h1 className="font-heading font-black uppercase text-white text-3xl sm:text-4xl leading-none truncate">
                     {sectionTitle}
                   </h1>
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-white/50">
                     <ShieldAlert className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                    <span className="truncate">{adminProfile?.email || "Administrator"}</span>
-                    <span className="hidden sm:inline">· STAGE Control Panel</span>
+                    <span className="truncate">{adminProfile?.email || t("admin.shell.administrator")}</span>
+                    <span className="hidden sm:inline">· {t("admin.shell.controlPanel")}</span>
                   </div>
                 </div>
               </div>
@@ -188,7 +176,7 @@ export default function AdminGamerLayout({
                     size="sm"
                     className="gap-2 font-heading uppercase text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03]"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" /> {sectionKey ? "Dashboard" : "Back"}
+                    <ArrowLeft className="w-3.5 h-3.5" /> {sectionKey ? t("admin.nav.dashboard") : t("admin.shell.back")}
                   </Button>
                 </Link>
                 <Button
@@ -199,7 +187,7 @@ export default function AdminGamerLayout({
                   disabled={loading}
                 >
                   <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-                  Refresh
+                  {t("admin.actions.refresh")}
                 </Button>
               </div>
             </div>

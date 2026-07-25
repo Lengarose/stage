@@ -1,3 +1,16 @@
+import {
+  EXTENDED_LANGUAGE_NAMES,
+  EXTENDED_EXTRA_NAV,
+  buildExtendedMatchFlow,
+  buildExtendedCompetitionFlow,
+  buildExtendedTournamentDetail,
+  buildExtendedCommonPages,
+  applyExtendedCommonPageAssigns,
+  buildExtendedLocalized,
+} from "./additionalLocales.js";
+import { getAdminTranslations } from "./adminTranslations.js";
+import { mergeAdminExtras } from "./adminTranslationExtras.js";
+
 const pageGuides = {
   en: {
     "tournamentMatch": ["Use this screen for tournament fixtures that need to be played or confirmed.", "Open a match to see opponent, rules, deadline and result actions.", "Submit results carefully because tournament standings depend on this flow."],
@@ -235,6 +248,7 @@ matchFlowTranslations.es = { ...matchFlowTranslations.en, gameDayTitle: "Día de
 matchFlowTranslations.it = { ...matchFlowTranslations.en, gameDayTitle: "Giorno partita", scheduleTitle: "Calendario", inboxTitle: "Inbox", league: "Lega", allLeagues: "Tutte le leghe", all: "Tutto", matchDetails: "Dettagli partita", rankedMatch: "Partita ranked", tournament: "Torneo", scheduled: "Programmato", live: "Live", pending: "In attesa", fullTime: "Fine partita", tbd: "Da definire", yourClub: "Il tuo club", scheduleSubtitleAll: "Tutte le partite, tornei e promemoria contratto", fixtures: "Partite", calendar: "Calendario", arrangeGame: "Organizza partita", home: "Casa", away: "Trasferta", unknown: "Sconosciuto", markAllRead: "Segna tutto come letto", inboxEmpty: "La tua inbox è vuota", noMessages: "Nessun messaggio", selectMessage: "Seleziona un messaggio per leggerlo", needsAction: "Azione richiesta", accept: "Accetta", decline: "Rifiuta", cancel: "Annulla", kickoff: "Calcio d'inizio", chat: "Chat", stats: "Stats" };
 matchFlowTranslations.zh = { ...matchFlowTranslations.en, gameDayTitle: "比赛日", scheduleTitle: "赛程", inboxTitle: "收件箱", league: "联赛", allLeagues: "所有联赛", all: "全部", matchDetails: "比赛详情", rankedMatch: "排位赛", tournament: "锦标赛", scheduled: "已安排", live: "直播中", pending: "待处理", fullTime: "全场结束", tbd: "待定", yourClub: "你的俱乐部", scheduleSubtitleAll: "所有比赛、锦标赛和合同提醒", fixtures: "赛程", calendar: "日历", arrangeGame: "安排比赛", home: "主场", away: "客场", unknown: "未知", markAllRead: "全部标为已读", inboxEmpty: "你的收件箱为空", noMessages: "没有消息", selectMessage: "选择一条消息阅读", needsAction: "需要操作", accept: "接受", decline: "拒绝", cancel: "取消", kickoff: "开赛", chat: "聊天", stats: "数据" };
 matchFlowTranslations.ja = { ...matchFlowTranslations.en, gameDayTitle: "試合日", scheduleTitle: "日程", inboxTitle: "受信箱", league: "リーグ", allLeagues: "すべてのリーグ", all: "すべて", matchDetails: "試合詳細", rankedMatch: "ランク戦", tournament: "トーナメント", scheduled: "予定済み", live: "ライブ", pending: "保留中", fullTime: "試合終了", tbd: "未定", yourClub: "自分のクラブ", scheduleSubtitleAll: "すべての試合、トーナメント、契約リマインダー", fixtures: "試合", calendar: "カレンダー", arrangeGame: "試合を調整", home: "ホーム", away: "アウェイ", unknown: "不明", markAllRead: "すべて既読にする", inboxEmpty: "受信箱は空です", noMessages: "メッセージなし", selectMessage: "読むメッセージを選択", needsAction: "対応が必要", accept: "承認", decline: "拒否", cancel: "キャンセル", kickoff: "キックオフ", chat: "チャット", stats: "Stats" };
+Object.assign(matchFlowTranslations, buildExtendedMatchFlow(matchFlowTranslations.en));
 
 const competitionFlowTranslations = {
   en: {
@@ -304,6 +318,7 @@ competitionFlowTranslations.es = { ...competitionFlowTranslations.en, competitio
 competitionFlowTranslations.it = { ...competitionFlowTranslations.en, competitionsTitle: "Competizioni", tournamentsTitle: "Tornei", rankingsTitle: "Classifiche", playersTitle: "Giocatori", registrationTitle: "Registrazione stagione", open: "Aperto", live: "Live", done: "Finito", full: "Pieno", rules: "Regole", createTournament: "Crea torneo", community: "Community", players: "Giocatori", clubs: "Club", entry: "Ingresso", prize: "Premio", free: "Gratis", back: "Indietro", next: "Avanti", global: "Globale", regional: "Regionale", country: "Paese", allRegions: "Tutte le regioni", allCountries: "Tutti i paesi", searchPlayers: "Cerca giocatori...", noPlayersFound: "Nessun giocatore trovato.", applyNow: "Candidati", cancel: "Annulla" };
 competitionFlowTranslations.zh = { ...competitionFlowTranslations.en, competitionsTitle: "竞赛", tournamentsTitle: "锦标赛", rankingsTitle: "排名", playersTitle: "球员", registrationTitle: "赛季报名", open: "开放", live: "进行中", done: "完成", full: "已满", rules: "规则", createTournament: "创建锦标赛", community: "社区", players: "球员", clubs: "俱乐部", entry: "报名", prize: "奖励", free: "免费", back: "返回", next: "下一步", global: "全球", regional: "地区", country: "国家", allRegions: "所有地区", allCountries: "所有国家", searchPlayers: "搜索球员...", noPlayersFound: "未找到球员。", applyNow: "立即申请", cancel: "取消" };
 competitionFlowTranslations.ja = { ...competitionFlowTranslations.en, competitionsTitle: "大会", tournamentsTitle: "トーナメント", rankingsTitle: "ランキング", playersTitle: "選手", registrationTitle: "シーズン登録", open: "受付中", live: "ライブ", done: "完了", full: "満員", rules: "ルール", createTournament: "トーナメント作成", community: "コミュニティ", players: "選手", clubs: "クラブ", entry: "参加", prize: "賞金", free: "無料", back: "戻る", next: "次へ", global: "グローバル", regional: "地域", country: "国", allRegions: "すべての地域", allCountries: "すべての国", searchPlayers: "選手を検索...", noPlayersFound: "選手が見つかりません。", applyNow: "申請", cancel: "キャンセル" };
+Object.assign(competitionFlowTranslations, buildExtendedCompetitionFlow(competitionFlowTranslations.en));
 
 const tournamentDetailTranslations = {
   en: {
@@ -418,6 +433,7 @@ tournamentDetailTranslations.es = { ...tournamentDetailTranslations.en, backToTo
 tournamentDetailTranslations.it = { ...tournamentDetailTranslations.en, backToTournaments: "Torna ai tornei", tournamentNotFound: "Torneo non trovato.", registerMyClub: "Registra il mio club", registerAsPlayer: "Registrati come giocatore", withdraw: "Ritirati", generateDraw: "Genera sorteggio", startTournament: "Avvia torneo", champion: "Campione", tabBracket: "Tabellone / Partite", tabGroupStandings: "Classifica gironi", tabLeagueTable: "Classifica", tabStats: "Stats", tabPlayers: "Giocatori", tabTeams: "Squadre" };
 tournamentDetailTranslations.zh = { ...tournamentDetailTranslations.en, backToTournaments: "返回锦标赛", tournamentNotFound: "未找到锦标赛。", registerMyClub: "注册我的俱乐部", registerAsPlayer: "以球员身份注册", withdraw: "退出", generateDraw: "生成对阵", startTournament: "开始锦标赛", champion: "冠军", tabBracket: "对阵图 / 比赛", tabGroupStandings: "小组排名", tabLeagueTable: "联赛积分榜", tabStats: "数据", tabPlayers: "球员", tabTeams: "球队" };
 tournamentDetailTranslations.ja = { ...tournamentDetailTranslations.en, backToTournaments: "トーナメントに戻る", tournamentNotFound: "トーナメントが見つかりません。", registerMyClub: "クラブを登録", registerAsPlayer: "選手として登録", withdraw: "辞退", generateDraw: "抽選を生成", startTournament: "トーナメント開始", champion: "優勝", tabBracket: "ブラケット / 試合", tabGroupStandings: "グループ順位", tabLeagueTable: "リーグ表", tabStats: "統計", tabPlayers: "選手", tabTeams: "チーム" };
+Object.assign(tournamentDetailTranslations, buildExtendedTournamentDetail(tournamentDetailTranslations.en));
 
 const commonPageTranslations = {
   en: {
@@ -515,6 +531,8 @@ commonPageTranslations.de = { ...commonPageTranslations.en,
   notifTitle: "Benachrichtigungen", notifMarkAllRead: "Alle als gelesen markieren", notifDeleteAll: "Alle löschen", notifDeleteAllConfirmTitle: "Alle Benachrichtigungen löschen?", notifDeleteAllConfirmDesc: "Dadurch werden alle {count} Benachrichtigungen dauerhaft gelöscht. Nicht rückgängig zu machen.", notifEmpty: "Noch keine Benachrichtigungen", notifMarkAsRead: "Als gelesen markieren",
   homeCompetitions: "Wettbewerbe", homeTournaments: "Turniere", homeLeagues: "Ligen", homeTier: "Stufe {tier}", homeViewBracket: "Turnierbaum ansehen", homePlayers: "{count}/{max} Spieler", homeFull: "Voll", homeViewDetails: "Details ansehen", homeNoTournaments: "Noch keine Turniere.", homeNoLeagues: "Noch keine Ligen.", homePlatform: "Plattform", homeViewAll: "Alle ansehen", homeLatest: "Neueste", homeAllNews: "Alle News", homeUpcoming: "Bevorstehend", homeSchedule: "Spielplan", homeScheduleDesc: "Verfolge jedes Spiel in allen Wettbewerben. Am Match Day passiert alles.", homeGameDay: "Match Day", homeNoMatches: "Keine anstehenden Spiele geplant.", homeMessages: "Nachrichten", homeOpen: "Öffnen", homeSignInMessages: "Melde dich an, um deine Nachrichten zu sehen.", homeInboxEmpty: "Dein Posteingang ist leer.", homeStageSystem: "STAGE System", homeUnknown: "Unbekannt", homeJumpIn: "Loslegen", homeJumpInDesc: "Alles, was du brauchst, mit einem Tipp.", homeNavCompetitions: "Wettbewerbe", homeNavCompetitionsDesc: "Ligen & K.-o.-Pokale", homeNavGameDay: "Match Day", homeNavGameDayDesc: "Spiele planen und spielen", homeNavClubs: "Clubs", homeNavClubsDesc: "Clubs durchsuchen und verwalten", homeNavStore: "Shop", homeNavStoreDesc: "Gib deine STC aus", homeFooterRankings: "Ranglisten", homeQuestions: "Fragen", homeFaq: "FAQ", homeFaqDesc: "Häufige Fragen zur Plattform.", homeContact: "Kontakt", homeRights: "Alle Rechte vorbehalten.",
 };
+Object.assign(commonPageTranslations, buildExtendedCommonPages(commonPageTranslations.en));
+applyExtendedCommonPageAssigns(commonPageTranslations);
 
 Object.assign(commonPageTranslations.nl, {
   searchPlaceholder: "Spelers of clubs zoeken...", searchEmptyPrompt: "Zoek spelers of clubs op naam", noClubsFound: "Geen clubs gevonden.", noEafcClubsFound: "Geen EA FC-clubs gevonden.", matchesCount: "{count} wedstrijden", membersCount: "{count} leden", divisionShort: "Div {division}", ovr: "OVR",
@@ -566,6 +584,16 @@ Object.assign(commonPageTranslations.it, {
   cancel: "Annulla", loading: "Caricamento...", getStarted: "Inizia", complete: "Completa", learnMore: "Scopri di più",
   notifTitle: "Notifiche", notifMarkAllRead: "Segna tutto come letto", notifDeleteAll: "Elimina tutto", notifDeleteAllConfirmTitle: "Eliminare tutte le notifiche?", notifDeleteAllConfirmDesc: "Verranno eliminate definitivamente tutte le {count} notifiche. Azione irreversibile.", notifEmpty: "Ancora nessuna notifica", notifMarkAsRead: "Segna come letto",
   homeCompetitions: "Competizioni", homeTournaments: "Tornei", homeLeagues: "Leghe", homeTier: "Livello {tier}", homeViewBracket: "Vedi tabellone", homePlayers: "{count}/{max} giocatori", homeFull: "Al completo", homeViewDetails: "Vedi dettagli", homeNoTournaments: "Ancora nessun torneo.", homeNoLeagues: "Ancora nessuna lega.", homePlatform: "Piattaforma", homeViewAll: "Vedi tutto", homeLatest: "Ultime", homeAllNews: "Tutte le news", homeUpcoming: "In arrivo", homeSchedule: "Calendario", homeScheduleDesc: "Segui ogni partita di tutte le competizioni. Il Match Day è dove tutto accade.", homeGameDay: "Match Day", homeNoMatches: "Nessuna partita in programma.", homeMessages: "Messaggi", homeOpen: "Apri", homeSignInMessages: "Accedi per vedere i tuoi messaggi.", homeInboxEmpty: "La tua casella è vuota.", homeStageSystem: "Sistema STAGE", homeUnknown: "Sconosciuto", homeJumpIn: "Inizia", homeJumpInDesc: "Tutto ciò che ti serve, a portata di tap.", homeNavCompetitions: "Competizioni", homeNavCompetitionsDesc: "Leghe e coppe a eliminazione", homeNavGameDay: "Match Day", homeNavGameDayDesc: "Programma e gioca le partite", homeNavClubs: "Club", homeNavClubsDesc: "Esplora e gestisci i club", homeNavStore: "Store", homeNavStoreDesc: "Spendi i tuoi STC", homeFooterRankings: "Classifiche", homeQuestions: "Domande", homeFaq: "FAQ", homeFaqDesc: "Domande frequenti sulla piattaforma.", homeContact: "Contatto", homeRights: "Tutti i diritti riservati.",
+});
+Object.assign(commonPageTranslations.zh, {
+  cancel: "取消", loading: "加载中...", getStarted: "开始", complete: "完成", learnMore: "了解更多",
+  notifTitle: "通知", notifMarkAllRead: "全部标为已读", notifDeleteAll: "全部删除", notifDeleteAllConfirmTitle: "删除所有通知？", notifDeleteAllConfirmDesc: "这将永久删除全部 {count} 条通知，无法撤销。", notifEmpty: "暂无通知", notifMarkAsRead: "标为已读",
+  homeCompetitions: "竞赛", homeTournaments: "锦标赛", homeLeagues: "联赛", homeTier: "等级 {tier}", homeViewBracket: "查看对阵", homePlayers: "{count}/{max} 名球员", homeFull: "已满", homeViewDetails: "查看详情", homeNoTournaments: "暂无锦标赛。", homeNoLeagues: "暂无联赛。", homePlatform: "平台", homeViewAll: "查看全部", homeLatest: "最新", homeAllNews: "全部新闻", homeUpcoming: "即将开始", homeSchedule: "赛程", homeScheduleDesc: "跟踪所有竞赛中的每一场比赛。比赛日是一切发生的地方。", homeGameDay: "比赛日", homeNoMatches: "暂无已安排的比赛。", homeMessages: "消息", homeOpen: "打开", homeSignInMessages: "登录以查看你的消息。", homeInboxEmpty: "你的收件箱为空。", homeStageSystem: "STAGE 系统", homeUnknown: "未知", homeJumpIn: "立即开始", homeJumpInDesc: "你所需的一切，一键直达。", homeNavCompetitions: "竞赛", homeNavCompetitionsDesc: "联赛与淘汰赛", homeNavGameDay: "比赛日", homeNavGameDayDesc: "安排并参加比赛", homeNavClubs: "俱乐部", homeNavClubsDesc: "浏览并管理俱乐部", homeNavStore: "商店", homeNavStoreDesc: "使用你的 STC", homeFooterRankings: "排名", homeQuestions: "问题", homeFaq: "常见问题", homeFaqDesc: "关于平台的常见问题。", homeContact: "联系", homeRights: "保留所有权利。",
+});
+Object.assign(commonPageTranslations.ja, {
+  cancel: "キャンセル", loading: "読み込み中...", getStarted: "始める", complete: "完了", learnMore: "詳しく見る",
+  notifTitle: "通知", notifMarkAllRead: "すべて既読にする", notifDeleteAll: "すべて削除", notifDeleteAllConfirmTitle: "すべての通知を削除しますか？", notifDeleteAllConfirmDesc: "{count}件の通知が完全に削除されます。元に戻せません。", notifEmpty: "通知はまだありません", notifMarkAsRead: "既読にする",
+  homeCompetitions: "大会", homeTournaments: "トーナメント", homeLeagues: "リーグ", homeTier: "ティア {tier}", homeViewBracket: "ブラケットを見る", homePlayers: "{count}/{max} 選手", homeFull: "満員", homeViewDetails: "詳細を見る", homeNoTournaments: "トーナメントはまだありません。", homeNoLeagues: "リーグはまだありません。", homePlatform: "プラットフォーム", homeViewAll: "すべて見る", homeLatest: "最新", homeAllNews: "すべてのニュース", homeUpcoming: "近日開催", homeSchedule: "日程", homeScheduleDesc: "すべての大会の試合を追跡。試合日がすべての中心です。", homeGameDay: "試合日", homeNoMatches: "予定されている試合はありません。", homeMessages: "メッセージ", homeOpen: "開く", homeSignInMessages: "メッセージを見るにはサインインしてください。", homeInboxEmpty: "受信箱は空です。", homeStageSystem: "STAGE システム", homeUnknown: "不明", homeJumpIn: "始める", homeJumpInDesc: "必要なものがすべて、ワンタップで。", homeNavCompetitions: "大会", homeNavCompetitionsDesc: "リーグとノックアウト杯", homeNavGameDay: "試合日", homeNavGameDayDesc: "試合を予定してプレイ", homeNavClubs: "クラブ", homeNavClubsDesc: "クラブを閲覧・管理", homeNavStore: "ストア", homeNavStoreDesc: "STCを使う", homeFooterRankings: "ランキング", homeQuestions: "質問", homeFaq: "FAQ", homeFaqDesc: "プラットフォームに関するよくある質問。",   homeContact: "お問い合わせ", homeRights: "無断転載を禁じます。",
 });
 
 const localized = {
@@ -712,6 +740,7 @@ const localized = {
     commonPages: commonPageTranslations.de,
   },
 };
+Object.assign(localized, buildExtendedLocalized(matchFlowTranslations, competitionFlowTranslations, tournamentDetailTranslations, commonPageTranslations));
 
 // Extra nav section/item labels used by the sidebar & mobile nav (Layout.jsx).
 // Missing languages fall back to English automatically via Object.assign default.
@@ -723,7 +752,13 @@ const extraNav = {
   pt: { community: "Comunidade", market: "Mercado", discover: "Descobrir", competitions: "Competições", clubs: "Clubes", squad: "Plantel", dashboard: "Painel" },
   it: { community: "Community", market: "Mercato", discover: "Scopri", competitions: "Competizioni", clubs: "Club", squad: "Rosa", dashboard: "Dashboard" },
   de: { community: "Community", market: "Markt", discover: "Entdecken", competitions: "Wettbewerbe", clubs: "Clubs", squad: "Kader", dashboard: "Dashboard" },
+  zh: { community: "社区", market: "市场", discover: "发现", competitions: "竞赛", clubs: "俱乐部", squad: "阵容", dashboard: "仪表盘", welcome: "欢迎" },
+  ja: { community: "コミュニティ", market: "マーケット", discover: "発見", competitions: "大会", clubs: "クラブ", squad: "メンバー", dashboard: "ダッシュボード", welcome: "ようこそ" },
+  ...EXTENDED_EXTRA_NAV,
 };
+for (const [lang, names] of Object.entries(EXTENDED_LANGUAGE_NAMES)) {
+  languageNames[lang] = names;
+}
 for (const [lang, block] of Object.entries(localized)) {
   Object.assign(block.nav, extraNav[lang] || extraNav.en);
 }
@@ -751,5 +786,6 @@ export function getCoreTranslations(language) {
     ...core,
     languageNames: names,
     walkthrough: guides,
+    admin: mergeAdminExtras(getAdminTranslations(language), language),
   };
 }

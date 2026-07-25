@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShoppingBag, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function AdminShirtSalesPanel() {
+  const { t } = useTranslation();
   const [open, setOpen]       = useState(false);
   const [cfg, setCfg]         = useState(null);
   const [lb, setLb]           = useState(null);
@@ -25,7 +27,7 @@ export default function AdminShirtSalesPanel() {
       ]);
       setCfg(cfgRes?.data?.weights || {});
       setLb(lbRes?.data?.leaderboard || []);
-    } catch (err) { setMsg({ type: "error", text: err?.message || "Failed" }); }
+    } catch (err) { setMsg({ type: "error", text: err?.message || t("admin.economy.failed") }); }
     setLoading(false);
   }
 
@@ -33,8 +35,8 @@ export default function AdminShirtSalesPanel() {
     setSaving(true);
     try {
       await stageClient.functions.invoke("shirtSales", { action: "set_config", weights: cfg });
-      setMsg({ type: "success", text: "Config saved ✓" });
-    } catch (err) { setMsg({ type: "error", text: err?.message || "Failed" }); }
+      setMsg({ type: "success", text: t("admin.economy.configSaved") });
+    } catch (err) { setMsg({ type: "error", text: err?.message || t("admin.economy.failed") }); }
     setSaving(false);
   }
 
@@ -45,9 +47,9 @@ export default function AdminShirtSalesPanel() {
       await stageClient.functions.invoke("shirtSales", {
         action: "correct_revenue", club_id: corrClub, amount: Number(corrAmt), note: corrNote || undefined,
       });
-      setMsg({ type: "success", text: "Revenue correction applied ✓" });
+      setMsg({ type: "success", text: t("admin.economy.revenueCorrectionApplied") });
       setCorrClub(""); setCorrAmt(""); setCorrNote("");
-    } catch (err) { setMsg({ type: "error", text: err?.message || "Failed" }); }
+    } catch (err) { setMsg({ type: "error", text: err?.message || t("admin.economy.failed") }); }
     setSaving(false);
   }
 
@@ -77,7 +79,7 @@ export default function AdminShirtSalesPanel() {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
         <span className="text-xs font-bold text-foreground flex items-center gap-2">
-          <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Shirt Sales — View &amp; Config
+          <ShoppingBag className="w-3.5 h-3.5 text-primary" /> {t("admin.economy.shirtSales")}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
@@ -91,7 +93,7 @@ export default function AdminShirtSalesPanel() {
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Global Top Shirt Sellers</p>
             {loading ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+              <p className="text-xs text-muted-foreground">{t("admin.actions.loading")}</p>
             ) : (
               <div className="space-y-1 max-h-56 overflow-y-auto">
                 {(lb || []).map((e, i) => (
@@ -127,7 +129,7 @@ export default function AdminShirtSalesPanel() {
                 ))}
               </div>
               <Button size="sm" onClick={saveConfig} disabled={saving} className="mt-3 bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40 text-xs">
-                {saving ? "Saving…" : "Save Formula Config"}
+                {saving ? t("admin.actions.saving") : t("admin.economy.saveConfig")}
               </Button>
             </div>
           )}
@@ -135,9 +137,9 @@ export default function AdminShirtSalesPanel() {
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Correct Club Shirt Revenue</p>
             <div className="flex gap-2 flex-wrap">
-              <Input placeholder="Club ID" value={corrClub} onChange={e => setCorrClub(e.target.value)} className="text-xs flex-1 min-w-[180px]" />
-              <Input placeholder="Amount (STC, negative to deduct)" type="number" value={corrAmt} onChange={e => setCorrAmt(e.target.value)} className="text-xs w-48" />
-              <Input placeholder="Note (optional)" value={corrNote} onChange={e => setCorrNote(e.target.value)} className="text-xs flex-1 min-w-[150px]" />
+              <Input placeholder={t("admin.economy.clubId")} value={corrClub} onChange={e => setCorrClub(e.target.value)} className="text-xs flex-1 min-w-[180px]" />
+              <Input placeholder={t("admin.economy.amountNegative")} type="number" value={corrAmt} onChange={e => setCorrAmt(e.target.value)} className="text-xs w-48" />
+              <Input placeholder={t("admin.economy.noteOptional")} value={corrNote} onChange={e => setCorrNote(e.target.value)} className="text-xs flex-1 min-w-[150px]" />
               <Button size="sm" onClick={applyCorrection} disabled={saving || !corrClub || !corrAmt} className="text-xs bg-success/20 text-success border border-success/30 hover:bg-success/30">
                 Apply
               </Button>

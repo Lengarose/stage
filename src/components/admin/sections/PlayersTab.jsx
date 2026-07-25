@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { stageClient } from "@/api/stageClient";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle, Crown } from "lucide-react";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 
@@ -30,6 +31,7 @@ export default function PlayersTab({
   onPlayerAccountDeleted,
 }) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -52,10 +54,10 @@ export default function PlayersTab({
       onPlayerAccountDeleted?.(deleteTarget.id);
       setDeleteTarget(null);
       setDeleteConfirm("");
-      toast({ title: "Account deleted", description: `${deleteTarget.gamertag || deleteTarget.email} removed.` });
+      toast({ title: t("admin.players.accountDeleted"), description: t("admin.players.accountDeletedDesc", { name: deleteTarget.gamertag || deleteTarget.email }) });
     } catch (err) {
-      const msg = err?.message || err?.data?.error || "Delete failed";
-      toast({ title: "Delete failed", description: String(msg), variant: "destructive" });
+      const msg = err?.message || err?.data?.error || t("admin.players.deleteFailed");
+      toast({ title: t("admin.players.deleteFailed"), description: String(msg), variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -70,12 +72,12 @@ export default function PlayersTab({
       <div className="mb-4 rounded border border-primary/20 bg-primary/5 p-4">
         <div className="flex items-center gap-2 mb-3">
           <BadgeCheck className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">Identity Claims</h2>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{identityClaims.length} pending</span>
+          <h2 className="text-sm font-bold text-foreground">{t("admin.players.identityClaims")}</h2>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("admin.players.pendingCount", { count: identityClaims.length })}</span>
         </div>
         {identityClaims.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            New player verification requests appear here and through the Admin → Identity Claims menu.
+            {t("admin.players.identityClaimsEmpty")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -94,15 +96,15 @@ export default function PlayersTab({
                   {claim.proof_url && (
                     <a href={claim.proof_url} target="_blank" rel="noreferrer">
                       <Button size="sm" variant="outline" className="gap-1 text-xs">
-                        <ExternalLink className="w-3.5 h-3.5" /> Proof
+                        <ExternalLink className="w-3.5 h-3.5" /> {t("admin.players.proof")}
                       </Button>
                     </a>
                   )}
                   <Button size="sm" onClick={() => reviewIdentityClaim?.(claim, "approved")} className="gap-1 text-xs bg-success text-white hover:bg-success/90">
-                    <Check className="w-3.5 h-3.5" /> Approve
+                    <Check className="w-3.5 h-3.5" /> {t("admin.actions.approve")}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => reviewIdentityClaim?.(claim, "rejected")} className="gap-1 text-xs border-destructive/30 text-destructive hover:bg-destructive/10">
-                    <X className="w-3.5 h-3.5" /> Reject
+                    <X className="w-3.5 h-3.5" /> {t("admin.actions.reject")}
                   </Button>
                 </div>
               </div>
@@ -114,15 +116,15 @@ export default function PlayersTab({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
           className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-          placeholder="Search by gamertag, email, or platform..." />
+          placeholder={t("admin.players.searchPlaceholder")} />
       </div>
       <div className="mb-4 rounded border border-destructive/25 bg-destructive/5 p-4">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="w-4 h-4 text-destructive" />
-          <h2 className="text-sm font-bold text-foreground">Delete user reset</h2>
+          <h2 className="text-sm font-bold text-foreground">{t("admin.players.deleteUserReset")}</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Permanently removes a user, player profile, identity claims, inbox/notifications, contracts, recruitment records, follows, and owned club links.
+          {t("admin.players.deleteUserResetDesc")}
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -138,7 +140,7 @@ export default function PlayersTab({
             onClick={() => deleteUserCompletely?.(deleteEmail.trim())}
             className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Delete User
+            <Trash2 className="w-3.5 h-3.5" /> {t("admin.players.deleteUser")}
           </Button>
         </div>
       </div>
@@ -152,13 +154,13 @@ export default function PlayersTab({
               <p className="font-medium text-foreground truncate">{p.gamertag}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {p.email} · {p.platform} · {p.position}
-                {Number(p.is_verified) === 1 ? " · verified" : ""}
+                {Number(p.is_verified) === 1 ? ` · ${t("admin.players.verified")}` : ""}
               </p>
             </div>
             <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 text-xs">
               <span className="font-semibold text-success">{((p.stc || 0) / 1000).toFixed(0)}K STC</span>
               {p.market_value_stc > 0 && (
-                <span className="text-purple-400 font-medium">{((p.market_value_stc || 0) / 1_000_000).toFixed(1)}M val</span>
+                <span className="text-purple-400 font-medium">{((p.market_value_stc || 0) / 1_000_000).toFixed(1)}M {t("admin.players.val")}</span>
               )}
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
@@ -168,29 +170,29 @@ export default function PlayersTab({
                 </Button>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => grantStagePlus?.(p)} className="border-primary/30 text-primary hover:bg-primary/10 gap-1 text-xs">
-                  <Crown className="w-3.5 h-3.5" /> Grant Plus
+                  <Crown className="w-3.5 h-3.5" /> {t("admin.players.grantPlus")}
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Wallet</Button>
-              <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(""); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> Credits</Button>
-              <Button size="sm" variant="outline" onClick={() => deleteUserCompletely?.(p)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> Delete User</Button>
+              <Button size="sm" variant="outline" onClick={() => openPlayerWallet(p)} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> {t("admin.players.wallet")}</Button>
+              <Button size="sm" variant="outline" onClick={() => { setCreditsDialog(p); setCreditsAmount(""); }} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> {t("admin.players.credits")}</Button>
+              <Button size="sm" variant="outline" onClick={() => deleteUserCompletely?.(p)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> {t("admin.players.deleteUser")}</Button>
 
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => p.club_id && kickFromClub(p.id)}
                 disabled={!p.club_id}
-                title={!p.club_id ? "Player is not linked to a club" : "Remove player from current club"}
+                title={!p.club_id ? t("admin.players.notLinkedToClub") : t("admin.players.removeFromClub")}
                 className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Ban className="w-3.5 h-3.5" /> {p.club_id ? "Kick" : "No Club"}
+                <Ban className="w-3.5 h-3.5" /> {p.club_id ? t("admin.players.kick") : t("admin.players.noClub")}
               </Button>
 
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                title="Permanently delete this player’s login account, owned clubs, and profile"
+                title={t("admin.players.deleteAccountTitle")}
                 onClick={() => { setDeleteTarget(p); setDeleteConfirm(""); }}
                 className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 text-xs"
               >
@@ -214,32 +216,31 @@ export default function PlayersTab({
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Delete player account
+              <AlertTriangle className="w-5 h-5" /> {t("admin.players.deleteAccountDialogTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground space-y-2">
               <span className="block">
-                Permanently deletes the login for{" "}
-                <strong className="text-foreground">{deleteTarget?.gamertag || deleteTarget?.email}</strong>, their owned clubs, contracts, and profile (same as Settings Danger Zone).
-                <strong className="text-foreground"> Cannot be undone.</strong>
+                {t("admin.players.deleteAccountDialogDesc", { name: deleteTarget?.gamertag || deleteTarget?.email })}
+                <strong className="text-foreground"> {t("admin.players.cannotBeUndone")}</strong>
               </span>
-              <span className="block pt-2">Type <strong className="text-foreground">DELETE</strong> to confirm:</span>
+              <span className="block pt-2">{t("admin.players.typeDeleteConfirm")}</span>
               <input
                 value={deleteConfirm}
                 onChange={e => setDeleteConfirm(e.target.value)}
-                placeholder="Type DELETE"
+                placeholder={t("admin.players.typeDeletePlaceholder")}
                 className="w-full mt-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
               />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel type="button" className="border-border">Cancel</AlertDialogCancel>
+            <AlertDialogCancel type="button" className="border-border">{t("admin.actions.cancel")}</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
               disabled={deleteConfirm !== "DELETE" || deleting}
               onClick={() => void handleConfirmDeleteAccount()}
             >
-              {deleting ? "Deleting..." : "Delete account"}
+              {deleting ? t("admin.players.deleting") : t("admin.players.deleteAccount")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

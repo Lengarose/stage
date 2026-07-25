@@ -8,94 +8,53 @@ import AdminStat from "@/components/admin/shared/AdminStat";
 import { AdminGamerSection } from "@/components/admin/AdminGamerUI";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   Activity, AlertTriangle, BarChart3, BookOpen, CheckCircle2, ChevronRight,
   Clock, Flag, RefreshCw, Shield, Trophy, Users, UserPlus, Swords, Coins,
   Calendar, ArrowRight, Sparkles,
 } from "lucide-react";
 
-const PERIOD_OPTIONS = [
-  { value: 7, label: "7 jours" },
-  { value: 30, label: "30 jours" },
-  { value: 90, label: "90 jours" },
+const CHART_LINE_META = [
+  { key: "users", color: "#38bdf8", labelKey: "admin.analytics.chartUsers" },
+  { key: "players", color: "#a78bfa", labelKey: "admin.analytics.chartPlayers" },
+  { key: "clubs", color: "#34d399", labelKey: "admin.analytics.chartClubs" },
+  { key: "tournaments", color: "#fbbf24", labelKey: "admin.analytics.chartTournaments" },
+  { key: "matches", color: "#f87171", labelKey: "admin.analytics.chartMatches" },
+  { key: "contracts", color: "#fb923c", labelKey: "admin.analytics.chartContracts" },
 ];
 
-const CHART_LINES = [
-  { key: "users", label: "Comptes", color: "#38bdf8" },
-  { key: "players", label: "Joueurs", color: "#a78bfa" },
-  { key: "clubs", label: "Clubs", color: "#34d399" },
-  { key: "tournaments", label: "Tournois", color: "#fbbf24" },
-  { key: "matches", label: "Matchs joués", color: "#f87171" },
-  { key: "contracts", label: "Contrats", color: "#fb923c" },
-];
-
-const HEALTH_META = {
-  healthy: { label: "En bonne voie", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-  at_risk: { label: "À surveiller", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-  stalled: { label: "Bloqué", cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  completed: { label: "Terminé", cls: "bg-muted text-muted-foreground border-border" },
-  cancelled: { label: "Annulé", cls: "bg-muted/50 text-muted-foreground border-border" },
+const HEALTH_KEYS = {
+  healthy: { labelKey: "admin.analytics.healthy", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  at_risk: { labelKey: "admin.analytics.atRisk", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  stalled: { labelKey: "admin.analytics.stalled", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  completed: { labelKey: "admin.analytics.completed", cls: "bg-muted text-muted-foreground border-border" },
+  cancelled: { labelKey: "admin.analytics.cancelled", cls: "bg-muted/50 text-muted-foreground border-border" },
 };
 
-const GUIDE_STEPS = [
-  {
-    step: 1,
-    icon: UserPlus,
-    title: "Créer un compte & un joueur",
-    body: "L'utilisateur s'inscrit, configure son profil joueur (gamertag, plateforme, pays) et reçoit son portefeuille STC de départ.",
-    paths: ["/login", "/profile"],
-  },
-  {
-    step: 2,
-    icon: Shield,
-    title: "Rejoindre ou fonder un club",
-    body: "Le joueur crée un club (devient président) ou envoie une demande d'adhésion. Le club reçoit budgets STC, formation et effectif.",
-    paths: ["/clubs", "/profile"],
-  },
-  {
-    step: 3,
-    icon: Trophy,
-    title: "S'inscrire aux compétitions",
-    body: "Tournois communautaires, ligues régionales et compétitions officielles STAGE. Chaque format a ses règles d'inscription et de calendrier.",
-    paths: ["/tournaments", "/competitions", "/leagues"],
-  },
-  {
-    step: 4,
-    icon: Calendar,
-    title: "Planifier & jouer les matchs",
-    body: "Les capitaines proposent des créneaux via l'inbox, confirment le Game Day, soumettent les scores et gèrent les litiges si besoin.",
-    paths: ["/schedule", "/inbox"],
-  },
-  {
-    step: 5,
-    icon: Coins,
-    title: "Économie & contrats",
-    body: "Salaires hebdomadaires, transferts, paris (wagers), billetterie stade, ventes de maillots et récompenses de compétition alimentent l'écosystème STC.",
-    paths: ["/transfer-market", "/store"],
-  },
-  {
-    step: 6,
-    icon: BarChart3,
-    title: "Classements & trophées",
-    body: "Les performances officielles alimentent le ranking STAGE, le cabinet à trophées et la réputation du club sur la plateforme.",
-    paths: ["/rankings", "/profile"],
-  },
+const GUIDE_STEP_DEFS = [
+  { step: 1, icon: UserPlus, titleKey: "admin.analytics.guideStep1Title", bodyKey: "admin.analytics.guideStep1Body", paths: ["/login", "/profile"] },
+  { step: 2, icon: Shield, titleKey: "admin.analytics.guideStep2Title", bodyKey: "admin.analytics.guideStep2Body", paths: ["/clubs", "/profile"] },
+  { step: 3, icon: Trophy, titleKey: "admin.analytics.guideStep3Title", bodyKey: "admin.analytics.guideStep3Body", paths: ["/tournaments", "/competitions", "/leagues"] },
+  { step: 4, icon: Calendar, titleKey: "admin.analytics.guideStep4Title", bodyKey: "admin.analytics.guideStep4Body", paths: ["/schedule", "/inbox"] },
+  { step: 5, icon: Coins, titleKey: "admin.analytics.guideStep5Title", bodyKey: "admin.analytics.guideStep5Body", paths: ["/transfer-market", "/store"] },
+  { step: 6, icon: BarChart3, titleKey: "admin.analytics.guideStep6Title", bodyKey: "admin.analytics.guideStep6Body", paths: ["/rankings", "/profile"] },
 ];
 
 function formatDayLabel(day) {
   if (!day) return "";
   const d = new Date(`${day}T12:00:00`);
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 function formatDateTime(value) {
   if (!value) return "—";
-  return new Date(value).toLocaleString("fr-FR", {
+  return new Date(value).toLocaleString(undefined, {
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
-export function UsageChart({ data, hiddenKeys, onToggle }) {
+export function UsageChart({ data, hiddenKeys, onToggle, chartLines }) {
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -108,7 +67,7 @@ export function UsageChart({ data, hiddenKeys, onToggle }) {
             contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          {CHART_LINES.filter((line) => !hiddenKeys.has(line.key)).map((line) => (
+          {chartLines.filter((line) => !hiddenKeys.has(line.key)).map((line) => (
             <Line
               key={line.key}
               type="monotone"
@@ -123,7 +82,7 @@ export function UsageChart({ data, hiddenKeys, onToggle }) {
         </LineChart>
       </ResponsiveContainer>
       <div className="mt-3 flex flex-wrap gap-2">
-        {CHART_LINES.map((line) => {
+        {chartLines.map((line) => {
           const off = hiddenKeys.has(line.key);
           return (
             <button
@@ -145,66 +104,72 @@ export function UsageChart({ data, hiddenKeys, onToggle }) {
   );
 }
 
-function TournamentRow({ tournament: t }) {
-  const health = HEALTH_META[t.health] || HEALTH_META.healthy;
-  const creator = t.creator_gamertag || t.creator_email || t.organizer_email || "—";
+function TournamentRow({ tournament }) {
+  const { t } = useTranslation();
+  const healthMeta = HEALTH_KEYS[tournament.health] || HEALTH_KEYS.healthy;
+  const health = { label: t(healthMeta.labelKey), cls: healthMeta.cls };
+  const creator = tournament.creator_gamertag || tournament.creator_email || tournament.organizer_email || "—";
 
   return (
     <details className="group rounded-xl border border-border bg-card/40 open:bg-card/70">
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-bold text-foreground">{t.name}</p>
+            <p className="truncate text-sm font-bold text-foreground">{tournament.name}</p>
             <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase", health.cls)}>
               {health.label}
             </span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
-              {t.status}
+              {tournament.status}
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Créé {formatDateTime(t.created_date)} · par {creator}
+            {t("admin.analytics.createdBy", { date: formatDateTime(tournament.created_date), creator })}
           </p>
         </div>
         <div className="hidden shrink-0 text-right sm:block">
-          <p className="text-xs font-semibold text-foreground">{t.registered}/{t.max_teams} inscrits</p>
-          <p className="text-[10px] text-muted-foreground">{t.progress_pct}% progression</p>
+          <p className="text-xs font-semibold text-foreground">
+            {t("admin.analytics.registered", { registered: tournament.registered, max: tournament.max_teams })}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {t("admin.analytics.progress", { pct: tournament.progress_pct })}
+          </p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
       </summary>
 
       <div className="border-t border-border/60 px-4 py-4 space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MiniStat label="Format" value={`${t.type || "—"} · ${t.participant_type || "club"}`} />
-          <MiniStat label="Plateforme / Région" value={`${t.platform || "—"} · ${t.region || "—"}`} />
-          <MiniStat label="Remplissage" value={`${t.fill_pct}% (${t.registered}/${t.max_teams})`} />
-          <MiniStat label="Manche" value={t.total_rounds ? `${t.current_round}/${t.total_rounds}` : `${t.current_round || 0}`} />
+          <MiniStat label={t("admin.analytics.format")} value={`${tournament.type || "—"} · ${tournament.participant_type || "club"}`} />
+          <MiniStat label={t("admin.analytics.platformRegion")} value={`${tournament.platform || "—"} · ${tournament.region || "—"}`} />
+          <MiniStat label={t("admin.analytics.fillRate")} value={`${tournament.fill_pct}% (${tournament.registered}/${tournament.max_teams})`} />
+          <MiniStat label={t("admin.analytics.round")} value={tournament.total_rounds ? `${tournament.current_round}/${tournament.total_rounds}` : `${tournament.current_round || 0}`} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-4">
-          <MiniStat label="Matchs total" value={t.match_stats?.total ?? 0} icon={Swords} />
-          <MiniStat label="Terminés" value={t.match_stats?.completed ?? 0} icon={CheckCircle2} />
-          <MiniStat label="En attente" value={t.match_stats?.pending ?? 0} icon={Clock} />
-          <MiniStat label="Litiges" value={t.match_stats?.disputed ?? 0} icon={Flag} />
+          <MiniStat label={t("admin.analytics.totalMatches")} value={tournament.match_stats?.total ?? 0} icon={Swords} />
+          <MiniStat label={t("admin.analytics.completedMatches")} value={tournament.match_stats?.completed ?? 0} icon={CheckCircle2} />
+          <MiniStat label={t("admin.analytics.pendingMatches")} value={tournament.match_stats?.pending ?? 0} icon={Clock} />
+          <MiniStat label={t("admin.analytics.disputes")} value={tournament.match_stats?.disputed ?? 0} icon={Flag} />
         </div>
 
-        {t.issues?.length > 0 && (
+        {tournament.issues?.length > 0 && (
           <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2">
             <p className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase text-amber-300">
-              <AlertTriangle className="h-3.5 w-3.5" /> Points d'attention
+              <AlertTriangle className="h-3.5 w-3.5" /> {t("admin.analytics.attentionPoints")}
             </p>
             <ul className="list-disc pl-5 text-xs text-amber-100/90 space-y-0.5">
-              {t.issues.map((issue) => <li key={issue}>{issue}</li>)}
+              {tournament.issues.map((issue) => <li key={issue}>{issue}</li>)}
             </ul>
           </div>
         )}
 
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-            <Link to={`/tournaments/${t.id}`}>Voir le tournoi</Link>
+            <Link to={`/tournaments/${tournament.id}`}>{t("admin.analytics.viewTournament")}</Link>
           </Button>
           <Button asChild size="sm" variant="ghost" className="h-8 text-xs">
-            <Link to="/admin/tournaments">Admin tournois</Link>
+            <Link to="/admin/tournaments">{t("admin.analytics.adminPanel")}</Link>
           </Button>
         </div>
       </div>
@@ -225,6 +190,12 @@ function MiniStat({ label, value, icon: Icon }) {
 }
 
 export function AppGuideVisual() {
+  const { t } = useTranslation();
+  const guideSteps = useMemo(
+    () => GUIDE_STEP_DEFS.map((item) => ({ ...item, title: t(item.titleKey), body: t(item.bodyKey) })),
+    [t]
+  );
+
   return (
     <div className="space-y-8">
       <section className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-6">
@@ -233,10 +204,9 @@ export function AppGuideVisual() {
             <BookOpen className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-black uppercase tracking-wide text-foreground">Guide visuel STAGE</h3>
+            <h3 className="text-lg font-black uppercase tracking-wide text-foreground">{t("admin.analytics.visualGuideTitle")}</h3>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              Parcours type d'un utilisateur sur la plateforme — de l'inscription jusqu'aux classements officiels.
-              Utilisez ce guide pour former les admins et expliquer le produit aux organisateurs.
+              {t("admin.analytics.visualGuideSubtitle")}
             </p>
           </div>
         </div>
@@ -245,7 +215,7 @@ export function AppGuideVisual() {
       <div className="relative">
         <div className="absolute left-6 top-8 bottom-8 hidden w-px bg-gradient-to-b from-primary/60 via-primary/20 to-transparent md:block" />
         <div className="space-y-6">
-          {GUIDE_STEPS.map((item, index) => {
+          {guideSteps.map((item, index) => {
             const Icon = item.icon;
             return (
               <div key={item.step} className="relative md:pl-16">
@@ -260,7 +230,7 @@ export function AppGuideVisual() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary md:hidden">
-                          Étape {item.step}
+                          {t("admin.analytics.stepLabel", { n: item.step })}
                         </p>
                         <h4 className="text-base font-bold text-foreground">{item.title}</h4>
                         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{item.body}</p>
@@ -278,7 +248,7 @@ export function AppGuideVisual() {
                       ))}
                     </div>
                   </div>
-                  {index < GUIDE_STEPS.length - 1 && (
+                  {index < guideSteps.length - 1 && (
                     <div className="mt-4 flex justify-center md:hidden">
                       <ChevronRight className="h-5 w-5 rotate-90 text-muted-foreground/50" />
                     </div>
@@ -293,18 +263,18 @@ export function AppGuideVisual() {
       <section className="grid gap-4 md:grid-cols-3">
         <GuideCard
           icon={Sparkles}
-          title="Boucle de valeur"
-          body="Inscription → compétition → matchs → récompenses STC → progression club → rétention."
+          title={t("admin.analytics.valueLoopTitle")}
+          body={t("admin.analytics.valueLoopBody")}
         />
         <GuideCard
           icon={AlertTriangle}
-          title="Signaux admin"
-          body="Surveillez les tournois bloqués, litiges non résolus et faible taux d'inscription dans l'onglet Tournois ci-dessus."
+          title={t("admin.analytics.adminSignalsTitle")}
+          body={t("admin.analytics.adminSignalsBody")}
         />
         <GuideCard
           icon={Activity}
-          title="Santé plateforme"
-          body="Les courbes d'activité montrent si les créations (joueurs, clubs, tournois) se traduisent en matchs joués."
+          title={t("admin.analytics.platformHealthTitle")}
+          body={t("admin.analytics.platformHealthBody")}
         />
       </section>
     </div>
@@ -322,6 +292,7 @@ function GuideCard({ icon: Icon, title, body }) {
 }
 
 export default function AnalyticsTab() {
+  const { t } = useTranslation();
   const [days, setDays] = useState(30);
   const [panel, setPanel] = useState("stats");
   const [data, setData] = useState(null);
@@ -330,6 +301,16 @@ export default function AnalyticsTab() {
   const [hiddenKeys, setHiddenKeys] = useState(new Set());
   const [tournamentFilter, setTournamentFilter] = useState("all");
 
+  const periodOptions = useMemo(
+    () => [7, 30, 90].map((value) => ({ value, label: t("admin.dashboard.days", { count: value }) })),
+    [t]
+  );
+
+  const chartLines = useMemo(
+    () => CHART_LINE_META.map((line) => ({ ...line, label: t(line.labelKey) })),
+    [t]
+  );
+
   async function load() {
     setLoading(true);
     setError("");
@@ -337,7 +318,7 @@ export default function AnalyticsTab() {
       const res = await stageClient.http.get(`/admin-analytics?days=${days}`);
       setData(res);
     } catch (err) {
-      setError(err?.message || "Impossible de charger les statistiques.");
+      setError(err?.message || t("admin.analytics.loadFailed"));
       setData(null);
     } finally {
       setLoading(false);
@@ -355,16 +336,16 @@ export default function AnalyticsTab() {
   const filteredTournaments = useMemo(() => {
     if (tournamentFilter === "all") return tournaments;
     if (tournamentFilter === "issues") {
-      return tournaments.filter((t) => ["at_risk", "stalled"].includes(t.health));
+      return tournaments.filter((row) => ["at_risk", "stalled"].includes(row.health));
     }
-    return tournaments.filter((t) => t.health === tournamentFilter || t.status === tournamentFilter);
+    return tournaments.filter((row) => row.health === tournamentFilter || row.status === tournamentFilter);
   }, [tournaments, tournamentFilter]);
 
   const healthCounts = useMemo(() => ({
-    healthy: tournaments.filter((t) => t.health === "healthy").length,
-    at_risk: tournaments.filter((t) => t.health === "at_risk").length,
-    stalled: tournaments.filter((t) => t.health === "stalled").length,
-    completed: tournaments.filter((t) => t.health === "completed").length,
+    healthy: tournaments.filter((row) => row.health === "healthy").length,
+    at_risk: tournaments.filter((row) => row.health === "at_risk").length,
+    stalled: tournaments.filter((row) => row.health === "stalled").length,
+    completed: tournaments.filter((row) => row.health === "completed").length,
   }), [tournaments]);
 
   function toggleLine(key) {
@@ -376,15 +357,23 @@ export default function AnalyticsTab() {
     });
   }
 
+  const tournamentFilters = useMemo(() => [
+    { id: "all", label: t("admin.analytics.all") },
+    { id: "issues", label: t("admin.analytics.issues") },
+    { id: "in_progress", label: t("admin.analytics.filterLive") },
+    { id: "registration", label: t("admin.analytics.filterRegistration") },
+    { id: "completed", label: t("admin.analytics.completed") },
+  ], [t]);
+
   return (
     <div className="space-y-6">
       <AdminGamerSection
-        title="Analytics & Guide"
-        subtitle="Usage statistics, tournament health tracking, and the STAGE user journey guide."
+        title={t("admin.analytics.title")}
+        subtitle={t("admin.analytics.subtitle")}
         icon={BarChart3}
       >
         <div className="flex flex-wrap items-center gap-2">
-          {PERIOD_OPTIONS.map((opt) => (
+          {periodOptions.map((opt) => (
             <Button
               key={opt.value}
               type="button"
@@ -398,15 +387,15 @@ export default function AnalyticsTab() {
           ))}
           <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-white/15 text-white hover:bg-white/10" onClick={load} disabled={loading}>
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-            Refresh
+            {t("admin.analytics.reload")}
           </Button>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {[
-            { id: "stats", label: "Statistiques", icon: Activity },
-            { id: "tournaments", label: "Tournois", icon: Trophy },
-            { id: "guide", label: "Guide visuel", icon: BookOpen },
+            { id: "stats", label: t("admin.analytics.stats"), icon: Activity },
+            { id: "tournaments", label: t("admin.analytics.tournaments"), icon: Trophy },
+            { id: "guide", label: t("admin.analytics.guide"), icon: BookOpen },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -443,20 +432,20 @@ export default function AnalyticsTab() {
       {panel === "stats" && data ? (
         <>
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <AdminStat icon={Users} label="Comptes" value={totals.users} color="text-sky-400" accent="border-l-sky-400/50" />
-            <AdminStat icon={Users} label="Joueurs" value={totals.players} color="text-violet-400" accent="border-l-violet-400/50" />
-            <AdminStat icon={Shield} label="Clubs" value={totals.clubs} color="text-emerald-400" accent="border-l-emerald-400/50" />
-            <AdminStat icon={Trophy} label="Tournois actifs" value={totals.tournaments} color="text-amber-400" accent="border-l-amber-400/50" />
-            <AdminStat icon={Swords} label="Matchs joués" value={totals.completed_matches} color="text-rose-400" accent="border-l-rose-400/50" />
-            <AdminStat icon={Activity} label="Actifs 30j" value={totals.active_users_30d} color="text-primary" accent="border-l-primary/50" />
+            <AdminStat icon={Users} label={t("admin.analytics.accounts")} value={totals.users} color="text-sky-400" accent="border-l-sky-400/50" />
+            <AdminStat icon={Users} label={t("admin.analytics.players")} value={totals.players} color="text-violet-400" accent="border-l-violet-400/50" />
+            <AdminStat icon={Shield} label={t("admin.analytics.clubs")} value={totals.clubs} color="text-emerald-400" accent="border-l-emerald-400/50" />
+            <AdminStat icon={Trophy} label={t("admin.analytics.activeTournaments")} value={totals.tournaments} color="text-amber-400" accent="border-l-amber-400/50" />
+            <AdminStat icon={Swords} label={t("admin.analytics.matchesPlayed")} value={totals.completed_matches} color="text-rose-400" accent="border-l-rose-400/50" />
+            <AdminStat icon={Activity} label={t("admin.analytics.active30d")} value={totals.active_users_30d} color="text-primary" accent="border-l-primary/50" />
           </section>
 
-          <AdminGamerSection title="Daily Activity" subtitle={`Curves over ${days} days — sign-ups, creations and completed matches.`}>
-            <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} />
+          <AdminGamerSection title={t("admin.analytics.dailyActivity")} subtitle={t("admin.analytics.dailyActivitySubtitle", { days })}>
+            <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} chartLines={chartLines} />
           </AdminGamerSection>
 
           {(data.overview?.tournament_status_counts || []).length > 0 && (
-            <AdminGamerSection title="Tournaments by Status">
+            <AdminGamerSection title={t("admin.analytics.tournamentsByStatus")}>
               <div className="flex flex-wrap gap-2">
                 {data.overview.tournament_status_counts.map((row) => (
                   <span key={row.status} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold">
@@ -473,21 +462,15 @@ export default function AnalyticsTab() {
       {panel === "tournaments" && data ? (
         <>
           <section className="grid gap-3 sm:grid-cols-4">
-            <MiniStat label="En bonne voie" value={healthCounts.healthy} icon={CheckCircle2} />
-            <MiniStat label="À surveiller" value={healthCounts.at_risk} icon={AlertTriangle} />
-            <MiniStat label="Bloqués" value={healthCounts.stalled} icon={Flag} />
-            <MiniStat label="Terminés" value={healthCounts.completed} icon={Trophy} />
+            <MiniStat label={t("admin.analytics.healthy")} value={healthCounts.healthy} icon={CheckCircle2} />
+            <MiniStat label={t("admin.analytics.atRisk")} value={healthCounts.at_risk} icon={AlertTriangle} />
+            <MiniStat label={t("admin.analytics.stalled")} value={healthCounts.stalled} icon={Flag} />
+            <MiniStat label={t("admin.analytics.completed")} value={healthCounts.completed} icon={Trophy} />
           </section>
 
-          <AdminGamerSection title="Tournament Tracking" subtitle="Creator, fill rate, matches and alert signals.">
+          <AdminGamerSection title={t("admin.analytics.tournamentTracking")} subtitle={t("admin.analytics.tournamentTrackingSubtitle")}>
             <div className="flex flex-wrap gap-2 mb-4">
-              {[
-                { id: "all", label: "All" },
-                { id: "issues", label: "Issues" },
-                { id: "in_progress", label: "Live" },
-                { id: "registration", label: "Registration" },
-                { id: "completed", label: "Completed" },
-              ].map((f) => (
+              {tournamentFilters.map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -506,9 +489,9 @@ export default function AnalyticsTab() {
 
             <div className="space-y-3">
               {filteredTournaments.length === 0 ? (
-                <p className="py-8 text-center text-sm text-white/45">No tournaments for this filter.</p>
+                <p className="py-8 text-center text-sm text-white/45">{t("admin.analytics.noTournamentsFilter")}</p>
               ) : (
-                filteredTournaments.map((t) => <TournamentRow key={t.id} tournament={t} />)
+                filteredTournaments.map((row) => <TournamentRow key={row.id} tournament={row} />)
               )}
             </div>
           </AdminGamerSection>
@@ -516,7 +499,7 @@ export default function AnalyticsTab() {
       ) : null}
 
       {panel === "guide" ? (
-        <AdminGamerSection title="Visual Guide" subtitle="Typical user journey on STAGE — from sign-up to official rankings.">
+        <AdminGamerSection title={t("admin.analytics.guide")} subtitle={t("admin.analytics.visualGuideSubtitle")}>
           <AppGuideVisual />
         </AdminGamerSection>
       ) : null}

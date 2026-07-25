@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2 } from "lucide-react";
 import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
 
@@ -77,6 +78,8 @@ export default function LeaguesTab({
   schedulingAdminBusy,
   setSchedulingAdminBusy,
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-3xl space-y-6">
 
@@ -84,25 +87,25 @@ export default function LeaguesTab({
       <div className="bg-card border border-border rounded p-5 space-y-3">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">STAGE Competitions</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">3 permanent competitions (Champions League format). Qualification-only through regional leagues and competition results. Click Edit Rules to adjust club limits and playoff spots.</p>
+        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.stageCompetitions")}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.stageCompetitionsDesc")}</p>
       </div>
       <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
-        {seedingComps ? "Seeding..." : competitions.length >= 3 ? "✓ Seeded" : "Seed Competitions"}
+        {seedingComps ? t("admin.leagues.seeding") : competitions.length >= 3 ? t("admin.leagues.seeded") : t("admin.leagues.seedCompetitions")}
       </Button>
     </div>
     <div className="space-y-3">
-      {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
-        const comp = competitions.find(c => c.slug === t.slug);
+      {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(tier => {
+        const comp = competitions.find(c => c.slug === tier.slug);
         if (!comp) return (
-          <div key={t.slug} className="border border-dashed border-border rounded p-3 opacity-40">
-            <p className="text-xs text-muted-foreground capitalize">{t.slug} — not seeded</p>
+          <div key={tier.slug} className="border border-dashed border-border rounded p-3 opacity-40">
+            <p className="text-xs text-muted-foreground capitalize">{t("admin.leagues.notSeeded", { slug: tier.slug })}</p>
           </div>
         );
         const seasons = compSeasons.filter(s => s.competition_id === comp.id);
         const isEditing = editingComp === comp.id;
         return (
-          <div key={t.slug} className="border border-border rounded p-3 space-y-2" style={{ borderLeftColor: t.color, borderLeftWidth: 2 }}>
+          <div key={tier.slug} className="border border-border rounded p-3 space-y-2" style={{ borderLeftColor: tier.color, borderLeftWidth: 2 }}>
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <p className="text-xs font-bold text-foreground">{comp.name}</p>
@@ -120,16 +123,16 @@ export default function LeaguesTab({
                   else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? 36, qualification_spots_per_region: comp.qualification_spots_per_region ?? 2, playoff_spots: comp.playoff_spots ?? 16 }); }
                 }}>
                 {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
-                {isEditing ? "Cancel" : "Edit Rules"}
+                {isEditing ? t("admin.actions.cancel") : t("admin.leagues.editRules")}
               </Button>
             </div>
             {isEditing && (
               <div className="pt-2 border-t border-border/50 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
-                    { key: "max_clubs_per_season",           label: "Max Clubs/Season" },
-                    { key: "qualification_spots_per_region", label: "Qual. Spots/Region" },
-                    { key: "playoff_spots",                  label: "Playoff Spots (9-24)" },
+                    { key: "max_clubs_per_season",           label: t("admin.leagues.maxClubsSeason") },
+                    { key: "qualification_spots_per_region", label: t("admin.leagues.qualSpotsRegion") },
+                    { key: "playoff_spots",                  label: t("admin.leagues.playoffSpots") },
                   ].map(({ key, label }) => (
                     <div key={key}>
                       <label className="text-[10px] text-muted-foreground mb-1 block">{label}</label>
@@ -148,17 +151,17 @@ export default function LeaguesTab({
                         : <div className="w-8 h-8" />}
                       <div>
                         <p className="text-[10px] font-bold text-warning">{linked.name}</p>
-                        <p className="text-[9px] text-muted-foreground">Linked trophy — manage in Trophies tab</p>
+                        <p className="text-[9px] text-muted-foreground">{t("admin.leagues.linkedTrophyHint")}</p>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-[10px] text-muted-foreground">No trophy linked — go to Trophies tab to link one</p>
+                    <p className="text-[10px] text-muted-foreground">{t("admin.leagues.noTrophyLinked")}</p>
                   );
                 })()}
                 <Button size="sm" onClick={saveCompRules} disabled={savingComp}
                   className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
                   {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
-                  {savingComp ? "Saving…" : "Save Rules"}
+                  {savingComp ? t("admin.actions.saving") : t("admin.leagues.saveRules")}
                 </Button>
               </div>
             )}
@@ -171,12 +174,12 @@ export default function LeaguesTab({
   {/* Start New Season */}
   {competitions.length > 0 && (
     <div className="bg-card border border-border rounded p-5 space-y-4">
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Start New Season</h3>
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.startNewSeason")}</h3>
       <p className="text-xs text-muted-foreground">
-        Creates a qualification draft. Clubs are added by confirming Qualification Entries; fixture generation unlocks when the season is full.
+        {t("admin.leagues.startNewSeasonDesc")}
       </p>
       <div>
-        <label className="label-xs">Competition</label>
+        <label className="label-xs">{t("admin.leagues.competition")}</label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {competitions.map(c => (
             <button key={c.id} type="button"
@@ -200,14 +203,14 @@ export default function LeaguesTab({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label-xs">Platform</label>
+          <label className="label-xs">{t("admin.leagues.platform")}</label>
           <select value={newSeasonForm.platform} onChange={e => setNewSeasonForm(f => ({ ...f, platform: e.target.value }))}
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
             {["Cross-Platform","PlayStation","Xbox","PC"].map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div>
-          <label className="label-xs">Region</label>
+          <label className="label-xs">{t("admin.leagues.region")}</label>
           <select value={newSeasonForm.region} onChange={e => setNewSeasonForm(f => ({ ...f, region: e.target.value }))}
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
             {["Global","Europe","North America"].map(r => <option key={r} value={r}>{r}</option>)}
@@ -216,7 +219,7 @@ export default function LeaguesTab({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label-xs">Target Qualified Clubs</label>
+          <label className="label-xs">{t("admin.leagues.targetQualifiedClubs")}</label>
           <input type="number" min="4" max="128" value={newSeasonForm.num_clubs ?? 36}
             onChange={e => setNewSeasonForm(f => {
               const comp = competitions.find(c => c.id === f.competition_id);
@@ -230,14 +233,14 @@ export default function LeaguesTab({
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
         </div>
         <div>
-          <label className="label-xs">League Matchdays</label>
+          <label className="label-xs">{t("admin.leagues.leagueMatchdays")}</label>
           <input type="number" min="2" max="20" value={newSeasonForm.num_league_matchdays ?? 8}
             onChange={e => setNewSeasonForm(f => ({ ...f, num_league_matchdays: e.target.value }))}
             className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
         </div>
       </div>
       <div>
-        <label className="label-xs">Prize Pool (STC)</label>
+        <label className="label-xs">{t("admin.leagues.prizePool")}</label>
         <input type="number" min="0" value={newSeasonForm.prize_pool_stc}
           onChange={e => setNewSeasonForm(f => ({ ...f, prize_pool_stc: e.target.value }))}
           className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
@@ -248,7 +251,7 @@ export default function LeaguesTab({
       </div>
       <Button onClick={createCompetitionSeason} disabled={creatingLeagueSeason || !newSeasonForm.competition_id}
         className="w-full bg-primary text-primary-foreground h-9 text-xs rounded font-bold gap-2">
-        {creatingLeagueSeason ? "Creating..." : "Create Season"}
+        {creatingLeagueSeason ? t("admin.leagues.creating") : t("admin.leagues.createSeason")}
       </Button>
     </div>
   )}
@@ -264,7 +267,7 @@ export default function LeaguesTab({
         <>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h3 className="font-heading text-base uppercase tracking-tight text-foreground">
-              Registration Applications
+              {t("admin.leagues.registrationApplications")}
               {actionable.length > 0 && (
                 <span className="ml-2 text-[10px] text-warning border border-warning/30 bg-warning/5 px-1.5 py-0.5 rounded font-bold">
                   {actionable.length}
@@ -272,7 +275,7 @@ export default function LeaguesTab({
               )}
             </h3>
             <div className="flex gap-1">
-              {[["actionable","Needs Action"],["all","All"]].map(([v, label]) => (
+              {[["actionable", t("admin.leagues.needsAction")], ["all", t("admin.leagues.all")]].map(([v, label]) => (
                 <button key={v} type="button" onClick={() => setRegAppFilter(v)}
                   className={cn("text-[10px] px-2 py-1 rounded border font-bold uppercase tracking-wider transition-colors",
                     regAppFilter === v
@@ -293,7 +296,7 @@ export default function LeaguesTab({
           {displayApps.length === 0 ? (
             <div className="border border-dashed border-border rounded p-8 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                {regAppFilter === "actionable" ? "No applications need action" : "No registration applications yet"}
+                {regAppFilter === "actionable" ? t("admin.leagues.noApplicationsNeedAction") : t("admin.leagues.noRegistrationApplications")}
               </p>
             </div>
           ) : (
@@ -344,18 +347,18 @@ export default function LeaguesTab({
                           onClick={() => { setApproveRegDialog(reg); setApproveTargetId(candidateLeagues[0]?.id || ""); }}
                           className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
                           <Check className="w-3 h-3" />
-                          {reg.status === "waitlisted" ? "Promote" : "Approve"}
+                          {reg.status === "waitlisted" ? t("admin.leagues.promote") : t("admin.actions.approve")}
                         </Button>
                         <Button size="sm" variant="outline"
                           onClick={() => { setRejectNotesDialog({ reg, action: "waitlist" }); setRejectNotes(""); }}
                           className="border-border text-muted-foreground hover:text-foreground h-7 text-xs rounded gap-1"
                           disabled={reg.status === "waitlisted"}>
-                          Waitlist
+                          {t("admin.leagues.waitlist")}
                         </Button>
                         <Button size="sm" variant="outline"
                           onClick={() => { setRejectNotesDialog({ reg, action: "reject" }); setRejectNotes(""); }}
                           className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
-                          <X className="w-3 h-3" /> Reject
+                          <X className="w-3 h-3" /> {t("admin.actions.reject")}
                         </Button>
                       </div>
                     )}
@@ -372,12 +375,12 @@ export default function LeaguesTab({
   {/* Pending qualification entries */}
   <div>
     <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">
-      Pending Qualification Entries
+      {t("admin.leagues.pendingQualificationEntries")}
       {qualEntries.length > 0 && <span className="ml-2 text-[10px] text-primary border border-primary/30 bg-primary/5 px-1.5 py-0.5 rounded font-bold">{qualEntries.length}</span>}
     </h3>
     {qualEntries.length === 0 ? (
       <div className="border border-dashed border-border rounded p-8 text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">No pending entries</p>
+        <p className="text-xs text-muted-foreground uppercase tracking-widest">{t("admin.leagues.noPendingEntries")}</p>
       </div>
     ) : (
       <div className="space-y-2">
@@ -394,10 +397,10 @@ export default function LeaguesTab({
             </div>
             <div className="flex gap-2 shrink-0">
               <Button size="sm" onClick={() => confirmQualEntry(e)} className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
-                <Check className="w-3 h-3" /> Confirm
+                <Check className="w-3 h-3" /> {t("admin.actions.confirm")}
               </Button>
               <Button size="sm" variant="outline" onClick={() => rejectQualEntry(e)} className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
-                <X className="w-3 h-3" /> Reject
+                <X className="w-3 h-3" /> {t("admin.actions.reject")}
               </Button>
             </div>
           </div>
@@ -409,7 +412,7 @@ export default function LeaguesTab({
   {/* All Seasons */}
   {compSeasons.length > 0 && (
     <div>
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">All Seasons</h3>
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">{t("admin.leagues.allSeasons")}</h3>
       <div className="space-y-2">
         {compSeasons.map(s => (
           <SeasonCard key={s.id} season={s} onRefresh={loadAll} />
@@ -422,17 +425,17 @@ export default function LeaguesTab({
   <div className="bg-card border border-border rounded overflow-hidden">
     <button type="button" className="w-full flex items-center justify-between px-5 py-4 text-left"
       onClick={() => setFixturesOpen(v => !v)}>
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Fixtures & Results</h3>
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.fixturesResults")}</h3>
       <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", fixturesOpen && "rotate-180")} />
     </button>
     {fixturesOpen && (
       <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Competition Season</label>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin.leagues.competitionSeason")}</label>
             <select value={selectedFixtureSeason} onChange={e => setSelectedFixtureSeason(e.target.value)}
               className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
-              <option value="">— Select season —</option>
+              <option value="">{t("admin.leagues.selectSeason")}</option>
               {compSeasons.map(s => (
                 <option key={s.id} value={s.id}>{s.competition_name} — {s.season_label || `S${s.season_number}`} ({s.status})</option>
               ))}
@@ -440,14 +443,14 @@ export default function LeaguesTab({
             <Button size="sm" disabled={!selectedFixtureSeason || loadingFixtures}
               onClick={() => { const s = compSeasons.find(x => x.id === selectedFixtureSeason); if (s) loadFixturesForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
-              {loadingFixtures && fixturesPanel?.type === "competition" ? "Loading…" : "Load Fixtures"}
+              {loadingFixtures && fixturesPanel?.type === "competition" ? t("admin.actions.loading") : t("admin.leagues.loadFixtures")}
             </Button>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Regional League</label>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin.leagues.regionalLeague")}</label>
             <select value={selectedFixtureLeague} onChange={e => setSelectedFixtureLeague(e.target.value)}
               className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
-              <option value="">— Select league —</option>
+              <option value="">{t("admin.leagues.selectLeague")}</option>
               {regionalLeagues.map(l => (
                 <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>
               ))}
@@ -455,7 +458,7 @@ export default function LeaguesTab({
             <Button size="sm" disabled={!selectedFixtureLeague || loadingFixtures}
               onClick={() => { const l = regionalLeagues.find(x => x.id === selectedFixtureLeague); if (l) loadFixturesForPanel({ type: "league", id: l.id, name: l.name }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
-              {loadingFixtures && fixturesPanel?.type === "league" ? "Loading…" : "Load Fixtures"}
+              {loadingFixtures && fixturesPanel?.type === "league" ? t("admin.actions.loading") : t("admin.leagues.loadFixtures")}
             </Button>
           </div>
         </div>
@@ -463,12 +466,12 @@ export default function LeaguesTab({
           <div>
             <p className="text-xs font-bold text-foreground mb-2">
               {fixturesPanel.name}
-              <span className="ml-2 text-[10px] text-muted-foreground font-normal">({fixturesList.length} fixtures)</span>
+              <span className="ml-2 text-[10px] text-muted-foreground font-normal">({t("admin.leagues.fixtureCount", { count: fixturesList.length })})</span>
             </p>
             {loadingFixtures ? (
               <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
             ) : fixturesList.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No fixtures found. Generate fixtures first via the season card above.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">{t("admin.leagues.noFixturesFound")}</p>
             ) : (
               <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
                 {fixturesList.map(f => (
@@ -487,7 +490,7 @@ export default function LeaguesTab({
                       <Button size="sm" variant="outline"
                         onClick={() => { setResultDialog({ fixture: f, fixtureType: fixturesPanel.type === "competition" ? "competition" : "league" }); setResultForm({ home_score: "", away_score: "" }); }}
                         className="h-6 text-[10px] rounded border-primary/30 text-primary hover:bg-primary/10 shrink-0">
-                        Enter Result
+                        {t("admin.leagues.enterResult")}
                       </Button>
                     )}
                   </div>
@@ -504,7 +507,7 @@ export default function LeaguesTab({
   <div className="bg-card border border-border rounded overflow-hidden">
     <button type="button" className="w-full flex items-center justify-between px-5 py-4 text-left"
       onClick={() => setStandingsOpen(v => !v)}>
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Standings</h3>
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.standings")}</h3>
       <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", standingsOpen && "rotate-180")} />
     </button>
     {standingsOpen && (
@@ -520,7 +523,7 @@ export default function LeaguesTab({
             <Button size="sm" disabled={!selectedStandingsSeason || loadingStandings}
               onClick={() => { const s = compSeasons.find(x => x.id === selectedStandingsSeason); if (s) loadStandingsForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
-              {loadingStandings && standingsPanel?.type === "competition" ? "Loading…" : "Load Standings"}
+              {loadingStandings && standingsPanel?.type === "competition" ? t("admin.actions.loading") : t("admin.leagues.loadStandings")}
             </Button>
           </div>
           <div className="space-y-2">
@@ -533,7 +536,7 @@ export default function LeaguesTab({
             <Button size="sm" disabled={!selectedStandingsLeague || loadingStandings}
               onClick={() => { const l = regionalLeagues.find(x => x.id === selectedStandingsLeague); if (l) loadStandingsForPanel({ type: "league", id: l.id, name: l.name }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
-              {loadingStandings && standingsPanel?.type === "league" ? "Loading…" : "Load Standings"}
+              {loadingStandings && standingsPanel?.type === "league" ? t("admin.actions.loading") : t("admin.leagues.loadStandings")}
             </Button>
           </div>
         </div>
@@ -543,21 +546,21 @@ export default function LeaguesTab({
             {loadingStandings ? (
               <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
             ) : standingsList.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No standings found. Confirm clubs and generate fixtures first.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">{t("admin.leagues.noStandingsFound")}</p>
             ) : (
               <div className="border border-border rounded overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-border bg-secondary/50">
-                      <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase w-8">#</th>
-                      <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase">Club</th>
+                      <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase">#</th>
+                      <th className="px-2 py-2 text-left text-[10px] text-muted-foreground uppercase">{t("admin.leagues.club")}</th>
                       <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-8">P</th>
                       <th className="px-2 py-2 text-center text-[10px] text-success uppercase w-8">W</th>
                       <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-8">D</th>
                       <th className="px-2 py-2 text-center text-[10px] text-destructive uppercase w-8">L</th>
                       <th className="px-2 py-2 text-center text-[10px] text-muted-foreground uppercase w-10">GD</th>
                       <th className="px-2 py-2 text-center text-[10px] text-foreground font-bold uppercase w-10">Pts</th>
-                      <th className="px-2 py-2 text-right text-[10px] text-muted-foreground uppercase w-24">Actions</th>
+                      <th className="px-2 py-2 text-right text-[10px] text-muted-foreground uppercase w-24">{t("admin.leagues.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -584,7 +587,7 @@ export default function LeaguesTab({
                             ) : (
                               <Trash2 className="w-3 h-3" />
                             )}
-                            Remove
+                            {t("admin.actions.remove")}
                           </Button>
                         </td>
                       </tr>
@@ -603,13 +606,13 @@ export default function LeaguesTab({
   <div className="bg-card border border-border rounded p-5 space-y-4">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">Regional Leagues</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{REGIONS.length} regions · 2 divisions each. Click the edit icon to change max clubs or promoted slots.</p>
+        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.regionalLeagues")}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.regionalLeaguesDesc", { count: REGIONS.length })}</p>
       </div>
       <Button onClick={seedRegionalLeagues}
         disabled={seedingRegionalLeagues || regionalLeagues.length >= LEAGUE_DEFINITIONS.length}
         className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5 shrink-0">
-        {seedingRegionalLeagues ? "Seeding..." : regionalLeagues.length >= LEAGUE_DEFINITIONS.length ? "✓ Seeded" : "Seed All Leagues"}
+        {seedingRegionalLeagues ? t("admin.leagues.seeding") : regionalLeagues.length >= LEAGUE_DEFINITIONS.length ? t("admin.leagues.seeded") : t("admin.leagues.seedAllLeagues")}
       </Button>
     </div>
 
@@ -642,7 +645,7 @@ export default function LeaguesTab({
                           league.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
                           league.status === "completed" ? "text-muted-foreground border-border" :
                           "text-warning border-warning/30 bg-warning/5"
-                        )}>{league.status.replace("_", " ")}</span>
+                        )}>{getSeasonStatusLabel(t, league.status)}</span>
                         <Button size="sm" variant="outline"
                           className={cn("h-7 w-7 p-0 rounded shrink-0", isEditingL ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                           onClick={() => {
@@ -652,44 +655,44 @@ export default function LeaguesTab({
                           {isEditingL ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                         </Button>
                         <Link to={`/leagues/${league.slug}`}>
-                          <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">View</Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">{t("admin.actions.view")}</Button>
                         </Link>
                         {league.status === "draft" && (
                           <Button size="sm" onClick={() => leagueLifecycleAction(league, "open_registration")}
                             className="h-7 text-xs rounded bg-primary text-primary-foreground shrink-0">
-                            Open Registration
+                            {t("admin.leagues.openRegistration")}
                           </Button>
                         )}
                         {league.status === "registration" && (
                           <Button size="sm" disabled={generatingRegionalFixtures === league.id}
                             onClick={() => generateRegionalFixturesForAdmin(league)}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
-                            {generatingRegionalFixtures === league.id ? "Starting..." : "Start League"}
+                            {generatingRegionalFixtures === league.id ? t("admin.leagues.starting") : t("admin.leagues.startLeague")}
                           </Button>
                         )}
                         {league.status === "in_progress" && (
                           <Button size="sm" variant="outline" disabled={processingLeagueEnd === league.id}
                             onClick={() => processLeagueEnd(league)}
                             className="h-7 text-xs rounded border-warning/40 text-warning hover:bg-warning/10 shrink-0">
-                            {processingLeagueEnd === league.id ? "Processing..." : "End Season"}
+                            {processingLeagueEnd === league.id ? t("admin.leagues.processing") : t("admin.leagues.endSeason")}
                           </Button>
                         )}
                         {league.status === "completed" && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => leagueLifecycleAction(league, "archive")}
                               className="h-7 text-xs rounded border-muted-foreground/30 text-muted-foreground hover:text-foreground shrink-0">
-                              Archive
+                              {t("admin.leagues.archive")}
                             </Button>
                             <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
                               className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
-                              New Season
+                              {t("admin.leagues.newSeason")}
                             </Button>
                           </>
                         )}
                         {league.status === "archived" && (
                           <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
-                            New Season
+                            {t("admin.leagues.newSeason")}
                           </Button>
                         )}
                       </div>
@@ -697,13 +700,13 @@ export default function LeaguesTab({
                         <div className="pt-2 border-t border-border/50 space-y-3">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="text-[10px] text-muted-foreground mb-1 block">Max Clubs</label>
+                              <label className="text-[10px] text-muted-foreground mb-1 block">{t("admin.leagues.maxClubs")}</label>
                               <Input type="number" min={1} value={leagueEditForm.max_clubs ?? ""}
                                 onChange={e => setLeagueEditForm(f => ({ ...f, max_clubs: e.target.value }))}
                                 className="bg-secondary border-border text-xs h-8" />
                             </div>
                             <div>
-                              <label className="text-[10px] text-muted-foreground mb-1 block">Promoted Slots</label>
+                              <label className="text-[10px] text-muted-foreground mb-1 block">{t("admin.leagues.promotedSlots")}</label>
                               <Input type="number" min={0} value={leagueEditForm.promoted_slots ?? ""}
                                 onChange={e => setLeagueEditForm(f => ({ ...f, promoted_slots: e.target.value }))}
                                 className="bg-secondary border-border text-xs h-8" />
@@ -744,7 +747,7 @@ export default function LeaguesTab({
 
     {/* Qualification info — live from competition records */}
     <div className="bg-muted/20 border border-border/40 rounded p-3 space-y-1">
-      <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Division 1 qualification (live from competition rules)</p>
+      <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">{t("admin.leagues.div1Qualification")}</p>
       {competitions.length > 0 ? (
         [{slug:"supreme",label:"STAGE Supreme"},{slug:"elite",label:"STAGE Elite"},{slug:"challenger",label:"STAGE Challenger"}].map(({ slug, label }) => {
           const comp = competitions.find(c => c.slug === slug);
@@ -755,10 +758,10 @@ export default function LeaguesTab({
           ) : null;
         })
       ) : (
-        <p className="text-[10px] text-muted-foreground">Seed competitions first to see qualification rules here.</p>
+        <p className="text-[10px] text-muted-foreground">{t("admin.leagues.seedCompetitionsFirst")}</p>
       )}
       <p className="text-[10px] text-muted-foreground mt-1">
-        Promotion/relegation spots are editable per league row above. Edit competition rules to adjust qualification spots.
+        {t("admin.leagues.qualificationEditHint")}
       </p>
     </div>
   </div>
@@ -769,11 +772,11 @@ export default function LeaguesTab({
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-4 h-4 text-destructive" />
         <h3 className="font-heading text-base uppercase tracking-tight text-foreground">
-          Scheduling Disputes ({expiredFixtures.length})
+          {t("admin.leagues.schedulingDisputes", { count: expiredFixtures.length })}
         </h3>
       </div>
       <p className="text-xs text-muted-foreground">
-        These fixtures expired without both teams agreeing on a time. Resolve each one below.
+        {t("admin.leagues.schedulingDisputesDesc")}
       </p>
       <div className="space-y-2">
         {expiredFixtures.map(f => (

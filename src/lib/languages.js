@@ -8,11 +8,11 @@ const LANGUAGE_CATALOG = [
   { value: "de", label: "German", nativeLabel: "Deutsch", flag: "🇩🇪", enabled: true },
   { value: "zh", label: "Chinese", nativeLabel: "简体中文", flag: "🇨🇳", enabled: true },
   { value: "ja", label: "Japanese", nativeLabel: "日本語", flag: "🇯🇵", enabled: true },
-  { value: "ru", label: "Russian", nativeLabel: "Русский", flag: "🇷🇺", enabled: false },
-  { value: "ko", label: "Korean", nativeLabel: "한국어", flag: "🇰🇷", enabled: false },
-  { value: "ar", label: "Arabic", nativeLabel: "العربية", flag: "🇸🇦", enabled: false },
-  { value: "pl", label: "Polish", nativeLabel: "Polski", flag: "🇵🇱", enabled: false },
-  { value: "tr", label: "Turkish", nativeLabel: "Türkçe", flag: "🇹🇷", enabled: false },
+  { value: "ru", label: "Russian", nativeLabel: "Русский", flag: "🇷🇺", enabled: true },
+  { value: "ko", label: "Korean", nativeLabel: "한국어", flag: "🇰🇷", enabled: true },
+  { value: "ar", label: "Arabic", nativeLabel: "العربية", flag: "🇸🇦", enabled: true },
+  { value: "pl", label: "Polish", nativeLabel: "Polski", flag: "🇵🇱", enabled: true },
+  { value: "tr", label: "Turkish", nativeLabel: "Türkçe", flag: "🇹🇷", enabled: true },
 ];
 
 /** Active locales only — used by translation system & legacy selects. */

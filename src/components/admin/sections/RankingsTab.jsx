@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Activity, AlertCircle, CheckCircle2, RefreshCw, Shield, Trophy, Users } from "lucide-react";
 
 function formatNumber(value) {
@@ -9,6 +10,7 @@ function formatNumber(value) {
 }
 
 export default function RankingsTab() {
+  const { t } = useTranslation();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rebuilding, setRebuilding] = useState(false);
@@ -21,7 +23,7 @@ export default function RankingsTab() {
       setSummary(data);
       setMessage("");
     } catch (err) {
-      setMessage(err?.message || "Failed to load rankings.");
+      setMessage(err?.message || t("admin.rankings.loadFailed"));
       setSummary({ clubs: [], players: [], positions: [], meta: {} });
     } finally {
       setLoading(false);
@@ -34,9 +36,9 @@ export default function RankingsTab() {
     try {
       const data = await stageClient.http.post("/rankings/rebuild", { reason: "Admin rebuilt official rankings" });
       setSummary(data);
-      setMessage("Rankings rebuilt from official STAGE fixtures.");
+      setMessage(t("admin.rankings.rebuildSuccess"));
     } catch (err) {
-      setMessage(err?.message || "Failed to rebuild rankings.");
+      setMessage(err?.message || t("admin.rankings.rebuildFailed"));
     } finally {
       setRebuilding(false);
     }
@@ -50,6 +52,7 @@ export default function RankingsTab() {
   const players = summary?.players || [];
   const meta = summary?.meta || {};
   const sources = Object.entries(meta.source_counts || {}).map(([key, value]) => `${key}: ${value}`).join(" · ");
+  const isSuccessMessage = message === t("admin.rankings.rebuildSuccess");
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -58,21 +61,20 @@ export default function RankingsTab() {
           <div>
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-foreground">
               <Trophy className="h-4 w-4 text-primary" />
-              Official Rankings Engine
+              {t("admin.rankings.engineTitle")}
             </h3>
             <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Rebuilds club and player rankings from STAGE competitions, regional leagues, and tournaments only.
-              Arrange Game fixtures are excluded from this computation.
+              {t("admin.rankings.engineDesc")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={loadSummary} disabled={loading || rebuilding} className="gap-2">
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-              Refresh Preview
+              {t("admin.rankings.refreshPreview")}
             </Button>
             <Button type="button" size="sm" onClick={rebuildRankings} disabled={rebuilding} className="gap-2 bg-primary text-primary-foreground">
               <Activity className={cn("h-4 w-4", rebuilding && "animate-pulse")} />
-              {rebuilding ? "Rebuilding..." : "Rebuild & Save Rankings"}
+              {rebuilding ? t("admin.rankings.rebuilding") : t("admin.rankings.rebuildSave")}
             </Button>
           </div>
         </div>
@@ -80,49 +82,49 @@ export default function RankingsTab() {
         {message ? (
           <div className={cn(
             "mt-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold",
-            message.startsWith("Rankings")
+            isSuccessMessage
               ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
               : "border-destructive/25 bg-destructive/10 text-destructive"
           )}>
-            {message.startsWith("Rankings") ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+            {isSuccessMessage ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
             {message}
           </div>
         ) : null}
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <Stat label="Official Fixtures" value={meta.official_fixtures_count || 0} icon={Trophy} />
-        <Stat label="Player Stat Rows" value={meta.player_stat_rows_count || 0} icon={Activity} />
-        <Stat label="Ranked Clubs" value={clubs.length} icon={Shield} />
-        <Stat label="Ranked Players" value={players.length} icon={Users} />
+        <Stat label={t("admin.rankings.officialFixtures")} value={meta.official_fixtures_count || 0} icon={Trophy} />
+        <Stat label={t("admin.rankings.playerStatRows")} value={meta.player_stat_rows_count || 0} icon={Activity} />
+        <Stat label={t("admin.rankings.rankedClubs")} value={clubs.length} icon={Shield} />
+        <Stat label={t("admin.rankings.rankedPlayers")} value={players.length} icon={Users} />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-xs font-black uppercase tracking-wider text-foreground">Sources</h3>
+        <h3 className="text-xs font-black uppercase tracking-wider text-foreground">{t("admin.rankings.sources")}</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          {sources || "No completed official fixtures found yet."}
+          {sources || t("admin.rankings.noFixturesYet")}
         </p>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
         <PreviewTable
-          title="Top Clubs"
+          title={t("admin.rankings.topClubs")}
           rows={clubs.slice(0, 10)}
-          empty="No club rankings yet."
+          empty={t("admin.rankings.noClubRankings")}
           renderRow={(club, index) => (
             <RankingRow
               key={club.id}
               rank={index + 1}
               name={club.name}
-              meta={`${club.region || "Global"} · ${club.matches_ranked || 0} GP · ${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`}
+              meta={`${club.region || t("admin.rankings.global")} · ${club.matches_ranked || 0} GP · ${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`}
               points={club.ranking_points}
             />
           )}
         />
         <PreviewTable
-          title="Top Players"
+          title={t("admin.rankings.topPlayers")}
           rows={players.slice(0, 10)}
-          empty="No player rankings yet."
+          empty={t("admin.rankings.noPlayerRankings")}
           renderRow={(player, index) => (
             <RankingRow
               key={player.id}
@@ -136,7 +138,7 @@ export default function RankingsTab() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-xs font-black uppercase tracking-wider text-foreground">Position Leaders</h3>
+        <h3 className="text-xs font-black uppercase tracking-wider text-foreground">{t("admin.rankings.positionLeaders")}</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(summary?.positions || []).map((group) => {
             const leader = group.players?.[0];
@@ -149,7 +151,7 @@ export default function RankingsTab() {
                     <p className="text-xs text-muted-foreground">{leader.position} · {formatNumber(leader.ranking_points)} pts</p>
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">No ranked player yet.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t("admin.rankings.noRankedPlayer")}</p>
                 )}
               </div>
             );

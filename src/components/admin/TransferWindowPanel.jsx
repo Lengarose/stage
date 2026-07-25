@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferWindowPanel() {
+  const { t } = useTranslation();
   const [currentWindow, setCurrentWindow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,7 @@ export default function TransferWindowPanel() {
 
   async function closeWindow() {
     if (!currentWindow) return;
-    if (!(await swalConfirm("Close the transfer window? Players will no longer transfer until the next window."))) return;
+    if (!(await swalConfirm(t("admin.transfers.closeConfirm")))) return;
     setSaving(true);
     await stageClient.functions.invoke("transferWindowActions", {
       action: "close_window",
@@ -66,7 +68,7 @@ export default function TransferWindowPanel() {
   async function executePending() {
     setSaving(true);
     const res = await stageClient.functions.invoke("transferWindowActions", { action: "execute_pending" });
-    await swalAlert(`Executed ${res.data.transfers_executed} pending transfer(s).`);
+    await swalAlert(t("admin.transfers.executedCount", { count: res.data.transfers_executed }));
     await load();
     setSaving(false);
   }
@@ -91,17 +93,17 @@ export default function TransferWindowPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold", isOpen ? "text-success" : "text-foreground")}>
-            Transfer Window: {isOpen ? "OPEN" : "CLOSED"}
+            {t("admin.transfers.windowStatus")}: {isOpen ? t("admin.transfers.open") : t("admin.transfers.closed")}
           </p>
           {currentWindow ? (
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               {currentWindow.label && <p className="font-medium text-foreground/80">{currentWindow.label}</p>}
-              {currentWindow.start_date && <p>Opened: {new Date(currentWindow.start_date).toLocaleString()}</p>}
-              {currentWindow.end_date && <p>Closes: {new Date(currentWindow.end_date).toLocaleString()}</p>}
-              <p>Transfers executed this window: <strong>{currentWindow.transfers_executed || 0}</strong></p>
+              {currentWindow.start_date && <p>{t("admin.transfers.opened")}: {new Date(currentWindow.start_date).toLocaleString()}</p>}
+              {currentWindow.end_date && <p>{t("admin.transfers.closes")}: {new Date(currentWindow.end_date).toLocaleString()}</p>}
+              <p>{t("admin.transfers.executedThisWindow")}: <strong>{currentWindow.transfers_executed || 0}</strong></p>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground mt-1">No window has been created yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("admin.transfers.noWindowYet")}</p>
           )}
         </div>
         {isOpen && (
@@ -112,7 +114,7 @@ export default function TransferWindowPanel() {
             onClick={closeWindow}
             disabled={saving}
           >
-            <XCircle className="w-3.5 h-3.5 mr-1" /> Close Window
+            <XCircle className="w-3.5 h-3.5 mr-1" /> {t("admin.transfers.closeWindow")}
           </Button>
         )}
       </div>
@@ -123,14 +125,14 @@ export default function TransferWindowPanel() {
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-warning shrink-0" />
             <div>
-              <p className="font-semibold text-warning text-sm">{pendingCount} transfer{pendingCount !== 1 ? "s" : ""} awaiting window</p>
-              <p className="text-xs text-muted-foreground">These will auto-execute when the window opens.</p>
+              <p className="font-semibold text-warning text-sm">{t("admin.transfers.awaitingWindow", { count: pendingCount })}</p>
+              <p className="text-xs text-muted-foreground">{t("admin.transfers.autoExecuteHint")}</p>
             </div>
           </div>
           {isOpen && (
             <Button size="sm" onClick={executePending} disabled={saving}
               className="bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 shrink-0">
-              <Zap className="w-3.5 h-3.5 mr-1" /> Execute Now
+              <Zap className="w-3.5 h-3.5 mr-1" /> {t("admin.transfers.executeNow")}
             </Button>
           )}
         </div>
@@ -139,19 +141,19 @@ export default function TransferWindowPanel() {
       {/* Open new window form */}
       {!isOpen && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h4 className="font-bold text-foreground text-sm uppercase tracking-wider">Open New Transfer Window</h4>
+          <h4 className="font-bold text-foreground text-sm uppercase tracking-wider">{t("admin.transfers.openNewWindow")}</h4>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Window Label</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("admin.transfers.windowLabel")}</label>
               <Input
                 value={form.label}
                 onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-                placeholder="e.g. Summer 2026"
+                placeholder={t("admin.transfers.windowLabelPlaceholder")}
                 className="bg-secondary border-border text-sm"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Close Date (optional)</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("admin.transfers.closeDateOptional")}</label>
               <Input
                 type="datetime-local"
                 value={form.end_date}
@@ -166,7 +168,7 @@ export default function TransferWindowPanel() {
             className="w-full sm:w-auto bg-success/10 text-success border border-success/30 hover:bg-success/20"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-            Open Transfer Window
+            {t("admin.transfers.openWindow")}
           </Button>
         </div>
       )}

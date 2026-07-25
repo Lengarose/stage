@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "@/hooks/useTranslation";
+import { getAdminSectionLabel } from "@/lib/adminI18n";
 import {
   Activity,
   AlertTriangle,
@@ -19,24 +21,17 @@ import DashboardGamerStatCard from "@/components/dashboard/DashboardGamerStatCar
 import { AdminGamerSection } from "@/components/admin/AdminGamerUI";
 import { AppGuideVisual, UsageChart } from "@/components/admin/sections/AnalyticsTab";
 
-const CHART_LINES = [
-  { key: "users", label: "Accounts" },
-  { key: "players", label: "Players" },
-  { key: "clubs", label: "Clubs" },
-  { key: "tournaments", label: "Tournaments" },
-  { key: "matches", label: "Matches" },
-  { key: "contracts", label: "Contracts" },
-];
+const CHART_LINE_KEYS = ["users", "players", "clubs", "tournaments", "matches", "contracts"];
 
 const QUICK_ACTIONS = [
-  { path: "/admin/disputes", label: "Disputes", icon: AlertTriangle, accent: "rose" },
-  { path: "/admin/forfeits", label: "Forfeits", icon: Flag, accent: "gold" },
-  { path: "/admin/players", label: "Players", icon: UsersRound, accent: "cyan" },
-  { path: "/admin/clubs", label: "Clubs", icon: Shield, accent: "green" },
-  { path: "/admin/tournaments", label: "Tournaments", icon: Trophy, accent: "gold" },
-  { path: "/admin/leagues", label: "Leagues", icon: Gavel, accent: "violet" },
-  { path: "/admin/transfers", label: "Transfers", icon: ArrowLeftRight, accent: "cyan" },
-  { path: "/admin/analytics", label: "Analytics", icon: BarChart3, accent: "violet" },
+  { path: "/admin/disputes", section: "disputes", icon: AlertTriangle, accent: "rose" },
+  { path: "/admin/forfeits", section: "forfeits", icon: Flag, accent: "gold" },
+  { path: "/admin/players", section: "players", icon: UsersRound, accent: "cyan" },
+  { path: "/admin/clubs", section: "clubs", icon: Shield, accent: "green" },
+  { path: "/admin/tournaments", section: "tournaments", icon: Trophy, accent: "gold" },
+  { path: "/admin/leagues", section: "leagues", icon: Gavel, accent: "violet" },
+  { path: "/admin/transfers", section: "transfers", icon: ArrowLeftRight, accent: "cyan" },
+  { path: "/admin/analytics", section: "analytics", icon: BarChart3, accent: "violet" },
 ];
 
 export default function AdminDashboardPanel({
@@ -51,6 +46,7 @@ export default function AdminDashboardPanel({
   loading,
   onRefresh,
 }) {
+  const { t } = useTranslation();
   const [days, setDays] = useState(30);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -116,36 +112,36 @@ export default function AdminDashboardPanel({
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <DashboardGamerStatCard
-          label="Clubs"
+          label={t("admin.sections.clubs")}
           value={clubs.length}
-          sub={`${totals.clubs || clubs.length} on platform`}
+          sub={t("admin.dashboard.clubsOnPlatform", { count: totals.clubs || clubs.length })}
           accent="violet"
           icon={Shield}
         />
         <DashboardGamerStatCard
-          label="Expired Fixtures"
+          label={t("admin.dashboard.expiredFixtures")}
           value={expiredFixtures.length}
-          sub={expiredFixtures.length ? "Scheduling backlog" : "Schedule healthy"}
+          sub={expiredFixtures.length ? t("admin.dashboard.schedulingBacklog") : t("admin.dashboard.scheduleHealthy")}
           accent="rose"
           icon={Activity}
         />
         <DashboardGamerStatCard
-          label="Pending Registrations"
+          label={t("admin.dashboard.pendingRegistrations")}
           value={pendingRegs}
-          sub="Season applications"
+          sub={t("admin.dashboard.seasonApplications")}
           accent="gold"
           icon={UsersRound}
         />
         <DashboardGamerStatCard
-          label="Matches Played"
+          label={t("admin.dashboard.matchesPlayed")}
           value={totals.completed_matches ?? "—"}
-          sub={totals.active_users_30d ? `${totals.active_users_30d} active users (30d)` : "Platform activity"}
+          sub={totals.active_users_30d ? t("admin.dashboard.activeUsers30d", { count: totals.active_users_30d }) : t("admin.dashboard.platformActivity")}
           accent="cyan"
           icon={BarChart3}
         />
       </div>
 
-      <AdminGamerSection title="Operations" subtitle="Jump into the tools you use every day." icon={ShieldAlert}>
+      <AdminGamerSection title={t("admin.dashboard.operations")} subtitle={t("admin.dashboard.operationsSubtitle")} icon={ShieldAlert}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
@@ -164,8 +160,8 @@ export default function AdminDashboardPanel({
                 )}
               >
                 <Icon className="w-4 h-4 text-white/50 mb-2 group-hover:text-white/80 transition-colors" />
-                <p className="font-heading font-black uppercase text-sm text-white">{action.label}</p>
-                {count != null ? <p className="text-[10px] text-white/40 mt-1">{count} total</p> : null}
+                <p className="font-heading font-black uppercase text-sm text-white">{getAdminSectionLabel(t, action.section)}</p>
+                {count != null ? <p className="text-[10px] text-white/40 mt-1">{t("admin.dashboard.totalCount", { count })}</p> : null}
               </Link>
             );
           })}
@@ -173,8 +169,8 @@ export default function AdminDashboardPanel({
       </AdminGamerSection>
 
       <AdminGamerSection
-        title="Platform Activity"
-        subtitle={`Daily sign-ups, creations and completed matches over ${days} days.`}
+        title={t("admin.dashboard.platformActivity")}
+        subtitle={t("admin.dashboard.platformActivitySubtitle", { days })}
         icon={BarChart3}
       >
         <div className="flex flex-wrap gap-2">
@@ -190,7 +186,7 @@ export default function AdminDashboardPanel({
                   : "border-white/10 text-white/40 hover:text-white/70"
               )}
             >
-              {d} days
+              {t("admin.dashboard.days", { count: d })}
             </button>
           ))}
           <button
@@ -202,7 +198,7 @@ export default function AdminDashboardPanel({
             disabled={analyticsLoading}
             className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-white/70"
           >
-            Reload chart
+            {t("admin.dashboard.reloadChart")}
           </button>
         </div>
 
@@ -215,16 +211,16 @@ export default function AdminDashboardPanel({
             <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} />
           </div>
         ) : (
-          <p className="text-sm text-white/40 py-8 text-center">Analytics unavailable — deploy the admin-analytics endpoint.</p>
+          <p className="text-sm text-white/40 py-8 text-center">{t("admin.dashboard.analyticsUnavailable")}</p>
         )}
 
         {analytics ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
-            {CHART_LINES.map((line) => (
-              <div key={line.key} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">{line.label}</p>
+            {CHART_LINE_KEYS.map((key) => (
+              <div key={key} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">{t(`admin.dashboard.chartLines.${key}`)}</p>
                 <p className="font-heading font-black text-lg text-white mt-1">
-                  {totals[line.key === "matches" ? "completed_matches" : line.key === "contracts" ? "contracts" : line.key] ?? "—"}
+                  {totals[key === "matches" ? "completed_matches" : key === "contracts" ? "contracts" : key] ?? "—"}
                 </p>
               </div>
             ))}
@@ -233,18 +229,18 @@ export default function AdminDashboardPanel({
       </AdminGamerSection>
 
       {analytics ? (
-        <AdminGamerSection title="Tournament Health" subtitle="Quick read on competition status across the platform." icon={Trophy}>
+        <AdminGamerSection title={t("admin.dashboard.tournamentHealth")} subtitle={t("admin.dashboard.tournamentHealthSubtitle")} icon={Trophy}>
           <div className="grid grid-cols-3 gap-3">
-            <DashboardGamerStatCard label="Healthy" value={healthCounts.healthy} accent="green" icon={Trophy} />
-            <DashboardGamerStatCard label="At Risk" value={healthCounts.at_risk} accent="gold" icon={AlertTriangle} />
-            <DashboardGamerStatCard label="Stalled" value={healthCounts.stalled} accent="rose" icon={Flag} />
+            <DashboardGamerStatCard label={t("admin.dashboard.healthy")} value={healthCounts.healthy} accent="green" icon={Trophy} />
+            <DashboardGamerStatCard label={t("admin.dashboard.atRisk")} value={healthCounts.at_risk} accent="gold" icon={AlertTriangle} />
+            <DashboardGamerStatCard label={t("admin.dashboard.stalled")} value={healthCounts.stalled} accent="rose" icon={Flag} />
           </div>
         </AdminGamerSection>
       ) : null}
 
       <AdminGamerSection
-        title="How STAGE Works"
-        subtitle="Visual guide to the user journey — from sign-up to rankings."
+        title={t("admin.dashboard.howStageWorks")}
+        subtitle={t("admin.dashboard.howStageWorksSubtitle")}
         icon={BookOpen}
       >
         <div className="rounded-xl border border-white/10 bg-[#060912]/40 p-4 sm:p-5 [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-white/50 [&_.border-border]:border-white/10 [&_.bg-card]:bg-white/[0.03] [&_.bg-card\\/40]:bg-white/[0.03] [&_.bg-card\\/50]:bg-white/[0.04] [&_.bg-card\\/70]:bg-white/[0.05] [&_.bg-background]:bg-transparent [&_.bg-background\\/40]:bg-white/[0.02] [&_.bg-background\\/50]:bg-white/[0.03] [&_.bg-background\\/60]:bg-white/[0.04] [&_.border-primary\\/20]:border-cyan-400/20 [&_.from-primary\\/10]:from-cyan-500/10 [&_.text-primary]:text-cyan-400 [&_.bg-primary\\/15]:bg-cyan-500/15 [&_.bg-primary\\/20]:bg-cyan-500/20 [&_.hover\\:text-primary]:hover:text-cyan-300 [&_.hover\\:border-primary\\/40]:hover:border-cyan-400/40">
@@ -257,7 +253,7 @@ export default function AdminDashboardPanel({
           to="/admin/analytics"
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/50 hover:text-white/80 hover:border-white/20 transition-colors"
         >
-          <BarChart3 className="h-3.5 w-3.5" /> Deep analytics & tournament tracking
+          <BarChart3 className="h-3.5 w-3.5" /> {t("admin.dashboard.deepAnalyticsLink")}
         </Link>
       </div>
     </>

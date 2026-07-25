@@ -12,6 +12,10 @@ import ru from '../translations/ru.json';
 import pt from '../translations/pt.json';
 import zh from '../translations/zh.json';
 import ja from '../translations/ja.json';
+import ko from '../translations/ko.json';
+import ar from '../translations/ar.json';
+import pl from '../translations/pl.json';
+import tr from '../translations/tr.json';
 import { DEFAULT_LANGUAGE, isSupportedLanguage } from '@/lib/languages';
 import { getCoreTranslations } from '@/translations/coreTranslations';
 
@@ -34,7 +38,7 @@ function mergeTranslations(base, extension) {
   return output;
 }
 
-const baseTranslations = { en, fr, es, nl, de, it, ru, pt, zh, ja };
+const baseTranslations = { en, fr, es, nl, de, it, ru, pt, zh, ja, ko, ar, pl, tr };
 const translations = Object.fromEntries(
   Object.entries(baseTranslations).map(([languageCode, messages]) => [
     languageCode,
@@ -58,6 +62,7 @@ export function TranslationProvider({ children }) {
     }
     localStorage.setItem('language', language);
     document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
     // Also save to user profile
     stageClient.auth.me().then(user => {
       if (user) {

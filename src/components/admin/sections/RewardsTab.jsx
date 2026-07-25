@@ -1,6 +1,7 @@
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import { cn } from "@/lib/utils";
 import { stageClient } from "@/api/stageClient";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Coins } from "lucide-react";
 
 export default function RewardsTab({
@@ -9,19 +10,19 @@ export default function RewardsTab({
   rewardSource,
   setRewardSource,
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-2xl space-y-5">
       <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2">
-        <Coins className="w-5 h-5 text-warning" /> Season Rewards
+        <Coins className="w-5 h-5 text-warning" /> {t("admin.rewards.seasonRewards")}
       </h3>
       <p className="text-xs text-muted-foreground">
-        Configure STC prize distribution and trophy images per competition or league.
-        Rewards are distributed automatically when a season is archived.
+        {t("admin.rewards.description")}
       </p>
 
-      {/* Source selector */}
       <div className="space-y-2">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Select Competition or League</p>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
         <div className="space-y-1.5">
           {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
             const comp = competitions.find(c => c.slug === t.slug);
@@ -33,7 +34,7 @@ export default function RewardsTab({
                   active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 )} style={{ borderLeftColor: active ? undefined : t.color, borderLeftWidth: 2 }}>
                 {comp.name}
-                <span className="block text-[10px] font-normal mt-0.5 opacity-60">Competition · {comp.platform}</span>
+                <span className="block text-[10px] font-normal mt-0.5 opacity-60">{t("admin.rewards.competitionMeta", { platform: comp.platform })}</span>
               </button>
             );
           })}
@@ -46,7 +47,7 @@ export default function RewardsTab({
                 )}>
                 {league.name}
                 <span className="block text-[10px] font-normal mt-0.5 opacity-60">
-                  Regional League · Div {league.division || 1} · S{league.season_number}
+                  {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
                 </span>
               </button>
             );

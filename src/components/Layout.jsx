@@ -204,43 +204,43 @@ function getOwnerGroups(t, clubPath) {
   ];
 }
 
-function getAdminGroups() {
+function getAdminGroups(t) {
   return [
     {
-      label: "Admin",
+      label: t("admin.nav.admin"),
       items: [
-        { path: "/admin", icon: ShieldAlert, label: "Dashboard" },
-        { path: "/admin/disputes", icon: AlertTriangle, label: "Disputes" },
-        { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
-        { path: "/admin/players", icon: UsersRound, label: "Players" },
-        { path: "/admin/identity-claims", icon: User, label: "Identity Claims" },
-        { path: "/admin/clubs", icon: Shield, label: "Clubs" },
-        { path: "/admin/rankings", icon: BarChart3, label: "Rankings" },
-        { path: "/admin/analytics", icon: Activity, label: "Analytics" },
-        { path: "/admin/leagues", icon: Trophy, label: "Leagues" },
-        { path: "/admin/tournaments", icon: Trophy, label: "Tournaments" },
-        { path: "/admin/international-tournaments", icon: Globe2, label: "International" },
-        { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
-        { path: "/admin/store", icon: ShoppingBag, label: "Store" },
+        { path: "/admin", icon: ShieldAlert, label: t("admin.nav.dashboard") },
+        { path: "/admin/disputes", icon: AlertTriangle, label: t("admin.nav.disputes") },
+        { path: "/admin/forfeits", icon: Flag, label: t("admin.nav.forfeits") },
+        { path: "/admin/players", icon: UsersRound, label: t("admin.nav.players") },
+        { path: "/admin/identity-claims", icon: User, label: t("admin.nav.identityClaims") },
+        { path: "/admin/clubs", icon: Shield, label: t("admin.nav.clubs") },
+        { path: "/admin/rankings", icon: BarChart3, label: t("admin.nav.rankings") },
+        { path: "/admin/analytics", icon: Activity, label: t("admin.nav.analytics") },
+        { path: "/admin/leagues", icon: Trophy, label: t("admin.nav.leagues") },
+        { path: "/admin/tournaments", icon: Trophy, label: t("admin.nav.tournaments") },
+        { path: "/admin/international-tournaments", icon: Globe2, label: t("admin.nav.international") },
+        { path: "/admin/recruitment", icon: Handshake, label: t("admin.nav.recruitment") },
+        { path: "/admin/store", icon: ShoppingBag, label: t("admin.nav.store") },
       ],
     },
     {
-      label: "Operations",
+      label: t("admin.nav.operations"),
       items: [
-        { path: "/admin/trophies", icon: Trophy, label: "Trophies" },
-        { path: "/admin/rewards", icon: Star, label: "Rewards" },
-        { path: "/admin/news", icon: Newspaper, label: "News" },
-        { path: "/admin/press-conferences", icon: Newspaper, label: "PressConferences" },
-        { path: "/admin/lifestyles", icon: Coins, label: "LifeStyles" },
-        { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
-        { path: "/admin/home", icon: Palette, label: "Home Page" },
-        { path: "/admin/landing", icon: Palette, label: "Landing Page" },
+        { path: "/admin/trophies", icon: Trophy, label: t("admin.nav.trophies") },
+        { path: "/admin/rewards", icon: Star, label: t("admin.nav.rewards") },
+        { path: "/admin/news", icon: Newspaper, label: t("admin.nav.news") },
+        { path: "/admin/press-conferences", icon: Newspaper, label: t("admin.nav.pressConferences") },
+        { path: "/admin/lifestyles", icon: Coins, label: t("admin.nav.lifestyles") },
+        { path: "/admin/transfers", icon: ArrowLeftRight, label: t("admin.nav.transfers") },
+        { path: "/admin/home", icon: Palette, label: t("admin.nav.homePage") },
+        { path: "/admin/landing", icon: Palette, label: t("admin.nav.landingPage") },
       ],
     },
     {
-      label: "Community",
+      label: t("admin.nav.community"),
       items: [
-        { path: "/community", icon: MessagesSquare, label: "Discord" },
+        { path: "/community", icon: MessagesSquare, label: t("admin.nav.discord") },
       ],
     },
   ];
@@ -1854,15 +1854,16 @@ function MobileAppFooter() {
 }
 
 function AdminMobileTopBar({ pathname, theme, setTheme }) {
-  const adminGroups = getAdminGroups();
+  const { t } = useTranslation();
+  const adminGroups = getAdminGroups(t);
   const activeNav = findActiveInGroups(adminGroups, pathname);
-  const headerTitle = activeNav?.item.label ?? "Admin";
+  const headerTitle = activeNav?.item.label ?? t("admin.shell.title");
 
   const adminTabs = [
-    { path: "/admin", label: "Dash", icon: ShieldAlert },
-    { path: "/admin/players", label: "Players", icon: UsersRound },
-    { path: "/admin/clubs", label: "Clubs", icon: Shield },
-    { path: "/admin/transfers", label: "Transfers", icon: ArrowLeftRight },
+    { path: "/admin", label: t("admin.shell.dash"), icon: ShieldAlert },
+    { path: "/admin/players", label: t("admin.nav.players"), icon: UsersRound },
+    { path: "/admin/clubs", label: t("admin.nav.clubs"), icon: Shield },
+    { path: "/admin/transfers", label: t("admin.nav.transfers"), icon: ArrowLeftRight },
   ];
 
   return (
@@ -1887,8 +1888,8 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
           <NotificationBell />
           <Link
             to="/admin"
-            aria-label="Admin home"
-            title="Admin home"
+            aria-label={t("admin.shell.adminHome")}
+            title={t("admin.shell.adminHome")}
             className="mobile-liquid-icon-button inline-flex items-center justify-center w-11 h-11 rounded-lg"
             style={{ color: isNavItemActive("/admin", pathname) ? TEAL : "rgba(255,255,255,0.6)" }}
           >
@@ -2088,7 +2089,7 @@ export default function Layout() {
   const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
   const playerGroups = getPlayerGroups(t, clubPath);
   const ownerGroups = getOwnerGroups(t, clubPath);
-  const adminGroups = getAdminGroups();
+  const adminGroups = getAdminGroups(t);
   const headerNavGroups = showAdminHeader
     ? adminGroups
     : isTournamentLimited

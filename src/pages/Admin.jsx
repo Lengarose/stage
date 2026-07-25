@@ -41,6 +41,7 @@ import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   TOURNAMENT_CREDIT_COST,
   applyTournamentFormat,
@@ -52,6 +53,7 @@ import {
 
 /** @param {{ forcedSection?: string }} [props] */
 export default function Admin(props) {
+  const { t } = useTranslation();
   const forcedSection = props?.forcedSection;
   const params = useParams();
   const location = useLocation();
@@ -356,10 +358,10 @@ export default function Admin(props) {
     try {
       await internationalTournamentsApi.create(form);
       await loadInternationalTournaments({ withSquads: true });
-      await swalAlert("International tournament created.");
+      await swalAlert(t("admin.alerts.internationalCreated"));
       return true;
     } catch (err) {
-      await swalAlert(err?.message || err?.error || "Could not create international tournament.");
+      await swalAlert(err?.message || err?.error || t("admin.alerts.internationalCreateFailed"));
       return false;
     } finally {
       setSavingInternationalTournament(false);
@@ -371,10 +373,10 @@ export default function Admin(props) {
     try {
       await internationalTournamentsApi.update(id, form);
       await loadInternationalTournaments({ withSquads: true });
-      await swalAlert("International tournament updated.");
+      await swalAlert(t("admin.alerts.internationalUpdated"));
       return true;
     } catch (err) {
-      await swalAlert(err?.message || err?.error || "Could not update international tournament.");
+      await swalAlert(err?.message || err?.error || t("admin.alerts.internationalUpdateFailed"));
       return false;
     } finally {
       setSavingInternationalTournament(false);
@@ -385,9 +387,9 @@ export default function Admin(props) {
     try {
       await internationalTournamentsApi.openVoting(id);
       await loadInternationalTournaments({ withSquads: true });
-      await swalAlert("Voting opened for eligible countries.");
+      await swalAlert(t("admin.alerts.votingOpened"));
     } catch (err) {
-      await swalAlert(err?.message || err?.error || "Could not open voting.");
+      await swalAlert(err?.message || err?.error || t("admin.alerts.votingOpenFailed"));
     }
   }
 
@@ -395,9 +397,9 @@ export default function Admin(props) {
     try {
       await internationalTournamentsApi.closeVoting(id);
       await loadInternationalTournaments({ withSquads: true });
-      await swalAlert("Voting closed and representatives elected.");
+      await swalAlert(t("admin.alerts.votingClosed"));
     } catch (err) {
-      await swalAlert(err?.message || err?.error || "Could not close voting.");
+      await swalAlert(err?.message || err?.error || t("admin.alerts.votingCloseFailed"));
     }
   }
 
@@ -405,18 +407,18 @@ export default function Admin(props) {
     try {
       await internationalTournamentsApi.lockSquad(tournamentId, squadId);
       await loadInternationalTournaments({ withSquads: true });
-      await swalAlert("National squad locked.");
+      await swalAlert(t("admin.alerts.squadLocked"));
     } catch (err) {
-      await swalAlert(err?.message || err?.error || "Could not lock squad.");
+      await swalAlert(err?.message || err?.error || t("admin.alerts.squadLockFailed"));
     }
   }
 
   async function reviewIdentityClaim(claim, status) {
     if (!claim?.id) return;
     const reason = status === "rejected"
-      ? ((await swalPrompt(`Reason for rejecting ${claim.gamertag || "this player"}'s identity claim?`, {
-          title: "Reject identity claim",
-          placeholder: "Reason (shown to the player)",
+      ? ((await swalPrompt(t("admin.alerts.rejectIdentityReason", { name: claim.gamertag || t("admin.alerts.thisPlayer") }), {
+          title: t("admin.alerts.rejectIdentityTitle"),
+          placeholder: t("admin.alerts.rejectIdentityPlaceholder"),
         })) ?? "")
       : "";
     await stageClient.identityClaims.review(claim.id, {
@@ -525,7 +527,7 @@ export default function Admin(props) {
   }
 
   async function deleteTrophyItem(id) {
-    if (!(await swalConfirm("Delete this trophy from the library? It will no longer appear in carousels."))) return;
+    if (!(await swalConfirm(t("admin.alerts.deleteTrophyConfirm")))) return;
     await stageClient.entities.TrophyItem.delete(id);
     setTrophyItems(prev => prev.filter(t => t.id !== id));
   }
@@ -544,7 +546,7 @@ export default function Admin(props) {
       setResolveDialog(null); setSelectedWinner("");
       await loadAll();
     } catch (err) {
-      await swalAlert(`Could not resolve dispute: ${err?.message || "Unknown error"}`);
+      await swalAlert(t("admin.alerts.resolveDisputeFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
     }
@@ -557,11 +559,9 @@ export default function Admin(props) {
     // real result. Surface a clear message before hitting the server (which
     // will refuse this same case anyway).
     if (approve && (m.status === "completed" || m.status === "forfeit")) {
-      await swalAlert(
-        `This match has already been ${m.status === "forfeit" ? "forfeited" : "completed"}. ` +
-        `Approving the forfeit claim would overwrite the recorded result. ` +
-        `Use "Reject" to dismiss the stale claim, or override the score from the match panel.`
-      );
+      await swalAlert(t("admin.alerts.forfeitAlreadyResolved", {
+        status: m.status === "forfeit" ? t("admin.alerts.forfeited") : t("admin.alerts.completed"),
+      }));
       return;
     }
     try {
@@ -573,8 +573,8 @@ export default function Admin(props) {
       });
       setForfeits(prev => prev.filter(f => f.id !== matchId));
     } catch (err) {
-      const serverMsg = err?.data?.error || err?.message || "Unknown error";
-      await swalAlert(`Could not ${approve ? "approve" : "reject"} forfeit: ${serverMsg}`);
+      const serverMsg = err?.data?.error || err?.message || t("admin.alerts.unknownError");
+      await swalAlert(t("admin.alerts.forfeitActionFailed", { action: approve ? t("admin.alerts.approve") : t("admin.alerts.reject"), message: serverMsg }));
     }
   }
 
@@ -588,9 +588,9 @@ export default function Admin(props) {
   }
 
   async function grantStagePlus(player) {
-    const reason = await swalPrompt(`Grant STAGE Plus to ${player.gamertag || player.email}?`, {
-      placeholder: "Reason",
-      confirmText: "Grant Plus",
+    const reason = await swalPrompt(t("admin.alerts.grantStagePlusPrompt", { name: player.gamertag || player.email }), {
+      placeholder: t("admin.alerts.grantStagePlusReason"),
+      confirmText: t("admin.alerts.grantStagePlusConfirm"),
     });
     if (reason === null) return;
     try {
@@ -603,14 +603,14 @@ export default function Admin(props) {
       });
       const updated = res?.data?.player;
       if (updated?.id) setPlayers(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
-      await swalAlert("STAGE Plus granted for 1 month.");
+      await swalAlert(t("admin.alerts.stagePlusGranted"));
     } catch (err) {
-      await swalAlert(`Could not grant STAGE Plus: ${err?.message || "Unknown error"}`);
+      await swalAlert(t("admin.alerts.stagePlusGrantFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     }
   }
 
   async function removeStagePlus(player) {
-    if (!(await swalConfirm(`Remove STAGE Plus from ${player.gamertag || player.email}?`))) return;
+    if (!(await swalConfirm(t("admin.alerts.removeStagePlusConfirm", { name: player.gamertag || player.email })))) return;
     try {
       const res = await stageClient.functions.invoke("adminSubscriptionGrant", {
         player_id: player.id,
@@ -619,9 +619,9 @@ export default function Admin(props) {
       });
       const updated = res?.data?.player;
       if (updated?.id) setPlayers(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
-      await swalAlert("STAGE Plus removed.");
+      await swalAlert(t("admin.alerts.stagePlusRemoved"));
     } catch (err) {
-      await swalAlert(`Could not remove STAGE Plus: ${err?.message || "Unknown error"}`);
+      await swalAlert(t("admin.alerts.stagePlusRemoveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     }
   }
 
@@ -633,7 +633,7 @@ export default function Admin(props) {
     const playerId = typeof emailOrPlayer === "object" ? emailOrPlayer?.id : null;
     const label = email || playerId;
     if (!label || !email) return;
-    const typed = prompt(`This permanently deletes the user reset data for ${label}. Type the email to confirm.`);
+    const typed = prompt(t("admin.alerts.deleteUserPrompt", { label }));
     if (!typed || typed.trim().toLowerCase() !== email.toLowerCase()) return;
     try {
       await stageClient.functions.invoke("adminDeleteUserAccount", playerId
@@ -641,17 +641,17 @@ export default function Admin(props) {
         : { email });
       setPlayers(prev => prev.filter(p => p.id !== playerId && (!email || String(p.email || "").toLowerCase() !== email.toLowerCase())));
       setIdentityClaims(prev => prev.filter(c => (!email || String(c.email || "").toLowerCase() !== email.toLowerCase()) && (!playerId || c.player_id !== playerId)));
-      alert(`Delete user completed for ${label}.`);
+      alert(t("admin.alerts.deleteUserCompleted", { label }));
       await loadAll();
     } catch (err) {
       const message = err?.message || err?.data?.error || "Delete user reset failed";
-      alert(`Delete user reset failed: ${message}`);
+      alert(t("admin.alerts.deleteUserFailed", { message }));
       throw err;
     }
   }
 
   async function deleteClub(clubId) {
-    if (!(await swalConfirm("Are you sure you want to delete this club? This cannot be undone."))) return;
+    if (!(await swalConfirm(t("admin.alerts.deleteClubConfirm")))) return;
     await stageClient.functions.invoke("clubAdminActions", {
       action: "delete",
       club_id: clubId,
@@ -663,26 +663,26 @@ export default function Admin(props) {
   async function cancelTournament(tournamentId) {
     const res = await stageClient.functions.invoke("tournamentCancellation", { tournament_id: tournamentId });
     if (!res?.data?.success) {
-      await swalAlert(res?.data?.error || "Tournament cancellation failed");
+      await swalAlert(res?.data?.error || t("admin.alerts.tournamentCancelFailed"));
       return;
     }
     setTournaments(prev => prev.filter(t => t.id !== tournamentId));
   }
 
   async function deleteTournament(tournamentId) {
-    if (!(await swalConfirm("End and permanently delete this tournament? Completed community tournaments can only be deleted after 7 days."))) return;
+    if (!(await swalConfirm(t("admin.alerts.deleteTournamentConfirm")))) return;
     try {
       const res = await stageClient.functions.invoke("adminDeleteTournament", {
         tournament_id: tournamentId,
         reason: "Deleted from admin tournaments panel",
       });
       if (!res?.data?.success) {
-        await swalAlert(res?.data?.error || "Tournament deletion failed");
+        await swalAlert(res?.data?.error || t("admin.alerts.tournamentDeleteFailed"));
         return;
       }
       setTournaments(prev => prev.filter(t => t.id !== tournamentId));
     } catch (err) {
-      await swalAlert(err?.data?.error || err?.message || "Tournament deletion failed");
+      await swalAlert(err?.data?.error || err?.message || t("admin.alerts.tournamentDeleteFailed"));
     }
   }
 
@@ -756,14 +756,14 @@ export default function Admin(props) {
       loadAll();
     } catch (err) {
       console.error("createTournament error:", err);
-      await swalAlert("Failed to create tournament: " + (err?.message || "Unknown error"));
+      await swalAlert(t("admin.alerts.createTournamentFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
     }
   }
 
   async function seedCompetitions() {
-    if (competitions.length >= 3) { await swalAlert("Competitions already seeded."); return; }
+    if (competitions.length >= 3) { await swalAlert(t("admin.alerts.competitionsAlreadySeeded")); return; }
     setSeedingComps(true);
     try {
       const defs = [
@@ -782,20 +782,13 @@ export default function Admin(props) {
         tier: c.tier,
       })));
       await loadAll();
-      await swalAlert(`Competitions seeded! (${toCreate.length} created)`);
+      await swalAlert(t("admin.alerts.competitionsSeeded", { count: toCreate.length }));
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("not found in app") || msg.includes("schema")) {
-        await swalAlert(
-          "⚠️ Competition entity not published yet.\n\n" +
-          "To fix this:\n" +
-          "1. Go to app.stageClient.com\n" +
-          "2. Open your app → Entities\n" +
-          "3. Find Competition and click Publish\n\n" +
-          "Once published, come back and click Seed Competitions again."
-        );
+        await swalAlert(t("admin.alerts.competitionNotPublished"));
       } else {
-        await swalAlert(`Seed failed: ${msg || "Unknown error."}`);
+        await swalAlert(t("admin.alerts.seedFailed", { message: msg || t("admin.alerts.unknownError") }));
       }
     } finally {
       setSeedingComps(false);
@@ -803,7 +796,7 @@ export default function Admin(props) {
   }
 
   async function createCompetitionSeason() {
-    if (!newSeasonForm.competition_id) { await swalAlert("Select a competition."); return; }
+    if (!newSeasonForm.competition_id) { await swalAlert(t("admin.alerts.selectCompetition")); return; }
     setCreatingLeagueSeason(true);
     const comp = competitions.find(c => c.id === newSeasonForm.competition_id);
     if (!comp) { setCreatingLeagueSeason(false); return; }
@@ -839,7 +832,7 @@ export default function Admin(props) {
     setNewSeasonForm(f => ({ ...f, competition_id: "" }));
     await loadAll();
     setCreatingLeagueSeason(false);
-    await swalAlert(`Season ${nextSeason} created for ${comp.name}. Confirm qualified clubs, then generate fixtures once it reaches ${targetClubs} clubs.`);
+    await swalAlert(t("admin.alerts.seasonCreated", { season: nextSeason, name: comp.name, target: targetClubs }));
   }
 
   async function confirmQualEntry(entry) {
@@ -851,11 +844,11 @@ export default function Admin(props) {
       )
       .sort((a, b) => (b.season_number || 0) - (a.season_number || 0));
     const season = eligibleSeasons[0];
-    if (!season) { await swalAlert("No qualification season found for this competition. Create a season first."); return; }
+    if (!season) { await swalAlert(t("admin.alerts.noQualificationSeason")); return; }
     const { confirmQualificationEntry } = await import("@/lib/competitionUtils");
     await confirmQualificationEntry(entry, season, adminProfile.email);
     setQualEntries(prev => prev.filter(e => e.id !== entry.id));
-    await swalAlert(`${entry.club_name} confirmed for ${entry.target_competition_name}`);
+    await swalAlert(t("admin.alerts.qualEntryConfirmed", { club: entry.club_name, competition: entry.target_competition_name }));
   }
 
   async function rejectQualEntry(entry) {
@@ -889,20 +882,13 @@ export default function Admin(props) {
         max_clubs: l.max_clubs || 16,
       })));
       await loadAll();
-      await swalAlert(`Regional leagues seeded! (${toCreate.length} created)`);
+      await swalAlert(t("admin.alerts.regionalLeaguesSeeded", { count: toCreate.length }));
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("not found in app") || msg.includes("schema")) {
-        await swalAlert(
-          "⚠️ RegionalLeague entity not published yet.\n\n" +
-          "To fix this:\n" +
-          "1. Go to app.stageClient.com\n" +
-          "2. Open your app → Entities\n" +
-          "3. Find RegionalLeague and click Publish\n\n" +
-          "Once published, come back and click Seed All Leagues again."
-        );
+        await swalAlert(t("admin.alerts.regionalLeagueNotPublished"));
       } else {
-        await swalAlert(`Seed failed: ${msg || "Unknown error."}`);
+        await swalAlert(t("admin.alerts.seedFailed", { message: msg || t("admin.alerts.unknownError") }));
       }
     } finally {
       setSeedingRegionalLeagues(false);
@@ -914,19 +900,19 @@ export default function Admin(props) {
     try {
       const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
       if (!standings.length) {
-        await swalAlert("No standings found. Add clubs and record results before processing season end.");
+        await swalAlert(t("admin.alerts.noStandingsForSeasonEnd"));
         return;
       }
       const { processLeagueSeasonEnd } = await import("@/lib/regionalLeagueEngine");
       const result = await processLeagueSeasonEnd(league, standings, competitions, regionalLeagues);
       await loadAll();
       if (result.type === "div1") {
-        await swalAlert(`Season processed! ${result.qualified} qualification entries created for STAGE competitions. ${result.relegated} clubs relegated.`);
+        await swalAlert(t("admin.alerts.seasonProcessedQualified", { qualified: result.qualified, relegated: result.relegated }));
       } else {
-        await swalAlert(`Season processed! ${result.promoted} clubs promoted to Division 1.`);
+        await swalAlert(t("admin.alerts.seasonProcessedPromoted", { promoted: result.promoted }));
       }
     } catch (err) {
-      await swalAlert(`Error: ${err.message}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err.message }));
     } finally {
       setProcessingLeagueEnd(null);
     }
@@ -937,12 +923,12 @@ export default function Admin(props) {
     try {
       const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 100).catch(() => []);
       if (standings.length < 2) {
-        await swalAlert("Need at least 2 approved clubs in the league before fixtures can be generated.");
+        await swalAlert(t("admin.alerts.needTwoClubs"));
         return;
       }
       const maxClubs = Number(league.max_clubs) || 16;
       if (standings.length < maxClubs) {
-        const ok = await swalConfirm(`${league.name} is not full yet (${standings.length}/${maxClubs} clubs). Generate fixtures anyway?`);
+        const ok = await swalConfirm(t("admin.alerts.leagueNotFullConfirm", { name: league.name, current: standings.length, max: maxClubs }));
         if (!ok) return;
       }
       const clubsForFixtures = standings.map(s => ({
@@ -954,9 +940,9 @@ export default function Admin(props) {
       const { generateRegionalLeagueFixtures } = await import("@/lib/competitionUtils");
       await generateRegionalLeagueFixtures(league, clubsForFixtures);
       await loadAll();
-      await swalAlert(`Fixtures generated for ${league.name}. The season is now in progress.`);
+      await swalAlert(t("admin.alerts.fixturesGenerated", { name: league.name }));
     } catch (err) {
-      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setGeneratingRegionalFixtures(null);
     }
@@ -969,19 +955,19 @@ export default function Admin(props) {
         await openLeagueRegistration(league);
         await loadAll();
       } else if (action === "archive") {
-        if (!(await swalConfirm(`Archive ${league.name} Season ${league.season_number}? This will lock final standings and award the winner achievement. Make sure "End Season" has been run first.`))) return;
+        if (!(await swalConfirm(t("admin.alerts.archiveSeasonConfirm", { name: league.name, number: league.season_number })))) return;
         const { archiveLeague } = await import("@/lib/seasonLifecycle");
         await archiveLeague(league);
         await loadAll();
-        await swalAlert(`Season ${league.season_number} archived.`);
+        await swalAlert(t("admin.alerts.seasonArchived", { number: league.season_number }));
       } else if (action === "create_next") {
         const { createNextLeagueSeason } = await import("@/lib/seasonLifecycle");
         const next = await createNextLeagueSeason(league);
         await loadAll();
-        await swalAlert(`${next.name} Season ${next.season_number} created as Draft. Open Registration when ready.`);
+        await swalAlert(t("admin.alerts.nextSeasonDraft", { name: next.name, number: next.season_number }));
       }
     } catch (err) {
-      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.unknownError") }));
     }
   }
 
@@ -997,7 +983,7 @@ export default function Admin(props) {
       setApproveTargetId("");
       await loadAll();
     } catch (err) {
-      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setProcessingReg(false);
     }
@@ -1017,7 +1003,7 @@ export default function Admin(props) {
       setRejectNotes("");
       await loadAll();
     } catch (err) {
-      await swalAlert(`Error: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setProcessingReg(false);
     }
@@ -1037,7 +1023,7 @@ export default function Admin(props) {
       await loadAll();
       setEditingComp(null);
     } catch (err) {
-      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSavingComp(false);
     }
@@ -1054,7 +1040,7 @@ export default function Admin(props) {
       await loadAll();
       setEditingLeague(null);
     } catch (err) {
-      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSavingLeague(false);
     }
@@ -1096,13 +1082,13 @@ export default function Admin(props) {
 
   async function removeClubFromCompetition(standing) {
     if (!standing?.club_id || !standingsPanel?.id) return;
-    const targetLabel = standingsPanel.type === "competition" ? "competition season" : "regional league";
+    const targetLabel = standingsPanel.type === "competition" ? t("admin.alerts.competitionSeason") : t("admin.alerts.regionalLeague");
     const played = Number(standing.played || 0);
     const warning = played > 0
-      ? `\n\n${standing.club_name} already has ${played} played match${played === 1 ? "" : "es"}. The backend will block removal until those results are corrected.`
+      ? t("admin.alerts.removeClubPlayedWarning", { club: standing.club_name, count: played, plural: played === 1 ? "" : "es" })
       : "";
     const ok = await swalConfirm(
-      `Remove ${standing.club_name || "this club"} from this ${targetLabel}? This will delete their standing row and any unplayed fixtures in this ${targetLabel}.${warning}`
+      t("admin.alerts.removeClubConfirm", { club: standing.club_name || t("admin.alerts.thisClub"), target: targetLabel, warning })
     );
     if (!ok) return;
 
@@ -1120,9 +1106,9 @@ export default function Admin(props) {
       setStandingsList(prev => prev.filter(row => row.id !== standing.id));
       await loadAll();
       await loadStandingsForPanel(panel);
-      await swalAlert(`${standing.club_name || "Club"} removed from ${panel.name || targetLabel}.`);
+      await swalAlert(t("admin.alerts.clubRemoved", { club: standing.club_name || t("admin.actions.club"), target: panel.name || targetLabel }));
     } catch (err) {
-      await swalAlert(`Could not remove club: ${err?.message || err?.error || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.removeClubFailed", { message: err?.message || err?.error || t("admin.alerts.unknownError") }));
     } finally {
       setRemovingCompetitionClub(null);
     }
@@ -1134,7 +1120,7 @@ export default function Admin(props) {
     const home = parseInt(resultForm.home_score);
     const away = parseInt(resultForm.away_score);
     if (isNaN(home) || isNaN(away) || home < 0 || away < 0) {
-      await swalAlert("Enter valid scores (0 or above).");
+      await swalAlert(t("admin.alerts.invalidScores"));
       return;
     }
     setSavingResult(true);
@@ -1168,7 +1154,7 @@ export default function Admin(props) {
       setResultForm({ home_score: "", away_score: "" });
       if (fixturesPanel) await loadFixturesForPanel(fixturesPanel);
     } catch (err) {
-      await swalAlert(`Error: ${err?.message || "Failed."}`);
+      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.failed") }));
     } finally {
       setSavingResult(false);
     }
@@ -1192,13 +1178,13 @@ export default function Admin(props) {
     setNewsForm({ title: "", body: "", type: "app_update", image_url: "" });
     setNewsImageFile(null);
     setUploadingNews(false);
-    await swalAlert("News posted successfully!");
+    await swalAlert(t("admin.alerts.newsPosted"));
   }
 
   async function seedPressQuestions() {
     setSaving(true);
     const existing = await stageClient.entities.PressQuestion.list(null, 1);
-    if (existing.length > 0) { await swalAlert("Press questions already seeded!"); setSaving(false); return; }
+    if (existing.length > 0) { await swalAlert(t("admin.alerts.pressQuestionsSeeded")); setSaving(false); return; }
     const questions = [
       { question: "How do you rate your team's performance today?", answer_a: "Outstanding — we gave 100%", answer_b: "Decent, but we can improve", answer_c: "Disappointing overall", answer_d: "The result doesn't reflect the game", category: "performance" },
       { question: "What was the key moment of the match?", answer_a: "Our first goal changed everything", answer_b: "A great defensive block in the second half", answer_c: "The red card shifted the momentum", answer_d: "The penalty decision was crucial", category: "match" },
@@ -1208,7 +1194,7 @@ export default function Admin(props) {
       { question: "How would you describe the atmosphere in the dressing room?", answer_a: "Buzzing — everyone is pumped!", answer_b: "Calm and focused", answer_c: "Disappointed but determined", answer_d: "United — we face it together", category: "team" },
     ];
     await stageClient.entities.PressQuestion.bulkCreate(questions);
-    await swalAlert("Press questions seeded successfully!");
+    await swalAlert(t("admin.alerts.pressQuestionsSeedSuccess"));
     setSaving(false);
   }
 
@@ -1286,7 +1272,7 @@ export default function Admin(props) {
   }
 
   async function deleteLifestyleAsset(item) {
-    if (!(await swalConfirm(`Delete "${item.name}"? This cannot be undone.`))) return;
+    if (!(await swalConfirm(t("admin.alerts.deleteItemConfirm", { name: item.name })))) return;
     await stageClient.functions.invoke('lifestyleAdmin', { action: 'delete', asset_id: item.id }).catch(() => {});
     setLifestyleItems(prev => prev.filter(i => i.id !== item.id));
   }
@@ -1332,7 +1318,7 @@ export default function Admin(props) {
       setWalletAdjustAmount("");
       setWalletAdjustNote("");
     } catch (err) {
-      await swalAlert(err?.message || "Failed");
+      await swalAlert(err?.message || t("admin.alerts.failed"));
     }
     setSaving(false);
   }
@@ -1356,7 +1342,7 @@ export default function Admin(props) {
         ...(clubStcNote ? { note: clubStcNote } : {}),
       });
     } catch (err) {
-      await swalAlert(err?.message || "Failed to save club finance");
+      await swalAlert(err?.message || t("admin.alerts.saveClubFinanceFailed"));
       setSaving(false);
       return;
     }
@@ -1367,16 +1353,16 @@ export default function Admin(props) {
   }
 
   async function reseedLifestyle() {
-    if (!(await swalConfirm("This will add/update the 25 default real-world lifestyle assets. Existing matching names are updated; custom assets are kept. Continue?"))) return;
+    if (!(await swalConfirm(t("admin.alerts.lifestyleReseedConfirm")))) return;
     setSaving(true);
     try {
       const result = await stageClient.functions.invoke('seedLifestyleItems', {});
       const fresh = await stageClient.entities.LifestyleItem.list('sort_order', 300).catch(() => []);
       setLifestyleItems(fresh);
       const data = result?.data || {};
-      await swalAlert(`Lifestyle defaults updated. Inserted: ${data.inserted || 0}. Updated: ${data.updated || 0}.`);
+      await swalAlert(t("admin.alerts.lifestyleReseedSuccess", { inserted: data.inserted || 0, updated: data.updated || 0 }));
     } catch (err) {
-      await swalAlert('Reseed failed: ' + (err?.message || 'Unknown error'));
+      await swalAlert(t("admin.alerts.reseedFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
     }
@@ -1394,7 +1380,7 @@ export default function Admin(props) {
   const [recalcMsg,  setRecalcMsg]            = useState("");
 
   async function resetAllRankings() {
-    if (!(await swalConfirm("This will zero out all club ranking data (ranking points, global/regional rank, form, win/loss streak) for ALL clubs. This cannot be undone. Continue?"))) return;
+    if (!(await swalConfirm(t("admin.alerts.rankingsResetConfirm")))) return;
     setResettingRankings(true);
     try {
       const allClubs = await stageClient.entities.Club.list(null, 500);
@@ -1408,9 +1394,9 @@ export default function Admin(props) {
           loss_streak:      0,
         })
       ));
-      await swalAlert(`Rankings reset for ${allClubs.length} club${allClubs.length !== 1 ? "s" : ""}.`);
+      await swalAlert(t("admin.alerts.rankingsResetSuccess", { count: allClubs.length, plural: allClubs.length !== 1 ? "s" : "" }));
     } catch (err) {
-      await swalAlert(`Reset failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.resetFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setResettingRankings(false);
     }
@@ -1429,7 +1415,7 @@ export default function Admin(props) {
       payload.is_active = true;
 
       if (!stageClient.entities.RankingConfig) {
-        await swalAlert("⚠️ RankingConfig entity not published yet.\n\nPublish it on app.stageClient.com, then come back to save.");
+        await swalAlert(t("admin.alerts.rankingConfigNotPublished"));
         return;
       }
       if (rankingConfigId) {
@@ -1438,9 +1424,9 @@ export default function Admin(props) {
         const created = await stageClient.entities.RankingConfig.create(payload);
         setRankingConfigId(created.id);
       }
-      await swalAlert("Ranking config saved.");
+      await swalAlert(t("admin.alerts.rankingConfigSaved"));
     } catch (err) {
-      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
+      await swalAlert(t("admin.alerts.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSavingConfig(false);
     }
@@ -1466,7 +1452,7 @@ export default function Admin(props) {
   }
 
   async function migrateClubBalances() {
-    if (!(await swalConfirm("This will add +20M STC, +5M transfer budget, and +4M wage budget to ALL existing clubs. Continue?"))) return;
+    if (!(await swalConfirm(t("admin.alerts.migrateClubsConfirm")))) return;
     setMigrating(true);
     setMigrateResult(null);
     try {
@@ -1496,8 +1482,8 @@ export default function Admin(props) {
   if (!allowed) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
       <Shield className="w-12 h-12 text-destructive" />
-      <p className="text-sm text-muted-foreground uppercase tracking-widest">Admin access required.</p>
-      <Link to="/"><Button variant="outline" className="rounded">Go Home</Button></Link>
+      <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("admin.shell.adminAccessRequired")}</p>
+      <Link to="/"><Button variant="outline" className="rounded">{t("admin.shell.goHome")}</Button></Link>
     </div>
   );
 
@@ -1770,7 +1756,7 @@ export default function Admin(props) {
           {/* Header */}
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
             <DialogTitle className="font-heading text-lg uppercase tracking-tight flex items-center gap-2 m-0">
-              <Trophy className="w-4 h-4 text-primary" /> Create Tournament
+              <Trophy className="w-4 h-4 text-primary" /> {t("admin.dialogs.createTournament")}
             </DialogTitle>
             <button type="button" onClick={() => { setAdminModalStep(1); setCreateTournamentOpen(false); }}
               className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
@@ -1781,9 +1767,9 @@ export default function Admin(props) {
           {/* Step tabs */}
           <div className="flex border-b border-border shrink-0 px-6">
             {[
-              { n: 1, label: "Setup" },
-              { n: 2, label: "Prize & Rules" },
-              { n: 3, label: "Trophy & Banner" },
+              { n: 1, label: t("admin.dialogs.stepSetup") },
+              { n: 2, label: t("admin.dialogs.stepPrizeRules") },
+              { n: 3, label: t("admin.dialogs.stepTrophyBanner") },
             ].map(({ n, label }) => (
               <button key={n} type="button" onClick={() => setAdminModalStep(n)}
                 className={cn(
@@ -1806,9 +1792,9 @@ export default function Admin(props) {
             {adminModalStep === 1 && (
               <>
                 <div>
-                  <label className="label-xs">Tournament For</label>
+                  <label className="label-xs">{t("admin.dialogs.tournamentFor")}</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {[{v:"club",label:"🏟️ Club",sub:"Clubs register & compete"},{v:"player",label:"👤 Player",sub:"Individual players register"}].map(opt => (
+                    {[{v:"club",label:t("admin.dialogs.clubOption"),sub:t("admin.dialogs.clubOptionSub")},{v:"player",label:t("admin.dialogs.playerOption"),sub:t("admin.dialogs.playerOptionSub")}].map(opt => (
                       <button key={opt.v} type="button" onClick={() => setTournamentForm(f => ({ ...f, participant_type: opt.v }))}
                         className={cn("text-left px-3 py-2.5 rounded border transition-all",
                           tournamentForm.participant_type === opt.v ? "border-primary bg-primary/10" : "border-border bg-secondary hover:border-primary/40"
@@ -1821,20 +1807,20 @@ export default function Admin(props) {
                 </div>
 
                 <div>
-                  <label className="label-xs">Name <span className="text-destructive">*</span></label>
+                  <label className="label-xs">{t("admin.dialogs.name")} <span className="text-destructive">{t("admin.dialogs.required")}</span></label>
                   <input value={tournamentForm.name} onChange={e => setTournamentForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Tournament name..." />
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.namePlaceholder")} />
                 </div>
 
                 <div>
-                  <label className="label-xs">Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <label className="label-xs">{t("admin.dialogs.descriptionLabel")} <span className="font-normal lowercase text-muted-foreground">{t("admin.dialogs.optional")}</span></label>
                   <Textarea value={tournamentForm.description} onChange={e => setTournamentForm(f => ({ ...f, description: e.target.value }))}
-                    className="bg-secondary border-border" rows={2} placeholder="What makes this special..." />
+                    className="bg-secondary border-border" rows={2} placeholder={t("admin.dialogs.descriptionPlaceholder")} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label-xs">Format</label>
+                    <label className="label-xs">{t("admin.dialogs.format")}</label>
                     <Select value={tournamentForm.type} onValueChange={v => {
                       setTournamentForm(f => ({
                         ...applyTournamentFormat(f, v),
@@ -1843,20 +1829,20 @@ export default function Admin(props) {
                     }}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="knockout">Knockout</SelectItem>
-                        <SelectItem value="league">League</SelectItem>
-                        <SelectItem value="group_stage">Group Stage</SelectItem>
-                        <SelectItem value="double_elimination">Double Elim.</SelectItem>
-                        <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
+                        <SelectItem value="knockout">{t("admin.dialogs.formats.knockout")}</SelectItem>
+                        <SelectItem value="league">{t("admin.dialogs.formats.league")}</SelectItem>
+                        <SelectItem value="group_stage">{t("admin.dialogs.formats.group_stage")}</SelectItem>
+                        <SelectItem value="double_elimination">{t("admin.dialogs.formats.double_elimination")}</SelectItem>
+                        <SelectItem value="swiss_ucl">{t("admin.dialogs.formats.swiss_ucl")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="label-xs">Max Teams</label>
+                    <label className="label-xs">{t("admin.dialogs.maxTeams")}</label>
                     <Select value={String(tournamentForm.max_teams)} onValueChange={v => setTournamentForm(f => ({ ...f, max_teams: Number(v) }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {adminMaxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{n} Teams</SelectItem>)}
+                        {adminMaxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{t("admin.dialogs.teamsCount", { count: n })}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <p className="text-[10px] text-muted-foreground mt-1">{adminFormatRule.hint}</p>
@@ -1865,26 +1851,26 @@ export default function Admin(props) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label-xs">Platform</label>
+                    <label className="label-xs">{t("admin.dialogs.platform")}</label>
                     <Select value={tournamentForm.platform} onValueChange={v => setTournamentForm(f => ({ ...f, platform: v }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PlayStation">PlayStation</SelectItem>
-                        <SelectItem value="Xbox">Xbox</SelectItem>
-                        <SelectItem value="PC">PC</SelectItem>
-                        <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
+                        <SelectItem value="PlayStation">{t("admin.dialogs.platforms.playstation")}</SelectItem>
+                        <SelectItem value="Xbox">{t("admin.dialogs.platforms.xbox")}</SelectItem>
+                        <SelectItem value="PC">{t("admin.dialogs.platforms.pc")}</SelectItem>
+                        <SelectItem value="Cross-Platform">{t("admin.dialogs.platforms.crossPlatform")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="label-xs">Start Date <span className="text-destructive">*</span></label>
+                    <label className="label-xs">{t("admin.dialogs.startDate")} <span className="text-destructive">{t("admin.dialogs.required")}</span></label>
                     <input type="datetime-local" value={tournamentForm.start_date} onChange={e => setTournamentForm(f => ({ ...f, start_date: e.target.value }))}
                       className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="label-xs">Region</label>
+                  <label className="label-xs">{t("admin.dialogs.region")}</label>
                   <Select value={tournamentForm.region} onValueChange={v => setTournamentForm(f => ({ ...f, region: v }))}>
                     <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1896,15 +1882,15 @@ export default function Admin(props) {
                 </div>
 
                 <div>
-                  <label className="label-xs">Country Restriction <span className="text-muted-foreground normal-case font-normal">(optional)</span></label>
+                  <label className="label-xs">{t("admin.dialogs.countryRestriction")} <span className="text-muted-foreground normal-case font-normal">{t("admin.dialogs.countryOptional")}</span></label>
                   <Select value={tournamentForm.country_code || "none"} onValueChange={v => setTournamentForm(f => ({ ...f, country_code: v === "none" ? "" : v }))}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="All countries" /></SelectTrigger>
+                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("admin.dialogs.allCountries")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">🌍 All countries (open)</SelectItem>
+                      <SelectItem value="none">{t("admin.dialogs.allCountriesOpen")}</SelectItem>
                       {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  {tournamentForm.country_code && <p className="text-xs text-warning mt-1">⚠️ Only clubs from this country can register.</p>}
+                  {tournamentForm.country_code && <p className="text-xs text-warning mt-1">{t("admin.dialogs.countryRestrictionWarning")}</p>}
                 </div>
               </>
             )}
@@ -1913,29 +1899,29 @@ export default function Admin(props) {
             {adminModalStep === 2 && (
               <>
                 <div>
-                  <label className="label-xs">Entry Fee</label>
+                  <label className="label-xs">{t("admin.dialogs.entryFee")}</label>
                   <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="STC per entry" />
+                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.stcPerEntry")} />
                   <div className="mt-3 border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
-                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {adminPrizeBreakdown.entryFee.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{tournamentForm.max_teams}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("admin.dialogs.entryCost")}</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {adminPrizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("admin.dialogs.maxTeamsLabel")}</span><span className="font-bold text-xs">{tournamentForm.max_teams}</span></div>
                     <div className="h-px bg-primary/20" />
-                    <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">Winner 70%</span><span className="font-black text-warning">{adminPrizeBreakdown.winner.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Runner-up 20%</span><span className="font-bold text-foreground">{adminPrizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Third place 10%</span><span className="font-bold text-foreground">{adminPrizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">{t("admin.dialogs.winner70")}</span><span className="font-black text-warning">{adminPrizeBreakdown.winner.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("admin.dialogs.runnerUp20")}</span><span className="font-bold text-foreground">{adminPrizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("admin.dialogs.thirdPlace10")}</span><span className="font-bold text-foreground">{adminPrizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
                     <div className="h-px bg-primary/20" />
-                    <div className="flex justify-between"><span className="text-xs text-warning font-bold">Prize pool</span><span className="font-black text-warning">{adminPrizeBreakdown.pool.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-warning font-bold">{t("admin.dialogs.prizePoolLabel")}</span><span className="font-black text-warning">{adminPrizeBreakdown.pool.toLocaleString()} STC</span></div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="label-xs">Custom Rules <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <label className="label-xs">{t("admin.dialogs.customRules")} <span className="font-normal lowercase text-muted-foreground">{t("admin.dialogs.optional")}</span></label>
                   <Textarea value={tournamentForm.custom_rules} onChange={e => setTournamentForm(f => ({ ...f, custom_rules: e.target.value }))}
-                    className="bg-secondary border-border" rows={3} placeholder="Specific rules for this tournament..." />
+                    className="bg-secondary border-border" rows={3} placeholder={t("admin.dialogs.customRulesPlaceholder")} />
                   <div className="mt-2">
                     <label className="flex items-center justify-center gap-2 h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs cursor-pointer transition-colors">
                       <Upload className="w-3.5 h-3.5" />
-                      {rulesFile ? rulesFile.name : "Attach rules file (PDF / image)"}
+                      {rulesFile ? rulesFile.name : t("admin.dialogs.attachRulesFile")}
                       <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => setRulesFile(e.target.files[0])} />
                     </label>
                     {rulesFile && (
@@ -1953,8 +1939,8 @@ export default function Admin(props) {
             {adminModalStep === 3 && (
               <>
                 <div>
-                  <label className="label-xs">Trophy <span className="font-normal lowercase text-muted-foreground">(optional — awarded to winner)</span></label>
-                  <p className="text-[10px] text-muted-foreground mb-2">Select from library or upload a new one.</p>
+                  <label className="label-xs">{t("admin.dialogs.trophy")} <span className="font-normal lowercase text-muted-foreground">{t("admin.dialogs.trophyOptional")}</span></label>
+                  <p className="text-[10px] text-muted-foreground mb-2">{t("admin.dialogs.selectFromLibrary")}</p>
                   {trophyItems.length > 0 ? (
                     <div className="border border-border rounded overflow-hidden mb-3">
                       <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-border max-h-52 overflow-y-auto">
@@ -1974,9 +1960,9 @@ export default function Admin(props) {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic mb-3">No trophies in library yet.</p>
+                    <p className="text-xs text-muted-foreground italic mb-3">{t("admin.dialogs.noTrophiesInLibrary")}</p>
                   )}
-                  <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">Or upload new trophy (auto-adds to library):</p>
+                  <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">{t("admin.dialogs.uploadNewTrophy")}</p>
                   {adminTrophyFile ? (
                     <div className="flex items-center gap-3 bg-warning/10 border border-warning/20 rounded-lg p-3">
                       <img src={URL.createObjectURL(adminTrophyFile)} alt="trophy" className="w-10 h-10 object-contain" />
@@ -1986,25 +1972,25 @@ export default function Admin(props) {
                   ) : (
                     <label className="w-full h-12 rounded-lg border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors cursor-pointer">
                       <Upload className="w-4 h-4" />
-                      <span className="text-xs">Upload trophy PNG (auto-creates new entry in library)</span>
+                      <span className="text-xs">{t("admin.dialogs.uploadTrophyPng")}</span>
                       <input type="file" accept="image/png,image/*" className="hidden" onChange={e => { if (e.target.files[0]) { setAdminTrophyFile(e.target.files[0]); setAdminTrophyItemId(""); } }} />
                     </label>
                   )}
                   {(adminTrophyItemId || adminTrophyFile) && (
-                    <p className="text-[10px] text-warning mt-1.5">✓ Trophy selected — will be awarded to the winner</p>
+                    <p className="text-[10px] text-warning mt-1.5">{t("admin.dialogs.trophySelected")}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="label-xs">Tournament Banner</label>
+                  <label className="label-xs">{t("admin.dialogs.tournamentBanner")}</label>
                   <label className="flex items-center justify-center gap-2 border border-dashed border-border rounded p-4 cursor-pointer hover:border-primary/50 transition-colors mb-3">
                     <Upload className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">{bannerFile ? bannerFile.name : "Upload custom banner image"}</span>
+                    <span className="text-xs text-muted-foreground">{bannerFile ? bannerFile.name : t("admin.dialogs.uploadBanner")}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={e => setBannerFile(e.target.files[0])} />
                   </label>
                   {!bannerFile && (
                     <div>
-                      <p className="text-[10px] text-muted-foreground mb-2">Or pick a colour:</p>
+                      <p className="text-[10px] text-muted-foreground mb-2">{t("admin.dialogs.pickColor")}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {BANNER_COLORS.map(color => (
                           <button key={color} type="button" onClick={() => setBannerColor(color)}
@@ -2034,7 +2020,7 @@ export default function Admin(props) {
               onClick={() => setAdminModalStep(s => Math.max(1, s - 1))}
               disabled={adminModalStep === 1}
               className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-1 transition-colors">
-              <ChevronLeft className="w-3.5 h-3.5" /> Back
+              <ChevronLeft className="w-3.5 h-3.5" /> {t("admin.actions.back")}
             </button>
             <div className="flex items-center gap-1.5">
               {[1,2,3].map(n => (
@@ -2046,13 +2032,13 @@ export default function Admin(props) {
                 onClick={() => setAdminModalStep(s => Math.min(3, s + 1))}
                 disabled={adminModalStep === 1 && !tournamentForm.name}
                 className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-30 flex items-center gap-1 transition-colors">
-                Next <ChevronRight className="w-3.5 h-3.5" />
+                {t("admin.actions.next")} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <Button onClick={createTournament} disabled={!tournamentForm.name || !tournamentForm.start_date || saving}
                 className="bg-primary text-primary-foreground gap-2 h-9 text-xs font-bold rounded">
                 <Trophy className="w-3.5 h-3.5" />
-                {saving ? "Creating…" : "Create Tournament"}
+                {saving ? t("admin.actions.creating") : t("admin.dialogs.createTournamentBtn")}
               </Button>
             )}
           </div>
@@ -2062,14 +2048,14 @@ export default function Admin(props) {
       {/* Resolve Dispute Dialog */}
       <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); }}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> Resolve Dispute</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> {t("admin.dialogs.resolveDispute")}</DialogTitle></DialogHeader>
           {resolveDialog && (() => {
             const m = resolveDialog.match;
             const parseSub = (raw) => { try { return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null; } catch { return null; } };
             const homeSub = parseSub(m.home_submission);
             const awaySub = parseSub(m.away_submission);
-            const homeScore = homeSub ? `${homeSub.home_score} – ${homeSub.away_score}` : "Not submitted";
-            const awayScore = awaySub ? `${awaySub.home_score} – ${awaySub.away_score}` : "Not submitted";
+            const homeScore = homeSub ? `${homeSub.home_score} – ${homeSub.away_score}` : t("admin.actions.notSubmitted");
+            const awayScore = awaySub ? `${awaySub.home_score} – ${awaySub.away_score}` : t("admin.actions.notSubmitted");
             const homeProof = homeSub?.proof_url;
             const awayProof = awaySub?.proof_url;
             return (
@@ -2077,28 +2063,28 @@ export default function Admin(props) {
                 <p className="text-sm text-muted-foreground"><strong className="text-foreground">{m.home_club_name || m.home_player_name}</strong> vs <strong className="text-foreground">{m.away_club_name || m.away_player_name}</strong></p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="bg-secondary rounded-lg p-3 text-center">
-                    <p className="text-muted-foreground text-xs mb-1">{m.home_club_name || m.home_player_name} submitted</p>
+                    <p className="text-muted-foreground text-xs mb-1">{m.home_club_name || m.home_player_name} {t("admin.dialogs.submitted")}</p>
                     <p className="font-bold text-foreground text-lg">{homeScore}</p>
-                    {homeProof && <a href={homeProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">📎 Proof</a>}
+                    {homeProof && <a href={homeProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">{t("admin.actions.proof")}</a>}
                   </div>
                   <div className="bg-secondary rounded-lg p-3 text-center">
-                    <p className="text-muted-foreground text-xs mb-1">{m.away_club_name || m.away_player_name} submitted</p>
+                    <p className="text-muted-foreground text-xs mb-1">{m.away_club_name || m.away_player_name} {t("admin.dialogs.submitted")}</p>
                     <p className="font-bold text-foreground text-lg">{awayScore}</p>
-                    {awayProof && <a href={awayProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">📎 Proof</a>}
+                    {awayProof && <a href={awayProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">{t("admin.actions.proof")}</a>}
                   </div>
                 </div>
                 <div>
-                  <label className="label-xs">Accept submission from</label>
+                  <label className="label-xs">{t("admin.dialogs.acceptSubmissionFrom")}</label>
                   <Select value={selectedWinner} onValueChange={setSelectedWinner}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select which result to accept..." /></SelectTrigger>
+                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("admin.dialogs.selectResultPlaceholder")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={m.home_club_id || "home"}>{m.home_club_name || m.home_player_name} (Home) — {homeScore}</SelectItem>
-                      <SelectItem value={m.away_club_id || "away"}>{m.away_club_name || m.away_player_name} (Away) — {awayScore}</SelectItem>
+                      <SelectItem value={m.home_club_id || "home"}>{m.home_club_name || m.home_player_name} ({t("admin.actions.home")}) — {homeScore}</SelectItem>
+                      <SelectItem value={m.away_club_id || "away"}>{m.away_club_name || m.away_player_name} ({t("admin.actions.away")}) — {awayScore}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <Button onClick={resolveDispute} disabled={!selectedWinner || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
-                  <Gavel className="w-4 h-4" /> {saving ? "Saving..." : "Confirm Resolution"}
+                  <Gavel className="w-4 h-4" /> {saving ? t("admin.actions.savingDots") : t("admin.dialogs.confirmResolution")}
                 </Button>
               </div>
             );
@@ -2111,49 +2097,49 @@ export default function Admin(props) {
         <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
-              <Coins className="w-5 h-5 text-success" /> Player Wallet — {playerWalletDialog?.gamertag}
+              <Coins className="w-5 h-5 text-success" /> {t("admin.dialogs.playerWallet", { name: playerWalletDialog?.gamertag })}
             </DialogTitle>
           </DialogHeader>
           {playerWalletDialog && (
             <div className="space-y-5 mt-2">
               {/* Balance */}
               <div className="bg-gradient-to-br from-success/10 to-card rounded-2xl border border-success/20 p-5 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">STC Balance</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t("admin.dialogs.stcBalance")}</p>
                 <p className="font-heading font-black text-4xl text-success">{(playerWalletDialog.stc || 0).toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground mt-1">Stage Coin</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.dialogs.stageCoin")}</p>
               </div>
 
               {/* Adjust balance */}
               <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Adjust Balance</p>
-                <p className="text-[10px] text-muted-foreground">Use positive amounts to credit, negative to debit. Creates a transaction record.</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("admin.dialogs.adjustBalance")}</p>
+                <p className="text-[10px] text-muted-foreground">{t("admin.dialogs.adjustBalanceHint")}</p>
                 <input
                   type="number"
                   value={walletAdjustAmount}
                   onChange={e => setWalletAdjustAmount(e.target.value)}
-                  placeholder="e.g. 5000 or -2000"
+                  placeholder={t("admin.dialogs.adjustAmountPlaceholder")}
                   className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                 />
                 <input
                   type="text"
                   value={walletAdjustNote}
                   onChange={e => setWalletAdjustNote(e.target.value)}
-                  placeholder="Note (optional)"
+                  placeholder={t("admin.dialogs.noteOptional")}
                   className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                 />
                 <Button onClick={applyWalletAdjust} disabled={walletAdjustAmount === "" || saving}
                   className="w-full bg-primary text-primary-foreground gap-2">
-                  <Coins className="w-4 h-4" /> {saving ? "Applying…" : "Apply Adjustment"}
+                  <Coins className="w-4 h-4" /> {saving ? t("admin.actions.applying") : t("admin.dialogs.applyAdjustment")}
                 </Button>
               </div>
 
               {/* Transaction history */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Recent Transactions</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{t("admin.dialogs.recentTransactions")}</p>
                 {walletLoading ? (
                   <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
                 ) : walletTxns.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">No transactions yet.</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">{t("admin.dialogs.noTransactions")}</p>
                 ) : (
                   <div className="rounded-xl border border-border overflow-hidden">
                     {walletTxns.map(tx => {
@@ -2181,48 +2167,48 @@ export default function Admin(props) {
       {/* Club Finance Dialog */}
       <Dialog open={!!clubStcDialog} onOpenChange={() => setClubStcDialog(null)}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-success" /> Club Finance — {clubStcDialog?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-success" /> {t("admin.dialogs.clubFinance", { name: clubStcDialog?.name })}</DialogTitle></DialogHeader>
           {clubStcDialog && (
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-secondary rounded-lg p-2">
-                  <p className="text-muted-foreground">Balance</p>
+                  <p className="text-muted-foreground">{t("admin.dialogs.balance")}</p>
                   <p className="font-bold text-success">{((clubStcDialog.stc||0)/1_000_000).toFixed(2)}M</p>
                 </div>
                 <div className="bg-secondary rounded-lg p-2">
-                  <p className="text-muted-foreground">Wage Budget</p>
+                  <p className="text-muted-foreground">{t("admin.dialogs.wageBudget")}</p>
                   <p className="font-bold text-warning">{((clubStcDialog.wage_budget_stc||0)/1_000_000).toFixed(2)}M</p>
                 </div>
                 <div className="bg-secondary rounded-lg p-2">
-                  <p className="text-muted-foreground">Transfer Budget</p>
+                  <p className="text-muted-foreground">{t("admin.dialogs.transferBudgetLabel")}</p>
                   <p className="font-bold text-primary">{((clubStcDialog.transfer_budget_stc||0)/1_000_000).toFixed(2)}M</p>
                 </div>
               </div>
               <div>
-                <label className="label-xs">Adjust Balance — Delta STC (e.g. +5000000 or -2000000)</label>
+                <label className="label-xs">{t("admin.dialogs.adjustBalanceDelta")}</label>
                 <input type="number" value={clubStcAmount} onChange={e => setClubStcAmount(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 10000000 or -5000000" />
-                <p className="text-[10px] text-muted-foreground mt-1">Amount is added/subtracted from current balance and logged as a transaction</p>
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.deltaPlaceholder")} />
+                <p className="text-[10px] text-muted-foreground mt-1">{t("admin.dialogs.deltaHint")}</p>
               </div>
               <div>
-                <label className="label-xs">Set Weekly Wage Budget (STC)</label>
+                <label className="label-xs">{t("admin.dialogs.weeklyWageBudget")}</label>
                 <input type="number" value={clubWageBudget} onChange={e => setClubWageBudget(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 2000000" />
-                <p className="text-[10px] text-muted-foreground mt-1">Recommended: 1M–5M/wk for a standard club</p>
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.wageBudgetPlaceholder")} />
+                <p className="text-[10px] text-muted-foreground mt-1">{t("admin.dialogs.wageBudgetHint")}</p>
               </div>
               <div>
-                <label className="label-xs">Set Transfer Budget (STC)</label>
+                <label className="label-xs">{t("admin.dialogs.transferBudget")}</label>
                 <input type="number" value={clubTransferBudget} onChange={e => setClubTransferBudget(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 20000000" />
-                <p className="text-[10px] text-muted-foreground mt-1">Recommended: 5M–50M for a standard club</p>
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.transferBudgetPlaceholder")} />
+                <p className="text-[10px] text-muted-foreground mt-1">{t("admin.dialogs.transferBudgetHint")}</p>
               </div>
               <div>
-                <label className="label-xs">Note / Reason (optional)</label>
+                <label className="label-xs">{t("admin.dialogs.noteReason")}</label>
                 <input type="text" value={clubStcNote} onChange={e => setClubStcNote(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Competition prize, correction..." />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.noteReasonPlaceholder")} />
               </div>
               <Button onClick={saveClubFinance} disabled={saving || (clubStcAmount === "" && clubWageBudget === "" && clubTransferBudget === "")} className="w-full bg-success/20 text-success hover:bg-success/30 border border-success/40">
-                {saving ? "Saving..." : "Save Club Finance"}
+                {saving ? t("admin.actions.savingDots") : t("admin.dialogs.saveClubFinance")}
               </Button>
             </div>
           )}
@@ -2234,7 +2220,7 @@ export default function Admin(props) {
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2">
-              <Check className="w-5 h-5 text-success" /> Enter Result
+              <Check className="w-5 h-5 text-success" /> {t("admin.dialogs.enterResult")}
             </DialogTitle>
           </DialogHeader>
           {resultDialog && (
@@ -2246,14 +2232,14 @@ export default function Admin(props) {
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label-xs">{resultDialog.fixture.home_club_name} (Home)</label>
+                  <label className="label-xs">{resultDialog.fixture.home_club_name} ({t("admin.actions.home")})</label>
                   <input type="number" min="0" value={resultForm.home_score}
                     onChange={e => setResultForm(f => ({ ...f, home_score: e.target.value }))}
                     className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
                     placeholder="0" />
                 </div>
                 <div>
-                  <label className="label-xs">{resultDialog.fixture.away_club_name} (Away)</label>
+                  <label className="label-xs">{resultDialog.fixture.away_club_name} ({t("admin.actions.away")})</label>
                   <input type="number" min="0" value={resultForm.away_score}
                     onChange={e => setResultForm(f => ({ ...f, away_score: e.target.value }))}
                     className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
@@ -2264,8 +2250,8 @@ export default function Admin(props) {
                 disabled={savingResult || resultForm.home_score === "" || resultForm.away_score === ""}
                 className="w-full bg-success/20 text-success hover:bg-success/30 border border-success/40 leading-relaxed">
                 {savingResult
-                  ? "Processing..."
-                  : `Confirm: ${resultForm.home_score || "?"} – ${resultForm.away_score || "?"}`}
+                  ? t("admin.actions.processing")
+                  : t("admin.dialogs.confirmScore", { home: resultForm.home_score || "?", away: resultForm.away_score || "?" })}
               </Button>
             </div>
           )}
@@ -2277,7 +2263,7 @@ export default function Admin(props) {
         <DialogContent className="bg-card border-border text-foreground max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading uppercase tracking-tight flex items-center gap-2">
-              <Check className="w-4 h-4 text-success" /> Approve Registration
+              <Check className="w-4 h-4 text-success" /> {t("admin.dialogs.approveRegistration")}
             </DialogTitle>
           </DialogHeader>
           {approveRegDialog && (
@@ -2290,13 +2276,13 @@ export default function Admin(props) {
                   <p className="text-sm font-bold text-foreground">{approveRegDialog.club_name}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {approveRegDialog.region_name || approveRegDialog.region_slug}
-                    {approveRegDialog.preferred_division ? ` · Prefers Div ${approveRegDialog.preferred_division}` : ""}
+                    {approveRegDialog.preferred_division ? ` · ${t("admin.dialogs.prefersDiv", { n: approveRegDialog.preferred_division })}` : ""}
                   </p>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Assign to League
+                  {t("admin.dialogs.assignToLeague")}
                 </label>
                 {(() => {
                   const candidates = regionalLeagues.filter(
@@ -2307,15 +2293,14 @@ export default function Admin(props) {
                   if (candidates.length === 0) {
                     return (
                       <div className="bg-warning/10 border border-warning/30 rounded p-3 text-xs text-warning">
-                        No open leagues found for {approveRegDialog.region_name || approveRegDialog.region_slug} in {approveRegDialog.platform}.
-                        Open a league&apos;s registration first.
+                        {t("admin.dialogs.noOpenLeagues", { region: approveRegDialog.region_name || approveRegDialog.region_slug, platform: approveRegDialog.platform })}
                       </div>
                     );
                   }
                   return (
                     <select value={approveTargetId} onChange={e => setApproveTargetId(e.target.value)}
                       className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
-                      <option value="">— Select a league —</option>
+                      <option value="">{t("admin.dialogs.selectLeague")}</option>
                       {candidates.map(l => {
                         const max = l.max_clubs || 16;
                         const taken = l.num_clubs || 0;
@@ -2333,11 +2318,11 @@ export default function Admin(props) {
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1 border-border h-9 text-sm"
                   onClick={() => { setApproveRegDialog(null); setApproveTargetId(""); }}>
-                  Cancel
+                  {t("admin.actions.cancel")}
                 </Button>
                 <Button disabled={!approveTargetId || processingReg} onClick={handleApproveReg}
                   className="flex-1 bg-success/20 text-success hover:bg-success/30 border border-success/30 h-9 text-sm font-bold">
-                  {processingReg ? "Approving…" : "Confirm & Assign"}
+                  {processingReg ? t("admin.dialogs.approving") : t("admin.dialogs.confirmAssign")}
                 </Button>
               </div>
             </div>
@@ -2351,36 +2336,36 @@ export default function Admin(props) {
           <DialogHeader>
             <DialogTitle className="font-heading uppercase tracking-tight flex items-center gap-2">
               {rejectNotesDialog?.action === "reject"
-                ? <><X className="w-4 h-4 text-destructive" /> Reject Application</>
-                : <><Flag className="w-4 h-4 text-muted-foreground" /> Add to Waitlist</>}
+                ? <><X className="w-4 h-4 text-destructive" /> {t("admin.dialogs.rejectApplication")}</>
+                : <><Flag className="w-4 h-4 text-muted-foreground" /> {t("admin.dialogs.addToWaitlist")}</>}
             </DialogTitle>
           </DialogHeader>
           {rejectNotesDialog && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">
                 {rejectNotesDialog.action === "reject"
-                  ? `Reject ${rejectNotesDialog.reg.club_name}'s application for ${rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug}?`
-                  : `Add ${rejectNotesDialog.reg.club_name} to the waitlist for ${rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug}.`}
+                  ? t("admin.dialogs.rejectApplicationMsg", { club: rejectNotesDialog.reg.club_name, region: rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug })
+                  : t("admin.dialogs.waitlistApplicationMsg", { club: rejectNotesDialog.reg.club_name, region: rejectNotesDialog.reg.region_name || rejectNotesDialog.reg.region_slug })}
               </p>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Note to club (optional)
+                  {t("admin.dialogs.noteToClub")}
                 </label>
                 <Textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)}
-                  placeholder="Reason for rejection / waitlist position, etc."
+                  placeholder={t("admin.dialogs.rejectNotePlaceholder")}
                   className="bg-secondary border-border text-foreground text-sm resize-none h-20" maxLength={300} />
               </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1 border-border h-9 text-sm"
                   onClick={() => { setRejectNotesDialog(null); setRejectNotes(""); }}>
-                  Cancel
+                  {t("admin.actions.cancel")}
                 </Button>
                 <Button disabled={processingReg} onClick={handleRejectOrWaitlistReg}
                   className={cn("flex-1 h-9 text-sm font-bold",
                     rejectNotesDialog.action === "reject"
                       ? "bg-destructive/20 text-destructive hover:bg-destructive/30 border border-destructive/30"
                       : "bg-secondary text-foreground border border-border hover:bg-secondary/80")}>
-                  {processingReg ? "Saving…" : rejectNotesDialog.action === "reject" ? "Reject" : "Waitlist"}
+                  {processingReg ? t("admin.actions.saving") : rejectNotesDialog.action === "reject" ? t("admin.actions.reject") : t("admin.actions.waitlist")}
                 </Button>
               </div>
             </div>
@@ -2391,18 +2376,18 @@ export default function Admin(props) {
       {/* Grant Credits Dialog */}
       <Dialog open={!!creditsDialog} onOpenChange={() => setCreditsDialog(null)}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-warning" /> Grant Credits</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Coins className="w-5 h-5 text-warning" /> {t("admin.dialogs.grantCredits")}</DialogTitle></DialogHeader>
           {creditsDialog && (
             <div className="space-y-4 mt-2">
-              <p className="text-sm text-muted-foreground">Player: <strong className="text-foreground">{creditsDialog.gamertag}</strong></p>
-              <p className="text-sm text-muted-foreground">Current balance: <strong className="text-warning">{(creditsDialog.credits || 0).toLocaleString()} credits</strong></p>
+              <p className="text-sm text-muted-foreground">{t("admin.dialogs.playerLabel")} <strong className="text-foreground">{creditsDialog.gamertag}</strong></p>
+              <p className="text-sm text-muted-foreground">{t("admin.dialogs.currentBalance")} <strong className="text-warning">{(creditsDialog.credits || 0).toLocaleString()} {t("admin.dialogs.credits")}</strong></p>
               <div>
-                <label className="label-xs">Amount to Add</label>
+                <label className="label-xs">{t("admin.dialogs.amountToAdd")}</label>
                 <input type="number" value={creditsAmount} onChange={e => setCreditsAmount(e.target.value)}
-                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. 500" />
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.creditsPlaceholder")} />
               </div>
               <Button onClick={grantCredits} disabled={!creditsAmount || saving} className="w-full bg-warning/20 text-warning hover:bg-warning/30 border border-warning/40 leading-relaxed">
-                {saving ? "Saving..." : `Add ${Number(creditsAmount).toLocaleString()} Credits`}
+                {saving ? t("admin.actions.savingDots") : t("admin.dialogs.addCredits", { amount: Number(creditsAmount).toLocaleString() })}
               </Button>
             </div>
           )}

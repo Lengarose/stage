@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Ticket, RefreshCw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function AdminStadiumPanel() {
+  const { t } = useTranslation();
   const [open, setOpen]         = useState(false);
   const [levels, setLevels]     = useState(null);
   const [loading, setLoading]   = useState(false);
@@ -25,7 +27,7 @@ export default function AdminStadiumPanel() {
     try {
       const res = await stageClient.functions.invoke('stadiumManagement', { action: 'get_config' });
       setLevels(res?.data?.levels || []);
-    } catch (err) { setMsg({ type: 'error', text: err?.message || 'Failed to load' }); }
+    } catch (err) { setMsg({ type: 'error', text: err?.message || t('admin.economy.failedToLoad') }); }
     setLoading(false);
   }
 
@@ -38,7 +40,7 @@ export default function AdminStadiumPanel() {
         ...levels[i],
       });
       setMsg({ type: 'success', text: `Level ${i + 1} saved ✓` });
-    } catch (err) { setMsg({ type: 'error', text: err?.message || 'Failed' }); }
+    } catch (err) { setMsg({ type: 'error', text: err?.message || t('admin.economy.failed') }); }
     setSaving(false);
   }
 
@@ -61,9 +63,9 @@ export default function AdminStadiumPanel() {
         stadium_level: clubLevel !== '' ? Number(clubLevel) : undefined,
         stadium_capacity: clubCap !== '' ? Number(clubCap) : undefined,
       });
-      setMsg({ type: 'success', text: 'Club stadium updated ✓' });
+      setMsg({ type: 'success', text: t('admin.economy.configSaved') });
       setClubId(''); setClubName(''); setClubLevel(''); setClubCap('');
-    } catch (err) { setMsg({ type: 'error', text: err?.message || 'Failed' }); }
+    } catch (err) { setMsg({ type: 'error', text: err?.message || t('admin.economy.failed') }); }
     setSaving(false);
   }
 
@@ -78,9 +80,9 @@ export default function AdminStadiumPanel() {
         amount: Number(corrAmt),
         note: corrNote || undefined,
       });
-      setMsg({ type: 'success', text: 'Revenue correction applied ✓' });
+      setMsg({ type: 'success', text: t('admin.economy.revenueCorrectionApplied') });
       setCorrClub(''); setCorrMatch(''); setCorrAmt(''); setCorrNote('');
-    } catch (err) { setMsg({ type: 'error', text: err?.message || 'Failed' }); }
+    } catch (err) { setMsg({ type: 'error', text: err?.message || t('admin.economy.failed') }); }
     setSaving(false);
   }
 
@@ -98,7 +100,7 @@ export default function AdminStadiumPanel() {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
         <span className="text-xs font-bold text-foreground flex items-center gap-2">
-          <Ticket className="w-3.5 h-3.5 text-success" /> Stadium Economy — Config &amp; Overrides
+          <Ticket className="w-3.5 h-3.5 text-success" /> {t("admin.economy.stadiumEconomy")}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
@@ -117,7 +119,7 @@ export default function AdminStadiumPanel() {
               </Button>
             </div>
             {loading && !levels ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+              <p className="text-xs text-muted-foreground">{t("admin.actions.loading")}</p>
             ) : levels?.length ? (
               <div className="space-y-4">
                 {levels.map((lvl, i) => (
@@ -153,14 +155,14 @@ export default function AdminStadiumPanel() {
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Edit Club Stadium</p>
             <div className="grid sm:grid-cols-2 gap-2">
-              <Input placeholder="Club ID *" value={clubId} onChange={e => setClubId(e.target.value)} className="text-xs" />
-              <Input placeholder="Stadium Name" value={clubName} onChange={e => setClubName(e.target.value)} className="text-xs" />
-              <Input placeholder="Level (0–3)" type="number" value={clubLevel} onChange={e => setClubLevel(e.target.value)} className="text-xs" />
-              <Input placeholder="Capacity override" type="number" value={clubCap} onChange={e => setClubCap(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.clubIdRequired")} value={clubId} onChange={e => setClubId(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.stadiumName")} value={clubName} onChange={e => setClubName(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.level")} type="number" value={clubLevel} onChange={e => setClubLevel(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.capacityOverride")} type="number" value={clubCap} onChange={e => setClubCap(e.target.value)} className="text-xs" />
             </div>
             <Button size="sm" onClick={editClubStadium} disabled={saving || !clubId}
               className="mt-2 text-xs bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30">
-              {saving ? 'Saving…' : 'Apply Stadium Override'}
+              {saving ? t('admin.actions.saving') : t('admin.economy.saveChanges')}
             </Button>
           </div>
 
@@ -168,13 +170,13 @@ export default function AdminStadiumPanel() {
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Correct Ticket Revenue</p>
             <div className="grid sm:grid-cols-2 gap-2">
               <Input placeholder="Club ID *" value={corrClub} onChange={e => setCorrClub(e.target.value)} className="text-xs" />
-              <Input placeholder="Match ID (optional)" value={corrMatch} onChange={e => setCorrMatch(e.target.value)} className="text-xs" />
-              <Input placeholder="Amount STC (negative to deduct) *" type="number" value={corrAmt} onChange={e => setCorrAmt(e.target.value)} className="text-xs" />
-              <Input placeholder="Note (optional)" value={corrNote} onChange={e => setCorrNote(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.matchIdOptional")} value={corrMatch} onChange={e => setCorrMatch(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.amountStcRequired")} type="number" value={corrAmt} onChange={e => setCorrAmt(e.target.value)} className="text-xs" />
+              <Input placeholder={t("admin.economy.noteOptional")} value={corrNote} onChange={e => setCorrNote(e.target.value)} className="text-xs" />
             </div>
             <Button size="sm" onClick={applyRevenueCorrection} disabled={saving || !corrClub || !corrAmt}
               className="mt-2 text-xs bg-success/20 text-success border border-success/30 hover:bg-success/30">
-              {saving ? 'Applying…' : 'Apply Revenue Correction'}
+              {saving ? t('admin.actions.applying') : t('admin.economy.applyCorrection')}
             </Button>
           </div>
         </div>
