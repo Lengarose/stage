@@ -24,15 +24,15 @@ export default function RewardsTab({
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
         <div className="space-y-1.5">
-          {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(t => {
-            const comp = competitions.find(c => c.slug === t.slug);
+          {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map((tier) => {
+            const comp = competitions.find(c => c.slug === tier.slug);
             if (!comp) return null;
             const active = rewardSource?.id === comp.id;
             return (
-              <button key={t.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
+              <button key={tier.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
                 className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                   active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )} style={{ borderLeftColor: active ? undefined : t.color, borderLeftWidth: 2 }}>
+                )} style={{ borderLeftColor: active ? undefined : tier.color, borderLeftWidth: 2 }}>
                 {comp.name}
                 <span className="block text-[10px] font-normal mt-0.5 opacity-60">{t("admin.rewards.competitionMeta", { platform: comp.platform })}</span>
               </button>

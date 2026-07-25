@@ -3,9 +3,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/admin/shared/EmptyState';
-import { Globe2, Plus, Vote, Lock, Pencil, X, Check } from 'lucide-react';
+import { Globe2, Plus, Vote, Lock, Pencil, X, Check, ChevronDown } from 'lucide-react';
 import CountryMultiSelect from '@/components/shared/CountryMultiSelect';
-import { parseCountryCodesString, getCountryName, joinCountryCodes } from '@/lib/allCountries';
+import { parseCountryCodesString, getCountryName, getCountryRegion, joinCountryCodes } from '@/lib/allCountries';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 import { toDatetimeLocalValue } from '@/lib/momentDate';
 import {
   getDefaultMaxTeams,
@@ -78,6 +80,116 @@ function buildTournamentPayload(form) {
     max_teams: maxTeams,
     eligible_countries: eligibleCountries.length ? eligibleCountries : null,
   };
+}
+
+const GEO_REGION_ORDER = ['Europe', 'Africa', 'Americas', 'Asia', 'Oceania', 'Other'];
+
+function groupElectionsByRegion(elections) {
+  const groups = new Map();
+  for (const election of elections) {
+    const region = getCountryRegion(election.country_code);
+    if (!groups.has(region)) groups.set(region, []);
+    groups.get(region).push(election);
+  }
+  const ordered = GEO_REGION_ORDER.filter((region) => groups.has(region));
+  for (const region of groups.keys()) {
+    if (!ordered.includes(region)) ordered.push(region);
+  }
+  return ordered.map((region) => ({
+    region,
+    elections: groups.get(region).sort((a, b) =>
+      String(a.country_name || a.country_code || '').localeCompare(String(b.country_name || b.country_code || ''))
+    ),
+  }));
+}
+
+function RegionElectionsSection({
+  tournament,
+  elections,
+  squadsByTournament,
+  onLockSquad,
+  collapsedKeys,
+  onToggleRegion,
+}) {
+  const { t } = useTranslation();
+  const groups = useMemo(() => groupElectionsByRegion(elections), [elections]);
+
+  return (
+    <div className="mt-4 border-t border-border pt-3 space-y-2">
+      {groups.map(({ region, elections: regionElections }) => {
+        const regionKey = `${tournament.id}:${region}`;
+        const isOpen = !collapsedKeys.has(regionKey);
+        return (
+          <Collapsible
+            key={regionKey}
+            open={isOpen}
+            onOpenChange={() => onToggleRegion(regionKey)}
+            className="border border-border rounded-lg overflow-hidden bg-secondary/20"
+          >
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-secondary/50 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{region}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {t('admin.international.regionCountryCount', { count: regionElections.length })}
+                  </p>
+                </div>
+                <ChevronDown className={cn('w-4 h-4 shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="border-t border-border px-3 py-2 space-y-2">
+              {regionElections.map((election) => {
+                const countryCode = String(election.country_code || '').toUpperCase();
+                const squadState = squadsByTournament[`${tournament.id}:${countryCode}`] || { squad: null, players: [] };
+                const squad = squadState.squad;
+                const squadPlayers = squadState.players || [];
+                return (
+                  <div key={election.id} className="bg-secondary/40 border border-border rounded px-3 py-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {election.country_name || countryCode}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          National owner: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Squad: {squadPlayers.length}/{tournament.max_squad_size || 26} · {squad?.status || 'not submitted'}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!squad || squad.status === 'locked'}
+                        onClick={() => onLockSquad?.(tournament.id, squad.id)}
+                        className="rounded gap-1.5"
+                      >
+                        <Lock className="w-3.5 h-3.5" /> {squad?.status === 'locked' ? 'Locked' : 'Lock Squad'}
+                      </Button>
+                    </div>
+                    {squadPlayers.length > 0 && (
+                      <div className="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                        {squadPlayers.map((player) => (
+                          <div key={player.player_id} className="text-xs text-muted-foreground bg-card/60 border border-border rounded px-2 py-1">
+                            <span className="font-medium text-foreground">{player.gamertag || player.email || player.player_id}</span>
+                            <span> · {player.position || 'Any'} · {player.overall_rating || 0}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
 }
 
 function validateCountrySelection(form) {
@@ -225,6 +337,16 @@ export default function InternationalTournamentsTab({
   const [form, setForm] = useState(buildEmptyForm);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(buildEmptyForm);
+  const [collapsedRegionKeys, setCollapsedRegionKeys] = useState(() => new Set());
+
+  function toggleRegionCollapse(regionKey) {
+    setCollapsedRegionKeys((current) => {
+      const next = new Set(current);
+      if (next.has(regionKey)) next.delete(regionKey);
+      else next.add(regionKey);
+      return next;
+    });
+  }
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const setEdit = (key, value) => setEditForm((current) => ({ ...current, [key]: value }));
@@ -370,51 +492,14 @@ export default function InternationalTournamentsTab({
                 )}
 
                 {elections.length > 0 && (
-                  <div className="mt-4 border-t border-border pt-3 space-y-2">
-                    {elections.map((election) => {
-                      const countryCode = String(election.country_code || '').toUpperCase();
-                      const squadState = squadsByTournament[`${tournament.id}:${countryCode}`] || { squad: null, players: [] };
-                      const squad = squadState.squad;
-                      const squadPlayers = squadState.players || [];
-                      return (
-                        <div key={election.id} className="bg-secondary/40 border border-border rounded px-3 py-2">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">
-                                {election.country_name || countryCode}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                National owner: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Squad: {squadPlayers.length}/{tournament.max_squad_size || 26} · {squad?.status || 'not submitted'}
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={!squad || squad.status === 'locked'}
-                              onClick={() => onLockSquad?.(tournament.id, squad.id)}
-                              className="rounded gap-1.5"
-                            >
-                              <Lock className="w-3.5 h-3.5" /> {squad?.status === 'locked' ? 'Locked' : 'Lock Squad'}
-                            </Button>
-                          </div>
-                          {squadPlayers.length > 0 && (
-                            <div className="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                              {squadPlayers.map((player) => (
-                                <div key={player.player_id} className="text-xs text-muted-foreground bg-card/60 border border-border rounded px-2 py-1">
-                                  <span className="font-medium text-foreground">{player.gamertag || player.email || player.player_id}</span>
-                                  <span> · {player.position || 'Any'} · {player.overall_rating || 0}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <RegionElectionsSection
+                    tournament={tournament}
+                    elections={elections}
+                    squadsByTournament={squadsByTournament}
+                    onLockSquad={onLockSquad}
+                    collapsedKeys={collapsedRegionKeys}
+                    onToggleRegion={toggleRegionCollapse}
+                  />
                 )}
               </div>
             );

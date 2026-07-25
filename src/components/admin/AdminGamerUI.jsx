@@ -86,7 +86,7 @@ export function AdminGamerSection({ title, subtitle, icon: Icon, children, class
 
 export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, identityClaims = [] }) {
   const { t } = useTranslation();
-  const activeTournaments = tournaments.filter(
+  const activeTournaments = (tournaments || []).filter(
     (tourn) => !["archived", "cancelled"].includes(String(tourn.status || "").toLowerCase())
   );
 

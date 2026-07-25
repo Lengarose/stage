@@ -15,7 +15,7 @@ import {
   Calendar, ArrowRight, Sparkles,
 } from "lucide-react";
 
-const CHART_LINE_META = [
+export const CHART_LINE_META = [
   { key: "users", color: "#38bdf8", labelKey: "admin.analytics.chartUsers" },
   { key: "players", color: "#a78bfa", labelKey: "admin.analytics.chartPlayers" },
   { key: "clubs", color: "#34d399", labelKey: "admin.analytics.chartClubs" },
@@ -54,7 +54,8 @@ function formatDateTime(value) {
   });
 }
 
-export function UsageChart({ data, hiddenKeys, onToggle, chartLines }) {
+export function UsageChart({ data, hiddenKeys, onToggle, chartLines = [] }) {
+  const lines = chartLines || [];
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -67,7 +68,7 @@ export function UsageChart({ data, hiddenKeys, onToggle, chartLines }) {
             contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          {chartLines.filter((line) => !hiddenKeys.has(line.key)).map((line) => (
+          {lines.filter((line) => !hiddenKeys.has(line.key)).map((line) => (
             <Line
               key={line.key}
               type="monotone"
@@ -82,7 +83,7 @@ export function UsageChart({ data, hiddenKeys, onToggle, chartLines }) {
         </LineChart>
       </ResponsiveContainer>
       <div className="mt-3 flex flex-wrap gap-2">
-        {chartLines.map((line) => {
+        {lines.map((line) => {
           const off = hiddenKeys.has(line.key);
           return (
             <button

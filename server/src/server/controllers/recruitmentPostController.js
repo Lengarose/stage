@@ -130,10 +130,16 @@ router.patch('/:id', async (req, res) => {
     const model = new RecruitmentPost(body);
     await model.update(req.params.id);
     const updated = await model.selectOne(req.params.id);
+    const row = updated[0];
+    const payload = row ? {
+      ...row,
+      positions_needed: parseJsonField(row.positions_needed),
+      preferred_positions: parseJsonField(row.preferred_positions),
+    } : null;
     if (isAdmin(user) && req.body.status && req.body.status !== existing.status) {
-      await audit(user, 'set_recruitment_post_status', existing, existing, updated[0], req.body.reason);
+      await audit(user, 'set_recruitment_post_status', existing, existing, payload, req.body.reason);
     }
-    res.json(updated[0]);
+    res.json(payload);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

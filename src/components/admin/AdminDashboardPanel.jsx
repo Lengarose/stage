@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { stageClient } from "@/api/stageClient";
 import DashboardGamerStatCard from "@/components/dashboard/DashboardGamerStatCard";
 import { AdminGamerSection } from "@/components/admin/AdminGamerUI";
-import { AppGuideVisual, UsageChart } from "@/components/admin/sections/AnalyticsTab";
+import { AppGuideVisual, CHART_LINE_META, UsageChart } from "@/components/admin/sections/AnalyticsTab";
 
 const CHART_LINE_KEYS = ["users", "players", "clubs", "tournaments", "matches", "contracts"];
 
@@ -52,8 +52,13 @@ export default function AdminDashboardPanel({
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [hiddenKeys, setHiddenKeys] = useState(new Set());
 
+  const chartLines = useMemo(
+    () => CHART_LINE_META.map((line) => ({ ...line, label: t(line.labelKey) })),
+    [t]
+  );
+
   const activeTournaments = useMemo(
-    () => tournaments.filter((t) => !["archived", "cancelled"].includes(String(t.status || "").toLowerCase())),
+    () => (tournaments || []).filter((t) => !["archived", "cancelled"].includes(String(t.status || "").toLowerCase())),
     [tournaments]
   );
 
@@ -208,7 +213,7 @@ export default function AdminDashboardPanel({
           </div>
         ) : chartData.length > 0 ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} />
+            <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} chartLines={chartLines} />
           </div>
         ) : (
           <p className="text-sm text-white/40 py-8 text-center">{t("admin.dashboard.analyticsUnavailable")}</p>

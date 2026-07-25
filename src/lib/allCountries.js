@@ -31,6 +31,10 @@ export function getCountryName(code) {
   return byCode.get(String(code || '').toUpperCase())?.name || code;
 }
 
+export function getCountryRegion(code) {
+  return byCode.get(String(code || '').toUpperCase())?.region || 'Other';
+}
+
 export function getCountryFlag(code) {
   const entry = byCode.get(String(code || '').toUpperCase());
   return entry ? entry.flag : countryCodeToFlag(code);

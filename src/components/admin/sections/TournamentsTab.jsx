@@ -281,48 +281,48 @@ export default function TournamentsTab({
         <EmptyState icon={Trophy} text={t("admin.tournaments.noActive")} />
       ) : (
         <div className="space-y-3">
-          {tournaments.filter(t => t.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && t.status !== "archived" && t.status !== "cancelled").map(t => {
-            const status = String(t.status || "").toLowerCase();
-            const lockDays = deleteLockDays(t);
+          {tournaments.filter((tournament) => tournament.name?.toLowerCase().includes(tournamentSearch.toLowerCase()) && tournament.status !== "archived" && tournament.status !== "cancelled").map((tournament) => {
+            const status = String(tournament.status || "").toLowerCase();
+            const lockDays = deleteLockDays(tournament);
             const canDeleteNow = ["completed", "registration"].includes(status) && lockDays === 0;
             return (
-            <div key={t.id} className="bg-card border border-border rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div key={tournament.id} className="bg-card border border-border rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
-                <p className="font-bold text-foreground">{t.name}</p>
+                <p className="font-bold text-foreground">{tournament.name}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {t.type} · {t.platform} · Round {t.current_round}/{t.total_rounds || "?"} · {(t.registered_clubs || []).length} clubs
+                  {tournament.type} · {tournament.platform} · Round {tournament.current_round}/{tournament.total_rounds || "?"} · {(tournament.registered_clubs || []).length} clubs
                 </p>
                 <span className={cn("text-[10px] px-2 py-0.5 rounded border mt-1 inline-block uppercase tracking-wider font-bold",
-                  t.status === "registration" ? "bg-primary/10 text-primary border-primary/20" :
-                  t.status === "in_progress" ? "bg-success/10 text-success border-success/20" :
-                  t.status === "completed" ? "bg-muted text-muted-foreground border-border" :
+                  tournament.status === "registration" ? "bg-primary/10 text-primary border-primary/20" :
+                  tournament.status === "in_progress" ? "bg-success/10 text-success border-success/20" :
+                  tournament.status === "completed" ? "bg-muted text-muted-foreground border-border" :
                   "bg-destructive/10 text-destructive border-destructive/20"
-                )}>{t.status}</span>
+                )}>{tournament.status}</span>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Link to={`/tournaments/${t.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">{t("admin.actions.view")}</Button></Link>
-                <Button size="sm" variant="outline" onClick={() => createEntranceLink(t.id)} className="border-border text-muted-foreground text-xs gap-1">
+                <Link to={`/tournaments/${tournament.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">{t("admin.actions.view")}</Button></Link>
+                <Button size="sm" variant="outline" onClick={() => createEntranceLink(tournament.id)} className="border-border text-muted-foreground text-xs gap-1">
                   <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.quickLink")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: t.id, name: t.name })} className="border-border text-muted-foreground text-xs gap-1">
+                <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: tournament.id, name: tournament.name })} className="border-border text-muted-foreground text-xs gap-1">
                   <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.manageLinks")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => simulateNextMatch(t.id)} disabled={simulatingTournamentId === t.id} className="border-primary/30 text-primary hover:text-primary text-xs gap-1">
+                <Button size="sm" variant="outline" onClick={() => simulateNextMatch(tournament.id)} disabled={simulatingTournamentId === tournament.id} className="border-primary/30 text-primary hover:text-primary text-xs gap-1">
                   <Wand2 className="w-3.5 h-3.5" /> {t("admin.tournaments.simulateNextMatch")}
                 </Button>
                 {status === "completed" || status === "registration" ? (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleDeleteTournament(t)}
-                    disabled={!canDeleteNow || deletingTournamentId === t.id}
+                    onClick={() => handleDeleteTournament(tournament)}
+                    disabled={!canDeleteNow || deletingTournamentId === tournament.id}
                     title={lockDays > 0 ? t("admin.tournaments.deleteInDays", { days: lockDays }) : t("admin.tournaments.deletePermanently")}
                     className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? t("admin.tournaments.endAndDelete") : t("admin.actions.delete")}
                   </Button>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={() => cancelTournament(t.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1">
+                  <Button size="sm" variant="outline" onClick={() => cancelTournament(tournament.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1">
                     <X className="w-3.5 h-3.5" /> {t("admin.tournaments.cancel")}
                   </Button>
                 )}

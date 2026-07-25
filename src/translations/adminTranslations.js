@@ -337,6 +337,7 @@ const adminTranslationsEn = {
     openVoting: "Open Voting",
     closeVoting: "Close Voting",
     lockSquad: "Lock Squad",
+    regionCountryCount: "{{count}} countries",
   },
   news: {
     headlinePlaceholder: "News headline...",
@@ -641,6 +642,8 @@ const adminTranslationsEn = {
     closed: "Closed",
     closePost: "Close",
     reopenPost: "Reopen",
+    anyPlatform: "Any",
+    global: "Global",
   },
   rankings: {
     failedToLoad: "Failed to load rankings.",
@@ -1204,6 +1207,7 @@ const adminTranslationsFr = {
     openVoting: "Ouvrir le vote",
     closeVoting: "Clôturer le vote",
     lockSquad: "Verrouiller l'effectif",
+    regionCountryCount: "{{count}} pays",
   },
   news: {
     headlinePlaceholder: "Titre de l'actualité...",
@@ -1512,6 +1516,8 @@ const adminTranslationsFr = {
     reopenedPost: "Admin a rouvert l'annonce de recrutement",
     searchPlaceholder: "Rechercher par titre, joueur, club, poste...",
     recruitmentPost: "Annonce de recrutement",
+    anyPlatform: "Toute plateforme",
+    global: "Global",
   },
   rankings: {
     failedToLoad: "Échec du chargement des classements.",

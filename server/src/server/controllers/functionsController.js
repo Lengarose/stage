@@ -51,6 +51,107 @@ const TEST_PLAYER_NAMES = [
 
 const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
 
+const DEFAULT_MV_WEIGHTS = {
+  base_per_match: 60_000,
+  max_base: 8_000_000,
+  goal_rate_bonus: 2_000_000,
+  assist_rate_bonus: 1_000_000,
+  clean_sheet_rate_bonus: 2_500_000,
+  motm_bonus: 300_000,
+  consistency_boost: 0.15,
+  form_boost: 0.20,
+  form_penalty: 0.12,
+  win_rate_boost: 0.10,
+  ovr_weight: 0.08,
+  spike_cap_up: 0.50,
+  spike_cap_down: 0.35,
+};
+
+let _mvConfigCache = null;
+
+function parseMvWeights(raw) {
+  if (!raw) return {};
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+  } catch {
+    return {};
+  }
+}
+
+async function getMvConfig() {
+  if (_mvConfigCache) return _mvConfigCache;
+  const rows = await EXECUTESQL(
+    'SELECT weights FROM market_value_config WHERE is_active = 1 ORDER BY updated_date DESC LIMIT 1',
+    []
+  ).catch(() => []);
+  _mvConfigCache = { ...DEFAULT_MV_WEIGHTS, ...parseMvWeights(rows[0]?.weights) };
+  return _mvConfigCache;
+}
+
+function computeValueFromStats(player, W, previousValue = 0) {
+  const matches = Number(player.matches_played || 0);
+  if (matches === 0) return Math.max(250_000, Number(previousValue) || 250_000);
+
+  const goals = Number(player.goals || 0);
+  const assists = Number(player.assists || 0);
+  const avgRating = Number(player.avg_match_rating || 0);
+  const motm = Number(player.man_of_the_match || 0);
+  const cleanSheets = Number(player.clean_sheets || 0);
+  const wins = Number(player.wins_count || 0);
+  const ovr = Number(player.overall_rating || 65);
+
+  const base = Math.min(matches * W.base_per_match, W.max_base);
+  const ratingMult = avgRating >= 5
+    ? Math.max(0.3, Math.min(2.5, 0.3 + ((avgRating - 4.5) / 5.0) * 2.2))
+    : 0.3;
+
+  const goalRateBonus = Math.min((goals / matches) * W.goal_rate_bonus, 6_000_000);
+  const asstRateBonus = Math.min((assists / matches) * W.assist_rate_bonus, 3_000_000);
+  const csRateBonus = Math.min((cleanSheets / matches) * W.clean_sheet_rate_bonus, 5_000_000);
+  const outputBonus = goalRateBonus + asstRateBonus + csRateBonus;
+  const achieveBonus = Math.min(motm * W.motm_bonus, 5_000_000);
+  const ovrBonus = Math.max(ovr - 60, 0) * 8_000 * W.ovr_weight;
+
+  const winRate = wins / matches;
+  const winMult = winRate > 0.7 ? 1 + W.win_rate_boost
+    : winRate > 0.5 ? 1 + W.win_rate_boost * 0.5
+      : 1.0;
+
+  let formArr = [];
+  try { formArr = JSON.parse(player.form_last10 || '[]'); } catch { formArr = []; }
+  const recentForm = formArr.slice(-5);
+  const recentAvg = recentForm.length
+    ? recentForm.reduce((sum, value) => sum + Number(value || 0), 0) / recentForm.length
+    : 0;
+
+  let formMult = 1.0;
+  if (recentAvg > 0 && avgRating > 0) {
+    if (recentAvg > avgRating) formMult = 1 + W.form_boost;
+    else if (recentAvg < avgRating) formMult = 1 - W.form_penalty;
+  }
+
+  let consistencyMult = 1.0;
+  if (formArr.length >= 3) {
+    const mean = formArr.reduce((sum, value) => sum + Number(value || 0), 0) / formArr.length;
+    const variance = formArr.reduce((sum, value) => sum + ((Number(value || 0) - mean) ** 2), 0) / formArr.length;
+    if (Math.sqrt(variance) < 0.5) consistencyMult = 1 + W.consistency_boost;
+  }
+
+  let raw = Math.round((base + outputBonus + achieveBonus + ovrBonus) * ratingMult * winMult * formMult * consistencyMult);
+  raw = Math.max(250_000, Math.round(raw / 100_000) * 100_000);
+
+  const prev = Number(previousValue) || 0;
+  if (prev > 0) {
+    const maxUp = prev * (1 + (W.spike_cap_up || 0.5));
+    const maxDown = prev * (1 - (W.spike_cap_down || 0.35));
+    raw = Math.min(raw, maxUp);
+    raw = Math.max(raw, maxDown);
+    raw = Math.round(raw / 100_000) * 100_000;
+  }
+
+  return raw;
+}
+
 const { toMysqlDateTime } = require('../utils/datetime');
 const { notifyAnnouncement } = require('../services/notifications');
 const {

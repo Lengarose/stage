@@ -144,7 +144,7 @@ export default function RecruitmentTab({ posts = [], onRefresh }) {
                       ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {TYPE_LABELS[post.post_type] || post.post_type} · {post.platform || "Any"} · {post.region || "Global"}
+                      {typeLabels[post.post_type] || post.post_type} · {post.platform || t("admin.recruitment.anyPlatform")} · {post.region || t("admin.recruitment.global")}
                     </p>
                   </div>
                 </div>

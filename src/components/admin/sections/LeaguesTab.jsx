@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/hooks/useTranslation";
+import { getSeasonStatusLabel } from "@/lib/adminI18n";
 import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2 } from "lucide-react";
 import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
 
