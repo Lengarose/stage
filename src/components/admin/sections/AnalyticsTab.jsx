@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { stageClient } from "@/api/stageClient";
 import AdminStat from "@/components/admin/shared/AdminStat";
+import { AdminGamerSection } from "@/components/admin/AdminGamerUI";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -376,39 +377,32 @@ export default function AnalyticsTab() {
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-foreground">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              Analytics & Guide
-            </h3>
-            <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Statistiques d'utilisation, suivi de santé des tournois et guide visuel du parcours utilisateur STAGE.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {PERIOD_OPTIONS.map((opt) => (
-              <Button
-                key={opt.value}
-                type="button"
-                size="sm"
-                variant={days === opt.value ? "default" : "outline"}
-                className="h-8 text-xs"
-                onClick={() => setDays(opt.value)}
-              >
-                {opt.label}
-              </Button>
-            ))}
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={load} disabled={loading}>
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              Actualiser
+    <div className="space-y-6">
+      <AdminGamerSection
+        title="Analytics & Guide"
+        subtitle="Usage statistics, tournament health tracking, and the STAGE user journey guide."
+        icon={BarChart3}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {PERIOD_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              type="button"
+              size="sm"
+              variant={days === opt.value ? "default" : "outline"}
+              className="h-8 text-xs border-white/15 bg-white/[0.03] text-white hover:bg-white/10"
+              onClick={() => setDays(opt.value)}
+            >
+              {opt.label}
             </Button>
-          </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-white/15 text-white hover:bg-white/10" onClick={load} disabled={loading}>
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {[
             { id: "stats", label: "Statistiques", icon: Activity },
             { id: "tournaments", label: "Tournois", icon: Trophy },
@@ -438,7 +432,7 @@ export default function AnalyticsTab() {
             {error}
           </div>
         ) : null}
-      </section>
+      </AdminGamerSection>
 
       {loading && !data ? (
         <div className="flex justify-center py-16">
@@ -457,26 +451,21 @@ export default function AnalyticsTab() {
             <AdminStat icon={Activity} label="Actifs 30j" value={totals.active_users_30d} color="text-primary" accent="border-l-primary/50" />
           </section>
 
-          <section className="rounded-xl border border-border bg-card p-5">
-            <h4 className="mb-1 text-sm font-bold text-foreground">Activité quotidienne</h4>
-            <p className="mb-4 font-subtitle text-xs text-muted-foreground">
-              Courbes sur {days} jours — nouvelles inscriptions, créations et matchs terminés.
-            </p>
+          <AdminGamerSection title="Daily Activity" subtitle={`Curves over ${days} days — sign-ups, creations and completed matches.`}>
             <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} />
-          </section>
+          </AdminGamerSection>
 
           {(data.overview?.tournament_status_counts || []).length > 0 && (
-            <section className="rounded-xl border border-border bg-card p-5">
-              <h4 className="mb-3 text-sm font-bold text-foreground">Tournois par statut</h4>
+            <AdminGamerSection title="Tournaments by Status">
               <div className="flex flex-wrap gap-2">
                 {data.overview.tournament_status_counts.map((row) => (
-                  <span key={row.status} className="rounded-full border border-border bg-background/50 px-3 py-1 text-xs font-semibold">
-                    <span className="text-muted-foreground">{row.status}</span>
-                    <span className="ml-2 text-foreground">{row.count}</span>
+                  <span key={row.status} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold">
+                    <span className="text-white/45">{row.status}</span>
+                    <span className="ml-2 text-white">{row.count}</span>
                   </span>
                 ))}
               </div>
-            </section>
+            </AdminGamerSection>
           )}
         </>
       ) : null}
@@ -490,51 +479,47 @@ export default function AnalyticsTab() {
             <MiniStat label="Terminés" value={healthCounts.completed} icon={Trophy} />
           </section>
 
-          <section className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-bold text-foreground">Suivi des tournois</h4>
-                <p className="text-xs text-muted-foreground">
-                  Créateur, date de création, remplissage, matchs et signaux d'alerte.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: "all", label: "Tous" },
-                  { id: "issues", label: "Problèmes" },
-                  { id: "in_progress", label: "Live" },
-                  { id: "registration", label: "Inscriptions" },
-                  { id: "completed", label: "Terminés" },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setTournamentFilter(f.id)}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
-                      tournamentFilter === f.id
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border text-muted-foreground"
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+          <AdminGamerSection title="Tournament Tracking" subtitle="Creator, fill rate, matches and alert signals.">
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[
+                { id: "all", label: "All" },
+                { id: "issues", label: "Issues" },
+                { id: "in_progress", label: "Live" },
+                { id: "registration", label: "Registration" },
+                { id: "completed", label: "Completed" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setTournamentFilter(f.id)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
+                    tournamentFilter === f.id
+                      ? "border-red-400/40 bg-red-500/15 text-red-300"
+                      : "border-white/10 text-white/40 hover:text-white/70"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             <div className="space-y-3">
               {filteredTournaments.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">Aucun tournoi pour ce filtre.</p>
+                <p className="py-8 text-center text-sm text-white/45">No tournaments for this filter.</p>
               ) : (
                 filteredTournaments.map((t) => <TournamentRow key={t.id} tournament={t} />)
               )}
             </div>
-          </section>
+          </AdminGamerSection>
         </>
       ) : null}
 
-      {panel === "guide" ? <AppGuideVisual /> : null}
+      {panel === "guide" ? (
+        <AdminGamerSection title="Visual Guide" subtitle="Typical user journey on STAGE — from sign-up to official rankings.">
+          <AppGuideVisual />
+        </AdminGamerSection>
+      ) : null}
     </div>
   );
 }

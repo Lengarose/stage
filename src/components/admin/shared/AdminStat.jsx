@@ -1,13 +1,25 @@
-import { cn } from "@/lib/utils";
+import DashboardGamerStatCard from "@/components/dashboard/DashboardGamerStatCard";
 
-export default function AdminStat({ icon: Icon, label, value, color, accent }) {
+const ACCENT_MAP = {
+  "text-destructive": "rose",
+  "text-warning": "gold",
+  "text-primary": "cyan",
+  "text-success": "green",
+  "text-sky-400": "cyan",
+  "text-violet-400": "violet",
+  "text-emerald-400": "green",
+  "text-amber-400": "gold",
+  "text-rose-400": "rose",
+};
+
+export default function AdminStat({ icon, label, value, color, accent: _accent, sub }) {
   return (
-    <div className={cn("bg-card border border-border border-l-2 rounded p-4", accent)}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{label}</span>
-        <Icon className={cn("w-3.5 h-3.5", color)} />
-      </div>
-      <p className={cn("font-heading font-black text-4xl leading-none", color)}>{value}</p>
-    </div>
+    <DashboardGamerStatCard
+      label={label}
+      value={value}
+      sub={sub}
+      accent={ACCENT_MAP[color] || "cyan"}
+      icon={icon}
+    />
   );
 }

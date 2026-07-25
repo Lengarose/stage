@@ -1,0 +1,139 @@
+/* Scoped gamer theme for all /admin pages — does not affect the rest of the app. */
+
+.admin-gamer-theme {
+  color: rgba(255, 255, 255, 0.92);
+  --background: 222 47% 4%;
+  --foreground: 0 0% 100%;
+  --card: 222 35% 10%;
+  --card-foreground: 0 0% 100%;
+  --popover: 222 35% 10%;
+  --popover-foreground: 0 0% 100%;
+  --muted: 222 30% 12%;
+  --muted-foreground: 215 10% 55%;
+  --secondary: 222 30% 12%;
+  --secondary-foreground: 0 0% 95%;
+  --border: 220 15% 22%;
+  --input: 220 15% 18%;
+  --primary: 189 100% 52%;
+  --destructive: 0 72% 51%;
+  --warning: 45 95% 55%;
+  --success: 145 70% 50%;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-card),
+.admin-gamer-theme .admin-gamer-content :where(.rounded-xl.border, .rounded-lg.border, .rounded.border) {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(13, 21, 40, 0.88) 52%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-secondary) {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-background) {
+  background-color: rgba(6, 9, 18, 0.55);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-foreground) {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-muted-foreground) {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.border-border) {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.border-dashed) {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(input::placeholder, textarea::placeholder) {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.label-xs) {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(h1, h2, h3, h4, .font-heading) {
+  font-family: var(--font-heading);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-primary) {
+  color: #22d3ee;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-destructive) {
+  color: #f87171;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-warning) {
+  color: #fbbf24;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.text-success) {
+  color: #34d399;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-primary\/5, .bg-primary\/10, .bg-primary\/15) {
+  background-color: rgba(34, 211, 238, 0.08);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.border-primary\/20, .border-primary\/25, .border-primary\/30) {
+  border-color: rgba(34, 211, 238, 0.22);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-destructive\/5, .bg-destructive\/10) {
+  background-color: rgba(248, 113, 113, 0.1);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.border-destructive\/20, .border-destructive\/30) {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(.bg-warning\/10, .bg-amber-500\/10) {
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(button, .btn) {
+  font-family: var(--font-heading);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(details > summary) {
+  list-style: none;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(table) {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.admin-gamer-theme .admin-gamer-content :where(th) {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.admin-gamer-theme .admin-gamer-content :where(td) {
+  border-color: rgba(255, 255, 255, 0.06);
+}
