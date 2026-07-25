@@ -1591,34 +1591,26 @@ function AdminMobileBottomBar({ pathname }) {
   );
 }
 
-function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionTier, notifCount, theme, setTheme, pathname, isAdmin, activePageLabel }) {
-  const { t } = useTranslation();
+function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
 
   return (
     <header
-      className="mobile-liquid-topbar md:hidden relative z-50 shrink-0 flex items-center justify-between px-4"
+      className="mobile-liquid-topbar md:hidden relative z-50 shrink-0 flex items-center justify-between px-4 gap-3"
       style={{
         paddingTop: "calc(var(--safe-top) + 10px)",
         paddingBottom: 10,
         position: "relative",
       }}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <Link to="/" className="shrink-0">
-          <img src={LogoImg} alt="STAGE" className="h-10 w-auto object-contain" />
-        </Link>
-        {activePageLabel && (
-          <span
-            className="text-[12px] uppercase truncate"
-            style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", color: TEAL }}
-          >
-            {translateNavLabel(t, activePageLabel)}
-          </span>
-        )}
-      </div>
+      <MobileHeaderIdentity
+        myPlayer={myPlayer}
+        myClub={myClub}
+        accountMode={accountMode}
+        switchMode={switchMode}
+      />
 
       <div className="flex items-center gap-1 shrink-0">
         <MobileThemeButton theme={theme} setTheme={setTheme} />
@@ -1637,7 +1629,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
           <Settings className="w-[18px] h-[18px]" />
         </Link>
 
-        {showAdminTakeoverExit && (
+        {showAdminTakeoverExit ? (
           <button
             type="button"
             onClick={() => {
@@ -1659,14 +1651,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
             <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
             Admin
           </button>
-        )}
-
-        <MobileIdentityMenu
-          myPlayer={myPlayer}
-          myClub={myClub}
-          accountMode={accountMode}
-          switchMode={switchMode}
-        />
+        ) : null}
       </div>
     </header>
   );
@@ -1719,46 +1704,64 @@ function MobileThemeButton({ theme, setTheme }) {
   );
 }
 
-function MobileIdentityMenu({ myPlayer, myClub, accountMode, switchMode }) {
+function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
   const canSwitchRole = Boolean(myPlayer && myClub?.id);
   const showAsOwner = accountMode === "club" && Boolean(myClub?.id);
   const clubLogoFallback =
     myClub &&
     `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
 
+  const displayName =
+    showAsOwner && myClub
+      ? myClub.name
+      : myPlayer?.gamertag || myClub?.name || "Player";
+
   const showPlayerAvatarBg = !showAsOwner && Boolean(myPlayer?.avatar_url);
-  const avatarNode = (
-    <div
-      className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border"
-      style={{
-        border: "1.5px solid rgba(255,255,255,0.22)",
-        backgroundColor: "rgba(255,255,255,0.12)",
-        ...(showPlayerAvatarBg && {
-          backgroundImage: `url(${myPlayer.avatar_url})`,
-          backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
-          backgroundPosition: myPlayer?.avatar_position || "50% 50%",
-          backgroundRepeat: "no-repeat",
-        }),
-      }}
-    >
-      {showAsOwner && myClub ? (
-        <img
-          src={myClub.logo_url || clubLogoFallback}
-          alt=""
-          className="h-full w-full object-cover"
-          style={{ objectPosition: myClub.logo_position || "50% 50%" }}
-        />
-      ) : (
-        !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
-      )}
+
+  const identityButton = (
+    <div className="flex items-center gap-2.5 min-w-0 text-left">
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border shrink-0"
+        style={{
+          border: "1.5px solid rgba(255,255,255,0.22)",
+          backgroundColor: "rgba(255,255,255,0.12)",
+          ...(showPlayerAvatarBg && {
+            backgroundImage: `url(${myPlayer.avatar_url})`,
+            backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
+            backgroundPosition: myPlayer?.avatar_position || "50% 50%",
+            backgroundRepeat: "no-repeat",
+          }),
+        }}
+      >
+        {showAsOwner && myClub ? (
+          <img
+            src={myClub.logo_url || clubLogoFallback}
+            alt=""
+            className="h-full w-full object-cover"
+            style={{ objectPosition: myClub.logo_position || "50% 50%" }}
+          />
+        ) : (
+          !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p
+          className="truncate text-white"
+          style={{ ...headingFont, fontWeight: 600, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}
+        >
+          {displayName}
+        </p>
+        {showAsOwner && myClub?.tag ? (
+          <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider truncate">[{myClub.tag}]</p>
+        ) : null}
+      </div>
     </div>
   );
 
-  // If user has only one identity, keep the bar minimal — direct link to profile.
   if (!canSwitchRole) {
     return (
-      <Link to="/profile" className="ml-1">
-        {avatarNode}
+      <Link to="/profile" className="min-w-0 flex-1 outline-none">
+        {identityButton}
       </Link>
     );
   }
@@ -1766,12 +1769,12 @@ function MobileIdentityMenu({ myPlayer, myClub, accountMode, switchMode }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="ml-1 outline-none">
-          {avatarNode}
+        <button type="button" className="min-w-0 flex-1 outline-none">
+          {identityButton}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        align="start"
         sideOffset={6}
         className="z-[90] w-52 p-1 text-white"
         style={getEafcDropdownStyle(false)}
@@ -1830,6 +1833,23 @@ function MobileIdentityMenu({ myPlayer, myClub, accountMode, switchMode }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function MobileAppFooter() {
+  return (
+    <div
+      className="md:hidden fixed left-0 right-0 z-[75] flex items-center justify-center pointer-events-none px-4"
+      style={{ bottom: "calc(var(--mobile-tab-h) + var(--safe-bottom) + 6px)" }}
+    >
+      <Link
+        to="/"
+        className="pointer-events-auto flex items-center justify-center rounded-full border border-white/15 bg-[#0b1024]/92 backdrop-blur-md px-3 py-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.45)]"
+        aria-label="STAGE"
+      >
+        <img src={LogoImg} alt="STAGE" className="h-8 w-auto object-contain" />
+      </Link>
+    </div>
   );
 }
 
@@ -2074,8 +2094,6 @@ export default function Layout() {
     : isTournamentLimited
       ? tournamentLimitedGroups
       : (accountMode === "club" ? ownerGroups : playerGroups);
-  const activeHeaderNav = findActiveInGroups(headerNavGroups, location.pathname);
-  const activePageLabel = activeHeaderNav?.item.label ?? null;
   const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
@@ -2143,13 +2161,10 @@ export default function Layout() {
           myClub={myClub}
           accountMode={accountMode}
           switchMode={switchMode}
-          subscriptionTier={subscriptionTier}
-          notifCount={notifCount}
           theme={theme}
           setTheme={setTheme}
           pathname={location.pathname}
           isAdmin={isAdmin}
-          activePageLabel={activePageLabel}
         />
       )}
 
@@ -2320,7 +2335,7 @@ export default function Layout() {
           )}
         >
           {/* pb: mobile accounts for bottom tab + home indicator; desktop uses pb-8 */}
-          <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+1rem)] md:pb-8">
+          <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-8">
             <div className="mx-auto w-full max-w-7xl">
               <Outlet />
             </div>
@@ -2329,6 +2344,8 @@ export default function Layout() {
       </div>
 
       <MobileWalkthrough pathname={location.pathname} />
+
+      <MobileAppFooter />
 
       {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
       {showAdminHeader ? (

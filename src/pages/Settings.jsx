@@ -3,17 +3,18 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut } from "lucide-react";
+import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut, Globe, Volume2 } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
-import { SUPPORTED_LANGUAGES } from "@/lib/languages";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
+import LanguageFlagPicker from "@/components/settings/LanguageFlagPicker";
+import SoundIconPicker from "@/components/settings/SoundIconPicker";
+import GamerSettingsSection from "@/components/settings/GamerSettingsSection";
+import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import {
-  NOTIFICATION_SOUNDS,
   NOTIFICATION_SOUND_STORAGE_KEY,
   getSelectedNotificationSoundId,
-  playNotificationSound,
 } from "@/lib/notificationSound";
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent,
@@ -160,74 +161,6 @@ const PRESET_THEMES = [
     secondaryText: "#ffbf99",
   },
 ];
-
-function playWebAudioSound(ctx, gainNode, soundId) {
-  const t = ctx.currentTime;
-  if (soundId === "cyber_ping") {
-    // Sharp high-freq blip, quick drop
-    const osc = ctx.createOscillator();
-    osc.connect(gainNode);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(1800, t);
-    osc.frequency.exponentialRampToValueAtTime(900, t + 0.12);
-    gainNode.gain.setValueAtTime(0.5, t);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-    osc.start(t); osc.stop(t + 0.25);
-  } else if (soundId === "stadium_cheer") {
-    // Noise burst that swells like a crowd
-    const bufSize = ctx.sampleRate * 0.6;
-    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 1200;
-    filter.Q.value = 0.8;
-    src.connect(filter);
-    filter.connect(gainNode);
-    gainNode.gain.setValueAtTime(0.001, t);
-    gainNode.gain.linearRampToValueAtTime(0.4, t + 0.2);
-    gainNode.gain.linearRampToValueAtTime(0.2, t + 0.4);
-    gainNode.gain.linearRampToValueAtTime(0.001, t + 0.6);
-    src.start(t); src.stop(t + 0.6);
-  } else if (soundId === "whistle") {
-    // High sine with vibrato, like a referee whistle
-    const osc = ctx.createOscillator();
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    lfo.frequency.value = 8;
-    lfoGain.gain.value = 30;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    osc.connect(gainNode);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(2800, t);
-    gainNode.gain.setValueAtTime(0.4, t);
-    gainNode.gain.setValueAtTime(0.4, t + 0.35);
-    gainNode.gain.linearRampToValueAtTime(0.001, t + 0.5);
-    lfo.start(t); osc.start(t);
-    lfo.stop(t + 0.5); osc.stop(t + 0.5);
-  } else if (soundId === "trophy") {
-    // Ascending fanfare: C-E-G-C
-    const melody = [523, 659, 784, 1047];
-    melody.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      osc.connect(gainNode);
-      osc.type = "triangle";
-      const start = t + i * 0.13;
-      osc.frequency.setValueAtTime(freq, start);
-      gainNode.gain.setValueAtTime(0.4, start);
-      osc.start(start);
-      osc.stop(start + (i === melody.length - 1 ? 0.35 : 0.1));
-    });
-  }
-}
-
-function getSoundDuration(soundId) {
-  return { cyber_ping: 0.3, stadium_cheer: 0.7, whistle: 0.55, trophy: 0.9 }[soundId] || 0.5;
-}
 
 export default function Settings() {
   const { language, setLanguage: setContextLanguage, t } = useTranslation();
@@ -483,29 +416,22 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-3xl leading-relaxed font-bold text-foreground mb-8">{t("settingsPage.title")}</h1>
-      
-      <div className="space-y-8">
-        {/* Language */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-lg leading-relaxed font-bold text-foreground">{t("settingsPage.languageTitle")}</h3>
-            <p className="text-sm text-muted-foreground">{t("settingsPage.languageDescription")}</p>
-          </div>
-          <Select value={localLanguage} onValueChange={(val) => { setLocalLanguage(val); setContextLanguage(val); }}>
-            <SelectTrigger className="w-full" style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
-              {SUPPORTED_LANGUAGES.map(l => (
-                <SelectItem key={l.value} value={l.value} style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
-                  {l.nativeLabel}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <GamerProfileShell>
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <header className="space-y-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.32em] text-cyan-400">STAGE</p>
+          <h1 className="font-heading text-3xl sm:text-4xl font-black uppercase text-white tracking-tight">{t("settingsPage.title")}</h1>
+          <p className="text-sm text-white/45">{t("settingsPage.subtitle")}</p>
+        </header>
+
+        <GamerSettingsSection
+          title={t("settingsPage.languageTitle")}
+          description={t("settingsPage.languageDescription")}
+          icon={Globe}
+        >
+          <LanguageFlagPicker value={localLanguage} onChange={(val) => { setLocalLanguage(val); setContextLanguage(val); }} />
+          <p className="text-[10px] text-white/35 mt-3">{t("settingsPage.languageComingSoon")}</p>
+        </GamerSettingsSection>
 
         {/* Custom Theme */}
         {theme === "theme-custom" && (
@@ -822,30 +748,9 @@ export default function Settings() {
           <NotificationSettings />
         </div>
 
-        {/* Notification Sound */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-lg leading-relaxed font-bold text-foreground">Notification Sound</h3>
-            <p className="text-sm text-muted-foreground">Choose which sound plays when a new notification arrives</p>
-          </div>
-          <div className="flex gap-2">
-            <Select value={notificationSound} onValueChange={setNotificationSound}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {NOTIFICATION_SOUNDS.map((sound) => (
-                  <SelectItem key={sound.id} value={sound.id}>
-                    {sound.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="button" variant="outline" onClick={() => playNotificationSound(notificationSound)}>
-              Preview
-            </Button>
-          </div>
-        </div>
+        <GamerSettingsSection title={t("settingsPage.notificationSoundTitle")} description={t("settingsPage.notificationSoundDesc")} icon={Volume2}>
+          <SoundIconPicker value={notificationSound} onChange={setNotificationSound} />
+        </GamerSettingsSection>
 
         {/* Save Button */}
         <Button
@@ -922,6 +827,6 @@ export default function Settings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </GamerProfileShell>
   );
 }

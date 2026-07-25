@@ -22,8 +22,8 @@ if (socketAccessKey !== stageAccessKey) {
   );
 }
 
-if (!socketContext.includes('VITE_SOCKET_URL')) {
-  throw new Error('Socket URL must be configurable through VITE_SOCKET_URL');
+if (!socketContext.includes('resolveSocketUrl')) {
+  throw new Error('Socket URL must be resolved through resolveSocketUrl()');
 }
 
 if (socketServer.includes('e11c51e0d9b810e4a6765904a144361248d4976b')) {

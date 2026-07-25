@@ -21,6 +21,7 @@ import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
 import AnalyticsTab from "@/components/admin/sections/AnalyticsTab";
 import StoreTab from "@/components/admin/sections/StoreTab";
+import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import { ADMIN_SECTION_ALIASES } from "@/components/admin/shared/adminConstants";
 import { stageClient } from "@/api/stageClient";
 import { base44 } from "@/api/base44Client";
@@ -1482,60 +1483,8 @@ export default function Admin(props) {
   const adminMaxTeamOptions = getTournamentMaxTeamOptions(tournamentForm.type);
   const adminPrizeBreakdown = calculateTournamentPrizeBreakdown(tournamentForm.entry_fee_stc, tournamentForm.max_teams);
 
-  return (
-    <div className="min-h-screen bg-background p-4 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1
-              className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
-              style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-            >
-              ADMIN
-            </h1>
-            <p className="font-subtitle text-xs text-muted-foreground mt-1 uppercase tracking-widest">STAGE Control Panel</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-destructive border border-destructive/30 bg-destructive/5 px-2.5 py-1 rounded uppercase tracking-widest font-bold">
-            {adminProfile?.email}
-          </span>
-          <Button variant="outline" size="sm" onClick={loadAll} className="border-border h-8 gap-1.5 rounded text-xs">
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Stats ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <AdminStat icon={AlertTriangle} label="Disputes" value={disputes.length} color="text-destructive" accent="border-l-destructive/50" />
-        <AdminStat icon={Flag} label="Forfeits" value={forfeits.length} color="text-warning" accent="border-l-warning/50" />
-        <AdminStat icon={Users} label="Players" value={players.length} color="text-primary" accent="border-l-primary/50" />
-        <AdminStat icon={Trophy} label="Tournaments" value={tournaments.filter(t => t.status !== "archived" && t.status !== "cancelled").length} color="text-success" accent="border-l-success/50" />
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-        </div>
-      ) : adminTab === null ? (
-        <div className="border border-dashed border-border rounded-lg p-10 text-center space-y-3 bg-card/30">
-          <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold">
-            Choose a section
-          </p>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Use the <span className="text-foreground font-semibold">Admin</span> and{" "}
-            <span className="text-foreground font-semibold">Operations</span> menus in the header to open disputes, players, landing page, and other tools. This dashboard shows live counts only.
-          </p>
-        </div>
-      ) : (
-        <>
+  const sectionContent = (
+    <>
           {adminTab === "disputes" && (
             <DisputesTab disputes={disputes} setResolveDialog={setResolveDialog} setSelectedWinner={setSelectedWinner} />
           )}
@@ -1788,9 +1737,11 @@ export default function Admin(props) {
           {adminTab === "store" && (
             <StoreTab />
           )}
-        </>
-      )}
+    </>
+  );
 
+  const adminDialogs = (
+    <>
       {/* Create Tournament Dialog */}
       <Dialog open={createTournamentOpen} onOpenChange={open => { if (!open) setAdminModalStep(1); setCreateTournamentOpen(open); }}>
         <DialogContent className="bg-card border-border max-w-2xl p-0 gap-0 flex flex-col max-h-[90vh]">
@@ -2435,7 +2386,76 @@ export default function Admin(props) {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (adminTab === null) {
+    return (
+      <>
+        <AdminDashboardPanel
+          adminProfile={adminProfile}
+          disputes={disputes}
+          forfeits={forfeits}
+          players={players}
+          clubs={clubs}
+          tournaments={tournaments}
+          identityClaims={identityClaims}
+          expiredFixtures={expiredFixtures}
+          regApplications={regApplications}
+          loading={loading}
+          onRefresh={loadAll}
+        />
+        {adminDialogs}
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-4 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1
+              className="font-heading font-black text-3xl md:text-4xl text-foreground uppercase"
+              style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
+            >
+              ADMIN
+            </h1>
+            <p className="font-subtitle text-xs text-muted-foreground mt-1 uppercase tracking-widest">STAGE Control Panel</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-destructive border border-destructive/30 bg-destructive/5 px-2.5 py-1 rounded uppercase tracking-widest font-bold">
+            {adminProfile?.email}
+          </span>
+          <Button variant="outline" size="sm" onClick={loadAll} className="border-border h-8 gap-1.5 rounded text-xs">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </Button>
+        </div>
       </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <AdminStat icon={AlertTriangle} label="Disputes" value={disputes.length} color="text-destructive" accent="border-l-destructive/50" />
+        <AdminStat icon={Flag} label="Forfeits" value={forfeits.length} color="text-warning" accent="border-l-warning/50" />
+        <AdminStat icon={Users} label="Players" value={players.length} color="text-primary" accent="border-l-primary/50" />
+        <AdminStat icon={Trophy} label="Tournaments" value={tournaments.filter(t => t.status !== "archived" && t.status !== "cancelled").length} color="text-success" accent="border-l-success/50" />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : (
+        sectionContent
+      )}
+
+      </div>
+      {adminDialogs}
     </div>
   );
 }

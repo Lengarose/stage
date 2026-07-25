@@ -601,8 +601,14 @@ const localized = {
     },
     settingsPage: {
       title: "Settings",
+      subtitle: "Language, sounds, theme & account",
       languageTitle: "Language",
       languageDescription: "Choose your preferred language",
+      languageComingSoon: "Gray flags are coming soon and cannot be selected yet.",
+      notificationSoundTitle: "Notification Sound",
+      notificationSoundDesc: "Tap an icon to preview — sporty alerts for match day",
+      soundSport: "Sport & Arena",
+      soundClassic: "Classic tones",
       saveChanges: "Save changes",
       saving: "Saving...",
       saved: "Settings saved",
@@ -627,7 +633,7 @@ const localized = {
   },
   fr: {
     auth: { createAccount: "Créer un compte", welcomeBack: "Bon retour", continueGoogle: "Continuer avec Google", continueOutlook: "Continuer avec Outlook", continueKick: "Continuer avec Kick", continueTwitch: "Continuer avec Twitch", or: "ou", emailAddress: "Adresse e-mail", identifier: "E-mail, gamertag ou nom du club", password: "Mot de passe", confirmPassword: "Confirmer le mot de passe", passwordsDoNotMatch: "Les mots de passe ne correspondent pas.", signinFailed: "Connexion impossible. Réessaie.", accountExists: "Un compte existe déjà avec cet e-mail.", signupFailed: "Impossible de créer le compte. Réessaie.", invalidSignin: "E-mail, gamertag, club ou mot de passe invalide.", creating: "Création du compte...", signingIn: "Connexion...", signIn: "Se connecter", signUp: "S’inscrire", switchToSignin: "Déjà un compte ? Se connecter", switchToSignup: "Pas encore de compte ? S’inscrire", chooseLanguage: "Choisir la langue", afterSignup: "Après l’inscription", joinDiscord: "Rejoindre notre communauté Discord", discordAnytime: "Tu peux aussi rejoindre Discord depuis Community dans l’app" },
-    settingsPage: { title: "Paramètres", languageTitle: "Langue", languageDescription: "Choisis ta langue préférée", saveChanges: "Enregistrer", saving: "Enregistrement...", saved: "Paramètres enregistrés" },
+    settingsPage: { title: "Paramètres", subtitle: "Langue, sons, thème & compte", languageTitle: "Langue", languageDescription: "Choisis ta langue préférée", languageComingSoon: "Les drapeaux gris arrivent bientôt — pas encore sélectionnables.", notificationSoundTitle: "Son de notification", notificationSoundDesc: "Tape une icône pour écouter — alertes sport pour le match day", soundSport: "Sport & Stade", soundClassic: "Tons classiques", saveChanges: "Enregistrer", saving: "Enregistrement...", saved: "Paramètres enregistrés" },
     mobile: { guide: "Guide", openGuide: "Ouvrir le guide {label}", closeGuide: "Fermer le guide", previousStep: "Étape précédente", nextStep: "Étape suivante", stepCount: "Étape {current} sur {total}", next: "Suivant", done: "Terminé" },
     nav: { home: "Accueil", welcome: "Bienvenue", dashboard: "Tableau de bord", matches: "Matchs", compete: "Compete", club: "Club", more: "Plus", schedule: "Calendrier", inbox: "Inbox", notifications: "Notifications", tournaments: "Tournois", international: "International", register: "Inscription", rankings: "Classements", players: "Joueurs", freeAgents: "Agents libres", recruitment: "Recrutement", transfers: "Transferts", wallet: "Wallet", feed: "Feed", discord: "Discord", followBack: "Follow Back", profile: "Profil", search: "Recherche", lifestyle: "Lifestyle", store: "Boutique", news: "News", settings: "Paramètres", tournament: "Tournoi", gameDay: "Match Day", trophy: "Trophée", myProfile: "Mon profil", myClub: "Mon club" },
     matchFlow: matchFlowTranslations.fr,

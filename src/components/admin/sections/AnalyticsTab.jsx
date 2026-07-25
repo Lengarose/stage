@@ -94,7 +94,7 @@ function formatDateTime(value) {
   });
 }
 
-function UsageChart({ data, hiddenKeys, onToggle }) {
+export function UsageChart({ data, hiddenKeys, onToggle }) {
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -223,7 +223,7 @@ function MiniStat({ label, value, icon: Icon }) {
   );
 }
 
-function AppGuideVisual() {
+export function AppGuideVisual() {
   return (
     <div className="space-y-8">
       <section className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-6">

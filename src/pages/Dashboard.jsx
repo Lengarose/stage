@@ -25,6 +25,8 @@ import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
 import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
 import DashboardWidgetGrid from "@/components/dashboard/DashboardWidgetGrid";
 import ObjectivesWidget from "@/components/objectives/ObjectivesWidget";
+import DashboardGamerStatCard, { DashboardRankRing } from "@/components/dashboard/DashboardGamerStatCard";
+import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 
 function formatWhen(dateStr) {
   if (!dateStr) return "TBD";
@@ -38,16 +40,6 @@ function formatWhen(dateStr) {
 
 function formatNumber(value, digits = 0) {
   return Intl.NumberFormat("en", { maximumFractionDigits: digits }).format(Number(value) || 0);
-}
-
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground mb-1">{label}</p>
-      <p className="font-heading font-black text-2xl text-foreground leading-none">{value}</p>
-      {sub ? <p className="text-[11px] text-muted-foreground mt-1">{sub}</p> : null}
-    </div>
-  );
 }
 
 function formatDays(days) {
@@ -105,51 +97,46 @@ export default function Dashboard() {
   const opponentInfo = getMatchOpponent(nextMatch, player, club);
 
   return (
-    <div className="min-h-screen px-4 py-6 lg:px-8 lg:py-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4 min-w-0">
-            <div
-              className="w-16 h-16 rounded-2xl border border-border bg-secondary shrink-0 overflow-hidden flex items-center justify-center"
-              style={
-                player?.avatar_url
-                  ? { backgroundImage: `url(${player.avatar_url})`, backgroundSize: "cover", backgroundPosition: "center" }
-                  : undefined
-              }
-            >
-              {!player?.avatar_url && <User className="w-7 h-7 text-muted-foreground/40" />}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-primary mb-1">STAGE</p>
-              <h1 className="font-heading font-black uppercase text-foreground text-3xl sm:text-4xl leading-none truncate">
-                {player?.gamertag || user?.email?.split("@")[0] || t("commonPages.dashboardGuest")}
-              </h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
-                {player?.position && <span>{player.position}</span>}
-                {player?.platform && <span>· {player.platform}</span>}
-                {player?.is_verified ? (
-                  <span className="inline-flex items-center gap-1 text-primary">
-                    <BadgeCheck className="w-3.5 h-3.5" /> {t("commonPages.dashboardVerified")}
-                  </span>
+    <GamerProfileShell>
+      <div className="px-4 py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto max-w-6xl space-y-6">
+          <header className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6">
+            <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, rgba(255,184,0,0.25), transparent 40%), radial-gradient(circle at 10% 80%, rgba(0,229,255,0.2), transparent 35%)" }} />
+            <div className="relative flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-start gap-4 min-w-0">
+                <DashboardRankRing rank={playerRank.rank} winRate={winRate} />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-cyan-400 mb-1">Command Center</p>
+                  <h1 className="font-heading font-black uppercase text-white text-3xl sm:text-4xl leading-none truncate">
+                    {player?.gamertag || user?.email?.split("@")[0] || t("commonPages.dashboardGuest")}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-white/50">
+                    {player?.position ? <span>{player.position}</span> : null}
+                    {player?.platform ? <span>· {player.platform}</span> : null}
+                    {player?.is_verified ? (
+                      <span className="inline-flex items-center gap-1 text-cyan-300">
+                        <BadgeCheck className="w-3.5 h-3.5" /> {t("commonPages.dashboardVerified")}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link to="/rankings">
+                  <Button type="button" variant="outline" size="sm" className="gap-2 font-heading uppercase text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03]">
+                    <BarChart3 className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewRankings")}
+                  </Button>
+                </Link>
+                {player?.id ? (
+                  <Link to="/profile">
+                    <Button type="button" size="sm" className="gap-2 font-heading uppercase text-xs bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black">
+                      <User className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewProfile")}
+                    </Button>
+                  </Link>
                 ) : null}
               </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/rankings">
-              <Button type="button" variant="outline" size="sm" className="gap-2 font-heading uppercase text-xs">
-                <BarChart3 className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewRankings")}
-              </Button>
-            </Link>
-            {player?.id ? (
-              <Link to="/profile">
-                <Button type="button" size="sm" className="gap-2 font-heading uppercase text-xs">
-                  <User className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewProfile")}
-                </Button>
-              </Link>
-            ) : null}
-          </div>
-        </header>
+          </header>
 
         {!player?.id ? (
           <section className="rounded-2xl border border-primary/25 bg-primary/5 p-6">
@@ -168,40 +155,52 @@ export default function Dashboard() {
               stats: (
                 <>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardGlobalRank")}
                       value={playerRank.rank ? `#${playerRank.rank}` : "—"}
                       sub={rankingPoints ? `${formatNumber(rankingPoints, 1)} ${t("competitionFlow.points")}` : null}
+                      accent="gold"
+                      icon={Trophy}
                     />
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardRecord")}
                       value={`${wins}W ${draws}D ${losses}L`}
                       sub={`${formatNumber(winRate, 1)}% ${t("commonPages.dashboardWinRate")}`}
+                      accent="green"
+                      icon={Target}
                     />
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardMatchesThisMonth")}
                       value={formatNumber(activity?.matchesThisMonth ?? 0)}
                       sub={`${formatNumber(activity?.matchesThisWeek ?? 0)} ${t("commonPages.dashboardThisWeek")}`}
+                      accent="cyan"
+                      icon={Calendar}
                     />
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardMemberSince")}
                       value={formatDays(tenure?.daysOnPlatform)}
                       sub={tenure?.daysAtClub != null ? `${formatDays(tenure.daysAtClub)} ${t("commonPages.dashboardAtClub")}` : t("commonPages.dashboardRankedOnly")}
+                      accent="violet"
+                      icon={Clock}
                     />
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardMatchesPlayed")}
                       value={formatNumber(matchesPlayed)}
                       sub={`${formatNumber(goals)} ${t("commonPages.dashboardGoals")}`}
+                      accent="cyan"
+                      icon={BarChart3}
                     />
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardAvgRating")}
                       value={formatNumber(avgRating, 1)}
                       sub={activity?.totalRecorded ? `${activity.totalRecorded} ${t("commonPages.dashboardTrackedMatches")}` : t("commonPages.dashboardRankedOnly")}
+                      accent="gold"
+                      icon={TrendingUp}
                     />
                     {tenure?.contractLabel ? (
-                      <StatCard
+                      <DashboardGamerStatCard
                         label={t("commonPages.dashboardContract")}
                         value={tenure.contractLabel}
                         sub={
@@ -209,15 +208,19 @@ export default function Dashboard() {
                             ? `${tenure.contractProgress.gamesLeft} ${t("commonPages.dashboardGamesLeft")} · ${tenure.contractProgress.daysLeft}d`
                             : null
                         }
+                        accent="green"
+                        icon={Shield}
                       />
                     ) : (
-                      <StatCard
+                      <DashboardGamerStatCard
                         label={t("commonPages.dashboardContract")}
                         value="—"
                         sub={t("commonPages.dashboardNoContract")}
+                        accent="rose"
+                        icon={Shield}
                       />
                     )}
-                    <StatCard
+                    <DashboardGamerStatCard
                       label={t("commonPages.dashboardActivityLevel")}
                       value={
                         (activity?.matchesThisMonth ?? 0) >= 8
@@ -227,6 +230,8 @@ export default function Dashboard() {
                             : t("commonPages.dashboardActivityLow")
                       }
                       sub={`${formatNumber(activity?.matchesThisMonth ?? 0)} ${t("commonPages.dashboardLast30Days")}`}
+                      accent="violet"
+                      icon={Zap}
                     />
                   </div>
                 </>
@@ -550,6 +555,7 @@ export default function Dashboard() {
           </Link>
         </section>
       </div>
-    </div>
+      </div>
+    </GamerProfileShell>
   );
 }

@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { resolveSocketUrl } from '@/lib/resolveSocketUrl';
 
 const viteEnv = /** @type {any} */ (import.meta).env;
-const rawSocketUrl = viteEnv.VITE_SOCKET_URL || 'https://stage-7osn.onrender.com';
-let SOCKET_URL = rawSocketUrl;
+const SOCKET_URL = resolveSocketUrl(viteEnv.VITE_SOCKET_URL);
 
 const ACCESS_KEY = 'stage_access_token';
 const AUTH_CHANGED_EVENT = 'stage-auth-changed';

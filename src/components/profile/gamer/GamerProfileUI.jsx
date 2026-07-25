@@ -111,6 +111,11 @@ export function GamerTabNav({ tabs, active, onChange, className }) {
             )}
           >
             {tab.label}
+            {tab.badge ? (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-black text-[9px] font-black normal-case tracking-normal">
+                {tab.badge}
+              </span>
+            ) : null}
           </button>
         );
       })}

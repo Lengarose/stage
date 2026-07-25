@@ -161,12 +161,14 @@ The REST API stays on **Gandi** (MySQL via Unix socket). Deploy **only** `socket
 4. **Production frontend build** (`.env` or CI before `npm run build`):
 
    ```bash
-   VITE_SOCKET_URL=https://stage-socket-xxxx.onrender.com
+   VITE_SOCKET_URL=https://stage-7osn.onrender.com
    ```
 
+   If you build with `VITE_SOCKET_URL=http://localhost:3001` by mistake, the app still falls back to Render at runtime on `https://stageleagues.com` — but set the env correctly anyway so devtools and CSP stay clean.
+
 5. **Verify**
-   - `curl https://stage-socket-xxxx.onrender.com/health` → `{"ok":true,...}`
-   - Open Game Day chat or notifications; browser DevTools → Network → WS should connect to the Render host.
+   - `curl https://stage-7osn.onrender.com/health` → `{"ok":true,...}`
+   - Open Game Day chat or notifications; browser DevTools → Network → WS should connect to `wss://stage-7osn.onrender.com`.
 
 **Note:** Render free instances spin down after inactivity (~50s cold start). Upgrade to a paid plan for always-on WebSockets in production.
 

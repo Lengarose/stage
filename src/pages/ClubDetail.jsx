@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
-  Check, X, Camera, Send, Loader2, LogOut,
+  Check, X, Send, Loader2, LogOut,
   Trash2, Swords, Save, Edit2, ClipboardList, Clock, MessageCircle,
   Bell, BellOff,
 } from "lucide-react";
@@ -20,7 +20,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
-import { getBannerStyle } from "@/lib/storeItems";
 import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
 import ClubPlayerStats from "../components/ClubPlayerStats";
@@ -36,6 +35,9 @@ import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabin
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 import { useChatChannel } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
+import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
+import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
+import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -565,7 +567,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
   }
 
   return (
-    <div className="min-h-screen bg-[#06091a] text-white">
+    <GamerProfileShell>
       {/* Dialogs */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-[#0d1225] border-white/10">
@@ -586,11 +588,11 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
       </AlertDialog>
 
       {/* Back */}
-      <div className="px-4 pt-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
+      <div className="max-w-6xl mx-auto px-4 pt-4 flex items-center gap-3">
+        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
         </button>
-        {isAdminTakeover && (
+        {isAdminTakeover ? (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 ml-auto">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
             <span className="text-xs text-warning font-medium">{t("commonPages.cdAdminTakeover")}</span>
@@ -598,108 +600,58 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
               <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Banner */}
-      <div
-        className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)] group cursor-pointer"
-        style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}
-        onClick={() => canEdit && setBannerDialogOpen(true)}
-      >
-        <div className="absolute inset-0" style={getBannerStyle(club?.banner_url, club?.banner_position)} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
-        <div className="absolute inset-0 pointer-events-none hidden dark:block" style={{ background: "linear-gradient(to bottom, transparent 35%, hsl(var(--background)) 100%)" }} />
-        {canEdit && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-              <Camera className="w-4 h-4" /> {t("commonPages.profChangeBanner")}
-            </span>
-          </div>
-        )}
-        {canEdit && (
-          <div className="absolute top-4 right-4 z-10" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setEditClubOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors text-white/70 text-xs font-medium"
-            >
-              <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Profile header */}
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-end justify-between -mt-20 mb-4 relative z-10">
-          {/* Logo */}
-          <div className="relative group shrink-0">
-            <div
-              className="w-24 h-24 rounded-full border-2 border-white/20 shadow-2xl shadow-blue-500/20 flex items-center justify-center overflow-hidden cursor-pointer"
-              onClick={() => club.logo_url && setLogoPreviewOpen(true)}
-            >
-              {club.logo_url
-                ? <div className="w-full h-full" style={{ backgroundImage: `url(${club.logo_url})`, backgroundSize: "cover", backgroundPosition: club.logo_position || "50% 50%" }} />
-                : <Shield className="w-9 h-9 text-primary" />
-              }
-            </div>
-            {canEdit && (
-              <>
-                <button
-                  onClick={() => !uploadingLogo && logoInputRef.current?.click()}
-                  className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                >
-                  {uploadingLogo ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
-                </button>
-                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
-              </>
-            )}
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {!isMember && (
-              <Button
-                size="sm"
-                onClick={toggleFollow}
-                className={cn(isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-blue-600 hover:bg-blue-500 text-white")}
-              >
-                {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Club name + info */}
-        <div className="space-y-2 mb-5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-heading text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-none" style={{ letterSpacing: "-0.02em" }}>
-              {club.name}
-            </h1>
-            <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-400 font-bold font-mono border border-blue-500/20">[{club.tag}]</span>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-white/50 flex-wrap font-medium uppercase tracking-wider">
-            <span>{club.platform}</span>
-            <span className="text-white/20">·</span>
-            <span>{club.region}</span>
-          </div>
-          {club.description && <p className="text-sm text-white/60 leading-relaxed mt-1">{club.description}</p>}
+      <GamerClubProfileHero
+        club={club}
+        wins={wins}
+        draws={draws}
+        losses={losses}
+        winRate={winRate}
+        memberCount={players.length}
+        onBannerClick={() => canEdit && setBannerDialogOpen(true)}
+        onLogoClick={() => {
+          if (canEdit && !uploadingLogo) logoInputRef.current?.click();
+          else if (club.logo_url) setLogoPreviewOpen(true);
+        }}
+        topActions={canEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditClubOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider"
+          >
+            <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
+          </button>
+        ) : null}
+        sideActions={!isMember ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={toggleFollow}
+            className={cn("h-9 px-4 text-xs font-heading uppercase", isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-gradient-to-r from-amber-500/80 to-yellow-500/80 hover:from-amber-400 hover:to-yellow-400 text-black font-black")}
+          >
+            {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
+          </Button>
+        ) : null}
+        followers={(
           <div className="flex items-center gap-3 text-sm">
-            <button onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
+            <button type="button" onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
               <span className="font-bold text-white">{followersCount}</span>
               <span className="text-white/40 ml-1 text-xs">{t("commonPages.cdFollowersLower")}</span>
             </button>
           </div>
-          {/* Form display */}
-          <div className="mt-1">
-            <ClubForm matches={matches} clubId={id} />
-          </div>
+        )}
+      >
+        <div className="mt-1">
+          <ClubForm matches={matches} clubId={id} />
         </div>
+      </GamerClubProfileHero>
 
-
+      <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
         {/* Trial request — visible to signed-in players who are not members */}
-        {!isMember && !isOwner && myPlayer && (
-          <div className="pt-2">
+        {!isMember && !isOwner && myPlayer ? (
+          <div>
             {trialRequestSent ? (
               <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning font-medium">
                 <Clock className="w-3 h-3" /> {t("commonPages.cdTrialSent")}
@@ -707,7 +659,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
             ) : (
               <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="border-white/20 text-white/60 hover:text-white hover:border-white/40 text-xs gap-1.5 h-7 px-3">
+                  <Button type="button" size="sm" variant="outline" className="border-white/20 text-white/60 hover:text-white hover:border-white/40 text-xs gap-1.5 h-7 px-3">
                     <ClipboardList className="w-3 h-3" /> {t("commonPages.cdRequestTrial")}
                   </Button>
                 </DialogTrigger>
@@ -812,103 +764,36 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               </Dialog>
             )}
           </div>
-        )}
-      </div>
+        ) : null}
 
-      {/* ── Tabs ── */}
-      <div className="max-w-5xl mx-auto mt-0">
+        {canEdit ? (
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
+        ) : null}
+
+        <GamerClubTabNav
+          groups={tabGroups}
+          activeTab={activeTab}
+          tabLabels={tabLabels}
+          onChange={changeClubTab}
+          badgeForTab={(tab) => (tab === "chat" && clubChatUnreadCount > 0 ? (clubChatUnreadCount > 99 ? "99+" : String(clubChatUnreadCount)) : null)}
+        />
+
         <Tabs value={activeTab} onValueChange={changeClubTab} className="w-full">
-          <div className="border-b border-white/10 px-4 pt-2">
-            <div className="flex items-end gap-8 overflow-x-auto">
-              {tabGroups.map(group => {
-                const isActiveGroup = group.tabs.includes(activeTab);
-                return (
-                  <button
-                    key={group.label}
-                    type="button"
-                    onClick={() => changeClubTab(group.tabs[0])}
-                    className={cn(
-                      "relative shrink-0 pb-3 text-[13px] font-black uppercase tracking-[0.22em] transition-colors",
-                      "text-white/42 hover:text-white/80",
-                      isActiveGroup && "text-blue-300"
-                    )}
-                  >
-                    {group.label}
-                    <span
-                      className={cn(
-                        "absolute bottom-0 left-0 h-[3px] w-full origin-left scale-x-0 bg-blue-400 transition-transform",
-                        isActiveGroup && "scale-x-100"
-                      )}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-5 overflow-x-auto py-3">
-              {(tabGroups.find(group => group.tabs.includes(activeTab))?.tabs || []).map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => changeClubTab(tab)}
-                  className={cn(
-                    "shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors inline-flex items-center gap-1.5",
-                    activeTab === tab ? "text-white" : "text-white/35 hover:text-white/70"
-                  )}
-                >
-                  {tabLabels[tab]}
-                  {tab === "chat" && clubChatUnreadCount > 0 && (
-                    <span
-                      aria-label={`${clubChatUnreadCount} unread club chat messages`}
-                      className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none normal-case tracking-normal"
-                    >
-                      {clubChatUnreadCount > 99 ? "99+" : clubChatUnreadCount}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Posts */}
           <TabsContent value="posts" className="mt-0 px-4 pt-4">
             <ClubFeed club={club} currentUser={currentUser} myPlayer={myPlayer} isMember={isMember} />
           </TabsContent>
 
           {/* Stats */}
-          <TabsContent value="stats" className="px-4 pt-4">
+          <TabsContent value="stats" className="pt-4">
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-success">{wins}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profWins")}</p>
-                </div>
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-warning">{draws}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdDraws")}</p>
-                </div>
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-destructive">{losses}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profLosses")}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-primary">{winRate}%</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdWinRate")}</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-white">{totalGames}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.matches")}</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-white">{club.goals_scored || 0}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdGoalsScored")}</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                  <p className="font-heading text-3xl font-black text-white">{club.goals_conceded || 0}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdGoalsConceded")}</p>
-                </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <GamerStatTile label={t("commonPages.profWins")} value={wins} accent="green" />
+                <GamerStatTile label={t("commonPages.cdDraws")} value={draws} accent="gold" />
+                <GamerStatTile label={t("commonPages.profLosses")} value={losses} accent="rose" />
+                <GamerStatTile label={t("commonPages.cdWinRate")} value={`${winRate}%`} accent="cyan" sub={`${totalGames} ${t("commonPages.matches").toLowerCase()}`} />
+                <GamerStatTile label={t("commonPages.cdGoalsScored")} value={club.goals_scored || 0} accent="green" />
+                <GamerStatTile label={t("commonPages.cdGoalsConceded")} value={club.goals_conceded || 0} accent="rose" />
               </div>
               <ClubPlayerStats players={players} clubId={id} />
             </div>
@@ -1321,7 +1206,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </GamerProfileShell>
   );
 }
 
