@@ -459,7 +459,7 @@ export default function AnalyticsTab() {
 
           <section className="rounded-xl border border-border bg-card p-5">
             <h4 className="mb-1 text-sm font-bold text-foreground">Activité quotidienne</h4>
-            <p className="mb-4 text-xs text-muted-foreground">
+            <p className="mb-4 font-subtitle text-xs text-muted-foreground">
               Courbes sur {days} jours — nouvelles inscriptions, créations et matchs terminés.
             </p>
             <UsageChart data={chartData} hiddenKeys={hiddenKeys} onToggle={toggleLine} />

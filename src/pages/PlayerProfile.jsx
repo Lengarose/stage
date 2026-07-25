@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
-  ArrowLeft, User, Shield, Target, Swords,
-  Gamepad2, Flag, Settings,
-  Coins, FileText, Clock, BadgeCheck
+  ArrowLeft, Swords,
+  Gamepad2, Settings,
+  Coins, FileText, Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getBannerStyle } from "@/lib/storeItems";
 import { cn } from "@/lib/utils";
 import { formatSTC, calculatePlayerValue, getValueTier } from "@/lib/playerValue";
 import { TrendingUp } from "lucide-react";
@@ -19,10 +17,23 @@ import { notify, postContractNews } from "@/lib/notify";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
 import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
+import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
+import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
+import DashboardFutChart from "@/components/dashboard/DashboardFutChart";
+import DashboardFormStrip from "@/components/dashboard/DashboardFormStrip";
+import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
+import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
+import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { loadFutMatches, loadEafcSummary, buildFutFormStrip, buildFutWeeklyBuckets } from "@/lib/dashboardData";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
+import { useTranslation } from "@/hooks/useTranslation";
+
+function formatPositions(player) {
+  return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
+}
 
 function normalizeClubRoles(roles) {
   if (Array.isArray(roles)) return roles;
@@ -61,6 +72,7 @@ function getVisibleClubRole(player, club, contracts = []) {
 }
 
 export default function PlayerProfile({ overridePlayerId, tournamentId: _tournamentId, editMode: _editMode } = {}) {
+  const { t } = useTranslation();
   const params = useParams();
   const id = overridePlayerId || params.id;
   const [player, setPlayer] = useState(null);
@@ -88,6 +100,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
   const [windowOpen, setWindowOpen] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
+  const [futMatches, setFutMatches] = useState([]);
+  const [eafcSummary, setEafcSummary] = useState(null);
   const navigate = useNavigate();
   const visibleClubRole = getVisibleClubRole(player, club, playerContracts);
 
@@ -173,6 +187,13 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
         const pvpMap = new Map();
         allPvp.forEach(m => pvpMap.set(m.id, m));
         setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)));
+
+        const [futRows, eafcData] = await Promise.all([
+          loadFutMatches(p, 20),
+          p.eafc_club_id ? loadEafcSummary(p) : Promise.resolve(null),
+        ]);
+        setFutMatches(futRows);
+        setEafcSummary(eafcData);
       }
 
       if (follows.length > 0 && follows[0].target_id) { setIsFollowing(true); setFollowId(follows[0].id); }
@@ -259,8 +280,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
   if (!player) {
     return (
       <div className="p-6 text-center">
-        <p className="text-white/50">Player not found.</p>
-        <Link to="/search"><Button variant="outline" className="mt-4">Back to Search</Button></Link>
+        <p className="text-white/50">{t("commonPages.ppNotFound")}</p>
+        <Link to="/search"><Button variant="outline" className="mt-4">{t("commonPages.ppBackToSearch")}</Button></Link>
       </div>
     );
   }
@@ -273,355 +294,313 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
     D: "bg-warning/15 text-warning border-warning/30",
   };
 
+  const profileTabs = [
+    { id: "posts", label: t("commonPages.ppTab_posts") },
+    { id: "stats", label: t("commonPages.ppTab_stats") },
+    { id: "career", label: t("commonPages.ppTab_career") },
+    { id: "matches", label: t("commonPages.ppTab_matches") },
+    { id: "trophies", label: t("commonPages.ppTab_trophies") },
+    { id: "lifestyle", label: t("commonPages.ppTab_lifestyle") },
+  ];
+
+  const marketValue = calculatePlayerValue(player);
+  const valueTier = getValueTier(marketValue);
+  const roleBadges = visibleClubRole ? [visibleClubRole] : [];
+
+  let recentForm = [];
+  try { recentForm = JSON.parse(player.form_last10 || "[]"); } catch { /* ignore */ }
+
+  const pvpW = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score > m.away_score : m.away_score > m.home_score).length;
+  const pvpL = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score < m.away_score : m.away_score < m.home_score).length;
+  const pvpD = pvpMatches.filter(m => m.home_score === m.away_score).length;
+
   return (
-    <div className="min-h-screen bg-[#06091a] text-white">
-      {/* Back nav */}
-      <div className="px-4 pt-4">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
+    <GamerProfileShell>
+      <div className="px-4 pt-4 max-w-6xl mx-auto">
+        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
       </div>
 
-      {/* ── Banner ── */}
-      <div className="relative h-52 sm:h-72 md:h-80 mt-2 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)]" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
-        <div className="absolute inset-0" style={getBannerStyle(player.banner_url, player.banner_position)} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
-        <div className="absolute inset-0 pointer-events-none hidden dark:block" style={{ background: "linear-gradient(to bottom, transparent 35%, hsl(var(--background)) 100%)" }} />
-      </div>
-
-      {/* ── Profile Header ── */}
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-end justify-between -mt-20 mb-4 relative z-10">
-          {/* Avatar */}
-          <button
-            onClick={() => player.avatar_url && setAvatarLightboxOpen(true)}
-            className="w-24 h-24 rounded-full border-2 border-white/20 shadow-2xl shadow-blue-500/20 flex items-center justify-center overflow-hidden shrink-0"
-          >
-            {player.avatar_url
-              ? <div className="w-full h-full" style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: "cover", backgroundPosition: player.avatar_position || "50% 50%" }} />
-              : <User className="w-9 h-9 text-white/40" />
-            }
-          </button>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+      <GamerProfileHero
+        player={player}
+        user={null}
+        club={club}
+        roleBadges={roleBadges}
+        formatPositions={formatPositions}
+        onAvatarClick={player.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
+        verifiedHandle={
+          Number(player.is_verified) === 1 && player.verified_platform_handle
+            ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
+            : null
+        }
+        topActions={null}
+        sideActions={(
+          <>
             {isOwner ? (
               <Link to="/profile">
-                <Button size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
-                  <Settings className="w-3.5 h-3.5" /> Edit Profile
+                <Button type="button" size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
+                  <Settings className="w-3.5 h-3.5" /> {t("commonPages.profEditProfile")}
                 </Button>
               </Link>
             ) : (
               <>
                 <Button
+                  type="button"
                   size="sm"
                   onClick={toggleFollow}
-                  className={cn("h-9 px-4 text-xs", isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-blue-600 hover:bg-blue-500 text-white")}
+                  className={cn("h-9 px-4 text-xs font-heading uppercase", isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black")}
                 >
-                  {isFollowing ? "Unfollow" : "Follow"}
+                  {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
                 </Button>
-                {/* Club owner actions */}
-                {viewerClub && (
+                {viewerClub ? (
                   <>
                     <Button
-                      size="sm" variant="outline"
+                      type="button"
+                      size="sm"
+                      variant="outline"
                       onClick={() => setOfferDialogOpen(true)}
-                      className="gap-1.5 h-9 px-3 text-xs border-primary/40 text-primary hover:bg-primary/10 bg-transparent"
+                      className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
                     >
-                      <FileText className="w-3.5 h-3.5" /> Offer Contract
+                      <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
                     </Button>
-                    {player.club_id && player.club_id !== viewerClub.id && club && (
+                    {player.club_id && player.club_id !== viewerClub.id && club ? (
                       <Button
-                        size="sm" variant="outline"
+                        type="button"
+                        size="sm"
+                        variant="outline"
                         onClick={() => setTransferPayOpen(true)}
-                        className="gap-1.5 h-9 px-3 text-xs border-warning/40 text-warning hover:bg-warning/10 bg-transparent"
+                        className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
                       >
-                        <Coins className="w-3.5 h-3.5" /> Transfer Fee
+                        <Coins className="w-3.5 h-3.5" /> {t("commonPages.ppTransferFee")}
                       </Button>
-                    )}
+                    ) : null}
                   </>
-                )}
+                ) : null}
               </>
             )}
-          </div>
-        </div>
-
-        {/* Name + meta */}
-        <div className="space-y-2 mb-5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-heading text-3xl sm:text-4xl font-black text-white uppercase tracking-tight leading-none" style={{ letterSpacing: "-0.02em" }}>
-              {player.gamertag}
-            </h1>
-            {Number(player.is_verified) === 1 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">
-                <BadgeCheck className="w-3.5 h-3.5" /> Verified
-              </span>
-            )}
-            {player.shirt_number && (
-              <span className="font-heading text-2xl font-black text-white/30 border border-white/15 rounded-lg px-2.5 py-0.5 shrink-0">
-                #{player.shirt_number}
-              </span>
-            )}
-          </div>
-          {visibleClubRole && (
-            <span className={cn("inline-block text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest",
-              visibleClubRole === "president" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
-              visibleClubRole === "captain" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-              "bg-white/10 text-white/60 border border-white/10"
-            )}>
-              {visibleClubRole}
-            </span>
-          )}
-          <div className="flex items-center gap-3 text-xs text-white/50 flex-wrap font-medium uppercase tracking-wider">
-            {player.position && <span className="flex items-center gap-1.5"><Target className="w-3 h-3" />{[player.position, player.secondary_position].filter(Boolean).join(" / ")}</span>}
-            {player.platform && <span className="flex items-center gap-1.5"><Gamepad2 className="w-3 h-3" />{player.platform}</span>}
-            {player.country && <span className="flex items-center gap-1.5"><Flag className="w-3 h-3" />{player.country}</span>}
-            {club && (
-              <Link to={`/clubs/${club.id}`} className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors">
-                <Shield className="w-3 h-3" />{club.name}
-              </Link>
-            )}
-          </div>
-          {player.bio && <p className="text-sm text-white/60 leading-relaxed break-words">{player.bio}</p>}
-          {Number(player.is_verified) === 1 && player.verified_platform_handle && (
-            <p className="text-xs text-blue-300/80">
-              Verified {player.verified_platform || "platform"} identity: <span className="font-semibold">{player.verified_platform_handle}</span>
-            </p>
-          )}
-
-          {/* Active contract info — visible to all */}
-          {activeContract && (() => {
-            const progress = getContractProgress(activeContract);
-            return (
-              <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                {activeContract.weekly_salary_stc > 0 && (
-                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-success/10 border border-success/20 text-success font-medium">
-                    <Coins className="w-2.5 h-2.5" />{formatSTC(activeContract.weekly_salary_stc)}/wk
-                  </span>
-                )}
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 font-medium capitalize">
-                  <FileText className="w-2.5 h-2.5" />{activeContract.contract_type} contract
-                </span>
-                {progress && progress.daysLeft > 0 && (
-                  <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
-                    progress.daysLeft <= 7 ? "bg-warning/10 border-warning/20 text-warning" : "bg-white/5 border-white/10 text-white/50"
-                  )}>
-                    <Clock className="w-2.5 h-2.5" />{progress.daysLeft}d left
-                  </span>
-                )}
-                {progress && progress.gamesLeft > 0 && (
-                  <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
-                    progress.gamesLeft <= 10 ? "bg-warning/10 border-warning/20 text-warning" : "bg-white/5 border-white/10 text-white/50"
-                  )}>
-                    <Gamepad2 className="w-2.5 h-2.5" />{progress.gamesLeft} games left
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-
+          </>
+        )}
+        followers={(
           <div className="flex items-center gap-3 text-sm">
-            <button onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
+            <button type="button" onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
               <span className="font-bold text-white">{followersCount}</span>
-              <span className="text-white/40 ml-1 text-xs">followers</span>
+              <span className="text-white/40 ml-1 text-xs">{t("commonPages.cdFollowersLower")}</span>
             </button>
             <span className="text-white/20">·</span>
-            <button onClick={() => setFollowingModalOpen(true)} className="hover:opacity-70 transition-opacity">
+            <button type="button" onClick={() => setFollowingModalOpen(true)} className="hover:opacity-70 transition-opacity">
               <span className="font-bold text-white">{followingCount}</span>
-              <span className="text-white/40 ml-1 text-xs">following</span>
+              <span className="text-white/40 ml-1 text-xs">{t("commonPages.ppFollowingLower")}</span>
             </button>
           </div>
+        )}
+      >
+        {activeContract ? (() => {
+          const progress = getContractProgress(activeContract);
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeContract.weekly_salary_stc > 0 ? (
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
+                  <Coins className="w-2.5 h-2.5" />{formatSTC(activeContract.weekly_salary_stc)}/wk
+                </span>
+              ) : null}
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 font-medium capitalize">
+                <FileText className="w-2.5 h-2.5" />{activeContract.contract_type} contract
+              </span>
+              {progress && progress.daysLeft > 0 ? (
+                <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
+                  progress.daysLeft <= 7 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/10 text-white/50"
+                )}>
+                  <Clock className="w-2.5 h-2.5" />{progress.daysLeft}d left
+                </span>
+              ) : null}
+              {progress && progress.gamesLeft > 0 ? (
+                <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
+                  progress.gamesLeft <= 10 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/10 text-white/50"
+                )}>
+                  <Gamepad2 className="w-2.5 h-2.5" />{progress.gamesLeft} games left
+                </span>
+              ) : null}
+            </div>
+          );
+        })() : null}
+      </GamerProfileHero>
 
-        </div>
-      </div>
+      <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
+        <GamerTabNav tabs={profileTabs} active={activeTab} onChange={setActiveTab} />
 
-      {/* ── Tabs ── */}
-      <div className="max-w-2xl mx-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0">
-            {["posts", "stats", "matches", "trophies", "lifestyle"].map(tab => (
-              <TabsTrigger
-                key={tab}
-                value={tab}
-                className={cn(
-                  "flex-1 rounded-none border-b-2 border-transparent pb-3 pt-3 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/40 transition-colors min-w-0",
-                  "data-[state=active]:border-blue-400 data-[state=active]:text-blue-400 data-[state=active]:bg-transparent"
-                )}
-              >
-                {tab}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {/* Posts */}
-          <TabsContent value="posts" className="mt-0 px-3 sm:px-4 pt-4">
+        {activeTab === "posts" ? (
+          <div className="pt-2">
             <PlayerFeed currentUser={currentUser} player={player} isOwner={isOwner} />
-          </TabsContent>
+          </div>
+        ) : null}
 
-          {/* Stats */}
-          <TabsContent value="stats" className="px-3 sm:px-4 pt-4">
-            {(() => {
-              const mv = calculatePlayerValue(player);
-              const tier = getValueTier(mv);
-              return (
-            <div className="space-y-4">
-              {/* Market Value Card */}
-              <div className={cn("border rounded-xl p-3 sm:p-4 flex items-center gap-4", tier.bg, tier.border)}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 mb-0.5 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> Market Value
-                  </p>
-                  <p className={cn("font-light text-2xl sm:text-3xl tracking-tight leading-none", tier.color)}>
-                    {formatSTC(mv)}
-                  </p>
-                  <p className={cn("text-xs font-semibold mt-1", tier.color)}>{tier.label}</p>
-                </div>
-                <div className="text-right shrink-0 space-y-1">
-                  <div className="text-[10px] text-white/40 uppercase tracking-wider">OVR</div>
-                  <div className="font-heading text-lg font-black text-primary leading-none">{player.overall_rating || 70}</div>
-                  <div className="text-[10px] text-white/40">{player.position}</div>
-                </div>
+        {activeTab === "stats" ? (
+          <div className="pt-2 space-y-4">
+            <div className={cn("rounded-2xl border p-4 flex items-center gap-4", valueTier.bg, valueTier.border)}>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40 mb-1 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> {t("commonPages.marketValue")}
+                </p>
+                <p className={cn("font-heading text-3xl font-black leading-none", valueTier.color)}>{formatSTC(marketValue)}</p>
+                <p className={cn("text-xs font-semibold mt-1", valueTier.color)}>{valueTier.label}</p>
               </div>
-
-              {/* Stat grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                <StatCard label="Matches" value={player.matches_played ?? clubStats?.matches ?? 0} />
-                <StatCard label="Goals" value={player.goals ?? clubStats?.goals ?? 0} accent="success" />
-                <StatCard label="Assists" value={player.assists ?? clubStats?.assists ?? 0} accent="accent" />
-                <StatCard label="Avg Rating" value={player.avg_match_rating > 0 ? Number(player.avg_match_rating).toFixed(1) : (clubStats?.avgRating || 0).toFixed(1)} accent="warning" />
-                <StatCard label="MOTM" value={player.man_of_the_match || 0} />
-                <StatCard label="Clean Sheets" value={player.clean_sheets || 0} />
+              <div className="text-right shrink-0">
+                <p className="text-[10px] uppercase tracking-wider text-white/40">OVR</p>
+                <p className="font-heading text-2xl font-black text-cyan-400 leading-none">{player.overall_rating || 70}</p>
+                <p className="text-[10px] text-white/40 mt-1">{player.position}</p>
               </div>
-
-              {/* Recent form strip */}
-              {(() => {
-                let form = [];
-                try { form = JSON.parse(player.form_last10 || '[]'); } catch {}
-                if (!form.length) return null;
-                return (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Recent Form (last {form.length})</p>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {form.map((r, i) => {
-                        const col = r >= 8 ? 'bg-warning/80 text-black' : r >= 7 ? 'bg-success/80 text-black' : r >= 6 ? 'bg-primary/60 text-white' : 'bg-white/10 text-white/60';
-                        return (
-                          <span key={i} className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold", col)}>
-                            {r.toFixed(1)}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* PvP summary */}
-              {pvpMatches.length > 0 && (() => {
-                const pvpW = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score > m.away_score : m.away_score > m.home_score).length;
-                const pvpL = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score < m.away_score : m.away_score < m.home_score).length;
-                const pvpD = pvpMatches.filter(m => m.home_score === m.away_score).length;
-                return (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">PvP Record</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-center">
-                        <p className="font-heading text-2xl font-black text-success">{pvpW}</p>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Wins</p>
-                      </div>
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
-                        <p className="font-heading text-2xl font-black text-warning">{pvpD}</p>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Draws</p>
-                      </div>
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
-                        <p className="font-heading text-2xl font-black text-destructive">{pvpL}</p>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Losses</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
-            );
-            })()}
-          </TabsContent>
 
-          {/* Matches */}
-          <TabsContent value="matches" className="px-3 sm:px-4 pt-4">
-            <div className="space-y-4">
-              {upcomingMatches.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Upcoming</p>
-                  <div className="space-y-2">
-                    {upcomingMatches.map(m => {
-                      const isHome = m.home_club_id === club?.id;
-                      const oppName = isHome ? m.away_club_name : m.home_club_name;
-                      const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
-                      return (
-                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Swords className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
-                            <p className="text-xs text-white/40">Round {m.round}</p>
-                          </div>
-                          <p className="text-xs text-white/40 shrink-0">{dateStr}</p>
-                        </div>
-                      );
-                    })}
+            <GamerProfileStatsPanel player={{ ...player, matches_played: player.matches_played ?? clubStats?.matches ?? 0, goals: player.goals ?? clubStats?.goals ?? 0, assists: player.assists ?? clubStats?.assists ?? 0, avg_match_rating: player.avg_match_rating > 0 ? player.avg_match_rating : (clubStats?.avgRating || 6) }} t={t} />
+
+            {recentForm.length > 0 ? (
+              <GamerSectionCard title={t("commonPages.ppRecentForm", { count: recentForm.length })}>
+                <div className="flex gap-1.5 flex-wrap">
+                  {recentForm.map((r, i) => {
+                    const col = r >= 8 ? "bg-amber-400/80 text-black" : r >= 7 ? "bg-emerald-500/80 text-black" : r >= 6 ? "bg-cyan-500/60 text-white" : "bg-white/10 text-white/60";
+                    return (
+                      <span key={i} className={cn("w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black", col)}>
+                        {r.toFixed(1)}
+                      </span>
+                    );
+                  })}
+                </div>
+              </GamerSectionCard>
+            ) : null}
+
+            {pvpMatches.length > 0 ? (
+              <GamerSectionCard title={t("commonPages.ppPvpRecord")}>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center">
+                    <p className="font-heading text-2xl font-black text-emerald-400">{pvpW}</p>
+                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profWins")}</p>
+                  </div>
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-center">
+                    <p className="font-heading text-2xl font-black text-amber-400">{pvpD}</p>
+                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdDraws")}</p>
+                  </div>
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-center">
+                    <p className="font-heading text-2xl font-black text-rose-400">{pvpL}</p>
+                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profLosses")}</p>
                   </div>
                 </div>
-              )}
+              </GamerSectionCard>
+            ) : null}
+          </div>
+        ) : null}
 
-              {pvpMatches.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">PvP Match History</p>
-                  <div className="space-y-2">
-                    {pvpMatches.slice(0, 20).map(m => {
-                      const isHome = m.home_player_id === player.id;
-                      const opponent = isHome ? m.away_player_name : m.home_player_name;
-                      const myScore = isHome ? m.home_score : m.away_score;
-                      const theirScore = isHome ? m.away_score : m.home_score;
-                      const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-                      const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
-                      const dateStr = m.scheduled_date || m.updated_date
-                        ? new Date(m.scheduled_date || m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                        : "—";
-                      return (
-                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 flex items-center gap-2 sm:gap-3">
-                          <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">vs {opponent || "Unknown"}</p>
-                            <p className="text-[10px] text-white/40">{dateStr}</p>
-                          </div>
-                          <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
-                        </div>
-                      );
-                    })}
+        {activeTab === "career" ? (
+          <div className="pt-2 space-y-4">
+            {player.eafc_club_id || futMatches.length > 0 ? (
+              <>
+                {player.eafc_club_id ? (
+                  <div className="[&_.rounded-2xl]:border-white/10 [&_.rounded-2xl]:bg-white/[0.03]">
+                    <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} readOnly compact />
                   </div>
-                </div>
-              )}
+                ) : null}
+                {futMatches.length > 0 ? (
+                  <div className="space-y-4 [&_.rounded-2xl]:border-white/10 [&_.rounded-2xl]:bg-white/[0.03]">
+                    <DashboardFormStrip
+                      label={t("commonPages.dashboardFutForm")}
+                      mode="outcome"
+                      items={buildFutFormStrip(futMatches, 10)}
+                    />
+                    <DashboardFutChart
+                      weekly={buildFutWeeklyBuckets(futMatches, 8)}
+                      winsLabel={t("commonPages.dashboardFutWins")}
+                      lossesLabel={t("commonPages.dashboardFutLosses")}
+                      emptyLabel={t("commonPages.dashboardFutChartEmpty")}
+                    />
+                    <FutMatchLogPanel playerId={player.id} initialMatches={futMatches} readOnly compact />
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <GamerSectionCard>
+                <p className="text-sm text-white/40 text-center py-6">{t("commonPages.dashboardFutEmpty")}</p>
+              </GamerSectionCard>
+            )}
+          </div>
+        ) : null}
 
-              {upcomingMatches.length === 0 && pvpMatches.length === 0 && (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
+        {activeTab === "matches" ? (
+          <div className="pt-2 space-y-4">
+            {upcomingMatches.length > 0 ? (
+              <GamerSectionCard title={t("commonPages.homeUpcoming")}>
+                <div className="space-y-2">
+                  {upcomingMatches.map(m => {
+                    const isHome = m.home_club_id === club?.id;
+                    const oppName = isHome ? m.away_club_name : m.home_club_name;
+                    const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
+                    return (
+                      <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                          <Swords className="w-4 h-4 text-cyan-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
+                          <p className="text-xs text-white/40">{t("commonPages.ppRound", { round: m.round })}</p>
+                        </div>
+                        <p className="text-xs text-white/40 shrink-0">{dateStr}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </GamerSectionCard>
+            ) : null}
+
+            {pvpMatches.length > 0 ? (
+              <GamerSectionCard title={t("commonPages.ppPvpHistory")}>
+                <div className="space-y-2">
+                  {pvpMatches.slice(0, 20).map(m => {
+                    const isHome = m.home_player_id === player.id;
+                    const opponent = isHome ? m.away_player_name : m.home_player_name;
+                    const myScore = isHome ? m.home_score : m.away_score;
+                    const theirScore = isHome ? m.away_score : m.home_score;
+                    const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
+                    const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
+                    const dateStr = m.scheduled_date || m.updated_date
+                      ? new Date(m.scheduled_date || m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                      : "—";
+                    return (
+                      <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center gap-2 sm:gap-3">
+                        <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">vs {opponent || t("commonPages.homeUnknown")}</p>
+                          <p className="text-[10px] text-white/40">{dateStr}</p>
+                        </div>
+                        <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </GamerSectionCard>
+            ) : null}
+
+            {upcomingMatches.length === 0 && pvpMatches.length === 0 ? (
+              <GamerSectionCard>
+                <div className="py-10 text-center">
                   <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                  <p className="text-sm text-white/40">No matches recorded yet.</p>
+                  <p className="text-sm text-white/40">{t("commonPages.cdNoMatches")}</p>
                 </div>
-              )}
-            </div>
-          </TabsContent>
+              </GamerSectionCard>
+            ) : null}
+          </div>
+        ) : null}
 
-          {/* Trophies */}
-          <TabsContent value="trophies" className="px-3 sm:px-4 pt-4 pb-4 space-y-6">
+        {activeTab === "trophies" ? (
+          <div className="pt-2 space-y-6">
             <PlayerAchievementsSection playerId={player?.id} />
             <PlayerTrophyCabinet player={player} currentUserEmail={currentUser?.email} />
-          </TabsContent>
+          </div>
+        ) : null}
 
-          {/* Lifestyle */}
-          <TabsContent value="lifestyle" className="px-3 sm:px-4 pt-4 pb-4">
+        {activeTab === "lifestyle" ? (
+          <div className="pt-2">
             <PlayerLifestyleTab player={player} />
-          </TabsContent>
-        </Tabs>
+          </div>
+        ) : null}
       </div>
 
       {/* Offer Contract Dialog */}
@@ -661,9 +640,9 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
       {/* Followers Modal */}
       <Dialog open={followersModalOpen} onOpenChange={setFollowersModalOpen}>
         <DialogContent className="max-w-md bg-[#0d1225] border-white/10">
-          <DialogHeader><DialogTitle>Followers</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("commonPages.cdFollowers")}</DialogTitle></DialogHeader>
           <div className="max-h-96 overflow-y-auto">
-            <FollowList items={followersList} emptyLabel="No followers yet." onClose={() => setFollowersModalOpen(false)} />
+            <FollowList items={followersList} emptyLabel={t("commonPages.cdNoFollowers")} onClose={() => setFollowersModalOpen(false)} />
           </div>
         </DialogContent>
       </Dialog>
@@ -671,32 +650,18 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
       {/* Following Modal */}
       <Dialog open={followingModalOpen} onOpenChange={setFollowingModalOpen}>
         <DialogContent className="max-w-md bg-[#0d1225] border-white/10">
-          <DialogHeader><DialogTitle>Following</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("commonPages.ppFollowingTitle")}</DialogTitle></DialogHeader>
           <div className="max-h-96 overflow-y-auto">
-            <FollowList items={followingList} emptyLabel="Not following anyone yet." onClose={() => setFollowingModalOpen(false)} />
+            <FollowList items={followingList} emptyLabel={t("commonPages.ppNotFollowing")} onClose={() => setFollowingModalOpen(false)} />
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function StatCard({ label, value, accent }) {
-  const accentClass = {
-    success: "text-success",
-    accent: "text-accent",
-    warning: "text-warning",
-  }[accent] || "text-white";
-
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-      <p className={cn("font-heading text-3xl font-black leading-none", accentClass)}>{value}</p>
-      <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{label}</p>
-    </div>
+    </GamerProfileShell>
   );
 }
 
 function FollowList({ items, emptyLabel, onClose }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -713,15 +678,15 @@ function FollowList({ items, emptyLabel, onClose }) {
     <>
       <input
         type="text"
-        placeholder="Search by gamertag..."
+        placeholder={t("commonPages.searchGamertag")}
         value={search}
         onChange={e => setSearch(e.target.value)}
         className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       <div className="space-y-2">
-        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">No results found.</p>}
+        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">{t("commonPages.cdNoResults")}</p>}
         {filtered.map(item => {
-          const name = item.target_name || item._player_name || item.follower_email || "Unknown";
+          const name = item.target_name || item._player_name || item.follower_email || t("commonPages.homeUnknown");
           const imageUrl = item.avatar_url || item.logo_url;
           const targetId = item._player_id || item._target_id || item.target_id;
           const targetType = item.target_type === "club" ? "clubs" : "players";

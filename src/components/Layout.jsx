@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, LayoutDashboard,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -75,128 +75,130 @@ const THEMES = [
   { id: "theme-custom", label: "Custom",     icon: Palette },
 ];
 
-function getPlayerGroups(_clubPath) {
+function getPlayerGroups(t, _clubPath) {
   const homeItems = [
-    { path: "/",         icon: Home,         label: "Home" },
-    { path: "/profile",  icon: User,         label: "My Profile" },
-    { path: "/inbox",    icon: Inbox,        label: "Inbox" },
-    { path: "/schedule", icon: CalendarDays, label: "Schedule" },
+    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
+    { path: "/",            icon: Home,            label: t("nav.welcome") },
+    { path: "/profile",     icon: User,            label: t("nav.myProfile") },
+    { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
+    { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
   ];
   return [
-    { label: "Home", items: homeItems },
+    { label: t("nav.home"), items: homeItems },
     {
-      label: "Compete",
+      label: t("nav.compete"),
       items: [
-        { path: "/game-day",        icon: Zap,       label: "Game Day" },
-        { path: "/competitions",    icon: Star,      label: "Competitions" },
-        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
-        { path: "/international",   icon: Globe2,    label: "International" },
-        { path: "/register-league", icon: Shield,    label: "Register" },
-        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
+        { path: "/game-day",        icon: Zap,       label: t("nav.gameDay") },
+        { path: "/competitions",    icon: Star,      label: t("nav.competitions") },
+        { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
+        { path: "/international",   icon: Globe2,    label: t("nav.international") },
+        { path: "/register-league", icon: Shield,    label: t("nav.register") },
+        { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
     {
-      label: "Community",
+      label: t("nav.community"),
       items: [
-        { path: "/clubs",        icon: Shield,     label: "Clubs" },
-        { path: "/players-list", icon: UsersRound, label: "Players" },
-        { path: "/social",       icon: Rss,        label: "Feed" },
-        { path: "/community",    icon: MessagesSquare, label: "Discord" },
-        { path: "/follow-back",  icon: Heart,      label: "Follow Back" },
+        { path: "/clubs",        icon: Shield,     label: t("nav.clubs") },
+        { path: "/players-list", icon: UsersRound, label: t("nav.players") },
+        { path: "/social",       icon: Rss,        label: t("nav.feed") },
+        { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
+        { path: "/follow-back",  icon: Heart,      label: t("nav.followBack") },
       ],
     },
     {
-      label: "Market",
+      label: t("nav.market"),
       items: [
-        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
-        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
-        { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
-        { path: "/wallet",          icon: Zap,            label: "Wallet" },
+        { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
+        { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
+        { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
+        { path: "/wallet",          icon: Zap,            label: t("nav.wallet") },
       ],
     },
     {
-      label: "Discover",
+      label: t("nav.discover"),
       items: [
-        { path: "/news",  icon: Newspaper,   label: "News" },
-        { path: "/store", icon: ShoppingBag, label: "Store" },
+        { path: "/news",  icon: Newspaper,   label: t("nav.news") },
+        { path: "/store", icon: ShoppingBag, label: t("nav.store") },
       ],
     },
   ];
 }
 
-function getTournamentLimitedGroups(tournamentId, participantType) {
+function getTournamentLimitedGroups(t, tournamentId, participantType) {
   const tid = tournamentId || "";
   const isPlayerType = participantType === "player";
 
   const communityItems = isPlayerType
-    ? [{ path: "/tournaments/players", icon: UsersRound, label: "Players" }]
-    : [{ path: "/tournaments/clubs",   icon: Shield,     label: "Clubs" }];
-  communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: "Trophy" });
+    ? [{ path: "/tournaments/players", icon: UsersRound, label: t("nav.players") }]
+    : [{ path: "/tournaments/clubs",   icon: Shield,     label: t("nav.clubs") }];
+  communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: t("nav.trophy") });
 
   const profileItems = [
-    { path: "/tournaments/profile-player", icon: User, label: "My Profile" },
+    { path: "/tournaments/profile-player", icon: User, label: t("nav.myProfile") },
   ];
   if (!isPlayerType) {
-    profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: "My Club" });
+    profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: t("nav.myClub") });
   }
-  profileItems.push({ path: "/tournaments/settings", icon: Settings, label: "Settings" });
+  profileItems.push({ path: "/tournaments/settings", icon: Settings, label: t("nav.settings") });
 
   return [
     {
-      label: "Tournament",
+      label: t("nav.tournament"),
       items: [
-        { path: `/tournaments/${tid}`,   icon: Trophy,       label: "Tournament" },
-        { path: "/tournaments/game-day", icon: Zap,          label: "Game Day" },
-        { path: "/tournaments/schedule", icon: CalendarDays, label: "Schedule" },
-        { path: "/tournaments/inbox",    icon: Inbox,        label: "Inbox" },
+        { path: `/tournaments/${tid}`,   icon: Trophy,       label: t("nav.tournament") },
+        { path: "/tournaments/game-day", icon: Zap,          label: t("nav.gameDay") },
+        { path: "/tournaments/schedule", icon: CalendarDays, label: t("nav.schedule") },
+        { path: "/tournaments/inbox",    icon: Inbox,        label: t("nav.inbox") },
       ],
     },
-    { label: isPlayerType ? "Players" : "Clubs", items: communityItems },
-    { label: "Profile", items: profileItems },
+    { label: isPlayerType ? t("nav.players") : t("nav.clubs"), items: communityItems },
+    { label: t("nav.profile"), items: profileItems },
   ];
 }
 
-function getOwnerGroups(clubPath) {
+function getOwnerGroups(t, clubPath) {
   const homeItems = [
-    { path: "/",         icon: Home,         label: "Home" },
-    { path: "/inbox",    icon: Inbox,        label: "Inbox" },
-    { path: "/schedule", icon: CalendarDays, label: "Schedule" },
+    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
+    { path: "/",            icon: Home,            label: t("nav.welcome") },
+    { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
+    { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
   ];
-  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: "My Club" });
+  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: t("nav.myClub") });
   return [
-    { label: "Home", items: homeItems },
+    { label: t("nav.home"), items: homeItems },
     {
-      label: "Squad",
+      label: t("nav.squad"),
       items: [
-        { path: "/players-list",    icon: UsersRound,     label: "Players" },
-        { path: "/game-day",        icon: Zap,            label: "Game Day" },
+        { path: "/players-list",    icon: UsersRound,     label: t("nav.players") },
+        { path: "/game-day",        icon: Zap,            label: t("nav.gameDay") },
       ],
     },
     {
-      label: "Market",
+      label: t("nav.market"),
       items: [
-        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
-        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers" },
-        { path: "/lifestyle",       icon: Coins,          label: "Lifestyle" },
-        { path: "/wallet",          icon: Zap,            label: "Wallet" },
+        { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
+        { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
+        { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
+        { path: "/wallet",          icon: Zap,            label: t("nav.wallet") },
       ],
     },
     {
-      label: "Competitions",
+      label: t("nav.competitions"),
       items: [
-        { path: "/competitions",    icon: Star,      label: "Competitions" },
-        { path: "/tournaments",     icon: Trophy,    label: "Tournaments" },
-        { path: "/international",   icon: Globe2,    label: "International" },
-        { path: "/register-league", icon: Shield,    label: "Register" },
-        { path: "/rankings",        icon: BarChart3, label: "Rankings" },
+        { path: "/competitions",    icon: Star,      label: t("nav.competitions") },
+        { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
+        { path: "/international",   icon: Globe2,    label: t("nav.international") },
+        { path: "/register-league", icon: Shield,    label: t("nav.register") },
+        { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
     {
-      label: "Discover",
+      label: t("nav.discover"),
       items: [
-        { path: "/news",  icon: Newspaper,   label: "News" },
-        { path: "/community", icon: MessagesSquare, label: "Discord" },
-        { path: "/store", icon: ShoppingBag, label: "Store" },
+        { path: "/news",  icon: Newspaper,   label: t("nav.news") },
+        { path: "/community", icon: MessagesSquare, label: t("nav.discord") },
+        { path: "/store", icon: ShoppingBag, label: t("nav.store") },
       ],
     },
   ];
@@ -244,9 +246,9 @@ function getAdminGroups() {
   ];
 }
 
-/* ── EAFC26 design tokens ─────────────────────────────────── */
+/* ── Layout typography ───────────────────────────────────── */
 const TEAL = "#00E5BD";
-const headingFont = { fontFamily: "var(--font-heading), 'Barlow Condensed', sans-serif", fontStyle: "italic" };
+const headingFont = { fontFamily: "var(--font-heading)" };
 
 const MOBILE_WALKTHROUGHS = [
   {
@@ -553,6 +555,8 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
 
 const NAV_LABEL_KEYS = {
   "Home": "home",
+  "Welcome": "welcome",
+  "Dashboard": "dashboard",
   "Matchs": "matches",
   "Matches": "matches",
   "Game Day": "gameDay",
@@ -876,17 +880,17 @@ function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournament
   }
   if (accountMode === "club") {
     return [
-      { path: "/",                          icon: Home,         label: "Home"     },
-      { path: "/game-day",                  icon: Zap,          label: "Matchs"   },
-      { path: "/competitions",              icon: Trophy,       label: "Compete"  },
-      { path: clubPath || "/clubs",         icon: Shield,       label: "Club"     },
+      { path: "/dashboard",                 icon: LayoutDashboard, label: "Dashboard" },
+      { path: "/game-day",                  icon: Zap,             label: "Matchs"   },
+      { path: "/competitions",              icon: Trophy,          label: "Compete"  },
+      { path: clubPath || "/clubs",         icon: Shield,          label: "Club"     },
     ];
   }
   return [
-    { path: "/",                          icon: Home,         label: "Home"    },
-    { path: "/game-day",                  icon: Zap,          label: "Matchs"  },
-    { path: "/competitions",              icon: Trophy,       label: "Compete" },
-    { path: clubPath || "/clubs",         icon: Shield,       label: "Club"    },
+    { path: "/dashboard",                 icon: LayoutDashboard, label: "Dashboard" },
+    { path: "/game-day",                  icon: Zap,             label: "Matchs"  },
+    { path: "/competitions",              icon: Trophy,          label: "Compete" },
+    { path: clubPath || "/clubs",         icon: Shield,          label: "Club"    },
   ];
 }
 
@@ -1046,7 +1050,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
             <div key={group.label} className="mb-4">
               <p
                 className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
-                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 600, color: "rgba(0,229,189,0.45)" }}
+                style={{ fontFamily: "var(--font-body)", fontWeight: 600, color: "rgba(0,229,189,0.45)" }}
               >
                 {translateNavLabel(t, group.label)}
               </p>
@@ -1071,7 +1075,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
                       <span
                         className="text-[11px] text-center leading-tight"
                         style={{
-                          fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                          fontFamily: "var(--font-body)",
                           fontWeight: 600,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
@@ -1217,7 +1221,13 @@ function MobileWalkthrough({ pathname }) {
 function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { totalUnread: chatUnreadTotal } = useChatNotifications();
+  const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
+
+  // Opening the Game Day page clears the unread-chat badge.
+  const onGameDay = pathname === "/game-day" || pathname.startsWith("/game-day/");
+  useEffect(() => {
+    if (onGameDay && chatUnreadTotal > 0) markAllChatsRead();
+  }, [onGameDay, chatUnreadTotal, markAllChatsRead]);
 
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const primaryTabs = getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId);
@@ -1284,7 +1294,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, 
                 <span
                   className="text-[9px] transition-colors"
                   style={{
-                    fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                    fontFamily: "var(--font-body)",
                     fontWeight: 600,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
@@ -1334,7 +1344,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, 
             <span
               className="text-[9px] transition-colors"
               style={{
-                fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                fontFamily: "var(--font-body)",
                 fontWeight: 600,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
@@ -1430,7 +1440,7 @@ function AdminMobileMoreSheet({ open, onClose, pathname }) {
             <div key={group.label} className="mb-4">
               <p
                 className="text-[10px] uppercase tracking-[0.2em] mb-2 px-1"
-                style={{ fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)", fontWeight: 600, color: "rgba(248,113,113,0.68)" }}
+                style={{ fontFamily: "var(--font-body)", fontWeight: 600, color: "rgba(248,113,113,0.68)" }}
               >
                 {group.label}
               </p>
@@ -1455,7 +1465,7 @@ function AdminMobileMoreSheet({ open, onClose, pathname }) {
                       <span
                         className="text-[11px] text-center leading-tight"
                         style={{
-                          fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                          fontFamily: "var(--font-body)",
                           fontWeight: 600,
                           letterSpacing: "0.08em",
                           textTransform: "uppercase",
@@ -1527,7 +1537,7 @@ function AdminMobileBottomBar({ pathname }) {
                 <span
                   className="text-[9px] transition-colors"
                   style={{
-                    fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                    fontFamily: "var(--font-body)",
                     fontWeight: 600,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
@@ -1565,7 +1575,7 @@ function AdminMobileBottomBar({ pathname }) {
             <span
               className="text-[9px] transition-colors"
               style={{
-                fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+                fontFamily: "var(--font-body)",
                 fontWeight: 600,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
@@ -1637,7 +1647,7 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, subscriptionT
             }}
             className="ml-0.5 flex items-center gap-1 rounded-lg border border-amber-500/45 bg-amber-500/10 px-2 py-1"
             style={{
-              fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+              fontFamily: "var(--font-body)",
               fontWeight: 600,
               fontSize: 9,
               letterSpacing: "0.12em",
@@ -1879,7 +1889,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             aria-label="Theme"
             className="bg-transparent outline-none border border-white/10 rounded-lg px-3 h-11 min-h-[44px] text-[11px] uppercase appearance-none cursor-pointer"
             style={{
-              fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
+              fontFamily: "var(--font-body)",
               fontWeight: 600,
               letterSpacing: "0.08em",
               color: "rgba(255,255,255,0.7)",
@@ -1926,6 +1936,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
 export default function Layout() {
   const location  = useLocation();
   const navigate  = useNavigate();
+  const { t } = useTranslation();
   const { user: authContextUser } = useAuth();
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [authUser,         setAuthUser]         = useState(null);
@@ -2020,7 +2031,10 @@ export default function Layout() {
         setShowProfileModal(true);
       } else {
         localStorage.setItem("profile-completed", "true");
-        if (!p.club_id && !sessionStorage.getItem("club-onboarding-dismissed"))
+        // Keep prompting until the player actually has a club (owner OR member).
+        // No permanent "skip": the popup returns on each app load until club
+        // onboarding is done — and can also be resumed from the profile page.
+        if (!c?.id)
           setShowClubModal(true);
       }
     })();
@@ -2051,9 +2065,9 @@ export default function Layout() {
       .catch(() => setTournamentParticipantType("club"));
   }, [isTournamentLimited, limitedTournamentId]);
 
-  const tournamentLimitedGroups = getTournamentLimitedGroups(limitedTournamentId, tournamentParticipantType);
-  const playerGroups = getPlayerGroups(clubPath);
-  const ownerGroups = getOwnerGroups(clubPath);
+  const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
+  const playerGroups = getPlayerGroups(t, clubPath);
+  const ownerGroups = getOwnerGroups(t, clubPath);
   const adminGroups = getAdminGroups();
   const headerNavGroups = showAdminHeader
     ? adminGroups
@@ -2098,7 +2112,8 @@ export default function Layout() {
         open={showClubModal && !showProfileModal}
         player={myPlayer}
         onComplete={(club) => {
-          sessionStorage.setItem("club-onboarding-dismissed", "true");
+          // "Skip for now" just closes it — it returns on the next app load
+          // until the player has joined or created a club.
           setShowClubModal(false);
           if (club) {
             setMyClubId(club.id);

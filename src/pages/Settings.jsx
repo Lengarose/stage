@@ -494,13 +494,13 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground">{t("settingsPage.languageDescription")}</p>
           </div>
           <Select value={localLanguage} onValueChange={(val) => { setLocalLanguage(val); setContextLanguage(val); }}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
               {SUPPORTED_LANGUAGES.map(l => (
-                <SelectItem key={l.value} value={l.value}>
-                  {t(`languageNames.${l.value}`)} · {l.nativeLabel}
+                <SelectItem key={l.value} value={l.value} style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
+                  {l.nativeLabel}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -82,7 +82,7 @@ async function writeAuditLog({ admin, action, table, id, before, after }) {
   }
 }
 
-function makeRouter({ table, columns, jsonColumns = [] }) {
+function makeRouter({ table, columns, jsonColumns = [], onCreate = null, onDelete = null }) {
   const router = express.Router();
   const allowedColumns = [...new Set(['id', ...columns])];
   const jsonSet = new Set(jsonColumns);
@@ -136,6 +136,8 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
         before: null,
         after: created[0] || row,
       });
+      // Optional side-effect hook (e.g. tournament-assigned email). Never blocks.
+      if (onCreate && created[0]) { Promise.resolve().then(() => onCreate(created[0])).catch((e) => console.error(`[${table}.onCreate]`, e.message)); }
       res.status(201).json(created[0]);
     } catch (err) {
       console.error(err);
@@ -190,6 +192,7 @@ function makeRouter({ table, columns, jsonColumns = [] }) {
         before: existing[0],
         after: null,
       });
+      if (onDelete && existing[0]) { Promise.resolve().then(() => onDelete(existing[0])).catch((e) => console.error(`[${table}.onDelete]`, e.message)); }
       res.json({ success: true });
     } catch (err) {
       console.error(err);

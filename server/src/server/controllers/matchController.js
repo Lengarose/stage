@@ -6,6 +6,81 @@ const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadc
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
+const { notifyMatchResultPlayer, notifyMatchResultAdmin, notifyMatchDay } = require('../services/notifications');
+
+// Emails both participants that a match has been scheduled. Fire-and-forget.
+async function sendMatchDayEmails(record) {
+  try {
+    if (!record) return;
+    const kickoff = record.scheduled_date || record.match_date || record.played_at || null;
+    const competition = record.competition_name || record.competition_type || null;
+    const homeName = record.home_player_name || record.home_club_name || 'Home';
+    const awayName = record.away_player_name || record.away_club_name || 'Away';
+
+    const [homeP, awayP, homeC, awayC] = await Promise.all([
+      record.home_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.home_player_id]) : [],
+      record.away_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.away_player_id]) : [],
+      record.home_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.home_club_id]) : [],
+      record.away_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.away_club_id]) : [],
+    ]);
+    const homeEmail = homeP[0]?.email || homeC[0]?.owner_email || record.home_owner_email || null;
+    const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
+    if (homeEmail) notifyMatchDay({ to: homeEmail, name: homeP[0]?.gamertag || homeName, opponent: awayName, competition, kickoff });
+    if (awayEmail) notifyMatchDay({ to: awayEmail, name: awayP[0]?.gamertag || awayName, opponent: homeName, competition, kickoff });
+  } catch (err) {
+    console.error('[matchController] match-day emails failed:', err.message);
+  }
+}
+
+// Emails both players their result/points and notifies admins of the winner.
+// Fire-and-forget: never blocks or throws into the match-processing path.
+async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore }) {
+  try {
+    const homeName = record.home_player_name || record.home_club_name || 'Home';
+    const awayName = record.away_player_name || record.away_club_name || 'Away';
+    const competition = record.competition_name || record.competition_type || null;
+
+    // Resolve recipient emails (player email first, else club owner email).
+    const [homeP, awayP, homeC, awayC] = await Promise.all([
+      record.home_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.home_player_id]) : [],
+      record.away_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.away_player_id]) : [],
+      record.home_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.home_club_id]) : [],
+      record.away_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.away_club_id]) : [],
+    ]);
+    const homeEmail = homeP[0]?.email || homeC[0]?.owner_email || record.home_owner_email || null;
+    const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
+
+    if (homeEmail) {
+      notifyMatchResultPlayer({
+        to: homeEmail, name: homeP[0]?.gamertag || homeName,
+        isWinner: homeResult === 'win', isDraw: homeResult === 'draw',
+        yourScore: homeScore, oppScore: awayScore, opponent: awayName, competition,
+      });
+    }
+    if (awayEmail) {
+      const awayResult = homeResult === 'win' ? 'loss' : (homeResult === 'loss' ? 'win' : 'draw');
+      notifyMatchResultPlayer({
+        to: awayEmail, name: awayP[0]?.gamertag || awayName,
+        isWinner: awayResult === 'win', isDraw: awayResult === 'draw',
+        yourScore: awayScore, oppScore: homeScore, opponent: homeName, competition,
+      });
+    }
+
+    // Admin result notification (formatted table).
+    const isDraw = homeResult === 'draw';
+    const winner = isDraw ? null : (homeResult === 'win' ? homeName : awayName);
+    const admins = await EXECUTESQL("SELECT email FROM users WHERE role_id IN (0, 2) AND email IS NOT NULL LIMIT 50");
+    for (const a of admins) {
+      notifyMatchResultAdmin({
+        to: a.email, competition,
+        home: homeName, away: awayName,
+        homeScore, awayScore, winner, isDraw,
+      });
+    }
+  } catch (err) {
+    console.error('[matchController] result emails failed:', err.message);
+  }
+}
 
 async function getAuthContext(req) {
   const userId = req.user?.id;
@@ -198,6 +273,9 @@ async function runPostConfirmProcessing(record) {
   }
 
   await EXECUTESQL('UPDATE matches SET stats_processed = 1, updated_date = NOW() WHERE id = ?', [record.id]);
+
+  // Notify players + admins now that the result is final (fire-and-forget).
+  sendMatchResultEmails(record, { homeResult, homeScore, awayScore });
 }
 
 async function enrichMatchRows(rows) {
@@ -388,6 +466,8 @@ router.post('/', async (req, res) => {
     const created = await match.selectOne(match.id);
     const record  = created[0];
     broadcastMatch(record);
+    // Notify both sides that a match has been scheduled (fire-and-forget).
+    sendMatchDayEmails(record);
     res.status(201).json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);

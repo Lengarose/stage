@@ -89,10 +89,10 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
 
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="font-heading text-2xl font-bold text-foreground flex items-center gap-2">
             <Users className="w-6 h-6 text-primary" /> Add Participants — Clubs
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="font-subtitle text-sm text-muted-foreground mt-1">
             {tournament?.name} · <span className={cn("font-semibold", isFull ? "text-destructive" : "text-success")}>{selected.size}/{maxTeams} slots filled</span>
           </p>
         </div>

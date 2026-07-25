@@ -1499,7 +1499,7 @@ export default function Admin(props) {
             >
               ADMIN
             </h1>
-            <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest">STAGE Control Panel</p>
+            <p className="font-subtitle text-xs text-muted-foreground mt-1 uppercase tracking-widest">STAGE Control Panel</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

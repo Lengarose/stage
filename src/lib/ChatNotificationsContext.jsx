@@ -174,6 +174,17 @@ export function ChatNotificationsProvider({ children }) {
     try { await stageClient.chatReads.markRead(channelId); } catch { /* non-fatal */ }
   }, []);
 
+  // Mark every channel with unread messages as read (used when the user
+  // opens the Game Day page — the badge should clear immediately).
+  const unreadCountsRef = useRef(unreadCounts);
+  useEffect(() => { unreadCountsRef.current = unreadCounts; }, [unreadCounts]);
+  const markAllRead = useCallback(async () => {
+    const ids = Object.keys(unreadCountsRef.current || {});
+    if (!ids.length) return;
+    setUnreadCounts({});
+    await Promise.all(ids.map((id) => stageClient.chatReads.markRead(id).catch(() => { /* non-fatal */ })));
+  }, []);
+
   const setGlobalMuted = useCallback((value) => {
     const v = Boolean(value);
     setGlobalMutedState(v);
@@ -243,6 +254,7 @@ export function ChatNotificationsProvider({ children }) {
     registerChannel,
     setChannelOpen,
     markChannelRead,
+    markAllRead,
     setGlobalMuted,
     toggleGlobalMuted,
     setChannelMuted,
@@ -251,7 +263,7 @@ export function ChatNotificationsProvider({ children }) {
     getUnreadCount: (channelId) => unreadCounts[channelId] || 0,
   }), [
     unreadCounts, totalUnread, openChannels, globalMuted, channelMutes,
-    registerChannel, setChannelOpen, markChannelRead, setGlobalMuted,
+    registerChannel, setChannelOpen, markChannelRead, markAllRead, setGlobalMuted,
     toggleGlobalMuted, setChannelMuted, toggleChannelMuted,
   ]);
 
@@ -276,6 +288,7 @@ export function useChatNotifications() {
     registerChannel: () => {},
     setChannelOpen: () => {},
     markChannelRead: async () => {},
+    markAllRead: async () => {},
     setGlobalMuted: () => {},
     toggleGlobalMuted: () => {},
     setChannelMuted: () => {},

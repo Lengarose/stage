@@ -143,6 +143,12 @@ class TwitchStrategy extends OAuth2Strategy {
     this._oauth2._customHeaders = { 'Client-ID': options.clientID };
   }
 
+  // force_verify=true → Twitch always re-shows the authorize screen instead of
+  // silently re-using the logged-in account (Twitch equivalent of select_account).
+  authorizationParams() {
+    return { force_verify: 'true' };
+  }
+
   userProfile(accessToken, done) {
     this._oauth2.get('https://api.twitch.tv/helix/users', accessToken, (err, body) => {
       if (err) return done(err);

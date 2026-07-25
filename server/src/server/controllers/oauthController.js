@@ -8,6 +8,7 @@ const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
 const { get } = require('../../constants/env');
+const { notifyLogin } = require('../services/notifications');
 const FRONTEND_URL = get('FRONTEND_URL') || 'http://localhost:3000';
 const SERVER_URL   = get('SERVER_URL')   || 'http://localhost:8080';
 
@@ -27,6 +28,13 @@ async function issueAndRedirect(res, player) {
   );
 
   const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [userId]);
+
+  // Sign-in notification (mailer skips @stage.local placeholder addresses).
+  notifyLogin({
+    to: player.email,
+    name: player.gamertag || (player.email ? player.email.split('@')[0] : 'there'),
+    when: new Date(),
+  });
 
   // Redirect to frontend with tokens in query — frontend stores them and closes the OAuth window
   const params = new URLSearchParams({
@@ -61,7 +69,9 @@ function requireTwitchOAuth(req, res, next) {
 // ── Google ──────────────────────────────────────────────────────────────────
 router.get('/google',
   requireGoogleOAuth,
-  passport.authenticate('google', { session: false, scope: ['profile', 'email'] })
+  // prompt=select_account → always show the account chooser instead of silently
+  // re-using the browser's remembered Google session.
+  passport.authenticate('google', { session: false, scope: ['profile', 'email'], prompt: 'select_account' })
 );
 router.get('/google/callback',
   requireGoogleOAuth,
@@ -76,7 +86,8 @@ router.get('/google/callback',
 // ── Microsoft / Outlook ─────────────────────────────────────────────────────
 router.get('/microsoft',
   requireMicrosoftOAuth,
-  passport.authenticate('microsoft', { session: false })
+  // prompt=select_account → always show the Microsoft account chooser.
+  passport.authenticate('microsoft', { session: false, prompt: 'select_account' })
 );
 router.get('/microsoft/callback',
   requireMicrosoftOAuth,

@@ -61,6 +61,8 @@ class Player {
     this.banner_url              = body.banner_url;
     this.banner_position         = body.banner_position;
     this.banner_zoom             = body.banner_zoom;
+    this.eafc_club_id            = body.eafc_club_id ?? null;
+    this.eafc_club_name          = body.eafc_club_name ?? null;
   }
 
   selectAll(page = 1) {
@@ -134,7 +136,8 @@ class Player {
       verified_platform=?, verified_platform_handle=?, identity_verified_at=?,
       role=?, status=?, dressing_room_seat=?, is_ready=?,
       club_id=?, notification_settings=?, club_roles=?,
-      banner_url=?, banner_position=?, banner_zoom=?
+      banner_url=?, banner_position=?, banner_zoom=?,
+      eafc_club_id=?, eafc_club_name=?
       WHERE id=?`;
     const values = [
       this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
@@ -151,6 +154,7 @@ class Player {
       this.role, this.status, this.dressing_room_seat, this.is_ready,
       this.club_id, this.notification_settings, this.club_roles,
       this.banner_url, this.banner_position, this.banner_zoom,
+      this.eafc_club_id, this.eafc_club_name,
       id,
     ];
     return EXECUTESQL(sql, values);

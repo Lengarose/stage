@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 import { useChatChannel } from "@/lib/ChatNotificationsContext";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -44,6 +45,7 @@ const POSITION_OPTIONS = [
 const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
 
 export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId } = {}) {
+  const { t } = useTranslation();
   const params = useParams();
   const id = overrideClubId || params.id;
   const [club, setClub] = useState(null);
@@ -508,7 +510,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
   }
 
   if (!club) {
-    return <div className="p-6 text-center"><p className="text-white/50">Club not found.</p><Link to="/clubs"><Button variant="outline" className="mt-4">Back</Button></Link></div>;
+    return <div className="p-6 text-center"><p className="text-white/50">{t("commonPages.cdClubNotFound")}</p><Link to="/clubs"><Button variant="outline" className="mt-4">{t("commonPages.profBack")}</Button></Link></div>;
   }
 
   const confirmedMatches = matches.filter(m => m.status === "completed");
@@ -534,28 +536,28 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
     D: "bg-warning/15 text-warning border-warning/30",
   };
   const tabLabels = {
-    posts: "Posts",
-    stats: "Stats",
-    matches: "Matches",
-    chat: "Chat",
-    squad: "Squad",
-    trophies: "Trophies",
-    history: "History",
-    operations: "Operations",
-    requests: `Requests (${joinRequests.length})`,
-    stadium: "Stadium",
-    contracts: "Contracts",
-    finance: "Finance",
-    shirts: "Shirts",
+    posts: t("commonPages.profTab_posts"),
+    stats: t("commonPages.profTab_stats"),
+    matches: t("commonPages.matches"),
+    chat: t("commonPages.cdChat"),
+    squad: t("nav.squad"),
+    trophies: t("commonPages.profTab_trophies"),
+    history: t("commonPages.cdHistory"),
+    operations: t("commonPages.profOperations"),
+    requests: `${t("commonPages.profJoinRequests")} (${joinRequests.length})`,
+    stadium: t("commonPages.cdStadium"),
+    contracts: t("commonPages.contracts"),
+    finance: t("commonPages.cdFinance"),
+    shirts: t("commonPages.cdShirts"),
   };
   const tabGroups = [
-    { label: "Profile", tabs: ["posts", "stats", "matches", "chat"] },
-    { label: "Squad", tabs: ["squad", "trophies", "history"] },
-    { label: "Operations", tabs: [
+    { label: t("nav.profile"), tabs: ["posts", "stats", "matches", "chat"] },
+    { label: t("nav.squad"), tabs: ["squad", "trophies", "history"] },
+    { label: t("commonPages.profOperations"), tabs: [
       ...(canOpenOperations ? ["operations"] : []),
       ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : []),
     ] },
-    { label: "Club Office", tabs: isOwner ? ["stadium", "contracts", "finance", "shirts"] : [] },
+    { label: t("commonPages.cdClubOffice"), tabs: isOwner ? ["stadium", "contracts", "finance", "shirts"] : [] },
   ].filter(group => group.tabs.length > 0);
   function changeClubTab(tab) {
     setActiveTab(tab);
@@ -568,16 +570,16 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-[#0d1225] border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete Club</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">{t("commonPages.cdDeleteClub")}</AlertDialogTitle>
             <AlertDialogDescription className="text-white/50">
-              Are you sure you want to delete <strong className="text-white">{club?.name}</strong>? This cannot be undone.
+              {t("commonPages.cdDeleteConfirm", { name: club?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/20">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-white/20">{t("commonPages.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteClub} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-              {deleting ? "Deleting..." : "Delete Club"}
+              {deleting ? t("commonPages.cdDeleting") : t("commonPages.cdDeleteClub")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -586,14 +588,14 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
       {/* Back */}
       <div className="px-4 pt-4 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
         </button>
         {isAdminTakeover && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 ml-auto">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
-            <span className="text-xs text-warning font-medium">Admin Takeover</span>
+            <span className="text-xs text-warning font-medium">{t("commonPages.cdAdminTakeover")}</span>
             <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); localStorage.setItem('stage_admin_effective_role_id', '0'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
-              <LogOut className="w-3 h-3" /> Exit
+              <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
             </button>
           </div>
         )}
@@ -611,7 +613,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
         {canEdit && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-              <Camera className="w-4 h-4" /> Change Banner
+              <Camera className="w-4 h-4" /> {t("commonPages.profChangeBanner")}
             </span>
           </div>
         )}
@@ -621,7 +623,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
               onClick={() => setEditClubOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors text-white/70 text-xs font-medium"
             >
-              <Edit2 className="w-4 h-4" /> Edit Club
+              <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
             </button>
           </div>
         )}
@@ -662,7 +664,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
                 onClick={toggleFollow}
                 className={cn(isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-blue-600 hover:bg-blue-500 text-white")}
               >
-                {isFollowing ? "Unfollow" : "Follow"}
+                {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
               </Button>
             )}
           </div>
@@ -685,7 +687,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
           <div className="flex items-center gap-3 text-sm">
             <button onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
               <span className="font-bold text-white">{followersCount}</span>
-              <span className="text-white/40 ml-1 text-xs">followers</span>
+              <span className="text-white/40 ml-1 text-xs">{t("commonPages.cdFollowersLower")}</span>
             </button>
           </div>
           {/* Form display */}
@@ -700,23 +702,23 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
           <div className="pt-2">
             {trialRequestSent ? (
               <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning font-medium">
-                <Clock className="w-3 h-3" /> Trial Request Sent
+                <Clock className="w-3 h-3" /> {t("commonPages.cdTrialSent")}
               </span>
             ) : (
               <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="border-white/20 text-white/60 hover:text-white hover:border-white/40 text-xs gap-1.5 h-7 px-3">
-                    <ClipboardList className="w-3 h-3" /> Request Trial
+                    <ClipboardList className="w-3 h-3" /> {t("commonPages.cdRequestTrial")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-[#0d1225] border-white/10 max-h-[85vh] overflow-y-auto">
-                  <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> Request Trial at {club.name}</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> {t("commonPages.cdRequestTrialAt", { name: club.name })}</DialogTitle></DialogHeader>
                   <div className="space-y-4 mt-2">
                     <p className="text-sm text-white/60 leading-relaxed">
-                      Send a trial request to <span className="text-white font-medium">{club.name}</span>. The club owner will receive your request in their inbox and can respond with a <span className="text-primary font-medium">trial contract</span> (5 games / 14 days).
+                      {t("commonPages.cdTrialIntro", { name: club.name })}
                     </p>
                     <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">Player Name (GamerTag)</label>
+                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdPlayerName")}</label>
                       <Input
                         value={myPlayer?.gamertag || ""}
                         readOnly
@@ -725,10 +727,10 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-white/50">Position</label>
+                        <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.position")}</label>
                         <Select value={trialPosition || (myPlayer?.position || "")} onValueChange={setTrialPosition}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue placeholder="Select position" />
+                            <SelectValue placeholder={t("commonPages.cdSelectPosition")} />
                           </SelectTrigger>
                           <SelectContent>
                             {POSITION_OPTIONS.map((pos) => (
@@ -738,10 +740,10 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-white/50">Which Console</label>
+                        <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdWhichConsole")}</label>
                         <Select value={trialConsole || (myPlayer?.platform || "")} onValueChange={setTrialConsole}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue placeholder="Select console" />
+                            <SelectValue placeholder={t("commonPages.cdSelectConsole")} />
                           </SelectTrigger>
                           <SelectContent>
                             {CONSOLE_OPTIONS.map((consoleName) => (
@@ -752,23 +754,23 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">Experience</label>
+                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdExperience")}</label>
                       <Textarea
                         value={trialExperience}
                         onChange={e => setTrialExperience(e.target.value)}
                         className="bg-white/5 border-white/10 resize-none"
                         rows={3}
-                        placeholder="Share your level, past clubs, strengths, and availability..."
+                        placeholder={t("commonPages.cdExperiencePlaceholder")}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">Additional Message</label>
+                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdAdditionalMessage")}</label>
                     <Textarea
                       value={trialMsg}
                       onChange={e => setTrialMsg(e.target.value)}
                       className="bg-white/5 border-white/10 resize-none"
                       rows={3}
-                        placeholder="Optional custom note for this club..."
+                        placeholder={t("commonPages.cdAdditionalPlaceholder")}
                     />
                     </div>
                     <Button
@@ -778,11 +780,11 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
                       disabled={!trialExperience.trim()}
                       className="w-full border-white/20 text-white hover:border-primary/40 hover:text-primary"
                     >
-                      Show Request Message
+                      {t("commonPages.cdShowRequestMessage")}
                     </Button>
                     {showTrialPreview && (
                       <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                        <p className="text-xs uppercase tracking-widest text-primary/90 font-semibold">Request Preview</p>
+                        <p className="text-xs uppercase tracking-widest text-primary/90 font-semibold">{t("commonPages.cdRequestPreview")}</p>
                         <pre className="whitespace-pre-wrap text-sm text-white/85 leading-relaxed font-sans">
 {`Hello ${club.name} management team,
 
@@ -803,7 +805,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                     )}
                     <Button onClick={sendTrialRequest} disabled={sendingTrial || !trialExperience.trim()} className="w-full bg-primary text-primary-foreground gap-2">
                       {sendingTrial ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      {sendingTrial ? "Sending..." : "Send Trial Request"}
+                      {sendingTrial ? t("commonPages.cdSending") : t("commonPages.cdSendTrialRequest")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -879,33 +881,33 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-success">{wins}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Wins</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profWins")}</p>
                 </div>
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-warning">{draws}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Draws</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdDraws")}</p>
                 </div>
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-destructive">{losses}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Losses</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profLosses")}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-primary">{winRate}%</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Win Rate</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdWinRate")}</p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-white">{totalGames}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Matches</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.matches")}</p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-white">{club.goals_scored || 0}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Goals Scored</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdGoalsScored")}</p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                   <p className="font-heading text-3xl font-black text-white">{club.goals_conceded || 0}</p>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">Goals Conceded</p>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdGoalsConceded")}</p>
                 </div>
               </div>
               <ClubPlayerStats players={players} clubId={id} />
@@ -917,13 +919,13 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             <div className="space-y-6">
               {tournamentMatches.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Upcoming</p>
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.homeUpcoming")}</p>
                   <div className="space-y-2">
                     {tournamentMatches.map(m => {
                       const isHome = m.home_club_id === id;
                       const oppName = isHome ? m.away_club_name : m.home_club_name;
                       const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
-                      const competition = deriveCompetitionLabel(m, tournamentMap);
+                      const competition = deriveCompetitionLabel(m, tournamentMap, t);
                       return (
                         <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -941,11 +943,11 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 </div>
               )}
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">Past Matches</p>
+                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.cdPastMatches")}</p>
                 {matches.length === 0 ? (
                   <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                     <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                    <p className="text-sm text-white/40">No matches recorded yet.</p>
+                    <p className="text-sm text-white/40">{t("commonPages.cdNoMatches")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -955,7 +957,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                       const oppScore = isHome ? m.away_score : m.home_score;
                       const oppName = isHome ? m.away_club_name : m.home_club_name;
                       const result = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "D";
-                      const competition = deriveCompetitionLabel(m, tournamentMap);
+                      const competition = deriveCompetitionLabel(m, tournamentMap, t);
                       return (
                         <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
                           <span className={cn("text-xs font-bold px-2 py-0.5 rounded border shrink-0", OUTCOME_STYLE[result])}>{result}</span>
@@ -977,12 +979,12 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             <div className="rounded-xl border border-white/10 bg-white/[0.02]">
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-primary" />
-                <p className="text-sm font-semibold text-white">Club Chat</p>
+                <p className="text-sm font-semibold text-white">{t("commonPages.cdClubChat")}</p>
                 <button
                   type="button"
                   onClick={toggleClubChatMuted}
-                  title={isClubChatMuted ? "Unmute chat notifications" : "Mute chat notifications"}
-                  aria-label={isClubChatMuted ? "Unmute chat notifications" : "Mute chat notifications"}
+                  title={isClubChatMuted ? t("commonPages.cdUnmute") : t("commonPages.cdMute")}
+                  aria-label={isClubChatMuted ? t("commonPages.cdUnmute") : t("commonPages.cdMute")}
                   className={cn(
                     "ml-auto p-1.5 rounded-md hover:bg-white/10 transition-colors",
                     isClubChatMuted ? "text-white/40" : "text-primary"
@@ -993,7 +995,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               </div>
               <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2">
                 {clubChatMessages.length === 0 ? (
-                  <p className="text-sm text-white/45 text-center py-6">No messages yet. Start the conversation.</p>
+                  <p className="text-sm text-white/45 text-center py-6">{t("commonPages.cdNoMessages")}</p>
                 ) : (
                   clubChatMessages.map((msg) => {
                     const mine = msg.sender_email === currentUser?.email;
@@ -1023,7 +1025,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                       sendClubChatMessage();
                     }
                   }}
-                  placeholder="Write a message to your club..."
+                  placeholder={t("commonPages.cdChatPlaceholder")}
                   className="bg-white/5 border-white/10 text-white"
                 />
                 <Button
@@ -1033,7 +1035,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                   className="gap-1.5"
                 >
                   {sendingClubChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Send
+                  {t("commonPages.cdSend")}
                 </Button>
               </div>
             </div>
@@ -1044,7 +1046,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             {players.length === 0 ? (
               <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                 <Users className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">No players registered yet.</p>
+                <p className="text-white/40 text-sm">{t("commonPages.cdNoPlayers")}</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-3">
@@ -1089,17 +1091,17 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           {/* Season History */}
           <TabsContent value="history" className="px-4 pt-4 pb-6">
             {!historyLoaded ? (
-              <p className="text-xs text-white/40 py-8 text-center">Loading history…</p>
+              <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdLoadingHistory")}</p>
             ) : historyRows.length === 0 ? (
-              <p className="text-xs text-white/40 py-8 text-center">No season history yet.</p>
+              <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdNoHistory")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-white/40 uppercase tracking-widest border-b border-white/10">
-                      <th className="text-left py-2 pr-3 font-semibold">Competition</th>
-                      <th className="text-left py-2 pr-3 font-semibold">Season</th>
-                      <th className="text-center py-2 px-2 font-semibold">Pos</th>
+                      <th className="text-left py-2 pr-3 font-semibold">{t("commonPages.cdCompetition")}</th>
+                      <th className="text-left py-2 pr-3 font-semibold">{t("commonPages.cdSeason")}</th>
+                      <th className="text-center py-2 px-2 font-semibold">{t("commonPages.cdPos")}</th>
                       <th className="text-center py-2 px-2 font-semibold">W</th>
                       <th className="text-center py-2 px-2 font-semibold">D</th>
                       <th className="text-center py-2 px-2 font-semibold">L</th>
@@ -1170,14 +1172,14 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                       <p className="font-bold text-white">{req.player_gamertag}</p>
                       <p className="text-xs text-white/40">{req.player_email}</p>
                       {req.message && <p className="text-sm text-white/40 mt-2 italic">"{req.message}"</p>}
-                      <p className="text-xs text-primary/80 mt-2">Approvals now go through contracts. Use Operations to offer a trial or full contract.</p>
+                      <p className="text-xs text-primary/80 mt-2">{t("commonPages.cdApprovalsNote")}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" onClick={() => setActiveTab("operations")} className="bg-success/20 text-success hover:bg-success/30 border-0">
-                        <Check className="w-4 h-4 mr-1" /> Open Operations
+                        <Check className="w-4 h-4 mr-1" /> {t("commonPages.cdOpenOperations")}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => declineJoinRequest(req.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10">
-                        <X className="w-4 h-4 mr-1" /> Decline
+                        <X className="w-4 h-4 mr-1" /> {t("commonPages.profDecline")}
                       </Button>
                     </div>
                   </div>
@@ -1212,9 +1214,9 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
       <Dialog open={followersModalOpen} onOpenChange={setFollowersModalOpen}>
         <DialogContent className="max-w-md bg-[#0d1225] border-white/10 text-white">
-          <DialogHeader><DialogTitle>Followers</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("commonPages.cdFollowers")}</DialogTitle></DialogHeader>
           <div className="max-h-96 overflow-y-auto">
-            <FollowList items={followersList} emptyLabel="No followers yet." onClose={() => setFollowersModalOpen(false)} />
+            <FollowList items={followersList} emptyLabel={t("commonPages.cdNoFollowers")} onClose={() => setFollowersModalOpen(false)} />
           </div>
         </DialogContent>
       </Dialog>
@@ -1230,7 +1232,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
       <Dialog open={logoPreviewOpen} onOpenChange={setLogoPreviewOpen}>
         <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm">
-          <DialogHeader><DialogTitle>{club.name} Logo</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("commonPages.cdLogoTitle", { name: club.name })}</DialogTitle></DialogHeader>
           <div className="flex items-center justify-center p-4">
             <img src={club.logo_url} alt={club.name} className="w-64 h-64 rounded-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
           </div>
@@ -1240,19 +1242,19 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
       {/* Edit Club Dialog */}
       <Dialog open={editClubOpen} onOpenChange={setEditClubOpen}>
         <DialogContent className="bg-[#0d1225] border-white/10 max-w-lg">
-          <DialogHeader><DialogTitle className="text-xl font-bold">Edit Club</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-xl font-bold">{t("commonPages.profEditClub")}</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Club Name</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profClubName")}</label>
                 <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-white/5 border-white/10" />
               </div>
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Tag (max 5)</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.cdTagMax5")}</label>
                 <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-white/5 border-white/10" />
               </div>
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Platform</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.platform")}</label>
                 <Select value={clubForm.platform} onValueChange={v => setClubForm(f => ({ ...f, platform: v }))}>
                   <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1263,7 +1265,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Region</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profRegion")}</label>
                 <Select value={clubForm.region} onValueChange={v => setClubForm(f => ({ ...f, region: v }))}>
                   <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1274,9 +1276,9 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 </Select>
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Country</label>
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.country")}</label>
                 <Select value={clubForm.country_code || ""} onValueChange={v => setClubForm(f => ({ ...f, country_code: v }))}>
-                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder={t("commonPages.profSelectCountryShort")} /></SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                   </SelectContent>
@@ -1284,8 +1286,8 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               </div>
             </div>
             <div>
-              <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">Bio / Description</label>
-              <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-white/5 border-white/10 resize-none" rows={3} placeholder="Describe your club..." />
+              <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profClubDesc")}</label>
+              <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-white/5 border-white/10 resize-none" rows={3} placeholder={t("commonPages.profClubDescPlaceholder")} />
             </div>
             <Button
               onClick={async () => {
@@ -1305,7 +1307,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               disabled={savingClub || !clubForm.name || !clubForm.tag}
               className="w-full bg-primary text-primary-foreground"
             >
-              <Save className="w-4 h-4 mr-2" /> {savingClub ? "Saving..." : "Save Changes"}
+              <Save className="w-4 h-4 mr-2" /> {savingClub ? t("commonPages.profSaving") : t("commonPages.profSaveChanges")}
             </Button>
             {isOwner && (
               <Button
@@ -1313,7 +1315,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 onClick={() => { setEditClubOpen(false); setDeleteDialogOpen(true); }}
                 className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive border border-destructive/20 mt-1"
               >
-                <Trash2 className="w-4 h-4 mr-2" /> Delete Club
+                <Trash2 className="w-4 h-4 mr-2" /> {t("commonPages.cdDeleteClub")}
               </Button>
             )}
           </div>
@@ -1323,25 +1325,26 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
   );
 }
 
-function deriveCompetitionLabel(match, tournamentMap = {}) {
-  if (!match.tournament_id || match.tournament_id === "ranked") return "Ranked Match";
-  const t = tournamentMap[match.tournament_id];
-  if (!t) return "Tournament";
-  if (t.type === "knockout") return `${t.name} · Knockout`;
-  if (t.type === "league") return `${t.name} · League`;
-  if (t.type === "group_stage") return `${t.name} · Group Stage`;
-  if (t.type === "swiss" || t.type === "swiss_ucl") return `${t.name} · Swiss`;
-  if (t.type === "double_elimination") return `${t.name} · Double Elim.`;
-  return t.name || "Tournament";
+function deriveCompetitionLabel(match, tournamentMap = {}, tr = (k) => k) {
+  if (!match.tournament_id || match.tournament_id === "ranked") return tr("commonPages.cdRankedMatch");
+  const tour = tournamentMap[match.tournament_id];
+  if (!tour) return tr("commonPages.cdTournament");
+  if (tour.type === "knockout") return `${tour.name} · ${tr("commonPages.cdKnockout")}`;
+  if (tour.type === "league") return `${tour.name} · ${tr("commonPages.homeLeagues")}`;
+  if (tour.type === "group_stage") return `${tour.name} · ${tr("commonPages.cdGroupStage")}`;
+  if (tour.type === "swiss" || tour.type === "swiss_ucl") return `${tour.name} · ${tr("commonPages.cdSwiss")}`;
+  if (tour.type === "double_elimination") return `${tour.name} · ${tr("commonPages.cdDoubleElim")}`;
+  return tour.name || tr("commonPages.cdTournament");
 }
 
 function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
+  const { t } = useTranslation();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
   const playerRoles = Array.isArray(player.club_roles) ? player.club_roles : [];
   const isPresidentRole = player.role === "president" || player.role === "owner" || playerRoles.includes("president") || playerRoles.includes("owner");
   const isCaptainRole = !isPresidentRole && (player.role === "captain" || playerRoles.includes("captain"));
-  const roleLabel = isPresidentRole ? "President" : isCaptainRole ? "Captain" : player.role === "manager" ? "Member" : (player.role || "Member");
+  const roleLabel = isPresidentRole ? t("commonPages.cdPresident") : isCaptainRole ? t("commonPages.cdCaptain") : player.role === "manager" ? t("commonPages.cdMember") : (player.role || t("commonPages.cdMember"));
 
   async function _toggleFollow(e) {
     e.preventDefault();
@@ -1394,9 +1397,9 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
         </div>
       </div>
       <div className="flex items-center gap-4 mt-3 text-xs text-white/40">
-        <span>{player.goals || 0} goals</span>
-        <span>{player.assists || 0} assists</span>
-        <span>{player.matches_played || 0} matches</span>
+        <span>{player.goals || 0} {t("commonPages.goals").toLowerCase()}</span>
+        <span>{player.assists || 0} {t("commonPages.assists").toLowerCase()}</span>
+        <span>{player.matches_played || 0} {t("commonPages.matches").toLowerCase()}</span>
       </div>
       {isPresident && currentUser?.email !== player.email && !player.club_roles?.includes("president") && (
         <div className="mt-3 flex gap-2" onClick={e => e.preventDefault()}>
@@ -1409,7 +1412,7 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
                 : "border-warning/30 text-warning hover:bg-warning/10"
             )}
           >
-            {player.club_roles?.includes("captain") || player.role === "captain" ? "Captain" : "Make Captain"}
+            {player.club_roles?.includes("captain") || player.role === "captain" ? t("commonPages.cdCaptain") : t("commonPages.cdMakeCaptain")}
           </button>
           <button
             onClick={() => onAssignRole(player, "vice-captain")}
@@ -1420,7 +1423,7 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
                 : "border-primary/30 text-primary hover:bg-primary/10"
             )}
           >
-            {player.club_roles?.includes("vice-captain") || player.role === "vice-captain" ? "Vice-Captain" : "Make Vice-Captain"}
+            {player.club_roles?.includes("vice-captain") || player.role === "vice-captain" ? t("commonPages.cdViceCaptain") : t("commonPages.cdMakeViceCaptain")}
           </button>
         </div>
       )}
@@ -1429,6 +1432,7 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
 }
 
 function FollowList({ items, emptyLabel, onClose }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
@@ -1443,11 +1447,11 @@ function FollowList({ items, emptyLabel, onClose }) {
 
   return (
     <>
-      <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
+      <input type="text" placeholder={t("commonPages.cdSearchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)}
         className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       <div className="space-y-2">
-        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">No results found.</p>}
+        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">{t("commonPages.cdNoResults")}</p>}
         {filtered.map(item => {
           const name = item.target_name || item._player_name || item.follower_email || "Unknown";
           const imageUrl = item.avatar_url || item.logo_url;

@@ -5,6 +5,7 @@ import LogoImg from '@/assets/Stadium Logo.png';
 import TrophiesImg from '@/assets/Trophies.PNG';
 import CoachLuisImg from '@/assets/Coach Luis.PNG';
 import DDZImg from '@/assets/DDZ.PNG';
+import { useTranslation } from '@/hooks/useTranslation';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -181,6 +182,7 @@ const DEFAULT_PICTURE_SECTIONS = [
 
 /* ─── component ──────────────────────────────────────────── */
 export default function Landing({ onSignIn }) {
+  const { t } = useTranslation();
   const [cms, setCms] = useState(null);
 
   useEffect(() => {
@@ -257,12 +259,13 @@ export default function Landing({ onSignIn }) {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-6xl md:text-8xl lg:text-9xl font-black uppercase leading-none tracking-tight mb-6"
+            className="font-heading text-6xl md:text-8xl lg:text-9xl font-black uppercase leading-none tracking-tight mb-6"
+            style={{ transform: "skewX(-6deg)", letterSpacing: "-0.02em" }}
           >
-            <span className="text-white">Your </span>
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Stage</span>
+            <span className="text-white">{t("commonPages.landHeroYour")} </span>
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">{t("commonPages.landHeroStage")}</span>
             <br />
-            <span className="text-white">Awaits</span>
+            <span className="text-white">{t("commonPages.landHeroAwaits")}</span>
           </motion.h1>
 
           <motion.p
@@ -284,13 +287,13 @@ export default function Landing({ onSignIn }) {
               onClick={onSignIn}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black uppercase tracking-widest rounded-xl text-sm transition-all shadow-xl shadow-blue-600/30 hover:shadow-blue-500/40 hover:scale-105"
             >
-              Get Started — It's Free
+              {t("commonPages.landGetStarted")}
             </button>
             <button
               onClick={onSignIn}
               className="px-8 py-4 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold uppercase tracking-widest rounded-xl text-sm transition-all backdrop-blur-sm"
             >
-              Sign In
+              {t("auth.signIn")}
             </button>
           </motion.div>
         </div>
@@ -301,7 +304,7 @@ export default function Landing({ onSignIn }) {
           transition={{ delay: 1.2 }}
           className="absolute bottom-8 flex flex-col items-center gap-1 text-white/30 text-xs"
         >
-          <span className="uppercase tracking-widest text-[10px]">Scroll</span>
+          <span className="uppercase tracking-widest text-[10px]">{t("commonPages.landScroll")}</span>
           <motion.div animate={{ y: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
               <polyline points="6 9 12 15 18 9"/>
@@ -339,16 +342,16 @@ export default function Landing({ onSignIn }) {
       <section className="py-24 px-6 bg-gradient-to-b from-transparent via-blue-950/15 to-transparent">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Everything you need</p>
+            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">{t("commonPages.landEverything")}</p>
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">
-              One Platform.<br />
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Every Feature.</span>
+              {t("commonPages.landOnePlatform")}<br />
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">{t("commonPages.landEveryFeature")}</span>
             </h2>
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {FEATURES.map(({ icon, title, desc, accent, bg, border }, i) => (
-              <FadeIn key={title} delay={i * 0.07}>
+            {FEATURES.map(({ icon, accent, bg, border }, i) => (
+              <FadeIn key={i} delay={i * 0.07}>
                 <motion.div
                   whileHover={{ y: -5, scale: 1.02 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -362,8 +365,8 @@ export default function Landing({ onSignIn }) {
                     <div className="mb-4 inline-flex p-3 rounded-xl" style={{ background: `${accent}20`, color: accent }}>
                       {icon}
                     </div>
-                    <h3 className="text-base font-black uppercase tracking-wide text-white mb-2">{title}</h3>
-                    <p className="text-white/50 text-sm leading-relaxed">{desc}</p>
+                    <h3 className="text-base font-black uppercase tracking-wide text-white mb-2">{t(`commonPages.landFeat${i + 1}Title`)}</h3>
+                    <p className="text-white/50 text-sm leading-relaxed">{t(`commonPages.landFeat${i + 1}Desc`)}</p>
                   </div>
                 </motion.div>
               </FadeIn>
@@ -376,20 +379,20 @@ export default function Landing({ onSignIn }) {
       <section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Get started in minutes</p>
-            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">How It Works</h2>
+            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">{t("commonPages.landGetStartedMinutes")}</p>
+            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">{t("commonPages.landHowItWorks")}</h2>
           </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {STEPS.map(({ num, title, desc }, i) => (
+            {STEPS.map(({ num }, i) => (
               <FadeIn key={num} delay={i * 0.12}>
                 <div className="relative text-center md:text-left">
                   {i < 2 && (
                     <div className="hidden md:block absolute top-8 left-[calc(100%+1rem)] w-8 h-px bg-gradient-to-r from-blue-500/50 to-transparent" />
                   )}
                   <p className="text-6xl font-black text-white/5 leading-none mb-4">{num}</p>
-                  <h3 className="text-xl font-black uppercase tracking-wide text-white mb-3 -mt-8">{title}</h3>
-                  <p className="text-white/45 text-sm leading-relaxed">{desc}</p>
+                  <h3 className="text-xl font-black uppercase tracking-wide text-white mb-3 -mt-8">{t(`commonPages.landStep${i + 1}Title`)}</h3>
+                  <p className="text-white/45 text-sm leading-relaxed">{t(`commonPages.landStep${i + 1}Desc`)}</p>
                 </div>
               </FadeIn>
             ))}
@@ -406,19 +409,19 @@ export default function Landing({ onSignIn }) {
         />
         <div className="relative z-10 max-w-2xl mx-auto">
           <FadeIn>
-            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">Join the community</p>
+            <p className="text-blue-400 text-xs font-bold uppercase tracking-[0.35em] mb-4">{t("commonPages.landJoinCommunity")}</p>
             <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tight text-white mb-6">
-              Ready to<br />
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">Compete?</span>
+              {t("commonPages.landReadyTo")}<br />
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">{t("commonPages.landCompete")}</span>
             </h2>
             <p className="text-white/50 text-base mb-10 leading-relaxed">
-              Thousands of players and clubs are already active. Sign up free and find your competition.
+              {t("commonPages.landCtaDesc")}
             </p>
             <button
               onClick={onSignIn}
               className="px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest rounded-xl text-sm transition-all shadow-2xl shadow-blue-600/40 hover:shadow-blue-500/50 hover:scale-105"
             >
-              Start Playing Now
+              {t("commonPages.landStartPlaying")}
             </button>
           </FadeIn>
         </div>
@@ -430,7 +433,7 @@ export default function Landing({ onSignIn }) {
           <img src={LogoImg} alt="STAGE" className="h-9 w-auto object-contain opacity-40" />
           <p className="text-white/20 text-xs">{footerTagline || `© ${new Date().getFullYear()} Stage. All rights reserved.`}</p>
           <button onClick={onSignIn} className="text-blue-400 hover:text-blue-300 text-xs font-semibold uppercase tracking-widest transition-colors">
-            Sign In →
+            {t("commonPages.landSignInArrow")}
           </button>
         </div>
       </footer>

@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS players (
   value_updated_at      DATETIME     NULL,
   archetype             VARCHAR(64)  NULL,
   sacrificed_at         DATETIME     NULL,
+  eafc_club_id          VARCHAR(36)  NULL,
+  eafc_club_name        VARCHAR(255) NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -391,6 +393,25 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
   created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ── player_fut_matches ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS player_fut_matches (
+  id             VARCHAR(36)  PRIMARY KEY,
+  player_id      VARCHAR(36)  NOT NULL,
+  player_email   VARCHAR(255) NULL,
+  played_at      DATETIME     NOT NULL,
+  result         VARCHAR(10)  NOT NULL,
+  goals_for      INT          DEFAULT 0,
+  goals_against  INT          DEFAULT 0,
+  mode           VARCHAR(50)  DEFAULT 'rivals',
+  opponent_note  VARCHAR(255) NULL,
+  notes          TEXT         NULL,
+  proof_url      TEXT         NULL,
+  created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_fut_match_player (player_id),
+  INDEX idx_fut_match_played (played_at)
 );
 
 -- ── notifications ─────────────────────────────────────────────
@@ -830,6 +851,16 @@ CREATE TABLE IF NOT EXISTS chat_reads (
   updated_date  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_chat_reads_user_channel (user_email, channel_id),
   INDEX idx_chat_reads_user (user_email)
+);
+
+-- ── processed_stripe_sessions ─────────────────────────────────
+-- Idempotency guard: a Stripe checkout session is fulfilled exactly once,
+-- whether the webhook or the client-return path reports it first.
+CREATE TABLE IF NOT EXISTS processed_stripe_sessions (
+  session_id    VARCHAR(255) NOT NULL,
+  kind          VARCHAR(32)  NOT NULL,
+  processed_at  DATETIME     NOT NULL,
+  PRIMARY KEY (session_id, kind)
 );
 
 -- ── news_items ────────────────────────────────────────────────

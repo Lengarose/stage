@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { Users } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ClubCard({ club }) {
+  const { t } = useTranslation();
   return (
     <Link to={`/clubs/${club.id}`} className="block group">
       <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>
@@ -57,7 +59,7 @@ export default function ClubCard({ club }) {
           </div>
 
           <div className="hidden sm:block shrink-0 text-xs font-bold uppercase tracking-wider text-white/35 group-hover:text-[hsl(189,100%,52%)]/80 transition-colors">
-            View Club
+            {t("commonPages.viewClub")}
           </div>
 
         </div>

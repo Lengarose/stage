@@ -181,7 +181,7 @@ export default function SeasonRegistrations() {
             style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}>
             {t("competitionFlow.registrationTitle")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="font-subtitle text-sm text-muted-foreground mt-1">
             {t("competitionFlow.registrationSubtitle")}
           </p>
         </div>

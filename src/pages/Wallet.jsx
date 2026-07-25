@@ -31,7 +31,7 @@ export default function Wallet() {
         </div>
         <div>
           <h1 className="font-heading font-black text-2xl uppercase tracking-tight text-foreground">{t("commonPages.walletTitle")}</h1>
-          <p className="text-xs text-muted-foreground">{t("commonPages.walletSubtitle")}</p>
+          <p className="font-subtitle text-xs text-muted-foreground">{t("commonPages.walletSubtitle")}</p>
         </div>
       </div>
       <STCWallet player={player} compact={false} />

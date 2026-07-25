@@ -11,6 +11,10 @@ import { useTranslation } from '@/hooks/useTranslation';
 import BannerImg from '@/assets/Banner.jpg';
 import LogoImg from '@/assets/Stadium Logo.png';
 
+// RFC-5322-ish email validation: local-part@domain.tld with a real TLD.
+// Rejects spaces, double dots, and missing TLD while staying pragmatic.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 48 48">
     <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.4 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
@@ -30,13 +34,13 @@ const MicrosoftIcon = () => (
 );
 
 const KickIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#53FC18">
     <path d="M1.5 0h7.5v6h3V3h3V0h7.5v9h-3v3h3v9H15v-3h-3v-3h-3v6H1.5z"/>
   </svg>
 );
 
 const TwitchIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#9146FF">
     <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
   </svg>
 );
@@ -54,14 +58,19 @@ const EyeOffIcon = () => (
   </svg>
 );
 
-const ProviderButton = ({ onClick, icon, label, className = '' }) => (
+// Icon-only provider tile — glassy, matches the card theme; brand color lives
+// only in the logo so the row stays calm on the dark background.
+const ProviderIconButton = ({ onClick, icon, label }) => (
   <motion.button
+    type="button"
     onClick={onClick}
-    whileTap={{ scale: 0.97 }}
-    className={`w-full flex items-center justify-center gap-3 font-semibold py-3 rounded-xl transition-colors shadow-lg ${className}`}
+    aria-label={label}
+    title={label}
+    whileHover={{ y: -2 }}
+    whileTap={{ scale: 0.95 }}
+    className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 transition-colors shadow-lg"
   >
     {icon}
-    {label}
   </motion.button>
 );
 
@@ -82,6 +91,16 @@ export default function Login() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const email = String(identifier || '').trim();
+    // Sign up: the field must be a valid email. Log in: the field may be an
+    // email OR a gamertag/club name, so only enforce the regex when it looks
+    // like an email attempt (contains '@').
+    if (isSignup || email.includes('@')) {
+      if (!EMAIL_REGEX.test(email)) {
+        setError(t('auth.invalidEmail'));
+        return;
+      }
+    }
     if (isSignup && password !== confirmPassword) {
       setError(t('auth.passwordsDoNotMatch'));
       return;
@@ -139,36 +158,32 @@ export default function Login() {
           {/* Branding */}
           <div className="flex flex-col items-center mb-7 gap-2">
             <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
-            <p className="text-white/50 text-xs uppercase tracking-[0.25em]">
+            <p className="font-heading text-white/50 text-sm uppercase tracking-[0.25em]">
               {isSignup ? t('auth.createAccount') : t('auth.welcomeBack')}
             </p>
           </div>
 
-          {/* OAuth providers */}
-          <div className="space-y-3 mb-5">
-            <ProviderButton
+          {/* OAuth providers — icon-only row */}
+          <div className="flex gap-3 mb-5">
+            <ProviderIconButton
               onClick={() => stageClient.auth.loginWithProvider('google', window.location.href)}
               icon={<GoogleIcon />}
               label={t('auth.continueGoogle')}
-              className="bg-white text-gray-800 hover:bg-gray-100 active:bg-gray-200"
             />
-            <ProviderButton
+            <ProviderIconButton
               onClick={() => stageClient.auth.loginWithProvider('microsoft', window.location.href)}
               icon={<MicrosoftIcon />}
               label={t('auth.continueOutlook')}
-              className="bg-[#0078D4] text-white hover:bg-[#006CBE] active:bg-[#005EA6]"
             />
-            <ProviderButton
+            <ProviderIconButton
               onClick={() => stageClient.auth.loginWithProvider('kick', window.location.href)}
               icon={<KickIcon />}
               label={t('auth.continueKick')}
-              className="bg-[#53FC18] text-black hover:bg-[#45E010] active:bg-[#3CC70E]"
             />
-            <ProviderButton
+            <ProviderIconButton
               onClick={() => stageClient.auth.loginWithProvider('twitch', window.location.href)}
               icon={<TwitchIcon />}
               label={t('auth.continueTwitch')}
-              className="bg-[#9146FF] text-white hover:bg-[#7C2BFF] active:bg-[#6F22E6]"
             />
           </div>
 
@@ -245,7 +260,7 @@ export default function Login() {
               type="submit"
               disabled={isLoading}
               whileTap={{ scale: 0.97 }}
-              className="w-full bg-white text-[#0d2461] font-bold py-3 rounded-xl hover:bg-gray-100 disabled:opacity-55 transition-all shadow-lg"
+              className="w-full bg-white text-[#0d2461] font-heading text-lg uppercase tracking-wide py-3 rounded-xl hover:bg-gray-100 disabled:opacity-55 transition-all shadow-lg"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -262,11 +277,12 @@ export default function Login() {
               <select
                 value={language}
                 onChange={(event) => setLanguage(event.target.value)}
+                style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}
                 className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-center text-sm font-semibold text-white outline-none transition-all focus:border-white/50 focus:bg-white/15"
               >
                 {SUPPORTED_LANGUAGES.map((item) => (
-                  <option key={item.value} value={item.value} className="bg-[#081021] text-white">
-                    {t(`languageNames.${item.value}`)} · {item.nativeLabel}
+                  <option key={item.value} value={item.value} className="bg-[#081021] text-white" style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", textTransform: "none" }}>
+                    {item.nativeLabel}
                   </option>
                 ))}
               </select>
@@ -278,7 +294,7 @@ export default function Login() {
                 setError('');
                 setMode(isSignup ? 'signin' : 'signup');
               }}
-              className="w-full text-center text-xs text-white/60 hover:text-white/90 transition-colors pt-1"
+              className="w-full text-center font-heading text-sm uppercase tracking-wide text-white/60 hover:text-white/90 transition-colors pt-1"
             >
               {isSignup ? t('auth.switchToSignin') : t('auth.switchToSignup')}
             </button>

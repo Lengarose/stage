@@ -1,7 +1,9 @@
 import DiscordMark from "@/components/community/DiscordMark";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Community() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -14,10 +16,10 @@ export default function Community() {
               className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
               style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
             >
-              COMMUNITY
+              {t("nav.community")}
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Stage League on Discord — free for every player and club
+              {t("commonPages.communitySubtitle")}
             </p>
           </div>
         </div>

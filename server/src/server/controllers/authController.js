@@ -7,6 +7,7 @@ const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { validate, rules } = require('../middleware/validate');
+const { notifyLogin } = require('../services/notifications');
 
 async function repairUserProfileLinks(userId, email) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -146,6 +147,15 @@ router.post('/login', validate({
       'SELECT id FROM clubs WHERE user_id = ? OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) LIMIT 1',
       [user.id, user.email]
     );
+    // Fire-and-forget sign-in notification (skips the OAuth placeholder addrs).
+    notifyLogin({
+      to: user.email,
+      name: user.email ? user.email.split('@')[0] : 'there',
+      when: new Date(),
+      ip: req.headers['x-forwarded-for'] || req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       accessToken,
       refreshToken,

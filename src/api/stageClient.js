@@ -356,6 +356,8 @@ const ENTITY_NAMES = [
   'Archetype',
   'ChemistryLink',
   'Sbc', 'SbcSubmission',
+  // Player-logged Ultimate Team matches (manual tracking).
+  'FutMatch',
 ];
 
 const entities = Object.fromEntries(ENTITY_NAMES.map(n => [n, makeEntity(n)]));

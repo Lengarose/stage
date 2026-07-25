@@ -52,6 +52,7 @@ const TEST_PLAYER_NAMES = [
 const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
 
 const { toMysqlDateTime } = require('../utils/datetime');
+const { notifyAnnouncement } = require('../services/notifications');
 const {
   broadcastMatch,
   broadcastMatchById,
@@ -1216,6 +1217,165 @@ async function retrieveStripeCheckoutSession(sessionId) {
     { headers: { Authorization: `Bearer ${stripeSecret}` } }
   );
   return res.data;
+}
+
+// ── Shared Stripe fulfilment helpers ────────────────────────────────────────
+// Both the client-return handlers (fixCredits / fixSubscription) and the Stripe
+// webhook funnel through these so a payment is fulfilled exactly once, no matter
+// which path reports it first.
+
+// Idempotency guard: returns true the FIRST time a (session, kind) pair is seen,
+// false on every subsequent call. Backed by processed_stripe_sessions (see
+// schema.sql + server.js startup migration).
+async function claimStripeSession(sessionId, kind) {
+  if (!sessionId) return false;
+  try {
+    const res = await EXECUTESQL(
+      `INSERT IGNORE INTO processed_stripe_sessions (session_id, kind, processed_at)
+       VALUES (?, ?, NOW())`,
+      [String(sessionId), String(kind || 'unknown')]
+    );
+    // affectedRows === 1 → freshly inserted (we own fulfilment); 0 → already done.
+    return Number(res?.affectedRows || 0) === 1;
+  } catch (err) {
+    // If the guard table is missing for any reason, fail OPEN would double-credit,
+    // so fail CLOSED (treat as already processed) and log loudly.
+    console.error('[stripe] claimStripeSession failed:', err.message);
+    return false;
+  }
+}
+
+// Resolve the player row that should receive credits / STAGE Plus for a user id.
+async function resolvePlayerForUserId(userId) {
+  const rows = await EXECUTESQL(
+    `SELECT p.*
+       FROM players p
+       LEFT JOIN users u ON u.id = ?
+      WHERE p.user_id = ?
+         OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+      ORDER BY p.user_id = ? DESC, p.updated_date DESC
+      LIMIT 1`,
+    [userId, userId, userId]
+  );
+  return rows[0] || null;
+}
+
+// Resolve the club that a user owns (for club-targeted credit purchases).
+async function resolveClubForUserId(userId) {
+  const users = await EXECUTESQL(
+    'SELECT id, email, owner_id FROM users WHERE id = ? LIMIT 1',
+    [userId]
+  );
+  const me = users[0];
+  if (!me) return null;
+  if (me.owner_id) {
+    const byOwner = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [me.owner_id]).catch(() => []);
+    if (byOwner.length) return byOwner[0];
+  }
+  const byUser = await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [userId]).catch(() => []);
+  if (byUser.length) return byUser[0];
+  if (me.email) {
+    const byEmail = await EXECUTESQL('SELECT * FROM clubs WHERE owner_email = ? LIMIT 1', [me.email]).catch(() => []);
+    if (byEmail.length) return byEmail[0];
+  }
+  return null;
+}
+
+// Add `credits` to a player or club wallet. Idempotency is enforced by the
+// caller via claimStripeSession(); this just performs the additive update.
+async function grantCreditsToTarget({ userId, credits, target }) {
+  const amount = Number(credits || 0);
+  if (!userId) throw new Error('grantCreditsToTarget: userId required');
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('grantCreditsToTarget: invalid credit amount');
+
+  if (target === 'club') {
+    const club = await resolveClubForUserId(userId);
+    if (!club) throw new Error('Club wallet not found for this user');
+    const before = Number(club.credits || 0);
+    const after = before + amount;
+    await EXECUTESQL('UPDATE clubs SET credits = ?, updated_date = NOW() WHERE id = ?', [after, club.id]);
+    return { target: 'club', id: club.id, credits_before: before, credits_after: after, credits_added: amount };
+  }
+
+  const player = await resolvePlayerForUserId(userId);
+  if (!player) throw new Error('Player wallet not found for this user');
+  const before = Number(player.credits || 0);
+  const after = before + amount;
+  await EXECUTESQL('UPDATE players SET credits = ?, updated_date = NOW() WHERE id = ?', [after, player.id]);
+  return { target: 'player', id: player.id, credits_before: before, credits_after: after, credits_added: amount };
+}
+
+// Activate (or renew) STAGE Plus for a user based on a completed checkout session.
+async function activateStagePlusForSession({ userId, billing, session }) {
+  const storeSettings = await getActiveStoreSettings();
+  const normalizedBilling = String(billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
+  const expiresAtExpr = normalizedBilling === 'yearly'
+    ? 'DATE_ADD(NOW(), INTERVAL 1 YEAR)'
+    : 'DATE_ADD(NOW(), INTERVAL 1 MONTH)';
+
+  const player = await resolvePlayerForUserId(userId);
+  if (!player) throw new Error('Player profile not found');
+
+  const monthlyAllowance = Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
+  const nextCredits = Math.max(Number(player.credits || 0), monthlyAllowance);
+  await EXECUTESQL(
+    `UPDATE players
+        SET subscription = 'stage_plus',
+            subscription_billing = ?,
+            subscription_expires_at = ${expiresAtExpr},
+            stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+            stripe_customer_id = COALESCE(?, stripe_customer_id),
+            credits = ?,
+            updated_date = NOW()
+      WHERE id = ?`,
+    [normalizedBilling, session?.subscription || null, session?.customer || null, nextCredits, player.id]
+  );
+
+  return {
+    tier: 'stage_plus',
+    billing: normalizedBilling,
+    player_id: player.id,
+    credits_before: Number(player.credits || 0),
+    credits_after: nextCredits,
+    credits_added: Math.max(0, nextCredits - Number(player.credits || 0)),
+    monthly_credit_allowance: monthlyAllowance,
+    credit_policy: 'refresh_not_stack',
+  };
+}
+
+// Fulfil a completed Stripe Checkout Session (shared by webhook + client return).
+// `session` must be the full object retrieved from Stripe (trusted source).
+async function fulfilCheckoutSession(session) {
+  const mode = String(session?.mode || '');
+  const paid = ['paid', 'no_payment_required'].includes(String(session?.payment_status || ''));
+  const userId = session?.metadata?.user_id ? String(session.metadata.user_id) : '';
+  if (!paid) return { fulfilled: false, reason: 'payment_not_complete' };
+  if (!userId) return { fulfilled: false, reason: 'missing_user_id' };
+
+  if (mode === 'subscription') {
+    if (!(await claimStripeSession(session.id, 'subscription'))) {
+      return { fulfilled: false, reason: 'already_processed', kind: 'subscription' };
+    }
+    const result = await activateStagePlusForSession({
+      userId,
+      billing: session?.metadata?.billing,
+      session,
+    });
+    return { fulfilled: true, kind: 'subscription', ...result };
+  }
+
+  if (mode === 'payment') {
+    const credits = Number(session?.metadata?.credits || 0);
+    const target = session?.metadata?.credit_target === 'club' ? 'club' : 'player';
+    if (!(credits > 0)) return { fulfilled: false, reason: 'no_credits_in_metadata' };
+    if (!(await claimStripeSession(session.id, 'credits'))) {
+      return { fulfilled: false, reason: 'already_processed', kind: 'credits' };
+    }
+    const result = await grantCreditsToTarget({ userId, credits, target });
+    return { fulfilled: true, kind: 'credits', ...result };
+  }
+
+  return { fulfilled: false, reason: `unsupported_mode:${mode}` };
 }
 
 async function insertTournamentMatch(query, match) {
@@ -2527,62 +2687,111 @@ const HANDLERS = {
 
     const session = await retrieveStripeCheckoutSession(session_id);
     if (String(session.mode || '') !== 'subscription') throw new Error('Stripe session is not a subscription checkout');
-    if (!['paid', 'no_payment_required'].includes(String(session.payment_status || ''))) {
-      throw new Error('Stripe subscription payment is not complete yet');
-    }
     if (String(session.metadata?.user_id || '') !== String(_auth_user_id)) {
       throw new Error('Stripe session does not belong to this user');
     }
     const tier = normalizeSubscriptionTier(session.metadata?.tier);
     if (tier !== 'stage_plus') throw new Error('Stripe session is not for STAGE Plus');
-    const storeSettings = await getActiveStoreSettings();
-    const billing = String(session.metadata?.billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
-    const expiresAtExpr = billing === 'yearly' ? 'DATE_ADD(NOW(), INTERVAL 1 YEAR)' : 'DATE_ADD(NOW(), INTERVAL 1 MONTH)';
+    if (!['paid', 'no_payment_required'].includes(String(session.payment_status || ''))) {
+      throw new Error('Stripe subscription payment is not complete yet');
+    }
 
-    const playerRows = await EXECUTESQL(
-      `SELECT p.*
-       FROM players p
-       LEFT JOIN users u ON u.id = ?
-       WHERE p.user_id = ?
-          OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
-       ORDER BY p.user_id = ? DESC, p.updated_date DESC
-       LIMIT 1`,
-      [_auth_user_id, _auth_user_id, _auth_user_id]
-    );
-    if (!playerRows.length) throw new Error('Player profile not found');
-    const player = playerRows[0];
-    const nextCredits = Math.max(Number(player.credits || 0), Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
-    await EXECUTESQL(
-      `UPDATE players
-       SET subscription = 'stage_plus',
-           subscription_billing = ?,
-           subscription_expires_at = ${expiresAtExpr},
-           stripe_subscription_id = COALESCE(?, stripe_subscription_id),
-           stripe_customer_id = COALESCE(?, stripe_customer_id),
-           credits = ?,
-           updated_date = NOW()
-       WHERE id = ?`,
-      [
-        billing,
-        session.subscription || null,
-        session.customer || null,
-        nextCredits,
-        player.id,
-      ]
-    );
+    const outcome = await fulfilCheckoutSession(session);
+    if (!outcome.fulfilled && outcome.reason === 'already_processed') {
+      // Webhook (or an earlier return) already activated it — report success.
+      const player = await resolvePlayerForUserId(_auth_user_id);
+      return {
+        data: {
+          success: true,
+          tier: 'stage_plus',
+          billing: String(session.metadata?.billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly',
+          credits_after: Number(player?.credits || 0),
+          already_active: true,
+          credit_policy: 'refresh_not_stack',
+        },
+      };
+    }
+    if (!outcome.fulfilled) throw new Error(`Subscription activation failed: ${outcome.reason}`);
 
     return {
       data: {
         success: true,
-        tier: 'stage_plus',
-        billing,
-        credits_before: Number(player.credits || 0),
-        credits_after: nextCredits,
-        credits_added: Math.max(0, nextCredits - Number(player.credits || 0)),
-        monthly_credit_allowance: Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS),
+        tier: outcome.tier,
+        billing: outcome.billing,
+        credits_before: outcome.credits_before,
+        credits_after: outcome.credits_after,
+        credits_added: outcome.credits_added,
+        monthly_credit_allowance: outcome.monthly_credit_allowance,
         credit_policy: 'refresh_not_stack',
       },
     };
+  },
+
+  // Client-return fallback for credit purchases: called on /store?payment=success
+  // with the Stripe session id. Grants the credits server-side (idempotently).
+  // The webhook is the primary path; this covers users who return to the tab.
+  async fixCredits({ _auth_user_id, session_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!session_id) {
+      return { data: { success: false, pending: true, error: 'Credit fulfilment requires a Stripe checkout session id' } };
+    }
+    const session = await retrieveStripeCheckoutSession(session_id);
+    if (String(session.mode || '') !== 'payment') throw new Error('Stripe session is not a credit purchase');
+    if (String(session.metadata?.user_id || '') !== String(_auth_user_id)) {
+      throw new Error('Stripe session does not belong to this user');
+    }
+    if (!['paid', 'no_payment_required'].includes(String(session.payment_status || ''))) {
+      throw new Error('Stripe payment is not complete yet');
+    }
+
+    const outcome = await fulfilCheckoutSession(session);
+    if (!outcome.fulfilled && outcome.reason === 'already_processed') {
+      return { data: { success: true, already_processed: true } };
+    }
+    if (!outcome.fulfilled) throw new Error(`Credit fulfilment failed: ${outcome.reason}`);
+
+    return {
+      data: {
+        success: true,
+        target: outcome.target,
+        credits_added: outcome.credits_added,
+        credits_before: outcome.credits_before,
+        credits_after: outcome.credits_after,
+      },
+    };
+  },
+
+  // Admin-only: email every user that a new update / announcement has shipped.
+  // Sends are fire-and-forget so the request returns immediately.
+  async broadcastAnnouncement({ _auth_user_id, title, message, url }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!title && !message) throw new Error('title or message required');
+    const users = await EXECUTESQL(
+      "SELECT DISTINCT email FROM users WHERE email IS NOT NULL AND email <> '' AND email NOT LIKE '%@stage.local'"
+    );
+    let queued = 0;
+    for (const u of users) {
+      notifyAnnouncement({
+        to: u.email,
+        name: u.email.split('@')[0],
+        title,
+        message,
+        url,
+      });
+      queued += 1;
+    }
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'broadcast_announcement',
+      entityType: 'email',
+      entityId: null,
+      entityName: title || 'update',
+      oldValue: null,
+      newValue: { title, message, url, recipients: queued },
+      reason: 'Update announcement email',
+    });
+    return { data: { success: true, recipients: queued } };
   },
 
   async adminSubscriptionGrant({ _auth_user_id, player_id, action = 'grant_stage_plus', months = 1, billing = 'monthly', reason }) {
@@ -8983,3 +9192,6 @@ router.post('/:name', async (req, res) => {
 
 module.exports = router;
 module.exports.HANDLERS = HANDLERS;
+// Exposed for the Stripe webhook controller (server-to-server fulfilment).
+module.exports.fulfilCheckoutSession = fulfilCheckoutSession;
+module.exports.retrieveStripeCheckoutSession = retrieveStripeCheckoutSession;

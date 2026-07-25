@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
+import { useTranslation } from '@/hooks/useTranslation';
 
 /**
  * ObjectivesWidget — dashboard widget showing the current player's open
@@ -15,6 +16,7 @@ import { stageClient } from '@/api/stageClient';
  *   - onClaimed:  (result) => void   optional callback after a successful claim
  */
 export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,11 +32,11 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
       const rows = await stageClient.entities.ObjectiveProgress.filter(params, '-created_date', 50);
       setItems(Array.isArray(rows) ? rows : []);
     } catch (err) {
-      setError(err?.message || 'Failed to load objectives');
+      setError(err?.message || t('commonPages.dashboardObjectivesError'));
     } finally {
       setLoading(false);
     }
-  }, [playerId, scope]);
+  }, [playerId, scope, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -45,16 +47,16 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
       if (onClaimed) onClaimed(result);
       await load();
     } catch (err) {
-      setError(err?.message || 'Failed to claim reward');
+      setError(err?.message || t('commonPages.dashboardObjectivesClaimError'));
     } finally {
       setClaimingId(null);
     }
   };
 
   if (!playerId) return null;
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading objectives…</div>;
-  if (error)   return <div className="p-4 text-sm text-red-500">Error: {error}</div>;
-  if (!items.length) return <div className="p-4 text-sm text-muted-foreground">No active objectives.</div>;
+  if (loading) return <div className="p-4 text-sm text-muted-foreground">{t('commonPages.dashboardObjectivesLoading')}</div>;
+  if (error)   return <div className="p-4 text-sm text-red-500">{error}</div>;
+  if (!items.length) return <div className="p-4 text-sm text-muted-foreground">{t('commonPages.dashboardObjectivesEmpty')}</div>;
 
   return (
     <div className="space-y-2">
@@ -85,13 +87,13 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
                   />
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {current} / {target} · Reward: {Number(it.reward_stc || 0).toLocaleString()} STC
+                  {current} / {target} · {t('commonPages.dashboardObjectivesReward')}: {Number(it.reward_stc || 0).toLocaleString()} STC
                   {it.reward_xp ? ` · ${it.reward_xp} XP` : ''}
                 </div>
               </div>
               <div className="shrink-0">
                 {claimed ? (
-                  <span className="text-xs text-muted-foreground">Claimed</span>
+                  <span className="text-xs text-muted-foreground">{t('commonPages.dashboardObjectivesClaimed')}</span>
                 ) : completed ? (
                   <button
                     type="button"
@@ -99,10 +101,10 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
                     disabled={claimingId === it.id}
                     className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
                   >
-                    {claimingId === it.id ? 'Claiming…' : 'Claim'}
+                    {claimingId === it.id ? t('commonPages.dashboardObjectivesClaiming') : t('commonPages.dashboardObjectivesClaim')}
                   </button>
                 ) : (
-                  <span className="text-xs text-muted-foreground">In progress</span>
+                  <span className="text-xs text-muted-foreground">{t('commonPages.dashboardObjectivesInProgress')}</span>
                 )}
               </div>
             </div>

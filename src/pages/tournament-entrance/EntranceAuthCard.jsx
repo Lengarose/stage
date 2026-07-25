@@ -8,6 +8,8 @@ import { format, parseISO, isValid } from "@/lib/momentDate";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 // ── Inline SVG icons (kept local so this screen has zero asset dependencies
 // beyond the banner + logo; matches the visual treatment of `Login.jsx`). ──
 const GoogleIcon = () => (
@@ -29,13 +31,13 @@ const MicrosoftIcon = () => (
 );
 
 const KickIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#53FC18">
     <path d="M1.5 0h7.5v6h3V3h3V0h7.5v9h-3v3h3v9H15v-3h-3v-3h-3v6H1.5z" />
   </svg>
 );
 
 const TwitchIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#9146FF">
     <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
   </svg>
 );
@@ -53,15 +55,18 @@ const EyeOffIcon = () => (
   </svg>
 );
 
-const ProviderButton = ({ onClick, icon, label, className = "" }) => (
+// Icon-only provider tile — glassy, matches the card theme (same as Login.jsx).
+const ProviderIconButton = ({ onClick, icon, label }) => (
   <motion.button
     type="button"
     onClick={onClick}
-    whileTap={{ scale: 0.97 }}
-    className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 md:py-3 text-[15px] md:text-sm rounded-xl transition-colors shadow-lg ${className}`}
+    aria-label={label}
+    title={label}
+    whileHover={{ y: -2 }}
+    whileTap={{ scale: 0.95 }}
+    className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 transition-colors shadow-lg"
   >
     {icon}
-    {label}
   </motion.button>
 );
 
@@ -166,6 +171,14 @@ export default function EntranceAuthCard({ mode }) {
   async function handleAuthSubmit(e) {
     e.preventDefault();
     setFormError("");
+    const emailValue = String(identifier || "").trim();
+    // Signup requires a valid email; login only when it looks like one (has @).
+    if (isSignup || emailValue.includes("@")) {
+      if (!EMAIL_REGEX.test(emailValue)) {
+        setFormError("Please enter a valid email address.");
+        return;
+      }
+    }
     if (isSignup && password !== confirmPassword) {
       setFormError("Passwords do not match.");
       return;
@@ -299,31 +312,27 @@ export default function EntranceAuthCard({ mode }) {
           {/* Auth UI — only shown once token is valid */}
           {!loading && !resolveError && (
             <>
-              {/* OAuth providers */}
-              <div className="space-y-3 mb-5">
-                <ProviderButton
+              {/* OAuth providers — icon-only row */}
+              <div className="flex gap-3 mb-5">
+                <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("google", window.location.href)}
                   icon={<GoogleIcon />}
                   label="Continue with Google"
-                  className="bg-white text-gray-800 hover:bg-gray-100 active:bg-gray-200"
                 />
-                <ProviderButton
+                <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("microsoft", window.location.href)}
                   icon={<MicrosoftIcon />}
                   label="Continue with Outlook"
-                  className="bg-[#0078D4] text-white hover:bg-[#006CBE] active:bg-[#005EA6]"
                 />
-                <ProviderButton
+                <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("kick", window.location.href)}
                   icon={<KickIcon />}
                   label="Continue with Kick"
-                  className="bg-[#53FC18] text-black hover:bg-[#45E010] active:bg-[#3CC70E]"
                 />
-                <ProviderButton
+                <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("twitch", window.location.href)}
                   icon={<TwitchIcon />}
                   label="Continue with Twitch"
-                  className="bg-[#9146FF] text-white hover:bg-[#7C2BFF] active:bg-[#6F22E6]"
                 />
               </div>
 
@@ -420,7 +429,7 @@ export default function EntranceAuthCard({ mode }) {
                   type="submit"
                   disabled={submitting}
                   whileTap={{ scale: 0.97 }}
-                  className="w-full bg-white text-[#0d2461] font-bold py-4 md:py-3 text-[15px] md:text-sm rounded-xl hover:bg-gray-100 disabled:opacity-55 transition-all shadow-lg"
+                  className="w-full bg-white text-[#0d2461] font-heading text-lg md:text-base uppercase tracking-wide py-4 md:py-3 rounded-xl hover:bg-gray-100 disabled:opacity-55 transition-all shadow-lg"
                 >
                   {submitting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -435,7 +444,7 @@ export default function EntranceAuthCard({ mode }) {
                 <button
                   type="button"
                   onClick={toggleMode}
-                  className="w-full text-center text-[13px] md:text-xs text-white/65 hover:text-white/95 active:text-white transition-colors py-2 md:pt-1"
+                  className="w-full text-center font-heading text-sm uppercase tracking-wide text-white/65 hover:text-white/95 active:text-white transition-colors py-2 md:pt-1"
                 >
                   {isSignup ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
                 </button>

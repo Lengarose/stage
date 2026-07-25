@@ -37,8 +37,10 @@ const ENV = {
   GOOGLE_CLIENT_ID: '163642598978-bl0ldq16coinp32hpqigmbb3744a2qp6.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: '',
 
-  // Microsoft — redirect: https://stageleagues.com/api/stage/auth/microsoft/callback
-  MICROSOFT_CLIENT_ID: '',
+  // Microsoft — Azure app "Stage League" (multitenant + personal accounts)
+  // Redirect: https://stageleagues.com/api/stage/auth/microsoft/callback
+  // Secret lives in env.local.js (expires 2028-07-22 — regenerate in portal.azure.com).
+  MICROSOFT_CLIENT_ID: 'bc4b9286-b4ad-49f3-a3fd-e74aa00b20c6',
   MICROSOFT_CLIENT_SECRET: '',
 
   // Twitch — app "stageleagues-web" (Confidential) on dev.twitch.tv/console/apps
@@ -52,6 +54,30 @@ const ENV = {
   // Secret lives in env.local.js.
   KICK_CLIENT_ID: '01KY6TJV8WCWJ0KYM52B77W1EA',
   KICK_CLIENT_SECRET: '',
+
+  // ── Stripe ────────────────────────────────────────────────────
+  // Secret keys (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) live in env.local.js.
+  // Price IDs are NOT secret and are safe to keep here. These are the Stripe
+  // TEST-mode price IDs for the STAGE Plus subscription. Swap to live price IDs
+  // when going to production.
+  STRIPE_SECRET_KEY: '',
+  // checkout.session.completed / invoice.paid / customer.subscription.deleted
+  // webhook signing secret (whsec_...). Set in env.local.js.
+  STRIPE_WEBHOOK_SECRET: '',
+  // STAGE Plus subscription price IDs (recurring) — Stripe TEST mode.
+  // Product: STAGE Plus (prod_UwE2z1pk1tkCNG). Monthly 5,99 € / Yearly 59,99 €.
+  STRIPE_STAGE_PLUS_MONTHLY_PRICE_ID: 'price_1TwLao2fnaWmNMFQ9zWOxAlJ',
+  STRIPE_STAGE_PLUS_YEARLY_PRICE_ID: 'price_1TwLcj2fnaWmNMFQ4547P0uE',
+
+  // ── Email (SMTP) ──────────────────────────────────────────────
+  // Transactional emails (sign-in, updates, match day, tournament, results).
+  // Uses Gandi mail by default. SMTP_USER/SMTP_PASS are secrets → env.local.js.
+  // Without SMTP_USER + SMTP_PASS the app runs fine but sends no email.
+  SMTP_HOST: 'mail.gandi.net',
+  SMTP_PORT: '465',
+  SMTP_USER: 'info@stageleagues.com',   // Gandi mailbox used to send
+  SMTP_PASS: 'BERIS0404!!',                        // that mailbox's password — set in env.local.js
+  MAIL_FROM: 'STAGE  <info@stageleagues.com>',
 };
 
 // Local overrides (secrets) — env.local.js is git-ignored and lives only on

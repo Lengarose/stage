@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "@/lib/momentDate";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -37,6 +38,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     let userEmail = null;
@@ -142,7 +144,7 @@ export default function Notifications() {
             className="font-heading font-black text-4xl md:text-5xl text-foreground uppercase"
             style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
           >
-            NOTIFICATIONS
+            {t("commonPages.notifTitle")}
           </h1>
           {unreadCount > 0 && (
             <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
@@ -155,27 +157,27 @@ export default function Notifications() {
             {unreadCount > 0 && (
               <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-muted-foreground hover:text-foreground gap-2">
                 <CheckCheck className="w-4 h-4" />
-                Mark all read
+                {t("commonPages.notifMarkAllRead")}
               </Button>
             )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive gap-2">
                   <Trash2 className="w-4 h-4" />
-                  Delete all
+                  {t("commonPages.notifDeleteAll")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete all notifications?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("commonPages.notifDeleteAllConfirmTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all {notifications.length} notification{notifications.length !== 1 ? "s" : ""}. This cannot be undone.
+                    {t("commonPages.notifDeleteAllConfirmDesc", { count: notifications.length })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t("commonPages.cancel")}</AlertDialogCancel>
                   <AlertDialogAction onClick={deleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Delete all
+                    {t("commonPages.notifDeleteAll")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -188,7 +190,7 @@ export default function Notifications() {
       {notifications.length === 0 && (
         <div className="text-center py-16">
           <Bell className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No notifications yet</p>
+          <p className="text-muted-foreground">{t("commonPages.notifEmpty")}</p>
         </div>
       )}
 
@@ -235,7 +237,7 @@ export default function Notifications() {
                 <button
                   onClick={(e) => { e.stopPropagation(); markAsRead(notif); }}
                   className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                  title="Mark as read"
+                  title={t("commonPages.notifMarkAsRead")}
                 >
                   <Check className="w-3.5 h-3.5" />
                 </button>
@@ -243,7 +245,7 @@ export default function Notifications() {
               <button
                 onClick={(e) => deleteNotif(notif.id, e)}
                 className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                title="Delete"
+                title={t("commonPages.delete")}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>

@@ -16,8 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const TYPE_LABELS = { credits: "Credits", subscription: "Subscriptions" };
+const TYPE_LABEL_KEYS = { credits: "storeTabCredits", subscription: "storeTabSubscriptions" };
 const TYPE_ICONS = { credits: Coins, subscription: Crown };
 const DEFAULT_STORE_CONFIG = {
   name: "STAGE Plus",
@@ -43,6 +44,7 @@ const CREDIT_PACKS = [
 const BADGE_IMAGES = {};
 
 export default function Store() {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
@@ -99,11 +101,33 @@ export default function Store() {
         const credits = parseInt(params.get('credits') || '0');
         const target = params.get('target') || 'player';
         const pack = params.get('pack');
-        if (credits > 0) {
-          setCreditConfirm({ credits, target, id: pack });
-          showNotif(`+${credits} credits added!`, 'success');
-        }
+        const sessionId = params.get('session_id');
         window.history.replaceState({}, '', '/store');
+        // Actually grant the credits server-side (idempotent — the webhook may
+        // have already done it). Only show the confirmation once fulfilled.
+        try {
+          const res = await stageClient.functions.invoke('fixCredits', { session_id: sessionId });
+          if (res.data?.success) {
+            const added = res.data.credits_added ?? credits;
+            const finalTarget = res.data.target || target;
+            // Refresh the wallet balance shown in the UI.
+            if (finalTarget === 'club') {
+              const c = u.owner_id ? await stageClient.entities.Club.get(u.owner_id).catch(() => null) : null;
+              if (c) setMyClub(c);
+            } else if (u.player_id) {
+              const pl2 = await stageClient.entities.Player.get(u.player_id).catch(() => null);
+              if (pl2) setPlayer(pl2);
+            }
+            if (added > 0 || credits > 0) {
+              setCreditConfirm({ credits: added || credits, target: finalTarget, id: pack });
+              showNotif(`+${added || credits} credits added!`, 'success');
+            }
+          } else {
+            showNotif('Payment received — credits will appear shortly.', 'success');
+          }
+        } catch (e) {
+          showNotif('Payment received — credits will appear shortly.', 'success');
+        }
       } else if (params.get('payment') === 'cancelled') {
         showNotif('Payment cancelled.', 'error');
         window.history.replaceState({}, '', '/store');
@@ -122,7 +146,7 @@ export default function Store() {
       const res = await stageClient.functions.invoke('stripeCheckout', {
         packId: pack.id,
         creditTarget,
-        successUrl: `${window.location.origin}/store?payment=success&pack=${pack.id}&credits=${pack.credits}&target=${creditTarget}`,
+        successUrl: `${window.location.origin}/store?payment=success&pack=${pack.id}&credits=${pack.credits}&target=${creditTarget}&session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${window.location.origin}/store?payment=cancelled`,
       });
       if (res.data?.url) window.location.href = res.data.url;
@@ -191,9 +215,9 @@ export default function Store() {
                 className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
-                STORE
+                {t("nav.store")}
               </h1>
-              <p className="text-xs text-muted-foreground mt-1">Customize your profile and club with exclusive items</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("commonPages.storeSubtitle")}</p>
             </div>
           </div>
 
@@ -201,17 +225,17 @@ export default function Store() {
             {myClub && (
               <div className="flex items-center gap-1 rounded-xl bg-secondary border border-border p-1">
                 <button onClick={() => setCreditTarget("player")} className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5", creditTarget === "player" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  <User className="w-3 h-3" /> Player
+                  <User className="w-3 h-3" /> {t("commonPages.storePlayer")}
                 </button>
                 <button onClick={() => setCreditTarget("club")} className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5", creditTarget === "club" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  <Shield className="w-3 h-3" /> Club
+                  <Shield className="w-3 h-3" /> {t("nav.club")}
                 </button>
               </div>
             )}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
               <Coins className="w-4 h-4 text-warning shrink-0" />
               <span className="font-bold text-warning">{credits.toLocaleString()}</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">{creditTarget === "club" ? "club credits" : "credits"}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{creditTarget === "club" ? t("commonPages.storeClubCredits") : t("commonPages.storeCreditsWord")}</span>
             </div>
           </div>
         </div>
@@ -230,7 +254,7 @@ export default function Store() {
               <Coins className="w-5 h-5 sm:w-6 sm:h-6 text-warning" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">STAGE Credits</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("commonPages.storeStageCredits")}</p>
               <p className="font-heading text-2xl font-black text-warning">{credits.toLocaleString()}</p>
             </div>
           </div>
@@ -239,7 +263,7 @@ export default function Store() {
               {badgeImg ? <img src={badgeImg} alt={currentTier} className="w-full h-full object-cover" /> : <Shield className="w-5 h-5 text-primary" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Current Plan</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("commonPages.storeCurrentPlan")}</p>
               <p className={cn("font-heading text-xl font-black", tierColor)}>{tierLabel}</p>
             </div>
           </div>
@@ -255,7 +279,7 @@ export default function Store() {
                   "data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent"
                 )}>
                   <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">{TYPE_LABELS[cat]}</span>
+                  <span className="hidden sm:inline">{t(`commonPages.${TYPE_LABEL_KEYS[cat]}`)}</span>
                 </TabsTrigger>
               );
             })}
@@ -285,24 +309,24 @@ export default function Store() {
                   <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-foreground mb-1">STAGE Plus unlocks the full competition loop</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Free accounts start with {starterCredits} credits. After that, Plus unlocks tournament creation, official competition access, ranked play, and a monthly credit refresh.</p>
+                  <h3 className="font-bold text-foreground mb-1">{t("commonPages.storePlusHeadline")}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{t("commonPages.storePlusDesc", { credits: starterCredits })}</p>
                   <div className="grid sm:grid-cols-3 gap-3 mb-4">
                     <div className="bg-primary/10 border border-primary/20 rounded-xl p-3">
-                      <p className="font-bold text-primary text-sm">{monthlyCredits} credits</p>
-                      <p className="text-xs text-muted-foreground">Monthly allowance refresh, not stacked</p>
+                      <p className="font-bold text-primary text-sm">{t("commonPages.storeCreditsAmount", { amount: monthlyCredits })}</p>
+                      <p className="text-xs text-muted-foreground">{t("commonPages.storeMonthlyRefresh")}</p>
                     </div>
                     <div className="bg-warning/10 border border-warning/20 rounded-xl p-3">
-                      <p className="font-bold text-warning text-sm">{entryCredits} credits</p>
-                      <p className="text-xs text-muted-foreground">Standard tournament entry cost</p>
+                      <p className="font-bold text-warning text-sm">{t("commonPages.storeCreditsAmount", { amount: entryCredits })}</p>
+                      <p className="text-xs text-muted-foreground">{t("commonPages.storeEntryCost")}</p>
                     </div>
                     <div className="bg-success/10 border border-success/20 rounded-xl p-3">
-                      <p className="font-bold text-success text-sm">{tournamentLimit} tournaments</p>
-                      <p className="text-xs text-muted-foreground">Active community tournament slots</p>
+                      <p className="font-bold text-success text-sm">{t("commonPages.storeTournamentsAmount", { amount: tournamentLimit })}</p>
+                      <p className="text-xs text-muted-foreground">{t("commonPages.storeActiveSlots")}</p>
                     </div>
                   </div>
                   <Button onClick={() => setActiveTab("subscription")} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 gap-2">
-                    <Crown className="w-4 h-4" /> View STAGE Plus
+                    <Crown className="w-4 h-4" /> {t("commonPages.storeViewPlus")}
                   </Button>
                 </div>
               </div>
@@ -312,14 +336,14 @@ export default function Store() {
           <TabsContent value="subscription">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-1 rounded-xl bg-secondary border border-border p-1">
-                <button onClick={() => setSubBilling('monthly')} className={cn("px-4 py-1.5 rounded-lg text-sm font-semibold transition-all", subBilling === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Monthly</button>
+                <button onClick={() => setSubBilling('monthly')} className={cn("px-4 py-1.5 rounded-lg text-sm font-semibold transition-all", subBilling === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>{t("commonPages.storeMonthly")}</button>
                 <button onClick={() => setSubBilling('yearly')} className={cn("px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5", subBilling === 'yearly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                  Yearly <span className="text-[10px] font-bold bg-success/20 text-success px-1.5 py-0.5 rounded-full">Save 25%</span>
+                  {t("commonPages.storeYearly")} <span className="text-[10px] font-bold bg-success/20 text-success px-1.5 py-0.5 rounded-full">{t("commonPages.storeSave25")}</span>
                 </button>
               </div>
               {hasStagePlus(player?.subscription) && player?.subscription_expires_at && (
                 <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
-                  Expires: <strong className="text-foreground">{new Date(player.subscription_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                  {t("commonPages.storeExpires")} <strong className="text-foreground">{new Date(player.subscription_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                 </div>
               )}
             </div>
@@ -337,22 +361,22 @@ export default function Store() {
               ))}
               <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 space-y-4">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Free Account</p>
-                  <h3 className="text-2xl font-bold text-foreground">Start with {starterCredits} credits</h3>
-                  <p className="text-sm text-muted-foreground mt-2">Enough for one tournament entry. Credit packs stay available for extra entries or club spending without changing your subscription.</p>
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{t("commonPages.storeFreeAccount")}</p>
+                  <h3 className="text-2xl font-bold text-foreground">{t("commonPages.storeStartWith", { credits: starterCredits })}</h3>
+                  <p className="text-sm text-muted-foreground mt-2">{t("commonPages.storeFreeDesc")}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-border bg-secondary/60 p-3">
                     <p className="text-2xl font-black text-warning">{starterCredits}</p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Starter credits</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("commonPages.storeStarterCredits")}</p>
                   </div>
                   <div className="rounded-xl border border-border bg-secondary/60 p-3">
                     <p className="text-2xl font-black text-primary">1</p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Tournament entry</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("commonPages.storeTournamentEntry")}</p>
                   </div>
                 </div>
                 <Button onClick={() => setActiveTab("credits")} variant="outline" className="w-full border-warning/30 text-warning hover:bg-warning/10 gap-2">
-                  <Coins className="w-4 h-4" /> Buy Credits Separately
+                  <Coins className="w-4 h-4" /> {t("commonPages.storeBuyCreditsSeparately")}
                 </Button>
               </div>
             </div>
@@ -364,6 +388,7 @@ export default function Store() {
 }
 
 function CreditPackCard({ pack, purchasing, onBuy }) {
+  const { t } = useTranslation();
   const isPopular = pack.highlight === "primary";
   const isBest = pack.highlight === "success";
   return (
@@ -383,7 +408,7 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
           <Coins className={cn("w-4 h-4 sm:w-5 sm:h-5", isPopular ? "text-primary" : isBest ? "text-success" : "text-warning")} />
           <span className={cn("text-2xl sm:text-3xl font-black", isPopular ? "text-primary" : isBest ? "text-success" : "text-foreground")}>{pack.credits.toLocaleString()}</span>
         </div>
-        <p className="text-xs text-muted-foreground">credits</p>
+        <p className="text-xs text-muted-foreground">{t("commonPages.storeCreditsWord")}</p>
       </div>
       <div className="text-center">
         <p className="text-xl sm:text-2xl font-bold text-foreground">€{pack.price_eur.toFixed(2)}</p>
@@ -393,13 +418,14 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
         isBest && "bg-success text-black hover:bg-success/90",
         !isPopular && !isBest && "bg-secondary text-foreground border border-border hover:bg-secondary/80"
       )}>
-        {purchasing ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Buy</>}
+        {purchasing ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> {t("commonPages.storeBuy")}</>}
       </Button>
     </div>
   );
 }
 
 function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, storeConfig = DEFAULT_STORE_CONFIG }) {
+  const { t } = useTranslation();
   const rarity = RARITY_STYLES[item.rarity];
   const badgeImg = item.id === "sub_stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[item.id];
   const tier = item.id.replace('sub_', '');
@@ -430,8 +456,8 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
           <h3 className={cn("text-xl sm:text-2xl font-bold", rarity.color)}>{storeConfig.name || item.name}</h3>
           {displayPrice && (
             <div>
-              <p className={cn("text-sm font-bold", rarity.color)}>€{displayPrice.toFixed(2)}<span className="text-xs font-normal text-muted-foreground">/{billing === 'yearly' ? 'year' : 'month'}</span></p>
-              {monthlyEquiv && <p className="text-[10px] text-muted-foreground">≈ €{monthlyEquiv}/month</p>}
+              <p className={cn("text-sm font-bold", rarity.color)}>€{displayPrice.toFixed(2)}<span className="text-xs font-normal text-muted-foreground">/{billing === 'yearly' ? t("commonPages.storeYear") : t("commonPages.storeMonth")}</span></p>
+              {monthlyEquiv && <p className="text-[10px] text-muted-foreground">≈ €{monthlyEquiv}/{t("commonPages.storeMonth")}</p>}
             </div>
           )}
           <p className="text-xs text-muted-foreground">{storeConfig.description || item.description}</p>
@@ -440,15 +466,15 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-background/60 border border-border p-3">
           <p className="font-black text-warning">{monthlyCredits}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Monthly credits</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeMonthlyCredits")}</p>
         </div>
         <div className="rounded-xl bg-background/60 border border-border p-3">
           <p className="font-black text-primary">{entryCredits}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry cost</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeEntryCostShort")}</p>
         </div>
         <div className="rounded-xl bg-background/60 border border-border p-3">
           <p className="font-black text-success">{tournamentLimit}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Active events</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeActiveEvents")}</p>
         </div>
       </div>
       <ul className="space-y-1.5">
@@ -461,17 +487,17 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
       </ul>
       {isCurrentTier ? (
         <div className={cn("flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-xl border", rarity.color, rarity.bg)}>
-          <Check className="w-4 h-4" /> Current Plan
+          <Check className="w-4 h-4" /> {t("commonPages.storeCurrentPlan")}
         </div>
       ) : hasActiveSub ? (
         <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
-          Available after {new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {t("commonPages.storeAvailableAfter", { date: new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) })}
         </div>
       ) : (
         <Button onClick={onBuy} disabled={purchasing} className={cn("w-full font-bold border", rarity.bg, rarity.color)}>
           {purchasing
             ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            : <>Subscribe — €{displayPrice?.toFixed(2)}/{billing === 'yearly' ? 'yr' : 'mo'}</>}
+            : <>{t("commonPages.storeSubscribe")} — €{displayPrice?.toFixed(2)}/{billing === 'yearly' ? t("commonPages.storeYrShort") : t("commonPages.storeMoShort")}</>}
         </Button>
       )}
     </div>

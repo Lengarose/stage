@@ -281,7 +281,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           >
             {t("matchFlow.gameDayTitle")}
           </h1>
-          <p className="text-muted-foreground text-xs md:text-sm">
+          <p className="font-subtitle text-muted-foreground text-xs md:text-sm">
             {leagueFilter === "all"
               ? t("matchFlow.activeScheduledCount", { count: games.length })
               : t("matchFlow.filteredCount", { visible: visibleGames.length, total: games.length })}

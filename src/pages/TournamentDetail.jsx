@@ -38,10 +38,12 @@ import TournamentWinnerPressRoomDialog from "../components/TournamentWinnerPress
 import { toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TournamentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [tournament, setTournament] = useState(null);
   const [clubs, setClubs] = useState([]);
   const [allClubs, setAllClubs] = useState([]);
@@ -93,9 +95,9 @@ export default function TournamentDetail() {
     const homeSub = parseSubmission(match.home_submission);
     const awaySub = parseSubmission(match.away_submission);
     return [
-      { label: `${match.home_club_name || "Home"} proof`, url: homeSub?.proof_url, score: scoreFromSubmission(homeSub) },
-      { label: `${match.away_club_name || "Away"} proof`, url: awaySub?.proof_url, score: scoreFromSubmission(awaySub) },
-      { label: "Match proof", url: !homeSub?.proof_url && !awaySub?.proof_url ? (match.proof_url || match.forfeit_proof_url) : null, score: null },
+      { label: t("tournamentDetail.homeProof", { name: match.home_club_name || t("tournamentDetail.home") }), url: homeSub?.proof_url, score: scoreFromSubmission(homeSub) },
+      { label: t("tournamentDetail.awayProof", { name: match.away_club_name || t("tournamentDetail.away") }), url: awaySub?.proof_url, score: scoreFromSubmission(awaySub) },
+      { label: t("tournamentDetail.matchProof"), url: !homeSub?.proof_url && !awaySub?.proof_url ? (match.proof_url || match.forfeit_proof_url) : null, score: null },
     ].filter(link => link.url);
   };
 
@@ -135,7 +137,7 @@ export default function TournamentDetail() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type?.startsWith("image/")) {
-      await swalAlert("Please upload an image.");
+      await swalAlert(t("tournamentDetail.uploadImageOnly"));
       e.target.value = "";
       return;
     }
@@ -144,7 +146,7 @@ export default function TournamentDetail() {
       const result = await stageClient.integrations.Core.UploadFile({ file });
       setRegistrationProofUrl(result?.file_url || "");
     } catch (err) {
-      await swalAlert(err?.message || "Could not upload registration photo.");
+      await swalAlert(err?.message || t("tournamentDetail.uploadFailed"));
     } finally {
       setUploadingRegistrationProof(false);
       e.target.value = "";
@@ -168,15 +170,15 @@ export default function TournamentDetail() {
       >
         <span className="inline-flex items-center gap-2">
           <Upload className="w-3.5 h-3.5" />
-          {kind === "player" ? "Ultimate Team photo" : "Pro Club photo"}
+          {kind === "player" ? t("tournamentDetail.utPhoto") : t("tournamentDetail.proClubPhoto")}
         </span>
         <span className="text-[10px] text-white/60">
-          {uploadingRegistrationProof ? "Uploading" : registrationProofUrl ? "Ready" : "Required"}
+          {uploadingRegistrationProof ? t("tournamentDetail.uploading") : registrationProofUrl ? t("tournamentDetail.ready") : t("tournamentDetail.required")}
         </span>
       </button>
       {registrationProofUrl && (
         <a href={registrationProofUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-success underline underline-offset-2">
-          <ImageIcon className="w-3 h-3" /> View uploaded photo
+          <ImageIcon className="w-3 h-3" /> {t("tournamentDetail.viewUploadedPhoto")}
         </a>
       )}
     </div>
@@ -361,14 +363,14 @@ export default function TournamentDetail() {
     const effectiveId = takeoverClub ? takeoverClub.id : myPlayer?.club_id;
     if (!effectiveId || !tournament) return;
     if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
-      await swalAlert("Registration is closed. This tournament's start date has already passed.");
+      await swalAlert(t("tournamentDetail.registrationClosedPast"));
       return;
     }
     const current = tournament.registered_clubs || [];
     if (current.includes(effectiveId)) return;
     if (current.length >= tournament.max_teams) return;
     if (!registrationProofUrl) {
-      await swalAlert("Upload a Pro Club photo before registering.");
+      await swalAlert(t("tournamentDetail.uploadProClubPhoto"));
       return;
     }
     
@@ -380,20 +382,20 @@ export default function TournamentDetail() {
     if (tournament.country_code) {
       if (!clubData?.country_code || clubData.country_code !== tournament.country_code) {
         const countryName = COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code;
-        await swalAlert(`This tournament is restricted to clubs from ${countryName}. Your club's country does not match.`);
+        await swalAlert(t("tournamentDetail.countryRestricted", { country: countryName }));
         return;
       }
     }
 
     // Check credits
     if (!takeoverClub && (clubData?.credits ?? 0) < entryCost) {
-      await swalAlert(`Your club doesn't have enough credits to join this tournament. Need ${entryCost} club credits.`);
+      await swalAlert(t("tournamentDetail.notEnoughClubCredits", { cost: entryCost }));
       return;
     }
 
     // Check STC
     if (entryFeeSTC > 0 && (clubData?.stc ?? 0) < entryFeeSTC) {
-      await swalAlert(`Your club doesn't have enough STC to join this tournament. Need ${entryFeeSTC.toLocaleString()} STC, have ${(clubData?.stc ?? 0).toLocaleString()} STC.`);
+      await swalAlert(t("tournamentDetail.notEnoughClubStc", { need: entryFeeSTC.toLocaleString(), have: (clubData?.stc ?? 0).toLocaleString() }));
       return;
     }
 
@@ -402,7 +404,7 @@ export default function TournamentDetail() {
       const res = await registerTournamentClub(tournament.id, effectiveId, registrationProofUrl);
       
       if (!res.data.success) {
-        await swalAlert(res.data.error || 'Registration failed');
+        await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
         return;
       }
 
@@ -421,36 +423,36 @@ export default function TournamentDetail() {
       notifyTournamentRegistration(tournament.id, effectiveId).catch(() => {});
 
       if (updated.length >= tournament.max_teams) {
-        await swalAlert("Tournament is full. The creator or an admin can now generate the draw and start it officially.");
+        await swalAlert(t("tournamentDetail.tournamentFull"));
       }
       setRegistrationProofUrl("");
     } catch (err) {
-      await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
+      await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     }
   }
 
   async function registerPlayer() {
     if (!myPlayer || !tournament) return;
     if (!registrationProofUrl) {
-      await swalAlert("Upload your Ultimate Team photo before registering.");
+      await swalAlert(t("tournamentDetail.uploadUtPhoto"));
       return;
     }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = myPlayer.credits ?? 50;
-    if (currentCredits < entryCost) { await swalAlert("Not enough credits."); return; }
+    if (currentCredits < entryCost) { await swalAlert(t("tournamentDetail.notEnoughCredits")); return; }
     if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
-      await swalAlert(`Not enough STC. Need ${entryFeeSTC.toLocaleString()} STC.`);
+      await swalAlert(t("tournamentDetail.notEnoughStc", { amount: entryFeeSTC.toLocaleString() }));
       return;
     }
     if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
-      await swalAlert("Registration is closed.");
+      await swalAlert(t("tournamentDetail.registrationClosed"));
       return;
     }
     try {
       const res = await registerTournamentPlayer(tournament.id, myPlayer.id, registrationProofUrl);
       if (!res.data.success) {
-        await swalAlert(res.data.error || 'Registration failed');
+        await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
         return;
       }
       const updated = [...(tournament.registered_players || []), myPlayer.id];
@@ -462,37 +464,37 @@ export default function TournamentDetail() {
       setTournament(prev => ({ ...prev, registered_players: updated }));
       setRegistrationProofUrl("");
     } catch (err) {
-      await swalAlert('Registration failed: ' + (err?.message || 'Unknown error'));
+      await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     }
   }
 
   async function generateDraw() {
     if (!tournament) return;
-    if (registeredCount < 2) { await swalAlert("Need at least 2 registered participants to generate a draw."); return; }
+    if (registeredCount < 2) { await swalAlert(t("tournamentDetail.needTwoParticipants")); return; }
     try {
       const result = await generateTournamentDraw(id, tournament, registeredClubs);
       if (result.tournament) setTournament(prev => ({ ...prev, ...result.tournament }));
       setMatches(result.matches || []);
     } catch (err) {
-      await swalAlert(err?.message || "Could not generate draw.");
+      await swalAlert(err?.message || t("tournamentDetail.generateDrawFailed"));
     }
   }
 
   async function clearDraw() {
-    if (!(await swalConfirm("Clear the current draw? This will delete all generated matchups."))) return;
+    if (!(await swalConfirm(t("tournamentDetail.clearDrawConfirm")))) return;
     await clearTournamentDraw(matches);
     setMatches([]);
   }
 
-  async function initializeTournament(t, registeredClubs) {
-    if (!(await swalConfirm("Start this tournament officially? Registered players will be notified."))) return;
+  async function initializeTournament(tournamentData, registeredClubs) {
+    if (!(await swalConfirm(t("tournamentDetail.startOfficialConfirm")))) return;
     try {
-      const result = await initializeTournamentDraw(id, t, registeredClubs);
+      const result = await initializeTournamentDraw(id, tournamentData, registeredClubs);
       setTournament(prev => ({ ...prev, ...(result.tournament || result.tournamentPatch) }));
       setMatches(result.matches);
-      await swalAlert(`Tournament started. ${result.notified || 0} players notified.`);
+      await swalAlert(t("tournamentDetail.tournamentStartedNotify", { count: result.notified || 0 }));
     } catch (err) {
-      await swalAlert(err?.message || "Could not start tournament.");
+      await swalAlert(err?.message || t("tournamentDetail.generateDrawFailed"));
     }
   }
 
@@ -500,7 +502,7 @@ export default function TournamentDetail() {
     if (!isOrganizer || !tournament) return;
     const unscheduledMatches = matches.filter(m => !m.scheduled_date);
     if (unscheduledMatches.length === 0) {
-      await swalAlert("All matches are already scheduled.");
+      await swalAlert(t("tournamentDetail.allMatchesScheduled"));
       return;
     }
     const baseDate = new Date(tournament.start_date || new Date());
@@ -757,7 +759,7 @@ async function handleFirstSubmission(ctx) {
     "Opponent Submitted Match Result",
     `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: ${ctx.submittedScore}`
   );
-  await swalAlert("Result submitted! Opponent has 24h to confirm.");
+  await swalAlert(t("tournamentDetail.resultSubmitted"));
 }
 
 async function savePlayerStats() {
@@ -813,7 +815,7 @@ function resetUI() {
     setForfeitDialogOpen(false);
     setForfeitMatch(null);
     setForfeitProof("");
-    await swalAlert("Forfeit claim submitted. An admin will review and approve.");
+    await swalAlert(t("tournamentDetail.forfeitSubmitted"));
   }
 
   async function approveForfeit(match) {
@@ -844,14 +846,14 @@ function resetUI() {
     if (!effectiveId || !tournament) return;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const confirmMsg = entryFeeSTC > 0
-      ? `Withdraw from the tournament? Entry credits + ${entryFeeSTC.toLocaleString()} STC will be refunded.`
-      : "Withdraw from the tournament? Entry credits will be refunded.";
+      ? t("tournamentDetail.withdrawConfirmStc", { amount: entryFeeSTC.toLocaleString() })
+      : t("tournamentDetail.withdrawConfirmRefund");
     if (!(await swalConfirm(confirmMsg))) return;
 
     const clubData = takeoverClub || allClubs.find(c => c.id === effectiveId);
     const res = await withdrawTournamentClub(tournament.id, effectiveId);
     if (!res?.data?.success) {
-      await swalAlert(res?.data?.error || "Withdrawal failed");
+      await swalAlert(res?.data?.error || t("tournamentDetail.withdrawalFailed"));
       return;
     }
 
@@ -868,10 +870,10 @@ function resetUI() {
   }
 
   async function cancelTournament() {
-    if (!(await swalConfirm("Are you sure you want to cancel this tournament? This cannot be undone."))) return;
+    if (!(await swalConfirm(t("tournamentDetail.cancelConfirm")))) return;
     const res = await cancelTournamentById(id);
     if (!res?.data?.success) {
-      await swalAlert(res?.data?.error || 'Cancellation failed');
+      await swalAlert(res?.data?.error || t("tournamentDetail.cancellationFailed"));
       return;
     }
     // Reload clubs so the info strip reflects the refunded balances
@@ -881,33 +883,33 @@ function resetUI() {
   }
 
   async function deleteTournament() {
-    if (!(await swalConfirm("Permanently DELETE this tournament and all its matches? This cannot be undone."))) return;
+    if (!(await swalConfirm(t("tournamentDetail.deleteConfirm")))) return;
     try {
       const res = await deleteTournamentById(id);
       if (!res?.data?.success) {
-        await swalAlert(res?.data?.error || "Tournament deletion failed");
+        await swalAlert(res?.data?.error || t("tournamentDetail.deleteFailed"));
         return;
       }
       window.location.href = "/tournaments";
     } catch (err) {
-      await swalAlert(err?.data?.error || err?.message || "Tournament deletion failed");
+      await swalAlert(err?.data?.error || err?.message || t("tournamentDetail.deleteFailed"));
     }
   }
 
   async function officializeCurrentTournament() {
-    if (!(await swalConfirm("Officialize this tournament, distribute prize money, and award the trophy?"))) return;
+    if (!(await swalConfirm(t("tournamentDetail.officializeConfirm")))) return;
     try {
       const result = await officializeTournament(id);
       setMatches(result.matches || []);
       if (result.tournament) setTournament(result.tournament);
-      await swalAlert("Tournament officialized. Prize money and trophy have been awarded.");
+      await swalAlert(t("tournamentDetail.officializeSuccess"));
     } catch (err) {
-      await swalAlert(err?.data?.error || err?.message || "Could not officialize the tournament.");
+      await swalAlert(err?.data?.error || err?.message || t("tournamentDetail.officializeFailed"));
     }
   }
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
-  if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">Tournament not found.</p><Link to="/tournaments"><Button variant="outline" className="mt-4">Back</Button></Link></div>;
+  if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">{t("tournamentDetail.tournamentNotFound")}</p><Link to="/tournaments"><Button variant="outline" className="mt-4">{t("tournamentDetail.back")}</Button></Link></div>;
 
   const isPlayerTournament = tournament.participant_type === "player";
   const registeredClubs = allClubs.filter(c => tournament.registered_clubs?.includes(c.id));
@@ -963,26 +965,23 @@ function resetUI() {
 
   // UCL / generic round label helper
   function getRoundLabel(round, matchType) {
-    if (matchType === "ucl_league" || matchType === "league") return `Matchday ${round}`;
-    if (matchType === "ucl_playoff") return "Playoffs";
-    if (matchType === "ucl_r16") return "Round of 16";
-    if (matchType === "ucl_qf") return "Quarter-Finals";
-    if (matchType === "ucl_sf") return "Semi-Finals";
-    if (matchType === "round_of_16") return "Round of 16";
-    if (matchType === "quarter_final") return "Quarter-Finals";
-    if (matchType === "semi_final") return "Semi-Finals";
-    if (matchType === "third_place") return "Third Place";
-    if (matchType === "final") return "Final";
-    if (matchType === "swiss") return `Round ${round}`;
+    if (matchType === "ucl_league" || matchType === "league") return t("tournamentDetail.matchday", { round });
+    if (matchType === "ucl_playoff") return t("tournamentDetail.playoffs");
+    if (matchType === "ucl_r16" || matchType === "round_of_16") return t("tournamentDetail.roundOf16");
+    if (matchType === "ucl_qf" || matchType === "quarter_final") return t("tournamentDetail.quarterFinals");
+    if (matchType === "ucl_sf" || matchType === "semi_final") return t("tournamentDetail.semiFinals");
+    if (matchType === "third_place") return t("tournamentDetail.thirdPlace");
+    if (matchType === "final") return t("tournamentDetail.final");
+    if (matchType === "swiss") return t("tournamentDetail.roundN", { round });
     // Fallback: for generic tournaments infer from total rounds
     const totalRounds = rounds.length;
     const roundIndex = rounds.indexOf(round);
     const remaining = totalRounds - 1 - roundIndex;
-    if (remaining === 0) return "Final";
-    if (remaining === 1) return "Semi-Finals";
-    if (remaining === 2) return "Quarter-Finals";
-    if (remaining === 3) return "Round of 16";
-    return `Round ${round}`;
+    if (remaining === 0) return t("tournamentDetail.final");
+    if (remaining === 1) return t("tournamentDetail.semiFinals");
+    if (remaining === 2) return t("tournamentDetail.quarterFinals");
+    if (remaining === 3) return t("tournamentDetail.roundOf16");
+    return t("tournamentDetail.roundN", { round });
   }
 
   // Determine the "current" round to show by default (latest with incomplete or last)
@@ -1003,8 +1002,8 @@ function resetUI() {
     && knockoutStarted
     && !groupKnockoutNeedsRepair;
   const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
-    ? "Create Final & 3rd Place"
-    : "Advance Tournament";
+    ? t("tournamentDetail.createFinalThird")
+    : t("tournamentDetail.advanceTournament");
   const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
     || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
   const bracketMatches = tournament.type === "group_stage"
@@ -1024,14 +1023,14 @@ function resetUI() {
     : { background: `linear-gradient(135deg, ${tournament.banner_color || "#0f1923"} 0%, ${accentColor}22 100%)` };
 
   const tabs = [
-    { value: "bracket", label: "Bracket / Matches" },
-    ...(tournament.type === "group_stage" ? [{ value: "standings", label: "Group Standings" }] : []),
-    ...(tournament.type === "league" ? [{ value: "league_standings", label: "League Table" }] : []),
-    ...(tournament.type === "swiss_ucl" ? [{ value: "ucl_standings", label: "SL Table" }] : []),
-    { value: "leaderboard", label: "Stats" },
-    { value: "teams", label: isPlayerTournament ? "Players" : "Teams" },
+    { value: "bracket", label: t("tournamentDetail.tabBracket") },
+    ...(tournament.type === "group_stage" ? [{ value: "standings", label: t("tournamentDetail.tabGroupStandings") }] : []),
+    ...(tournament.type === "league" ? [{ value: "league_standings", label: t("tournamentDetail.tabLeagueTable") }] : []),
+    ...(tournament.type === "swiss_ucl" ? [{ value: "ucl_standings", label: t("tournamentDetail.tabSlTable") }] : []),
+    { value: "leaderboard", label: t("tournamentDetail.tabStats") },
+    { value: "teams", label: isPlayerTournament ? t("tournamentDetail.tabPlayers") : t("tournamentDetail.tabTeams") },
     ...(isAdmin && matches.some(m => m.status === "disputed")
-      ? [{ value: "admin", label: `Disputes (${matches.filter(m => m.status === "disputed").length})`, danger: true }]
+      ? [{ value: "admin", label: t("tournamentDetail.tabDisputes", { count: matches.filter(m => m.status === "disputed").length }), danger: true }]
       : []),
   ];
 
@@ -1044,7 +1043,7 @@ function resetUI() {
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/90 transition-colors pt-4 pb-2">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Tournaments
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("tournamentDetail.backToTournaments")}
           </button>
 
           <div className="flex flex-col sm:flex-row items-end gap-5 pb-8 pt-2">
@@ -1083,22 +1082,22 @@ function resetUI() {
                 {tournament.name}
               </h1>
               {tournament.description && (
-                <p className="text-sm text-white/55 mt-2 max-w-xl line-clamp-2">{tournament.description}</p>
+                <p className="font-subtitle text-sm text-white/55 mt-2 max-w-xl line-clamp-2">{tournament.description}</p>
               )}
 
               <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-white/55">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" />
-                  {registeredCount}/{tournament.max_teams} {isPlayerTournament ? "players" : "teams"}
+                  {registeredCount}/{tournament.max_teams} {isPlayerTournament ? t("tournamentDetail.players") : t("tournamentDetail.teams")}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : "TBD"}
+                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : t("tournamentDetail.tbd")}
                 </span>
                 {isAdmin && (
                   <Link to={isPlayerTournament ? `/tournaments/${id}/players` : `/tournaments/${id}/clubs`}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/25 border border-primary/40 text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-primary/35 transition-colors">
-                    <Users className="w-3 h-3" /> {isPlayerTournament ? "Registered Players" : "Registered Clubs"}
+                    <Users className="w-3 h-3" /> {isPlayerTournament ? t("tournamentDetail.registeredPlayers") : t("tournamentDetail.registeredClubs")}
                   </Link>
                 )}
               </div>
@@ -1116,7 +1115,7 @@ function resetUI() {
                     <Button onClick={registerClub} disabled={uploadingRegistrationProof || !registrationProofUrl || (!takeoverClub && !canAfford)}
                       className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                       <Shield className="w-4 h-4 mr-2" />
-                      {takeoverClub ? `Register ${takeoverClub.name}` : "Register My Club"}
+                      {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
                       <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
                     </Button>
                   </>
@@ -1128,7 +1127,7 @@ function resetUI() {
                   {renderRegistrationProofUpload("player")}
                   <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50)}
                   className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
-                    <Users className="w-4 h-4 mr-2" /> Register as Player
+                    <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
                     <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
                   </Button>
                 </>
@@ -1137,16 +1136,16 @@ function resetUI() {
               {!isPlayerTournament && myClubRegistered && tournament.status === "registration" && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-success flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" /> {takeoverClub ? `${takeoverClub.name} registered` : "Registered"}
+                    <Check className="w-3.5 h-3.5" /> {takeoverClub ? t("tournamentDetail.registeredNamed", { name: takeoverClub.name }) : t("tournamentDetail.registered")}
                   </span>
                   <Button size="sm" variant="outline" onClick={withdrawFromTournament}
                     className="border-destructive/40 text-destructive hover:bg-destructive/10 bg-transparent text-xs h-7">
-                    Withdraw
+                    {t("tournamentDetail.withdraw")}
                   </Button>
                 </div>
               )}
               {isPlayerTournament && myPlayerRegistered && tournament.status === "registration" && (
-                <span className="text-xs text-success flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Registered</span>
+                <span className="text-xs text-success flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> {t("tournamentDetail.registered")}</span>
               )}
 
               {(tournament.custom_rules || tournament.rules_file_url) && (
@@ -1155,7 +1154,7 @@ function resetUI() {
                   else setRulesModalOpen(true);
                 }} className="border-white/20 text-white/60 hover:bg-white/10 bg-transparent text-xs">
                   <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                  {tournament.rules_file_url && !tournament.custom_rules ? "Download Rules" : "View Rules"}
+                  {tournament.rules_file_url && !tournament.custom_rules ? t("tournamentDetail.downloadRules") : t("tournamentDetail.viewRules")}
                 </Button>
               )}
             </div>
@@ -1170,12 +1169,16 @@ function resetUI() {
             {tournament.entry_fee_stc > 0 && (
               <span className="flex items-center gap-1.5 text-xs text-success">
                 <Coins className="w-3.5 h-3.5" />
-                Prize: {tournament.prize_pool_stc
+                {t("tournamentDetail.prize")}: {tournament.prize_pool_stc
                   ? `${tournament.prize_pool_stc.toLocaleString()} STC`
                   : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}
                 {tournament.prize_winner_stc && (
                   <span className="text-success/55 ml-1">
-                    (1st: {tournament.prize_winner_stc.toLocaleString()} | 2nd: {(tournament.prize_runner_up_stc || 0).toLocaleString()} | 3rd: {(tournament.prize_semi_final_stc || 0).toLocaleString()})
+                    ({t("tournamentDetail.prizeBreakdown", {
+                      first: tournament.prize_winner_stc.toLocaleString(),
+                      second: (tournament.prize_runner_up_stc || 0).toLocaleString(),
+                      third: (tournament.prize_semi_final_stc || 0).toLocaleString(),
+                    })})
                   </span>
                 )}
               </span>
@@ -1186,7 +1189,7 @@ function resetUI() {
               return (
                 <>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Shield className="w-3 h-3 text-warning" /> Credits: <strong className="text-warning">{(myClubData.credits ?? 0).toLocaleString()}</strong>
+                    <Shield className="w-3 h-3 text-warning" /> {t("tournamentDetail.credits")}: <strong className="text-warning">{(myClubData.credits ?? 0).toLocaleString()}</strong>
                   </span>
                   {(tournament.entry_fee_stc ?? 0) > 0 && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1201,7 +1204,7 @@ function resetUI() {
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {renderRegistrationProofUpload("player")}
                 <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
-                  <Users className="w-4 h-4 mr-2" /> Register as Player <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
+                  <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
             )}
@@ -1209,44 +1212,44 @@ function resetUI() {
             {canOfficializeTournament && (
               <Button type="button" onClick={officializeCurrentTournament} size="sm"
                 className="bg-warning/15 text-warning border border-warning/40 text-xs animate-pulse">
-                <Trophy className="w-3 h-3 mr-1.5" /> Officialize Tournament
+                <Trophy className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.officializeTournament")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs hover:bg-primary/20">
-                🎲 Generate Draw
+                🎲 {t("tournamentDetail.generateDraw")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && !groupStageComplete && (
               <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
-                🔄 Regenerate Draw
+                🔄 {t("tournamentDetail.regenerateDraw")}
               </Button>
             )}
 
             {canManageTournament && tournament.status === "registration" && registeredCount >= 2 && (
               <Button type="button" onClick={() => initializeTournament(tournament, registeredClubs)} size="sm"
                 className="bg-primary text-primary-foreground text-xs">
-                <Play className="w-3 h-3 mr-1.5" /> Start Tournament
+                <Play className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.startTournament")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
               <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
-                Cancel
+                {t("competitionFlow.cancel")}
               </Button>
             )}
 
             {canManageTournament && !allMatchesPlayed && (
               <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 text-xs">
-                Edit
+                {t("tournamentDetail.edit")}
               </Button>
             )}
 
             {isAdmin && ["cancelled", "registration", "completed"].includes(tournament.status) && (
               <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
-                {tournament.status === "completed" ? "End & Delete" : "Delete"}
+                {tournament.status === "completed" ? t("tournamentDetail.endAndDelete") : t("tournamentDetail.delete")}
               </Button>
             )}
           </div>
@@ -1267,17 +1270,17 @@ function resetUI() {
                 : <Shield className="w-5 h-5 text-warning m-3" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-warning/50 font-black">Champion</p>
+              <p className="text-[10px] uppercase tracking-widest text-warning/50 font-black">{t("tournamentDetail.champion")}</p>
               <h2 className="font-heading text-lg font-black text-warning uppercase leading-tight truncate"
                 style={{ transform: "skewX(-4deg)" }}>
                 {winnerClub.name}
               </h2>
-              {winnerPoints !== null && <p className="text-xs text-warning/55">{winnerPoints} points · {winnerClub.platform}</p>}
+              {winnerPoints !== null && <p className="text-xs text-warning/55">{t("tournamentDetail.pointsPlatform", { points: winnerPoints, platform: winnerClub.platform })}</p>}
             </div>
             {(winnerClub.owner_email === user?.email || (takeoverClub && takeoverClub.id === tournament.winner_club_id)) && !winnerConferenceDone && (
               <Button type="button" onClick={() => setWinnerPressRoomOpen(true)} size="sm"
                 className="shrink-0 bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 text-xs">
-                🎙️ Press Conference
+                🎙️ {t("tournamentDetail.pressConference")}
               </Button>
             )}
           </div>
@@ -1323,7 +1326,7 @@ function resetUI() {
           const finalExists = matches.some(m => m.type === "final");
           return (
             <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">⭐ UCL Controls</span>
+              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">⭐ {t("tournamentDetail.uclControls")}</span>
               {["ucl_playoff","ucl_r16","ucl_qf","ucl_sf"].map(mType => {
                 const byTie = {};
                 matches.filter(m => m.type === mType).forEach(m => {
@@ -1377,11 +1380,11 @@ function resetUI() {
                 (allSFDone && !finalExists)
               ) && (
                 <span className="rounded border border-success/30 bg-success/5 px-2.5 py-1 text-xs font-semibold text-success">
-                  Next phase will be generated automatically after result processing.
+                  {t("tournamentDetail.uclNextPhaseAuto")}
                 </span>
               )}
               <span className="text-xs text-muted-foreground ml-auto">
-                Phase: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
+                {t("tournamentDetail.phase")}: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
               </span>
             </div>
           );
@@ -1393,15 +1396,15 @@ function resetUI() {
             <div className="bg-card border border-border rounded-xl p-10 text-center">
               <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               {tournament.status === "registration" && canManageTournament && registeredCount >= 2
-                ? <p className="text-muted-foreground text-sm">Use the <span className="text-primary font-semibold">Generate Draw</span> button above to preview matchups.</p>
-                : <p className="text-muted-foreground text-sm">Bracket will appear once the tournament starts.</p>
+                ? <p className="text-muted-foreground text-sm">{t("tournamentDetail.bracketEmptyGeneratePrefix")} <span className="text-primary font-semibold">{t("tournamentDetail.generateDraw")}</span> {t("tournamentDetail.bracketEmptyGenerateSuffix")}</p>
+                : <p className="text-muted-foreground text-sm">{t("tournamentDetail.bracketEmptyWaiting")}</p>
               }
             </div>
           ) : hasKnockoutTree ? (
             <div className="bg-card border border-border rounded-2xl p-6">
               {tournament.status === "registration" && matches.length > 0 && (
                 <div className="mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
-                  Draw preview — tournament has not started yet.
+                  {t("tournamentDetail.drawPreview")}
                 </div>
               )}
               {tournament.type === "group_stage" && (
@@ -1424,7 +1427,7 @@ function resetUI() {
             <div className="space-y-4">
               {tournament.status === "registration" && matches.length > 0 && (
                 <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
-                  Draw preview — tournament has not started yet.
+                  {t("tournamentDetail.drawPreview")}
                 </div>
               )}
 
@@ -1560,7 +1563,7 @@ function resetUI() {
                                   className="border-primary/30 text-primary hover:bg-primary/5 text-xs h-7">Stream</Button>
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
                                   className="border-destructive/30 text-destructive text-xs h-7">
-                                  <Flag className="w-3 h-3 mr-1" /> Forfeit
+                                  <Flag className="w-3 h-3 mr-1" /> {t("tournamentDetail.forfeit")}
                                 </Button>
                               </div>
                             )}
@@ -1667,7 +1670,7 @@ function resetUI() {
         {isAdmin && activeTab === "admin" && (
           <div className="space-y-4">
             <h3 className="text-xs font-black uppercase tracking-widest text-destructive flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" /> Disputes & Forfeit Requests
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" /> {t("tournamentDetail.disputesForfeitRequests")}
             </h3>
             {matches.filter(m => m.status === "disputed").length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-10 text-center">
@@ -1680,7 +1683,7 @@ function resetUI() {
                   <div className="flex items-center justify-between">
                     <p className="font-bold text-foreground">{match.home_club_name} vs {match.away_club_name}</p>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-black uppercase tracking-widest">
-                      {match.forfeit_claimed_by ? "Forfeit Claim" : "Disputed"}
+                      {match.forfeit_claimed_by ? t("tournamentDetail.forfeitClaim") : t("tournamentDetail.disputed")}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1 bg-destructive/5 border border-destructive/15 rounded-lg p-3">
@@ -1695,7 +1698,7 @@ function resetUI() {
                   <div className="flex gap-2">
                     {match.forfeit_claimed_by && (
                       <Button size="sm" type="button" onClick={() => approveForfeit(match)}
-                        className="bg-warning/10 text-warning border border-warning/30 text-xs">✅ Approve Forfeit</Button>
+                        className="bg-warning/10 text-warning border border-warning/30 text-xs">✅ {t("tournamentDetail.approveForfeit")}</Button>
                     )}
                     <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
                       className="bg-destructive/10 text-destructive border border-destructive/30 text-xs">Set Final Score</Button>
@@ -1756,7 +1759,7 @@ function resetUI() {
       <Dialog open={forfeitDialogOpen} onOpenChange={setForfeitDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-xl text-warning">Claim Forfeit Win</DialogTitle>
+            <DialogTitle className="text-xl text-warning">{t("tournamentDetail.claimForfeitWin")}</DialogTitle>
           </DialogHeader>
           {forfeitMatch && (
             <div className="space-y-4 mt-2">
@@ -1771,7 +1774,7 @@ function resetUI() {
               </div>
               <Button type="button" onClick={() => claimForfeit(forfeitMatch, forfeitProof)}
                 className="w-full bg-warning/10 text-warning border border-warning/30">
-                <Flag className="w-4 h-4 mr-2" /> Submit Forfeit Claim
+                <Flag className="w-4 h-4 mr-2" /> {t("tournamentDetail.submitForfeitClaim")}
               </Button>
             </div>
           )}
@@ -1781,7 +1784,7 @@ function resetUI() {
       <Dialog open={disputeDialogOpen} onOpenChange={setDisputeDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-xl text-destructive">Resolve Disputed Match</DialogTitle>
+            <DialogTitle className="text-xl text-destructive">{t("tournamentDetail.resolveDisputedMatch")}</DialogTitle>
           </DialogHeader>
           {activeDispute && (
             <div className="space-y-4 mt-2">
@@ -1810,7 +1813,7 @@ function resetUI() {
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Admin Notes</label>
                 <Input value={disputeForm.admin_notes} onChange={e => setDisputeForm(f => ({ ...f, admin_notes: e.target.value }))}
-                  className="bg-secondary border-border text-xs" placeholder="Reason for decision..." />
+                  className="bg-secondary border-border text-xs" placeholder={t("tournamentDetail.reasonPlaceholder")} />
               </div>
               <Button type="button" onClick={() => resolveDispute(activeDispute, disputeForm.home_score, disputeForm.away_score)}
                 disabled={disputeForm.home_score === "" || disputeForm.away_score === ""}

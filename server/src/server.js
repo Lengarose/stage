@@ -14,6 +14,15 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 app.use(securityHeaders());
+
+// Stripe webhook MUST see the raw body for signature verification, so it is
+// mounted BEFORE the JSON body parser. (Public route — auth is the signature.)
+app.use(
+  '/api/stage/stripe/webhook',
+  require('express').raw({ type: 'application/json' }),
+  require('./server/controllers/stripeWebhookController'),
+);
+
 app.use(require('express').json({ limit: '2mb' }));
 app.use(require('express').urlencoded({ extended: true }));
 app.use(passport.initialize());
@@ -96,6 +105,8 @@ app.use('/api/stage/competition-instances', verifyToken, makeCompetitionEngineEn
 app.use('/api/stage/competition-participants', verifyToken, makeCompetitionEngineEntityRouter({
   table: 'competition_participants',
   columns: ['competition_instance_id', 'participant_type', 'club_id', 'player_id', 'user_id', 'status', 'seed', 'registered_at', 'approved_at', 'created_date', 'updated_date'],
+  onCreate: (row) => require('./server/services/notify-participant').participantAssigned(row),
+  onDelete: (row) => require('./server/services/notify-participant').participantUnassigned(row),
 }));
 app.use('/api/stage/competition-schedule-proposals', verifyToken, makeCompetitionEngineEntityRouter({
   table: 'competition_schedule_proposals',
@@ -170,6 +181,7 @@ app.use('/api/stage/archetypes',                verifyToken, require('./server/c
 app.use('/api/stage/chemistry-links',           verifyToken, require('./server/controllers/chemistryLinkController'));
 app.use('/api/stage/sbcs',                      verifyToken, require('./server/controllers/sbcController'));
 app.use('/api/stage/sbc-submissions',           verifyToken, require('./server/controllers/sbcSubmissionController'));
+app.use('/api/stage/fut-matches',               verifyToken, require('./server/controllers/futMatchController'));
 
 // Legacy/compat entities — models existed, controllers were missing until now
 app.use('/api/stage/rating-histories',          verifyToken, require('./server/controllers/ratingHistoryController'));
@@ -329,6 +341,8 @@ async function runStartupMigrations() {
   await addCol('players', 'verified_platform', 'VARCHAR(50) NULL');
   await addCol('players', 'verified_platform_handle', 'VARCHAR(150) NULL');
   await addCol('players', 'identity_verified_at', 'DATETIME NULL');
+  await addCol('players', 'eafc_club_id', 'VARCHAR(36) NULL');
+  await addCol('players', 'eafc_club_name', 'VARCHAR(255) NULL');
   await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
   // Legacy DBs sometimes marked club_id NOT NULL; kicks / account deletion must clear it.
   await EXECUTESQL(
@@ -573,6 +587,24 @@ async function runStartupMigrations() {
     created_date  DATETIME       DEFAULT CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] player_stc_transactions:', err.message));
 
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_fut_matches (
+    id             VARCHAR(36)  PRIMARY KEY,
+    player_id      VARCHAR(36)  NOT NULL,
+    player_email   VARCHAR(255) NULL,
+    played_at      DATETIME     NOT NULL,
+    result         VARCHAR(10)  NOT NULL,
+    goals_for      INT          DEFAULT 0,
+    goals_against  INT          DEFAULT 0,
+    mode           VARCHAR(50)  DEFAULT 'rivals',
+    opponent_note  VARCHAR(255) NULL,
+    notes          TEXT         NULL,
+    proof_url      TEXT         NULL,
+    created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_fut_match_player (player_id),
+    INDEX idx_fut_match_played (played_at)
+  )`).catch(err => console.error('[migration] player_fut_matches:', err.message));
+
   // Player identity claiming / verification workflow.
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_identity_claims (
     id                    VARCHAR(36)  PRIMARY KEY,
@@ -742,6 +774,16 @@ async function runStartupMigrations() {
     UNIQUE KEY uq_chat_reads_user_channel (user_email, channel_id),
     INDEX idx_chat_reads_user (user_email)
   )`).catch(err => console.error('[migration] chat_reads:', err.message));
+
+  // processed_stripe_sessions — idempotency guard so a Stripe payment is
+  // fulfilled exactly once whether the webhook or the client-return path
+  // reports it first. UNIQUE(session_id, kind) is the whole point.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS processed_stripe_sessions (
+    session_id    VARCHAR(255) NOT NULL,
+    kind          VARCHAR(32)  NOT NULL,
+    processed_at  DATETIME     NOT NULL,
+    PRIMARY KEY (session_id, kind)
+  )`).catch(err => console.error('[migration] processed_stripe_sessions:', err.message));
 
   // Widen chat_messages.match_id so namespaced channels (e.g. `club:<uuid>`)
   // fit without silent truncation. Idempotent: MODIFY is a no-op if already wide.

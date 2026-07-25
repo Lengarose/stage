@@ -231,7 +231,7 @@ export default function LeagueDetail() {
               >
                 {league.name}
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="font-subtitle text-xs text-muted-foreground">
                 Season {league.season_number} · {standings.length}/{league.max_clubs || 16} clubs
               </p>
             </div>

@@ -55,8 +55,8 @@ class CompetitionEngineModel {
     return EXECUTESQL(`SELECT * FROM competition_instances ${clause} ORDER BY created_date DESC LIMIT 100`, values);
   }
 
-  upsertParticipant(row) {
-    return EXECUTESQL(
+  async upsertParticipant(row) {
+    const result = await EXECUTESQL(
       `INSERT INTO competition_participants
        (id, competition_instance_id, participant_type, club_id, player_id, user_id, status, seed, registered_at, approved_at)
        VALUES (?,?,?,?,?,?,?,?,?,?)
@@ -79,6 +79,16 @@ class CompetitionEngineModel {
         row.approved_at || null,
       ],
     );
+    // MySQL ON DUPLICATE KEY: affectedRows === 1 means a brand-new row was
+    // inserted (2 = updated existing, 0 = unchanged). Email the participant
+    // exactly once — the first time they join ANY competition/league — so
+    // re-syncs never spam. Fire-and-forget; lazy require avoids a circular dep.
+    if (Number(result?.affectedRows) === 1) {
+      Promise.resolve()
+        .then(() => require('../services/notify-participant').participantAssigned(row))
+        .catch((e) => console.error('[competitionEngineModel] assigned email:', e.message));
+    }
+    return result;
   }
 
   listParticipants(instanceId) {

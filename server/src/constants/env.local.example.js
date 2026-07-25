@@ -13,4 +13,8 @@ module.exports = {
   TWITCH_CLIENT_SECRET: '<twitch-client-secret>',
   // Kick OAuth client secret — kick.com/settings/developer -> your app.
   KICK_CLIENT_SECRET: '<kick-client-secret>',
+  // Microsoft OAuth client secret — portal.azure.com -> App registrations -> Certificats & secrets.
+  MICROSOFT_CLIENT_SECRET: '<microsoft-client-secret>',
+  // Google OAuth client secret — console.cloud.google.com -> Credentials.
+  GOOGLE_CLIENT_SECRET: '<google-client-secret>',
 };

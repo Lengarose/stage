@@ -16,12 +16,13 @@ import {
   markDiscordJoined,
   openDiscordInvite,
 } from "@/lib/discordJoin";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const BENEFITS = [
-  { icon: Users, text: "Find clubs, players, and scrims fast" },
-  { icon: Megaphone, text: "League announcements and match reminders" },
-  { icon: Swords, text: "Talk tactics, transfers, and highlights" },
-  { icon: MessageCircle, text: "Get help from staff and the community" },
+  { icon: Users, key: "discBenefit1" },
+  { icon: Megaphone, key: "discBenefit2" },
+  { icon: Swords, key: "discBenefit3" },
+  { icon: MessageCircle, key: "discBenefit4" },
 ];
 
 export default function DiscordJoinCard({
@@ -32,6 +33,7 @@ export default function DiscordJoinCard({
   showSkip = true,
   showWidget = true,
 }) {
+  const { t } = useTranslation();
   const [joined, setJoined] = useState(() => hasMarkedDiscordJoined());
   const configured = isDiscordConfigured();
   const hasInvite = Boolean(DISCORD_INVITE_URL);
@@ -43,7 +45,7 @@ export default function DiscordJoinCard({
       <div className={cn("rounded-2xl border border-border bg-card p-6 text-center", className)}>
         <MessageCircle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">
-          Discord link is not set up yet. Ask an admin to add invite settings.
+          {t("commonPages.discNotConfigured")}
         </p>
       </div>
     );
@@ -81,12 +83,12 @@ export default function DiscordJoinCard({
               <DiscordMark className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-[#5865F2] font-bold mb-1">Community</p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[#5865F2] font-bold mb-1">{t("nav.community")}</p>
               <h2 className="font-heading text-lg uppercase tracking-tight text-foreground">
-                Join our Discord
+                {t("commonPages.discJoinTitle")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Free to join — meet players, get match updates, and find your next club.
+                {t("commonPages.discBannerDesc")}
               </p>
             </div>
           </div>
@@ -98,18 +100,18 @@ export default function DiscordJoinCard({
                 className="bg-[#5865F2] hover:bg-[#4752C4] text-white gap-2"
               >
                 <DiscordMark className="w-4 h-4" />
-                Join Discord
+                {t("commonPages.discJoinDiscord")}
               </Button>
             )}
             <Button type="button" variant="outline" asChild className="border-border">
-              <Link to="/community">Learn more</Link>
+              <Link to="/community">{t("commonPages.learnMore")}</Link>
             </Button>
             <button
               type="button"
               onClick={handleSkip}
               className="text-xs text-muted-foreground hover:text-foreground px-2 py-2"
             >
-              Not now
+              {t("commonPages.discNotNow")}
             </button>
           </div>
         </div>
@@ -126,9 +128,9 @@ export default function DiscordJoinCard({
               <DiscordMark className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-semibold text-foreground">Stage League Discord</p>
+              <p className="font-semibold text-foreground">{t("commonPages.discServerName")}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {joined ? "You're set — hop in anytime from Community." : "Join competitors on Discord."}
+                {joined ? t("commonPages.discCompactJoined") : t("commonPages.discCompactCta")}
               </p>
             </div>
           </div>
@@ -136,11 +138,11 @@ export default function DiscordJoinCard({
             {hasInvite && !joined && (
               <Button type="button" onClick={handleJoin} className="bg-[#5865F2] hover:bg-[#4752C4] text-white gap-2">
                 <DiscordMark className="w-4 h-4" />
-                Join server
+                {t("commonPages.discJoinServer")}
               </Button>
             )}
             <Button type="button" variant="outline" asChild>
-              <Link to="/community">Open Community</Link>
+              <Link to="/community">{t("commonPages.discOpenCommunity")}</Link>
             </Button>
           </div>
         </div>
@@ -162,19 +164,19 @@ export default function DiscordJoinCard({
                   style={{ fontFamily: "'Anton', sans-serif" }}
                   className="text-2xl italic uppercase tracking-tight text-white mb-1"
                 >
-                  Join the community
+                  {t("commonPages.discOnboardTitle")}
                 </h2>
                 <p className="text-white/50 text-xs leading-relaxed">
-                  Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.
+                  {t("commonPages.discOnboardDesc")}
                 </p>
               </div>
             </div>
 
             <ul className="space-y-2.5">
-              {BENEFITS.map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-3 text-white/70 text-xs">
+              {BENEFITS.map(({ icon: Icon, key }) => (
+                <li key={key} className="flex items-center gap-3 text-white/70 text-xs">
                   <Icon className="w-4 h-4 text-[#5865F2] shrink-0" />
-                  {text}
+                  {t(`commonPages.${key}`)}
                 </li>
               ))}
             </ul>
@@ -184,7 +186,7 @@ export default function DiscordJoinCard({
             <div className="rounded-xl overflow-hidden border border-white/15 bg-[#2f3136]">
               <div className="px-4 py-2 border-b border-white/10 bg-black/20">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-                  Server preview
+                  {t("commonPages.discServerPreview")}
                 </p>
               </div>
               <DiscordWidget compact className="w-full block" />
@@ -201,7 +203,7 @@ export default function DiscordJoinCard({
                 className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-black uppercase tracking-widest gap-2 h-11"
               >
                 <DiscordMark className="w-5 h-5" />
-                Join Discord
+                {t("commonPages.discJoinDiscord")}
                 <ExternalLink className="w-4 h-4 opacity-80" />
               </Button>
             )}
@@ -211,7 +213,7 @@ export default function DiscordJoinCard({
                 onClick={onContinue}
                 className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest h-11 hover:bg-gray-100"
               >
-                Continue to STAGE →
+                {t("commonPages.discContinue")}
               </Button>
             )}
           </div>
@@ -222,7 +224,7 @@ export default function DiscordJoinCard({
               onClick={handleAlreadyJoined}
               className="text-white/50 hover:text-white hover:bg-white/10 text-[10px] uppercase tracking-widest h-8 px-2"
             >
-              I already joined
+              {t("commonPages.discAlreadyJoined")}
             </Button>
             {showSkip && (
               <button
@@ -230,7 +232,7 @@ export default function DiscordJoinCard({
                 onClick={handleSkip}
                 className="text-white/35 hover:text-white/60 text-[10px] uppercase tracking-widest py-1 transition-colors"
               >
-                Skip for now
+                {t("commonPages.discSkipForNow")}
               </button>
             )}
           </div>
@@ -246,22 +248,22 @@ export default function DiscordJoinCard({
           <div className="flex-1 space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#5865F2]/15 border border-[#5865F2]/30 text-[#5865F2] text-[10px] font-bold uppercase tracking-wider">
               <DiscordMark className="w-3.5 h-3.5" />
-              Official server
+              {t("commonPages.discOfficialServer")}
             </div>
             <div>
               <h2 className="font-heading text-2xl sm:text-3xl uppercase tracking-tight text-foreground">
-                Your home off the pitch
+                {t("commonPages.discFullTitle")}
               </h2>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-lg">
-                Discord is free and takes under a minute. Join to chat with clubs, get match updates, and stay connected — whether you signed up today or joined months ago.
+                {t("commonPages.discFullDesc")}
               </p>
             </div>
 
             <ol className="space-y-3">
               {[
-                "Click Join Discord — opens in a new tab",
-                "Create a Discord account or sign in (free)",
-                "Accept the invite and pick your channels",
+                t("commonPages.discStep1"),
+                t("commonPages.discStep2"),
+                t("commonPages.discStep3"),
               ].map((step, i) => (
                 <li key={step} className="flex gap-3 text-sm">
                   <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-black flex items-center justify-center shrink-0">
@@ -273,9 +275,9 @@ export default function DiscordJoinCard({
             </ol>
 
             <ul className="grid sm:grid-cols-2 gap-2">
-              {BENEFITS.map(({ icon: Icon, text }) => (
+              {BENEFITS.map(({ icon: Icon, key }) => (
                 <li
-                  key={text}
+                  key={key}
                   className="flex items-start gap-2 text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border/60"
                 >
                   <Icon className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
@@ -293,13 +295,13 @@ export default function DiscordJoinCard({
                   className="bg-[#5865F2] hover:bg-[#4752C4] text-white gap-2 font-heading uppercase tracking-wide"
                 >
                   <DiscordMark className="w-5 h-5" />
-                  {joined ? "Open Discord again" : "Join Discord — it's free"}
+                  {joined ? t("commonPages.discOpenAgain") : t("commonPages.discJoinFree")}
                   <ExternalLink className="w-4 h-4 opacity-80" />
                 </Button>
               )}
               {!joined && (
                 <Button type="button" variant="outline" size="lg" onClick={handleAlreadyJoined}>
-                  I&apos;m already in the server
+                  {t("commonPages.discAlreadyInServer")}
                 </Button>
               )}
             </div>
@@ -309,7 +311,7 @@ export default function DiscordJoinCard({
             <div className="w-full lg:w-[340px] shrink-0 rounded-xl border border-border overflow-hidden shadow-xl bg-[#2f3136]">
               <div className="px-4 py-2.5 border-b border-white/10 bg-black/20">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
-                  Live preview
+                  {t("commonPages.discLivePreview")}
                 </p>
               </div>
               <DiscordWidget className="w-full block min-h-[420px]" />

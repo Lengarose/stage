@@ -103,8 +103,8 @@ export default function PlayerStats() {
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap justify-between">
         <div>
-          <h1 className="leading-relaxed text-3xl font-bold text-foreground">Player Statistics</h1>
-          <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1.5">
+          <h1 className="font-heading leading-relaxed text-3xl font-bold text-foreground">Player Statistics</h1>
+          <p className="font-subtitle text-muted-foreground text-sm mt-1 flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-primary" /> {myClub.name} · {players.length} players
           </p>
         </div>

@@ -4,7 +4,7 @@ import {
   User, Shield, Save, Plus, LogOut,
   Camera, Loader2, Edit2, Check, X,
   Swords, Bell, UserCheck, ExternalLink,
-  ArrowLeft, Settings, Move, BadgeCheck, Send
+  ArrowLeft, Settings, Move, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,17 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import BannerSelector from "../components/BannerSelector";
+import SubscriptionProgress from "../components/profile/SubscriptionProgress";
 import ClubOnboardingModal from "../components/ClubOnboardingModal";
+import ProfileCompletionModal from "../components/ProfileCompletionModal";
 import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
-import { getBannerStyle } from "@/lib/storeItems";
+import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
+import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
+import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
+import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
+import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { loadEafcSummary, loadFutMatches } from "@/lib/dashboardData";
 import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -68,6 +75,7 @@ function getProfileRoleBadges(player, club, user) {
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
 export default function Profile() {
+  const { t } = useTranslation();
   const _navigate = useNavigate();
   const [view, setView] = useState("profile"); // default: public profile view
   const [user, setUser] = useState(null);
@@ -111,6 +119,9 @@ export default function Profile() {
 
   const [_clubDialogOpen, setClubDialogOpen] = useState(false);
   const [clubOnboardingOpen, setClubOnboardingOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [futMatches, setFutMatches] = useState([]);
+  const [eafcSummary, setEafcSummary] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -152,6 +163,15 @@ export default function Profile() {
             const pvpMap = new Map();
             allPvp.forEach(m => pvpMap.set(m.id, m));
             setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)));
+          });
+
+          Promise.all([
+            loadFutMatches(p, 20),
+            p.eafc_club_id ? loadEafcSummary(p) : Promise.resolve(null),
+          ]).then(([futRows, eafcData]) => {
+            if (!alive) return;
+            setFutMatches(futRows);
+            setEafcSummary(eafcData);
           });
 
           // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
@@ -342,8 +362,16 @@ export default function Profile() {
 
   // ─── Public Player Profile View ───
   if (view === "profile") {
+    const profileTabs = [
+      { id: "posts", label: t("commonPages.profTab_posts") },
+      { id: "stats", label: t("commonPages.profTab_stats") },
+      { id: "career", label: t("commonPages.gamerTabCareer") },
+      { id: "matches", label: t("commonPages.profTab_matches") },
+      { id: "trophies", label: t("commonPages.profTab_trophies") },
+    ];
+
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <GamerProfileShell>
         <OwnerContractDialog
           open={!!ownerContractPrompt}
           club={ownerContractPrompt?.club}
@@ -355,269 +383,167 @@ export default function Profile() {
           }}
           onClose={() => setOwnerContractPrompt(null)}
         />
-        {/* Banner */}
-        <div className="relative h-48 sm:h-64 overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.18)]" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
-          <div className="w-full h-full" style={getBannerStyle(player?.banner_url, player?.banner_position)} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)" }} />
-          <div className="absolute inset-0 pointer-events-none hidden dark:block" style={{ background: "linear-gradient(to bottom, transparent 35%, hsl(var(--background)) 100%)" }} />
-          {/* Top-right action icons */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            {unreadCount > 0 && (
-              <button onClick={() => setView("notifications")} className="relative p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
-                <Bell className="w-5 h-5 text-white" />
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">{unreadCount}</span>
-              </button>
-            )}
-            {joinRequests.length > 0 && (
-              <button onClick={() => setView("requests")} className="relative p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
-                <UserCheck className="w-5 h-5 text-white" />
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
-              </button>
-            )}
-            <button onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors text-white/70 text-xs font-medium">
-              <Settings className="w-4 h-4" /> Edit Profile
-            </button>
-            <button onClick={() => stageClient.auth.logout()} className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors">
-              <LogOut className="w-5 h-5 text-white/70" />
-            </button>
-          </div>
-        </div>
 
-        {/* Profile header */}
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-end justify-between -mt-16 mb-4 relative z-10">
-            {/* Avatar */}
-            <button
-              onClick={() => player?.avatar_url && setAvatarLightboxOpen(true)}
-              className="w-24 h-24 rounded-full border-2 border-white/20 shadow-2xl shadow-blue-500/20 flex items-center justify-center overflow-hidden shrink-0 bg-[#0d1225]"
-            >
-              {player?.avatar_url
-                ? <div className="w-full h-full" style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }} />
-                : <User className="w-9 h-9 text-white/40" />
-              }
-            </button>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {myClub && (
-                <Button size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/20 text-white hover:bg-white/10 bg-transparent">
-                  <Shield className="w-3.5 h-3.5" /> My Club
+        <GamerProfileHero
+          player={player}
+          user={user}
+          club={myClub}
+          roleBadges={profileRoleBadges}
+          formatPositions={formatPositions}
+          onAvatarClick={player?.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
+          verifiedHandle={
+            Number(player?.is_verified) === 1 && player?.verified_platform_handle
+              ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
+              : null
+          }
+          topActions={(
+            <>
+              {unreadCount > 0 ? (
+                <button type="button" onClick={() => setView("notifications")} className="relative p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
+                  <Bell className="w-4 h-4 text-white" />
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] flex items-center justify-center font-bold">{unreadCount}</span>
+                </button>
+              ) : null}
+              {joinRequests.length > 0 ? (
+                <button type="button" onClick={() => setView("requests")} className="relative p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
+                  <UserCheck className="w-4 h-4 text-white" />
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
+                </button>
+              ) : null}
+              <button type="button" onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider">
+                <Settings className="w-4 h-4" /> {t("commonPages.profEditProfile")}
+              </button>
+              <button type="button" onClick={() => stageClient.auth.logout()} className="p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
+                <LogOut className="w-4 h-4 text-white/70" />
+              </button>
+            </>
+          )}
+          sideActions={(
+            <>
+              <Link to="/dashboard">
+                <Button type="button" size="sm" className="font-heading uppercase text-xs bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black">
+                  {t("nav.dashboard")}
                 </Button>
-              )}
-            </div>
-          </div>
+              </Link>
+              {myClub ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
+                  <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
+                </Button>
+              ) : null}
+            </>
+          )}
+        />
 
-          {/* Name + meta */}
-          <div className="space-y-1.5 mb-5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-heading text-2xl sm:text-3xl font-black text-white uppercase tracking-tight" style={{ letterSpacing: "-0.02em" }}>
-                {player?.gamertag || user?.full_name || "New Player"}
-              </h1>
-              {Number(player?.is_verified) === 1 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">
-                  <BadgeCheck className="w-3.5 h-3.5" /> Verified
-                </span>
-              )}
-              {player?.shirt_number && (
-                <span className="font-heading text-xl font-black text-white/30 border border-white/15 rounded-lg px-2 py-0.5 shrink-0">
-                  #{player.shirt_number}
-                </span>
-              )}
-            </div>
-            {profileRoleBadges.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {profileRoleBadges.map(r => (
-                  <span key={r} className={cn("text-xs px-2 py-0.5 rounded-full font-medium capitalize",
-                    r === "president" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
-                    r === "captain" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
-                    "bg-white/10 text-white/60 border border-white/10"
-                  )}>{r}</span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-3 text-[11px] text-white/50 uppercase tracking-wider flex-wrap">
-              {player?.position && <span>{formatPositions(player)}</span>}
-              {player?.platform && <span>{player.platform}</span>}
-              {player?.country && <span>{player.country}</span>}
-              {myClub && (
-                <Link to={`/clubs/${myClub.id}`} className="text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                  <Shield className="w-3 h-3" />{myClub.name}
-                </Link>
-              )}
-            </div>
-            {player?.bio && <p className="text-sm text-white/70 mt-1 break-words">{player.bio}</p>}
-            {Number(player?.is_verified) === 1 && player?.verified_platform_handle && (
-              <p className="text-xs text-blue-300/80">
-                Verified {player.verified_platform || "platform"} identity: <span className="font-semibold">{player.verified_platform_handle}</span>
+        <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
+          <SubscriptionProgress player={player} />
+
+          {player && Number(player.is_verified) === 1 ? (
+            <GamerSectionCard title={t("commonPages.profIdentityVerified")}>
+              <p className="text-xs text-white/50">
+                {t("commonPages.profIdentityVerifiedDesc", { handle: player.verified_platform_handle || t("commonPages.profAPlatformIdentity") })}
               </p>
-            )}
-          </div>
-        </div>
+            </GamerSectionCard>
+          ) : null}
 
-        {player && (
-          <div className="max-w-5xl mx-auto px-3 sm:px-4 mb-4">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              {Number(player.is_verified) === 1 ? (
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
-                    <BadgeCheck className="w-5 h-5 text-blue-300" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Identity verified</p>
-                    <p className="text-xs text-white/50">
-                      This profile has been reviewed by STAGE staff and linked to {player.verified_platform_handle || "a platform identity"}.
-                    </p>
-                  </div>
+          {player && pendingIdentityClaim ? (
+            <GamerSectionCard title={t("commonPages.profIdentityReview")}>
+              <p className="text-xs text-white/50">
+                {pendingIdentityClaim.platform} · {pendingIdentityClaim.platform_handle}
+              </p>
+            </GamerSectionCard>
+          ) : null}
+
+          {player && Number(player.is_verified) !== 1 && !pendingIdentityClaim ? (
+            <GamerSectionCard title={t("commonPages.profClaimIdentity")}>
+              <p className="text-xs text-white/50 mb-3">{t("commonPages.profClaimIdentityDesc")}</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <Select value={claimForm.platform} onValueChange={v => setClaimForm(f => ({ ...f, platform: v }))}>
+                  <SelectTrigger className="bg-black/30 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PlayStation">PlayStation</SelectItem>
+                    <SelectItem value="Xbox">Xbox</SelectItem>
+                    <SelectItem value="PC">PC</SelectItem>
+                    <SelectItem value="EA">EA</SelectItem>
+                    <SelectItem value="Discord">Discord</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input value={claimForm.platform_handle} onChange={e => setClaimForm(f => ({ ...f, platform_handle: e.target.value }))} className="bg-black/30 border-white/10 text-white" placeholder={t("commonPages.profHandlePlaceholder")} />
+                <Input value={claimForm.ea_id} onChange={e => setClaimForm(f => ({ ...f, ea_id: e.target.value }))} className="bg-black/30 border-white/10 text-white" placeholder={t("commonPages.profEaIdPlaceholder")} />
+                <Input value={claimForm.discord_handle} onChange={e => setClaimForm(f => ({ ...f, discord_handle: e.target.value }))} className="bg-black/30 border-white/10 text-white" placeholder={t("commonPages.profDiscordPlaceholder")} />
+              </div>
+              <Button size="sm" onClick={submitIdentityClaim} disabled={submittingClaim || !claimForm.platform_handle.trim()} className="gap-1.5 mt-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold">
+                {submittingClaim ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {t("commonPages.profSubmitClaim")}
+              </Button>
+            </GamerSectionCard>
+          ) : null}
+
+          {player ? (
+            <>
+              <GamerTabNav tabs={profileTabs} active={profileTab} onChange={setProfileTab} />
+
+              {profileTab === "posts" ? (
+                <div className="pt-2">
+                  <PlayerFeed currentUser={user} player={player} isOwner={true} />
                 </div>
-              ) : pendingIdentityClaim ? (
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-warning/15 border border-warning/30 flex items-center justify-center shrink-0">
-                    <UserCheck className="w-5 h-5 text-warning" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Identity claim under review</p>
-                    <p className="text-xs text-white/50">
-                      {pendingIdentityClaim.platform} · {pendingIdentityClaim.platform_handle}
-                    </p>
-                  </div>
+              ) : null}
+
+              {profileTab === "stats" ? (
+                <div className="pt-2">
+                  <GamerProfileStatsPanel player={player} t={t} />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
-                      <BadgeCheck className="w-5 h-5 text-blue-300" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">Claim your player identity</p>
-                      <p className="text-xs text-white/50">Link your STAGE profile to your console or EA identity so clubs know this is really you.</p>
-                    </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    <Select value={claimForm.platform} onValueChange={v => setClaimForm(f => ({ ...f, platform: v }))}>
-                      <SelectTrigger className="bg-black/20 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PlayStation">PlayStation</SelectItem>
-                        <SelectItem value="Xbox">Xbox</SelectItem>
-                        <SelectItem value="PC">PC</SelectItem>
-                        <SelectItem value="EA">EA</SelectItem>
-                        <SelectItem value="Discord">Discord</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input value={claimForm.platform_handle} onChange={e => setClaimForm(f => ({ ...f, platform_handle: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="PSN / Xbox / EA handle" />
-                    <Input value={claimForm.ea_id} onChange={e => setClaimForm(f => ({ ...f, ea_id: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="EA ID (optional)" />
-                    <Input value={claimForm.discord_handle} onChange={e => setClaimForm(f => ({ ...f, discord_handle: e.target.value }))} className="bg-black/20 border-white/10 text-white" placeholder="Discord handle (optional)" />
-                    <Input value={claimForm.proof_url} onChange={e => setClaimForm(f => ({ ...f, proof_url: e.target.value }))} className="bg-black/20 border-white/10 text-white sm:col-span-2" placeholder="Proof link: screenshot, clip, or profile URL (optional)" />
-                    <Textarea value={claimForm.notes} onChange={e => setClaimForm(f => ({ ...f, notes: e.target.value }))} className="bg-black/20 border-white/10 text-white sm:col-span-2 resize-none" rows={2} placeholder="Anything admins should know?" />
-                  </div>
-                  {latestIdentityClaim?.status === "rejected" && (
-                    <p className="text-xs text-destructive">
-                      Last claim rejected{latestIdentityClaim.rejection_reason ? `: ${latestIdentityClaim.rejection_reason}` : "."}
-                    </p>
-                  )}
-                  <Button size="sm" onClick={submitIdentityClaim} disabled={submittingClaim || !claimForm.platform_handle.trim()} className="gap-1.5 bg-blue-600 hover:bg-blue-500 text-white">
-                    {submittingClaim ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    Submit Claim
-                  </Button>
+              ) : null}
+
+              {profileTab === "career" ? (
+                <div className="pt-2 space-y-4">
+                  <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} onPlayerUpdate={setPlayer} />
+                  <FutMatchLogPanel playerId={player.id} initialMatches={futMatches} />
                 </div>
-              )}
-            </div>
-          </div>
-        )}
+              ) : null}
 
-        {/* Tabs */}
-        {player && (
-          <div className="max-w-5xl mx-auto">
-            <Tabs value={profileTab} onValueChange={setProfileTab} className="w-full">
-              <TabsList className="w-full rounded-none border-b border-white/10 bg-transparent h-auto p-0 gap-0">
-                {["posts", "stats", "matches", "trophies"].map(tab => (
-                  <TabsTrigger
-                    key={tab}
-                    value={tab}
-                    className={cn(
-                      "flex-1 rounded-none border-b-2 border-transparent pb-3 pt-3 text-[10px] sm:text-xs uppercase tracking-widest font-bold text-white/40 transition-colors min-w-0",
-                      "data-[state=active]:border-blue-400 data-[state=active]:text-blue-400 data-[state=active]:bg-transparent"
-                    )}
-                  >
-                    {tab}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {/* Posts */}
-              <TabsContent value="posts" className="mt-0 px-3 sm:px-4 pt-4">
-                <PlayerFeed currentUser={user} player={player} isOwner={true} />
-              </TabsContent>
-
-              {/* Stats */}
-              <TabsContent value="stats" className="px-3 sm:px-4 pt-4">
-                <div className="space-y-4">
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-xl bg-blue-500/20 border border-blue-500/30 flex flex-col items-center justify-center shrink-0">
-                      <span className="font-heading text-xl font-black text-blue-400 leading-none">{player.overall_rating || 70}</span>
-                      <span className="text-[8px] uppercase tracking-wider text-white/40 mt-0.5">OVR</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-white truncate">{player.gamertag}</p>
-                      <p className="text-xs text-white/50">{formatPositions(player)} · {player.platform}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                    <StatBox label="Wins" value={player.wins_count || 0} accent="success" />
-                    <StatBox label="Losses" value={player.losses_count || 0} accent="destructive" />
-                    <StatBox label="Goals" value={player.goals || 0} accent="success" />
-                    <StatBox label="Assists" value={player.assists || 0} accent="accent" />
-                    <StatBox
-                      label="Avg Rating"
-                      value={(Number(player.avg_match_rating ?? 6) || 6).toFixed(1)}
-                      accent="warning"
-                    />
-                    <StatBox label="MOTM" value={player.man_of_the_match || 0} />
-                    <StatBox label="Clean Sheets" value={player.clean_sheets || 0} />
-                    <StatBox label="Matches" value={player.matches_played || 0} />
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Matches */}
-              <TabsContent value="matches" className="px-3 sm:px-4 pt-4">
-                <div className="space-y-2">
-                  {pvpMatches.length === 0 && (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-                      <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                      <p className="text-sm text-white/40">No PvP matches recorded yet.</p>
-                    </div>
-                  )}
-                  {pvpMatches.slice(0, 30).map(m => {
-                    const isHome = m.home_player_id === player.id;
-                    const opponent = isHome ? m.away_player_name : m.home_player_name;
-                    const myScore = isHome ? m.home_score : m.away_score;
-                    const theirScore = isHome ? m.away_score : m.home_score;
-                    const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-                    const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
-                    const dateStr = m.updated_date
-                      ? new Date(m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                      : "—";
-                    return (
-                      <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 flex items-center gap-2 sm:gap-3">
-                        <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">vs {opponent || "Unknown"}</p>
-                          <p className="text-[10px] text-white/40">{dateStr}</p>
-                        </div>
-                        <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
+              {profileTab === "matches" ? (
+                <div className="pt-2 space-y-2">
+                  {pvpMatches.length === 0 ? (
+                    <GamerSectionCard>
+                      <div className="py-8 text-center">
+                        <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                        <p className="text-sm text-white/40">{t("commonPages.profNoPvp")}</p>
                       </div>
-                    );
-                  })}
+                    </GamerSectionCard>
+                  ) : (
+                    pvpMatches.slice(0, 30).map(m => {
+                      const isHome = m.home_player_id === player.id;
+                      const opponent = isHome ? m.away_player_name : m.home_player_name;
+                      const myScore = isHome ? m.home_score : m.away_score;
+                      const theirScore = isHome ? m.away_score : m.home_score;
+                      const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
+                      const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
+                      const dateStr = m.updated_date
+                        ? new Date(m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                        : "—";
+                      return (
+                        <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center gap-2 sm:gap-3">
+                          <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">vs {opponent || "Unknown"}</p>
+                            <p className="text-[10px] text-white/40">{dateStr}</p>
+                          </div>
+                          <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-              </TabsContent>
+              ) : null}
 
-              {/* Trophies */}
-              <TabsContent value="trophies" className="px-3 sm:px-4 pt-4 pb-4">
-                <PlayerTrophyCabinet player={player} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
+              {profileTab === "trophies" ? (
+                <div className="pt-2">
+                  <PlayerTrophyCabinet player={player} />
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
 
         {/* Dialogs */}
         {player?.avatar_url && (
@@ -630,7 +556,7 @@ export default function Profile() {
                   style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }}
                 />
                 <Button size="sm" variant="outline" onClick={() => { setAvatarLightboxOpen(false); setAvatarEditorOpen(true); }} className="gap-1.5 border-white/20 text-white hover:bg-white/10 bg-transparent">
-                  <Move className="w-3.5 h-3.5" /> Reposition Photo
+                  <Move className="w-3.5 h-3.5" /> {t("commonPages.profRepositionPhoto")}
                 </Button>
               </div>
             </DialogContent>
@@ -640,29 +566,59 @@ export default function Profile() {
         {!player && (
           <div className="max-w-2xl mx-auto px-4 mt-6">
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 text-center">
-              <h2 className="font-bold text-white text-lg mb-2">Welcome to STAGE!</h2>
-              <p className="text-white/50 text-sm mb-4">Create your player profile to get started.</p>
-              <Button onClick={() => setView("edit_player")} className="bg-blue-600 hover:bg-blue-500 text-white">Create Profile</Button>
+              <h2 className="font-bold text-white text-lg mb-2">{t("commonPages.profWelcome")}</h2>
+              <p className="text-white/50 text-sm mb-4">{t("commonPages.profWelcomeDesc")}</p>
+              <Button onClick={() => setView("edit_player")} className="bg-blue-600 hover:bg-blue-500 text-white">{t("commonPages.profCreateProfile")}</Button>
             </div>
           </div>
         )}
 
-        {player && !myClub && (
+        {player && (!player.gamertag || !player.position || !player.platform) && (
+          <div className="max-w-2xl mx-auto px-4 mt-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                <User className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-white text-sm">{t("commonPages.profNotPlayer")}</p>
+                <p className="text-xs text-white/50">{t("commonPages.profNotPlayerDesc")}</p>
+              </div>
+              <Button size="sm" onClick={() => setProfileModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white shrink-0 gap-1.5">
+                <Edit2 className="w-3.5 h-3.5" /> {t("commonPages.complete")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {player && player.gamertag && player.position && player.platform && !myClub && (
           <div className="max-w-2xl mx-auto px-4 mt-4">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
                 <Shield className="w-6 h-6 text-blue-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-white text-sm">You're not in a club yet</p>
-                <p className="text-xs text-white/50">Create your own club or join an existing one to compete in tournaments and leagues.</p>
+                <p className="font-bold text-white text-sm">{t("commonPages.profNotClub")}</p>
+                <p className="text-xs text-white/50">{t("commonPages.profNotClubDesc")}</p>
               </div>
               <Button size="sm" onClick={() => setClubOnboardingOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white shrink-0 gap-1.5">
-                <Plus className="w-3.5 h-3.5" /> Get Started
+                <Plus className="w-3.5 h-3.5" /> {t("commonPages.getStarted")}
               </Button>
             </div>
           </div>
         )}
+
+        <ProfileCompletionModal
+          open={profileModalOpen}
+          player={player}
+          onComplete={async (club) => {
+            setProfileModalOpen(false);
+            if (club) setMyClub(club);
+            const refreshedPl = user?.player_id
+              ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
+              : null;
+            if (refreshedPl) setPlayer(refreshedPl);
+          }}
+        />
 
         <ClubOnboardingModal
           open={clubOnboardingOpen}
@@ -694,7 +650,7 @@ export default function Profile() {
             setAvatarEditorOpen(false);
           }}
         />
-      </div>
+      </GamerProfileShell>
     );
   }
 
@@ -708,13 +664,13 @@ export default function Profile() {
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
           )}
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{player ? "Edit Profile" : "Create Profile"}</h1>
+          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{player ? t("commonPages.profEditProfile") : t("commonPages.profCreateProfile")}</h1>
         </div>
 
         {/* Avatar section */}
         {player && (
           <div className="bg-card border border-border rounded-2xl p-6">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Profile Photo & Banner</h2>
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">{t("commonPages.profPhotoBanner")}</h2>
             <div className="flex items-start gap-4">
               <div className="relative group shrink-0">
                 <div className="w-20 h-20 rounded-full bg-secondary border-4 border-card flex items-center justify-center overflow-hidden">
@@ -724,7 +680,7 @@ export default function Profile() {
                   }
                 </div>
                 <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Upload photo">
+                  <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title={t("commonPages.profUploadPhoto")}>
                     {uploadingAvatar ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
                   </button>
                 </div>
@@ -733,11 +689,11 @@ export default function Profile() {
               <div className="space-y-2 pt-1">
                 {player?.avatar_url && (
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setAvatarEditorOpen(true)}>
-                    <Move className="w-3.5 h-3.5" /> Reposition Photo
+                    <Move className="w-3.5 h-3.5" /> {t("commonPages.profRepositionPhoto")}
                   </Button>
                 )}
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBannerDialogOpen(true)}>
-                  <Palette className="w-3.5 h-3.5" /> Change Banner
+                  <Palette className="w-3.5 h-3.5" /> {t("commonPages.profChangeBanner")}
                 </Button>
               </div>
             </div>
@@ -746,14 +702,14 @@ export default function Profile() {
 
         {/* Player info form */}
         <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-          <h2 className="text-xl font-bold text-foreground">Player Info</h2>
+          <h2 className="text-xl font-bold text-foreground">{t("commonPages.profPlayerInfo")}</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Gamertag</label>
-              <Input value={playerForm.gamertag} onChange={e => setPlayerForm(f => ({ ...f, gamertag: e.target.value }))} className="bg-secondary border-border" placeholder="Your gamertag" />
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profGamertag")}</label>
+              <Input value={playerForm.gamertag} onChange={e => setPlayerForm(f => ({ ...f, gamertag: e.target.value }))} className="bg-secondary border-border" placeholder={t("commonPages.profGamertagPlaceholder")} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Main Position</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profMainPosition")}</label>
               <Select value={playerForm.position} onValueChange={v => setPlayerForm(f => ({ ...f, position: v, secondary_position: f.secondary_position === v ? "none" : f.secondary_position }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -762,17 +718,17 @@ export default function Profile() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Second Position</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profSecondPosition")}</label>
               <Select value={playerForm.secondary_position} onValueChange={v => setPlayerForm(f => ({ ...f, secondary_position: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">{t("commonPages.profNone")}</SelectItem>
                   {POSITIONS.filter(p => p !== playerForm.position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Platform</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.platform")}</label>
               <Select value={playerForm.platform} onValueChange={v => setPlayerForm(f => ({ ...f, platform: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -783,26 +739,26 @@ export default function Profile() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country <span className="text-destructive">*</span></label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.country")} <span className="text-destructive">*</span></label>
               <Select value={playerForm.country} onValueChange={v => {
                 const found = COUNTRIES.find(c => c.name === v);
                 setPlayerForm(f => ({ ...f, country: v, country_code: found?.code || "" }));
               }}>
                 <SelectTrigger className={`bg-secondary border-border ${!playerForm.country ? "border-destructive/50" : ""}`}>
-                  <SelectValue placeholder="Select your country" />
+                  <SelectValue placeholder={t("commonPages.profSelectCountry")} />
                 </SelectTrigger>
                 <SelectContent>
                   {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              {!playerForm.country && <p className="text-[11px] text-destructive mt-1">Please select your country</p>}
+              {!playerForm.country && <p className="text-[11px] text-destructive mt-1">{t("commonPages.profCountryRequired")}</p>}
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Overall Rating</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profOverallRating")}</label>
               <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Shirt Number</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profShirtNumber")}</label>
               <Input
                 type="number" min={1} max={99}
                 value={playerForm.shirt_number}
@@ -815,16 +771,16 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Account Email</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profAccountEmail")}</label>
               <Input value={user?.email || ""} disabled className="bg-secondary border-border opacity-50" />
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Bio</label>
-            <Textarea value={playerForm.bio} onChange={e => setPlayerForm(f => ({ ...f, bio: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder="Tell the community about yourself..." />
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.bio")}</label>
+            <Textarea value={playerForm.bio} onChange={e => setPlayerForm(f => ({ ...f, bio: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profBioPlaceholder")} />
           </div>
           <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" /> {saving ? "Saving..." : player ? "Save Changes" : "Create Profile"}
+            <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : player ? t("commonPages.profSaveChanges") : t("commonPages.profCreateProfile")}
           </Button>
         </div>
 
@@ -890,9 +846,9 @@ export default function Profile() {
       <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center gap-3">
           <button onClick={() => setView("profile")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">My Club</h1>
+          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("nav.myClub")}</h1>
         </div>
 
         {myClub ? (
@@ -912,21 +868,21 @@ export default function Profile() {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <StatBox label="Wins" value={myClub.wins || 0} accent="success" />
-                <StatBox label="Matches" value={(myClub.wins || 0) + (myClub.losses || 0) + (myClub.draws || 0)} />
-                <StatBox label="Trophies" value={myClub.trophies || 0} accent="accent" />
+                <StatBox label={t("commonPages.profWins")} value={myClub.wins || 0} accent="success" />
+                <StatBox label={t("commonPages.matches")} value={(myClub.wins || 0) + (myClub.losses || 0) + (myClub.draws || 0)} />
+                <StatBox label={t("commonPages.profTrophies")} value={myClub.trophies || 0} accent="accent" />
               </div>
               <div className="flex gap-3 flex-wrap">
                 <Link to={`/clubs/${myClub.id}`}>
                   <Button className="bg-primary text-primary-foreground gap-1.5">
-                    <Shield className="w-4 h-4" /> View Club Page
+                    <Shield className="w-4 h-4" /> {t("commonPages.profViewClubPage")}
                   </Button>
                 </Link>
                 <Button variant="outline" onClick={() => setView("edit_club")} className="gap-1.5">
-                  <Edit2 className="w-4 h-4" /> Edit Club
+                  <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
                 </Button>
                 <Button variant="outline" onClick={leaveClub} className="border-destructive/30 text-destructive hover:bg-destructive/10">
-                  Leave Club
+                  {t("commonPages.profLeaveClub")}
                 </Button>
               </div>
             </div>
@@ -935,9 +891,9 @@ export default function Profile() {
           <div className="space-y-5">
             <div className="bg-card border border-border rounded-2xl p-8 text-center">
               <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">You're not in a club yet.</p>
+              <p className="text-muted-foreground mb-4">{t("commonPages.profNotClub")}</p>
               <Button onClick={() => setClubOnboardingOpen(true)} className="bg-primary text-primary-foreground">
-                <Plus className="w-4 h-4 mr-2" /> Create or Join a Club
+                <Plus className="w-4 h-4 mr-2" /> {t("commonPages.profCreateOrJoin")}
               </Button>
             </div>
             <ClubOnboardingModal
@@ -968,23 +924,23 @@ export default function Profile() {
       <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center gap-3">
           <button onClick={() => setView("club")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">Edit Club</h1>
+          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profEditClub")}</h1>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Club Name</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profClubName")}</label>
               <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tag (max 5 chars)</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profTag")}</label>
               <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-secondary border-border" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Platform</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.platform")}</label>
               <Select value={clubForm.platform} onValueChange={v => setClubForm(f => ({ ...f, platform: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -995,7 +951,7 @@ export default function Profile() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Region</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profRegion")}</label>
               <Select value={clubForm.region} onValueChange={v => setClubForm(f => ({ ...f, region: v }))}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1006,10 +962,10 @@ export default function Profile() {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.country")}</label>
               <Select value={clubForm.country_code || ""} onValueChange={v => setClubForm(f => ({ ...f, country_code: v }))}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Select country" />
+                  <SelectValue placeholder={t("commonPages.profSelectCountryShort")} />
                 </SelectTrigger>
                 <SelectContent>
                   {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
@@ -1018,11 +974,11 @@ export default function Profile() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Club Bio / Description</label>
-            <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder="Describe your club..." />
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profClubDesc")}</label>
+            <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profClubDescPlaceholder")} />
           </div>
           <Button onClick={saveClub} disabled={savingClub || !clubForm.name || !clubForm.tag} className="bg-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" /> {savingClub ? "Saving..." : "Save Club"}
+            <Save className="w-4 h-4 mr-2" /> {savingClub ? t("commonPages.profSaving") : t("commonPages.profSaveClub")}
           </Button>
         </div>
       </div>
@@ -1035,15 +991,15 @@ export default function Profile() {
       <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => setView("profile")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">Notifications</h1>
+          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.notifTitle")}</h1>
         </div>
         <div className="space-y-2">
           {notifications.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-8 text-center">
               <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">No notifications yet.</p>
+              <p className="text-muted-foreground text-sm">{t("commonPages.notifEmpty")}</p>
             </div>
           ) : notifications.map(n => (
             <div key={n.id} className={cn("bg-card border rounded-xl px-4 py-3 flex items-start gap-3 transition-all", n.read ? "border-border opacity-70" : "border-primary/30 bg-primary/5")}>
@@ -1077,9 +1033,9 @@ export default function Profile() {
       <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
         <div className="flex items-center gap-3">
           <button onClick={() => setView("profile")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">Join Requests</h1>
+          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profJoinRequests")}</h1>
           <span className="w-5 h-5 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
         </div>
         <div className="space-y-2">
@@ -1091,12 +1047,12 @@ export default function Profile() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{req.player_gamertag}</p>
                 {req.message && <p className="text-xs text-muted-foreground truncate">"{req.message}"</p>}
-                <p className="text-[11px] text-primary mt-1">Approvals now happen through contract offers in Club Operations.</p>
+                <p className="text-[11px] text-primary mt-1">{t("commonPages.profApprovalsNote")}</p>
               </div>
               <div className="flex gap-2 shrink-0">
                 <Link to={`/clubs/${req.club_id}`}>
                   <Button size="sm" className="bg-success/20 text-success border border-success/30 hover:bg-success/30 text-xs h-7">
-                    <Check className="w-3 h-3 mr-1" /> Operations
+                    <Check className="w-3 h-3 mr-1" /> {t("commonPages.profOperations")}
                   </Button>
                 </Link>
                 <Button size="sm" onClick={async () => {
@@ -1104,7 +1060,7 @@ export default function Profile() {
                   await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });
                   setJoinRequests(prev => prev.filter(r => r.id !== req.id));
                 }} className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 text-xs h-7">
-                  <X className="w-3 h-3 mr-1" /> Decline
+                  <X className="w-3 h-3 mr-1" /> {t("commonPages.profDecline")}
                 </Button>
               </div>
             </div>

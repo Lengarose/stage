@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { shouldShowDiscordPrompt } from "@/lib/discordJoin";
 import { COMPETITIONS } from "@/lib/competitionUtils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 /* ── Defaults ──────────────────────────────────────────────── */
 const DEFAULTS = {
@@ -49,10 +50,10 @@ const DEFAULTS = {
 };
 
 const NAV_CARDS = [
-  { icon: Trophy,      label: "Competitions", desc: "Leagues & knockout cups",  to: "/competitions", accent: "amber"   },
-  { icon: Zap,         label: "Game Day",      desc: "Schedule & play matches",  to: "/game-day",     accent: "primary" },
-  { icon: Shield,      label: "Clubs",         desc: "Browse & manage clubs",    to: "/clubs",        accent: "blue"    },
-  { icon: ShoppingBag, label: "Store",         desc: "Spend your STC coins",     to: "/lifestyle",    accent: "purple"  },
+  { icon: Trophy,      labelKey: "homeNavCompetitions", descKey: "homeNavCompetitionsDesc", to: "/competitions", accent: "amber"   },
+  { icon: Zap,         labelKey: "homeNavGameDay",      descKey: "homeNavGameDayDesc",      to: "/game-day",     accent: "primary" },
+  { icon: Shield,      labelKey: "homeNavClubs",        descKey: "homeNavClubsDesc",        to: "/clubs",        accent: "blue"    },
+  { icon: ShoppingBag, labelKey: "homeNavStore",        descKey: "homeNavStoreDesc",        to: "/lifestyle",    accent: "purple"  },
 ];
 
 const ACCENT = {
@@ -134,20 +135,32 @@ function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPositio
    SECTION A — EVENTS CAROUSEL
    Tabbed carousel: Competitions → Tournaments → Leagues
    ══════════════════════════════════════════════════════════ */
-function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLiveWhiteTheme }) {
+function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLiveWhiteTheme, compact = false }) {
   const [activeTab, setActiveTab] = useState("competitions");
+  const { t } = useTranslation();
 
   const headingClass = isLiveWhiteTheme ? "text-slate-900" : "text-white";
-  const subtleTextClass = isLiveWhiteTheme ? "text-slate-700" : "text-white/40";
-  const cardBorderClass = isLiveWhiteTheme ? "border-slate-300/80 group-hover:border-slate-500/70" : "border-white/8 group-hover:border-white/20";
-  const cardTitleClass = isLiveWhiteTheme ? "text-slate-900 group-hover:text-[hsl(189,100%,35%)]" : "text-white group-hover:text-[hsl(189,100%,52%)]";
-  const cardBackground = isLiveWhiteTheme ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.03)";
-  const progressBarBg = isLiveWhiteTheme ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  const subtleTextClass = compact
+    ? "text-muted-foreground"
+    : isLiveWhiteTheme ? "text-slate-700" : "text-white/40";
+  const cardBorderClass = compact
+    ? "border-border group-hover:border-primary/30"
+    : isLiveWhiteTheme ? "border-slate-300/80 group-hover:border-slate-500/70" : "border-white/8 group-hover:border-white/20";
+  const cardTitleClass = compact
+    ? "text-foreground group-hover:text-primary"
+    : isLiveWhiteTheme ? "text-slate-900 group-hover:text-[hsl(189,100%,35%)]" : "text-white group-hover:text-[hsl(189,100%,52%)]";
+  const cardBackground = compact
+    ? undefined
+    : isLiveWhiteTheme ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.03)";
+  const progressBarBg = compact
+    ? "hsl(var(--secondary))"
+    : isLiveWhiteTheme ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  const cardSurfaceClass = compact ? "bg-card" : "";
 
   const TABS = [
-    { key: "competitions", label: "Competitions", accent: "hsl(189,100%,52%)", viewAllTo: "/competitions" },
-    { key: "tournaments",  label: "Tournaments",  accent: "#f59e0b",           viewAllTo: "/tournaments" },
-    { key: "leagues",      label: "Leagues",       accent: "#a78bfa",           viewAllTo: "/leagues" },
+    { key: "competitions", label: t("commonPages.homeCompetitions"), accent: "hsl(189,100%,52%)", viewAllTo: "/competitions" },
+    { key: "tournaments",  label: t("commonPages.homeTournaments"),  accent: "#f59e0b",           viewAllTo: "/tournaments" },
+    { key: "leagues",      label: t("commonPages.homeLeagues"),       accent: "#a78bfa",           viewAllTo: "/leagues" },
   ];
   const currentTab = TABS.find(t => t.key === activeTab) || TABS[0];
 
@@ -176,7 +189,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
       const badge = season ? statusBadge(season.status) : null;
       return (
         <Link key={comp.slug} to="/competitions" className="group block min-w-0">
-          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass)} style={{ background: cardBackground }}>
+          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass, cardSurfaceClass)} style={cardBackground ? { background: cardBackground } : undefined}>
             <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: comp.color }} />
             <div className="absolute right-4 top-4 font-heading font-black text-6xl leading-none select-none pointer-events-none" style={{ color: comp.color, opacity: 0.06 }}>{i + 1}</div>
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -185,10 +198,10 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
               </div>
               {badge && <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>{badge.text}</span>}
             </div>
-            <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>Tier {comp.tier}</p>
+            <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>{t("commonPages.homeTier", { tier: comp.tier })}</p>
             <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>{comp.name.replace("STAGE ", "")}</h3>
             <p className={cn("text-xs leading-relaxed", subtleTextClass)}>{comp.description}</p>
-            <div className={cn("flex items-center gap-1.5 mt-5 text-[10px] font-medium transition-colors", subtleTextClass)}>View bracket <ArrowRight className="w-3 h-3" /></div>
+            <div className={cn("flex items-center gap-1.5 mt-5 text-[10px] font-medium transition-colors", subtleTextClass)}>{t("commonPages.homeViewBracket")} <ArrowRight className="w-3 h-3" /></div>
           </div>
         </Link>
       );
@@ -205,7 +218,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
 
       return (
         <Link key={item.id} to={`${linkPrefix}/${item.id}`} className="group block min-w-0">
-          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass)} style={{ background: cardBackground }}>
+          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass, cardSurfaceClass)} style={cardBackground ? { background: cardBackground } : undefined}>
             <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: accent }} />
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}18`, border: `1px solid ${accent}30` }}>
@@ -217,8 +230,8 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
             {max > 0 && (
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", subtleTextClass)}>{count}/{max} players</span>
-                  {count >= max && <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Full</span>}
+                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", subtleTextClass)}>{t("commonPages.homePlayers", { count, max })}</span>
+                  {count >= max && <span className="text-[9px] font-black uppercase tracking-widest text-red-400">{t("commonPages.homeFull")}</span>}
                 </div>
                 <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: progressBarBg }}>
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: count >= max ? "#ef4444" : accent }} />
@@ -226,7 +239,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
               </div>
             )}
             {item.type && <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>{String(item.type).replace(/_/g, " ")}</p>}
-            <div className={cn("flex items-center gap-1.5 mt-4 text-[10px] font-medium transition-colors", subtleTextClass)}>View details <ArrowRight className="w-3 h-3" /></div>
+            <div className={cn("flex items-center gap-1.5 mt-4 text-[10px] font-medium transition-colors", subtleTextClass)}>{t("commonPages.homeViewDetails")} <ArrowRight className="w-3 h-3" /></div>
           </div>
         </Link>
       );
@@ -235,12 +248,58 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
   const renderContent = () => {
     if (activeTab === "competitions") return renderCompetitions();
     if (activeTab === "tournaments") {
-      if (!tournaments?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>No tournaments yet.</p>];
+      if (!tournaments?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>{t("commonPages.homeNoTournaments")}</p>];
       return renderEventCards(tournaments, "/tournaments", currentTab.accent);
     }
-    if (!leagues?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>No leagues yet.</p>];
+    if (!leagues?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>{t("commonPages.homeNoLeagues")}</p>];
     return renderEventCards(leagues, "/leagues", currentTab.accent);
   };
+
+  const content = renderContent();
+  const isEmptyMessage = content.length === 1 && content[0]?.type === "p";
+
+  if (compact) {
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-heading font-black uppercase text-foreground text-lg leading-none">
+            {t("commonPages.homeMobileDiscover")}
+          </h2>
+          <Link to={currentTab.viewAllTo} className="text-[10px] font-bold uppercase tracking-widest text-primary shrink-0">
+            {t("commonPages.homeViewAll")}
+          </Link>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "shrink-0 snap-start rounded-full px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors",
+                activeTab === tab.key
+                  ? "bg-primary/15 border-primary/40 text-primary"
+                  : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {isEmptyMessage ? (
+          content[0]
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
+            {content.map((node, i) => (
+              <div key={node.key || i} className="shrink-0 w-[min(82vw,280px)] snap-start">
+                {node}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -262,7 +321,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
         {/* Header with tabs */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] font-bold mb-1" style={{ color: `${currentTab.accent}b3` }}>Platform</p>
+            <p className="text-[10px] uppercase tracking-[0.35em] font-bold mb-1" style={{ color: `${currentTab.accent}b3` }}>{t("commonPages.homePlatform")}</p>
             <div className="flex items-center gap-1">
               {TABS.map((tab, i) => (
                 <React.Fragment key={tab.key}>
@@ -285,7 +344,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
             </div>
           </div>
           <Link to={currentTab.viewAllTo} className={cn("flex items-center gap-1.5 text-xs transition-colors font-medium uppercase tracking-widest", isLiveWhiteTheme ? "text-slate-600 hover:text-slate-900" : "text-white/40 hover:text-white/70")}>
-            View all <ArrowRight className="w-3.5 h-3.5" />
+            {t("commonPages.homeViewAll")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -303,6 +362,7 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
    Asymmetric editorial grid
    ══════════════════════════════════════════════════════════ */
 function NewsMosaic({ items }) {
+  const { t } = useTranslation();
   if (!items?.length) return null;
 
   const [featured, ...rest] = items.slice(0, 4);
@@ -311,14 +371,14 @@ function NewsMosaic({ items }) {
     <section className="py-16 px-4 sm:px-6 lg:px-8">
       <div className="flex items-end justify-between mb-8">
         <div>
-          <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">Latest</p>
+          <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">{t("commonPages.homeLatest")}</p>
           <h2 className="font-heading font-black uppercase text-foreground leading-none"
             style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-            News
+            {t("commonPages.newsTitle")}
           </h2>
         </div>
         <Link to="/news" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium uppercase tracking-widest">
-          All news <ArrowRight className="w-3.5 h-3.5" />
+          {t("commonPages.homeAllNews")} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
@@ -333,7 +393,7 @@ function NewsMosaic({ items }) {
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-wider">
-                    <Newspaper className="w-2.5 h-2.5" /> Featured
+                    <Newspaper className="w-2.5 h-2.5" /> {t("commonPages.featured")}
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">{timeAgo(featured.published_at)}</span>
                 </div>
@@ -387,6 +447,7 @@ function NewsMosaic({ items }) {
    Wide angled timeline
    ══════════════════════════════════════════════════════════ */
 function ScheduleFrame({ matches }) {
+  const { t } = useTranslation();
   const formatDate = (d) => {
     if (!d) return "TBD";
     const dt = new Date(d);
@@ -411,17 +472,17 @@ function ScheduleFrame({ matches }) {
 
           {/* Left — heading block */}
           <div className="lg:col-span-1 flex flex-col justify-center">
-            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-2">Upcoming</p>
+            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-2">{t("commonPages.homeUpcoming")}</p>
             <h2 className="font-heading font-black uppercase text-foreground leading-none mb-4"
               style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}>
-              Schedule
+              {t("commonPages.homeSchedule")}
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-              Track every fixture across all competitions. Game Day is where it all happens.
+              {t("commonPages.homeScheduleDesc")}
             </p>
             <Link to="/game-day">
               <Button className="gap-2 font-heading font-black uppercase tracking-wider text-sm bg-primary text-primary-foreground hover:bg-primary/90 w-fit">
-                <Calendar className="w-4 h-4" /> Game Day
+                <Calendar className="w-4 h-4" /> {t("commonPages.homeGameDay")}
               </Button>
             </Link>
           </div>
@@ -430,7 +491,7 @@ function ScheduleFrame({ matches }) {
           <div className="lg:col-span-2">
             {!matches?.length ? (
               <div className="text-center py-12 text-muted-foreground/40 text-sm border border-border rounded-2xl">
-                No upcoming matches scheduled.
+                {t("commonPages.homeNoMatches")}
               </div>
             ) : (
               <div className="space-y-2">
@@ -476,6 +537,7 @@ function ScheduleFrame({ matches }) {
    Notification-style message list
    ══════════════════════════════════════════════════════════ */
 function InboxPanel({ messages, user }) {
+  const { t } = useTranslation();
   const unread = messages?.filter(m => !m.is_read).length || 0;
 
   return (
@@ -483,11 +545,11 @@ function InboxPanel({ messages, user }) {
       <div className="max-w-2xl ml-auto">
         <div className="flex items-end justify-between mb-6">
           <div>
-            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">Messages</p>
+            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">{t("commonPages.homeMessages")}</p>
             <div className="flex items-center gap-3">
               <h2 className="font-heading font-black uppercase text-foreground leading-none"
                 style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-                Inbox
+                {t("nav.inbox")}
               </h2>
               {unread > 0 && (
                 <span className="bg-[hsl(189,100%,52%)] text-black text-xs font-black px-2 py-0.5 rounded-full shadow-[0_0_12px_hsl(189_100%_52%/0.5)]">
@@ -497,24 +559,24 @@ function InboxPanel({ messages, user }) {
             </div>
           </div>
           <Link to="/inbox" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium uppercase tracking-widest">
-            Open <ArrowRight className="w-3.5 h-3.5" />
+            {t("commonPages.homeOpen")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {!user ? (
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Inbox className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-4">Sign in to view your messages.</p>
+            <p className="text-sm text-muted-foreground mb-4">{t("commonPages.homeSignInMessages")}</p>
             <Link to="/login">
               <Button variant="outline" size="sm" className="font-heading font-black uppercase tracking-wider text-xs">
-                Sign In
+                {t("auth.signIn")}
               </Button>
             </Link>
           </div>
         ) : !messages?.length ? (
           <div className="rounded-2xl border border-border bg-card p-8 text-center">
             <Inbox className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Your inbox is empty.</p>
+            <p className="text-sm text-muted-foreground">{t("commonPages.homeInboxEmpty")}</p>
           </div>
         ) : (
           <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
@@ -534,7 +596,7 @@ function InboxPanel({ messages, user }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={cn("text-sm font-bold truncate", !msg.is_read ? "text-foreground" : "text-muted-foreground")}>
-                      {msg.is_system ? "STAGE System" : (msg.sender_gamertag || "Unknown")}
+                      {msg.is_system ? t("commonPages.homeStageSystem") : (msg.sender_gamertag || t("commonPages.homeUnknown"))}
                     </span>
                     <span className="text-[10px] text-muted-foreground/50 shrink-0 ml-auto">
                       {timeAgo(msg.created_date)}
@@ -560,10 +622,210 @@ function InboxPanel({ messages, user }) {
   );
 }
 
+function formatMatchWhen(dateStr) {
+  if (!dateStr) return "TBD";
+  const dt = new Date(dateStr);
+  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " · " +
+    dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE HOME — native app-style dashboard (md:hidden)
+   ══════════════════════════════════════════════════════════ */
+function MobileHomeDashboard({
+  user,
+  player,
+  matches,
+  messages,
+  newsItems,
+  seasons,
+  tournaments,
+  leagues,
+  showDiscordBanner,
+  onSkipDiscord,
+  isLiveDarkTheme,
+  isLiveWhiteTheme,
+}) {
+  const { t } = useTranslation();
+  const unread = messages?.filter(m => !m.is_read).length || 0;
+  const nextMatch = matches?.[0];
+  const homeName = nextMatch?.home_club_name || nextMatch?.home_player_name || "TBD";
+  const awayName = nextMatch?.away_club_name || nextMatch?.away_player_name || "TBD";
+  const displayName = player?.gamertag || user?.email?.split("@")[0] || null;
+
+  return (
+    <div className="md:hidden px-4 pt-3 pb-6 space-y-5">
+      <header className="flex items-center justify-between gap-3">
+        <Link to="/dashboard" className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary mb-0.5">
+            STAGE
+          </p>
+          <h1 className="font-heading font-black uppercase text-foreground text-2xl leading-none truncate">
+            {displayName
+              ? t("commonPages.homeMobileWelcomeBack")
+              : t("commonPages.homeMobileWelcome")}
+          </h1>
+          {displayName && (
+            <p className="text-sm text-muted-foreground mt-1 truncate">{displayName}</p>
+          )}
+        </Link>
+        {player?.avatar_url && (
+          <div
+            className="w-11 h-11 rounded-full border border-border shrink-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${player.avatar_url})` }}
+            role="img"
+            aria-label={displayName || "Player"}
+          />
+        )}
+      </header>
+
+      <Link to="/game-day" className="block active:scale-[0.98] transition-transform">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-card p-5">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary mb-1">
+                {t("commonPages.homeGameDay")}
+              </p>
+              <p className="font-heading font-black uppercase text-foreground text-xl leading-tight">
+                {t("commonPages.homeMobileOpenGameDay")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                {nextMatch
+                  ? `${formatMatchWhen(nextMatch.scheduled_date)} · ${homeName} vs ${awayName}`
+                  : t("commonPages.homeMobileNoMatchHint")}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {matches?.length > 1 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-heading font-black uppercase text-foreground text-base">
+              {t("commonPages.homeMobileNextMatch")}
+            </h2>
+            <Link to="/schedule" className="text-[10px] font-bold uppercase tracking-widest text-primary">
+              {t("commonPages.homeMobileSeeSchedule")}
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {matches.slice(1, 3).map((m, i) => {
+              const home = m.home_club_name || m.home_player_name || "TBD";
+              const away = m.away_club_name || m.away_player_name || "TBD";
+              return (
+                <Link key={m.id || i} to="/game-day" className="block">
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 active:bg-secondary/40 transition-colors">
+                    <div className="shrink-0 text-[10px] font-black text-primary uppercase w-16 text-center leading-tight">
+                      {m.status === "live" ? "LIVE" : formatMatchWhen(m.scheduled_date).split(" · ")[0]}
+                    </div>
+                    <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold truncate">{home}</span>
+                      <span className="text-[9px] text-muted-foreground uppercase shrink-0">vs</span>
+                      <span className="text-xs font-bold truncate text-right">{away}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {user && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading font-black uppercase text-foreground text-base">
+                {t("nav.inbox")}
+              </h2>
+              {unread > 0 && (
+                <span className="bg-primary text-primary-foreground text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                  {unread}
+                </span>
+              )}
+            </div>
+            <Link to="/inbox" className="text-[10px] font-bold uppercase tracking-widest text-primary">
+              {t("commonPages.homeOpen")}
+            </Link>
+          </div>
+          {!messages?.length ? (
+            <div className="rounded-xl border border-border bg-card px-4 py-5 text-center">
+              <p className="text-xs text-muted-foreground">{t("commonPages.homeInboxEmpty")}</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+              {messages.slice(0, 2).map((msg) => (
+                <Link key={msg.id} to="/inbox" className="flex items-center gap-3 px-4 py-3 active:bg-secondary/40 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-xs truncate", !msg.is_read ? "font-bold text-foreground" : "text-muted-foreground")}>
+                      {msg.subject || msg.title || t("commonPages.homeStageSystem")}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">{timeAgo(msg.created_date)}</p>
+                  </div>
+                  {!msg.is_read && (
+                    <Circle className="w-2 h-2 fill-primary text-primary shrink-0" />
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {showDiscordBanner && user && (
+        <DiscordJoinCard variant="banner" onSkip={onSkipDiscord} />
+      )}
+
+      <EventsCarousel
+        seasons={seasons}
+        tournaments={tournaments}
+        leagues={leagues}
+        isLiveDarkTheme={isLiveDarkTheme}
+        isLiveWhiteTheme={isLiveWhiteTheme}
+        compact
+      />
+
+      {newsItems?.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-heading font-black uppercase text-foreground text-lg leading-none">
+              {t("commonPages.newsTitle")}
+            </h2>
+            <Link to="/news" className="text-[10px] font-bold uppercase tracking-widest text-primary shrink-0">
+              {t("commonPages.homeAllNews")}
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
+            {newsItems.slice(0, 4).map((item) => (
+              <Link key={item.id} to="/news" className="shrink-0 w-[min(78vw,260px)] snap-start block">
+                <div className="h-full rounded-xl border border-border bg-card p-4 active:bg-secondary/30 transition-colors">
+                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-2">
+                    {item._category || item.category || t("commonPages.general")}
+                  </p>
+                  <p className="font-bold text-sm text-foreground leading-snug line-clamp-3">
+                    {item.title}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-2">{timeAgo(item.published_at)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    PAGE
    ══════════════════════════════════════════════════════════ */
 export default function Home() {
+  const { t } = useTranslation();
   const [cms,        setCms]        = useState(null);
   const [faqItems,   setFaqItems]   = useState([]);
   const [seasons,    setSeasons]    = useState([]);
@@ -573,6 +835,7 @@ export default function Home() {
   const [matches,    setMatches]    = useState([]);
   const [messages,   setMessages]   = useState([]);
   const [user,       setUser]       = useState(null);
+  const [player,     setPlayer]     = useState(null);
   const [showDiscordBanner, setShowDiscordBanner] = useState(() => shouldShowDiscordPrompt());
   const pageRef = useRef(null);
   const [isLiveDarkTheme, setIsLiveDarkTheme] = useState(() =>
@@ -612,6 +875,11 @@ export default function Home() {
         setUser(u);
         safe(stageClient.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 5))
           .then(msgs => setMessages(msgs || []));
+        const playerId = localStorage.getItem("stage_player_id");
+        if (playerId) {
+          safe(stageClient.entities.Player.get(playerId))
+            .then(p => setPlayer(p || null));
+        }
       })
       .catch(() => {});
   }, []);
@@ -654,6 +922,23 @@ export default function Home() {
       )}
       <div className="relative z-[1]">
 
+      <MobileHomeDashboard
+        user={user}
+        player={player}
+        matches={matches}
+        messages={messages}
+        newsItems={newsItems}
+        seasons={seasons}
+        tournaments={tournaments}
+        leagues={leagues}
+        showDiscordBanner={showDiscordBanner}
+        onSkipDiscord={() => setShowDiscordBanner(false)}
+        isLiveDarkTheme={isLiveDarkTheme}
+        isLiveWhiteTheme={isLiveWhiteTheme}
+      />
+
+      <div className="hidden md:block">
+
       {/* ══════════════════════════════════════════════════════
           HERO
          ══════════════════════════════════════════════════════ */}
@@ -672,10 +957,10 @@ export default function Home() {
         <div className="stage-home-hero-readable absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
         <div className="stage-home-hero-fade absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
         <div className="stage-home-hero-content relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
-          <p className="font-heading font-bold uppercase mb-1 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
+          <p className="font-heading font-bold uppercase mb-1 text-xs sm:text-sm" style={{ fontFamily: "var(--font-heading-legacy)", color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
             {textOrDefault(c.hero_title, DEFAULTS.hero_title)}
           </p>
-          <h1 className="stage-home-hero-title font-heading font-black leading-none" style={{ fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
+          <h1 className="stage-home-hero-title font-heading font-black leading-none" style={{ fontFamily: "var(--font-heading-legacy)", fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
             {textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)}
           </h1>
           <p className="mt-6 max-w-md text-sm sm:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
@@ -765,9 +1050,9 @@ export default function Home() {
         style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", background: "hsl(var(--secondary) / 0.3)" }}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">Platform</p>
-          <h2 className="font-heading font-black uppercase text-foreground mb-1" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>Jump In</h2>
-          <p className="text-muted-foreground text-sm mb-8">Everything you need, one tap away.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">{t("commonPages.homePlatform")}</p>
+          <h2 className="font-heading font-black uppercase text-foreground mb-1" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>{t("commonPages.homeJumpIn")}</h2>
+          <p className="text-muted-foreground text-sm mb-8">{t("commonPages.homeJumpInDesc")}</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {NAV_CARDS.map(card => {
               const a = ACCENT[card.accent];
@@ -775,8 +1060,8 @@ export default function Home() {
                 <Link key={card.to} to={card.to}>
                   <div className={cn("group relative overflow-hidden rounded-2xl border p-5 h-full bg-gradient-to-br transition-all duration-200 hover:scale-[1.02]", a.bg, a.border)}>
                     <card.icon className={cn("w-8 h-8 mb-3", a.icon)} />
-                    <p className="font-heading font-black text-base sm:text-lg uppercase text-foreground tracking-wide">{card.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{card.desc}</p>
+                    <p className="font-heading font-black text-base sm:text-lg uppercase text-foreground tracking-wide">{t(`commonPages.${card.labelKey}`)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t(`commonPages.${card.descKey}`)}</p>
                     <ArrowRight className="w-4 h-4 text-muted-foreground/40 absolute bottom-4 right-4 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
@@ -790,9 +1075,9 @@ export default function Home() {
           FAQ
          ══════════════════════════════════════════════════════ */}
       <section className="max-w-2xl mx-auto px-6 py-16">
-        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1 text-center">Questions</p>
-        <h2 className="font-heading font-black uppercase text-foreground text-center mb-2" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>FAQ</h2>
-        <p className="text-muted-foreground text-sm text-center mb-8">Common questions about the platform.</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1 text-center">{t("commonPages.homeQuestions")}</p>
+        <h2 className="font-heading font-black uppercase text-foreground text-center mb-2" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>{t("commonPages.homeFaq")}</h2>
+        <p className="text-muted-foreground text-sm text-center mb-8">{t("commonPages.homeFaqDesc")}</p>
         <div className="space-y-2">
           {(faqItems.length ? faqItems : DEFAULTS.faq_items).map((item) => (
             <FaqItem key={item.id || item.question} question={item.question} answer={item.answer} />
@@ -811,25 +1096,27 @@ export default function Home() {
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">{textOrDefault(c.footer_tagline, DEFAULTS.footer_tagline)}</p>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">Platform</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">{t("commonPages.homePlatform")}</p>
               <div className="space-y-2">
-                {[["Competitions", "/competitions"], ["Game Day", "/game-day"], ["Clubs", "/clubs"], ["Rankings", "/rankings"], ["Store", "/lifestyle"]].map(([label, to]) => (
-                  <Link key={to} to={to} className="block text-sm text-foreground/60 hover:text-foreground transition-colors">{label}</Link>
+                {[["homeNavCompetitions", "/competitions"], ["homeNavGameDay", "/game-day"], ["homeNavClubs", "/clubs"], ["homeFooterRankings", "/rankings"], ["homeNavStore", "/lifestyle"]].map(([labelKey, to]) => (
+                  <Link key={to} to={to} className="block text-sm text-foreground/60 hover:text-foreground transition-colors">{t(`commonPages.${labelKey}`)}</Link>
                 ))}
               </div>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">Contact</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">{t("commonPages.homeContact")}</p>
               <a href={`mailto:${textOrDefault(c.contact_email, DEFAULTS.contact_email)}`} className="flex items-center gap-2 text-sm text-foreground/60 hover:text-primary transition-colors">
                 <Mail className="w-4 h-4 shrink-0" /> {textOrDefault(c.contact_email, DEFAULTS.contact_email)}
               </a>
             </div>
           </div>
           <div className="border-t border-border pt-6 text-xs text-muted-foreground text-center">
-            © {new Date().getFullYear()} STAGE. All rights reserved.
+            © {new Date().getFullYear()} STAGE. {t("commonPages.homeRights")}
           </div>
         </div>
       </footer>
+
+      </div>{/* end desktop-only */}
 
       </div>
     </div>

@@ -111,7 +111,7 @@ export default function EAFCClub() {
         </Button>
         <div>
           <h1 className="font-heading text-3xl font-bold text-foreground">EA FC CLUB LOOKUP</h1>
-          <p className="text-sm text-muted-foreground">Search and explore real Pro Clubs data</p>
+          <p className="font-subtitle text-sm text-muted-foreground">Search and explore real Pro Clubs data</p>
         </div>
       </div>
 

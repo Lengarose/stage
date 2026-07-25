@@ -3,12 +3,14 @@ import { stageClient } from "@/api/stageClient";
 import { Shield, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ClubCard from "../components/ClubCard";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const PAGE_SIZE = 15;
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const REGIONS   = ["All Regions", "Europe", "North America", "South America", "Asia", "Oceania", "Middle East"];
 
 export default function Clubs({ tournamentId } = {}) {
+  const { t } = useTranslation();
   const [clubs,    setClubs]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState("");
@@ -71,10 +73,10 @@ export default function Clubs({ tournamentId } = {}) {
           className="font-heading font-black uppercase leading-none text-foreground"
           style={{ fontSize: "clamp(2rem, 5vw, 3.25rem)", letterSpacing: "-0.02em" }}
         >
-          CLUBS
+          {t("nav.clubs")}
         </h1>
         <p className="text-muted-foreground text-sm mt-3">
-          {loading ? "Loading…" : `${filtered.length} club${filtered.length !== 1 ? "s" : ""} registered`}
+          {loading ? t("commonPages.loading") : t("commonPages.clubsCount", { count: filtered.length })}
         </p>
       </div>
 
@@ -86,15 +88,15 @@ export default function Clubs({ tournamentId } = {}) {
             type="text"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search clubs…"
+            placeholder={t("commonPages.clubsSearchPlaceholder")}
             className={cn(inputCls, "pl-10 w-full")}
           />
         </div>
         <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls}>
-          {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+          {PLATFORMS.map(p => <option key={p} value={p}>{p === "All Platforms" ? t("commonPages.allPlatforms") : p}</option>)}
         </select>
         <select value={region} onChange={e => { setRegion(e.target.value); setPage(1); }} className={selectCls}>
-          {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          {REGIONS.map(r => <option key={r} value={r}>{r === "All Regions" ? t("commonPages.allRegions") : r}</option>)}
         </select>
       </div>
 
@@ -106,15 +108,15 @@ export default function Clubs({ tournamentId } = {}) {
       ) : filtered.length === 0 ? (
         <div className="text-center py-24 text-white/30 text-sm flex flex-col items-center gap-4">
           <Shield className="w-12 h-12 text-white/10" />
-          <span>No clubs found.</span>
+          <span>{t("commonPages.noClubsFound")}</span>
         </div>
       ) : (
         <>
           {/* Column labels */}
           <div className="hidden sm:grid grid-cols-[3rem_1fr_auto] gap-4 px-5 mb-2 items-center">
-            <span className="text-white/25 text-[9px] uppercase tracking-widest">Logo</span>
-            <span className="text-white/25 text-[9px] uppercase tracking-widest">Club</span>
-            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">Profile</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">{t("commonPages.clubsColLogo")}</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest">{t("nav.club")}</span>
+            <span className="text-white/25 text-[9px] uppercase tracking-widest text-right">{t("nav.profile")}</span>
           </div>
 
           <div className="space-y-2">

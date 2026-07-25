@@ -26,8 +26,9 @@ import Onboarding from './pages/Onboarding';
 import Home from './pages/Home';
 
 // Lazy-loaded pages — split into separate chunks for faster initial load
-const Clubs = React.lazy(() => import('./pages/Clubs'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const ClubDetail = React.lazy(() => import('./pages/ClubDetail'));
+const Clubs = React.lazy(() => import('./pages/Clubs'));
 const Tournaments = React.lazy(() => import('./pages/Tournaments'));
 const TournamentDetail = React.lazy(() => import('./pages/TournamentDetail'));
 const InternationalTournaments = React.lazy(() => import('./pages/InternationalTournaments'));
@@ -278,6 +279,7 @@ const AuthenticatedApp = () => {
               <Route path="/tournaments/entrance/:token/signin" element={<EntranceTournamentSigninPage />} />
               <Route path="/tournaments/entrance/:token/signup" element={<EntranceTournamentSignupPage />} />
             <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/clubs" element={<Clubs />} />
             <Route path="/clubs/:id" element={<ClubDetail />} />
             <Route path="/tournaments" element={<Tournaments />} />

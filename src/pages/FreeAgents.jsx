@@ -64,8 +64,8 @@ export default function FreeAgents() {
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="leading-relaxed text-3xl font-bold text-foreground">{t("commonPages.freeAgentTitle")}</h1>
-        <p className="text-muted-foreground text-sm mt-1">{t("commonPages.freeAgentSubtitle")}</p>
+        <h1 className="font-heading leading-relaxed text-3xl font-bold text-foreground">{t("commonPages.freeAgentTitle")}</h1>
+        <p className="font-subtitle text-muted-foreground text-sm mt-1">{t("commonPages.freeAgentSubtitle")}</p>
       </div>
 
       {/* Filters */}

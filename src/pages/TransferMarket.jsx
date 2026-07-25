@@ -138,7 +138,7 @@ export default function TransferMarket() {
             >
               {t("commonPages.transferTitle")}
             </h1>
-            <p className="text-xs text-muted-foreground mt-2">{t("commonPages.transferSubtitle")}</p>
+            <p className="font-subtitle text-xs text-muted-foreground mt-2">{t("commonPages.transferSubtitle")}</p>
           </div>
         </div>
 
