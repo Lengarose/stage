@@ -71,8 +71,10 @@ cd socket-server && npm install && cd ..
 # or at https://stageleagues.com if you want dev to hit production.
 VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 
-# Where the socket.io client connects. localhost:3001 = run socket-server/ locally.
-VITE_SOCKET_URL=http://localhost:3001
+# Optional — only if you run socket-server/ locally (see socket-server/README).
+# Without this, dev uses the Render socket (https://stage-7osn.onrender.com).
+# VITE_USE_LOCAL_SOCKET=true
+# VITE_SOCKET_URL=http://localhost:3001
 ```
 
 **Backend** — create `server/.env` from `server/.env.example` and set at minimum:

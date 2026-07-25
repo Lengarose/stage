@@ -31,8 +31,12 @@ export default function NotificationBell() {
           });
           if (!hasLoadedOnceRef.current) hasLoadedOnceRef.current = true;
         }
-      } catch {
-        // non-fatal
+      } catch (err) {
+        const status = err?.status || err?.response?.status;
+        if (status === 429 && intervalId) {
+          window.clearInterval(intervalId);
+          intervalId = window.setInterval(refreshUnread, 60000);
+        }
       }
     }
 

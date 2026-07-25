@@ -209,6 +209,11 @@ export default function Admin(props) {
     [section]
   );
 
+  useEffect(() => {
+    if (!allowed || adminTab !== "international-tournaments") return;
+    loadInternationalTournaments({ withSquads: true }).catch(() => {});
+  }, [allowed, adminTab]);
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -252,7 +257,7 @@ export default function Admin(props) {
           .filter(l => l.status !== "archived")
           .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: l.max_clubs || 16 })),
       ]).catch(() => {});
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: false });
       setExpiredFixtures([
         ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
         ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
@@ -274,7 +279,7 @@ export default function Admin(props) {
     }
   }
 
-  async function loadInternationalTournaments() {
+  async function loadInternationalTournaments({ withSquads = false } = {}) {
     const rows = await internationalTournamentsApi.list(100).catch(() => []);
     setInternationalTournaments(rows);
     const pairs = await Promise.all(rows.map(async (row) => [
@@ -283,15 +288,31 @@ export default function Admin(props) {
     ]));
     const electionsByTournament = Object.fromEntries(pairs);
     setInternationalElections(electionsByTournament);
-    const squadPairs = await Promise.all(pairs.flatMap(([tournamentId, elections]) => (
+
+    if (!withSquads) return;
+
+    const jobs = pairs.flatMap(([tournamentId, elections]) =>
       elections
         .filter((election) => election.country_code)
-        .map(async (election) => {
-          const countryCode = String(election.country_code).toUpperCase();
-          const squad = await internationalTournamentsApi.squad(tournamentId, countryCode).catch(() => ({ squad: null, players: [] }));
-          return [`${tournamentId}:${countryCode}`, squad];
-        })
-    )));
+        .map((election) => ({
+          key: `${tournamentId}:${String(election.country_code).toUpperCase()}`,
+          tournamentId,
+          countryCode: String(election.country_code).toUpperCase(),
+        }))
+    );
+
+    const squadPairs = [];
+    const batchSize = 4;
+    for (let i = 0; i < jobs.length; i += batchSize) {
+      const batch = jobs.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(async (job) => {
+        const squad = await internationalTournamentsApi
+          .squad(job.tournamentId, job.countryCode)
+          .catch(() => ({ squad: null, players: [] }));
+        return [job.key, squad];
+      }));
+      squadPairs.push(...results);
+    }
     setInternationalSquads(Object.fromEntries(squadPairs));
   }
 
@@ -334,7 +355,7 @@ export default function Admin(props) {
     setSavingInternationalTournament(true);
     try {
       await internationalTournamentsApi.create(form);
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: true });
       await swalAlert("International tournament created.");
       return true;
     } catch (err) {
@@ -349,7 +370,7 @@ export default function Admin(props) {
     setSavingInternationalTournament(true);
     try {
       await internationalTournamentsApi.update(id, form);
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: true });
       await swalAlert("International tournament updated.");
       return true;
     } catch (err) {
@@ -363,7 +384,7 @@ export default function Admin(props) {
   async function openInternationalVoting(id) {
     try {
       await internationalTournamentsApi.openVoting(id);
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: true });
       await swalAlert("Voting opened for eligible countries.");
     } catch (err) {
       await swalAlert(err?.message || err?.error || "Could not open voting.");
@@ -373,7 +394,7 @@ export default function Admin(props) {
   async function closeInternationalVoting(id) {
     try {
       await internationalTournamentsApi.closeVoting(id);
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: true });
       await swalAlert("Voting closed and representatives elected.");
     } catch (err) {
       await swalAlert(err?.message || err?.error || "Could not close voting.");
@@ -383,7 +404,7 @@ export default function Admin(props) {
   async function lockInternationalSquad(tournamentId, squadId) {
     try {
       await internationalTournamentsApi.lockSquad(tournamentId, squadId);
-      await loadInternationalTournaments();
+      await loadInternationalTournaments({ withSquads: true });
       await swalAlert("National squad locked.");
     } catch (err) {
       await swalAlert(err?.message || err?.error || "Could not lock squad.");

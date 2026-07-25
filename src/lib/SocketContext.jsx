@@ -33,9 +33,17 @@ export const SOCKET_CLIENT = io(SOCKET_URL, {
   rememberUpgrade: true,
   upgrade: true,
   auth: { token: localStorage.getItem(ACCESS_KEY) },
-  reconnectionAttempts: 10,
-  reconnectionDelay:    2000,
-  autoConnect:          false,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 5000,
+  autoConnect: false,
+});
+
+let socketConnectErrorLogged = false;
+SOCKET_CLIENT.on('connect_error', () => {
+  if (!socketConnectErrorLogged) {
+    socketConnectErrorLogged = true;
+    console.info('[socket] Realtime unavailable — app continues without live updates.');
+  }
 });
 
 function connectWithStoredToken() {

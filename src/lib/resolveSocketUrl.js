@@ -19,24 +19,42 @@ export function normalizeSocketScheme(url, preferSecure) {
   return url;
 }
 
+function wantsLocalSocket(env) {
+  return String(env?.VITE_USE_LOCAL_SOCKET || '').toLowerCase() === 'true';
+}
+
 /**
  * Pick the socket.io server URL at runtime.
- * - Local dev (localhost:5173): localhost:3001 unless VITE_SOCKET_URL overrides.
- * - Production HTTPS: never use a baked-in localhost URL; default to Render.
+ * - Production HTTPS: never use localhost; default Render.
+ * - Local Vite dev: default Render too (no local socket-server required).
+ *   Set VITE_USE_LOCAL_SOCKET=true + VITE_SOCKET_URL=http://localhost:3001 for local socket dev.
  */
-export function resolveSocketUrl(configuredUrl) {
+export function resolveSocketUrl(configuredUrl, env = /** @type {any} */ (import.meta).env) {
   const configured = typeof configuredUrl === 'string' ? configuredUrl.trim() : '';
   const isBrowser = typeof window !== 'undefined';
   const hostname = isBrowser ? window.location.hostname : '';
   const onLocalDev = isBrowser && isLocalHost(hostname);
   const onSecurePage = isBrowser && window.location.protocol === 'https:';
+  const useLocalSocket = wantsLocalSocket(env);
 
-  if (configured && !(onSecurePage && pointsToLocalhost(configured))) {
+  if (onSecurePage && configured && pointsToLocalhost(configured)) {
+    return PRODUCTION_SOCKET_URL;
+  }
+
+  if (onLocalDev && configured && pointsToLocalhost(configured) && !useLocalSocket) {
+    return PRODUCTION_SOCKET_URL;
+  }
+
+  if (configured) {
     return normalizeSocketScheme(configured, onSecurePage);
   }
 
+  if (onLocalDev && useLocalSocket) {
+    return LOCAL_DEV_SOCKET_URL;
+  }
+
   if (onLocalDev) {
-    return configured || LOCAL_DEV_SOCKET_URL;
+    return PRODUCTION_SOCKET_URL;
   }
 
   return PRODUCTION_SOCKET_URL;
