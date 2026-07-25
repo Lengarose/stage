@@ -134,7 +134,7 @@ export default function LandingPageEditor() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      await swalAlert(t("admin.editors.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
+      await swalAlert(t("admin.alerts.saveFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
     }

@@ -51,6 +51,6 @@ Admin mutations on fixtures go through dedicated POST endpoints on `/api/stage/f
 
 ## 5. Vite dev proxies to PRODUCTION by default
 
-`vite.config.js` proxies `/api/*` to `https://stageleagues.com` unless `VITE_API_PROXY_TARGET` is set. 404s on dev are usually "the route doesn't exist on Gandi yet" (you forgot to deploy). 503s mean the Gandi backend process is down. Don't be confused by `localhost:5173` in error URLs.
+`vite.config.js` proxies `/api/*` to `http://127.0.0.1:8080` by default (local backend). Set `VITE_API_PROXY_TARGET=https://stageleagues.com` in `.env` to hit production from dev. 404s on dev against production usually mean "the route doesn't exist on Gandi yet" (you forgot to deploy). 503s mean the backend process is down. Don't be confused by `localhost:5173` in error URLs.
 
 For singleton config (`market_value_config`, `shirt_sales_config`, `stadium_config`) and transactional admin actions: use `functionsController.js` / dedicated POST endpoints, NOT plain CRUD.

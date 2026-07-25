@@ -67,8 +67,8 @@ cd socket-server && npm install && cd ..
 **Frontend** — create `.env` in the repo root (or copy from existing):
 
 ```bash
-# Where Vite proxies /api/* during dev. Point this at your local backend,
-# or at https://stageleagues.com if you want dev to hit production.
+# Where Vite proxies /api/* during dev. Default is your local backend (port 8080).
+# To hit production instead, set VITE_API_PROXY_TARGET=https://stageleagues.com in `.env`.
 VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 
 # Optional — only if you run socket-server/ locally (see socket-server/README).

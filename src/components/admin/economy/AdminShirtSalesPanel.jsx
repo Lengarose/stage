@@ -55,22 +55,17 @@ export default function AdminShirtSalesPanel() {
 
   const fmt = (n) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}K` : `${n}`;
 
-  const cfgFields = [
-    { key: "base_per_mv_1m",            label: "Demand per 1M market value",    help: "Shirts generated per 1M STC of market value" },
-    { key: "goal_demand",               label: "Demand per goal",               help: "Extra shirts per goal scored in the match" },
-    { key: "assist_demand",             label: "Demand per assist",             help: "Extra shirts per assist" },
-    { key: "rating_demand_per_point",   label: "Demand per rating point (>6.0)", help: "Extra shirts per rating point above 6.0" },
-    { key: "motm_demand",               label: "MOTM bonus demand",             help: "Extra shirts if player is Man of the Match" },
-    { key: "clean_sheet_demand",        label: "Clean sheet demand bonus",      help: "Extra shirts if player kept a clean sheet" },
-    { key: "form_influence",            label: "Form influence (0–1)",          help: "How much recent form affects demand (capped ±20%)" },
-    { key: "contract_boost",            label: "Contract boost (0–1)",          help: "Demand multiplier if player has active contract" },
-    { key: "max_per_match",             label: "Max shirts per player per match", help: "Anti-spike cap" },
-    { key: "price_base",                label: "Base shirt price (STC)",        help: "Starting shirt price before bonuses" },
-    { key: "price_per_ovr_above_70",    label: "Price per OVR above 70",        help: "STC added per OVR rating point above 70" },
-    { key: "price_per_goal",            label: "Price per career goal",         help: "STC added per career goal" },
-    { key: "price_per_assist",          label: "Price per career assist",       help: "STC added per career assist" },
-    { key: "price_per_rating_point",    label: "Price per avg rating point",    help: "STC added per avg_match_rating point above 6.0" },
+  const cfgFieldKeys = [
+    "base_per_mv_1m", "goal_demand", "assist_demand", "rating_demand_per_point",
+    "motm_demand", "clean_sheet_demand", "form_influence", "contract_boost",
+    "max_per_match", "price_base", "price_per_ovr_above_70", "price_per_goal",
+    "price_per_assist", "price_per_rating_point",
   ];
+  const cfgFields = cfgFieldKeys.map((key) => ({
+    key,
+    label: t(`admin.economy.shirtSalesFields.${key}.label`),
+    help: t(`admin.economy.shirtSalesFields.${key}.help`),
+  }));
 
   return (
     <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden">
@@ -91,7 +86,7 @@ export default function AdminShirtSalesPanel() {
           )}
 
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Global Top Shirt Sellers</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">{t("admin.economy.globalTopShirtSellers")}</p>
             {loading ? (
               <p className="text-xs text-muted-foreground">{t("admin.actions.loading")}</p>
             ) : (
@@ -102,18 +97,18 @@ export default function AdminShirtSalesPanel() {
                     <span className="font-medium text-foreground flex-1 truncate">{e.gamertag}</span>
                     {e.shirt_number && <span className="text-muted-foreground font-mono">#{e.shirt_number}</span>}
                     <span className="text-muted-foreground truncate hidden sm:block">{e.club_name}</span>
-                    <span className="text-success font-bold shrink-0">{Number(e.total_shirts).toLocaleString()} shirts</span>
+                    <span className="text-success font-bold shrink-0">{Number(e.total_shirts).toLocaleString()} {t("admin.economy.shirts")}</span>
                     <span className="text-warning shrink-0">{fmt(Number(e.total_revenue))} STC</span>
                   </div>
                 ))}
-                {(!lb || lb.length === 0) && <p className="text-xs text-muted-foreground">No data yet.</p>}
+                {(!lb || lb.length === 0) && <p className="text-xs text-muted-foreground">{t("admin.economy.noDataYet")}</p>}
               </div>
             )}
           </div>
 
           {cfg && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Adjust Shirt Sales Formula</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">{t("admin.economy.adjustShirtSalesFormula")}</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 {cfgFields.map(f => (
                   <div key={f.key}>
@@ -135,13 +130,13 @@ export default function AdminShirtSalesPanel() {
           )}
 
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Correct Club Shirt Revenue</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">{t("admin.economy.correctClubShirtRevenue")}</p>
             <div className="flex gap-2 flex-wrap">
               <Input placeholder={t("admin.economy.clubId")} value={corrClub} onChange={e => setCorrClub(e.target.value)} className="text-xs flex-1 min-w-[180px]" />
               <Input placeholder={t("admin.economy.amountNegative")} type="number" value={corrAmt} onChange={e => setCorrAmt(e.target.value)} className="text-xs w-48" />
               <Input placeholder={t("admin.economy.noteOptional")} value={corrNote} onChange={e => setCorrNote(e.target.value)} className="text-xs flex-1 min-w-[150px]" />
               <Button size="sm" onClick={applyCorrection} disabled={saving || !corrClub || !corrAmt} className="text-xs bg-success/20 text-success border border-success/30 hover:bg-success/30">
-                Apply
+                {t("admin.economy.apply")}
               </Button>
             </div>
           </div>

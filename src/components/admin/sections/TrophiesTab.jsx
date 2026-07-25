@@ -204,7 +204,7 @@ export default function TrophiesTab({
           className="w-full bg-warning text-black font-bold gap-2"
         >
           <Trophy className="w-4 h-4" />
-          {uploadingTrophy ? "Uploading..." : "Add to Library"}
+          {uploadingTrophy ? t("admin.actions.uploading") : t("admin.trophies.addToLibrary")}
         </Button>
         {trophyUploadError && (
           <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded px-3 py-2">

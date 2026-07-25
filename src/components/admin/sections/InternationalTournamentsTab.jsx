@@ -166,7 +166,7 @@ function InternationalTournamentFields({ form, set, setTournamentType }) {
         <CountryMultiSelect
           value={form.eligible_country_codes}
           onChange={(codes) => set('eligible_country_codes', codes)}
-          placeholder="Select eligible countries…"
+          placeholder={t("admin.international.countriesPlaceholder")}
           countries={availableCountries}
         />
       </label>

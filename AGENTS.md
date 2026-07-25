@@ -19,8 +19,7 @@
 **Key URLs**
 - Production backend + frontend: `https://stageleagues.com`
 - Dev frontend: `http://localhost:5173` (Vite)
-- Dev frontend → backend: Vite proxies `/api/*` to `process.env.VITE_API_PROXY_TARGET || 'https://stageleagues.com'`
-  (see `vite.config.js`). By default dev hits **production**.
+- Dev frontend → backend: Vite proxies `/api/*` to `process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8080'` (see `vite.config.js`). Set `VITE_API_PROXY_TARGET=https://stageleagues.com` in `.env` to hit production from dev.
 - Dev socket: `process.env.VITE_SOCKET_URL || window.location.origin` (see `src/lib/SocketContext.jsx`)
 
 ---

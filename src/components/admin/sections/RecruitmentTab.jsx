@@ -134,7 +134,7 @@ export default function RecruitmentTab({ posts = [], onRefresh }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-foreground truncate">
-                        {post.author_club_name || post.author_player_gamertag || "Recruitment post"}
+                        {post.author_club_name || post.author_player_gamertag || t("admin.recruitment.recruitmentPost")}
                       </p>
                       {Number(post.author_player_is_verified) === 1 && (
                         <BadgeCheck className="w-4 h-4 text-primary" />
