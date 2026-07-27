@@ -8,7 +8,7 @@ const { get } = require('../../constants/env');
 
 const SERVER_URL = get('SERVER_URL') || 'http://localhost:8080';
 
-async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, avatar }) {
+async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, avatar, streamUrl }) {
   async function ensureUserLink(player) {
     if (!email) return player;
     const users = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
@@ -27,12 +27,25 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
     return refreshed[0] || player;
   }
 
+  async function persistStreamUrl(playerId) {
+    if (!streamUrl) return;
+    await EXECUTESQL(
+      'UPDATE players SET stream_url = ?, updated_date = NOW() WHERE id = ?',
+      [streamUrl, playerId]
+    ).catch((err) => console.warn('[oauth] stream_url update failed:', err.message));
+  }
+
   // 1. Match by oauth_id + provider (returning user)
   let rows = await EXECUTESQL(
     'SELECT * FROM players WHERE oauth_provider = ? AND oauth_id = ?',
     [provider, oauthId]
   );
-  if (rows.length) return ensureUserLink(rows[0]);
+  if (rows.length) {
+    await persistStreamUrl(rows[0].id);
+    const linked = await ensureUserLink(rows[0]);
+    if (streamUrl) linked.stream_url = streamUrl;
+    return linked;
+  }
 
   // 2. Match by email → link OAuth to existing account
   if (email) {
@@ -42,7 +55,10 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
         'UPDATE players SET oauth_provider = ?, oauth_id = ? WHERE id = ?',
         [provider, oauthId, rows[0].id]
       );
-      return ensureUserLink(rows[0]);
+      await persistStreamUrl(rows[0].id);
+      const linked = await ensureUserLink(rows[0]);
+      if (streamUrl) linked.stream_url = streamUrl;
+      return linked;
     }
   }
 
@@ -53,9 +69,9 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
 
   await EXECUTESQL(
     `INSERT INTO players
-       (id, email, gamertag, avatar_url, oauth_provider, oauth_id, credits, subscription, created_date)
-     VALUES (?, ?, ?, ?, ?, ?, 50, 'free', NOW())`,
-    [id, safeEmail, gamertag, avatar || null, provider, oauthId]
+       (id, email, gamertag, avatar_url, oauth_provider, oauth_id, stream_url, credits, subscription, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 50, 'free', NOW())`,
+    [id, safeEmail, gamertag, avatar || null, provider, oauthId, streamUrl || null]
   );
 
   const created = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [id]);
@@ -183,6 +199,7 @@ if (get('TWITCH_CLIENT_ID') && get('TWITCH_CLIENT_SECRET')) {
           email:    profile.email,
           fullName: profile.displayName || profile.login,
           avatar:   profile.avatar,
+          streamUrl: profile.login ? `https://www.twitch.tv/${profile.login}` : null,
         });
         done(null, player);
       } catch (err) { done(err); }

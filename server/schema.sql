@@ -95,6 +95,9 @@ CREATE TABLE IF NOT EXISTS players (
   sacrificed_at         DATETIME     NULL,
   eafc_club_id          VARCHAR(36)  NULL,
   eafc_club_name        VARCHAR(255) NULL,
+  stream_url            TEXT         NULL,
+  oauth_provider        VARCHAR(50)  NULL,
+  oauth_id              VARCHAR(255) NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

@@ -154,6 +154,7 @@ function computeValueFromStats(player, W, previousValue = 0) {
 
 const { toMysqlDateTime } = require('../utils/datetime');
 const { notifyAnnouncement } = require('../services/notifications');
+const { ensureMatchStreamsFromPlayers } = require('../utils/matchStream');
 const {
   broadcastMatch,
   broadcastMatchById,
@@ -5888,6 +5889,10 @@ const HANDLERS = {
           throw err;
         }
       }
+
+      await ensureMatchStreamsFromPlayers(match).catch((err) => {
+        console.warn('[matchKickoff] stream auto-fill failed:', err.message);
+      });
 
       await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
       await broadcastMatchById(match_id);

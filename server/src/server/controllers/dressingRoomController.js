@@ -2,7 +2,12 @@ const express      = require('express');
 const router       = express.Router();
 const DressingRoom = require('../models/dressingRoomModel');
 const { EXECUTESQL } = require('../db/database');
-const { broadcastDressingRoom, broadcastDressingRoomDeleted } = require('../utils/socketBroadcast');
+const {
+  broadcastDressingRoom,
+  broadcastDressingRoomDeleted,
+  broadcastMatchById,
+} = require('../utils/socketBroadcast');
+const { applySeatedPlayerStreamToMatch } = require('../utils/matchStream');
 
 function parsePlayerIds(value) {
   if (value == null || value === '') return [];
@@ -35,6 +40,19 @@ async function assertPlayersAvailable({ matchId, clubId, seatedPlayers }) {
     err.status = 400;
     throw err;
   }
+}
+
+async function maybeApplyStream(record) {
+  if (!record?.match_id || !record?.club_id) return;
+  const applied = await applySeatedPlayerStreamToMatch({
+    matchId: record.match_id,
+    clubId: record.club_id,
+    seatedPlayers: record.seated_players,
+  }).catch((err) => {
+    console.warn('[dressingRoom] stream auto-fill failed:', err.message);
+    return null;
+  });
+  if (applied) await broadcastMatchById(record.match_id).catch(() => {});
 }
 
 // GET /
@@ -80,6 +98,7 @@ router.post('/', async (req, res) => {
     const created = await dr.selectOne(dr.id);
     const record  = created[0];
     broadcastDressingRoom(record);
+    await maybeApplyStream(record);
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -104,6 +123,7 @@ router.patch('/:id', async (req, res) => {
     const updated = await dr.selectOne(id);
     const record  = updated[0];
     broadcastDressingRoom(record);
+    await maybeApplyStream(record);
     res.json(record);
   } catch (err) {
     console.error(err);

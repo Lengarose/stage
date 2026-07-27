@@ -121,11 +121,21 @@ router.get('/twitch/callback',
 const KICK_AUTHORIZE_URL = 'https://id.kick.com/oauth/authorize';
 const KICK_TOKEN_URL     = 'https://id.kick.com/oauth/token';
 const KICK_USERS_URL     = 'https://api.kick.com/public/v1/users';
+const KICK_CHANNELS_URL  = 'https://api.kick.com/public/v1/channels';
 const KICK_CALLBACK_URL  = `${SERVER_URL}/api/stage/auth/kick/callback`;
 
 const kickEnabled = () => Boolean(get('KICK_CLIENT_ID') && get('KICK_CLIENT_SECRET'));
 if (!kickEnabled()) {
   console.warn('[oauth] Kick OAuth disabled: set KICK_CLIENT_ID and KICK_CLIENT_SECRET');
+}
+
+function kickStreamUrlFromProfile(user, channel) {
+  const slug = channel?.slug || channel?.stream?.url || null;
+  if (slug && /^https?:\/\//i.test(String(slug))) return String(slug);
+  if (slug) return `https://kick.com/${String(slug).replace(/^\/+/, '')}`;
+  const name = String(user?.name || '').trim().toLowerCase().replace(/\s+/g, '-');
+  if (name) return `https://kick.com/${encodeURIComponent(name)}`;
+  return null;
 }
 
 // In-memory state → PKCE verifier store (single-process server; 10 min TTL).
@@ -151,7 +161,7 @@ router.get('/kick', (req, res) => {
     client_id:             get('KICK_CLIENT_ID'),
     response_type:         'code',
     redirect_uri:          KICK_CALLBACK_URL,
-    scope:                 'user:read',
+    scope:                 'user:read channel:read',
     code_challenge:        challenge,
     code_challenge_method: 'S256',
     state,
@@ -189,12 +199,24 @@ router.get('/kick/callback', async (req, res) => {
     const u = userRes.data?.data?.[0];
     if (!u || !u.user_id) return oauthFail(res);
 
+    let channel = null;
+    try {
+      const channelRes = await axios.get(KICK_CHANNELS_URL, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { broadcaster_user_id: u.user_id },
+      });
+      channel = channelRes.data?.data?.[0] || null;
+    } catch (channelErr) {
+      console.warn('[oauth] Kick channel lookup failed:', channelErr.response?.data || channelErr.message);
+    }
+
     const player = await findOrCreateOAuthPlayer({
       oauthId:  String(u.user_id),
       provider: 'kick',
       email:    u.email || null,
       fullName: u.name || null,
       avatar:   u.profile_picture || null,
+      streamUrl: kickStreamUrlFromProfile(u, channel),
     });
     return issueAndRedirect(res, player);
   } catch (err) {

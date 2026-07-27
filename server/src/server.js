@@ -344,6 +344,9 @@ async function runStartupMigrations() {
   await addCol('players', 'eafc_club_id', 'VARCHAR(36) NULL');
   await addCol('players', 'eafc_club_name', 'VARCHAR(255) NULL');
   await addCol('players', 'home_player_email', 'VARCHAR(255) NULL');
+  await addCol('players', 'stream_url', 'TEXT NULL');
+  await addCol('players', 'oauth_provider', 'VARCHAR(50) NULL');
+  await addCol('players', 'oauth_id', 'VARCHAR(255) NULL');
   // Legacy DBs sometimes marked club_id NOT NULL; kicks / account deletion must clear it.
   await EXECUTESQL(
     'ALTER TABLE players MODIFY COLUMN club_id VARCHAR(36) NULL'

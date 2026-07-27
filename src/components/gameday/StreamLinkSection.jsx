@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Radio, ExternalLink, Pencil, X, Plus, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -154,10 +154,11 @@ function StreamInputForm({ defaultValue, defaultHtml, onSave, onSaveHtml, onCanc
   );
 }
 
-export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isCompleted, onGameUpdate }) {
+export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isCompleted, onGameUpdate, myPlayer }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [streamModal, setStreamModal] = useState(false);
+  const autoFilledRef = useRef(false);
 
   const homeStream = game.home_stream_url || null;
   const awayStream = game.away_stream_url || null;
@@ -170,6 +171,28 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
   const isMyHomeStream = amIHomeTeam;
   const myStreamUrl = isMyHomeStream ? homeStream : awayStream;
   const canManage = isMyMatch && !isCompleted;
+  const playerStreamUrl = String(myPlayer?.stream_url || "").trim();
+
+  // Twitch/Kick OAuth users: auto-attach their channel link to this side of the match.
+  useEffect(() => {
+    if (autoFilledRef.current) return;
+    if (!canManage || !game?.id || !playerStreamUrl || myStreamUrl) return;
+    if (!isValidUrl(playerStreamUrl)) return;
+    autoFilledRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const field = isMyHomeStream ? "home_stream_url" : "away_stream_url";
+        await stageClient.entities.Match.update(game.id, { [field]: playerStreamUrl });
+        if (cancelled) return;
+        onGameUpdate?.({ ...game, [field]: playerStreamUrl });
+      } catch (err) {
+        console.warn("[StreamLinkSection] auto-fill failed:", err?.message || err);
+        autoFilledRef.current = false;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [canManage, game, playerStreamUrl, myStreamUrl, isMyHomeStream, onGameUpdate]);
 
   async function saveStream(url) {
     setSaving(true);

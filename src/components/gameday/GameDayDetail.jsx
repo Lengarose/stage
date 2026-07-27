@@ -315,6 +315,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         isMyMatch={isMyMatch}
         amIHomeTeam={amIHomeTeam}
         isCompleted={isCompleted}
+        myPlayer={myPlayer}
         onGameUpdate={(updated) => {
           setGame(updated);
           if (onGameUpdate) onGameUpdate(updated);
