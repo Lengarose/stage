@@ -434,6 +434,13 @@ html, body {
     font-family: var(--font-body);
   }
 
+  .stage-home-hero-wordmark {
+    display: block;
+    height: clamp(5.5rem, 18vw, 11rem);
+    width: clamp(15rem, 50vw, 30.5rem);
+    max-width: min(92vw, 30.5rem);
+  }
+
   .mobile-liquid-tab > span,
   .mobile-liquid-menu-tile span,
   .mobile-liquid-topbar span,
@@ -824,9 +831,19 @@ html, body {
   }
 
   .stage-home-hero-title {
+    font-family: var(--font-heading-legacy) !important;
+    font-style: normal !important;
     font-size: clamp(4.1rem, 21vw, 6.4rem) !important;
     max-width: 8ch;
     line-height: 0.82 !important;
+  }
+
+  .stage-home-hero-wordmark {
+    display: block;
+    height: clamp(4.2rem, 18vw, 8.5rem) !important;
+    width: clamp(11.5rem, 50vw, 23.5rem) !important;
+    max-width: min(92vw, 23.5rem);
+    font-size: 0 !important;
   }
 
   .stage-home-hero-content > p:not(:first-child) {

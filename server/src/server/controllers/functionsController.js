@@ -190,6 +190,18 @@ async function getMe(_auth_user_id) {
   return { user: me, player, club };
 }
 
+function isTransferWindowEndPassed(endDate) {
+  if (!endDate) return false;
+  const end = new Date(endDate);
+  if (Number.isNaN(end.getTime())) return false;
+  // Date-only / midnight end_date means "open through that calendar day".
+  if (end.getUTCHours() === 0 && end.getUTCMinutes() === 0 && end.getUTCSeconds() === 0) {
+    end.setUTCHours(23, 59, 59, 999);
+  }
+  return end.getTime() < Date.now();
+}
+
+/** Returns the currently open window, or null. Auto-closes past end_date. */
 async function getCurrentTransferWindow() {
   await EXECUTESQL(`
     CREATE TABLE IF NOT EXISTS transfer_windows (
@@ -208,6 +220,25 @@ async function getCurrentTransferWindow() {
     "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
     []
   );
+  const win = rows[0] || null;
+  if (!win) return null;
+  if (isTransferWindowEndPassed(win.end_date)) {
+    await EXECUTESQL(
+      "UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ? AND status = 'open'",
+      [win.id]
+    );
+    return null;
+  }
+  return win;
+}
+
+async function getLatestTransferWindow() {
+  const open = await getCurrentTransferWindow();
+  if (open) return open;
+  const rows = await EXECUTESQL(
+    "SELECT * FROM transfer_windows ORDER BY COALESCE(updated_date, created_date) DESC LIMIT 1",
+    []
+  ).catch(() => []);
   return rows[0] || null;
 }
 
@@ -5047,7 +5078,8 @@ const HANDLERS = {
   },
 
   async getTransferMarket() {
-    const currentWindow = await getCurrentTransferWindow();
+    // Latest row for banner display (may be closed); open status is derived client/server-side.
+    const currentWindow = await getLatestTransferWindow();
     const activeContracts = await EXECUTESQL(
       "SELECT DISTINCT user_id FROM player_contracts WHERE status IN ('active','pending','pending_window')",
       []
@@ -5462,7 +5494,9 @@ const HANDLERS = {
     const current = await getCurrentTransferWindow();
 
     if (action === 'get_current') {
-      return { data: { window: current } };
+      // Prefer the live open window; otherwise return the most recent closed one for admin UI.
+      const window = current || (await getLatestTransferWindow());
+      return { data: { window } };
     }
 
     if (action === 'open_window') {

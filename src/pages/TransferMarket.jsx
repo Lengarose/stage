@@ -8,6 +8,7 @@ import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferMarket() {
@@ -122,7 +123,7 @@ export default function TransferMarket() {
     });
   }, [allEntries, search, positionFilter, statusFilter, platformFilter]);
 
-  const windowOpen = currentWindow?.status === "open";
+  const windowOpen = isTransferWindowOpen(currentWindow);
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">

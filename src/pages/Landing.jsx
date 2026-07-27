@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import BannerImg from '@/assets/Name logo.png';
+import StageWordmarkImg from '@/assets/Stage wordmark.png';
 import LogoImg from '@/assets/Stadium Logo.png';
 import TrophiesImg from '@/assets/Trophies.PNG';
 import CoachLuisImg from '@/assets/Coach Luis.PNG';
@@ -259,11 +260,32 @@ export default function Landing({ onSignIn }) {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-heading text-6xl md:text-8xl lg:text-9xl font-black uppercase leading-none tracking-tight mb-6"
-            style={{ transform: "skewX(-6deg)", letterSpacing: "-0.02em" }}
+            className="text-6xl md:text-8xl lg:text-9xl font-black uppercase leading-none tracking-tight mb-6"
+            style={{
+              fontFamily: "var(--font-heading-legacy)",
+              letterSpacing: "-0.02em",
+            }}
           >
             <span className="text-white">{t("commonPages.landHeroYour")} </span>
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">{t("commonPages.landHeroStage")}</span>
+            <span
+              className="inline-block align-middle mx-1 sm:mx-2"
+              role="img"
+              aria-label={t("commonPages.landHeroStage")}
+              style={{
+                backgroundColor: "rgb(56, 189, 248)",
+                WebkitMaskImage: `url(${StageWordmarkImg})`,
+                maskImage: `url(${StageWordmarkImg})`,
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "center",
+                maskPosition: "center",
+                height: "0.95em",
+                width: "2.75em",
+                filter: "drop-shadow(0 0 18px rgb(56 189 248 / 0.45))",
+              }}
+            />
             <br />
             <span className="text-white">{t("commonPages.landHeroAwaits")}</span>
           </motion.h1>

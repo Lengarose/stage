@@ -27,8 +27,29 @@ class TransferWindowModel {
     return EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ?', [id]);
   }
 
-  selectActive() {
-    return EXECUTESQL("SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1", []);
+  async selectActive() {
+    const rows = await EXECUTESQL(
+      "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
+      []
+    );
+    const win = rows[0];
+    if (!win) return [];
+    if (win.end_date) {
+      const end = new Date(win.end_date);
+      if (!Number.isNaN(end.getTime())) {
+        if (end.getUTCHours() === 0 && end.getUTCMinutes() === 0 && end.getUTCSeconds() === 0) {
+          end.setUTCHours(23, 59, 59, 999);
+        }
+        if (end.getTime() < Date.now()) {
+          await EXECUTESQL(
+            "UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ? AND status = 'open'",
+            [win.id]
+          );
+          return [];
+        }
+      }
+    }
+    return [win];
   }
 
   create() {

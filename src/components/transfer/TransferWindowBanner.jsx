@@ -1,8 +1,9 @@
 import { CheckCircle, AlertCircle, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isTransferWindowOpen } from "@/lib/transferWindow";
 
 export default function TransferWindowBanner({ window: currentWindow }) {
-  const isOpen = currentWindow?.status === "open";
+  const isOpen = isTransferWindowOpen(currentWindow);
 
   return (
     <div className={cn(
@@ -28,6 +29,8 @@ export default function TransferWindowBanner({ window: currentWindow }) {
           {currentWindow?.label && <span className="font-medium">{currentWindow.label} · </span>}
           {isOpen && currentWindow?.end_date
             ? `Open until ${new Date(currentWindow.end_date).toLocaleDateString()}`
+            : !isOpen && currentWindow?.end_date
+            ? `Closed ${new Date(currentWindow.end_date).toLocaleDateString()} — contracts accepted now will execute when the next window opens.`
             : !isOpen && currentWindow
             ? "Contracts accepted now will execute when the next window opens."
             : !currentWindow

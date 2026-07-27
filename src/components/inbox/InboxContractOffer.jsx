@@ -14,6 +14,7 @@ import {
 import { notify, postContractNews } from "@/lib/notify";
 import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
+import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
@@ -76,7 +77,7 @@ export default function InboxContractOffer({ message, onActioned }) {
       // Check transfer window status
       try {
         const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
-        setWindowOpen(winRes?.data?.window?.status === "open");
+        setWindowOpen(isTransferWindowOpen(winRes?.data?.window));
       } catch {
         setWindowOpen(false); // default to closed if can't check
       }

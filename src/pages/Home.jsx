@@ -5,6 +5,7 @@ import HeroImg from "@/assets/WIS.PNG";
 import CoachLuisImg from "@/assets/Coach Luis.PNG";
 import BFCHomeImg from "@/assets/BFC Home.PNG";
 import HIWImg from "@/assets/HIW.PNG";
+import StageWordmarkImg from "@/assets/Stage wordmark.png";
 import {
   Trophy, Zap, ShoppingBag, Shield, Users, Gamepad2, Award,
   ArrowRight, Mail, ChevronDown, ChevronUp, Calendar, Inbox,
@@ -957,12 +958,44 @@ export default function Home() {
         <div className="stage-home-hero-readable absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
         <div className="stage-home-hero-fade absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
         <div className="stage-home-hero-content relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
-          <p className="font-heading font-bold uppercase mb-1 text-xs sm:text-sm" style={{ fontFamily: "var(--font-heading-legacy)", color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
+          <p className="font-bold uppercase mb-1 text-xs sm:text-sm" style={{ fontFamily: "var(--font-heading-legacy)", color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
             {textOrDefault(c.hero_title, DEFAULTS.hero_title)}
           </p>
-          <h1 className="stage-home-hero-title font-heading font-black leading-none" style={{ fontFamily: "var(--font-heading-legacy)", fontSize: "clamp(5.5rem, 18vw, 11rem)", color: "hsl(189,100%,52%)", filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))" }}>
-            {textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)}
-          </h1>
+          {/^stage$/i.test(String(textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)).trim()) ? (
+            <h1 className="stage-home-hero-title m-0 p-0" aria-label="STAGE">
+              <span
+                className="stage-home-hero-wordmark"
+                role="img"
+                aria-label="STAGE"
+                style={{
+                  backgroundColor: "hsl(189, 100%, 52%)",
+                  WebkitMaskImage: `url(${StageWordmarkImg})`,
+                  maskImage: `url(${StageWordmarkImg})`,
+                  WebkitMaskSize: "contain",
+                  maskSize: "contain",
+                  WebkitMaskRepeat: "no-repeat",
+                  maskRepeat: "no-repeat",
+                  WebkitMaskPosition: "left center",
+                  maskPosition: "left center",
+                  filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
+                }}
+              />
+            </h1>
+          ) : (
+            <h1
+              className="stage-home-hero-title font-black leading-none uppercase"
+              style={{
+                fontFamily: "var(--font-heading-legacy)",
+                fontSize: "clamp(5.5rem, 18vw, 11rem)",
+                color: "hsl(189,100%,52%)",
+                filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
+                transform: "skewX(-8deg)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)}
+            </h1>
+          )}
           <p className="mt-6 max-w-md text-sm sm:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
             {textOrDefault(c.hero_description, DEFAULTS.hero_description)}
           </p>

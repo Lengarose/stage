@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
+import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferWindowPanel() {
@@ -73,7 +74,7 @@ export default function TransferWindowPanel() {
     setSaving(false);
   }
 
-  const isOpen = currentWindow?.status === "open";
+  const isOpen = isTransferWindowOpen(currentWindow);
 
   if (loading) {
     return <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>;

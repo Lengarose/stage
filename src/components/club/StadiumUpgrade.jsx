@@ -159,7 +159,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
         <div className="text-center py-6 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl">
           <span className="text-3xl">👑</span>
           <p className="font-bold text-yellow-400 mt-2">{t('commonPages.stadMaxLevel')}</p>
-          <p className="text-xs text-muted-foreground mt-1">{t('commonPages.stadMaxLevelHint')}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('commonPages.stadMaxHint')}</p>
         </div>
       )}
 

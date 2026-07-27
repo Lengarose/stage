@@ -151,7 +151,12 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
 
   return (
     <>
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onComplete?.(null);
+      }}
+    >
       <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto" onInteractOutside={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">

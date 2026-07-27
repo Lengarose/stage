@@ -29,6 +29,7 @@ import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
+import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -166,7 +167,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       // Transfer window
       try {
         const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
-        setWindowOpen(winRes?.data?.window?.status === "open");
+        setWindowOpen(isTransferWindowOpen(winRes?.data?.window));
       } catch { setWindowOpen(false); }
 
       const matchStats = await stageClient.entities.MatchPlayerStat.filter({ player_email: p.email });

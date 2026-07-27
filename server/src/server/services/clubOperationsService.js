@@ -154,12 +154,31 @@ async function notifyEmail(email, title, body, link = '/notifications') {
   ).catch(() => {});
 }
 
+function isTransferWindowEndPassed(endDate) {
+  if (!endDate) return false;
+  const end = new Date(endDate);
+  if (Number.isNaN(end.getTime())) return false;
+  if (end.getUTCHours() === 0 && end.getUTCMinutes() === 0 && end.getUTCSeconds() === 0) {
+    end.setUTCHours(23, 59, 59, 999);
+  }
+  return end.getTime() < Date.now();
+}
+
 async function getCurrentTransferWindow() {
   const rows = await EXECUTESQL(
     "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
     []
   ).catch(() => []);
-  return rows[0] || null;
+  const win = rows[0] || null;
+  if (!win) return null;
+  if (isTransferWindowEndPassed(win.end_date)) {
+    await EXECUTESQL(
+      "UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ? AND status = 'open'",
+      [win.id]
+    ).catch(() => null);
+    return null;
+  }
+  return win;
 }
 
 module.exports = {
