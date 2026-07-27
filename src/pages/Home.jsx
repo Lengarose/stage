@@ -963,21 +963,19 @@ export default function Home() {
           </p>
           {/^stage$/i.test(String(textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)).trim()) ? (
             <h1 className="stage-home-hero-title m-0 p-0" aria-label="STAGE">
-              <span
+              <img
+                src={StageWordmarkImg}
+                alt="STAGE"
                 className="stage-home-hero-wordmark"
-                role="img"
-                aria-label="STAGE"
+                draggable={false}
                 style={{
-                  backgroundColor: "hsl(189, 100%, 52%)",
-                  WebkitMaskImage: `url(${StageWordmarkImg})`,
-                  maskImage: `url(${StageWordmarkImg})`,
-                  WebkitMaskSize: "contain",
-                  maskSize: "contain",
-                  WebkitMaskRepeat: "no-repeat",
-                  maskRepeat: "no-repeat",
-                  WebkitMaskPosition: "left center",
-                  maskPosition: "left center",
-                  filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
+                  display: "block",
+                  width: "clamp(15rem, 50vw, 30.5rem)",
+                  maxWidth: "min(92vw, 30.5rem)",
+                  height: "auto",
+                  // White wordmark → brand cyan
+                  filter:
+                    "brightness(0) saturate(100%) invert(67%) sepia(98%) saturate(2500%) hue-rotate(152deg) brightness(1.05) drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
                 }}
               />
             </h1>

@@ -436,9 +436,9 @@ html, body {
 
   .stage-home-hero-wordmark {
     display: block;
-    height: clamp(5.5rem, 18vw, 11rem);
     width: clamp(15rem, 50vw, 30.5rem);
     max-width: min(92vw, 30.5rem);
+    height: auto;
   }
 
   .mobile-liquid-tab > span,
@@ -839,10 +839,10 @@ html, body {
   }
 
   .stage-home-hero-wordmark {
-    display: block;
-    height: clamp(4.2rem, 18vw, 8.5rem) !important;
+    display: block !important;
     width: clamp(11.5rem, 50vw, 23.5rem) !important;
-    max-width: min(92vw, 23.5rem);
+    max-width: min(92vw, 23.5rem) !important;
+    height: auto !important;
     font-size: 0 !important;
   }
 

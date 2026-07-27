@@ -267,23 +267,16 @@ export default function Landing({ onSignIn }) {
             }}
           >
             <span className="text-white">{t("commonPages.landHeroYour")} </span>
-            <span
+            <img
+              src={StageWordmarkImg}
+              alt={t("commonPages.landHeroStage")}
               className="inline-block align-middle mx-1 sm:mx-2"
-              role="img"
-              aria-label={t("commonPages.landHeroStage")}
+              draggable={false}
               style={{
-                backgroundColor: "rgb(56, 189, 248)",
-                WebkitMaskImage: `url(${StageWordmarkImg})`,
-                maskImage: `url(${StageWordmarkImg})`,
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskPosition: "center",
-                maskPosition: "center",
                 height: "0.95em",
-                width: "2.75em",
-                filter: "drop-shadow(0 0 18px rgb(56 189 248 / 0.45))",
+                width: "auto",
+                filter:
+                  "brightness(0) saturate(100%) invert(67%) sepia(98%) saturate(2500%) hue-rotate(152deg) brightness(1.05) drop-shadow(0 0 18px rgb(56 189 248 / 0.45))",
               }}
             />
             <br />
