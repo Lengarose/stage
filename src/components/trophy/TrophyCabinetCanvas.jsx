@@ -83,16 +83,15 @@ export default function TrophyCabinetCanvas({
   return (
     <div
       ref={cabinetRef}
-      className="relative w-full rounded-2xl overflow-hidden border border-border/50 select-none"
-      style={{ aspectRatio: "4/3" }}
+      className="relative w-[95%] mx-auto rounded-2xl overflow-hidden select-none"
+      style={{ aspectRatio: "3 / 2" }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* Cabinet image — mix-blend-mode:darken removes the white background */}
       <img
         src={CabinetImg}
         alt="Trophy Cabinet"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
         draggable={false}
       />
 
