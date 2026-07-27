@@ -4,6 +4,7 @@ import { STADIUM_LEVELS, getStadiumLevel, getNextStadiumLevel } from "@/lib/stad
 import { formatSTC } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/hooks/useTranslation";
 import { ArrowUp, Lock } from "lucide-react";
 
 // Revenue description helper
@@ -13,6 +14,7 @@ function revenueDesc(lvl) {
 }
 
 export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
+  const { t } = useTranslation();
   const [upgrading, setUpgrading] = useState(false);
   const [notification, setNotification] = useState(null);
 
@@ -66,37 +68,37 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
         <div className="flex items-center gap-3 mb-3">
           <span className="text-3xl">{current.emoji}</span>
           <div className="flex-1">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current Stadium</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadCurrentStadium')}</p>
             <h3 className={cn("font-heading font-black text-xl uppercase tracking-tight", current.color)}>
               {club?.stadium_name || current.name}
             </h3>
             <p className="text-xs text-muted-foreground">{current.description}</p>
           </div>
           <div className="ml-auto text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Level (of 3)</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadLevelOf3')}</p>
             <p className={cn("font-black text-3xl", current.color)}>{currentLevel + 1}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Capacity</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadCapacity')}</p>
             <p className="font-light text-foreground text-lg">{current.capacity.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket Price per Fan</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadTicketPrice')}</p>
             <p className="font-light text-success text-lg">{current.ticket_price_stc} STC</p>
           </div>
         </div>
         {/* Ticket Revenue */}
         <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Ticket Revenue per Home Match</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">{t('commonPages.stadTicketRevenue')}</p>
           <div className="bg-success/10 border border-success/20 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground">Revenue Formula:</p>
-              <p className="text-sm font-semibold text-success">{current.capacity.toLocaleString()} capacity × {current.ticket_price_stc} STC/ticket</p>
+              <p className="text-xs text-muted-foreground">{t('commonPages.stadRevenueFormula')}</p>
+              <p className="text-sm font-semibold text-success">{t('commonPages.stadCapacityFormula', { capacity: current.capacity.toLocaleString(), price: current.ticket_price_stc })}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-muted-foreground mb-1">Per Home Match</p>
+              <p className="text-[10px] text-muted-foreground mb-1">{t('commonPages.stadPerHomeMatch')}</p>
               <p className={cn("text-xl font-bold", current.color)}>{formatSTC(current.capacity * current.ticket_price_stc)}</p>
             </div>
           </div>
@@ -107,7 +109,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
       {next ? (
         <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <ArrowUp className="w-3.5 h-3.5 text-primary" /> Next Upgrade
+            <ArrowUp className="w-3.5 h-3.5 text-primary" /> {t('commonPages.stadNextUpgrade')}
           </p>
           <div className="flex items-center gap-4">
             <span className="text-3xl">{next.emoji}</span>
@@ -115,21 +117,21 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
               <p className={cn("font-bold text-base", next.color)}>{next.name}</p>
               <p className="text-xs text-muted-foreground">{next.description}</p>
               <div className="flex gap-4 mt-1.5">
-                <span className="text-xs text-muted-foreground">Capacity: <span className="text-foreground font-medium">{next.capacity.toLocaleString()}</span></span>
-                <span className="text-xs text-muted-foreground">Revenue/Match: <span className="text-success font-medium">{formatSTC(next.capacity * next.ticket_price_stc)}</span></span>
+                <span className="text-xs text-muted-foreground">{t('commonPages.stadCapacity')}: <span className="text-foreground font-medium">{next.capacity.toLocaleString()}</span></span>
+                <span className="text-xs text-muted-foreground">{t('commonPages.stadRevenueMatch')}: <span className="text-success font-medium">{formatSTC(next.capacity * next.ticket_price_stc)}</span></span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-4 py-3">
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Upgrade Cost</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadUpgradeCost')}</p>
               <p className={cn("font-light text-xl tracking-tight", canAfford ? "text-warning" : "text-destructive")}>
                 {formatSTC(next.upgrade_cost_stc)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Club Balance</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadClubBalance')}</p>
               <p className="font-light text-foreground text-lg tracking-tight">{formatSTC(clubStc)}</p>
             </div>
           </div>
@@ -147,8 +149,8 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
               {upgrading
                 ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 : canAfford
-                ? <><ArrowUp className="w-4 h-4" /> Upgrade to {next.name} — {formatSTC(next.upgrade_cost_stc)}</>
-                : <><Lock className="w-4 h-4" /> Need {formatSTC(next.upgrade_cost_stc - clubStc)} more STC</>
+                ? <><ArrowUp className="w-4 h-4" /> {t('commonPages.stadUpgradeTo', { name: next.name, cost: formatSTC(next.upgrade_cost_stc) })}</>
+                : <><Lock className="w-4 h-4" /> {t('commonPages.stadNeedMore', { amount: formatSTC(next.upgrade_cost_stc - clubStc) })}</>
               }
             </Button>
           )}
@@ -156,14 +158,14 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
       ) : (
         <div className="text-center py-6 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl">
           <span className="text-3xl">👑</span>
-          <p className="font-bold text-yellow-400 mt-2">Max Level — Iconic Arena</p>
-          <p className="text-xs text-muted-foreground mt-1">Your stadium is the pinnacle of football infrastructure.</p>
+          <p className="font-bold text-yellow-400 mt-2">{t('commonPages.stadMaxLevel')}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('commonPages.stadMaxLevelHint')}</p>
         </div>
       )}
 
       {/* Full upgrade ladder */}
       <div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Upgrade Path</p>
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t('commonPages.stadUpgradePath')}</p>
         <div className="space-y-2">
           {STADIUM_LEVELS.map((lvl, i) => (
             <div key={i} className={cn(
@@ -181,10 +183,10 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
               </div>
               <div className="text-right shrink-0">
                 {i === 0 ? (
-                  <span className="text-[10px] text-muted-foreground">Lv 1 — Default</span>
+                  <span className="text-[10px] text-muted-foreground">{t('commonPages.stadLv1Default')}</span>
                 ) : (
                   <span className={cn("text-[10px] font-medium", i <= currentLevel ? "text-success" : "text-muted-foreground")}>
-                    {i <= currentLevel ? "✓ Unlocked" : formatSTC(lvl.upgrade_cost_stc)}
+                    {i <= currentLevel ? t('commonPages.stadUnlocked') : formatSTC(lvl.upgrade_cost_stc)}
                   </span>
                 )}
               </div>

@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import { CheckCircle, Newspaper, Camera, Upload, Trophy } from "lucide-react";
 
 const REPORTERS = [
@@ -26,7 +27,7 @@ function generateHeadline(clubName, answerText) {
 }
 
 // ── Press Room Step ───────────────────────────────────────────────────────────
-function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave }) {
+function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave, t }) {
   const [activeIdx, setActiveIdx] = useState(null);
   const MAX_ANSWERS = 3;
   const canAnswerMore = answers.length < MAX_ANSWERS;
@@ -41,15 +42,15 @@ function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave }) {
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold text-foreground leading-none">{winnerClub.name}</p>
-          <p className="text-[10px] text-muted-foreground">🏆 Champion's Press Conference</p>
+          <p className="text-[10px] text-muted-foreground">🏆 {t('commonPages.twprChampionConference')}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border">
-            {answers.length}/{MAX_ANSWERS} answered
+            {t('commonPages.twprAnswered', { count: answers.length, max: MAX_ANSWERS })}
           </span>
           <Button size="sm" variant="outline" onClick={onLeave} disabled={answers.length === 0}
             className="text-xs border-border text-muted-foreground h-7">
-            {answers.length > 0 ? "Publish →" : "Answer first"}
+            {answers.length > 0 ? t('commonPages.twprPublish') : t('commonPages.twprAnswerFirst')}
           </Button>
         </div>
       </div>
@@ -63,6 +64,7 @@ function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave }) {
           return (
             <div key={q.id}>
               <button
+                type="button"
                 onClick={() => !answered && canAnswerMore && setActiveIdx(isActive ? null : idx)}
                 className={cn(
                   "w-full flex flex-col items-start gap-2 rounded-xl border p-3 transition-all text-left",
@@ -91,7 +93,7 @@ function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave }) {
               {isActive && !answered && (
                 <div className="mt-2 space-y-1.5 pl-2">
                   {[q.answer_a, q.answer_b, q.answer_c].filter(Boolean).map((ans, ai) => (
-                    <button key={ai}
+                    <button type="button" key={ai}
                       onClick={() => {
                         onAnswer({ question_id: q.id, question: q.question, answer: ans, reporter_name: reporter.name, outlet: reporter.outlet });
                         setActiveIdx(null);
@@ -122,7 +124,7 @@ function PressRoomStep({ winnerClub, questions, answers, onAnswer, onLeave }) {
 }
 
 // ── Photo Upload Step ─────────────────────────────────────────────────────────
-function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSkip }) {
+function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSkip, t }) {
   const [uploading, setUploading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [posX, setPosX] = useState(50);
@@ -150,8 +152,8 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
   return (
     <div className="flex flex-col gap-4">
       <div className="text-center">
-        <h3 className="text-xl font-bold text-foreground font-heading">Champion's Photo</h3>
-        <p className="text-muted-foreground text-sm mt-1">Upload a celebration photo, then drag to position it.</p>
+        <h3 className="text-xl font-bold text-foreground font-heading">{t('commonPages.twprChampionPhoto')}</h3>
+        <p className="text-muted-foreground text-sm mt-1">{t('commonPages.twprUploadHint')}</p>
       </div>
 
       <div className="rounded-2xl border border-warning/30 bg-secondary overflow-hidden">
@@ -168,17 +170,17 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
           {!photoUrl && (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <Camera className="w-8 h-8 opacity-30" />
-              <span className="text-xs opacity-50">Photo will appear here</span>
+              <span className="text-xs opacity-50">{t('commonPages.twprPhotoPlaceholder')}</span>
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
           <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/30 border border-warning/40 text-yellow-300 text-[9px] font-bold uppercase tracking-widest mb-2">
-              <Trophy className="w-2 h-2" /> Champion
+              <Trophy className="w-2 h-2" /> {t('commonPages.twprChampion')}
             </div>
             <p className="text-sm font-bold text-white font-heading leading-tight drop-shadow-lg line-clamp-2">{headline}</p>
           </div>
-          {photoUrl && <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full pointer-events-none">Drag to reposition</div>}
+          {photoUrl && <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full pointer-events-none">{t('commonPages.twprDragHint')}</div>}
         </div>
         <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border/30">
           {winnerClub.logo_url && <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-6 h-6 rounded-full object-cover border border-border" />}
@@ -189,26 +191,26 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
         </div>
       </div>
 
-      <button onClick={() => fileRef.current?.click()} disabled={uploading}
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-warning/40 hover:bg-secondary/50 transition-all text-sm text-muted-foreground disabled:opacity-50">
         {uploading
-          ? <><div className="w-4 h-4 border-2 border-warning/30 border-t-warning rounded-full animate-spin" /> Uploading...</>
-          : <><Upload className="w-4 h-4" /> {photoUrl ? "Change Photo" : "Upload Celebration Photo"}</>}
+          ? <><div className="w-4 h-4 border-2 border-warning/30 border-t-warning rounded-full animate-spin" /> {t('commonPages.prdUploading')}</>
+          : <><Upload className="w-4 h-4" /> {photoUrl ? t('commonPages.prdChangePhoto') : t('commonPages.twprUploadCelebration')}</>}
       </button>
       <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
 
       {photoUrl && (
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">Zoom — {zoom}%</label>
+          <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{t('commonPages.twprZoom', { zoom })}</label>
           <input type="range" min={50} max={300} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="w-full accent-primary" />
         </div>
       )}
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onSkip} className="flex-1 border-border text-muted-foreground">Skip Photo</Button>
+        <Button variant="outline" onClick={onSkip} className="flex-1 border-border text-muted-foreground">{t('commonPages.twprSkipPhoto')}</Button>
         <Button onClick={() => onSubmit(photoUrl, `${posX}% ${posY}%`, zoom)} disabled={uploading}
           className="flex-1 bg-warning text-black font-heading font-bold">
-          🏆 Publish Article
+          {t('commonPages.twprPublishArticle')}
         </Button>
       </div>
     </div>
@@ -217,6 +219,7 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 export default function TournamentWinnerPressRoomDialog({ open, onClose, tournament, winnerClub, user }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState("press_room");
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);
@@ -348,6 +351,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
               answers={answers}
               onAnswer={handleAnswer}
               onLeave={handleLeave}
+              t={t}
             />
           )}
 
@@ -358,6 +362,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
               headline={headline}
               onSubmit={handlePublish}
               onSkip={() => handlePublish(null)}
+              t={t}
             />
           )}
 
@@ -367,13 +372,13 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
                 <Newspaper className="w-7 h-7 text-warning" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-foreground font-heading">Article Published! 🏆</h3>
+                <h3 className="text-xl font-bold text-foreground font-heading">{t('commonPages.twprPublished')}</h3>
                 <p className="text-muted-foreground text-sm mt-1">
-                  The champion's article is live in the News section and your club's Feed.<br />
-                  Visible to all tournament participants and club followers.
+                  {t('commonPages.twprPublishedHint')}<br />
+                  {t('commonPages.twprVisibleHint')}
                 </p>
               </div>
-              <Button onClick={handleClose} className="w-full bg-warning text-black font-heading font-bold">Close</Button>
+              <Button onClick={handleClose} className="w-full bg-warning text-black font-heading font-bold">{t('commonPages.prdClose')}</Button>
             </div>
           )}
 

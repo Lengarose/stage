@@ -14,14 +14,12 @@ import {
 import { notify, postContractNews } from "@/lib/notify";
 import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const TARGET_TYPES = [
-  { value: "min",   label: "Minimum (≥)" },
-  { value: "exact", label: "Exact (=)" },
-  { value: "range", label: "Range" },
-];
+const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
 export default function InboxContractOffer({ message, onActioned }) {
+  const { t } = useTranslation();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -88,6 +86,12 @@ export default function InboxContractOffer({ message, onActioned }) {
     load();
   }, [contractId]);
 
+  const TARGET_TYPES = [
+    { value: "min",   label: t("cccTargetMin") },
+    { value: "exact", label: t("cccTargetExact") },
+    { value: "range", label: t("cccTargetRange") },
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
@@ -99,7 +103,7 @@ export default function InboxContractOffer({ message, onActioned }) {
   if (!contract || !contractId) {
     return (
       <div className="mt-4 px-4 py-3 rounded-xl bg-muted/30 border border-border text-sm text-muted-foreground">
-        Contract data unavailable or already resolved.
+        {t("icoContractUnavailable")}
       </div>
     );
   }
@@ -240,11 +244,11 @@ export default function InboxContractOffer({ message, onActioned }) {
   }
 
   const statusLabel = {
-    pending: "Awaiting your response",
-    negotiating: `Negotiating — Round ${contract.negotiation_round || 1}`,
-    active: "✅ Contract Active",
-    rejected: "❌ Declined",
-    pending_window: "✅ Accepted — awaiting transfer window",
+    pending: t("icoAwaitingResponse"),
+    negotiating: t("icoNegotiatingRound", { round: contract.negotiation_round || 1 }),
+    active: t("icoContractActive"),
+    rejected: t("icoDeclined"),
+    pending_window: t("icoAcceptedPendingWindow"),
   }[contract.status] || contract.status;
 
   return (
@@ -256,12 +260,12 @@ export default function InboxContractOffer({ message, onActioned }) {
             <Gamepad2 className="w-4 h-4 text-primary" />
             <span className="font-bold text-foreground text-sm capitalize">
               {contract.contract_type === "ownership" 
-                ? "🏢 Club Ownership" 
-                : contract.contract_type?.replace("_", " ") || "Contract"} {contract.contract_type !== "ownership" && "Contract"}
+                ? t("icoClubOwnership") 
+                : contract.contract_type?.replace("_", " ") || t("icoContract")} {contract.contract_type !== "ownership" && t("icoContract")}
             </span>
             {contract.negotiation_round > 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                Round {contract.negotiation_round}
+                {t("icoRound", { round: contract.negotiation_round })}
               </span>
             )}
           </div>
@@ -277,38 +281,38 @@ export default function InboxContractOffer({ message, onActioned }) {
 
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Duration</p>
-            <p className="text-sm font-medium text-foreground">{contract.max_games} games / {contract.max_days} days</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("icoDuration")}</p>
+            <p className="text-sm font-medium text-foreground">{t("icoDurationValue", { games: contract.max_games, days: contract.max_days })}</p>
           </div>
           {contract.weekly_salary_stc > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Weekly Salary</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("cccWeeklySalary")}</p>
               <p className="text-sm font-medium text-success">{formatSTC(contract.weekly_salary_stc)}</p>
             </div>
           )}
           {contract.signing_bonus_stc > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Signing Bonus</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("cccSigningBonus")}</p>
               <p className="text-sm font-medium text-warning">{formatSTC(contract.signing_bonus_stc)}</p>
             </div>
           )}
           {contract.transfer_fee_stc > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Transfer Fee</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("icoTransferFee")}</p>
               <p className="text-sm font-medium text-primary">{formatSTC(contract.transfer_fee_stc)}</p>
             </div>
           )}
           {contract.captaincy_offered && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Captaincy</p>
-              <p className="text-sm font-medium text-warning">⭐ Offered</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("cccCaptaincy")}</p>
+              <p className="text-sm font-medium text-warning">{t("icoOffered")}</p>
             </div>
           )}
           {contract.performance_targets?.length > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Targets</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("icoTargets")}</p>
               <p className="text-sm font-medium text-foreground flex items-center gap-1">
-                <Target className="w-3 h-3" /> {contract.performance_targets.length} target{contract.performance_targets.length > 1 ? "s" : ""}
+                <Target className="w-3 h-3" /> {t("icoTargetCount", { count: contract.performance_targets.length })}
               </p>
             </div>
           )}
@@ -350,10 +354,10 @@ export default function InboxContractOffer({ message, onActioned }) {
         }`}>
           <Clock className="w-3.5 h-3.5 shrink-0" />
           {windowOpen === true
-            ? "Transfer window OPEN — accepting will activate this contract immediately."
+            ? t("icoWindowOpenImmediate")
             : windowOpen === false
-            ? "Transfer window is currently CLOSED. Accepting will queue the transfer — it executes when the window opens."
-            : "Checking transfer window status..."}
+            ? t("icoWindowClosedQueue")
+            : t("icoWindowChecking")}
         </div>
       )}
 
@@ -370,8 +374,8 @@ export default function InboxContractOffer({ message, onActioned }) {
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <CheckCircle className="w-3.5 h-3.5" />}
             {isPlayer && myPlayer?.club_id !== contract.team_id && !windowOpen
-              ? "Accept & Queue Transfer"
-              : "Accept Contract"}
+              ? t("icoAcceptQueue")
+              : t("icoAcceptContract")}
           </Button>
           <Button
             size="sm"
@@ -381,7 +385,7 @@ export default function InboxContractOffer({ message, onActioned }) {
             className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5"
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            Counter-Offer
+            {t("icoCounterOffer")}
           </Button>
           <Button
             size="sm"
@@ -393,7 +397,7 @@ export default function InboxContractOffer({ message, onActioned }) {
             {actionLoading === "reject"
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <X className="w-3.5 h-3.5" />}
-            Decline
+            {t("decline")}
           </Button>
         </div>
       )}
@@ -402,7 +406,7 @@ export default function InboxContractOffer({ message, onActioned }) {
       {!canAct && isActionable && (
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          Waiting for the other party to respond.
+          {t("icoWaitingOther")}
         </div>
       )}
 
@@ -411,16 +415,16 @@ export default function InboxContractOffer({ message, onActioned }) {
         <div className="bg-card border border-purple-500/20 rounded-2xl p-4 space-y-4">
           <div className="flex items-center justify-between">
             <p className="font-bold text-sm text-purple-400 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" /> Counter-Offer
+              <MessageSquare className="w-4 h-4" /> {t("icoCounterOffer")}
             </p>
-            <button onClick={() => setShowCounter(false)} className="text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => setShowCounter(false)} className="text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">Weekly Salary (STC)</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{t("icoWeeklySalaryStc")}</label>
               <input
                 type="number" min="0" value={counterSalary}
                 onChange={e => setCounterSalary(e.target.value)}
@@ -429,7 +433,7 @@ export default function InboxContractOffer({ message, onActioned }) {
               />
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">Signing Bonus (STC)</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{t("icoSigningBonusStc")}</label>
               <input
                 type="number" min="0" value={counterBonus}
                 onChange={e => setCounterBonus(e.target.value)}
@@ -438,7 +442,7 @@ export default function InboxContractOffer({ message, onActioned }) {
               />
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">Transfer Fee (STC)</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{t("icoTransferFeeStc")}</label>
               <input
                 type="number" min="0" value={counterFee}
                 onChange={e => setCounterFee(e.target.value)}
@@ -450,12 +454,13 @@ export default function InboxContractOffer({ message, onActioned }) {
 
           {/* Performance targets toggle */}
           <button
+            type="button"
             onClick={() => setShowTargets(!showTargets)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
           >
             <div className="flex items-center gap-2">
               <Target className="w-3.5 h-3.5 text-primary" />
-              <span className="text-sm text-foreground">Performance Targets</span>
+              <span className="text-sm text-foreground">{t("ocdPerformanceTargets")}</span>
               {counterTargets.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">{counterTargets.length}</span>
               )}
@@ -480,9 +485,9 @@ export default function InboxContractOffer({ message, onActioned }) {
                       onChange={e => updateTarget(idx, "type", e.target.value)}
                       className="w-28 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     >
-                      {TARGET_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      {TARGET_TYPES.map(tt => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
                     </select>
-                    <button onClick={() => removeTarget(idx)} className="text-destructive hover:text-destructive/80 p-1">
+                    <button type="button" onClick={() => removeTarget(idx)} className="text-destructive hover:text-destructive/80 p-1">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -490,7 +495,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                     <input
                       type="number" value={target.value}
                       onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
-                      placeholder={target.type === "range" ? "Min" : "Value"}
+                      placeholder={target.type === "range" ? t("cccMin") : t("cccValue")}
                       className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     />
                     {target.type === "range" && (
@@ -499,7 +504,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                         <input
                           type="number" value={target.value_max || ""}
                           onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
-                          placeholder="Max"
+                          placeholder={t("cccMax")}
                           className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         />
                       </>
@@ -508,10 +513,11 @@ export default function InboxContractOffer({ message, onActioned }) {
                 </div>
               ))}
               <button
+                type="button"
                 onClick={addTarget}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Target
+                <Plus className="w-3.5 h-3.5" /> {t("cccAddTarget")}
               </button>
             </div>
           )}
@@ -519,7 +525,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           <Textarea
             value={counterNote}
             onChange={e => setCounterNote(e.target.value)}
-            placeholder="Explain your counter-offer... (optional)"
+            placeholder={t("icoCounterPlaceholder")}
             rows={2}
             className="bg-secondary border-border text-sm"
           />
@@ -534,10 +540,10 @@ export default function InboxContractOffer({ message, onActioned }) {
               {actionLoading === "counter"
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 : <MessageSquare className="w-3.5 h-3.5" />}
-              Send Counter-Offer
+              {t("icoSendCounter")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowCounter(false)} className="text-muted-foreground">
-              Cancel
+              {t("cancel")}
             </Button>
           </div>
         </div>

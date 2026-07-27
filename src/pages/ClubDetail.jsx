@@ -564,9 +564,12 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     { label: t("nav.squad"), tabs: ["squad", "trophies", "history"] },
     { label: t("commonPages.profOperations"), tabs: [
       ...(canOpenOperations ? ["operations"] : []),
-      ...((isCaptain || isOwner) && joinRequests.length > 0 ? ["requests"] : []),
+      ...((isCaptain || isOwner) && joinRequests.length > 0 && !limitedTournamentId ? ["requests"] : []),
     ] },
-    { label: t("commonPages.cdClubOffice"), tabs: isOwner ? ["stadium", "contracts", "finance", "shirts"] : [] },
+    {
+      label: t("commonPages.cdClubOffice"),
+      tabs: isOwner && !limitedTournamentId ? ["stadium", "contracts", "finance", "shirts"] : [],
+    },
   ].filter(group => group.tabs.length > 0);
   function changeClubTab(tab) {
     setActiveTab(tab);

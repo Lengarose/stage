@@ -5,8 +5,10 @@ import { stageClient } from "@/api/stageClient";
 import { Coins, Loader2, ArrowRight } from "lucide-react";
 import { formatSTC } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferPaymentDialog({ open, onClose, player, targetClub, myClub, onPaid }) {
+  const { t } = useTranslation();
   const [fee, setFee] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,8 +21,8 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
   const overTransferBudget = !insufficient && feeNum > myTransferBudget;
 
   async function handlePay() {
-    if (feeNum <= 0) { setError("Enter a valid transfer fee amount."); return; }
-    if (insufficient) { setError(`Insufficient funds. Club balance: ${formatSTC(myBalance)}`); return; }
+    if (feeNum <= 0) { setError(t("tpdEnterValidAmount")); return; }
+    if (insufficient) { setError(t("tpdInsufficientFunds", { balance: formatSTC(myBalance) })); return; }
     setLoading(true);
     setError(null);
     try {
@@ -33,7 +35,7 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
       setSuccess(true);
       onPaid?.(feeNum, res.data);
     } catch (err) {
-      setError(err?.message || "Payment failed. Please try again.");
+      setError(err?.message || t("tpdPaymentFailed"));
     } finally {
       setLoading(false);
     }
@@ -50,18 +52,18 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Coins className="w-5 h-5 text-primary" />
-            Pay Transfer Fee
+            {t("tpdTitle")}
           </DialogTitle>
         </DialogHeader>
 
         {success ? (
           <div className="py-6 text-center space-y-3">
             <div className="w-14 h-14 rounded-full bg-success/20 border border-success/30 flex items-center justify-center mx-auto text-2xl">💰</div>
-            <p className="font-bold text-foreground">Transfer fee paid!</p>
+            <p className="font-bold text-foreground">{t("tpdFeePaid")}</p>
             <p className="text-sm text-muted-foreground">
-              {formatSTC(feeNum)} sent to {targetClub?.name || "the club"} for {player?.gamertag}.
+              {t("tpdFeePaidDetail", { amount: formatSTC(feeNum), clubName: targetClub?.name || t("tpdTheClub"), gamertag: player?.gamertag })}
             </p>
-            <Button onClick={handleClose} className="mt-2">Done</Button>
+            <Button onClick={handleClose} className="mt-2">{t("tpdDone")}</Button>
           </div>
         ) : (
           <div className="space-y-4 mt-2">
@@ -73,15 +75,15 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
                   : <span className="text-xs font-bold text-primary">{(myClub?.name || "?")[0]}</span>}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">From</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("tpdFrom")}</p>
                 <p className="text-sm font-bold text-foreground truncate">{myClub?.name}</p>
-                <p className="text-[10px] text-muted-foreground">Balance: {formatSTC(myBalance)}</p>
+                <p className="text-[10px] text-muted-foreground">{t("tpdBalance")}: {formatSTC(myBalance)}</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0 text-right">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">To</p>
-                <p className="text-sm font-bold text-foreground truncate">{targetClub?.name || "No club"}</p>
-                <p className="text-[10px] text-muted-foreground">For {player?.gamertag}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("tpdTo")}</p>
+                <p className="text-sm font-bold text-foreground truncate">{targetClub?.name || t("tpdNoClub")}</p>
+                <p className="text-[10px] text-muted-foreground">{t("tpdFor", { name: player?.gamertag })}</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
                 {player?.avatar_url
@@ -93,7 +95,7 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
             {/* Amount input */}
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                <Coins className="w-3 h-3 text-primary" /> Transfer Fee Amount (STC)
+                <Coins className="w-3 h-3 text-primary" /> {t("tpdAmountLabel")}
               </label>
               <input
                 type="number" value={fee} onChange={e => setFee(e.target.value)} min="0"
@@ -110,10 +112,10 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
                 : "bg-success/10 border-success/20 text-success"
               )}>
                 {insufficient
-                  ? `⛔ Exceeds club balance — need ${formatSTC(feeNum - myBalance)} more STC`
+                  ? t("tpdExceedsBalance", { needed: formatSTC(feeNum - myBalance) })
                   : overTransferBudget
-                  ? `⚠ Exceeds transfer budget (${formatSTC(myTransferBudget)}) — deducted from main balance`
-                  : `✓ Within transfer budget (${formatSTC(myTransferBudget)})`}
+                  ? t("tpdExceedsBudget", { budget: formatSTC(myTransferBudget) })
+                  : t("tpdWithinBudget", { budget: formatSTC(myTransferBudget) })}
               </div>
             )}
 
@@ -122,14 +124,14 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
             )}
 
             <div className="flex gap-3 pt-1">
-              <Button variant="outline" onClick={handleClose} className="flex-1">Cancel</Button>
+              <Button variant="outline" onClick={handleClose} className="flex-1">{t("cancel")}</Button>
               <Button
                 onClick={handlePay}
                 disabled={loading || !feeNum || insufficient}
                 className="flex-1 bg-primary text-primary-foreground gap-2"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coins className="w-4 h-4" />}
-                {loading ? "Paying…" : "Pay Transfer Fee"}
+                {loading ? t("tpdPaying") : t("tpdPayTransferFee")}
               </Button>
             </div>
           </div>

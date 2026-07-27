@@ -9,15 +9,16 @@ import {
   acceptProposal,
   checkAndExpire,
 } from "@/lib/scheduleEngine";
+import { useTranslation } from "@/hooks/useTranslation";
 
 // ─── Status colours ───────────────────────────────────────────────────────────
-const STATUS = {
-  open:          { label: "Awaiting Schedule",  cls: "text-muted-foreground border-border bg-secondary/40" },
-  home_proposed: { label: "Time Proposed",       cls: "text-primary border-primary/30 bg-primary/5"        },
-  away_proposed: { label: "Counter-Proposal",    cls: "text-warning border-warning/30 bg-warning/5"        },
-  confirmed:     { label: "Confirmed",           cls: "text-success border-success/30 bg-success/5"        },
-  expired:       { label: "Window Expired",      cls: "text-destructive border-destructive/30 bg-destructive/5" },
-  admin_review:  { label: "Admin Review",        cls: "text-warning border-warning/30 bg-warning/5"        },
+const STATUS_CLS = {
+  open:          "text-muted-foreground border-border bg-secondary/40",
+  home_proposed: "text-primary border-primary/30 bg-primary/5",
+  away_proposed: "text-warning border-warning/30 bg-warning/5",
+  confirmed:     "text-success border-success/30 bg-success/5",
+  expired:       "text-destructive border-destructive/30 bg-destructive/5",
+  admin_review:  "text-warning border-warning/30 bg-warning/5",
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ const STATUS = {
 // onUpdate:    () => void — called after any write so parent can refresh
 
 export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, myEmail, myGamertag, onUpdate }) {
+  const { t } = useTranslation();
   const role = myClub?.id === fixture.home_club_id ? "home"
              : myClub?.id === fixture.away_club_id ? "away"
              : null;
@@ -60,7 +62,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       setPropDate(""); setPropTime("");
       onUpdate();
     } catch (err) {
-      setError(err?.message || "Failed to send proposal. Please try again.");
+      setError(err?.message || t("fspProposalFailed"));
     } finally { setBusy(false); }
   }
 
@@ -71,11 +73,20 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       await acceptProposal({ fixture, fixtureType, role, myClub, myEmail });
       onUpdate();
     } catch (err) {
-      setError(err?.message || "Failed to confirm match. Please try again.");
+      setError(err?.message || t("fspConfirmFailed"));
     } finally { setBusy(false); }
   }
 
-  const statusInfo  = STATUS[sched] || STATUS.open;
+  const STATUS_LABELS = {
+    open: t("fspAwaitingSchedule"),
+    home_proposed: t("fspTimeProposed"),
+    away_proposed: t("fspCounterProposal"),
+    confirmed: t("fspConfirmed"),
+    expired: t("fspWindowExpired"),
+    admin_review: t("fspAdminReview"),
+  };
+  const statusLabel = STATUS_LABELS[sched] || STATUS_LABELS.open;
+  const statusCls = STATUS_CLS[sched] || STATUS_CLS.open;
   const deadline    = fixture.window_end ? new Date(fixture.window_end) : null;
   const deadlinePast = deadline && isPast(deadline);
   const hoursLeft   = deadline && !deadlinePast ? differenceInHours(deadline, new Date()) : 0;
@@ -100,11 +111,11 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Match Scheduling
+            {t("fspMatchScheduling")}
           </span>
         </div>
-        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider", statusInfo.cls)}>
-          {statusInfo.label}
+        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider", statusCls)}>
+          {statusLabel}
         </span>
       </div>
 
@@ -113,10 +124,10 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
         <div className={cn("flex items-center gap-1.5 text-[11px]", deadlinePast ? "text-destructive" : hoursLeft < 24 ? "text-warning" : "text-muted-foreground")}>
           <Timer className="w-3.5 h-3.5 shrink-0" />
           {deadlinePast
-            ? "Deadline passed — awaiting admin review"
+            ? t("fspDeadlinePassed")
             : hoursLeft < 24
-            ? `Deadline in ${hoursLeft}h`
-            : `Deadline: ${format(deadline, "EEE d MMM, HH:mm")}`}
+            ? t("fspDeadlineIn", { hours: hoursLeft })
+            : t("fspDeadline", { date: format(deadline, "EEE d MMM, HH:mm") })}
         </div>
       )}
 
@@ -131,14 +142,14 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {/* ── Expired ── */}
       {sched === "expired" && (
         <p className="text-xs text-destructive/80">
-          Both teams failed to agree before the deadline. This fixture has been flagged for admin review.
+          {t("fspExpiredNote")}
         </p>
       )}
 
       {/* ── Admin review ── */}
       {sched === "admin_review" && (
         <p className="text-xs text-warning/80">
-          An admin is reviewing this scheduling dispute.
+          {t("fspAdminReviewNote")}
         </p>
       )}
 
@@ -148,7 +159,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
           <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded px-3 py-2">
             <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
             <div>
-              <p className="text-[11px] text-muted-foreground">Opponent proposes:</p>
+              <p className="text-[11px] text-muted-foreground">{t("fspOpponentProposes")}</p>
               <p className="text-sm font-semibold text-foreground">
                 {format(new Date(pendingProposal), "EEEE d MMMM yyyy 'at' HH:mm")}
               </p>
@@ -159,15 +170,15 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
               <Button size="sm" onClick={handleAccept} disabled={busy}
                 className="bg-success text-white hover:bg-success/90 gap-1.5 h-7 text-xs">
                 <Check className="w-3.5 h-3.5" />
-                {busy ? "Confirming…" : "Accept"}
+                {busy ? t("fspConfirming") : t("accept")}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setProposing(true)} disabled={busy}
                 className="gap-1.5 h-7 text-xs border-warning/40 text-warning hover:bg-warning/10">
                 <RefreshCw className="w-3.5 h-3.5" />
-                Propose Different Time
+                {t("fspProposeDifferent")}
               </Button>
             </div>
-          ) : <ProposalForm propDate={propDate} propTime={propTime} deadline={deadline}
+          ) : <ProposalForm t={t} propDate={propDate} propTime={propTime} deadline={deadline}
               onDateChange={setPropDate} onTimeChange={setPropTime}
               onSubmit={handlePropose} onCancel={() => setProposing(false)} busy={busy} />}
         </div>
@@ -177,23 +188,23 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {myPendingProposal && (
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          Your proposal: <span className="text-foreground font-medium ml-1">
+          {t("fspYourProposal")}: <span className="text-foreground font-medium ml-1">
             {format(new Date(myPendingProposal), "EEE d MMM 'at' HH:mm")}
           </span>
-          <span className="ml-1">— waiting for response</span>
+          <span className="ml-1">— {t("fspWaitingResponse")}</span>
         </div>
       )}
 
       {/* ── Open window, home team's turn ── */}
       {sched === "open" && role === "home" && (
         proposing
-          ? <ProposalForm propDate={propDate} propTime={propTime} deadline={deadline}
+          ? <ProposalForm t={t} propDate={propDate} propTime={propTime} deadline={deadline}
               onDateChange={setPropDate} onTimeChange={setPropTime}
               onSubmit={handlePropose} onCancel={() => setProposing(false)} busy={busy} />
           : <Button size="sm" onClick={() => setProposing(true)}
               className="gap-1.5 h-7 text-xs bg-primary text-primary-foreground">
               <CalendarDays className="w-3.5 h-3.5" />
-              Propose a Time
+              {t("fspProposeTime")}
             </Button>
       )}
 
@@ -201,7 +212,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {sched === "open" && role === "away" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          Waiting for the home team to propose a time…
+          {t("fspWaitingHome")}
         </p>
       )}
 
@@ -209,7 +220,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {!role && sched === "open" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5 shrink-0" />
-          Not yet scheduled
+          {t("fspNotScheduled")}
         </p>
       )}
 
@@ -223,14 +234,14 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {/* Proposal counter */}
       {(fixture.proposal_count || 0) > 0 && sched !== "confirmed" && (
         <p className="text-[10px] text-muted-foreground/50">
-          {fixture.proposal_count} proposal{fixture.proposal_count > 1 ? "s" : ""} exchanged
+          {t("fspProposalsExchanged", { count: fixture.proposal_count })}
         </p>
       )}
     </div>
   );
 }
 
-function ProposalForm({ propDate, propTime, deadline, onDateChange, onTimeChange, onSubmit, onCancel, busy }) {
+function ProposalForm({ t, propDate, propTime, deadline, onDateChange, onTimeChange, onSubmit, onCancel, busy }) {
   const minDate = new Date().toISOString().split("T")[0];
   const deadlineIso = deadline instanceof Date
     ? (Number.isNaN(deadline.getTime()) ? null : deadline.toISOString())
@@ -239,9 +250,9 @@ function ProposalForm({ propDate, propTime, deadline, onDateChange, onTimeChange
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-warning font-semibold uppercase tracking-wider flex items-center gap-1">
-        <AlertTriangle className="w-3 h-3" /> Propose a time
+        <AlertTriangle className="w-3 h-3" /> {t("fspProposeTime")}
         {deadline && <span className="normal-case font-normal ml-1 text-muted-foreground">
-          (must be before {format(new Date(deadline), "d MMM")})
+          ({t("fspMustBeBefore", { date: format(new Date(deadline), "d MMM") })})
         </span>}
       </p>
       <div className="flex gap-2">
@@ -261,11 +272,11 @@ function ProposalForm({ propDate, propTime, deadline, onDateChange, onTimeChange
         <Button size="sm" onClick={onSubmit} disabled={busy || !propDate || !propTime}
           className="bg-primary text-primary-foreground h-7 text-xs gap-1">
           {busy ? <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : null}
-          {busy ? "Sending…" : "Send Proposal"}
+          {busy ? t("fspSending") : t("fspSendProposal")}
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}
           className="h-7 text-xs text-muted-foreground">
-          Cancel
+          {t("cancel")}
         </Button>
       </div>
     </div>

@@ -34,8 +34,29 @@ import {
 /** Paths that only match exactly (never as a prefix for child routes). */
 const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
 
+function readNavIdentity() {
+  try {
+    return {
+      myPlayerId: localStorage.getItem("stage_player_id"),
+      myClubId: localStorage.getItem("stage_club_id"),
+    };
+  } catch {
+    return { myPlayerId: null, myClubId: null };
+  }
+}
+
 function isNavItemActive(itemPath, pathname) {
   if (pathname === itemPath) return true;
+  const { myPlayerId, myClubId } = readNavIdentity();
+  // Tournament "My Profile" / "My Club" stay lit on own detail pages
+  if (itemPath === "/tournaments/profile-player" && myPlayerId && pathname === `/players/${myPlayerId}`) {
+    return true;
+  }
+  if (itemPath === "/tournaments/profile-club" && myClubId && pathname === `/clubs/${myClubId}`) {
+    return true;
+  }
+  if (itemPath === "/tournaments/players" && pathname.startsWith("/players/")) return true;
+  if (itemPath === "/tournaments/clubs" && pathname.startsWith("/clubs/")) return true;
   if (NAV_ROOT_PATHS.has(itemPath)) return false;
   return pathname.startsWith(`${itemPath}/`);
 }
@@ -2036,9 +2057,11 @@ export default function Layout() {
       if (c?.id) {
         setMyClubId(c.id);
         setMyClub(c);
+        try { localStorage.setItem("stage_club_id", c.id); } catch { /* ignore */ }
       } else {
         setMyClubId(null);
         setMyClub(null);
+        try { localStorage.removeItem("stage_club_id"); } catch { /* ignore */ }
       }
 
       // Player
@@ -2124,6 +2147,7 @@ export default function Layout() {
           if (club) {
             setMyClubId(club.id);
             setMyClub(club);
+            try { localStorage.setItem("stage_club_id", club.id); } catch { /* ignore */ }
           }
         }}
       />
@@ -2137,6 +2161,7 @@ export default function Layout() {
           if (club) {
             setMyClubId(club.id);
             setMyClub(club);
+            try { localStorage.setItem("stage_club_id", club.id); } catch { /* ignore */ }
           }
         }}
       />

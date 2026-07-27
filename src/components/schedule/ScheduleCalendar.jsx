@@ -8,6 +8,7 @@ import {
 } from "@/lib/momentDate";
 import { ChevronLeft, ChevronRight, X, Trophy, FileText, Shield, Star } from "lucide-react";
 import MatchDetail from "./MatchDetail";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function parseDate(d) {
   if (!d) return null;
@@ -34,13 +35,13 @@ const OUTCOME_STYLE = {
   D: "text-warning",
 };
 
-const STATUS_BADGE = {
-  scheduled:             { label: "Scheduled",  cls: "bg-primary/10 text-primary" },
-  awaiting_confirmation: { label: "Pending",    cls: "bg-warning/10 text-warning" },
-  completed:             { label: "FT",         cls: "bg-secondary text-muted-foreground" },
-  forfeit:               { label: "Forfeit",    cls: "bg-destructive/10 text-destructive" },
-  in_progress:           { label: "Live",       cls: "bg-success/10 text-success" },
-  disputed:              { label: "Disputed",   cls: "bg-destructive/10 text-destructive" },
+const STATUS_BADGE_CLS = {
+  scheduled:             "bg-primary/10 text-primary",
+  awaiting_confirmation: "bg-warning/10 text-warning",
+  completed:             "bg-secondary text-muted-foreground",
+  forfeit:               "bg-destructive/10 text-destructive",
+  in_progress:           "bg-success/10 text-success",
+  disputed:              "bg-destructive/10 text-destructive",
 };
 
 // Derive a player display name from a contract event
@@ -56,6 +57,7 @@ function contractPlayerName(ev, players) {
 }
 
 export default function ScheduleCalendar({ events, myPlayer, myClub, players = [] }) {
+  const { t } = useTranslation();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
@@ -190,7 +192,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                 {/* Inline event count label on larger tiles */}
                 {dayEvents.length > 1 && (
                   <span className="hidden sm:block text-[9px] text-muted-foreground font-medium">
-                    {dayEvents.length} events
+                    {t("scalEventsCount", { count: dayEvents.length })}
                   </span>
                 )}
               </button>
@@ -202,19 +204,19 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
         <div className="px-5 py-3 border-t border-border bg-secondary/20 flex items-center gap-5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Match</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalMatch")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-warning" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Contract End</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalContractEnd")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-accent" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Tournament</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalTournament")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-primary/40" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Today</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalToday")}</span>
           </div>
         </div>
       </div>
@@ -227,7 +229,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
         {!selectedDate ? (
           <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center min-h-[300px] shadow-lg">
             <Trophy className="w-10 h-10 text-muted-foreground/20" />
-            <p className="text-sm text-muted-foreground">Click a date to see events</p>
+            <p className="text-sm text-muted-foreground">{t("scalClickDate")}</p>
           </div>
         ) : (
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
@@ -239,6 +241,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                 <p className="text-xs text-muted-foreground">{format(selectedDate, "d MMMM yyyy")}</p>
               </div>
               <button
+                type="button"
                 onClick={() => { setSelectedDate(null); setDetailEvent(null); }}
                 className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
               >
@@ -248,15 +251,16 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
 
             {selectedEvents.length === 0 ? (
               <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">No events on this day</p>
+                <p className="text-sm text-muted-foreground">{t("scalNoEvents")}</p>
               </div>
             ) : detailEvent ? (
               <div>
                 <button
+                  type="button"
                   onClick={() => setDetailEvent(null)}
                   className="flex items-center gap-1.5 px-5 py-2.5 text-xs text-primary hover:underline border-b border-border w-full text-left"
                 >
-                  ← Back to {format(selectedDate, "d MMM")}
+                  ← {t("scalBackTo", { date: format(selectedDate, "d MMM") })}
                 </button>
                 <div className="p-4">
                   <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
@@ -281,11 +285,11 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
             <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
               <div className="w-10 h-1 rounded-full bg-border mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
               {detailEvent ? (
-                <button onClick={() => setDetailEvent(null)} className="text-xs text-primary">← Back</button>
+                <button type="button" onClick={() => setDetailEvent(null)} className="text-xs text-primary">← {t("scalBack")}</button>
               ) : (
                 <p className="font-semibold text-foreground text-sm">{format(selectedDate, "EEEE d MMMM")}</p>
               )}
-              <button onClick={() => { setSelectedDate(null); setDetailEvent(null); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
+              <button type="button" onClick={() => { setSelectedDate(null); setDetailEvent(null); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -296,7 +300,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                 </div>
               ) : selectedEvents.length === 0 ? (
                 <div className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">No events on this day</p>
+                  <p className="text-sm text-muted-foreground">{t("scalNoEvents")}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -313,6 +317,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
       {/* ── Portal tooltip (always renders above everything) ── */}
       {tooltip && createPortal(
         <HoverTooltip
+          t={t}
           tooltip={tooltip}
           players={players}
           onMouseEnter={() => clearTimeout(tooltipTimeout.current)}
@@ -325,7 +330,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
 }
 
 /* ─── Portal Tooltip ─────────────────────────────────────────────────────── */
-function HoverTooltip({ tooltip, players, onMouseEnter, onMouseLeave }) {
+function HoverTooltip({ t, tooltip, players, onMouseEnter, onMouseLeave }) {
   const { x, y, dayEvents, dayLabel } = tooltip;
   const W = 224; // tooltip width px
 
@@ -349,14 +354,14 @@ function HoverTooltip({ tooltip, players, onMouseEnter, onMouseLeave }) {
       className="bg-card border border-border rounded-xl shadow-2xl p-3 animate-in fade-in duration-100"
     >
       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-        {dayLabel} · {dayEvents.length} event{dayEvents.length > 1 ? "s" : ""}
+        {dayLabel} · {t("scalEventsCount", { count: dayEvents.length })}
       </p>
       <div className="space-y-2">
         {dayEvents.slice(0, 4).map(ev => (
-          <HoverEventCard key={ev.id} ev={ev} players={players} />
+          <HoverEventCard key={ev.id} ev={ev} players={players} t={t} />
         ))}
         {dayEvents.length > 4 && (
-          <p className="text-[10px] text-muted-foreground text-center">+{dayEvents.length - 4} more</p>
+          <p className="text-[10px] text-muted-foreground text-center">{t("scalMore", { count: dayEvents.length - 4 })}</p>
         )}
       </div>
     </div>
@@ -364,13 +369,13 @@ function HoverTooltip({ tooltip, players, onMouseEnter, onMouseLeave }) {
 }
 
 /* ─── Hover event card ───────────────────────────────────────────────────── */
-function HoverEventCard({ ev, players }) {
+function HoverEventCard({ ev, players, t }) {
   if (ev.type === "tournament_start") {
-    const t = ev.tournamentData;
+    const td = ev.tournamentData;
     return (
       <div className="flex items-center gap-2">
         <Star className="w-3 h-3 text-accent shrink-0" />
-        <span className="text-[11px] text-foreground truncate font-semibold">{t.name} — Starts</span>
+        <span className="text-[11px] text-foreground truncate font-semibold">{td.name} — {t("scalStarts")}</span>
       </div>
     );
   }
@@ -380,7 +385,7 @@ function HoverEventCard({ ev, players }) {
       <div className="flex items-center gap-2">
         <FileText className="w-3 h-3 text-warning shrink-0" />
         <span className="text-[11px] text-foreground truncate">
-          {name ? `${name} contract ends` : "Contract End"}
+          {name ? t("scalPlayerContractEnds", { name }) : t("scalContractEnd")}
         </span>
       </div>
     );
@@ -409,25 +414,35 @@ function HoverEventCard({ ev, players }) {
 
 /* ─── Day event row (right panel / mobile) ───────────────────────────────── */
 function DayEventRow({ ev, players, onClick }) {
+  const { t } = useTranslation();
+  const STATUS_LABELS = {
+    scheduled: t("scalScheduled"),
+    awaiting_confirmation: t("scalPending"),
+    completed: t("scalFT"),
+    forfeit: t("scalForfeit"),
+    in_progress: t("scalLive"),
+    disputed: t("scalDisputed"),
+  };
+
   if (ev.type === "tournament_start") {
-    const t = ev.tournamentData;
-    const startTime = t.start_date ? format(parseISO(t.start_date), "HH:mm") : null;
+    const td = ev.tournamentData;
+    const startTime = td.start_date ? format(parseISO(td.start_date), "HH:mm") : null;
     const now = new Date();
-    const startDate = t.start_date ? parseISO(t.start_date) : null;
+    const startDate = td.start_date ? parseISO(td.start_date) : null;
     const diffMs = startDate ? startDate - now : null;
     const diffDays = diffMs !== null ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : null;
-    const countdown = diffDays !== null && diffDays > 0 ? `In ${diffDays} day${diffDays !== 1 ? "s" : ""}` : diffDays === 0 ? "Today!" : null;
+    const countdown = diffDays !== null && diffDays > 0 ? t("scalInDays", { days: diffDays }) : diffDays === 0 ? t("scalTodayExcl") : null;
     return (
       <div className="w-full text-left px-5 py-4 flex items-center gap-3 bg-accent/5 border-l-2 border-accent">
         <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
           <Trophy className="w-4 h-4 text-accent" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
+          <p className="text-sm font-semibold text-foreground truncate">{td.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-[10px] text-accent font-semibold uppercase tracking-wider">Tournament Start</span>
+            <span className="text-[10px] text-accent font-semibold uppercase tracking-wider">{t("scalTournamentStart")}</span>
             {startTime && <span className="text-[10px] text-muted-foreground">{startTime}</span>}
-            {t.platform && <span className="text-[10px] text-muted-foreground/60">{t.platform}</span>}
+            {td.platform && <span className="text-[10px] text-muted-foreground/60">{td.platform}</span>}
           </div>
         </div>
         {countdown && (
@@ -440,17 +455,17 @@ function DayEventRow({ ev, players, onClick }) {
     const c = ev.contractData;
     const name = contractPlayerName(ev, players);
     return (
-      <button onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
+      <button type="button" onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center shrink-0">
           <FileText className="w-4 h-4 text-warning" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground truncate">
-            {name ? `${name} contract ends` : "Contract End"}
+            {name ? t("scalPlayerContractEnds", { name }) : t("scalContractEnd")}
           </p>
-          <p className="text-xs text-muted-foreground capitalize">{c?.contract_type} · {c?.max_games} games</p>
+          <p className="text-xs text-muted-foreground capitalize">{c?.contract_type} · {c?.max_games} {t("scalGames")}</p>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-warning/10 text-warning font-medium shrink-0">End</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-warning/10 text-warning font-medium shrink-0">{t("scalEnd")}</span>
       </button>
     );
   }
@@ -459,13 +474,14 @@ function DayEventRow({ ev, players, onClick }) {
   const resultColor = ev.result
     ? ev.result.outcome === "W" ? "text-success" : ev.result.outcome === "L" ? "text-destructive" : "text-warning"
     : "";
-  const badge = STATUS_BADGE[m?.status] || { label: m?.status, cls: "bg-secondary text-muted-foreground" };
+  const badgeLabel = STATUS_LABELS[m?.status] || m?.status;
+  const badgeCls = STATUS_BADGE_CLS[m?.status] || "bg-secondary text-muted-foreground";
 
   const oppLogoUrl = ev.isHome ? ev.awayAvatarUrl : ev.homeAvatarUrl;
   const isClubMatch = !!(ev.matchData?.home_club_id || ev.matchData?.away_club_id);
 
   return (
-    <button onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
+    <button type="button" onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
       <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
         {isClubMatch && oppLogoUrl
           ? <img src={oppLogoUrl} alt={ev.opposition} className="w-full h-full object-cover" style={{ objectPosition: "50% 50%" }} />
@@ -473,13 +489,13 @@ function DayEventRow({ ev, players, onClick }) {
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{ev.opposition || "TBD"}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{ev.opposition || t("scalTBD")}</p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {m?.scheduled_date && (
             <span className="text-[10px] text-muted-foreground">{format(parseISO(m.scheduled_date), "HH:mm")}</span>
           )}
           <span className={cn("text-[10px] font-medium", ev.venue === "Home" ? "text-primary" : "text-muted-foreground")}>
-            {ev.venue}
+            {ev.venue === "Home" ? t("scalHome") : t("scalAway")}
           </span>
           <span className="text-[10px] text-muted-foreground/60 truncate max-w-[140px]">{ev.competition}</span>
         </div>
@@ -488,7 +504,7 @@ function DayEventRow({ ev, players, onClick }) {
         {ev.result ? (
           <span className={cn("text-sm font-bold", resultColor)}>{ev.result.display}</span>
         ) : (
-          <span className={cn("text-[10px] px-2 py-0.5 rounded font-medium", badge.cls)}>{badge.label}</span>
+          <span className={cn("text-[10px] px-2 py-0.5 rounded font-medium", badgeCls)}>{badgeLabel}</span>
         )}
       </div>
     </button>

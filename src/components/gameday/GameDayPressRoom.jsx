@@ -3,12 +3,14 @@ import { stageClient } from "@/api/stageClient";
 import { Mic, Loader, Lock, CheckCircle2, Upload, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 /**
  * GameDayPressRoom — one-time per match per club.
  * Selects a player, answers questions, uploads an image, publishes article.
  */
 export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState("loading"); // loading | locked | select | questions | image | done
   const [existingConf, setExistingConf] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -173,9 +175,9 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
         <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-success/10 border border-success/30">
           <Lock className="w-4 h-4 text-success shrink-0" />
           <div>
-            <p className="text-xs font-semibold text-success">Press Room Complete</p>
+            <p className="text-xs font-semibold text-success">{t('commonPages.gdprComplete')}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {existingConf?.player_name} was interviewed for this match. This can only be done once per match.
+              {t('commonPages.gdprCompleteHint', { name: existingConf?.player_name })}
             </p>
           </div>
         </div>
@@ -190,9 +192,9 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
         <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-success/10 border border-success/30">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           <div>
-            <p className="text-xs font-semibold text-success">Article Published!</p>
+            <p className="text-xs font-semibold text-success">{t('commonPages.gdprArticlePublished')}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              The press conference article is now live in the News section.
+              {t('commonPages.gdprArticleHint')}
             </p>
           </div>
         </div>
@@ -204,13 +206,13 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
   if (step === "select") {
     return (
       <div className="space-y-3">
-        <p className="text-xs text-muted-foreground">Select a player to interview. Can only be done once per match.</p>
+        <p className="text-xs text-muted-foreground">{t('commonPages.gdprSelectPlayer')}</p>
         {loading ? (
           <div className="flex justify-center py-4"><Loader className="w-5 h-5 animate-spin text-primary" /></div>
         ) : (
           <div className="space-y-2">
             {clubPlayers.map(player => (
-              <button key={player.id} onClick={() => startPressRoom(player.id)}
+              <button type="button" key={player.id} onClick={() => startPressRoom(player.id)}
                 className="w-full text-left p-3 rounded-lg bg-secondary/40 border border-border hover:border-primary/30 transition-all flex items-center gap-3">
                 {player.avatar_url
                   ? <img src={player.avatar_url} alt={player.gamertag} className="w-8 h-8 rounded-full object-cover border border-border" />
@@ -267,9 +269,9 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
             </div>
             <Button onClick={nextQuestion} className="w-full"
               disabled={isLast && answered < 3}>
-              {isLast ? (answered >= 3 ? "Continue to Image" : `Answer ${3 - answered} more to finish`) : "Next"}
+              {isLast ? (answered >= 3 ? t('commonPages.gdprContinueImage') : t('commonPages.gdprAnswerMore', { n: 3 - answered })) : t('commonPages.gdprNext')}
             </Button>
-            <p className="text-[10px] text-muted-foreground text-center">Answered: {answered}/4 (min 3)</p>
+            <p className="text-[10px] text-muted-foreground text-center">{t('commonPages.gdprAnsweredCount', { count: answered, total: 4, min: 3 })}</p>
           </div>
         )}
       </div>
@@ -282,21 +284,21 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Mic className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Add Article Photo</h3>
-          <span className="text-[10px] text-muted-foreground ml-auto">Optional</span>
+          <h3 className="text-sm font-bold text-foreground">{t('commonPages.gdprAddPhoto')}</h3>
+          <span className="text-[10px] text-muted-foreground ml-auto">{t('commonPages.gdprOptional')}</span>
         </div>
 
         {!imagePreviewUrl ? (
-          <button onClick={() => fileInputRef.current?.click()}
+          <button type="button" onClick={() => fileInputRef.current?.click()}
             className="w-full border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-2 hover:border-primary/40 transition-colors">
             <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
-            <p className="text-xs text-muted-foreground">Click to upload photo</p>
-            <p className="text-[10px] text-muted-foreground/60">JPG, PNG, WEBP · max 10MB</p>
+            <p className="text-xs text-muted-foreground">{t('commonPages.gdprClickUpload')}</p>
+            <p className="text-[10px] text-muted-foreground/60">{t('commonPages.gdprFileHint')}</p>
           </button>
         ) : (
           <div className="relative rounded-xl overflow-hidden border border-border">
             <img src={imagePreviewUrl} alt="Preview" className="w-full h-48 object-cover" />
-            <button onClick={removeImage}
+            <button type="button" onClick={removeImage}
               className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -313,18 +315,18 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
           <Button variant="outline" onClick={publishArticle} disabled={publishing || uploading} className="flex-1">
             {publishing || uploading
               ? <div className="w-4 h-4 border-2 border-border border-t-foreground rounded-full animate-spin" />
-              : "Skip & Publish"
+              : t('commonPages.gdprSkipPublish')
             }
           </Button>
           <Button onClick={publishArticle} disabled={publishing || uploading} className="flex-1">
             {publishing || uploading
               ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              : <><Upload className="w-3.5 h-3.5" /> Publish Article</>
+              : <><Upload className="w-3.5 h-3.5" /> {t('commonPages.gdprPublishArticle')}</>
             }
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center">
-          Article will appear in News → Press Room once published.
+          {t('commonPages.gdprPublishHint')}
         </p>
       </div>
     );

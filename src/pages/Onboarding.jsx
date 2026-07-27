@@ -56,7 +56,7 @@ export default function Onboarding({ onComplete }) {
           setPlayer(pl);
         }
         // Already onboarded — don't show role chooser after localStorage was cleared
-        if (u.player_id || players[0]?.id) {
+        if (u.player_id || pl?.id) {
           onComplete?.();
           return;
         }

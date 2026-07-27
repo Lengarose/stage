@@ -5,6 +5,7 @@ import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
 import { getUpgradesForCategory, calcUpgradeCost, getMaintenanceBreakdown } from "@/lib/lifestyleUpgrades";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   MapPin, ArrowUp, Lock, Zap, TrendingUp,
   ChevronDown, ChevronUp, ReceiptText, AlertTriangle,
@@ -34,6 +35,7 @@ const PROPERTY_IMAGES = {
 const FALLBACK = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80";
 
 export default function PropertyCard({ purchase, item, playerStc, onUpgraded, onCancelRent, onResidenceChanged }) {
+  const { t } = useTranslation();
   const [showUpgrades, setShowUpgrades] = useState(false);
   const [showMaint, setShowMaint] = useState(false);
   const [upgrading, setUpgrading] = useState(null);
@@ -68,14 +70,14 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
   }
 
   async function handleUpgrade(upgradeId) {
-    if (isDefaulted) { showNotif("Asset defaulted — pay overdue maintenance first", "error"); return; }
+    if (isDefaulted) { showNotif(t('commonPages.pcardDefaultedError'), "error"); return; }
     setUpgrading(upgradeId);
     try {
       const res = await stageClient.functions.invoke("upgradeLifestyleAsset", { purchase_id: purchase.id, upgrade_id: upgradeId });
-      showNotif(`Upgrade applied — Level ${res.data.upgrade_level}`, "success");
+      showNotif(t('commonPages.pcardUpgradeApplied', { level: res.data.upgrade_level }), "success");
       onUpgraded?.(purchase.id, res.data);
     } catch (err) {
-      showNotif(err.response?.data?.error || err.message || "Upgrade failed", "error");
+      showNotif(err.response?.data?.error || err.message || t('commonPages.acardUpgradeFailed'), "error");
     }
     setUpgrading(null);
   }
@@ -84,10 +86,10 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
     setCancelling(true);
     try {
       await stageClient.entities.LifestylePurchase.update(purchase.id, { rent_active: false, is_residence: false });
-      showNotif("Rental cancelled.", "success");
+      showNotif(t('commonPages.pcardRentalCancelled'), "success");
       onCancelRent?.(purchase.id);
     } catch (err) {
-      showNotif("Failed to cancel rental", "error");
+      showNotif(t('commonPages.pcardCancelFailed'), "error");
     }
     setCancelling(false);
   }
@@ -96,10 +98,10 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
     setMovingOut(true);
     try {
       await stageClient.entities.LifestylePurchase.update(purchase.id, { is_residence: false });
-      showNotif("You have moved out.", "success");
+      showNotif(t('commonPages.pcardMovedOut'), "success");
       onResidenceChanged?.();
     } catch (err) {
-      showNotif("Failed to move out", "error");
+      showNotif(t('commonPages.pcardMoveOutFailed'), "error");
     }
     setMovingOut(false);
   }
@@ -107,12 +109,11 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
   async function handleSetResidence() {
     setSettingResidence(true);
     try {
-      // Clear all other residences for this player (done client-side via bulk update — backend handles atomically)
       await stageClient.functions.invoke("setPlayerResidence", { purchase_id: purchase.id });
-      showNotif("Residence updated!", "success");
+      showNotif(t('commonPages.pcardResidenceUpdated'), "success");
       onResidenceChanged?.();
     } catch (err) {
-      showNotif(err.response?.data?.error || "Failed to set residence", "error");
+      showNotif(err.response?.data?.error || t('commonPages.pcardResidenceFailed'), "error");
     }
     setSettingResidence(false);
   }
@@ -136,7 +137,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
                 </span>
               </div>
             ) : (
-              <p className="text-xs text-white/50 mt-0.5 italic">No location set</p>
+              <p className="text-xs text-white/50 mt-0.5 italic">{t('commonPages.pcardNoLocation')}</p>
             )}
           </div>
           <div className={cn("text-[10px] font-bold px-2 py-1 rounded-full uppercase border backdrop-blur-sm", tierStyle.bg, tierStyle.color)}>
@@ -147,27 +148,27 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {/* Status badges */}
         {isResidence && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <Home className="w-2.5 h-2.5" /> My Residence
+            <Home className="w-2.5 h-2.5" /> {t('commonPages.pcardMyResidence')}
           </div>
         )}
         {!isResidence && isRental && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary/80 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <CalendarClock className="w-2.5 h-2.5" /> Renting
+            <CalendarClock className="w-2.5 h-2.5" /> {t('commonPages.pcardRenting')}
           </div>
         )}
         {!isResidence && isLive && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-success/90 text-black text-[10px] font-bold px-2 py-1 rounded-full">
-            <Home className="w-2.5 h-2.5" /> Owned (Live)
+            <Home className="w-2.5 h-2.5" /> {t('commonPages.pcardOwnedLive')}
           </div>
         )}
         {!isResidence && isInvestment && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-warning/90 text-black text-[10px] font-bold px-2 py-1 rounded-full">
-            📈 Investment
+            📈 {t('commonPages.pcardInvestment')}
           </div>
         )}
         {isDefaulted && (
           <div className="absolute top-3 right-3 flex items-center gap-1 bg-destructive/90 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <AlertTriangle className="w-2.5 h-2.5" /> Default
+            <AlertTriangle className="w-2.5 h-2.5" /> {t('commonPages.pcardDefault')}
           </div>
         )}
       </div>
@@ -183,10 +184,10 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {/* Key data grid */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { label: "Base Price",    value: formatSTC(basePrice),     color: "text-foreground" },
-            { label: "Current Value", value: formatSTC(currentValue),  color: "text-success" },
-            { label: "Weekly Cost",   value: weeklyMaint > 0 ? formatSTC(weeklyMaint) : "—", color: isDefaulted ? "text-destructive" : "text-warning" },
-            { label: "Acquired",      value: formatDate(purchase.created_date), color: "text-muted-foreground" },
+            { label: t('commonPages.pcardBasePrice'),    value: formatSTC(basePrice),     color: "text-foreground" },
+            { label: t('commonPages.pcardCurrentValue'), value: formatSTC(currentValue),  color: "text-success" },
+            { label: t('commonPages.pcardWeeklyCost'),   value: weeklyMaint > 0 ? formatSTC(weeklyMaint) : "—", color: isDefaulted ? "text-destructive" : "text-warning" },
+            { label: t('commonPages.pcardAcquired'),      value: formatDate(purchase.created_date), color: "text-muted-foreground" },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-black/15 rounded-xl px-3 py-2 text-center">
               <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</p>
@@ -199,8 +200,8 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {upgrades.length > 0 && (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-primary" /> Upgrade Level</span>
-              <span>{currentLevel}/{maxLevel} {isMaxed && "— MAX"}</span>
+              <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-primary" /> {t('commonPages.pcardUpgradeLevel')}</span>
+              <span>{currentLevel}/{maxLevel} {isMaxed && `— ${t('commonPages.pcardMax')}`}</span>
             </div>
             <div className="flex gap-1">
               {Array.from({ length: maxLevel }).map((_, i) => (
@@ -221,28 +222,30 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {/* Residence button — only for live/owned, non-residence properties */}
         {(isLive || isRental) && !isResidence && (
           <button
+            type="button"
             onClick={handleSetResidence}
             disabled={settingResidence}
             className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5 text-primary text-xs font-bold hover:bg-primary/10 transition-all"
           >
             {settingResidence
               ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-              : <><Home className="w-3 h-3" /> Set as My Residence</>}
+              : <><Home className="w-3 h-3" /> {t('commonPages.pcardSetResidence')}</>}
           </button>
         )}
         {isResidence && (
           <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
             <div className="flex items-center gap-1.5 text-primary text-xs font-bold">
-              <Home className="w-3 h-3" /> This is your residence
+              <Home className="w-3 h-3" /> {t('commonPages.pcardThisIsResidence')}
             </div>
             <button
+              type="button"
               onClick={handleMoveOut}
               disabled={movingOut}
               className="flex items-center gap-1 text-[10px] font-bold text-destructive/70 hover:text-destructive transition-colors"
             >
               {movingOut
                 ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                : <><XCircle className="w-3 h-3" /> Move Out</>}
+                : <><XCircle className="w-3 h-3" /> {t('commonPages.pcardMoveOut')}</>}
             </button>
           </div>
         )}
@@ -252,11 +255,11 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
           <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
             <div className="flex items-center gap-2 text-xs">
               <CalendarClock className="w-3.5 h-3.5 text-primary" />
-              <span className="text-primary font-semibold">{daysLeft}d left</span>
-              <span className="text-muted-foreground">· expires {rentExpiry.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>
+              <span className="text-primary font-semibold">{t('commonPages.pcardDaysLeft', { days: daysLeft })}</span>
+              <span className="text-muted-foreground">· {t('commonPages.pcardExpires', { date: rentExpiry.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) })}</span>
             </div>
-            <button onClick={handleCancelRent} disabled={cancelling} className="flex items-center gap-1 text-[10px] font-bold text-destructive/70 hover:text-destructive transition-colors">
-              {cancelling ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" /> : <><XCircle className="w-3 h-3" /> Cancel</>}
+            <button type="button" onClick={handleCancelRent} disabled={cancelling} className="flex items-center gap-1 text-[10px] font-bold text-destructive/70 hover:text-destructive transition-colors">
+              {cancelling ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" /> : <><XCircle className="w-3 h-3" /> {t('commonPages.pcardCancel')}</>}
             </button>
           </div>
         )}
@@ -264,8 +267,8 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {/* Maintenance breakdown */}
         {maintBreakdown.length > 0 && (
           <div>
-            <button onClick={() => setShowMaint(!showMaint)} className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1">
-              <span className="flex items-center gap-1 uppercase tracking-wider font-bold"><ReceiptText className="w-3 h-3" /> Cost Breakdown</span>
+            <button type="button" onClick={() => setShowMaint(!showMaint)} className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1">
+              <span className="flex items-center gap-1 uppercase tracking-wider font-bold"><ReceiptText className="w-3 h-3" /> {t('commonPages.pcardCostBreakdown')}</span>
               {showMaint ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
             {showMaint && (
@@ -273,12 +276,12 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
                 {maintBreakdown.map((line, i) => (
                   <div key={line.id} className={cn("flex items-center justify-between px-3 py-2 text-xs", i > 0 && "border-t border-white/5")}>
                     <span className="flex items-center gap-1.5 text-muted-foreground"><span>{line.emoji}</span>{line.label}</span>
-                    <span className={cn("font-semibold", isDefaulted ? "text-destructive" : "text-warning")}>{formatSTC(line.weekly_cost)}/wk</span>
+                    <span className={cn("font-semibold", isDefaulted ? "text-destructive" : "text-warning")}>{formatSTC(line.weekly_cost)}{t('commonPages.pcardPerWk')}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 bg-white/5 text-xs font-bold">
-                  <span className="text-foreground">Total Weekly</span>
-                  <span className={isDefaulted ? "text-destructive" : "text-warning"}>{formatSTC(weeklyMaint)}/wk</span>
+                  <span className="text-foreground">{t('commonPages.pcardTotalWeekly')}</span>
+                  <span className={isDefaulted ? "text-destructive" : "text-warning"}>{formatSTC(weeklyMaint)}{t('commonPages.pcardPerWk')}</span>
                 </div>
               </div>
             )}
@@ -289,10 +292,11 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
         {upgrades.length > 0 && !isMaxed && !isDefaulted && (
           <div>
             <button
+              type="button"
               onClick={() => setShowUpgrades(!showUpgrades)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 transition-all"
             >
-              <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider"><ArrowUp className="w-3 h-3" /> Upgrade Property</span>
+              <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider"><ArrowUp className="w-3 h-3" /> {t('commonPages.pcardUpgradeProperty')}</span>
               {showUpgrades ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
             {showUpgrades && (
@@ -316,7 +320,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
                         <Button size="sm" disabled={!canAfford || upgrading === upg.id} onClick={() => handleUpgrade(upg.id)}
                           className={cn("h-6 px-2.5 text-[10px] shrink-0", canAfford ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground cursor-not-allowed")}
                         >
-                          {upgrading === upg.id ? <div className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" /> : canAfford ? <><ArrowUp className="w-2.5 h-2.5" /> Buy</> : <Lock className="w-2.5 h-2.5" />}
+                          {upgrading === upg.id ? <div className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" /> : canAfford ? <><ArrowUp className="w-2.5 h-2.5" /> {t('commonPages.pcardBuy')}</> : <Lock className="w-2.5 h-2.5" />}
                         </Button>
                       )}
                     </div>
@@ -326,7 +330,7 @@ export default function PropertyCard({ purchase, item, playerStc, onUpgraded, on
             )}
           </div>
         )}
-        {isMaxed && <div className="text-center text-xs text-warning font-bold py-1">👑 Fully Upgraded</div>}
+        {isMaxed && <div className="text-center text-xs text-warning font-bold py-1">👑 {t('commonPages.pcardFullyUpgraded')}</div>}
       </div>
     </div>
   );

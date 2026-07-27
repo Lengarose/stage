@@ -95,12 +95,12 @@ export function applyExtendedCommonPageAssigns(commonPageTranslations) {
   }
 }
 
-export function buildExtendedLocalized(matchFlow, competitionFlow, tournamentDetail, commonPages) {
+export function buildExtendedLocalized(matchFlow, competitionFlow, tournamentDetail, commonPages, settingsPageEn) {
   return {
-    ru: { auth: authRu, settingsPage: settingsRu, mobile: mobileRu, nav: navRu, matchFlow: matchFlow.ru, competitionFlow: competitionFlow.ru, tournamentDetail: tournamentDetail.ru, commonPages: commonPages.ru },
-    ko: { auth: authKo, settingsPage: settingsKo, mobile: mobileKo, nav: navKo, matchFlow: matchFlow.ko, competitionFlow: competitionFlow.ko, tournamentDetail: tournamentDetail.ko, commonPages: commonPages.ko },
-    ar: { auth: authAr, settingsPage: settingsAr, mobile: mobileAr, nav: navAr, matchFlow: matchFlow.ar, competitionFlow: competitionFlow.ar, tournamentDetail: tournamentDetail.ar, commonPages: commonPages.ar },
-    pl: { auth: authPl, settingsPage: settingsPl, mobile: mobilePl, nav: navPl, matchFlow: matchFlow.pl, competitionFlow: competitionFlow.pl, tournamentDetail: tournamentDetail.pl, commonPages: commonPages.pl },
-    tr: { auth: authTr, settingsPage: settingsTr, mobile: mobileTr, nav: navTr, matchFlow: matchFlow.tr, competitionFlow: competitionFlow.tr, tournamentDetail: tournamentDetail.tr, commonPages: commonPages.tr },
+    ru: { auth: authRu, settingsPage: { ...settingsPageEn, ...settingsRu }, mobile: mobileRu, nav: navRu, matchFlow: matchFlow.ru, competitionFlow: competitionFlow.ru, tournamentDetail: tournamentDetail.ru, commonPages: commonPages.ru },
+    ko: { auth: authKo, settingsPage: { ...settingsPageEn, ...settingsKo }, mobile: mobileKo, nav: navKo, matchFlow: matchFlow.ko, competitionFlow: competitionFlow.ko, tournamentDetail: tournamentDetail.ko, commonPages: commonPages.ko },
+    ar: { auth: authAr, settingsPage: { ...settingsPageEn, ...settingsAr }, mobile: mobileAr, nav: navAr, matchFlow: matchFlow.ar, competitionFlow: competitionFlow.ar, tournamentDetail: tournamentDetail.ar, commonPages: commonPages.ar },
+    pl: { auth: authPl, settingsPage: { ...settingsPageEn, ...settingsPl }, mobile: mobilePl, nav: navPl, matchFlow: matchFlow.pl, competitionFlow: competitionFlow.pl, tournamentDetail: tournamentDetail.pl, commonPages: commonPages.pl },
+    tr: { auth: authTr, settingsPage: { ...settingsPageEn, ...settingsTr }, mobile: mobileTr, nav: navTr, matchFlow: matchFlow.tr, competitionFlow: competitionFlow.tr, tournamentDetail: tournamentDetail.tr, commonPages: commonPages.tr },
   };
 }

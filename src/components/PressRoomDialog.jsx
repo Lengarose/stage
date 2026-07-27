@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Mic, X, ChevronRight, CheckCircle, Newspaper, Clock, Camera, Upload } from "lucide-react";
 
 const REPORTERS = [
@@ -27,16 +28,16 @@ function generateHeadline(playerName, answerText) {
 }
 
 // ── Step: Manager selects player ──────────────────────────────────────────────
-function StepSelectPlayer({ clubPlayers, onSelect }) {
+function StepSelectPlayer({ clubPlayers, onSelect, t }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="text-center">
-        <h2 className="text-xl font-bold text-foreground font-heading">PRE-MATCH PRESS ROOM</h2>
-        <p className="text-xs text-muted-foreground mt-1">Choose who will face the press today</p>
+        <h2 className="text-xl font-bold text-foreground font-heading">{t('commonPages.prdTitle')}</h2>
+        <p className="text-xs text-muted-foreground mt-1">{t('commonPages.prdChoosePlayer')}</p>
       </div>
       <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
         {clubPlayers.map(p => (
-          <button key={p.id} onClick={() => onSelect(p)}
+          <button type="button" key={p.id} onClick={() => onSelect(p)}
             className="w-full flex items-center gap-3 bg-secondary hover:bg-secondary/80 border border-border hover:border-primary/40 rounded-xl p-3 transition-all text-left group">
             <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 shrink-0 overflow-hidden flex items-center justify-center text-xs font-bold text-primary">
               {p.avatar_url
@@ -51,7 +52,7 @@ function StepSelectPlayer({ clubPlayers, onSelect }) {
           </button>
         ))}
         {clubPlayers.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-6">No players found in your squad.</p>
+          <p className="text-center text-muted-foreground text-sm py-6">{t('commonPages.prdNoPlayers')}</p>
         )}
       </div>
     </div>
@@ -59,26 +60,26 @@ function StepSelectPlayer({ clubPlayers, onSelect }) {
 }
 
 // ── Step: Waiting (manager view after sending invite) ─────────────────────────
-function StepWaiting({ playerName }) {
+function StepWaiting({ playerName, t }) {
   return (
     <div className="flex flex-col items-center gap-6 py-8 text-center">
       <div className="w-16 h-16 rounded-full bg-warning/10 border border-warning/30 flex items-center justify-center">
         <Clock className="w-8 h-8 text-warning animate-pulse" />
       </div>
       <div>
-        <h2 className="text-xl font-bold text-foreground font-heading">Invitation Sent</h2>
+        <h2 className="text-xl font-bold text-foreground font-heading">{t('commonPages.prdInviteSent')}</h2>
         <p className="text-muted-foreground text-sm mt-2">
-          <strong className="text-foreground">{playerName}</strong> has been invited to the press room.<br />
-          They'll receive a notification and message to answer the questions.
+          <strong className="text-foreground">{playerName}</strong> {t('commonPages.prdInvitedPlayer', { name: '' }).replace('{name}', '').trim()}<br />
+          {t('commonPages.prdInviteHint')}
         </p>
       </div>
-      <p className="text-xs text-muted-foreground opacity-60">You can close this — the player handles the rest.</p>
+      <p className="text-xs text-muted-foreground opacity-60">{t('commonPages.prdCloseHint')}</p>
     </div>
   );
 }
 
 // ── Step: Press Room (player answers questions) ───────────────────────────────
-function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, maxAnswers }) {
+function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, maxAnswers, t }) {
   const [activeIdx, setActiveIdx] = useState(null);
   const [customTexts, setCustomTexts] = useState({});
   const answeredCount = answers.length;
@@ -95,16 +96,16 @@ function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, 
           </div>
           <div>
             <p className="text-sm font-bold text-foreground leading-none">{selectedPlayer.gamertag}</p>
-            <p className="text-[10px] text-muted-foreground">at the podium</p>
+            <p className="text-[10px] text-muted-foreground">{t('commonPages.prdAtPodium')}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-muted-foreground bg-secondary px-2.5 py-1 rounded-full border border-border">
-            {answeredCount}/{maxAnswers} answered
+            {t('commonPages.prdAnswered', { count: answeredCount, max: maxAnswers })}
           </span>
           <Button size="sm" variant="outline" onClick={onLeave} disabled={answeredCount === 0}
             className="text-xs border-border text-muted-foreground h-7">
-            {answeredCount > 0 ? "Publish & Leave" : "No answers yet"}
+            {answeredCount > 0 ? t('commonPages.prdPublishLeave') : t('commonPages.prdNoAnswers')}
           </Button>
         </div>
       </div>
@@ -160,11 +161,12 @@ function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, 
                     <textarea
                       rows={2}
                       value={customTexts[q.id] || ""}
-                      onChange={e => setCustomTexts(t => ({ ...t, [q.id]: e.target.value }))}
-                      placeholder="Write your own answer…"
+                      onChange={e => setCustomTexts(ct => ({ ...ct, [q.id]: e.target.value }))}
+                      placeholder={t('commonPages.prdWriteAnswer')}
                       className="w-full text-xs bg-secondary border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 resize-none leading-relaxed"
                     />
                     <button
+                      type="button"
                       disabled={!customTexts[q.id]?.trim()}
                       onClick={() => {
                         const ans = customTexts[q.id].trim();
@@ -172,7 +174,7 @@ function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, 
                         setActiveIdx(null);
                       }}
                       className="w-full text-xs bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary rounded-lg px-3 py-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                      ✏️ Submit my answer
+                      ✏️ {t('commonPages.prdSubmitAnswer')}
                     </button>
                   </div>
                 </div>
@@ -197,7 +199,7 @@ function StepPressRoom({ selectedPlayer, questions, answers, onAnswer, onLeave, 
 }
 
 // ── Step: Photo Upload + Position + Preview ────────────────────────────────
-function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, matchName, headline, onSubmit, onSkip }) {
+function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, matchName, headline, onSubmit, onSkip, t }) {
   const [uploading, setUploading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [posX, setPosX] = useState(50);
@@ -274,13 +276,13 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
           <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-none">
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-500/40 text-purple-300 text-[9px] font-bold uppercase tracking-widest mb-2">
-              <Mic className="w-2 h-2" /> Press Conference
+              <Mic className="w-2 h-2" /> {t('commonPages.prdPressConference')}
             </div>
             <p className="text-sm font-bold text-white font-heading leading-tight drop-shadow-lg line-clamp-2">{headline || `${playerName}: “...”`}</p>
           </div>
           {photoUrl && (
             <div className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full pointer-events-none">
-              Drag to reposition
+              {t('commonPages.prdDragHint')}
             </div>
           )}
         </div>
@@ -298,14 +300,15 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
 
       {/* Upload button */}
       <button
+        type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-secondary/50 transition-all text-sm text-muted-foreground disabled:opacity-50"
       >
         {uploading ? (
-          <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> Uploading...</>
+          <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> {t('commonPages.prdUploading')}</>
         ) : (
-          <><Upload className="w-4 h-4" /> {photoUrl ? "Change Photo" : "Upload Photo"}</>
+          <><Upload className="w-4 h-4" /> {photoUrl ? t('commonPages.prdChangePhoto') : t('commonPages.prdUploadPhoto')}</>
         )}
       </button>
       <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
@@ -313,19 +316,19 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
       {/* Zoom slider — only shown when photo uploaded */}
       {photoUrl && (
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">Zoom — {zoom}%</label>
+          <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">{t('commonPages.prdZoom', { zoom })}</label>
           <input type="range" min={50} max={300} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="w-full accent-primary" />
         </div>
       )}
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onSkip} className="flex-1 border-border text-muted-foreground">Skip Photo</Button>
+        <Button variant="outline" onClick={onSkip} className="flex-1 border-border text-muted-foreground">{t('commonPages.prdSkipPhoto')}</Button>
         <Button
           onClick={() => onSubmit(photoUrl, bgPos, zoom)}
           disabled={uploading}
           className="flex-1 bg-primary text-primary-foreground font-heading"
         >
-          Publish Article
+          {t('commonPages.prdPublishArticle')}
         </Button>
       </div>
     </div>
@@ -333,15 +336,15 @@ function StepPhotoUpload({ playerName, playerAvatarUrl, clubName, clubLogoUrl, m
 }
 
 // ── Step: Published ───────────────────────────────────────────────────────────
-function StepPublished({ article }) {
+function StepPublished({ article, t }) {
   return (
     <div className="flex flex-col items-center gap-5 py-4 text-center">
       <div className="w-14 h-14 rounded-full bg-success/10 border border-success/30 flex items-center justify-center">
         <Newspaper className="w-7 h-7 text-success" />
       </div>
       <div>
-        <h3 className="text-xl font-bold text-foreground font-heading">Article Published!</h3>
-        <p className="text-muted-foreground text-sm mt-1">Head to the News section to read it.</p>
+        <h3 className="text-xl font-bold text-foreground font-heading">{t('commonPages.prdArticlePublished')}</h3>
+        <p className="text-muted-foreground text-sm mt-1">{t('commonPages.prdNewsHint')}</p>
       </div>
       {article && (
         <div className="bg-secondary border border-border rounded-xl p-4 w-full text-left space-y-2">
@@ -369,6 +372,7 @@ function StepPublished({ article }) {
 //   myPlayer: current user's player
 //   open / onClose / onConferenceCreated
 export default function PressRoomDialog({ open, onClose, mode, conference, clubPlayers, matchData, myClub, myPlayer, onConferenceCreated }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);
@@ -582,17 +586,17 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
 
           {!loading && step === "select_player" && (
             <div className="flex flex-col gap-4">
-              <StepSelectPlayer clubPlayers={clubPlayers} onSelect={handleSelectPlayer} />
+              <StepSelectPlayer clubPlayers={clubPlayers} onSelect={handleSelectPlayer} t={t} />
               <Button variant="outline" onClick={handleClose} className="border-border text-muted-foreground">
-                <X className="w-4 h-4 mr-2" /> Cancel
+                <X className="w-4 h-4 mr-2" /> {t('commonPages.cancel')}
               </Button>
             </div>
           )}
 
           {!loading && step === "waiting" && (
             <div className="flex flex-col gap-4">
-              <StepWaiting playerName={conference?.player_name || "the player"} />
-              <Button onClick={handleClose} className="w-full bg-primary text-primary-foreground">Close</Button>
+              <StepWaiting playerName={conference?.player_name || "the player"} t={t} />
+              <Button onClick={handleClose} className="w-full bg-primary text-primary-foreground">{t('commonPages.prdClose')}</Button>
             </div>
           )}
 
@@ -604,6 +608,7 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
               onAnswer={handleAnswer}
               onLeave={handleLeave}
               maxAnswers={MAX_ANSWERS}
+              t={t}
             />
           )}
 
@@ -617,13 +622,14 @@ export default function PressRoomDialog({ open, onClose, mode, conference, clubP
               headline={pendingAnswers?.[0] ? generateHeadline(conference?.player_name || myPlayer?.gamertag, pendingAnswers[0].answer) : ""}
               onSubmit={handlePublish}
               onSkip={() => handlePublish(null)}
+              t={t}
             />
           )}
 
           {!loading && step === "published" && (
             <div className="flex flex-col gap-4">
-              <StepPublished article={published} />
-              <Button onClick={handleClose} className="w-full bg-primary text-primary-foreground">Close</Button>
+              <StepPublished article={published} t={t} />
+              <Button onClick={handleClose} className="w-full bg-primary text-primary-foreground">{t('commonPages.prdClose')}</Button>
             </div>
           )}
         </div>

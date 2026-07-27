@@ -9,12 +9,14 @@ import { Crown, Loader2, Sparkles } from "lucide-react";
 import ClubOnboardingModal from "./ClubOnboardingModal";
 import { COUNTRIES } from "@/lib/countries";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["PlayStation", "Xbox", "PC"];
 
 export default function ProfileCompletionModal({ open, player, onComplete }) {
+  const { t } = useTranslation();
   const [gamertag, setGamertag] = useState(player?.gamertag || "");
   const [position, setPosition] = useState(player?.position || "");
   const [secondaryPosition, setSecondaryPosition] = useState(player?.secondary_position || "none");
@@ -28,7 +30,7 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
 
   async function handleSave() {
     if (!gamertag.trim() || !position || !platform) {
-      await swalAlert("Please fill in required fields: Gamertag, Position, and Platform");
+      await swalAlert(t('commonPages.pcmRequired'));
       return;
     }
 
@@ -84,46 +86,46 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="bg-card border-border max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="leading-relaxed text-xl">Complete Your Profile 🎮</DialogTitle>
+          <DialogTitle className="leading-relaxed text-xl">{t('commonPages.pcmTitle')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-4">
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Gamertag *</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmGamertag')}</label>
             <Input
               value={gamertag}
               onChange={e => setGamertag(e.target.value)}
-              placeholder="Your gaming name"
+              placeholder={t('commonPages.pcmGamertagPlaceholder')}
               className="bg-secondary border-border"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Main Position *</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmMainPosition')}</label>
               <Select value={position} onValueChange={value => {
                 setPosition(value);
                 if (secondaryPosition === value) setSecondaryPosition("none");
               }}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t('commonPages.pcmSelect')} /></SelectTrigger>
                 <SelectContent>
                   {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Second Position</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmSecondPosition')}</label>
               <Select value={secondaryPosition} onValueChange={setSecondaryPosition}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">{t('commonPages.pcmNone')}</SelectItem>
                   {POSITIONS.filter(p => p !== position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Platform *</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmPlatform')}</label>
               <Select value={platform} onValueChange={setPlatform}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t('commonPages.pcmSelect')} /></SelectTrigger>
                 <SelectContent>
                   {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
@@ -132,13 +134,13 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmCountry')}</label>
             <Select value={country} onValueChange={v => {
               const found = COUNTRIES.find(c => c.name === v);
               setCountry(v);
               setCountryCode(found?.code || "");
             }}>
-              <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select country" /></SelectTrigger>
+              <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t('commonPages.pcmSelectCountry')} /></SelectTrigger>
               <SelectContent>
                 {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
               </SelectContent>
@@ -146,11 +148,11 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Bio</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('commonPages.pcmBio')}</label>
             <Textarea
               value={bio}
               onChange={e => setBio(e.target.value)}
-              placeholder="Tell us about yourself..."
+              placeholder={t('commonPages.pcmBioPlaceholder')}
               className="bg-secondary border-border resize-none h-20"
             />
           </div>
@@ -162,11 +164,11 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                  STAGE Plus is available
+                  {t('commonPages.pcmPlusAvailable')}
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Your free account starts with {TOURNAMENT_ENTRY_CREDITS} credits. Plus unlocks official competitions, tournament creation, ranked play, and refreshes {STAGE_PLUS_MONTHLY_CREDITS} credits monthly.
+                  {t('commonPages.pcmPlusDesc', { credits: TOURNAMENT_ENTRY_CREDITS, monthlyCredits: STAGE_PLUS_MONTHLY_CREDITS })}
                 </p>
               </div>
             </div>
@@ -177,7 +179,7 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
             disabled={loading}
             className="w-full bg-primary text-primary-foreground leading-relaxed"
           >
-            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Complete Profile →"}
+            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('commonPages.pcmSaving')}</> : t('commonPages.pcmComplete')}
           </Button>
         </div>
       </DialogContent>

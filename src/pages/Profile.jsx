@@ -456,7 +456,7 @@ export default function Profile({
         />
 
         <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
-          <SubscriptionProgress player={player} />
+          {!tournamentMode ? <SubscriptionProgress player={player} /> : null}
 
           {player && Number(player.is_verified) === 1 ? (
             <GamerSectionCard title={t("commonPages.profIdentityVerified")}>

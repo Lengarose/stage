@@ -2,6 +2,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Coins, Lock, CheckCircle2, XCircle, AlertTriangle, Trophy, RefreshCw } from "lucide-react";
 
 const MIN_BET = 10_000;
@@ -25,6 +26,7 @@ const WAGER_STATUS_CONFIG = {
 };
 
 export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeTeam, onGameUpdate }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(null);
   const [notif, setNotif] = useState(null);
 
@@ -65,13 +67,13 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
       });
       if (action === 'accept_wager') {
         onGameUpdate?.({ ...game, wager_away_locked: true, wager_status: 'active' });
-        showNotif("Wager accepted — funds locked. 🔒", "success");
+        showNotif(t('commonPages.wagAccepted'), "success");
       } else if (action === 'decline_wager') {
         onGameUpdate?.({ ...game, wager_status: 'declined', wager_stc: 0 });
-        showNotif("Wager declined. No funds deducted.", "info");
+        showNotif(t('commonPages.wagDeclinedMsg'), "info");
       } else if (action === 'cancel_wager') {
         onGameUpdate?.({ ...game, wager_status: 'cancelled', wager_stc: 0 });
-        showNotif("Wager cancelled. Funds refunded.", "info");
+        showNotif(t('commonPages.wagCancelledMsg'), "info");
       }
     } catch (err) {
       showNotif(err.response?.data?.error || err.message || "Action failed", "error");
@@ -95,7 +97,7 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Coins className="w-4 h-4 text-warning shrink-0" />
-          <span className="text-sm font-bold text-foreground">STC Wager</span>
+          <span className="text-sm font-bold text-foreground">{t('commonPages.wagTitle')}</span>
         </div>
         <span className={cn("text-[10px] font-bold uppercase tracking-wider", statusCfg.color)}>
           {statusCfg.label}
@@ -105,11 +107,11 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
       {/* Pot details */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-black/15 rounded-lg px-3 py-2 text-center">
-          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Each Side</p>
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t('commonPages.wagEachSide')}</p>
           <p className="text-sm font-black text-warning">{formatSTC(wagerStc)} STC</p>
         </div>
         <div className="bg-black/15 rounded-lg px-3 py-2 text-center">
-          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Total Pot</p>
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t('commonPages.wagTotalPot')}</p>
           <p className="text-sm font-black text-success">{formatSTC(pot)} STC</p>
         </div>
       </div>
@@ -119,11 +121,11 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
         <div className="flex items-center gap-3 text-xs">
           <div className={cn("flex items-center gap-1", game.wager_home_locked ? "text-success" : "text-muted-foreground")}>
             {game.wager_home_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-            Home {game.wager_home_locked ? "locked" : "not locked"}
+            {game.wager_home_locked ? t('commonPages.wagHomeLocked') : t('commonPages.wagHomeNotLocked')}
           </div>
           <div className={cn("flex items-center gap-1", game.wager_away_locked ? "text-success" : "text-muted-foreground")}>
             {game.wager_away_locked ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-            Away {game.wager_away_locked ? "locked" : "not locked"}
+            {game.wager_away_locked ? t('commonPages.wagAwayLocked') : t('commonPages.wagAwayNotLocked')}
           </div>
         </div>
       )}
@@ -137,25 +139,25 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
           "bg-primary/15 text-primary"
         )}>
           {myTeamWon ? (
-            <><Trophy className="w-3.5 h-3.5 shrink-0" /> You won! +{formatSTC(pot)} STC added to your balance</>
+            <><Trophy className="w-3.5 h-3.5 shrink-0" /> {t('commonPages.wagYouWon', { pot: formatSTC(pot) })}</>
           ) : myTeamLost ? (
-            <><XCircle className="w-3.5 h-3.5 shrink-0" /> You lost — {formatSTC(wagerStc)} STC forfeited</>
+            <><XCircle className="w-3.5 h-3.5 shrink-0" /> {t('commonPages.wagYouLost', { stake: formatSTC(wagerStc) })}</>
           ) : (
-            <><Trophy className="w-3.5 h-3.5 shrink-0" /> {homeWon ? homeName : awayName} won — {formatSTC(pot)} STC pot</>
+            <><Trophy className="w-3.5 h-3.5 shrink-0" /> {t('commonPages.wagWinnerWon', { winner: homeWon ? homeName : awayName, pot: formatSTC(pot) })}</>
           )}
         </div>
       )}
       {wagerStatus === 'refunded' && (
         <div className="rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-medium bg-secondary text-muted-foreground">
           <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-          Draw — both sides refunded {formatSTC(wagerStc)} STC
+          {t('commonPages.wagDrawRefund', { stake: formatSTC(wagerStc) })}
         </div>
       )}
       {wagerStatus === 'cancelled' && (
-        <p className="text-xs text-destructive font-medium text-center">Wager cancelled — funds refunded</p>
+        <p className="text-xs text-destructive font-medium text-center">{t('commonPages.wagCancelledMsg')}</p>
       )}
       {wagerStatus === 'declined' && (
-        <p className="text-xs text-muted-foreground text-center">Wager declined — no funds deducted</p>
+        <p className="text-xs text-muted-foreground text-center">{t('commonPages.wagDeclinedMsg')}</p>
       )}
 
       {/* Away side: accept / decline */}
@@ -169,7 +171,7 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
           >
             {loading === 'accept_wager'
               ? <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-              : <><CheckCircle2 className="w-3 h-3" /> Accept ({formatSTC(wagerStc)} STC)</>}
+              : <><CheckCircle2 className="w-3 h-3" /> {t('commonPages.wagAccept', { stake: formatSTC(wagerStc) })}</>}
           </Button>
           <Button
             size="sm"
@@ -180,7 +182,7 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
           >
             {loading === 'decline_wager'
               ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-              : <><XCircle className="w-3 h-3" /> Decline</>}
+              : <><XCircle className="w-3 h-3" /> {t('commonPages.wagDecline')}</>}
           </Button>
         </div>
       )}
@@ -188,11 +190,12 @@ export default function WagerPanel({ game, myPlayer, myClub, isMyMatch, amIHomeT
       {/* Home side: cancel (only while scheduled / pending) */}
       {isHomeSide && ['pending_acceptance', 'active'].includes(wagerStatus) && game.status === 'scheduled' && (
         <button
+          type="button"
           onClick={() => invoke('cancel_wager')}
           disabled={!!loading}
           className="text-[10px] text-destructive/60 hover:text-destructive transition-colors w-full text-center pt-1"
         >
-          {loading === 'cancel_wager' ? "Cancelling…" : "Cancel wager (refund both sides)"}
+          {loading === 'cancel_wager' ? t('commonPages.wagCancelling') : t('commonPages.wagCancelWager')}
         </button>
       )}
     </div>

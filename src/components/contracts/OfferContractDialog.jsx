@@ -7,14 +7,12 @@ import { cn } from "@/lib/utils";
 import { FileText, Coins, Plus, Trash2, Target, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const TARGET_TYPES = [
-  { value: "min",   label: "Minimum (≥)" },
-  { value: "exact", label: "Exact (=)" },
-  { value: "range", label: "Range (between)" },
-];
+const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
 export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], onOffer, windowOpen, isNegotiation, existingContract, club }) {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState(existingContract?.contract_type || "squad");
   const [note, setNote] = useState(existingContract?.offer_note || "");
   const [weeklySalary, setWeeklySalary] = useState(existingContract?.weekly_salary_stc?.toString() || "");
@@ -26,6 +24,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   const statOptions = getStatOptionsForPosition(player?.position);
   const groupedStats = groupStatOptions(statOptions);
+
+  const TARGET_TYPES = [
+    { value: "min",   label: t("cccTargetMin") },
+    { value: "exact", label: t("cccTargetExact") },
+    { value: "range", label: t("cccTargetRange") },
+  ];
 
   function addTarget() {
     setTargets(prev => [...prev, { stat: statOptions[0]?.value || "goals", type: "min", value: 0, value_max: 0 }]);
@@ -67,8 +71,8 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="w-5 h-5 text-primary" />
-            {isNegotiation ? "Counter Offer" : "Offer Contract"}
-            {player && <span className="text-muted-foreground font-normal text-base">to {player.gamertag}</span>}
+            {isNegotiation ? t("ocdCounterOffer") : t("offerContract")}
+            {player && <span className="text-muted-foreground font-normal text-base">{t("ocdTo", { name: player.gamertag })}</span>}
           </DialogTitle>
         </DialogHeader>
 
@@ -80,12 +84,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
           ) || (existingActiveContract || null);
           return conflict ? (
             <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
-              This player already has an active <strong>{conflict.contract_type}</strong> contract (<strong>{conflict.status}</strong>).
+              {t("ocdActiveContract", { type: conflict.contract_type, status: conflict.status })}
               {conflict.contract_type === "ownership" && selectedType === "ownership"
-                ? " You can still offer a player contract alongside it."
+                ? ` ${t("ocdStillOfferPlayer")}`
                 : conflict.contract_type !== "ownership" && selectedType !== "ownership"
-                ? " You can still offer an ownership contract alongside it."
-                : " This will create a second contract of the same type."}
+                ? ` ${t("ocdStillOfferOwnership")}`
+                : ` ${t("ocdSecondContract")}`}
             </div>
           ) : null;
         })()}
@@ -96,15 +100,15 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
               <FileText className="w-3.5 h-3.5 shrink-0" />
               {windowOpen === false
-                ? "Transfer window is closed. Offer queued — transfer executes when window opens."
+                ? t("ocdWindowClosed")
                 : windowOpen === true
-                ? "Transfer window OPEN. Accepted offers take effect immediately."
-                : "Checking transfer window status..."}
+                ? t("ocdWindowOpen")
+                : t("ocdWindowChecking")}
             </div>
 
             {/* Contract type */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">Contract Type</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">{t("ocdContractType")}</label>
               <div className="space-y-2">
                 {CONTRACT_TYPE_OPTIONS.map((opt) => (
                   <button
@@ -130,7 +134,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Financials */}
             {selectedType !== "ownership" && <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block flex items-center gap-1">
-                <Coins className="w-3 h-3" /> Financial Terms (STC)
+                <Coins className="w-3 h-3" /> {t("ocdFinancialTerms")}
               </label>
 
               {/* Wage budget warning */}
@@ -144,11 +148,11 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     <Coins className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`} />
                     <div>
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`}>
-                        {overBudget ? "⛔ Exceeds Wage Budget" : `Wage Budget Usage: ${pct}%`}
+                        {overBudget ? t("cccExceedsWage") : t("cccWageUsage", { pct })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Club wage budget: {(budget / 1_000_000).toFixed(1)}M STC/wk
-                        {overBudget && " — reduce the salary to proceed"}
+                        {t("cccClubWageBudget", { amount: (budget / 1_000_000).toFixed(1) })}
+                        {overBudget && ` ${t("cccReduceSalary")}`}
                       </p>
                     </div>
                   </div>
@@ -162,10 +166,10 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20">
                     <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Suggested Salary Range</p>
+                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{t("cccSuggestedSalary")}</p>
                       <p className="text-xs text-foreground font-light mt-0.5">
-                        {formatSTC(suggestion.min)} – {formatSTC(suggestion.max)} / week
-                        <span className="text-muted-foreground ml-1">({suggestion.label} · OVR {player.overall_rating})</span>
+                        {formatSTC(suggestion.min)} – {formatSTC(suggestion.max)} {t("cccPerWeek")}
+                        <span className="text-muted-foreground ml-1">({suggestion.label} · {t("cccBasedOnOvr", { ovr: player.overall_rating })})</span>
                       </p>
                     </div>
                   </div>
@@ -175,7 +179,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                    <Coins className="w-3 h-3 text-success" /> Weekly Salary
+                    <Coins className="w-3 h-3 text-success" /> {t("cccWeeklySalary")}
                   </label>
                   <input
                     type="number"
@@ -185,11 +189,11 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     min="0"
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">Paid monthly</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{t("cccPaidMonthly")}</p>
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                    <Coins className="w-3 h-3 text-warning" /> Signing Bonus
+                    <Coins className="w-3 h-3 text-warning" /> {t("cccSigningBonus")}
                   </label>
                   <input
                     type="number"
@@ -199,17 +203,18 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     min="0"
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">Paid on signing</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{t("cccPaidOnSigning")}</p>
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">Captaincy</label>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">{t("cccCaptaincy")}</label>
                   <button
+                    type="button"
                     onClick={() => setCaptaincy(!captaincy)}
                     className={cn("w-full px-3 py-2 rounded-lg border text-sm transition-all text-left",
                       captaincy ? "bg-warning/10 border-warning/30 text-warning font-semibold" : "bg-secondary border-border text-muted-foreground"
                     )}
                   >
-                    {captaincy ? "✓ Captain role offered" : "No captaincy"}
+                    {captaincy ? t("cccCaptainOffered") : t("cccNoCaptaincy")}
                   </button>
                 </div>
               </div>
@@ -218,12 +223,13 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Performance targets */}
             {selectedType !== "ownership" && <div>
               <button
+                type="button"
                 onClick={() => setShowTargets(!showTargets)}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
               >
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-foreground">Performance Targets</span>
+                  <span className="font-semibold text-foreground">{t("ocdPerformanceTargets")}</span>
                   {targets.length > 0 && (
                     <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">{targets.length}</span>
                   )}
@@ -252,9 +258,9 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                           onChange={e => updateTarget(idx, "type", e.target.value)}
                           className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         >
-                          {TARGET_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          {TARGET_TYPES.map(tt => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
                         </select>
-                        <button onClick={() => removeTarget(idx)} className="text-destructive hover:text-destructive/80 p-1">
+                        <button type="button" onClick={() => removeTarget(idx)} className="text-destructive hover:text-destructive/80 p-1">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -263,7 +269,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                           type="number"
                           value={target.value}
                           onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
-                          placeholder={target.type === "range" ? "Min" : "Value"}
+                          placeholder={target.type === "range" ? t("cccMin") : t("cccValue")}
                           className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         />
                         {target.type === "range" && (
@@ -273,7 +279,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                               type="number"
                               value={target.value_max || ""}
                               onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
-                              placeholder="Max"
+                              placeholder={t("cccMax")}
                               className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                             />
                           </>
@@ -282,10 +288,11 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     </div>
                   ))}
                   <button
+                    type="button"
                     onClick={addTarget}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add Target
+                    <Plus className="w-3.5 h-3.5" /> {t("cccAddTarget")}
                   </button>
                 </div>
               )}
@@ -294,13 +301,13 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Note */}
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                Message <span className="normal-case font-normal">(optional)</span>
+                {t("ocdMessage")} <span className="normal-case font-normal">({t("agdOptional")})</span>
               </label>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="bg-secondary border-border"
-                placeholder={isNegotiation ? "Explain your counter-offer..." : "Welcome message or contract terms..."}
+                placeholder={isNegotiation ? t("ocdCounterPlaceholder") : t("cccNotePlaceholder")}
                 rows={3}
               />
             </div>
@@ -311,7 +318,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               <FileText className="w-4 h-4" />
-              {offering ? "Sending..." : isNegotiation ? "Send Counter-Offer" : "Send Contract Offer"}
+              {offering ? t("ocdSending") : isNegotiation ? t("ocdSendCounter") : t("ocdSendOffer")}
             </Button>
           </div>
         )}

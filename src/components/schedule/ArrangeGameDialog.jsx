@@ -7,8 +7,10 @@ import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLef
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
+  const { t } = useTranslation();
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isOwnerMode = accountMode === "club";
   const forcedSearchType = isOwnerMode ? "club" : "player";
@@ -44,11 +46,11 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   const wagerNumber = wagerStc ? Number(wagerStc) : 0;
   const wagerError = wagerStc && (
     wagerNumber < MIN_BET
-      ? `Minimum bet is ${MIN_BET.toLocaleString()} STC`
+      ? t("agdMinBet", { amount: MIN_BET.toLocaleString() })
       : wagerNumber > MAX_BET
-        ? `Maximum bet is ${MAX_BET.toLocaleString()} STC`
+        ? t("agdMaxBet", { amount: MAX_BET.toLocaleString() })
         : wagerNumber > availableWagerBalance
-          ? `You only have ${availableWagerBalance.toLocaleString()} STC available`
+          ? t("agdInsufficientStc", { amount: availableWagerBalance.toLocaleString() })
           : ""
   );
 
@@ -192,7 +194,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const invitationType = matchType === "club" ? "club_vs_club" : "player_vs_player";
 
       if (!recipientKind) {
-        setSendError("Please choose an opponent again.");
+        setSendError(t("agdChooseOpponent"));
         return;
       }
 
@@ -204,8 +206,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       if (!recipientEmail) {
         setSendError(
           recipientIsClub
-            ? "Could not reach this club's owner. They may not have a login email yet."
-            : "Could not reach this player. They may not have an account yet."
+            ? t("agdCannotReachClub")
+            : t("agdCannotReachPlayer")
         );
         return;
       }
@@ -259,7 +261,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       setTimeout(() => { reset(); onSent(); }, 1500);
     } catch (err) {
       console.error("[ArrangeGame] send failed:", err);
-      setSendError(err?.response?.data?.error || err?.message || "Failed to send invitation. Please try again.");
+      setSendError(err?.response?.data?.error || err?.message || t("agdSendFailed"));
     } finally {
       setSending(false);
     }
@@ -271,7 +273,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         <DialogHeader>
           <DialogTitle className="font-heading text-xl uppercase tracking-wide flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-primary" />
-            Arrange Game
+            {t("agdTitle")}
           </DialogTitle>
         </DialogHeader>
 
@@ -280,8 +282,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-3">
               <Send className="w-5 h-5 text-success" />
             </div>
-            <p className="text-foreground font-semibold">Invitation Sent!</p>
-            <p className="text-xs text-muted-foreground">Waiting for the opponent to respond.</p>
+            <p className="text-foreground font-semibold">{t("agdInvitationSent")}</p>
+            <p className="text-xs text-muted-foreground">{t("agdWaitingResponse")}</p>
           </div>
         ) : step === "search" ? (
           <div className="space-y-4">
@@ -289,18 +291,20 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {!isOwnerMode && myClub && (
               <div className="flex rounded-lg border border-border overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => { setSearchType("player"); setResults([]); setSearchQuery(""); setSelected(null); setRecipientKind(null); }}
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "player" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
-                  <User className="w-3.5 h-3.5" /> Player Match
+                  <User className="w-3.5 h-3.5" /> {t("agdPlayerMatch")}
                 </button>
                 <button
+                  type="button"
                   onClick={() => { setSearchType("club"); setResults([]); setSearchQuery(""); setSelected(null); setRecipientKind(null); }}
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "club" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
-                  <Shield className="w-3.5 h-3.5" /> Club Match
+                  <Shield className="w-3.5 h-3.5" /> {t("agdClubMatch")}
                 </button>
               </div>
             )}
@@ -308,8 +312,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {/* Context hint */}
             <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
               {(isOwnerMode ? "club" : searchType) === "player"
-                ? <><span className="text-primary font-semibold">Player match</span> — you play as <span className="text-foreground font-medium">{myPlayer?.gamertag}</span>. The invite goes to the opponent player's personal inbox.</>
-                : <><span className="text-primary font-semibold">Club match</span> — <span className="text-foreground font-medium">{myClub?.name}</span> challenges another club. The invite goes to the opponent club's owner inbox.</>
+                ? <><span className="text-primary font-semibold">{t("agdPlayerMatch")}</span> — {t("agdPlayerMatchHint", { gamertag: myPlayer?.gamertag })}</>
+                : <><span className="text-primary font-semibold">{t("agdClubMatch")}</span> — {t("agdClubMatchHint", { clubName: myClub?.name })}</>
               }
             </p>
 
@@ -320,12 +324,12 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
-                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? "Search clubs..." : "Search players..."}
+                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? t("agdSearchClubs") : t("agdSearchPlayers")}
                   className="pl-9 bg-secondary border-border text-sm"
                 />
               </div>
               <Button onClick={handleSearch} disabled={searching} size="sm" className="bg-primary text-primary-foreground">
-                {searching ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : "Search"}
+                {searching ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : t("searchCta")}
               </Button>
             </div>
 
@@ -333,6 +337,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               <div className="border border-border rounded-lg divide-y divide-border max-h-52 overflow-y-auto">
                 {results.map(r => (
                   <button
+                    type="button"
                     key={r.id}
                     onClick={() => selectOpponent(r, matchType)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/60 transition-colors text-left"
@@ -359,8 +364,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           </div>
         ) : step === "details" ? (
           <div className="space-y-4">
-            <button onClick={() => setStep("search")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <button type="button" onClick={() => setStep("search")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" /> {t("agdBack")}
             </button>
 
             {/* Selected opponent */}
@@ -382,7 +387,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Date</label>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("agdDate")}</label>
                 <div className="relative">
                   <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -395,7 +400,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 </div>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Time</label>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("agdTime")}</label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -411,7 +416,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {/* Optional wager */}
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block flex items-center gap-1">
-                <Coins className="w-3 h-3 inline" /> STC Wager <span className="normal-case font-normal">(optional)</span>
+                <Coins className="w-3 h-3 inline" /> {t("agdStcWager")} <span className="normal-case font-normal">({t("agdOptional")})</span>
               </label>
               <div className="relative">
                 <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -428,7 +433,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               </div>
               {wagerStc && (
                 <p className={cn("text-[10px] mt-1", wagerError ? "text-destructive" : "text-warning")}>
-                  {wagerError || `Pot: ${(Number(wagerStc) * 2).toLocaleString()} STC total. Your ${Number(wagerStc).toLocaleString()} STC stake will lock on acceptance.`}
+                  {wagerError || t("agdWagerPotHint", { pot: (Number(wagerStc) * 2).toLocaleString(), stake: Number(wagerStc).toLocaleString() })}
                 </p>
               )}
             </div>
@@ -438,48 +443,48 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               disabled={!date || !time || !!wagerError}
               className="w-full bg-primary text-primary-foreground"
             >
-              Continue
+              {t("agdContinue")}
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <button onClick={() => setStep("details")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <button type="button" onClick={() => setStep("details")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" /> {t("agdBack")}
             </button>
 
             <div className="bg-secondary/60 rounded-lg border border-border p-4 space-y-2 text-sm">
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Match type</span>
+                <span className="text-muted-foreground">{t("agdMatchType")}</span>
                 <span className={cn("font-semibold", searchType === "player" ? "text-primary" : "text-accent")}>
-                  {searchType === "player" ? "Player Match" : "Club Match"}
+                  {searchType === "player" ? t("agdPlayerMatch") : t("agdClubMatch")}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Opponent</span>
+                <span className="text-muted-foreground">{t("agdOpponent")}</span>
                 <span className="text-foreground font-medium">{selected?.name || selected?.gamertag}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Date</span>
+                <span className="text-muted-foreground">{t("agdDate")}</span>
                 <span className="text-foreground font-medium">{date}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Time</span>
+                <span className="text-muted-foreground">{t("agdTime")}</span>
                 <span className="text-foreground font-medium">{time}</span>
               </div>
               {wagerStc && Number(wagerStc) >= MIN_BET && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">STC Wager</span>
-                  <span className="text-warning font-bold">{Number(wagerStc).toLocaleString()} STC each · Pot: {(Number(wagerStc) * 2).toLocaleString()} STC</span>
+                  <span className="text-muted-foreground">{t("agdStcWager")}</span>
+                  <span className="text-warning font-bold">{t("agdWagerSummary", { stake: Number(wagerStc).toLocaleString(), pot: (Number(wagerStc) * 2).toLocaleString() })}</span>
                 </div>
               )}
             </div>
 
             <p className="text-xs text-muted-foreground">
               {searchType === "player"
-                ? `A player match invitation will be sent to ${selected?.gamertag}'s personal inbox.`
-                : `A club match invitation will be sent to the owner of ${selected?.name}'s inbox.`
-              } They can accept, decline, or request a different date.
-              {wagerNumber > 0 && !wagerError ? " The wager stake will appear in finances as locked STC when accepted." : ""}
+                ? t("agdPlayerInviteNote", { gamertag: selected?.gamertag })
+                : t("agdClubInviteNote", { clubName: selected?.name })
+              } {t("agdCanRespondNote")}
+              {wagerNumber > 0 && !wagerError ? ` ${t("agdWagerLockNote")}` : ""}
             </p>
 
             {sendError && (
@@ -496,7 +501,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               {sending
                 ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 : <Send className="w-4 h-4" />}
-              Send Invitation
+              {t("agdSendInvitation")}
             </Button>
           </div>
         )}

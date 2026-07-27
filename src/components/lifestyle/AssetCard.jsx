@@ -9,6 +9,7 @@ import {
   getMaintenanceBreakdown,
   getMaintenanceLabel,
 } from "@/lib/lifestyleUpgrades";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   ArrowUp, Lock, Zap, MapPin, AlertTriangle,
   TrendingUp, ChevronDown, ChevronUp, Wrench, ReceiptText, CalendarClock, XCircle,
@@ -23,6 +24,7 @@ function formatSTC(v) {
 }
 
 export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCancelRent }) {
+  const { t } = useTranslation();
   const [showUpgrades, setShowUpgrades] = useState(false);
   const [showMaint, setShowMaint] = useState(false);
   const [upgrading, setUpgrading] = useState(null);
@@ -37,10 +39,10 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
     setCancelling(true);
     try {
       await stageClient.entities.LifestylePurchase.update(purchase.id, { rent_active: false });
-      showNotif("Rental cancelled.", "success");
+      showNotif(t('commonPages.acardRentalCancelled'), "success");
       onCancelRent?.(purchase.id);
     } catch (err) {
-      showNotif("Failed to cancel rental", "error");
+      showNotif(t('commonPages.acardCancelFailed'), "error");
     }
     setCancelling(false);
   }
@@ -65,7 +67,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
 
   async function handleUpgrade(upgradeId) {
     if (isDefaulted) {
-      showNotif("Asset is defaulted — pay overdue maintenance first", "error");
+      showNotif(t('commonPages.acardDefaultedError'), "error");
       return;
     }
     setUpgrading(upgradeId);
@@ -74,10 +76,10 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
         purchase_id: purchase.id,
         upgrade_id: upgradeId,
       });
-      showNotif(`Upgrade applied — now Level ${res.data.upgrade_level}`, "success");
+      showNotif(t('commonPages.acardUpgradeApplied', { level: res.data.upgrade_level }), "success");
       onUpgraded?.(purchase.id, res.data);
     } catch (err) {
-      showNotif(err.response?.data?.error || err.message || "Upgrade failed", "error");
+      showNotif(err.response?.data?.error || err.message || t('commonPages.acardUpgradeFailed'), "error");
     }
     setUpgrading(null);
   }
@@ -96,8 +98,8 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
         <div className="flex items-center gap-2 px-4 py-2.5 bg-destructive/20 border-b border-destructive/40">
           <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
           <div>
-            <p className="text-xs font-bold text-destructive">Asset Defaulted — Missed Maintenance</p>
-            <p className="text-[10px] text-destructive/70 mt-0.5">Upgrades are blocked. Top up STC — next cycle will restore this asset.</p>
+            <p className="text-xs font-bold text-destructive">{t('commonPages.acardDefaulted')}</p>
+            <p className="text-[10px] text-destructive/70 mt-0.5">{t('commonPages.acardDefaultedHint')}</p>
           </div>
         </div>
       )}
@@ -139,7 +141,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
 
           {/* Current Value */}
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Value</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.acardValue')}</p>
             <p className="font-bold text-sm text-foreground">{formatSTC(currentValue)}</p>
           </div>
         </div>
@@ -149,7 +151,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
           {upgrades.length > 0 && (
             <div className="flex items-center gap-1 text-muted-foreground">
               <Zap className="w-2.5 h-2.5 text-primary" />
-              <span>Level {currentLevel}/{maxLevel}</span>
+              <span>{t('commonPages.acardLevel', { current: currentLevel, max: maxLevel })}</span>
             </div>
           )}
           {weeklyMaint > 0 && (
@@ -172,22 +174,23 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
             <div className="flex items-center gap-2 text-xs">
               <CalendarClock className="w-3.5 h-3.5 text-primary shrink-0" />
               <div>
-                <span className="font-bold text-primary">Rental</span>
+                <span className="font-bold text-primary">{t('commonPages.acardRental')}</span>
                 {rentExpiry && (
                   <span className="text-muted-foreground ml-1.5">
-                    · {daysLeft}d left (expires {rentExpiry.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })})
+                    · {t('commonPages.acardDaysLeft', { days: daysLeft, date: rentExpiry.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) })}
                   </span>
                 )}
               </div>
             </div>
             <button
+              type="button"
               onClick={handleCancelRent}
               disabled={cancelling}
               className="flex items-center gap-1 text-[10px] font-bold text-destructive/70 hover:text-destructive transition-colors"
             >
               {cancelling
                 ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                : <><XCircle className="w-3 h-3" /> Cancel</>}
+                : <><XCircle className="w-3 h-3" /> {t('commonPages.pcardCancel')}</>}
             </button>
           </div>
         )}
@@ -205,11 +208,12 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
         {maintBreakdown.length > 0 && (
           <div>
             <button
+              type="button"
               onClick={() => setShowMaint(!showMaint)}
               className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1"
             >
               <span className="flex items-center gap-1 uppercase tracking-wider font-bold">
-                <ReceiptText className="w-3 h-3" /> Cost Breakdown
+                <ReceiptText className="w-3 h-3" /> {t('commonPages.acardCostBreakdown')}
               </span>
               {showMaint ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
@@ -223,13 +227,13 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
                       {line.label}
                     </span>
                     <span className={cn("font-semibold", isDefaulted ? "text-destructive" : "text-warning")}>
-                      {formatSTC(line.weekly_cost)}/wk
+                      {formatSTC(line.weekly_cost)}{t('commonPages.acardPerWk')}
                     </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 bg-white/5 text-xs font-bold">
-                  <span className="text-foreground">Total Weekly</span>
-                  <span className={isDefaulted ? "text-destructive" : "text-warning"}>{formatSTC(weeklyMaint)}/wk</span>
+                  <span className="text-foreground">{t('commonPages.acardTotalWeekly')}</span>
+                  <span className={isDefaulted ? "text-destructive" : "text-warning"}>{formatSTC(weeklyMaint)}{t('commonPages.acardPerWk')}</span>
                 </div>
               </div>
             )}
@@ -240,6 +244,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
         {upgrades.length > 0 && (
           <div>
             <button
+              type="button"
               onClick={() => setShowUpgrades(!showUpgrades)}
               className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs transition-all",
@@ -253,7 +258,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
             >
               <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
                 <ArrowUp className="w-3 h-3" />
-                {isMaxed ? "Fully Upgraded" : isDefaulted ? "Upgrades Blocked" : "Upgrade Asset"}
+                {isMaxed ? t('commonPages.acardFullyUpgraded') : isDefaulted ? t('commonPages.acardUpgradesBlocked') : t('commonPages.acardUpgradeAsset')}
               </span>
               {!isDefaulted && !isMaxed && (
                 showUpgrades ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
@@ -302,7 +307,7 @@ export default function AssetCard({ purchase, item, playerStc, onUpgraded, onCan
                           {upgrading === upg.id
                             ? <div className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />
                             : canAfford
-                            ? <><ArrowUp className="w-2.5 h-2.5" /> Buy</>
+                            ? <><ArrowUp className="w-2.5 h-2.5" /> {t('commonPages.pcardBuy')}</>
                             : <><Lock className="w-2.5 h-2.5" /></>}
                         </Button>
                       )}

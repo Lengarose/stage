@@ -673,6 +673,7 @@ export default function LeagueDetail() {
 // ─── Fixture row ──────────────────────────────────────────────────────────────
 
 function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate, onOpenGameDay }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const sched = fixture.scheduling_status || "open";
   const badge = SCHEDULING_BADGE[sched] || SCHEDULING_BADGE.open;

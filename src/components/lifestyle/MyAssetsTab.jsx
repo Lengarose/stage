@@ -4,12 +4,19 @@ import AssetCard from "./AssetCard";
 import PropertyCard from "./PropertyCard";
 import GarageCard from "./GarageCard";
 import ClothingCard from "./ClothingCard";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Package, Home, Car, Star, MapPin } from "lucide-react";
 
+const ASSET_GROUP_KEYS = {
+  real_estate: "matProperties",
+  vehicle: "matGarage",
+  other: "matCollection",
+};
+
 const ASSET_GROUPS = [
-  { id: "real_estate", label: "Properties",  icon: Home,    categories: ["real_estate"] },
-  { id: "vehicle",     label: "Garage",       icon: Car,     categories: ["vehicle"] },
-  { id: "other",       label: "Collection",   icon: Star,    categories: ["clothing", "extras", "lifestyle", "event", "charity"] },
+  { id: "real_estate", labelKey: "matProperties",  icon: Home,    categories: ["real_estate"] },
+  { id: "vehicle",     labelKey: "matGarage",       icon: Car,     categories: ["vehicle"] },
+  { id: "other",       labelKey: "matCollection",   icon: Star,    categories: ["clothing", "extras", "lifestyle", "event", "charity"] },
 ];
 
 function formatSTC(v) {
@@ -21,14 +28,15 @@ function formatSTC(v) {
 }
 
 export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, onCancelRent, onResidenceChanged }) {
+  const { t } = useTranslation();
   const [activeGroup, setActiveGroup] = useState("real_estate");
 
   if (purchases.length === 0) {
     return (
       <div className="text-center py-20">
         <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
-        <p className="text-muted-foreground text-sm">No assets owned yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Head to the Store and start building your empire!</p>
+        <p className="text-muted-foreground text-sm">{t('commonPages.matNoAssets')}</p>
+        <p className="text-xs text-muted-foreground mt-1">{t('commonPages.matStartBuilding')}</p>
       </div>
     );
   }
@@ -49,8 +57,8 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/30">
             <Home className="w-4 h-4 text-primary shrink-0" />
             <div>
-              <p className="text-xs font-bold text-primary">No active residence</p>
-              <p className="text-[11px] text-muted-foreground">Set a property as your residence from the store or below.</p>
+              <p className="text-xs font-bold text-primary">{t('commonPages.matNoResidence')}</p>
+              <p className="text-[11px] text-muted-foreground">{t('commonPages.matSetResidenceHint')}</p>
             </div>
           </div>
         );
@@ -58,9 +66,9 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/30">
             <Home className="w-4 h-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-primary uppercase tracking-wider font-bold">Active Residence</p>
+              <p className="text-[10px] text-primary uppercase tracking-wider font-bold">{t('commonPages.matActiveResidence')}</p>
               <p className="text-sm font-bold text-foreground truncate">{residence.item_name}{residence.location_city ? ` · ${residence.location_emoji} ${residence.location_city}` : ""}</p>
-              <p className="text-[10px] text-muted-foreground capitalize">{residence.purchase_type === "rent" ? "Renting" : "Owned"}</p>
+              <p className="text-[10px] text-muted-foreground capitalize">{residence.purchase_type === "rent" ? t('commonPages.matRenting') : t('commonPages.matOwned')}</p>
             </div>
           </div>
         );
@@ -70,17 +78,17 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-card border border-border rounded-xl p-3 text-center">
           <p className="font-heading text-2xl font-black text-foreground">{purchases.length}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Assets</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('commonPages.matAssets')}</p>
         </div>
         <div className="bg-card border border-success/20 rounded-xl p-3 text-center">
           <p className="font-heading text-2xl font-black text-success">{formatSTC(totalValue)}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Value</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('commonPages.matTotalValue')}</p>
         </div>
         <div className={cn("bg-card border rounded-xl p-3 text-center", weeklyMaintenance > 0 ? "border-warning/20" : "border-border")}>
           <p className={cn("font-heading text-2xl font-black", weeklyMaintenance > 0 ? "text-warning" : "text-muted-foreground")}>
             {weeklyMaintenance > 0 ? formatSTC(weeklyMaintenance) : "—"}
           </p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Weekly Cost</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('commonPages.matWeeklyCost')}</p>
         </div>
       </div>
 
@@ -89,9 +97,9 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30">
           <span className="text-lg shrink-0">⚠️</span>
           <div>
-            <p className="text-sm font-bold text-destructive">{defaultedCount} asset{defaultedCount > 1 ? "s" : ""} in default</p>
+            <p className="text-sm font-bold text-destructive">{t('commonPages.matDefaultCount', { count: defaultedCount, plural: defaultedCount > 1 ? "s" : "" })}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              You missed maintenance payments. Top up your STC and the next automated run will restore them.
+              {t('commonPages.matDefaultHint')}
             </p>
           </div>
         </div>
@@ -104,6 +112,7 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
           if (count === 0) return null;
           return (
             <button
+              type="button"
               key={g.id}
               onClick={() => setActiveGroup(g.id)}
               className={cn(
@@ -114,7 +123,7 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
               )}
             >
               <g.icon className="w-3.5 h-3.5" />
-              {g.label}
+              {t(`commonPages.${g.labelKey}`)}
               <span className={cn("px-1.5 py-0.5 rounded-full text-[10px]",
                 activeGroup === g.id ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
               )}>{count}</span>
@@ -126,23 +135,23 @@ export default function MyAssetsTab({ purchases, items, playerStc, onUpgraded, o
       {/* Asset list */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p className="text-sm">No assets in this category yet.</p>
+          <p className="text-sm">{t('commonPages.matNoCategoryAssets')}</p>
         </div>
       ) : activeGroup === "real_estate" ? (
         /* Properties — city-grouped layout */
         (() => {
-          const cities = [...new Set(filtered.map(p => p.location_city || "Unknown Location"))];
+          const cities = [...new Set(filtered.map(p => p.location_city || t('commonPages.matUnknownLocation')))];
           return (
             <div className="space-y-6">
               {cities.map(city => {
-                const cityPurchases = filtered.filter(p => (p.location_city || "Unknown Location") === city);
+                const cityPurchases = filtered.filter(p => (p.location_city || t('commonPages.matUnknownLocation')) === city);
                 return (
                   <div key={city}>
                     <div className="flex items-center gap-2 mb-3">
                       <MapPin className="w-3.5 h-3.5 text-primary" />
                       <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{city}</h3>
                       <div className="flex-1 h-px bg-border/50" />
-                      <span className="text-[10px] text-muted-foreground">{cityPurchases.length} propert{cityPurchases.length > 1 ? "ies" : "y"}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('commonPages.matPropertyCount', { count: cityPurchases.length, plural: cityPurchases.length > 1 ? "ies" : "y" })}</span>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {cityPurchases.map(purchase => {

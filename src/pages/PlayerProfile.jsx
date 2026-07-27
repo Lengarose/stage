@@ -308,7 +308,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
     { id: "career", label: t("commonPages.ppTab_career") },
     { id: "matches", label: t("commonPages.ppTab_matches") },
     { id: "trophies", label: t("commonPages.ppTab_trophies") },
-    { id: "lifestyle", label: t("commonPages.ppTab_lifestyle") },
+    ...(!limitedTournamentId ? [{ id: "lifestyle", label: t("commonPages.ppTab_lifestyle") }] : []),
   ];
 
   const marketValue = calculatePlayerValue(player);
@@ -326,7 +326,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
     <GamerProfileShell>
       <div className="px-4 pt-4 max-w-6xl mx-auto">
         <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
         </button>
       </div>
 
@@ -361,7 +361,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                 >
                   {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
                 </Button>
-                {viewerClub ? (
+                {viewerClub && !limitedTournamentId ? (
                   <>
                     <Button
                       type="button"

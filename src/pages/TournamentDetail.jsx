@@ -990,20 +990,6 @@ function resetUI() {
     const incomplete = rounds.find(r => matches.filter(m => m.round === r).some(m => m.status !== "completed" && m.status !== "forfeit"));
     return incomplete ?? rounds[rounds.length - 1] ?? null;
   })();
-  const currentRoundMatches = activeRound === null
-    ? []
-    : matches.filter(m => Number(m.round) === Number(activeRound));
-  const currentRoundComplete = currentRoundMatches.length > 0
-    && currentRoundMatches.every(m => m.status === "completed" || m.status === "forfeit");
-  const activeRoundType = String(currentRoundMatches[0]?.type || "").toLowerCase();
-  const canAdvanceActiveRound = canManageTournament
-    && tournament.status === "in_progress"
-    && currentRoundComplete
-    && knockoutStarted
-    && !groupKnockoutNeedsRepair;
-  const advanceButtonLabel = !finalMatch && activeRoundType === "semi_final"
-    ? t("tournamentDetail.createFinalThird")
-    : t("tournamentDetail.advanceTournament");
   const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
     || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
   const bracketMatches = tournament.type === "group_stage"
