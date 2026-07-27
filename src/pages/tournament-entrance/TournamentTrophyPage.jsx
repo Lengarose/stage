@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TournamentTrophyPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [player, setPlayer] = useState(null);
@@ -24,16 +26,16 @@ export default function TournamentTrophyPage() {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back
+        {t("commonPages.profBack")}
       </button>
-      <h1 className="text-xl font-bold mb-4">Trophy Cabinet</h1>
+      <h1 className="text-xl font-bold mb-4">{t("commonPages.teTrophyCabinet")}</h1>
       {player ? (
         <PlayerTrophyCabinet
           playerId={player.id}
           currentUserEmail={user?.email}
         />
       ) : (
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <p className="text-muted-foreground text-sm">{t("commonPages.loading")}</p>
       )}
     </div>
   );

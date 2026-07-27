@@ -6,6 +6,7 @@ import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 import { prepareImageForUpload } from "@/lib/imageUpload";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -14,6 +15,7 @@ const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block
 const selectCls = "bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40";
 
 export default function ClubSetup({ onSkip, onComplete, player, user, required = false }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState("choice");
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
@@ -35,12 +37,12 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     if (!file) return;
     setError(null);
     if (!file.type?.startsWith("image/")) {
-      setError("Please choose an image file.");
+      setError(t("commonPages.obErrImage"));
       e.target.value = "";
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError("Club logo must be smaller than 10 MB.");
+      setError(t("commonPages.obErrLogoSize"));
       e.target.value = "";
       return;
     }
@@ -48,11 +50,11 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     try {
       const uploadFile = await prepareImageForUpload(file, { fallbackName: "club-logo.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
-      if (!file_url) throw new Error("Upload failed. Please try another image.");
+      if (!file_url) throw new Error(t("commonPages.obErrLogoUpload"));
       setPendingLogo(file_url);
     } catch (err) {
       console.error("Failed to upload club logo:", err);
-      setError(err?.data?.error || err?.message || "Could not upload club logo.");
+      setError(err?.data?.error || err?.message || t("commonPages.obErrLogoUpload"));
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -113,15 +115,16 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       <div className="space-y-5">
         <div>
           <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">
-            {required ? "Create Your Club" : "Club Setup"}
+            {required ? t("commonPages.obCreateYourClub") : t("commonPages.obClubSetupTitle")}
           </h2>
           <p className="text-white/40 text-xs">
-            {required ? "You need a club to continue as an owner" : "Create a club now or join one later"}
+            {required ? t("commonPages.obNeedClubContinue") : t("commonPages.obCreateOrJoinLater")}
           </p>
         </div>
 
         <div className={required ? "" : "grid grid-cols-2 gap-3"}>
           <button
+            type="button"
             onClick={() => setStep("create")}
             className="w-full bg-white/10 border border-white/20 hover:border-blue-400/60 hover:bg-blue-500/10 rounded-xl p-5 text-left transition-all group"
           >
@@ -130,14 +133,15 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </div>
-            <p className="font-black uppercase text-white text-sm tracking-wide">Create Club</p>
+            <p className="font-black uppercase text-white text-sm tracking-wide">{t("commonPages.obCreateClub")}</p>
             <p className="text-white/35 text-xs mt-1">
-              {required ? "Found your club and start managing" : "Start your journey now"}
+              {required ? t("commonPages.obFoundClub") : t("commonPages.obStartJourney")}
             </p>
           </button>
 
           {!required && (
             <button
+              type="button"
               onClick={onSkip}
               className="bg-white/5 border border-white/10 hover:border-white/25 rounded-xl p-5 text-left transition-all"
             >
@@ -146,8 +150,8 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
                   <path d="M5 12h14M12 5l7 7-7 7"/>
                 </svg>
               </div>
-              <p className="font-black uppercase text-white/70 text-sm tracking-wide">Skip</p>
-              <p className="text-white/30 text-xs mt-1">Do it later</p>
+              <p className="font-black uppercase text-white/70 text-sm tracking-wide">{t("commonPages.obSkip")}</p>
+              <p className="text-white/30 text-xs mt-1">{t("commonPages.obDoItLater")}</p>
             </button>
           )}
         </div>
@@ -170,15 +174,16 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         onClose={() => setOwnerContractPrompt(null)}
       />
       <button
+        type="button"
         onClick={() => setStep("choice")}
         className="flex items-center gap-1 text-white/40 hover:text-white text-xs uppercase tracking-widest transition-colors mb-1"
       >
-        <ChevronLeft className="w-3.5 h-3.5" /> Back
+        <ChevronLeft className="w-3.5 h-3.5" /> {t("commonPages.obBack")}
       </button>
 
       <div>
-        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Create Your Club</h2>
-        <p className="text-white/40 text-xs">Build your football empire</p>
+        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateYourClub")}</h2>
+        <p className="text-white/40 text-xs">{t("commonPages.obBuildEmpire")}</p>
       </div>
 
       {/* Logo + name/tag */}
@@ -196,7 +201,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
             {!logoUrl && <Camera className="w-5 h-5 text-white/30" />}
           </div>
           <div className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button onClick={() => logoInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
+            <button type="button" onClick={() => logoInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
             </button>
           </div>
@@ -205,16 +210,16 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
 
         <div className="flex-1 space-y-2.5">
           <div>
-            <label className={labelCls}>Club Name *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. FC Dynasty" className={inputCls} />
+            <label className={labelCls}>{t("commonPages.obClubName")}</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={t("commonPages.obClubNamePlaceholder")} className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}>Tag (max 5 chars) *</label>
+            <label className={labelCls}>{t("commonPages.obTagMax5")}</label>
             <input
               value={tag}
               maxLength={5}
               onChange={e => setTag(e.target.value.toUpperCase())}
-              placeholder="e.g. DYN"
+              placeholder={t("commonPages.obTagPlaceholder")}
               className={inputCls}
             />
           </div>
@@ -224,7 +229,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       {/* Platform + Region */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Platform</label>
+          <label className={labelCls}>{t("commonPages.obPlatform")}</label>
           <Select value={platform} onValueChange={setPlatform}>
             <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -235,7 +240,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
           </Select>
         </div>
         <div>
-          <label className={labelCls}>Region</label>
+          <label className={labelCls}>{t("commonPages.obRegion")}</label>
           <Select value={region} onValueChange={r => { setRegion(r); setCountry(""); }}>
             <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -246,10 +251,10 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       </div>
 
       <div>
-        <label className={labelCls}>Country *</label>
+        <label className={labelCls}>{t("commonPages.obCountry")}</label>
         <Select value={country} onValueChange={setCountry}>
           <SelectTrigger className={`${selectCls} ${!country ? "border-red-400/40" : ""}`}>
-            <SelectValue placeholder="Select country" />
+            <SelectValue placeholder={t("commonPages.obSelectCountry")} />
           </SelectTrigger>
           <SelectContent>
             {COUNTRIES.filter(c => !region || (COUNTRY_REGIONS[region] || []).includes(c.code)).map(c => (
@@ -269,22 +274,24 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       <div className="flex gap-3 pt-1">
         {!required && (
           <button
+            type="button"
             onClick={() => setStep("choice")}
             className="flex-1 bg-white/10 border border-white/20 text-white/70 hover:text-white hover:border-white/35 font-bold uppercase tracking-widest text-xs py-3 rounded-xl transition-all"
           >
-            Skip
+            {t("commonPages.obSkip")}
           </button>
         )}
         <button
+          type="button"
           onClick={handleCreate}
           disabled={saving || !name || !tag || !country}
           className={`${required ? "w-full" : "flex-1"} bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-gray-100 disabled:opacity-40 transition-all shadow-lg`}
         >
           {saving ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Creating…
+              <Loader2 className="w-4 h-4 animate-spin" /> {t("commonPages.obCreating")}
             </span>
-          ) : "Create Club"}
+          ) : t("commonPages.obCreateClub")}
         </button>
       </div>
 

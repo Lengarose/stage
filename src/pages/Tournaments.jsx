@@ -336,11 +336,11 @@ export default function Tournaments() {
             {modalStep === 1 && (
               <>
                 <div>
-                  <label className="label-xs">Tournament For</label>
+                  <label className="label-xs">{t("commonPages.trnTournamentFor")}</label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { v: "club", label: "🏟️ Club", sub: "Clubs register & compete" },
-                      { v: "player", label: "👤 Player", sub: "Individual players register" },
+                      { v: "club", label: `🏟️ ${t("nav.club")}`, sub: t("commonPages.trnClubsCompete") },
+                      { v: "player", label: `👤 ${t("commonPages.storePlayer")}`, sub: t("commonPages.trnPlayersRegister") },
                     ].map(opt => (
                       <button key={opt.v} type="button"
                         onClick={() => setForm(f => ({ ...f, participant_type: opt.v }))}
@@ -355,37 +355,37 @@ export default function Tournaments() {
                 </div>
 
                 <div>
-                  <label className="label-xs">Name <span className="text-destructive">*</span></label>
+                  <label className="label-xs">{t("commonPages.title")} <span className="text-destructive">*</span></label>
                   <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="bg-secondary border-border" placeholder="Tournament name" />
+                    className="bg-secondary border-border" placeholder={t("commonPages.trnNamePlaceholder")} />
                 </div>
 
                 <div>
-                  <label className="label-xs">Description <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <label className="label-xs">{t("commonPages.trnDescription")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnOptional")})</span></label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    className="bg-secondary border-border" rows={2} placeholder="What makes this special..." />
+                    className="bg-secondary border-border" rows={2} placeholder={t("commonPages.trnDescPlaceholder")} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label-xs">Format</label>
+                    <label className="label-xs">{t("commonPages.trnFormat")}</label>
                     <Select value={form.type} onValueChange={v => setForm(f => applyTournamentFormat(f, v))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="knockout">Knockout</SelectItem>
-                        <SelectItem value="league">League</SelectItem>
-                        <SelectItem value="group_stage">Group Stage</SelectItem>
-                        <SelectItem value="double_elimination">Double Elim.</SelectItem>
-                        <SelectItem value="swiss_ucl">⭐ Swiss UCL</SelectItem>
+                        <SelectItem value="knockout">{t("commonPages.cdKnockout")}</SelectItem>
+                        <SelectItem value="league">{t("commonPages.homeLeagues")}</SelectItem>
+                        <SelectItem value="group_stage">{t("commonPages.cdGroupStage")}</SelectItem>
+                        <SelectItem value="double_elimination">{t("commonPages.cdDoubleElim")}</SelectItem>
+                        <SelectItem value="swiss_ucl">⭐ {t("commonPages.trnSwissUcl")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="label-xs">Max Teams</label>
+                    <label className="label-xs">{t("commonPages.trnMaxTeams")}</label>
                     <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {maxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{n} teams</SelectItem>)}
+                        {maxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{t("commonPages.trnNTeams", { count: n })}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <p className="text-[10px] text-muted-foreground mt-1">{formatRule.hint}</p>
@@ -394,19 +394,19 @@ export default function Tournaments() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="label-xs">Platform</label>
+                    <label className="label-xs">{t("commonPages.platform")}</label>
                     <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
                       <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PlayStation">PlayStation</SelectItem>
                         <SelectItem value="Xbox">Xbox</SelectItem>
                         <SelectItem value="PC">PC</SelectItem>
-                        <SelectItem value="Cross-Platform">Cross-Platform</SelectItem>
+                        <SelectItem value="Cross-Platform">{t("commonPages.trnCrossPlatform")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="label-xs">Start Date <span className="text-destructive">*</span></label>
+                    <label className="label-xs">{t("commonPages.trnStartDate")} <span className="text-destructive">*</span></label>
                     <Input type="datetime-local" value={form.start_date}
                       onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
                       className="bg-secondary border-border" />
@@ -414,7 +414,7 @@ export default function Tournaments() {
                 </div>
 
                 <div>
-                  <label className="label-xs">Region</label>
+                  <label className="label-xs">{t("commonPages.profRegion")}</label>
                   <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
                     <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -431,26 +431,26 @@ export default function Tournaments() {
             {modalStep === 2 && (
               <>
                 <div>
-                  <label className="label-xs">Entry Fee</label>
+                  <label className="label-xs">{t("commonPages.trnEntryFee")}</label>
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Input type="number" min="0" max="1000000"
                         value={form.entry_fee_stc}
                         onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                        className="bg-secondary border-border" placeholder="STC per entry" />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">STC / entry</span>
+                        className="bg-secondary border-border" placeholder={t("commonPages.trnStcPerEntry")} />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{t("commonPages.trnStcEntry")}</span>
                     </div>
                     <div className="border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Create cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Entry cost</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {prizeBreakdown.entryFee.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">Max teams</span><span className="font-bold text-xs">{form.max_teams}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnCreateCost")}</span><span className="font-bold text-xs">{t("commonPages.storeCreditsAmount", { amount: TOURNAMENT_CREDIT_COST })}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnEntryCost")}</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} {t("commonPages.storeCreditsWord")} + {prizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnMaxTeams")}</span><span className="font-bold text-xs">{form.max_teams}</span></div>
                       <div className="h-px bg-primary/20" />
-                      <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">Winner 70%</span><span className="font-black text-warning">{prizeBreakdown.winner.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Runner-up 20%</span><span className="font-bold text-foreground">{prizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">Third place 10%</span><span className="font-bold text-foreground">{prizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">{t("commonPages.trnWinner")}</span><span className="font-black text-warning">{prizeBreakdown.winner.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("commonPages.trnRunnerUp")}</span><span className="font-bold text-foreground">{prizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("commonPages.trnThirdPlace")}</span><span className="font-bold text-foreground">{prizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
                       <div className="h-px bg-primary/20" />
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">Prize pool</span></div>
+                        <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">{t("commonPages.trnPrizePool")}</span></div>
                         <span className="font-black text-warning">{prizeBreakdown.pool.toLocaleString()} STC</span>
                       </div>
                     </div>
@@ -458,14 +458,14 @@ export default function Tournaments() {
                 </div>
 
                 <div>
-                  <label className="label-xs">Custom Rules <span className="font-normal lowercase text-muted-foreground">(optional)</span></label>
+                  <label className="label-xs">{t("commonPages.trnCustomRules")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnOptional")})</span></label>
                   <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))}
-                    className="bg-secondary border-border" rows={3} placeholder="Specific rules for this tournament..." />
+                    className="bg-secondary border-border" rows={3} placeholder={t("commonPages.trnRulesPlaceholder")} />
                   <div className="mt-2">
                     {form.rules_file_url ? (
                       <div className="flex items-center gap-2 bg-secondary/60 border border-border rounded px-3 py-2">
-                        <span className="text-xs text-success flex-1">✓ Rules file attached</span>
-                        <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View</a>
+                        <span className="text-xs text-success flex-1">{t("commonPages.trnRulesAttached")}</span>
+                        <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">{t("commonPages.view")}</a>
                         <button type="button" onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
                       </div>
                     ) : (
@@ -496,7 +496,7 @@ export default function Tournaments() {
               <>
                 {/* Trophy */}
                 <div>
-                  <label className="label-xs">Trophy <span className="font-normal lowercase text-muted-foreground">(optional — awarded to winner)</span></label>
+                  <label className="label-xs">{t("commonPages.trnTrophy")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnTrophyHint")})</span></label>
                   {(() => {
                     const available = trophyItems.filter(t => !t.admin_only);
                     const selected = available.find(t => t.id === form.trophy_item_id);
@@ -554,7 +554,7 @@ export default function Tournaments() {
 
                 {/* Banner */}
                 <div>
-                  <label className="label-xs">Banner</label>
+                  <label className="label-xs">{t("commonPages.trnBanner")}</label>
                   {(bannerPreview || form.banner_url) ? (
                     <div className="relative rounded overflow-hidden" style={{ height: 90 }}>
                       <div className="w-full h-full"
@@ -632,11 +632,11 @@ export default function Tournaments() {
             <Select value={rulesType} onValueChange={setRulesType}>
               <SelectTrigger className="bg-secondary border-border rounded"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="knockout">Knockout</SelectItem>
-                <SelectItem value="league">League</SelectItem>
-                <SelectItem value="group_stage">Group Stage</SelectItem>
-                <SelectItem value="double_elimination">Double Elimination</SelectItem>
-                <SelectItem value="swiss_ucl">Swiss UCL</SelectItem>
+                <SelectItem value="knockout">{t("commonPages.cdKnockout")}</SelectItem>
+                <SelectItem value="league">{t("commonPages.homeLeagues")}</SelectItem>
+                <SelectItem value="group_stage">{t("commonPages.cdGroupStage")}</SelectItem>
+                <SelectItem value="double_elimination">{t("commonPages.trnDoubleElimination")}</SelectItem>
+                <SelectItem value="swiss_ucl">{t("commonPages.trnSwissUcl")}</SelectItem>
               </SelectContent>
             </Select>
             <TournamentRules type={rulesType} />

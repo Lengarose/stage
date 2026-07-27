@@ -22,6 +22,9 @@ function isAllowedTournamentLimitedPath(pathname, tournamentId) {
   if (pathname === "/tournaments/trophy") return true;
   if (pathname === "/tournaments/profile-club") return true;
   if (pathname === "/tournaments/settings") return true;
+  // Same player/club profile pages as the main app (Players/Clubs list links)
+  if (/^\/players\/[^/]+$/.test(pathname)) return true;
+  if (/^\/clubs\/[^/]+$/.test(pathname)) return true;
   if (tournamentId && pathname === `/tournaments/${tournamentId}`) return true;
   return false;
 }

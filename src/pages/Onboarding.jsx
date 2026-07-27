@@ -8,6 +8,7 @@ import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
@@ -30,15 +31,16 @@ const ChevronRight = () => (
 
 /* ── step meta ─────────────────────────────────────────────── */
 const STEPS = {
-  choose:     { label: "Choose Role",     index: 0, total: 2 },
-  player:     { label: "Player Profile",  index: 1, total: 4 },
-  identity:   { label: "Verify Identity", index: 2, total: 4 },
-  club:       { label: "Club Setup",      index: 3, total: 4 },
-  owner_club: { label: "Club Setup",      index: 1, total: 2 },
+  choose:     { labelKey: "obStepChooseRole",     index: 0, total: 2 },
+  player:     { labelKey: "obStepPlayerProfile",  index: 1, total: 4 },
+  identity:   { labelKey: "obStepVerifyIdentity", index: 2, total: 4 },
+  club:       { labelKey: "obStepClubSetup",      index: 3, total: 4 },
+  owner_club: { labelKey: "obStepClubSetup",      index: 1, total: 2 },
 };
 
 /* ── component ─────────────────────────────────────────────── */
 export default function Onboarding({ onComplete }) {
+  const { t } = useTranslation();
   const [user,         setUser]         = useState(null);
   const [player,       setPlayer]       = useState(null);
   const [step,         setStep]         = useState("choose");
@@ -139,7 +141,11 @@ export default function Onboarding({ onComplete }) {
               {step !== "choose" && step !== "discord" && (
                 <div className="mb-7 shrink-0">
                   <p className="text-white/40 text-[10px] uppercase tracking-[0.3em] mb-2">
-                    Step {meta.index} of {meta.total - 1} — {meta.label}
+                    {t("commonPages.obStepOf", {
+                      current: meta.index,
+                      total: meta.total - 1,
+                      label: t(`commonPages.${meta.labelKey}`),
+                    })}
                   </p>
                   <div className="h-0.5 rounded-full bg-white/10 overflow-hidden">
                     <motion.div
@@ -170,9 +176,9 @@ export default function Onboarding({ onComplete }) {
                           style={{ fontFamily: "'Anton', sans-serif" }}
                           className="text-2xl italic uppercase tracking-tight text-white mb-1"
                         >
-                          How do you play?
+                          {t("commonPages.obHowPlay")}
                         </h2>
-                        <p className="text-white/40 text-xs">Choose your role — you can add the other later</p>
+                        <p className="text-white/40 text-xs">{t("commonPages.obChooseRole")}</p>
                       </div>
 
                       <div className="space-y-3">
@@ -186,8 +192,8 @@ export default function Onboarding({ onComplete }) {
                               <PlayerIcon />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">Player</p>
-                              <p className="text-white/40 text-xs leading-relaxed">Create a player profile, join a club, sign contracts and compete in tournaments.</p>
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">{t("commonPages.storePlayer")}</p>
+                              <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obPlayerDesc")}</p>
                             </div>
                             <ChevronRight />
                           </div>
@@ -206,8 +212,8 @@ export default function Onboarding({ onComplete }) {
                               <OwnerIcon />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">Club Owner</p>
-                              <p className="text-white/40 text-xs leading-relaxed">Found and manage your own club, sign players and enter tournaments.</p>
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">{t("commonPages.obClubOwner")}</p>
+                              <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obClubOwnerDesc")}</p>
                             </div>
                             <ChevronRight />
                           </div>
@@ -223,16 +229,16 @@ export default function Onboarding({ onComplete }) {
                   {step === "player" && player && (
                     <div className="space-y-5">
                       <div>
-                        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Player Profile Ready</h2>
+                        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obProfileReady")}</h2>
                         <p className="text-white/40 text-xs">
-                          Your player profile already exists ({player.gamertag || user?.email}). Continue to identity verification.
+                          {t("commonPages.obProfileReadyDesc", { name: player.gamertag || user?.email })}
                         </p>
                       </div>
                       <button
                         onClick={() => setStep("identity")}
                         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
                       >
-                        Continue to Verification →
+                        {t("commonPages.obContinueVerification")}
                       </button>
                     </div>
                   )}

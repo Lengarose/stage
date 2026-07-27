@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 import { stageClient, resolveMyPlayerAndClub } from '@/api/stageClient';
 import { cn } from '@/lib/utils';
 import { LIFESTYLE_CATEGORIES, resolveCategory, formatSTC, getAssetImage, LIFESTYLE_TIER_STYLES } from '@/lib/lifestyleItems';
@@ -16,6 +17,7 @@ import { useToast } from '@/components/ui/use-toast';
 const VISIBLE_CATEGORIES = LIFESTYLE_CATEGORIES.filter(c => !c.hidden);
 
 export default function Lifestyle() {
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   const [player, setPlayer]         = useState(null);
@@ -145,7 +147,7 @@ export default function Lifestyle() {
               style={{ transform: 'skewX(-6deg)', transformOrigin: 'left center' }}>
               LIFESTYLE
             </h1>
-            <p className="text-xs text-muted-foreground mt-1">Own, rent, and invest across luxury asset categories.</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("commonPages.lfSubtitle")}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
@@ -212,7 +214,7 @@ export default function Lifestyle() {
             {filteredItems.length === 0 ? (
               <div className="text-center py-20 text-muted-foreground">
                 <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                <p className="text-sm">No assets in this category yet.</p>
+                <p className="text-sm">{t("commonPages.lfNoAssets")}</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -339,20 +341,20 @@ export default function Lifestyle() {
                           <LocationLine purchase={purch} />
                           <div className="text-xs space-y-1">
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Principal</span>
+                              <span className="text-muted-foreground">{t("commonPages.lfPrincipal")}</span>
                               <span className="font-medium">{formatSTC(principal)} STC</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Return</span>
+                              <span className="text-muted-foreground">{t("commonPages.lfReturn")}</span>
                               <span className="font-medium text-emerald-400">+{formatSTC(returns)} STC</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Total payout</span>
+                              <span className="text-muted-foreground">{t("commonPages.lfTotalPayout")}</span>
                               <span className="font-bold text-emerald-400">{formatSTC(principal + returns)} STC</span>
                             </div>
                             {endDate && (
                               <div className="flex justify-between">
-                                <span className="text-muted-foreground">Matures</span>
+                                <span className="text-muted-foreground">{t("commonPages.lfMatures")}</span>
                                 <span className="font-medium">{endDate.toLocaleDateString()}</span>
                               </div>
                             )}
@@ -448,6 +450,7 @@ function EmptyState({ icon: Icon, label, cta, onCta }) {
 }
 
 function OwnedCard({ purch, item, img, tier, canCollect, sellPrice, onSell }) {
+  const { t } = useTranslation();
   const purchasedDate = purch.created_date ? new Date(purch.created_date) : null;
   return (
     <div className={cn('rounded-2xl border overflow-hidden', tier.bg)}>
@@ -469,18 +472,18 @@ function OwnedCard({ purch, item, img, tier, canCollect, sellPrice, onSell }) {
         <LocationLine purchase={purch} />
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Paid</span>
+            <span className="text-muted-foreground">{t("commonPages.lfPaid")}</span>
             <span>{formatSTC(purch.price_paid_stc || item.price_stc || 0)} STC</span>
           </div>
           {purchasedDate && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Acquired</span>
+              <span className="text-muted-foreground">{t("commonPages.lfAcquired")}</span>
               <span>{purchasedDate.toLocaleDateString()}</span>
             </div>
           )}
           {item.weekly_maintenance_stc > 0 && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Upkeep/wk</span>
+              <span className="text-muted-foreground">{t("commonPages.lfUpkeep")}</span>
               <span className="text-orange-400">{formatSTC(item.weekly_maintenance_stc)} STC</span>
             </div>
           )}

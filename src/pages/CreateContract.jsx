@@ -16,15 +16,16 @@ import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-
-const TARGET_TYPES = [
-  { value: "min",   label: "Minimum (≥)" },
-  { value: "exact", label: "Exact (=)" },
-  { value: "range", label: "Range (between)" },
-];
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function CreateContract() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const TARGET_TYPES = [
+    { value: "min",   label: t("commonPages.cccTargetMin") },
+    { value: "exact", label: t("commonPages.cccTargetExact") },
+    { value: "range", label: t("commonPages.cccTargetRange") },
+  ];
   const urlParams = new URLSearchParams(window.location.search);
   const clubId = urlParams.get("club");
 
@@ -152,7 +153,7 @@ export default function CreateContract() {
 
       navigate(`/clubs/${clubId}`);
     } catch (err) {
-      setSendError(`Failed to send contract: ${err?.message || "unknown error"}`);
+      setSendError(t("commonPages.cccSendFailed", { error: err?.message || "unknown error" }));
     } finally {
       setSending(false);
     }
@@ -190,8 +191,8 @@ export default function CreateContract() {
   if (!club) {
     return (
       <div className="max-w-2xl mx-auto p-6 text-center">
-        <p className="text-muted-foreground">Club not found.</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>Go Back</Button>
+        <p className="text-muted-foreground">{t("commonPages.cdClubNotFound")}</p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>{t("commonPages.cccGoBack")}</Button>
       </div>
     );
   }
@@ -201,9 +202,9 @@ export default function CreateContract() {
       <div className="max-w-2xl mx-auto p-6">
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <ShieldAlert className="w-10 h-10 text-destructive mx-auto mb-3" />
-          <h2 className="font-heading text-xl uppercase text-foreground">Access Restricted</h2>
-          <p className="text-sm text-muted-foreground mt-2">Only the club president can create contracts.</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>Go Back</Button>
+          <h2 className="font-heading text-xl uppercase text-foreground">{t("commonPages.cccAccessRestricted")}</h2>
+          <p className="text-sm text-muted-foreground mt-2">{t("commonPages.cccPresidentOnly")}</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>{t("commonPages.cccGoBack")}</Button>
         </div>
       </div>
     );
@@ -218,7 +219,7 @@ export default function CreateContract() {
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-heading text-2xl sm:text-3xl uppercase tracking-wide text-foreground">
-            Create Contract
+            {t("commonPages.cccTitle")}
           </h1>
           <p className="text-sm text-muted-foreground truncate">{club.name}</p>
         </div>
@@ -228,7 +229,7 @@ export default function CreateContract() {
       {/* Step 1: Player Selection */}
       <section className="bg-card border border-border rounded-xl p-5">
         <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
-          1. Select Player
+          {t("commonPages.cccStep1")}
         </h3>
         <PlayerSelectList
           players={players}
@@ -248,16 +249,20 @@ export default function CreateContract() {
             <ShieldAlert className="w-5 h-5 text-warning shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-warning">
-                {selectedPlayer.gamertag} already has a {conflictContract.contract_type} contract ({conflictContract.status})
+                {t("commonPages.cccAlreadyHasContract", {
+                  name: selectedPlayer.gamertag,
+                  type: conflictContract.contract_type,
+                  status: conflictContract.status,
+                })}
               </p>
               <p className="text-xs text-warning/80 mt-1">
-                {conflictContract.start_date && `Started: ${new Date(conflictContract.start_date).toLocaleDateString()} · `}
-                Only one active contract per type group is allowed.
+                {conflictContract.start_date && `${t("commonPages.cccStarted", { date: new Date(conflictContract.start_date).toLocaleDateString() })} · `}
+                {t("commonPages.cccOneActivePerType")}
               </p>
               <p className="text-xs text-warning/80 mt-0.5">
                 {isOwnershipOffer
-                  ? "You can still offer a player contract (squad, star, etc.) alongside an ownership contract."
-                  : "You can still offer an ownership contract alongside a player contract."}
+                  ? t("commonPages.cccStillOfferPlayer")
+                  : t("commonPages.cccStillOfferOwnership")}
               </p>
             </div>
           </div>
@@ -268,7 +273,7 @@ export default function CreateContract() {
       {canProceed && (
         <section className="bg-card border border-border rounded-xl p-5">
           <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
-            2. Choose Contract Type
+            {t("commonPages.cccStep2")}
           </h3>
           <ContractTypeCards selectedType={selectedType} onSelect={setSelectedType} />
         </section>
@@ -278,7 +283,7 @@ export default function CreateContract() {
       {canProceed && (
         <section className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
-            <Coins className="w-3.5 h-3.5" /> 3. Financial Terms (STC)
+            <Coins className="w-3.5 h-3.5" /> {t("commonPages.cccStep3")}
           </h3>
 
           {/* Wage budget warning */}
@@ -287,11 +292,11 @@ export default function CreateContract() {
               <Coins className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", overBudget ? "text-destructive" : wagePct > 70 ? "text-warning" : "text-success")} />
               <div>
                 <p className={cn("text-[10px] font-bold uppercase tracking-wider", overBudget ? "text-destructive" : wagePct > 70 ? "text-warning" : "text-success")}>
-                  {overBudget ? "⛔ Exceeds Wage Budget" : `Wage Budget Usage: ${wagePct}%`}
+                  {overBudget ? t("commonPages.cccExceedsWage") : t("commonPages.cccWageUsage", { pct: wagePct })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Club wage budget: {(club.wage_budget_stc / 1_000_000).toFixed(1)}M STC/wk
-                  {overBudget && " — reduce the salary to proceed"}
+                  {t("commonPages.cccClubWageBudget", { amount: (club.wage_budget_stc / 1_000_000).toFixed(1) })}
+                  {overBudget && t("commonPages.cccReduceSalary")}
                 </p>
               </div>
             </div>
@@ -302,14 +307,14 @@ export default function CreateContract() {
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20">
               <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
               <div>
-                <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Suggested Salary Range</p>
+                <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{t("commonPages.cccSuggestedSalary")}</p>
                 <p className="text-xs text-foreground font-light mt-0.5">
-                  {formatSTC(salarySuggestion.min)} – {formatSTC(salarySuggestion.max)} / week
+                  {formatSTC(salarySuggestion.min)} – {formatSTC(salarySuggestion.max)} {t("commonPages.cccPerWeek")}
                   <span className="text-muted-foreground ml-1">
                     ({salarySuggestion.label}
                     {salarySuggestion.based_on_value
-                      ? ` · based on ${formatSTC(selectedPlayer.market_value_stc)} market value`
-                      : ` · OVR ${selectedPlayer.overall_rating}`})
+                      ? ` ${t("commonPages.cccBasedOnValue", { value: formatSTC(selectedPlayer.market_value_stc) })}`
+                      : ` ${t("commonPages.cccBasedOnOvr", { ovr: selectedPlayer.overall_rating })}`})
                   </span>
                 </p>
               </div>
@@ -319,35 +324,35 @@ export default function CreateContract() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                <Coins className="w-3 h-3 text-success" /> Weekly Salary
+                <Coins className="w-3 h-3 text-success" /> {t("commonPages.cccWeeklySalary")}
               </label>
               <input
                 type="number" value={weeklySalary} onChange={e => setWeeklySalary(e.target.value)}
                 placeholder="e.g. 50000" min="0"
                 className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Paid monthly</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidMonthly")}</p>
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                <Coins className="w-3 h-3 text-warning" /> Signing Bonus
+                <Coins className="w-3 h-3 text-warning" /> {t("commonPages.cccSigningBonus")}
               </label>
               <input
                 type="number" value={signingBonus} onChange={e => setSigningBonus(e.target.value)}
                 placeholder="e.g. 5000" min="0"
                 className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Paid on signing</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidOnSigning")}</p>
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">Captaincy</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">{t("commonPages.cccCaptaincy")}</label>
               <button
                 onClick={() => setCaptaincy(!captaincy)}
                 className={cn("w-full px-3 py-2 rounded-lg border text-sm transition-all text-left",
                   captaincy ? "bg-warning/10 border-warning/30 text-warning font-semibold" : "bg-secondary border-border text-muted-foreground"
                 )}
               >
-                {captaincy ? "✓ Captain role offered" : "No captaincy"}
+                {captaincy ? t("commonPages.cccCaptainOffered") : t("commonPages.cccNoCaptaincy")}
               </button>
             </div>
           </div>
@@ -362,7 +367,7 @@ export default function CreateContract() {
             className="w-full flex items-center justify-between text-left"
           >
             <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
-              <Target className="w-3.5 h-3.5" /> 4. Performance Targets
+              <Target className="w-3.5 h-3.5" /> {t("commonPages.cccStep4")}
               {targets.length > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">{targets.length}</span>
               )}
@@ -391,7 +396,7 @@ export default function CreateContract() {
                       onChange={e => updateTarget(idx, "type", e.target.value)}
                       className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     >
-                      {TARGET_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      {TARGET_TYPES.map((tt) => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
                     </select>
                     <button onClick={() => removeTarget(idx)} className="text-destructive hover:text-destructive/80 p-1">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -401,7 +406,7 @@ export default function CreateContract() {
                     <input
                       type="number" value={target.value}
                       onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
-                      placeholder={target.type === "range" ? "Min" : "Value"}
+                      placeholder={target.type === "range" ? t("commonPages.cccMin") : t("commonPages.cccValue")}
                       className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     />
                     {target.type === "range" && (
@@ -410,7 +415,7 @@ export default function CreateContract() {
                         <input
                           type="number" value={target.value_max || ""}
                           onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
-                          placeholder="Max"
+                          placeholder={t("commonPages.cccMax")}
                           className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         />
                       </>
@@ -422,7 +427,7 @@ export default function CreateContract() {
                 onClick={addTarget}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Target
+                <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccAddTarget")}
               </button>
             </div>
           )}
@@ -433,7 +438,7 @@ export default function CreateContract() {
       {canProceed && (
         <section>
           <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
-            5. Review
+            {t("commonPages.cccStep5")}
           </h3>
           <ContractSummary player={selectedPlayer} contractType={selectedType} />
         </section>
@@ -443,13 +448,13 @@ export default function CreateContract() {
       {canProceed && (
         <section className="bg-card border border-border rounded-xl p-5">
           <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
-            6. Message (optional)
+            {t("commonPages.cccStep6")}
           </h3>
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="bg-secondary border-border"
-            placeholder="Add a message for the player..."
+            placeholder={t("commonPages.cccNotePlaceholder")}
             rows={3}
           />
         </section>
@@ -466,7 +471,7 @@ export default function CreateContract() {
       {canProceed && (
         <div className="flex items-center gap-3 pt-2">
           <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => navigate(-1)}>
-            Cancel
+            {t("commonPages.cancel")}
           </Button>
           <Button
             className="flex-1 sm:flex-none bg-primary text-primary-foreground gap-2"
@@ -474,7 +479,7 @@ export default function CreateContract() {
             disabled={sending}
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {sending ? "Sending..." : "Send Contract Offer"}
+            {sending ? t("commonPages.cdSending") : t("commonPages.sendContractOffer")}
           </Button>
         </div>
       )}

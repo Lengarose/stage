@@ -14,17 +14,19 @@ import { LEAGUE_DEFINITIONS } from "@/lib/qualificationConfig";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { openMatchdayWindows } from "@/lib/scheduleEngine";
 import { swalAlert, swalConfirm } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const SCHEDULING_BADGE = {
-  open:          { label: "Awaiting",   cls: "text-muted-foreground border-border"           },
-  home_proposed: { label: "Proposed",   cls: "text-primary border-primary/30"                },
-  away_proposed: { label: "Counter",    cls: "text-warning border-warning/30"                },
-  confirmed:     { label: "Confirmed",  cls: "text-success border-success/30"                },
-  expired:       { label: "Expired",    cls: "text-destructive border-destructive/30"        },
-  admin_review:  { label: "Review",     cls: "text-warning border-warning/30"                },
+  open:          { key: "ldStatusAwaiting",  cls: "text-muted-foreground border-border"           },
+  home_proposed: { key: "ldStatusProposed",  cls: "text-primary border-primary/30"                },
+  away_proposed: { key: "ldStatusCounter",   cls: "text-warning border-warning/30"                },
+  confirmed:     { key: "ldStatusConfirmed", cls: "text-success border-success/30"                },
+  expired:       { key: "ldStatusExpired",   cls: "text-destructive border-destructive/30"        },
+  admin_review:  { key: "ldStatusReview",    cls: "text-warning border-warning/30"                },
 };
 
 export default function LeagueDetail() {
+  const { t } = useTranslation();
   const { slug }   = useParams();
   const navigate    = useNavigate();
   const [league,   setLeague]   = useState(null);
@@ -200,8 +202,8 @@ export default function LeagueDetail() {
   if (!league) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-muted-foreground">League not found.</p>
-        <Link to="/competitions"><Button variant="outline" size="sm">Back to Competitions</Button></Link>
+        <p className="text-muted-foreground">{t("commonPages.ldNotFound")}</p>
+        <Link to="/competitions"><Button variant="outline" size="sm">{t("commonPages.ldBackToCompetitions")}</Button></Link>
       </div>
     );
   }
@@ -286,15 +288,15 @@ export default function LeagueDetail() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { label: "Clubs", value: `${standings.length}/${league.max_clubs || 16}`, icon: Shield },
-                { label: "Fixtures", value: fixtures.length, icon: Calendar },
-                { label: "Played", value: playedFixtures.length, icon: Check },
-                { label: "Scheduled", value: scheduledFixtures.length, icon: Zap },
+                { key: "nav.clubs", value: `${standings.length}/${league.max_clubs || 16}`, icon: Shield },
+                { key: "commonPages.ldFixtures", value: fixtures.length, icon: Calendar },
+                { key: "commonPages.ldPlayed", value: playedFixtures.length, icon: Check },
+                { key: "commonPages.ldScheduled", value: scheduledFixtures.length, icon: Zap },
               ].map(item => (
-                <div key={item.label} className="bg-card border border-border rounded-xl p-4">
+                <div key={item.key} className="bg-card border border-border rounded-xl p-4">
                   <item.icon className="w-4 h-4 text-primary mb-3" />
                   <p className="font-heading text-3xl text-foreground">{item.value}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{item.label}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{t(item.key)}</p>
                 </div>
               ))}
             </div>
@@ -303,7 +305,7 @@ export default function LeagueDetail() {
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Trophy className="w-4 h-4 text-warning" />
-                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">League Leader</h2>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("commonPages.ldLeagueLeader")}</h2>
                 </div>
                 {leader ? (
                   <div className="flex items-center justify-between gap-3">
@@ -321,14 +323,14 @@ export default function LeagueDetail() {
                     <p className="font-heading text-4xl text-primary">{leader.points || 0}</p>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No leader yet.</p>
+                  <p className="text-sm text-muted-foreground">{t("commonPages.ldNoLeader")}</p>
                 )}
               </div>
 
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar className="w-4 h-4 text-primary" />
-                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">Your Club Fixtures</h2>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("commonPages.ldYourFixtures")}</h2>
                 </div>
                 {myClub && myFixtures.length ? (
                   <div className="space-y-2">
@@ -355,7 +357,7 @@ export default function LeagueDetail() {
               <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-warning">Schema not published</p>
+                  <p className="text-xs font-semibold text-warning">{t("commonPages.ldSchemaNotPublished")}</p>
                   <p className="text-[11px] text-muted-foreground">
                     Publish <code className="font-mono bg-secondary px-1 rounded">RegionalLeagueFixture</code> on{" "}
                     <span className="text-foreground">app.stageClient.com</span> to enable fixture generation and scheduling.
@@ -366,7 +368,7 @@ export default function LeagueDetail() {
             {fixtures.length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-12 text-center space-y-3">
                 <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm text-muted-foreground">No fixtures yet.</p>
+                <p className="text-sm text-muted-foreground">{t("commonPages.ldNoFixtures")}</p>
                 {isAdmin && standings.length >= 2 && (
                   <Button size="sm" onClick={handleGenerateFixtures} disabled={generating}
                     className="bg-primary text-primary-foreground gap-1.5 text-xs">
@@ -450,7 +452,7 @@ export default function LeagueDetail() {
         {tab === "club stats" && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             {clubStatsRows.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">No club stats yet.</div>
+              <div className="p-10 text-center text-muted-foreground text-sm">{t("commonPages.ldNoClubStats")}</div>
             ) : (
               <table className="w-full text-xs">
                 <thead>
@@ -485,7 +487,7 @@ export default function LeagueDetail() {
         {tab === "player stats" && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             {topScorers.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">No player stats yet. Stats appear after Game Day results are submitted.</div>
+              <div className="p-10 text-center text-muted-foreground text-sm">{t("commonPages.ldNoPlayerStats")}</div>
             ) : (
               <table className="w-full text-xs">
                 <thead>
@@ -524,7 +526,7 @@ export default function LeagueDetail() {
         {tab === "standings" && (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             {sortedStandings.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">No standings yet.</div>
+              <div className="p-10 text-center text-muted-foreground text-sm">{t("commonPages.ldNoStandings")}</div>
             ) : (
               <table className="w-full text-xs">
                 <thead>
@@ -537,7 +539,7 @@ export default function LeagueDetail() {
                     <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">L</th>
                     <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">GD</th>
                     <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">Pts</th>
-                    <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Zone</th>
+                    <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">{t("commonPages.ldZone")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -719,7 +721,7 @@ function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate, onOpenGame
 
         {/* Status badge */}
         <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", badge.cls)}>
-          {badge.label}
+          {t(`commonPages.${badge.key}`)}
         </span>
 
         {canOpenGameDay && (

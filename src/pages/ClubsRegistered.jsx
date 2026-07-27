@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ClubsRegistered({ overrideTournamentId } = {}) {
+  const { t } = useTranslation();
   const params = useParams();
   const id = overrideTournamentId || params.id;
   const navigate = useNavigate();
@@ -60,7 +62,7 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
     await stageClient.entities.Tournament.update(id, { registered_clubs: [...selected] });
     setTournament(prev => ({ ...prev, registered_clubs: [...selected] }));
     setSaving(false);
-    await swalAlert("Participants saved!");
+    await swalAlert(t("commonPages.crSaved"));
   }
 
   const regions = [...new Set(allClubs.map(c => c.region).filter(Boolean))];
@@ -84,26 +86,26 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
   return (
     <div className="p-6 lg:p-10 max-w-5xl mx-auto">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
-        <ArrowLeft className="w-4 h-4" /> Back
+        <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
       </button>
 
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" /> Add Participants — Clubs
+            <Users className="w-6 h-6 text-primary" /> {t("commonPages.crAddClubs")}
           </h1>
           <p className="font-subtitle text-sm text-muted-foreground mt-1">
-            {tournament?.name} · <span className={cn("font-semibold", isFull ? "text-destructive" : "text-success")}>{selected.size}/{maxTeams} slots filled</span>
+            {tournament?.name} · <span className={cn("font-semibold", isFull ? "text-destructive" : "text-success")}>{t("commonPages.crSlotsFilled", { filled: selected.size, max: maxTeams })}</span>
           </p>
         </div>
         <Button onClick={save} disabled={saving} className="bg-primary text-primary-foreground gap-2">
-          <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Participants"}
+          <Save className="w-4 h-4" /> {saving ? t("commonPages.profSaving") : t("commonPages.crSaveParticipants")}
         </Button>
       </div>
 
       {isFull && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium">
-          🔒 Tournament is full ({maxTeams}/{maxTeams}). Remove a club to add another.
+          {t("commonPages.crTournamentFull", { max: maxTeams })}
         </div>
       )}
 
@@ -111,13 +113,13 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search club or tag..." className="pl-9 bg-secondary border-border" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("commonPages.crSearchPlaceholder")} className="pl-9 bg-secondary border-border" />
         </div>
         {regions.length > 0 && (
           <Select value={filterRegion} onValueChange={setFilterRegion}>
-            <SelectTrigger className="w-40 bg-secondary border-border"><SelectValue placeholder="Region" /></SelectTrigger>
+            <SelectTrigger className="w-40 bg-secondary border-border"><SelectValue placeholder={t("commonPages.profRegion")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Regions</SelectItem>
+              <SelectItem value="all">{t("commonPages.allRegions")}</SelectItem>
               {regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -130,10 +132,10 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50">
               <th className="w-10 px-4 py-3"></th>
-              <th className="text-left px-4 py-3">Club</th>
-              <th className="hidden sm:table-cell px-3 py-3 text-left">Region</th>
+              <th className="text-left px-4 py-3">{t("nav.club")}</th>
+              <th className="hidden sm:table-cell px-3 py-3 text-left">{t("commonPages.profRegion")}</th>
               <th className="hidden md:table-cell px-3 py-3 text-center">W/D/L</th>
-              <th className="px-3 py-3 text-center">Status</th>
+              <th className="px-3 py-3 text-center">{t("commonPages.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -180,8 +182,8 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
                   </td>
                   <td className="px-3 py-3 text-center">
                     {isSelected
-                      ? <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20">Registered</span>
-                      : <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary text-muted-foreground border border-border">Add</span>
+                      ? <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20">{t("commonPages.crRegistered")}</span>
+                      : <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-secondary text-muted-foreground border border-border">{t("commonPages.crAdd")}</span>
                     }
                   </td>
                 </tr>
@@ -191,13 +193,13 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
         </table>
         {hasMore && (
           <div className="p-4 text-center border-t border-border">
-            <Button variant="outline" onClick={() => setPage(p => p + 1)}>Load More</Button>
+            <Button variant="outline" onClick={() => setPage(p => p + 1)}>{t("commonPages.crLoadMore")}</Button>
           </div>
         )}
         {filtered.length === 0 && (
           <div className="p-12 text-center">
             <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No clubs found.</p>
+            <p className="text-muted-foreground text-sm">{t("commonPages.noClubsFound")}</p>
           </div>
         )}
       </div>

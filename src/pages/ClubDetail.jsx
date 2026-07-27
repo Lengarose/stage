@@ -35,6 +35,7 @@ import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabin
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 import { useChatChannel } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuth } from "@/lib/AuthContext";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
 import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
@@ -46,10 +47,16 @@ const POSITION_OPTIONS = [
 
 const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
 
-export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId } = {}) {
+export default function ClubDetail({ overrideClubId, tournamentId = null } = {}) {
   const { t } = useTranslation();
+  const { user: authUser } = useAuth();
   const params = useParams();
   const id = overrideClubId || params.id;
+  const limitedTournamentId =
+    tournamentId ||
+    (authUser?.access_mode === "tournament_limited" ? authUser?.limited_tournament_id : null) ||
+    null;
+  const clubsListPath = limitedTournamentId ? "/tournaments/clubs" : "/clubs";
   const [club, setClub] = useState(null);
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -486,7 +493,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
     await stageClient.functions.invoke("deleteClub", { club_id: id });
     setDeleting(false);
     setDeleteDialogOpen(false);
-    navigate("/clubs");
+    navigate(clubsListPath);
   }
 
   async function saveLogo(localUrl, position, _zoom) {
@@ -512,7 +519,7 @@ export default function ClubDetail({ overrideClubId, tournamentId: _tournamentId
   }
 
   if (!club) {
-    return <div className="p-6 text-center"><p className="text-white/50">{t("commonPages.cdClubNotFound")}</p><Link to="/clubs"><Button variant="outline" className="mt-4">{t("commonPages.profBack")}</Button></Link></div>;
+    return <div className="p-6 text-center"><p className="text-white/50">{t("commonPages.cdClubNotFound")}</p><Link to={clubsListPath}><Button variant="outline" className="mt-4">{t("commonPages.profBack")}</Button></Link></div>;
   }
 
   const confirmedMatches = matches.filter(m => m.status === "completed");

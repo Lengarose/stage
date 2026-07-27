@@ -5,19 +5,21 @@ import { ArrowLeft, Shield, Users, Trophy, Swords, Star, TrendingUp, ChevronUp, 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-const PLATFORMS = [
-  { value: "common-gen5", label: "PS5 / Xbox Series X" },
-  { value: "common-gen4", label: "PS4 / Xbox One" },
-  { value: "nx", label: "Nintendo Switch" },
-];
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function EAFCClub() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const urlParams = new URLSearchParams(window.location.search);
   const initClubId = urlParams.get("clubId");
   const initPlatform = urlParams.get("platform") || "common-gen5";
   const initClubName = urlParams.get("name") || "";
+
+  const PLATFORMS = [
+    { value: "common-gen5", label: t("commonPages.eafcPlatformGen5") },
+    { value: "common-gen4", label: t("commonPages.eafcPlatformGen4") },
+    { value: "nx", label: t("commonPages.eafcPlatformNx") },
+  ];
 
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState(initPlatform);
@@ -51,9 +53,9 @@ export default function EAFCClub() {
       const clubs = await searchClub(query.trim(), platform);
       const list = Array.isArray(clubs) ? clubs : [];
       setSearchResults(list);
-      if (list.length === 0) setSearchError("No clubs found. Try a different name or platform.");
+      if (list.length === 0) setSearchError(t("commonPages.eafcNoClubs"));
     } catch (e) {
-      setSearchError(e.message || "Search failed. EA servers may be unreachable.");
+      setSearchError(e.message || t("commonPages.eafcSearchFailed"));
     }
     setSearching(false);
   }
@@ -68,7 +70,7 @@ export default function EAFCClub() {
       const data = await getClubDashboard(id, plt || platform);
       setDashboard(data);
     } catch (e) {
-      setDashError(e.message || "Failed to load club data.");
+      setDashError(e.message || t("commonPages.eafcLoadFailed"));
     }
     setLoadingDash(false);
   }
@@ -102,20 +104,26 @@ export default function EAFCClub() {
   const club = dashboard?.club;
   const stats = club?.seasons?.[0] || {};
 
+  const memberCols = [
+    { key: "gamesPlayed", label: t("commonPages.eafcGp") },
+    { key: "goals", label: t("commonPages.goals") },
+    { key: "assists", label: t("commonPages.assists") },
+    { key: "mom", label: t("commonPages.eafcMom") },
+    { key: "ratingAve", label: t("commonPages.prRating") },
+  ];
+
   return (
     <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="font-heading text-3xl font-bold text-foreground">EA FC CLUB LOOKUP</h1>
-          <p className="font-subtitle text-sm text-muted-foreground">Search and explore real Pro Clubs data</p>
+          <h1 className="font-heading text-3xl font-bold text-foreground">{t("commonPages.eafcTitle")}</h1>
+          <p className="font-subtitle text-sm text-muted-foreground">{t("commonPages.eafcSubtitle")}</p>
         </div>
       </div>
 
-      {/* Search */}
       <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
         <div className="flex gap-3">
           <select
@@ -131,24 +139,24 @@ export default function EAFCClub() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && doSearch()}
-              placeholder="Search club name..."
+              placeholder={t("commonPages.eafcSearchPlaceholder")}
               className="pl-10 bg-secondary border-border"
             />
           </div>
-          <Button onClick={doSearch} disabled={searching || !query.trim()} className="bg-primary text-primary-foreground font-heading shrink-0">
-            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
+          <Button type="button" onClick={doSearch} disabled={searching || !query.trim()} className="bg-primary text-primary-foreground font-heading shrink-0">
+            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : t("commonPages.searchCta")}
           </Button>
         </div>
 
         {searchResults.length > 0 && (
           <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
             {searchResults.map((c, i) => (
-              <button key={c.clubId || i} onClick={() => selectClub(c)}
+              <button type="button" key={c.clubId || i} onClick={() => selectClub(c)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition-colors text-left">
                 <Shield className="w-5 h-5 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-heading font-bold text-foreground text-sm truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">ID: {c.clubId} · Members: {c.memberCount || "?"}</p>
+                  <p className="text-xs text-muted-foreground">{t("commonPages.eafcResultMeta", { id: c.clubId, count: c.memberCount || "?" })}</p>
                 </div>
                 {c.seasons?.[0] && (
                   <span className="text-xs text-success shrink-0">
@@ -168,10 +176,10 @@ export default function EAFCClub() {
 
         {!searching && searchResults.length === 0 && !searchError && searchHistory.length > 0 && (
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Recent searches</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{t("commonPages.eafcRecent")}</p>
             <div className="flex flex-wrap gap-2">
               {searchHistory.map(h => (
-                <button key={h.id} onClick={() => { setClubName(h.name); loadDashboard(h.id, h.platform); }}
+                <button type="button" key={h.id} onClick={() => { setClubName(h.name); loadDashboard(h.id, h.platform); }}
                   className="text-xs px-3 py-1.5 rounded-full bg-secondary border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors">
                   {h.name}
                 </button>
@@ -184,7 +192,7 @@ export default function EAFCClub() {
       {loadingDash && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Fetching club data from EA servers…</p>
+          <p className="text-sm text-muted-foreground">{t("commonPages.eafcFetching")}</p>
         </div>
       )}
 
@@ -192,13 +200,12 @@ export default function EAFCClub() {
         <div className="bg-card border border-destructive/30 rounded-2xl p-6 text-center space-y-2">
           <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
           <p className="text-destructive font-medium">{dashError}</p>
-          <Button variant="outline" onClick={() => loadDashboard(clubId, platform)} className="border-border">Retry</Button>
+          <Button type="button" variant="outline" onClick={() => loadDashboard(clubId, platform)} className="border-border">{t("commonPages.eafcRetry")}</Button>
         </div>
       )}
 
       {dashboard && !loadingDash && (
         <div className="space-y-5">
-          {/* Club Info */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-start gap-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -207,22 +214,22 @@ export default function EAFCClub() {
               <div className="flex-1">
                 <h2 className="font-heading text-2xl font-bold text-foreground">{club?.name || clubName}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {club?.clubInfo?.clubAbbr && <span className="text-primary font-mono">[{club.clubInfo.clubAbbr}]</span>} · Division {club?.divisionOffset || "?"} · {PLATFORMS.find(p => p.value === platform)?.label}
+                  {club?.clubInfo?.clubAbbr && <span className="text-primary font-mono">[{club.clubInfo.clubAbbr}]</span>} · {t("commonPages.eafcDivision", { n: club?.divisionOffset || "?" })} · {PLATFORMS.find(p => p.value === platform)?.label}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-              <StatBox icon={Trophy} label="Wins" value={stats.wins || club?.wins || 0} color="text-success" />
-              <StatBox icon={Swords} label="Losses" value={stats.losses || club?.losses || 0} color="text-destructive" />
-              <StatBox icon={Star} label="Draws" value={stats.draws || club?.draws || 0} color="text-warning" />
-              <StatBox icon={Users} label="Members" value={club?.memberCount || dashboard.members?.length || 0} color="text-primary" />
+              <StatBox icon={Trophy} label={t("commonPages.profWins")} value={stats.wins || club?.wins || 0} color="text-success" />
+              <StatBox icon={Swords} label={t("commonPages.profLosses")} value={stats.losses || club?.losses || 0} color="text-destructive" />
+              <StatBox icon={Star} label={t("commonPages.cdDraws")} value={stats.draws || club?.draws || 0} color="text-warning" />
+              <StatBox icon={Users} label={t("commonPages.dashboardEafcMembers")} value={club?.memberCount || dashboard.members?.length || 0} color="text-primary" />
             </div>
 
             {(stats.wins || stats.losses || stats.draws) && (
               <div className="mt-4">
                 <div className="flex text-xs text-muted-foreground justify-between mb-1">
-                  <span>Win rate</span>
+                  <span>{t("commonPages.eafcWinRate")}</span>
                   <span>{Math.round(((stats.wins || 0) / Math.max(1, (stats.wins || 0) + (stats.losses || 0) + (stats.draws || 0))) * 100)}%</span>
                 </div>
                 <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
@@ -235,26 +242,19 @@ export default function EAFCClub() {
             )}
           </div>
 
-          {/* Members */}
           {dashboard.members?.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" /> Members ({dashboard.members.length})
+                  <Users className="w-5 h-5 text-primary" /> {t("commonPages.eafcMembers", { count: dashboard.members.length })}
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">Player</th>
-                      {[
-                        { key: "gamesPlayed", label: "GP" },
-                        { key: "goals", label: "Goals" },
-                        { key: "assists", label: "Assists" },
-                        { key: "mom", label: "MoM" },
-                        { key: "ratingAve", label: "Rating" },
-                      ].map(col => (
+                      <th className="text-left px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">{t("commonPages.prPlayer")}</th>
+                      {memberCols.map(col => (
                         <th key={col.key}
                           className="text-center px-3 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium cursor-pointer hover:text-foreground select-none"
                           onClick={() => toggleSort(col.key)}>
@@ -271,7 +271,7 @@ export default function EAFCClub() {
                   <tbody>
                     {sortedMembers.map((m, i) => (
                       <tr key={m.name || i} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                        <td className="px-5 py-3 font-medium text-foreground">{m.name || m.gamertag || "Unknown"}</td>
+                        <td className="px-5 py-3 font-medium text-foreground">{m.name || m.gamertag || t("commonPages.homeUnknown")}</td>
                         <td className="px-3 py-3 text-center text-muted-foreground">{m.gamesPlayed || 0}</td>
                         <td className="px-3 py-3 text-center text-success font-bold">{m.goals || 0}</td>
                         <td className="px-3 py-3 text-center text-primary">{m.assists || 0}</td>
@@ -289,30 +289,29 @@ export default function EAFCClub() {
             </div>
           )}
 
-          {/* Career Stats */}
           {dashboard.career?.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-accent" /> Career Stats
+                  <TrendingUp className="w-5 h-5 text-accent" /> {t("commonPages.eafcCareerStats")}
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">Player</th>
-                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">Games</th>
-                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">Goals</th>
-                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">Assists</th>
-                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">Wins</th>
-                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">CS</th>
+                      <th className="text-left px-5 py-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">{t("commonPages.prPlayer")}</th>
+                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">{t("commonPages.eafcGames")}</th>
+                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">{t("commonPages.goals")}</th>
+                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">{t("commonPages.assists")}</th>
+                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">{t("commonPages.profWins")}</th>
+                      <th className="text-center px-3 py-3 text-xs text-muted-foreground uppercase">{t("commonPages.eafcCs")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dashboard.career.slice(0, 20).map((m, i) => (
                       <tr key={m.name || i} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                        <td className="px-5 py-3 font-medium text-foreground">{m.name || "Unknown"}</td>
+                        <td className="px-5 py-3 font-medium text-foreground">{m.name || t("commonPages.homeUnknown")}</td>
                         <td className="px-3 py-3 text-center text-muted-foreground">{m.gamesPlayed || 0}</td>
                         <td className="px-3 py-3 text-center text-success font-bold">{m.goals || 0}</td>
                         <td className="px-3 py-3 text-center text-primary">{m.assists || 0}</td>
@@ -326,12 +325,11 @@ export default function EAFCClub() {
             </div>
           )}
 
-          {/* Matches */}
           {dashboard.matches?.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <Swords className="w-5 h-5 text-destructive" /> Recent Matches ({dashboard.matches.length})
+                  <Swords className="w-5 h-5 text-destructive" /> {t("commonPages.eafcRecentMatches", { count: dashboard.matches.length })}
                 </h3>
               </div>
               <div className="divide-y divide-border">
@@ -343,7 +341,7 @@ export default function EAFCClub() {
                   const oppEntry = clubs[oppId];
                   const myScore = myEntry?.score ?? "?";
                   const oppScore = oppEntry?.score ?? "?";
-                  const oppName = oppEntry?.details?.name || `Club ${oppId}`;
+                  const oppName = oppEntry?.details?.name || t("commonPages.eafcClubFallback", { id: oppId });
                   const won = Number(myScore) > Number(oppScore);
                   const drew = myScore === oppScore;
                   return (
@@ -354,7 +352,7 @@ export default function EAFCClub() {
                         {won ? "W" : drew ? "D" : "L"}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">vs {oppName}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{t("commonPages.eafcVs", { name: oppName })}</p>
                         <p className="text-xs text-muted-foreground capitalize">{m.matchType || "match"}</p>
                       </div>
                       <p className="font-heading font-bold text-lg text-foreground shrink-0">
@@ -366,9 +364,9 @@ export default function EAFCClub() {
               </div>
               {totalMatchPages > 1 && (
                 <div className="px-5 py-3 flex items-center justify-between border-t border-border">
-                  <Button variant="outline" size="sm" disabled={matchPage === 0} onClick={() => setMatchPage(p => p - 1)} className="border-border text-xs">Previous</Button>
+                  <Button type="button" variant="outline" size="sm" disabled={matchPage === 0} onClick={() => setMatchPage(p => p - 1)} className="border-border text-xs">{t("commonPages.eafcPrevious")}</Button>
                   <span className="text-xs text-muted-foreground">{matchPage + 1} / {totalMatchPages}</span>
-                  <Button variant="outline" size="sm" disabled={matchPage >= totalMatchPages - 1} onClick={() => setMatchPage(p => p + 1)} className="border-border text-xs">Next</Button>
+                  <Button type="button" variant="outline" size="sm" disabled={matchPage >= totalMatchPages - 1} onClick={() => setMatchPage(p => p + 1)} className="border-border text-xs">{t("competitionFlow.next")}</Button>
                 </div>
               )}
             </div>
@@ -376,7 +374,7 @@ export default function EAFCClub() {
 
           {dashboard.members?.length === 0 && dashboard.matches?.length === 0 && (
             <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
-              Club found but no detailed data available.
+              {t("commonPages.eafcNoDetail")}
             </div>
           )}
         </div>

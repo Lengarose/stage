@@ -74,13 +74,22 @@ function getProfileRoleBadges(player, club, user) {
 }
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
-export default function Profile() {
+export default function Profile({
+  tournamentMode = false,
+  tournamentId = null,
+  initialView = "profile",
+} = {}) {
   const { t } = useTranslation();
   const _navigate = useNavigate();
-  const [view, setView] = useState("profile"); // default: public profile view
+  const [view, setView] = useState(initialView);
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
+  const homePath = tournamentMode && tournamentId ? `/tournaments/${tournamentId}` : "/dashboard";
+  const homeLabel = tournamentMode ? t("nav.tournament") : t("nav.dashboard");
+  const myClubHref = myClub?.id
+    ? (tournamentMode ? "/tournaments/profile-club" : `/clubs/${myClub.id}`)
+    : null;
   const [_clubs, setClubs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
@@ -122,6 +131,10 @@ export default function Profile() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [futMatches, setFutMatches] = useState([]);
   const [eafcSummary, setEafcSummary] = useState(null);
+
+  useEffect(() => {
+    setView(initialView);
+  }, [initialView]);
 
   useEffect(() => {
     let alive = true;
@@ -420,15 +433,23 @@ export default function Profile() {
           )}
           sideActions={(
             <>
-              <Link to="/dashboard">
+              <Link to={homePath}>
                 <Button type="button" size="sm" className="font-heading uppercase text-xs bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black">
-                  {t("nav.dashboard")}
+                  {homeLabel}
                 </Button>
               </Link>
               {myClub ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
-                  <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
-                </Button>
+                tournamentMode && myClubHref ? (
+                  <Link to={myClubHref}>
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
+                      <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button type="button" size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
+                    <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
+                  </Button>
+                )
               ) : null}
             </>
           )}
@@ -873,7 +894,7 @@ export default function Profile() {
                 <StatBox label={t("commonPages.profTrophies")} value={myClub.trophies || 0} accent="accent" />
               </div>
               <div className="flex gap-3 flex-wrap">
-                <Link to={`/clubs/${myClub.id}`}>
+                <Link to={myClubHref || `/clubs/${myClub.id}`}>
                   <Button className="bg-primary text-primary-foreground gap-1.5">
                     <Shield className="w-4 h-4" /> {t("commonPages.profViewClubPage")}
                   </Button>

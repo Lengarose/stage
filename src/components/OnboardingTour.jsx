@@ -1,72 +1,75 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Shield, Coins, FileText, X, ChevronLeft, ChevronRight, Users, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/hooks/useTranslation";
 
-const STEPS = [
-  {
-    icon: Shield,
-    iconColor: "text-primary",
-    iconBg: "bg-primary/20",
-    title: "Welcome to STAGE",
-    subtitle: "Your football career starts here",
-    description: "STAGE is a competitive football management platform where you play, manage, and grow. Here's a quick overview of how everything works.",
-    image: "https://images.unsplash.com/photo-1459865264687-595d652de67e?w=600&q=80",
-  },
-  {
-    icon: Shield,
-    iconColor: "text-primary",
-    iconBg: "bg-primary/20",
-    title: "Your Club",
-    subtitle: "Budget • Squad • Trophies",
-    description: "Your club starts with 50,000 STC (Stage Currency). Use it to sign players, pay salaries, and build your squad. Manage your transfer budget and wage budget wisely.",
-    image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&q=80",
-    highlight: "50,000 STC starting budget",
-  },
-  {
-    icon: Coins,
-    iconColor: "text-success",
-    iconBg: "bg-success/20",
-    title: "Two Currencies",
-    subtitle: "Credits vs STC",
-    description: "STAGE has two separate currencies. Credits are used for platform features like tournaments and subscriptions. STC (Stage Currency) is the in-game economy — used for salaries, transfers, and lifestyle.",
-    image: null,
-    split: [
-      { label: "Credits", desc: "Platform features, tournaments, subscriptions", color: "text-warning", icon: "🏆" },
-      { label: "STC", desc: "Salaries, transfers, lifestyle, club economy", color: "text-success", icon: "💰" },
-    ],
-  },
-  {
-    icon: FileText,
-    iconColor: "text-purple-400",
-    iconBg: "bg-purple-500/20",
-    title: "Contracts & Transfers",
-    subtitle: "Sign players. Negotiate terms.",
-    description: "Offer contracts to players with weekly salaries, signing bonuses, and performance targets. Players can accept, reject, or counter-offer. Transfers execute when the transfer window opens.",
-    image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=80",
-    highlight: "Salaries paid monthly in real time",
-  },
-  {
-    icon: TrendingUp,
-    iconColor: "text-warning",
-    iconBg: "bg-warning/20",
-    title: "Player Market Value",
-    subtitle: "Your rating drives your worth",
-    description: "Every player has a market value based on their overall rating, goals, assists, and match performance. Higher value means better contract negotiations and more leverage in the transfer market.",
-    image: "https://images.unsplash.com/photo-1551958219-acbc630e2914?w=600&q=80",
-    highlight: "Better stats = higher value",
-  },
-  {
-    icon: Users,
-    iconColor: "text-primary",
-    iconBg: "bg-primary/20",
-    title: "Lifestyle",
-    subtitle: "Spend your STC. Build your empire.",
-    description: "Earn STC through salaries and performance. Spend it on real estate, vehicles, clothing, and events. Some assets generate passive STC income over time.",
-    image: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600&q=80",
-    highlight: "Some properties earn passive income",
-  },
-];
+function useSteps(t) {
+  return useMemo(() => [
+    {
+      icon: Shield,
+      iconColor: "text-primary",
+      iconBg: "bg-primary/20",
+      title: t("commonPages.otWelcomeTitle"),
+      subtitle: t("commonPages.otWelcomeSubtitle"),
+      description: t("commonPages.otWelcomeDesc"),
+      image: "https://images.unsplash.com/photo-1459865264687-595d652de67e?w=600&q=80",
+    },
+    {
+      icon: Shield,
+      iconColor: "text-primary",
+      iconBg: "bg-primary/20",
+      title: t("commonPages.otClubTitle"),
+      subtitle: t("commonPages.otClubSubtitle"),
+      description: t("commonPages.otClubDesc"),
+      image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&q=80",
+      highlight: t("commonPages.otClubHighlight"),
+    },
+    {
+      icon: Coins,
+      iconColor: "text-success",
+      iconBg: "bg-success/20",
+      title: t("commonPages.otCurrencyTitle"),
+      subtitle: t("commonPages.otCurrencySubtitle"),
+      description: t("commonPages.otCurrencyDesc"),
+      image: null,
+      split: [
+        { label: t("commonPages.otCreditsLabel"), desc: t("commonPages.otCreditsDesc"), color: "text-warning", icon: "🏆" },
+        { label: t("commonPages.otStcLabel"), desc: t("commonPages.otStcDesc"), color: "text-success", icon: "💰" },
+      ],
+    },
+    {
+      icon: FileText,
+      iconColor: "text-purple-400",
+      iconBg: "bg-purple-500/20",
+      title: t("commonPages.otContractsTitle"),
+      subtitle: t("commonPages.otContractsSubtitle"),
+      description: t("commonPages.otContractsDesc"),
+      image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=80",
+      highlight: t("commonPages.otContractsHighlight"),
+    },
+    {
+      icon: TrendingUp,
+      iconColor: "text-warning",
+      iconBg: "bg-warning/20",
+      title: t("commonPages.otMarketTitle"),
+      subtitle: t("commonPages.otMarketSubtitle"),
+      description: t("commonPages.otMarketDesc"),
+      image: "https://images.unsplash.com/photo-1551958219-acbc630e2914?w=600&q=80",
+      highlight: t("commonPages.otMarketHighlight"),
+    },
+    {
+      icon: Users,
+      iconColor: "text-primary",
+      iconBg: "bg-primary/20",
+      title: t("commonPages.otLifestyleTitle"),
+      subtitle: t("commonPages.otLifestyleSubtitle"),
+      description: t("commonPages.otLifestyleDesc"),
+      image: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600&q=80",
+      highlight: t("commonPages.otLifestyleHighlight"),
+    },
+  ], [t]);
+}
 
 const STORAGE_KEY = "stage_onboarding_v2_done";
 
@@ -89,10 +92,12 @@ export function useOnboarding() {
 }
 
 export default function OnboardingTour({ onClose }) {
+  const { t } = useTranslation();
+  const steps = useSteps(t);
   const [step, setStep] = useState(0);
-  const current = STEPS[step];
+  const current = steps[step];
   const Icon = current.icon;
-  const isLast = step === STEPS.length - 1;
+  const isLast = step === steps.length - 1;
 
   function handleClose() {
     localStorage.setItem(STORAGE_KEY, "true");
@@ -107,13 +112,13 @@ export default function OnboardingTour({ onClose }) {
           <div className="relative h-48 overflow-hidden">
             <img src={current.image} alt={current.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-card via-black/20 to-transparent" />
-            <button onClick={handleClose} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/80 hover:text-white transition-colors">
+            <button type="button" onClick={handleClose} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white/80 hover:text-white transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <div className="relative h-8 flex justify-end p-3">
-            <button onClick={handleClose} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <button type="button" onClick={handleClose} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -155,8 +160,9 @@ export default function OnboardingTour({ onClose }) {
 
           {/* Progress dots */}
           <div className="flex items-center justify-center gap-1.5">
-            {STEPS.map((_, i) => (
+            {steps.map((_, i) => (
               <button
+                type="button"
                 key={i}
                 onClick={() => setStep(i)}
                 className={cn("transition-all rounded-full",
@@ -177,13 +183,13 @@ export default function OnboardingTour({ onClose }) {
               onClick={isLast ? handleClose : () => setStep(s => s + 1)}
               className={cn("flex-1 gap-2 font-semibold", isLast ? "bg-success text-black hover:bg-success/90" : "bg-primary text-primary-foreground")}
             >
-              {isLast ? "Get Started" : "Next"}
+              {isLast ? t("commonPages.otGetStarted") : t("commonPages.otNext")}
               {!isLast && <ChevronRight className="w-4 h-4" />}
             </Button>
           </div>
 
-          <button onClick={handleClose} className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Skip tour
+          <button type="button" onClick={handleClose} className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors">
+            {t("commonPages.otSkipTour")}
           </button>
         </div>
       </div>

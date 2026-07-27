@@ -11,10 +11,12 @@ import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState("choose"); // choose | create | join
   const [creating, setCreating] = useState(false);
   const [requestingIds, setRequestingIds] = useState(new Set());
@@ -119,7 +121,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         player_gamertag: player.gamertag,
         club_id: club.id,
         club_name: club.name,
-        message: "I'd like to join your club!",
+        message: t("commonPages.comJoinMessage"),
         status: "pending",
       });
       // Notify club owner
@@ -154,32 +156,34 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Shield className="w-5 h-5 text-primary" />
-            {step === "choose" && "Join or Create a Club"}
-            {step === "create" && "Create Your Club"}
-            {step === "join" && "Find a Club to Join"}
+            {step === "choose" && t("commonPages.comJoinOrCreate")}
+            {step === "create" && t("commonPages.comCreateYourClub")}
+            {step === "join" && t("commonPages.comFindClub")}
           </DialogTitle>
         </DialogHeader>
 
         {/* CHOOSE */}
         {step === "choose" && (
           <div className="space-y-4 mt-2">
-            <p className="text-sm text-muted-foreground">Welcome to STAGE, <strong className="text-foreground">{player?.gamertag}</strong>! Do you want to create your own club or join an existing one?</p>
+            <p className="text-sm text-muted-foreground">{t("commonPages.comWelcome", { name: player?.gamertag })}</p>
             <div className="grid grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => setStep("create")}
                 className="bg-primary/10 border border-primary/30 hover:border-primary/60 rounded-2xl p-5 text-left transition-all group"
               >
                 <Plus className="w-8 h-8 text-primary mb-3" />
-                <p className="font-bold text-foreground text-base">Create Club</p>
-                <p className="text-xs text-muted-foreground mt-1">Start your own club and become the president</p>
+                <p className="font-bold text-foreground text-base">{t("commonPages.comCreateClub")}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("commonPages.comCreateClubDesc")}</p>
               </button>
               <button
+                type="button"
                 onClick={() => setStep("join")}
                 className="bg-secondary border border-border hover:border-primary/40 rounded-2xl p-5 text-left transition-all group"
               >
                 <Search className="w-8 h-8 text-muted-foreground group-hover:text-primary mb-3 transition-colors" />
-                <p className="font-bold text-foreground text-base">Join Club</p>
-                <p className="text-xs text-muted-foreground mt-1">Browse clubs and send a join request</p>
+                <p className="font-bold text-foreground text-base">{t("commonPages.comJoinClub")}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("commonPages.comJoinClubDesc")}</p>
               </button>
             </div>
             <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
@@ -189,17 +193,17 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                    Compete deeper with STAGE Plus
+                    {t("commonPages.comStagePlusTitle")}
                     <Sparkles className="w-3.5 h-3.5 text-primary" />
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Free gives you {TOURNAMENT_ENTRY_CREDITS} starter credits for one tournament. Plus unlocks regional league applications, community tournament creation, ranked play, and {STAGE_PLUS_MONTHLY_CREDITS} monthly refreshed credits.
+                    {t("commonPages.comStagePlusDesc", { credits: TOURNAMENT_ENTRY_CREDITS, monthlyCredits: STAGE_PLUS_MONTHLY_CREDITS })}
                   </p>
                 </div>
               </div>
             </div>
             <Button variant="ghost" onClick={() => onComplete?.(null)} className="w-full text-muted-foreground text-sm">
-              Skip for now
+              {t("commonPages.comSkipForNow")}
             </Button>
           </div>
         )}
@@ -207,20 +211,20 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         {/* CREATE */}
         {step === "create" && (
           <div className="space-y-4 mt-2">
-            <button onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              ← Back
+            <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              {t("commonPages.comBack")}
             </button>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Club Name *</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comClubName")}</label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="FC Example" className="bg-secondary border-border" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tag (max 5 chars) *</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comTagMax5")}</label>
               <Input value={form.tag} maxLength={5} onChange={e => setForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} placeholder="FCE" className="bg-secondary border-border" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Platform</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comPlatform")}</label>
                 <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -231,7 +235,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Region</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comRegion")}</label>
                 <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v, country_code: "" }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -241,9 +245,9 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
               </div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country *</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comCountry")}</label>
               <Select value={form.country_code} onValueChange={v => setForm(f => ({ ...f, country_code: v }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Select country" /></SelectTrigger>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("commonPages.comSelectCountry")} /></SelectTrigger>
                 <SelectContent>
                   {COUNTRIES
                     .filter(c => !form.region || (COUNTRY_REGIONS[form.region] || []).includes(c.code))
@@ -252,15 +256,15 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Club Description</label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Tell players about your club..." className="bg-secondary border-border resize-none h-20" />
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comClubDesc")}</label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={t("commonPages.comClubDescPlaceholder")} className="bg-secondary border-border resize-none h-20" />
             </div>
             <Button
               onClick={handleCreate}
               disabled={creating || !form.name || !form.tag || !form.country_code}
               className="w-full bg-primary text-primary-foreground"
             >
-              {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</> : <><Shield className="w-4 h-4 mr-2" /> Create Club</>}
+              {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("commonPages.comCreating")}</> : <><Shield className="w-4 h-4 mr-2" /> {t("commonPages.comCreateClub")}</>}
             </Button>
           </div>
         )}
@@ -268,22 +272,22 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         {/* JOIN */}
         {step === "join" && (
           <div className="space-y-4 mt-2">
-            <button onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              ← Back
+            <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              {t("commonPages.comBack")}
             </button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search by club name or tag..."
+                placeholder={t("commonPages.comSearchPlaceholder")}
                 className="pl-9 bg-secondary border-border"
               />
             </div>
             {loadingClubs && <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>}
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {filteredClubs.length === 0 && !loadingClubs && (
-                <p className="text-sm text-muted-foreground text-center py-6">No clubs found.</p>
+                <p className="text-sm text-muted-foreground text-center py-6">{t("commonPages.comNoClubsFound")}</p>
               )}
               {filteredClubs.map(c => {
                 const isRequested = requested.has(c.id);
@@ -294,7 +298,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-foreground text-sm truncate">{c.name} <span className="text-primary font-mono text-xs">[{c.tag}]</span></p>
-                      <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · Rating {c.rating || 1000}</p>
+                      <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · {t("commonPages.comRating", { rating: c.rating || 1000 })}</p>
                     </div>
                     <Button
                       size="sm"
@@ -302,7 +306,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
                       onClick={() => handleJoinRequest(c)}
                       className={cn("shrink-0 text-xs", isRequested ? "bg-success/20 text-success border border-success/30" : "bg-primary/10 text-primary hover:bg-primary/20 border-0")}
                     >
-                      {requestingIds.has(c.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : isRequested ? <><Check className="w-3 h-3 mr-1" /> Sent</> : <>Request <ArrowRight className="w-3 h-3 ml-1" /></>}
+                      {requestingIds.has(c.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : isRequested ? <><Check className="w-3 h-3 mr-1" /> {t("commonPages.comSent")}</> : <>{t("commonPages.comRequest")} <ArrowRight className="w-3 h-3 ml-1" /></>}
                     </Button>
                   </div>
                 );
@@ -310,11 +314,11 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             </div>
             {requested.size > 0 && (
               <Button onClick={() => onComplete?.(null)} className="w-full bg-primary text-primary-foreground">
-                Done — {requested.size} request{requested.size > 1 ? "s" : ""} sent
+                {t("commonPages.comDone", { count: requested.size, plural: requested.size > 1 ? "s" : "" })}
               </Button>
             )}
             <Button variant="ghost" onClick={() => onComplete?.(null)} className="w-full text-muted-foreground text-sm">
-              Skip for now
+              {t("commonPages.comSkipForNow")}
             </Button>
           </div>
         )}

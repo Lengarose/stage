@@ -5,10 +5,10 @@ import { User, Target, TrendingUp, Star, Shield, Trophy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const CHART_COLORS = ["hsl(189,100%,52%)", "hsl(145,70%,50%)", "hsl(45,95%,55%)", "hsl(0,72%,51%)", "hsl(200,90%,45%)", "hsl(270,70%,60%)"];
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function PlayerStats() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState([]);
   const [stats, setStats] = useState([]);
@@ -41,12 +41,11 @@ export default function PlayerStats() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
         <Shield className="w-12 h-12 text-muted-foreground" />
-        <p className="text-muted-foreground">You need to be in a club to view team stats.</p>
+        <p className="text-muted-foreground">{t("commonPages.psNeedClub")}</p>
       </div>
     );
   }
 
-  // Aggregate per player for the overview
   const playerAgg = players.map(p => {
     const ps = stats.filter(s => s.player_email === p.email);
     const matches = ps.length;
@@ -56,7 +55,6 @@ export default function PlayerStats() {
     return { name: p.gamertag || p.email, email: p.email, matches, goals, assists, avgRating: parseFloat(avgRating.toFixed(1)), position: p.position };
   }).sort((a, b) => b.goals - a.goals);
 
-  // Per-player match timeline (for line chart)
   function getPlayerTimeline(email) {
     return stats
       .filter(s => s.player_email === email)
@@ -71,7 +69,6 @@ export default function PlayerStats() {
   const selectedPlayerData = selectedPlayer !== "all" ? players.find(p => p.email === selectedPlayer) : null;
   const timeline = selectedPlayer !== "all" ? getPlayerTimeline(selectedPlayer) : [];
 
-  // Radar data for selected player
   const radarData = selectedPlayerData ? (() => {
     const ps = stats.filter(s => s.player_email === selectedPlayer);
     const matches = ps.length || 1;
@@ -79,10 +76,10 @@ export default function PlayerStats() {
     const assists = ps.reduce((a, s) => a + (s.assists || 0), 0);
     const avgRating = ps.reduce((a, s) => a + (s.rating || 6), 0) / matches;
     return [
-      { stat: "Goals", value: Math.min(goals * 10, 100) },
-      { stat: "Assists", value: Math.min(assists * 12, 100) },
-      { stat: "Rating", value: Math.min(((avgRating - 5) / 5) * 100, 100) },
-      { stat: "Matches", value: Math.min(matches * 5, 100) },
+      { stat: t("commonPages.goals"), value: Math.min(goals * 10, 100) },
+      { stat: t("commonPages.assists"), value: Math.min(assists * 12, 100) },
+      { stat: t("commonPages.prRating"), value: Math.min(((avgRating - 5) / 5) * 100, 100) },
+      { stat: t("commonPages.matches"), value: Math.min(matches * 5, 100) },
     ];
   })() : [];
 
@@ -100,20 +97,19 @@ export default function PlayerStats() {
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4 flex-wrap justify-between">
         <div>
-          <h1 className="font-heading leading-relaxed text-3xl font-bold text-foreground">Player Statistics</h1>
+          <h1 className="font-heading leading-relaxed text-3xl font-bold text-foreground">{t("commonPages.psTitle")}</h1>
           <p className="font-subtitle text-muted-foreground text-sm mt-1 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-primary" /> {myClub.name} · {players.length} players
+            <Shield className="w-3.5 h-3.5 text-primary" /> {t("commonPages.psPlayersCount", { name: myClub.name, count: players.length })}
           </p>
         </div>
         <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
           <SelectTrigger className="bg-secondary border-border w-48">
-            <SelectValue placeholder="All Players" />
+            <SelectValue placeholder={t("commonPages.psAllPlayers")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">👥 All Players</SelectItem>
+            <SelectItem value="all">{t("commonPages.psAllPlayers")}</SelectItem>
             {players.map(p => (
               <SelectItem key={p.email} value={p.email}>{p.gamertag || p.email}</SelectItem>
             ))}
@@ -124,15 +120,15 @@ export default function PlayerStats() {
       {selectedPlayer === "all" ? (
         <Tabs defaultValue="goals" className="w-full">
           <TabsList className="bg-secondary border border-border mb-6">
-            <TabsTrigger value="goals" className="leading-relaxed">⚽ Goals</TabsTrigger>
-            <TabsTrigger value="assists" className="leading-relaxed">🎯 Assists</TabsTrigger>
-            <TabsTrigger value="rating" className="leading-relaxed">⭐ Rating</TabsTrigger>
-            <TabsTrigger value="table" className="leading-relaxed">📋 Table</TabsTrigger>
+            <TabsTrigger value="goals" className="leading-relaxed">{t("commonPages.psTabGoals")}</TabsTrigger>
+            <TabsTrigger value="assists" className="leading-relaxed">{t("commonPages.psTabAssists")}</TabsTrigger>
+            <TabsTrigger value="rating" className="leading-relaxed">{t("commonPages.psTabRating")}</TabsTrigger>
+            <TabsTrigger value="table" className="leading-relaxed">{t("commonPages.psTabTable")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="goals">
             <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">Goals per Player</h2>
+              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">{t("commonPages.psGoalsPerPlayer")}</h2>
               {playerAgg.length === 0 ? <EmptyState /> : (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={playerAgg} margin={{ left: -10 }}>
@@ -140,7 +136,7 @@ export default function PlayerStats() {
                     <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="goals" name="Goals" fill="hsl(145,70%,50%)" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="goals" name={t("commonPages.goals")} fill="hsl(145,70%,50%)" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -149,7 +145,7 @@ export default function PlayerStats() {
 
           <TabsContent value="assists">
             <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">Assists per Player</h2>
+              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">{t("commonPages.psAssistsPerPlayer")}</h2>
               {playerAgg.length === 0 ? <EmptyState /> : (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={playerAgg} margin={{ left: -10 }}>
@@ -157,7 +153,7 @@ export default function PlayerStats() {
                     <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="assists" name="Assists" fill="hsl(189,100%,52%)" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="assists" name={t("commonPages.assists")} fill="hsl(189,100%,52%)" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -166,7 +162,7 @@ export default function PlayerStats() {
 
           <TabsContent value="rating">
             <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">Average Match Rating</h2>
+              <h2 className="leading-relaxed text-lg font-bold text-foreground mb-4">{t("commonPages.psAvgMatchRating")}</h2>
               {playerAgg.length === 0 ? <EmptyState /> : (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={[...playerAgg].sort((a, b) => b.avgRating - a.avgRating)} margin={{ left: -10 }}>
@@ -174,7 +170,7 @@ export default function PlayerStats() {
                     <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <YAxis domain={[5, 10]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="avgRating" name="Avg Rating" fill="hsl(45,95%,55%)" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="avgRating" name={t("commonPages.psAvgRating")} fill="hsl(45,95%,55%)" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -187,12 +183,12 @@ export default function PlayerStats() {
                 <thead>
                   <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
                     <th className="text-left px-5 py-3">#</th>
-                    <th className="text-left px-3 py-3">Player</th>
-                    <th className="text-left px-3 py-3">Pos</th>
-                    <th className="px-3 py-3 text-center">MP</th>
+                    <th className="text-left px-3 py-3">{t("commonPages.prPlayer")}</th>
+                    <th className="text-left px-3 py-3">{t("commonPages.psPos")}</th>
+                    <th className="px-3 py-3 text-center">{t("commonPages.psMp")}</th>
                     <th className="px-3 py-3 text-center text-success">G</th>
                     <th className="px-3 py-3 text-center text-primary">A</th>
-                    <th className="px-3 py-3 text-center text-warning">Rating</th>
+                    <th className="px-3 py-3 text-center text-warning">{t("commonPages.prRating")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -218,26 +214,23 @@ export default function PlayerStats() {
           </TabsContent>
         </Tabs>
       ) : (
-        /* Individual player view */
         <div className="space-y-6">
-          {/* Summary cards */}
           {(() => {
             const agg = playerAgg.find(p => p.email === selectedPlayer) || {};
             return (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard icon={Target} label="Goals" value={agg.goals || 0} color="text-success" />
-                <StatCard icon={TrendingUp} label="Assists" value={agg.assists || 0} color="text-primary" />
-                <StatCard icon={Star} label="Avg Rating" value={agg.avgRating > 0 ? agg.avgRating : "—"} color="text-warning" />
-                <StatCard icon={Trophy} label="Matches" value={agg.matches || 0} color="text-accent" />
+                <StatCard icon={Target} label={t("commonPages.goals")} value={agg.goals || 0} color="text-success" />
+                <StatCard icon={TrendingUp} label={t("commonPages.assists")} value={agg.assists || 0} color="text-primary" />
+                <StatCard icon={Star} label={t("commonPages.psAvgRating")} value={agg.avgRating > 0 ? agg.avgRating : "—"} color="text-warning" />
+                <StatCard icon={Trophy} label={t("commonPages.matches")} value={agg.matches || 0} color="text-accent" />
               </div>
             );
           })()}
 
-          {/* Timeline chart */}
           {timeline.length > 0 ? (
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="bg-card border border-border rounded-2xl p-6">
-                <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">Goals & Assists per Match</h3>
+                <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">{t("commonPages.psGoalsAssistsPerMatch")}</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={timeline} margin={{ left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -250,14 +243,14 @@ export default function PlayerStats() {
                       </div>
                     ) : null} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="goals" name="Goals" fill="hsl(145,70%,50%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="assists" name="Assists" fill="hsl(189,100%,52%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="goals" name={t("commonPages.goals")} fill="hsl(145,70%,50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="assists" name={t("commonPages.assists")} fill="hsl(189,100%,52%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="bg-card border border-border rounded-2xl p-6">
-                <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">Rating Over Time</h3>
+                <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">{t("commonPages.psRatingOverTime")}</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={timeline} margin={{ left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -269,14 +262,14 @@ export default function PlayerStats() {
                         {payload.map((p, i) => <p key={i} style={{ color: p.color }}>{p.name}: {p.value}</p>)}
                       </div>
                     ) : null} />
-                    <Line dataKey="rating" name="Rating" stroke="hsl(45,95%,55%)" strokeWidth={2} dot={{ fill: "hsl(45,95%,55%)", r: 4 }} />
+                    <Line dataKey="rating" name={t("commonPages.prRating")} stroke="hsl(45,95%,55%)" strokeWidth={2} dot={{ fill: "hsl(45,95%,55%)", r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
 
               {radarData.length > 0 && (
                 <div className="bg-card border border-border rounded-2xl p-6 lg:col-span-2">
-                  <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">Performance Radar</h3>
+                  <h3 className="leading-relaxed text-base font-bold text-foreground mb-4">{t("commonPages.psPerformanceRadar")}</h3>
                   <ResponsiveContainer width="100%" height={260}>
                     <RadarChart data={radarData}>
                       <PolarGrid stroke="hsl(var(--border))" />
@@ -290,7 +283,7 @@ export default function PlayerStats() {
           ) : (
             <div className="bg-card border border-border rounded-2xl p-10 text-center">
               <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">No match stats recorded for this player yet.</p>
+              <p className="text-muted-foreground">{t("commonPages.psNoPlayerStats")}</p>
             </div>
           )}
         </div>
@@ -310,9 +303,10 @@ function StatCard({ icon: Icon, label, value, color }) {
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="py-12 text-center text-muted-foreground text-sm">
-      No match stats recorded yet. Submit match results with player stats to see charts here.
+      {t("commonPages.psNoStatsYet")}
     </div>
   );
 }

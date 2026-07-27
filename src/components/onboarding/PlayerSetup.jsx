@@ -5,6 +5,7 @@ import { Loader2, Camera } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { COUNTRIES } from "@/lib/countries";
 import { prepareImageForUpload } from "@/lib/imageUpload";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 
@@ -12,6 +13,7 @@ const inputCls = "w-full bg-white/10 border border-white/20 text-white placehold
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 
 export default function PlayerSetup({ onComplete, user }) {
+  const { t } = useTranslation();
   const [gamertag, setGamertag] = useState("");
   const [position, setPosition] = useState("ST");
   const [secondaryPosition, setSecondaryPosition] = useState("none");
@@ -30,12 +32,12 @@ export default function PlayerSetup({ onComplete, user }) {
     if (!file) return;
     setError(null);
     if (!file.type?.startsWith("image/")) {
-      setError("Please choose an image file.");
+      setError(t("commonPages.obErrImage"));
       e.target.value = "";
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError("Profile picture must be smaller than 10 MB.");
+      setError(t("commonPages.obErrAvatarSize"));
       e.target.value = "";
       return;
     }
@@ -43,11 +45,11 @@ export default function PlayerSetup({ onComplete, user }) {
     try {
       const uploadFile = await prepareImageForUpload(file, { fallbackName: "player-avatar.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
-      if (!file_url) throw new Error("Upload failed. Please try another image.");
+      if (!file_url) throw new Error(t("commonPages.obErrUpload"));
       setPendingAvatar(file_url);
     } catch (err) {
       console.error("Failed to upload avatar:", err);
-      setError(err?.data?.error || err?.message || "Could not upload profile picture.");
+      setError(err?.data?.error || err?.message || t("commonPages.obErrUpload"));
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -116,7 +118,7 @@ export default function PlayerSetup({ onComplete, user }) {
       });
     } catch (err) {
       console.error("Failed to save player:", err);
-      setError(err?.data?.error || err?.data?.message || err?.message || "Could not save profile.");
+      setError(err?.data?.error || err?.data?.message || err?.message || t("commonPages.obErrSave"));
       setSaving(false);
     }
   }
@@ -124,8 +126,8 @@ export default function PlayerSetup({ onComplete, user }) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Create Your Profile</h2>
-        <p className="text-white/40 text-xs">Tell the world about your player</p>
+        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateProfile")}</h2>
+        <p className="text-white/40 text-xs">{t("commonPages.obTellWorld")}</p>
       </div>
 
       {/* Avatar */}
@@ -139,7 +141,7 @@ export default function PlayerSetup({ onComplete, user }) {
             )}
           </div>
           <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
+            <button type="button" onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
             </button>
           </div>
@@ -148,16 +150,16 @@ export default function PlayerSetup({ onComplete, user }) {
 
         <div className="flex-1 space-y-3 pt-1">
           <div>
-            <label className={labelCls}>Gamertag *</label>
+            <label className={labelCls}>{t("commonPages.obGamertag")}</label>
             <input
               value={gamertag}
               onChange={e => setGamertag(e.target.value)}
-              placeholder="Your in-game name"
+              placeholder={t("commonPages.obGamertagPlaceholder")}
               className={inputCls}
             />
           </div>
           <div>
-            <label className={labelCls}>Main Position *</label>
+            <label className={labelCls}>{t("commonPages.obMainPosition")}</label>
             <Select value={position} onValueChange={value => {
               setPosition(value);
               if (secondaryPosition === value) setSecondaryPosition("none");
@@ -171,22 +173,22 @@ export default function PlayerSetup({ onComplete, user }) {
             </Select>
           </div>
           <div>
-            <label className={labelCls}>Second Position</label>
+            <label className={labelCls}>{t("commonPages.obSecondPosition")}</label>
             <Select value={secondaryPosition} onValueChange={setSecondaryPosition}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="none">{t("commonPages.obNone")}</SelectItem>
                 {POSITIONS.filter(p => p !== position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label className={labelCls}>Country *</label>
+            <label className={labelCls}>{t("commonPages.obCountry")}</label>
             <Select value={country} onValueChange={setCountry}>
               <SelectTrigger className={`bg-white/10 text-white text-sm rounded-xl h-10 focus:ring-0 ${!country ? "border-red-400/40" : "border-white/20"} focus:border-white/40`}>
-                <SelectValue placeholder="Select country" />
+                <SelectValue placeholder={t("commonPages.obSelectCountry")} />
               </SelectTrigger>
               <SelectContent>
                 {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
@@ -203,15 +205,16 @@ export default function PlayerSetup({ onComplete, user }) {
       )}
 
       <button
+        type="button"
         onClick={handleSave}
         disabled={saving || !gamertag || !country}
         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 disabled:opacity-40 transition-all shadow-lg"
       >
         {saving ? (
           <span className="flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Saving…
+            <Loader2 className="w-4 h-4 animate-spin" /> {t("commonPages.obSaving")}
           </span>
-        ) : "Continue to Club Setup →"}
+        ) : t("commonPages.obContinueClub")}
       </button>
 
       <ImagePositionEditor

@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Target } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function PredictionLeaderboard() {
+  const { t } = useTranslation();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,8 +17,7 @@ export default function PredictionLeaderboard() {
 
   async function load() {
     const predictions = await stageClient.entities.Prediction.list("-total_points", 500);
-    
-    // Group by predictor and count correct predictions
+
     const scoreMap = {};
     predictions.forEach((pred) => {
       if (!scoreMap[pred.predictor_email]) {
@@ -43,20 +44,19 @@ export default function PredictionLeaderboard() {
   return (
     <div className="p-6 lg:p-10 max-w-3xl mx-auto space-y-6">
       <PageHeader
-        title="PREDICTION LEADERBOARD"
-        subtitle="Top score predictors — Compete for points"
+        title={t("commonPages.predTitle")}
+        subtitle={t("commonPages.predSubtitle")}
       />
 
-      {/* Legend */}
       <div className="bg-card border border-border rounded-lg p-3 text-center">
-        <p className="leading-relaxed font-bold text-primary text-sm">Correct Score = 10 Points</p>
+        <p className="leading-relaxed font-bold text-primary text-sm">{t("commonPages.predCorrectScore")}</p>
       </div>
 
       <div className="space-y-2">
         {leaderboard.length === 0 ? (
           <div className="bg-card border border-border rounded-xl p-8 text-center">
             <Target className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No predictions yet. Start predicting match scores!</p>
+            <p className="text-muted-foreground text-sm">{t("commonPages.predEmpty")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -69,20 +69,19 @@ export default function PredictionLeaderboard() {
                       <span className="text-2xl">{medal}</span>
                       <div>
                         <p className="leading-relaxed font-bold text-foreground">{predictor.name}</p>
-                        <p className="text-xs text-muted-foreground">{predictor.predictionCount} predictions</p>
+                        <p className="text-xs text-muted-foreground">{t("commonPages.predCount", { count: predictor.predictionCount })}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="leading-relaxed font-black text-3xl text-primary">{predictor.totalPoints}</p>
-                      <p className="text-xs text-muted-foreground">total points</p>
+                      <p className="text-xs text-muted-foreground">{t("commonPages.predTotalPoints")}</p>
                     </div>
                   </div>
-                  
-                  {/* Stats */}
-                   <div className="pt-2 border-t border-border flex items-center gap-4 text-xs">
-                     <span className="text-muted-foreground">✓️ {predictor.correctCount}/{predictor.predictionCount} correct</span>
-                     <span className="text-muted-foreground">Avg: {(predictor.totalPoints / predictor.predictionCount).toFixed(1)} pts</span>
-                   </div>
+
+                  <div className="pt-2 border-t border-border flex items-center gap-4 text-xs">
+                    <span className="text-muted-foreground">✓️ {t("commonPages.predCorrect", { correct: predictor.correctCount, total: predictor.predictionCount })}</span>
+                    <span className="text-muted-foreground">{t("commonPages.predAvg", { avg: (predictor.totalPoints / predictor.predictionCount).toFixed(1) })}</span>
+                  </div>
                 </div>
               );
             })}

@@ -5,13 +5,12 @@ import { stageClient } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { ensureAdminPanelMode, isAppAdminUser } from "@/lib/adminAuth";
 import { format, parseISO, isValid } from "@/lib/momentDate";
+import { useTranslation } from "@/hooks/useTranslation";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// ── Inline SVG icons (kept local so this screen has zero asset dependencies
-// beyond the banner + logo; matches the visual treatment of `Login.jsx`). ──
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 48 48">
     <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.4 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z" />
@@ -55,7 +54,6 @@ const EyeOffIcon = () => (
   </svg>
 );
 
-// Icon-only provider tile — glassy, matches the card theme (same as Login.jsx).
 const ProviderIconButton = ({ onClick, icon, label }) => (
   <motion.button
     type="button"
@@ -81,27 +79,18 @@ function formatDateRange(start, end) {
   return null;
 }
 
-// Map server-side `reason` codes into human-readable messages.
-const REASON_MESSAGES = {
-  not_found:             "This tournament entrance link does not exist.",
-  revoked:               "This entrance link has been revoked.",
-  tournament_not_found:  "The tournament linked to this entrance no longer exists.",
-  tournament_full:       "Registration is closed — all spots have been filled.",
-};
-
-// Common input className. Bigger touch target + 16px+ font on mobile to
-// prevent iOS Safari's auto-zoom on focus.
 const INPUT_CLS =
   "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-4 md:py-3 text-base md:text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 
 export default function EntranceAuthCard({ mode }) {
+  const { t } = useTranslation();
   const isSignup     = mode === "signup";
   const { token }    = useParams();
   const navigate     = useNavigate();
   const { checkUserAuth } = useAuth();
 
   const [loading, setLoading]       = useState(true);
-  const [resolveError, setResolveError] = useState("");   // top-level token error (no form below)
+  const [resolveError, setResolveError] = useState("");
   const [tournament, setTournament] = useState(null);
 
   const [identifier, setIdentifier]               = useState("");
@@ -112,75 +101,70 @@ export default function EntranceAuthCard({ mode }) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]   = useState("");
 
-  // Guard so we don't double-trigger the post-OAuth limited-mode-apply pass.
   const postAuthHandledRef = useRef(false);
 
-  // After a successful local or OAuth signin, apply the tournament-limited
-  // access-mode (when relevant) then route the user into the tournament page.
   const finalizeAuthedUser = useCallback(async (tournamentId) => {
     const me = await stageClient.auth.me().catch(() => null);
-    if (!me) throw new Error("Unable to load your account.");
+    if (!me) throw new Error(t("commonPages.teUnableAccount"));
     if (isAppAdminUser(me)) ensureAdminPanelMode();
-    // Only new users (signup) get tournament-limited access. Existing users (signin) keep full access.
     if (isSignup && tournamentId) {
       await stageClient.functions
         .invoke("applyTournamentEntranceAccessMode", { tournament_id: tournamentId })
         .catch(() => {});
       await checkUserAuth().catch(() => {});
     }
-    // Redirect to home — the route guard handles restriction for limited users.
     navigate("/", { replace: true });
-  }, [navigate, checkUserAuth, isSignup]);
+  }, [navigate, checkUserAuth, isSignup, t]);
 
-  // 1) Resolve the entrance token, fetch tournament context. If the user is
-  // already authed (typical case: they just came back from an OAuth round-trip)
-  // run the post-auth finalize flow directly.
   useEffect(() => {
     let mounted = true;
+    const reasonMessages = {
+      not_found:             t("commonPages.teReasonNotFound"),
+      revoked:               t("commonPages.teReasonRevoked"),
+      tournament_not_found:  t("commonPages.teReasonTournamentGone"),
+      tournament_full:       t("commonPages.teReasonFull"),
+    };
     async function bootstrap() {
       try {
         const resolved = await stageClient.http.post("/public/resolve-entrance-token", { token });
         if (!resolved?.data?.success) {
           if (mounted) {
-            setResolveError(REASON_MESSAGES[resolved?.data?.reason] || "This tournament entrance link is invalid.");
+            setResolveError(reasonMessages[resolved?.data?.reason] || t("commonPages.teInvalidLink"));
             setTournament(resolved?.data?.tournament || null);
           }
           return;
         }
-        const t = resolved.data.tournament || null;
-        if (mounted) setTournament(t);
+        const row = resolved.data.tournament || null;
+        if (mounted) setTournament(row);
 
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
-        if (isAuthed && t?.id && !postAuthHandledRef.current) {
+        if (isAuthed && row?.id && !postAuthHandledRef.current) {
           postAuthHandledRef.current = true;
-          // User is already authenticated (e.g. OAuth return or was already logged in).
-          // Redirect home — the route guard handles the rest.
           navigate("/", { replace: true });
           return;
         }
       } catch (err) {
-        if (mounted) setResolveError(err?.message || "Unable to load this entrance link.");
+        if (mounted) setResolveError(err?.message || t("commonPages.teUnableLoadLink"));
       } finally {
         if (mounted) setLoading(false);
       }
     }
     bootstrap();
     return () => { mounted = false; };
-  }, [token, finalizeAuthedUser]);
+  }, [token, navigate, t]);
 
   async function handleAuthSubmit(e) {
     e.preventDefault();
     setFormError("");
     const emailValue = String(identifier || "").trim();
-    // Signup requires a valid email; login only when it looks like one (has @).
     if (isSignup || emailValue.includes("@")) {
       if (!EMAIL_REGEX.test(emailValue)) {
-        setFormError("Please enter a valid email address.");
+        setFormError(t("auth.invalidEmail"));
         return;
       }
     }
     if (isSignup && password !== confirmPassword) {
-      setFormError("Passwords do not match.");
+      setFormError(t("auth.passwordsDoNotMatch"));
       return;
     }
     setSubmitting(true);
@@ -189,7 +173,7 @@ export default function EntranceAuthCard({ mode }) {
         ? await stageClient.auth.registerViaEmailPassword({ email: identifier, password })
         : await stageClient.auth.loginViaEmailPassword(identifier, password);
       if (!access_token) {
-        setFormError(isSignup ? "Unable to create account. Please try again." : "Sign-in failed. Please try again.");
+        setFormError(isSignup ? t("auth.signupFailed") : t("auth.signinFailed"));
         return;
       }
       stageClient.auth.setToken(access_token);
@@ -198,9 +182,9 @@ export default function EntranceAuthCard({ mode }) {
     } catch (err) {
       const serverError = err?.error || err?.message || "";
       if (isSignup && String(serverError).toLowerCase().includes("this user with this email exist")) {
-        setFormError("An account with this email already exists.");
+        setFormError(t("auth.accountExists"));
       } else {
-        setFormError(serverError || (isSignup ? "Unable to create account. Please try again." : "Invalid email, gamertag, or password."));
+        setFormError(serverError || (isSignup ? t("auth.signupFailed") : t("auth.invalidSignin")));
       }
     } finally {
       setSubmitting(false);
@@ -212,8 +196,7 @@ export default function EntranceAuthCard({ mode }) {
     navigate(`/tournaments/entrance/${token}/${isSignup ? "signin" : "signup"}`, { replace: true });
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  const tournamentName = tournament?.name?.trim() || "this tournament";
+  const tournamentName = tournament?.name?.trim() || t("commonPages.teThisTournament");
   const dateRange      = formatDateRange(tournament?.start_date, tournament?.end_date);
 
   return (
@@ -223,7 +206,6 @@ export default function EntranceAuthCard({ mode }) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
     >
-      {/* ── Desktop background: full-bleed banner with dark overlay ─────────── */}
       <img
         src={BannerImg}
         alt=""
@@ -231,14 +213,12 @@ export default function EntranceAuthCard({ mode }) {
       />
       <div className="hidden md:block absolute inset-0 bg-black/55" />
 
-      {/* ── Mobile hero: banner photo + logo + tournament context up top ───── */}
       <div className="md:hidden relative w-full h-[40vh] min-h-[240px] max-h-[340px] shrink-0 overflow-hidden">
         <img
           src={BannerImg}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
         />
-        {/* Fade to background so the hero blends into the form panel below. */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-[#0a0e1a]" />
         <motion.div
           initial={{ y: -8, opacity: 0 }}
@@ -253,12 +233,11 @@ export default function EntranceAuthCard({ mode }) {
             className="h-20 w-auto object-contain drop-shadow-2xl"
           />
           <p className="text-white/70 text-[10px] uppercase tracking-[0.3em]">
-            Tournament Entrance
+            {t("commonPages.teEntrance")}
           </p>
         </motion.div>
       </div>
 
-      {/* ── Card / content ─────────────────────────────────────────────────── */}
       <motion.div
         className="relative z-10 w-full md:max-w-sm md:mx-4 flex-1 md:flex-initial overflow-y-auto md:overflow-visible"
         initial={{ y: 28, opacity: 0 }}
@@ -269,19 +248,17 @@ export default function EntranceAuthCard({ mode }) {
           className="px-6 pt-2 md:p-8 md:bg-white/10 md:backdrop-blur-xl md:border md:border-white/20 md:rounded-2xl md:shadow-2xl"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)" }}
         >
-          {/* Desktop-only branding (mobile shows it in hero) */}
           <div className="hidden md:flex flex-col items-center mb-6 gap-2">
             <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
             <p className="text-white/50 text-xs uppercase tracking-[0.25em]">
-              {isSignup ? "Create account" : "Welcome back"}
+              {isSignup ? t("auth.createAccount") : t("auth.welcomeBack")}
             </p>
           </div>
 
-          {/* Tournament ticket — context this entrance link is for */}
           {tournament && (
             <div className="mb-5 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-center">
               <p className="text-white/45 text-[10px] uppercase tracking-[0.22em]">
-                {isSignup ? "Joining tournament" : "Signing in for"}
+                {isSignup ? t("commonPages.teJoining") : t("commonPages.teSigningInFor")}
               </p>
               <p className="text-white text-base md:text-sm font-bold mt-1 truncate">
                 {tournamentName}
@@ -292,58 +269,52 @@ export default function EntranceAuthCard({ mode }) {
             </div>
           )}
 
-          {/* Hard error block — token invalid/expired/revoked, no form below. */}
           {!loading && resolveError && (
             <div className="rounded-xl border border-red-400/40 bg-red-400/10 px-4 py-4 text-center">
               <p className="text-red-200 text-sm">{resolveError}</p>
               <p className="text-white/45 text-[11px] mt-2">
-                Ask the tournament organiser for a fresh invite link.
+                {t("commonPages.teAskFreshLink")}
               </p>
             </div>
           )}
 
-          {/* Loading skeleton */}
           {loading && (
             <div className="py-10 flex justify-center">
               <span className="w-6 h-6 border-2 border-white/25 border-t-white rounded-full animate-spin" />
             </div>
           )}
 
-          {/* Auth UI — only shown once token is valid */}
           {!loading && !resolveError && (
             <>
-              {/* OAuth providers — icon-only row */}
               <div className="flex gap-3 mb-5">
                 <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("google", window.location.href)}
                   icon={<GoogleIcon />}
-                  label="Continue with Google"
+                  label={t("auth.continueGoogle")}
                 />
                 <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("microsoft", window.location.href)}
                   icon={<MicrosoftIcon />}
-                  label="Continue with Outlook"
+                  label={t("auth.continueOutlook")}
                 />
                 <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("kick", window.location.href)}
                   icon={<KickIcon />}
-                  label="Continue with Kick"
+                  label={t("auth.continueKick")}
                 />
                 <ProviderIconButton
                   onClick={() => stageClient.auth.loginWithProvider("twitch", window.location.href)}
                   icon={<TwitchIcon />}
-                  label="Continue with Twitch"
+                  label={t("auth.continueTwitch")}
                 />
               </div>
 
-              {/* Divider */}
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-white/20" />
-                <span className="text-white/35 text-[11px] uppercase tracking-widest">or</span>
+                <span className="text-white/35 text-[11px] uppercase tracking-widest">{t("auth.or")}</span>
                 <div className="flex-1 h-px bg-white/20" />
               </div>
 
-              {/* Email / Password form */}
               <form onSubmit={handleAuthSubmit} className="space-y-3" noValidate>
                 <input
                   type={isSignup ? "email" : "text"}
@@ -353,7 +324,7 @@ export default function EntranceAuthCard({ mode }) {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  placeholder={isSignup ? "Email address" : "Email, gamertag, or club name"}
+                  placeholder={isSignup ? t("auth.emailAddress") : t("auth.identifier")}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
@@ -368,7 +339,7 @@ export default function EntranceAuthCard({ mode }) {
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="Password"
+                    placeholder={t("auth.password")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -377,7 +348,7 @@ export default function EntranceAuthCard({ mode }) {
                   />
                   <button
                     type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? t("commonPages.teHidePassword") : t("commonPages.teShowPassword")}
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/65 transition-colors p-1"
                   >
@@ -394,7 +365,7 @@ export default function EntranceAuthCard({ mode }) {
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
-                      placeholder="Confirm password"
+                      placeholder={t("auth.confirmPassword")}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
@@ -403,7 +374,7 @@ export default function EntranceAuthCard({ mode }) {
                     />
                     <button
                       type="button"
-                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      aria-label={showConfirmPassword ? t("commonPages.teHidePassword") : t("commonPages.teShowPassword")}
                       onClick={() => setShowConfirmPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/65 transition-colors p-1"
                     >
@@ -434,10 +405,10 @@ export default function EntranceAuthCard({ mode }) {
                   {submitting ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-[#0d2461]/25 border-t-[#0d2461] rounded-full animate-spin" />
-                      {isSignup ? "Creating account…" : "Signing in…"}
+                      {isSignup ? t("auth.creating") : t("auth.signingIn")}
                     </span>
                   ) : (
-                    isSignup ? "Create Account" : "Sign In"
+                    isSignup ? t("auth.createAccount") : t("auth.signIn")
                   )}
                 </motion.button>
 
@@ -446,11 +417,11 @@ export default function EntranceAuthCard({ mode }) {
                   onClick={toggleMode}
                   className="w-full text-center font-heading text-sm uppercase tracking-wide text-white/65 hover:text-white/95 active:text-white transition-colors py-2 md:pt-1"
                 >
-                  {isSignup ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                  {isSignup ? t("auth.switchToSignin") : t("auth.switchToSignup")}
                 </button>
 
                 <p className="text-white/35 text-[11px] md:text-[10px] text-center pt-2 leading-snug">
-                  Your account will be scoped to <span className="text-white/55">{tournamentName}</span> until the tournament ends. Full access unlocks automatically afterwards.
+                  {t("commonPages.teScopedNote", { name: tournamentName })}
                 </p>
               </form>
             </>

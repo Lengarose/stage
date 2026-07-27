@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/button";
 import {
   Coins, TrendingUp, Zap, Wallet,
@@ -8,30 +9,29 @@ import {
   ChevronDown, Briefcase, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 
-const CATEGORY_META = {
-  initial_grant:            { label: "Welcome Bonus",       icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
-  salary:                   { label: "Weekly Salary",       icon: Briefcase,   color: "text-primary",    bg: "bg-primary/10"     },
-  lifestyle_purchase:       { label: "Lifestyle Purchase",  icon: ShoppingBag, color: "text-destructive", bg: "bg-destructive/10" },
-  lifestyle_rent:           { label: "Lifestyle Rental",    icon: Building2,   color: "text-destructive", bg: "bg-destructive/10" },
-  lifestyle_passive_income: { label: "Investment Return",   icon: TrendingUp,  color: "text-accent",      bg: "bg-accent/10"      },
-  wager_stake:              { label: "Wager Stake",         icon: Coins,       color: "text-warning",     bg: "bg-warning/10"     },
-  wager_win:                { label: "Wager Won",           icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
-  wager_loss:               { label: "Wager Lost",          icon: Zap,         color: "text-destructive", bg: "bg-destructive/10" },
-  wager_refund:             { label: "Wager Refunded",      icon: Zap,         color: "text-warning",     bg: "bg-warning/10"     },
-  competition_reward:       { label: "Competition Reward",  icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
-  signing_bonus:            { label: "Signing Bonus",       icon: Briefcase,   color: "text-primary",     bg: "bg-primary/10"     },
-  admin_credit:             { label: "Admin Credit",        icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
-  admin_debit:              { label: "Admin Debit",         icon: Coins,       color: "text-destructive", bg: "bg-destructive/10" },
-};
-
-function getCategoryMeta(category) {
-  return CATEGORY_META[category] || { label: category || "Transaction", icon: Coins, color: "text-foreground", bg: "bg-secondary" };
+function getCategoryMeta(category, t) {
+  const CATEGORY_META = {
+    initial_grant:            { label: t("commonPages.walCatWelcomeBonus"),      icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
+    salary:                   { label: t("commonPages.cccWeeklySalary"),           icon: Briefcase,   color: "text-primary",    bg: "bg-primary/10"     },
+    lifestyle_purchase:       { label: t("commonPages.walCatLifestylePurchase"), icon: ShoppingBag, color: "text-destructive", bg: "bg-destructive/10" },
+    lifestyle_rent:           { label: t("commonPages.walCatLifestyleRental"),   icon: Building2,   color: "text-destructive", bg: "bg-destructive/10" },
+    lifestyle_passive_income: { label: t("commonPages.walCatInvestmentReturn"),  icon: TrendingUp,  color: "text-accent",      bg: "bg-accent/10"      },
+    wager_stake:              { label: t("commonPages.walCatWagerStake"),          icon: Coins,       color: "text-warning",     bg: "bg-warning/10"     },
+    wager_win:                { label: t("commonPages.walCatWagerWon"),          icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
+    wager_loss:               { label: t("commonPages.walCatWagerLost"),         icon: Zap,         color: "text-destructive", bg: "bg-destructive/10" },
+    wager_refund:             { label: t("commonPages.walCatWagerRefunded"),     icon: Zap,         color: "text-warning",     bg: "bg-warning/10"     },
+    competition_reward:       { label: t("commonPages.walCatCompetitionReward"), icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
+    signing_bonus:            { label: t("commonPages.cccSigningBonus"),         icon: Briefcase,   color: "text-primary",     bg: "bg-primary/10"     },
+    admin_credit:             { label: t("commonPages.walCatAdminCredit"),       icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
+    admin_debit:              { label: t("commonPages.walCatAdminDebit"),        icon: Coins,       color: "text-destructive", bg: "bg-destructive/10" },
+  };
+  return CATEGORY_META[category] || { label: category || t("commonPages.walCatTransaction"), icon: Coins, color: "text-foreground", bg: "bg-secondary" };
 }
 
 function fmt(n) { return Number(n || 0).toLocaleString(); }
 
-function TxRow({ tx }) {
-  const meta = getCategoryMeta(tx.category);
+function TxRow({ tx, t }) {
+  const meta = getCategoryMeta(tx.category, t);
   const Icon = meta.icon;
   const isPos = Number(tx.amount) > 0;
   return (
@@ -59,6 +59,7 @@ function TxRow({ tx }) {
 }
 
 export default function STCWallet({ player: initialPlayer, compact = false }) {
+  const { t } = useTranslation();
   const [data, setData]         = useState(null);
   const [txFilter, setTxFilter] = useState("all"); // all | income | expense
   const [loading, setLoading]   = useState(true);
@@ -130,10 +131,16 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
 
   const hasPassiveItems = true; // allow collect attempt always (server returns 0 if nothing)
   const salaryDue = salary > 0 && (nextDays === 0 || nextDays === null);
-  const salaryDueText = nextDays > 0 ? `In ${nextDays} day${nextDays !== 1 ? "s" : ""}` : "Due now";
+  const salaryDueText = nextDays > 0
+    ? (nextDays === 1 ? t("commonPages.walSalaryDueInDay") : t("commonPages.walSalaryDueInDays", { days: nextDays }))
+    : t("commonPages.walSalaryDueNow");
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex items-center justify-center py-16" aria-label={t("commonPages.loading")}>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -145,9 +152,9 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
         </div>
         <div className="flex items-start justify-between gap-4 relative">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">STC Balance</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">{t("commonPages.walStcBalance")}</p>
             <p className="font-heading font-black text-5xl text-success leading-none">{fmt(balance)}</p>
-            <p className="text-xs text-muted-foreground mt-1.5">Stage Coin</p>
+            <p className="text-xs text-muted-foreground mt-1.5">{t("commonPages.walStageCoin")}</p>
           </div>
           <div className="w-14 h-14 rounded-2xl bg-success/15 flex items-center justify-center shrink-0">
             <Coins className="w-7 h-7 text-success" />
@@ -161,7 +168,7 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
               <ArrowUpRight className="w-4 h-4 text-success" />
             </div>
             <div>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">30d Income</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("commonPages.wal30dIncome")}</p>
               <p className="text-sm font-bold text-success">+{fmt(totalIncome)}</p>
             </div>
           </div>
@@ -170,7 +177,7 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
               <ArrowDownRight className="w-4 h-4 text-destructive" />
             </div>
             <div>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">30d Spent</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("commonPages.wal30dSpent")}</p>
               <p className="text-sm font-bold text-destructive">-{fmt(totalExpense)}</p>
             </div>
           </div>
@@ -181,7 +188,7 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
       {!compact && (salary > 0 || hasPassiveItems) && (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-secondary/30">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Income Sources</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("commonPages.walIncomeSources")}</p>
           </div>
           <div className="divide-y divide-border/50">
             {salary > 0 && (
@@ -191,9 +198,9 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
                     <Briefcase className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-foreground">Weekly Salary</p>
+                    <p className="text-xs font-semibold text-foreground">{t("commonPages.cccWeeklySalary")}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {contract?.team_id ? "From club contract" : "No club"} · {salaryDueText}
+                      {contract?.team_id ? t("commonPages.walFromClubContract") : t("commonPages.walNoClub")} · {salaryDueText}
                     </p>
                   </div>
                 </div>
@@ -202,7 +209,7 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
                   {salaryDue && (
                     <Button size="sm" onClick={collectSalary} disabled={collecting}
                       className="h-7 px-3 text-xs bg-primary text-primary-foreground gap-1">
-                      {collecting ? <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" /> : <><Coins className="w-3 h-3" />Collect</>}
+                      {collecting ? <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" /> : <><Coins className="w-3 h-3" />{t("commonPages.walCollect")}</>}
                     </Button>
                   )}
                 </div>
@@ -214,13 +221,13 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
                   <TrendingUp className="w-4 h-4 text-accent" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-foreground">Investment Returns</p>
-                  <p className="text-[10px] text-muted-foreground">Passive income from lifestyle assets</p>
+                  <p className="text-xs font-semibold text-foreground">{t("commonPages.walInvestmentReturns")}</p>
+                  <p className="text-[10px] text-muted-foreground">{t("commonPages.walPassiveIncomeDesc")}</p>
                 </div>
               </div>
               <Button size="sm" onClick={collectPassive} disabled={collecting}
                 className="h-7 px-3 text-xs bg-accent/20 text-accent hover:bg-accent/30 border-0 gap-1 shrink-0">
-                {collecting ? <div className="w-3 h-3 border border-accent/30 border-t-accent rounded-full animate-spin" /> : <><RefreshCw className="w-3 h-3" />Collect</>}
+                {collecting ? <div className="w-3 h-3 border border-accent/30 border-t-accent rounded-full animate-spin" /> : <><RefreshCw className="w-3 h-3" />{t("commonPages.walCollect")}</>}
               </Button>
             </div>
           </div>
@@ -230,14 +237,14 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
       {/* ── Transaction history ── */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Transaction History</p>
-          <span className="text-[9px] text-muted-foreground">{totalTx} total</span>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("commonPages.walTransactionHistory")}</p>
+          <span className="text-[9px] text-muted-foreground">{t("commonPages.walTotalCount", { count: totalTx })}</span>
         </div>
 
         {/* Filter tabs */}
         <div className="flex gap-0 border-b border-border">
-          {[["all", "All"], ["income", "Income"], ["expense", "Expenses"]].map(([val, lbl]) => (
-            <button key={val} onClick={() => setTxFilter(val)}
+          {[["all", t("commonPages.all")], ["income", t("commonPages.walIncome")], ["expense", t("commonPages.walExpenses")]].map(([val, lbl]) => (
+            <button key={val} type="button" onClick={() => setTxFilter(val)}
               className={cn("flex-1 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors",
                 txFilter === val ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground")}>
               {lbl}
@@ -248,19 +255,19 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
         {filteredTx.length === 0 ? (
           <div className="py-12 text-center">
             <Coins className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No transactions yet</p>
+            <p className="text-xs text-muted-foreground">{t("commonPages.walNoTransactions")}</p>
           </div>
         ) : (
           <>
             <div>
-              {filteredTx.map(tx => <TxRow key={tx.id} tx={tx} />)}
+              {filteredTx.map(tx => <TxRow key={tx.id} tx={tx} t={t} />)}
             </div>
             {allTx.length < totalTx && (
               <div className="p-3 border-t border-border">
                 <Button variant="ghost" size="sm" onClick={() => loadHistory(page + 1, true)} disabled={loadingMore}
                   className="w-full text-xs text-muted-foreground gap-1.5">
                   {loadingMore ? <div className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  Load more
+                  {t("commonPages.crLoadMore")}
                 </Button>
               </div>
             )}
@@ -273,16 +280,16 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
-            <p className="text-xs font-bold text-foreground uppercase tracking-wider">How to earn STC</p>
+            <p className="text-xs font-bold text-foreground uppercase tracking-wider">{t("commonPages.walHowToEarn")}</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-2">
             {[
-              { label: "Weekly Salary",       val: "Per contract",    color: "text-primary",  desc: "Collect from your active contract" },
-              { label: "Wager Win",           val: "Wager × 2",       color: "text-success",  desc: "Win a wagered PvP match" },
-              { label: "Investment Income",   val: "Passive daily",   color: "text-accent",   desc: "From lifestyle assets you own" },
-              { label: "Competition Reward",  val: "Prize pool share",color: "text-warning",  desc: "Tournament top placements" },
+              { key: "salary",      label: t("commonPages.cccWeeklySalary"),         val: t("commonPages.walEarnPerContract"),   color: "text-primary",  desc: t("commonPages.walEarnSalaryDesc") },
+              { key: "wager",       label: t("commonPages.walCatWagerWon"),          val: t("commonPages.walEarnWagerWinVal"),   color: "text-success",  desc: t("commonPages.walEarnWagerWinDesc") },
+              { key: "investment",  label: t("commonPages.walEarnInvestmentIncome"), val: t("commonPages.walEarnPassiveDaily"),  color: "text-accent",   desc: t("commonPages.walEarnInvestmentDesc") },
+              { key: "competition", label: t("commonPages.walCatCompetitionReward"), val: t("commonPages.walEarnPrizePool"), color: "text-warning",  desc: t("commonPages.walEarnCompetitionDesc") },
             ].map(r => (
-              <div key={r.label} className="flex items-center justify-between rounded-lg px-3 py-2 text-xs bg-secondary/40 border border-border">
+              <div key={r.key} className="flex items-center justify-between rounded-lg px-3 py-2 text-xs bg-secondary/40 border border-border">
                 <div className="flex flex-col gap-0.5 flex-1">
                   <span className="text-foreground font-medium">{r.label}</span>
                   <span className="text-[9px] text-muted-foreground">{r.desc}</span>

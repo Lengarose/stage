@@ -609,8 +609,8 @@ function GroupStageVisual({ matches, registeredClubs, numGroups }) {
     <div className="bg-card border border-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-foreground">Group Draw</p>
-          <p className="text-[11px] text-muted-foreground">Top teams advance into the knockout bracket.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-foreground">{t("commonPages.tdGroupDraw")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("commonPages.tdGroupDrawDesc")}</p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 bg-primary/10 rounded px-2 py-1">
           {groups.length} groups
@@ -1531,7 +1531,7 @@ function resetUI() {
                                 <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
                                 {isAdmin && (
                                   <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
-                                    className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">Resolve</Button>
+                                    className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">{t("commonPages.tdResolve")}</Button>
                                 )}
                               </div>
                             )}
@@ -1544,9 +1544,9 @@ function resetUI() {
                             {isMyMatch && (match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
                               <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setDressingRoomMatch(match); setDressingRoomOpen(true); }}
-                                  className="border-primary/20 text-primary/80 hover:bg-primary/5 text-xs h-7">Dressing Room</Button>
+                                  className="border-primary/20 text-primary/80 hover:bg-primary/5 text-xs h-7">{t("commonPages.tdDressingRoom")}</Button>
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
-                                  className="border-border text-xs text-muted-foreground h-7">Schedule</Button>
+                                  className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
                                 {match.status !== "awaiting_confirmation" && (
                                   <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
                                     className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs h-7">
@@ -1560,7 +1560,7 @@ function resetUI() {
                                   </Button>
                                 )}
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
-                                  className="border-primary/30 text-primary hover:bg-primary/5 text-xs h-7">Stream</Button>
+                                  className="border-primary/30 text-primary hover:bg-primary/5 text-xs h-7">{t("commonPages.tdStream")}</Button>
                                 <Button size="sm" type="button" variant="outline" onClick={() => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
                                   className="border-destructive/30 text-destructive text-xs h-7">
                                   <Flag className="w-3 h-3 mr-1" /> {t("tournamentDetail.forfeit")}
@@ -1632,7 +1632,7 @@ function resetUI() {
               if (registeredPlayerIds.length === 0) return (
                 <div className="bg-card border border-border rounded-xl p-10 text-center">
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No players registered yet.</p>
+                  <p className="text-muted-foreground text-sm">{t("commonPages.cdNoPlayers")}</p>
                 </div>
               );
               return <PlayerRegistrantList playerIds={registeredPlayerIds} />;
@@ -1641,7 +1641,7 @@ function resetUI() {
             registeredClubs.length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-10 text-center">
                 <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No teams registered yet.</p>
+                <p className="text-muted-foreground text-sm">{t("commonPages.tdNoTeams")}</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1675,7 +1675,7 @@ function resetUI() {
             {matches.filter(m => m.status === "disputed").length === 0 ? (
               <div className="bg-card border border-border rounded-xl p-10 text-center">
                 <Check className="w-10 h-10 text-success mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No disputed matches. All clear!</p>
+                <p className="text-muted-foreground text-sm">{t("commonPages.tdNoDisputes")}</p>
               </div>
             ) : (
               matches.filter(m => m.status === "disputed").map(match => (
@@ -1701,7 +1701,7 @@ function resetUI() {
                         className="bg-warning/10 text-warning border border-warning/30 text-xs">✅ {t("tournamentDetail.approveForfeit")}</Button>
                     )}
                     <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
-                      className="bg-destructive/10 text-destructive border border-destructive/30 text-xs">Set Final Score</Button>
+                      className="bg-destructive/10 text-destructive border border-destructive/30 text-xs">{t("commonPages.tdSetFinalScore")}</Button>
                   </div>
                 </div>
               ))
@@ -1811,7 +1811,7 @@ function resetUI() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Admin Notes</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("commonPages.tdAdminNotes")}</label>
                 <Input value={disputeForm.admin_notes} onChange={e => setDisputeForm(f => ({ ...f, admin_notes: e.target.value }))}
                   className="bg-secondary border-border text-xs" placeholder={t("tournamentDetail.reasonPlaceholder")} />
               </div>
@@ -1828,13 +1828,13 @@ function resetUI() {
       <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-xl">Add Live Stream Link</DialogTitle>
+            <DialogTitle className="text-xl">{t("commonPages.tdAddStreamLink")}</DialogTitle>
           </DialogHeader>
           {streamMatch && (
             <div className="space-y-4 mt-2">
               <p className="text-sm text-muted-foreground">{streamMatch.home_club_name} vs {streamMatch.away_club_name}</p>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Stream URL</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("commonPages.tdStreamUrl")}</label>
                 <Input value={streamUrl} onChange={e => setStreamUrl(e.target.value)}
                   placeholder="https://twitch.tv/... or https://youtube.com/..."
                   className="bg-secondary border-border text-xs" />

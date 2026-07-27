@@ -3,11 +3,13 @@ import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BadgeCheck, Loader2, Send } from "lucide-react";
 import ImageUploadField from "@/components/admin/shared/ImageUploadField";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const inputCls = "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 
 export default function IdentityClaimSetup({ player, onComplete }) {
+  const { t } = useTranslation();
   const [claim, setClaim] = useState(null);
   const [platform, setPlatform] = useState(player?.platform || "PlayStation");
   const [platformHandle, setPlatformHandle] = useState(player?.gamertag || "");
@@ -55,7 +57,7 @@ export default function IdentityClaimSetup({ player, onComplete }) {
       setClaim(created);
       onComplete?.(created);
     } catch (err) {
-      setError(err?.data?.error || err?.message || "Could not submit identity claim.");
+      setError(err?.data?.error || err?.message || t("commonPages.obErrClaim"));
     } finally {
       setSaving(false);
     }
@@ -78,20 +80,23 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           </div>
           <div>
             <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">
-              {Number(player?.is_verified) === 1 || claim?.status === "approved" ? "Identity Verified" : "Claim Submitted"}
+              {Number(player?.is_verified) === 1 || claim?.status === "approved"
+                ? t("commonPages.obIdentityVerified")
+                : t("commonPages.obClaimSubmitted")}
             </h2>
             <p className="text-white/40 text-xs leading-relaxed">
               {Number(player?.is_verified) === 1 || claim?.status === "approved"
-                ? "Your STAGE profile is already linked to a verified player identity."
-                : "Your identity claim is now waiting for admin review in the admin panel."}
+                ? t("commonPages.obIdentityLinked")
+                : t("commonPages.obClaimPending")}
             </p>
           </div>
         </div>
         <button
+          type="button"
           onClick={() => onComplete?.(claim)}
           className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
         >
-          Continue to Club Setup →
+          {t("commonPages.obContinueClub")}
         </button>
       </div>
     );
@@ -105,8 +110,8 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           <BadgeCheck className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Claim Your Identity</h2>
-          <p className="text-white/40 text-xs leading-relaxed">Link your player profile to your console, EA, or Discord identity for admin verification.</p>
+          <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obClaimIdentity")}</h2>
+          <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obClaimIdentityDesc")}</p>
         </div>
       </div>
 
@@ -114,7 +119,7 @@ export default function IdentityClaimSetup({ player, onComplete }) {
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Platform *</label>
+          <label className={labelCls}>{t("commonPages.obPlatform")} *</label>
           <Select value={platform} onValueChange={setPlatform}>
             <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40">
               <SelectValue />
@@ -129,35 +134,35 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           </Select>
         </div>
         <div>
-          <label className={labelCls}>Platform Handle *</label>
-          <input value={platformHandle} onChange={e => setPlatformHandle(e.target.value)} className={inputCls} placeholder="PSN / Xbox / EA handle" />
+          <label className={labelCls}>{t("commonPages.obPlatformHandle")}</label>
+          <input value={platformHandle} onChange={e => setPlatformHandle(e.target.value)} className={inputCls} placeholder={t("commonPages.obPlatformHandlePlaceholder")} />
         </div>
         <div>
-          <label className={labelCls}>EA ID</label>
-          <input value={eaId} onChange={e => setEaId(e.target.value)} className={inputCls} placeholder="Optional" />
+          <label className={labelCls}>{t("commonPages.obEaId")}</label>
+          <input value={eaId} onChange={e => setEaId(e.target.value)} className={inputCls} placeholder={t("commonPages.obOptional")} />
         </div>
         <div>
-          <label className={labelCls}>Discord</label>
-          <input value={discordHandle} onChange={e => setDiscordHandle(e.target.value)} className={inputCls} placeholder="Optional" />
+          <label className={labelCls}>{t("commonPages.obDiscord")}</label>
+          <input value={discordHandle} onChange={e => setDiscordHandle(e.target.value)} className={inputCls} placeholder={t("commonPages.obOptional")} />
         </div>
           </div>
           <div>
-            <label className={labelCls}>Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} className={`${inputCls} min-h-24 resize-none`} placeholder="Anything admins should know?" />
+            <label className={labelCls}>{t("commonPages.obNotes")}</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} className={`${inputCls} min-h-24 resize-none`} placeholder={t("commonPages.obNotesPlaceholder")} />
           </div>
         </div>
 
         <div className="space-y-2">
           <ImageUploadField
             variant="glass"
-            label="Proof (screenshot or link)"
+            label={t("commonPages.obProofLabel")}
             value={proofUrl}
             onChange={setProofUrl}
-            placeholder="Paste a link, or drop / upload a screenshot"
+            placeholder={t("commonPages.obProofPlaceholder")}
             preview="landscape"
           />
           <p className="text-white/30 text-[10px] leading-relaxed">
-            Upload saves to Stage and stores the image URL on your claim for admins to review.
+            {t("commonPages.obProofHint")}
           </p>
         </div>
       </div>
@@ -178,11 +183,11 @@ export default function IdentityClaimSetup({ player, onComplete }) {
         >
           {saving ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Submitting…
+              <Loader2 className="w-4 h-4 animate-spin" /> {t("commonPages.obSubmitting")}
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              <Send className="w-4 h-4" /> Submit Claim
+              <Send className="w-4 h-4" /> {t("commonPages.obSubmitClaim")}
             </span>
           )}
         </button>
@@ -191,10 +196,9 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           onClick={() => onComplete?.(null)}
           className="w-full text-white/35 hover:text-white/65 text-[10px] uppercase tracking-widest transition-colors"
         >
-          Skip for now
+          {t("commonPages.obSkipForNow")}
         </button>
       </div>
     </div>
   );
 }
-

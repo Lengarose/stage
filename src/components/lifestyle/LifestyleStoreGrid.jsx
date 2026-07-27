@@ -5,6 +5,7 @@ import { Check, TrendingUp, Lock, Home, TrendingUp as Invest, CalendarClock, Plu
 import { LIFESTYLE_TIER_STYLES } from "@/lib/lifestyleItems";
 import { formatSTC } from "@/lib/playerValue";
 import PropertyStoreModal from "./PropertyStoreModal";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const ITEM_IMAGES = {
   "Apartment":        "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=500&q=80",
@@ -56,6 +57,7 @@ function isEnabled(value) {
 
 // { item, intent } — intent is "buy_live" | "invest"
 export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, onBuy, onRent, hasResidence }) {
+  const { t } = useTranslation();
   const [modal, setModal] = useState(null); // { item, intent }
 
   function getOwnedInvestCount(itemId) {
@@ -123,8 +125,8 @@ export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, 
                 <img src={imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                 <div className={cn("absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border backdrop-blur-sm", tierStyle.bg, tierStyle.color)}>{tierStyle.label}</div>
-                {alreadyOwned && <div className="absolute top-3 left-3 flex items-center gap-1 bg-success/90 text-black text-[10px] font-bold px-2 py-1 rounded-full"><Check className="w-2.5 h-2.5" />{ownedCount > 1 ? `×${ownedCount}` : "Owned"}</div>}
-                {!alreadyOwned && activeRentalNonProp && <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary/90 text-white text-[10px] font-bold px-2 py-1 rounded-full"><CalendarClock className="w-2.5 h-2.5" /> Renting</div>}
+                {alreadyOwned && <div className="absolute top-3 left-3 flex items-center gap-1 bg-success/90 text-black text-[10px] font-bold px-2 py-1 rounded-full"><Check className="w-2.5 h-2.5" />{ownedCount > 1 ? `×${ownedCount}` : t("commonPages.lsgOwned")}</div>}
+                {!alreadyOwned && activeRentalNonProp && <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary/90 text-white text-[10px] font-bold px-2 py-1 rounded-full"><CalendarClock className="w-2.5 h-2.5" /> {t("commonPages.lsgRenting")}</div>}
                 {hasPassive && <div className="absolute bottom-3 left-3 flex items-center gap-1 bg-success/90 text-black text-[10px] font-bold px-2.5 py-1 rounded-full"><TrendingUp className="w-2.5 h-2.5" />+{item.passive_income_stc.toLocaleString()}/{item.passive_income_interval_days}d</div>}
               </div>
               <div className="p-4 flex flex-col flex-1 gap-3">
@@ -136,26 +138,26 @@ export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, 
                   <div className="space-y-2 pt-2 border-t border-border/30">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{alreadyOwned ? "Buy Another" : "Buy"}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{alreadyOwned ? t("commonPages.lsgBuyAnother") : t("commonPages.lsgBuy")}</p>
                         <p className="text-base font-light text-success tracking-tight">{formatSTC(item.price_stc)}</p>
                       </div>
                       <Button size="sm" onClick={() => onBuy(item, {})} disabled={purchasing || !canAffordBuy}
                         className={cn("text-xs h-8 px-4 font-semibold shrink-0 gap-1", canAffordBuy ? "bg-success text-black hover:bg-success/90" : "bg-secondary text-muted-foreground cursor-not-allowed")}>
-                        {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : canAffordBuy ? alreadyOwned ? <><Plus className="w-3 h-3" /> Add</> : "Buy" : <><Lock className="w-3 h-3" /> Need STC</>}
+                        {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : canAffordBuy ? alreadyOwned ? <><Plus className="w-3 h-3" /> {t("commonPages.lsgAdd")}</> : t("commonPages.lsgBuy") : <><Lock className="w-3 h-3" /> {t("commonPages.lsgNeedStc")}</>}
                       </Button>
                     </div>
                     {canRentItem && (
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rent/mo</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.lsgRentMo")}</p>
                           <p className="text-sm font-light text-accent tracking-tight">{formatSTC(item.rent_price_stc)}</p>
                         </div>
                         {activeRentalNonProp ? (
-                          <div className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg">Active</div>
+                          <div className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg">{t("commonPages.lsgActive")}</div>
                         ) : (
                           <Button size="sm" onClick={() => onRent && onRent(item)} disabled={purchasing || !canAffordRent}
                             className={cn("text-xs h-8 px-4 font-semibold shrink-0 gap-1", canAffordRent ? "bg-accent text-white hover:bg-accent/90" : "bg-secondary text-muted-foreground cursor-not-allowed")}>
-                            <CalendarClock className="w-3 h-3" /> Rent
+                            <CalendarClock className="w-3 h-3" /> {t("commonPages.lsgRent")}
                           </Button>
                         )}
                       </div>
@@ -184,6 +186,7 @@ export default function LifestyleStoreGrid({ items, stc, purchases, purchasing, 
 }
 
 function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, purchasing, hasResidence, onBuyLive, onInvest, onRent }) {
+  const { t } = useTranslation();
   const tierStyle = LIFESTYLE_TIER_STYLES[item.tier] || LIFESTYLE_TIER_STYLES.starter;
   const imageUrl = getItemImage(item);
   const canAfford = stc >= item.price_stc;
@@ -209,22 +212,22 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
         {/* Status badges */}
         {isMyResidence && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary/90 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <Home className="w-2.5 h-2.5" /> My Residence
+            <Home className="w-2.5 h-2.5" /> {t("commonPages.lsgMyResidence")}
           </div>
         )}
         {!isMyResidence && liveOwned && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-success/90 text-black text-[10px] font-bold px-2 py-1 rounded-full">
-            <Home className="w-2.5 h-2.5" /> Owned (Live)
+            <Home className="w-2.5 h-2.5" /> {t("commonPages.lsgOwnedLive")}
           </div>
         )}
         {!isMyResidence && !liveOwned && investCount > 0 && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-warning/90 text-black text-[10px] font-bold px-2 py-1 rounded-full">
-            ×{investCount} Investment{investCount > 1 ? "s" : ""}
+            ×{investCount} {investCount > 1 ? t("commonPages.lsgInvestments") : t("commonPages.lsgInvestment")}
           </div>
         )}
         {!liveOwned && activeRental && !isMyResidence && (
           <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary/90 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-            <CalendarClock className="w-2.5 h-2.5" /> Renting
+            <CalendarClock className="w-2.5 h-2.5" /> {t("commonPages.lsgRenting")}
           </div>
         )}
         {hasPassive && (
@@ -249,7 +252,7 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
           {/* Price row */}
           {item.subcategory !== "airbnb" && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Buy price</span>
+              <span>{t("commonPages.lsgBuyPrice")}</span>
               <span className="font-bold text-foreground">{formatSTC(item.price_stc)}</span>
             </div>
           )}
@@ -260,10 +263,11 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
             {item.subcategory === "airbnb" ? (
               <div className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-border/20 text-[10px] text-muted-foreground/30 cursor-not-allowed">
                 <Home className="w-3.5 h-3.5" />
-                <span>N/A</span>
+                <span>{t("commonPages.lsgNA")}</span>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={onBuyLive}
                 disabled={purchasing || !canAfford}
                 className={cn(
@@ -274,7 +278,7 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
                 )}
               >
                 {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Home className="w-3.5 h-3.5" />}
-                <span>Buy (Live)</span>
+                <span>{t("commonPages.lsgBuyLive")}</span>
               </button>
             )}
 
@@ -283,10 +287,11 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
               activeRental ? (
                 <div className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border bg-primary/5 border-primary/20 text-[10px] font-bold text-primary">
                   <CalendarClock className="w-3.5 h-3.5" />
-                  <span>Active</span>
+                  <span>{t("commonPages.lsgActive")}</span>
                 </div>
               ) : (
                 <button
+                  type="button"
                   onClick={handleRent}
                   disabled={renting || !canAffordRent}
                   className={cn(
@@ -297,18 +302,19 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
                   )}
                 >
                   {renting ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <CalendarClock className="w-3.5 h-3.5" />}
-                  <span>Rent</span>
+                  <span>{t("commonPages.lsgRent")}</span>
                 </button>
               )
             ) : (
               <div className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-border/20 text-[10px] text-muted-foreground/40 cursor-not-allowed">
                 <CalendarClock className="w-3.5 h-3.5" />
-                <span>N/A</span>
+                <span>{t("commonPages.lsgNA")}</span>
               </div>
             )}
 
             {/* Invest */}
             <button
+              type="button"
               onClick={onInvest}
               disabled={purchasing || !canAfford}
               className={cn(
@@ -319,13 +325,13 @@ function PropertyItemCard({ item, stc, investCount, liveOwned, activeRental, pur
               )}
             >
               {purchasing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Invest className="w-3.5 h-3.5" />}
-              <span>Invest</span>
+              <span>{t("commonPages.lsgInvest")}</span>
             </button>
           </div>
 
           {/* Rent price hint */}
           {canRentItem && !activeRental && (
-            <p className="text-[10px] text-muted-foreground text-center">Rent: {formatSTC(item.rent_price_stc)}/mo</p>
+            <p className="text-[10px] text-muted-foreground text-center">{t("commonPages.lsgRent")}: {formatSTC(item.rent_price_stc)}/mo</p>
           )}
         </div>
       </div>

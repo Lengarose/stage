@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
+import { useTranslation } from "@/hooks/useTranslation";
 import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,11 +42,12 @@ function FormBadge({ result }) {
 }
 
 function StandingsTable({ standings, directSpots = 8, playoffSpots = 16 }) {
+  const { t } = useTranslation();
   const rows = sortStandings(standings);
   if (!rows.length) return (
     <div className="border border-dashed border-border rounded p-12 text-center">
       <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
-      <p className="text-sm text-muted-foreground uppercase tracking-widest">No standings yet</p>
+      <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.ldNoStandings")}</p>
     </div>
   );
 
@@ -125,6 +127,7 @@ function StandingsTable({ standings, directSpots = 8, playoffSpots = 16 }) {
 }
 
 function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
@@ -222,7 +225,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
               <button onClick={() => setEditing(false)} className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground">×</button>
             </div>
           ) : (
-            <button onClick={() => setEditing(true)} className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground">Result</button>
+            <button onClick={() => setEditing(true)} className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground">{t("commonPages.cpResult")}</button>
           )}
         </div>
       )}
@@ -234,6 +237,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
 }
 
 function TieCard({ leg1, leg2, isAdmin, onRefresh, label }) {
+  const { t } = useTranslation();
   const done1 = leg1?.status === "completed" || leg1?.status === "forfeit";
   const done2 = leg2?.status === "completed" || leg2?.status === "forfeit";
 
@@ -265,9 +269,10 @@ function TieCard({ leg1, leg2, isAdmin, onRefresh, label }) {
 }
 
 function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
+  const { t } = useTranslation();
   if (!fixtures.length) return (
     <div className="border border-dashed border-border rounded p-12 text-center">
-      <p className="text-sm text-muted-foreground uppercase tracking-widest">No fixtures generated yet</p>
+      <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoFixtures")}</p>
     </div>
   );
 
@@ -331,7 +336,7 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
                     <div key={tieKey} className="lg:col-span-2 max-w-lg">
                       <div className="bg-card border border-border rounded overflow-hidden">
                         <div className="px-4 py-2.5 bg-secondary/40 border-b border-border">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Final</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("commonPages.cpFinal")}</span>
                         </div>
                         <FixtureRow fixture={leg1} isAdmin={isAdmin} onSubmitResult={onRefresh} />
                       </div>
@@ -359,6 +364,7 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
 }
 
 function QualificationPanel({ entries }) {
+  const { t } = useTranslation();
   const pending = entries.filter(e => e.status === "pending");
   return (
     <div className="space-y-4">
@@ -369,7 +375,7 @@ function QualificationPanel({ entries }) {
       )}
       {!entries.length ? (
         <div className="border border-dashed border-border rounded p-12 text-center">
-          <p className="text-sm text-muted-foreground uppercase tracking-widest">No qualification entries yet</p>
+          <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoQualification")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -397,6 +403,7 @@ function QualificationPanel({ entries }) {
 }
 
 export default function CompetitionDetail() {
+  const { t } = useTranslation();
   const { slug } = useParams();
   const meta = getCompetitionMeta(slug);
 
@@ -564,13 +571,13 @@ export default function CompetitionDetail() {
         ) : !competition ? (
           <div className="border border-dashed border-border rounded p-16 text-center">
             <Trophy className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground uppercase tracking-widest">Competition not found</p>
-            <p className="text-xs text-muted-foreground mt-2">This competition may not be seeded yet.</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNotFound")}</p>
+            <p className="text-xs text-muted-foreground mt-2">{t("commonPages.cpNotSeeded")}</p>
           </div>
         ) : !selectedSeason ? (
           <div className="border border-dashed border-border rounded p-16 text-center">
             <Star className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground uppercase tracking-widest">No season started yet</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoSeason")}</p>
             {isAdmin && <p className="text-xs text-muted-foreground mt-2">Create the first season from Admin → Leagues.</p>}
           </div>
         ) : (

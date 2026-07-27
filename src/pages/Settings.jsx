@@ -442,14 +442,14 @@ export default function Settings() {
           <div className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-secondary">
             <Palette className="w-5 h-5 text-primary shrink-0" />
             <div>
-              <h3 className="text-sm leading-relaxed font-bold text-foreground">Custom Theme Settings</h3>
-              <p className="text-xs text-muted-foreground">Choose a preset or customize manually</p>
+              <h3 className="text-sm leading-relaxed font-bold text-foreground">{t("settingsPage.stgCustomTheme")}</h3>
+              <p className="text-xs text-muted-foreground">{t("settingsPage.stgCustomThemeDesc")}</p>
             </div>
           </div>
           
           {/* Preset Themes */}
           <div className="space-y-2 p-4 rounded-lg bg-secondary border border-border">
-            <p className="text-sm font-medium text-foreground mb-3">Preset Themes</p>
+            <p className="text-sm font-medium text-foreground mb-3">{t("settingsPage.stgPresetThemes")}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESET_THEMES.map((preset) => (
                 <button
@@ -479,7 +479,7 @@ export default function Settings() {
             <div className="space-y-4 p-4 rounded-lg bg-secondary border border-border">
               {/* Primary Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Primary Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgPrimaryColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -493,7 +493,7 @@ export default function Settings() {
 
               {/* Gradient Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Gradient Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgGradientColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -507,7 +507,7 @@ export default function Settings() {
 
               {/* Background Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Background Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgBackgroundColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -521,7 +521,7 @@ export default function Settings() {
 
               {/* Background Opacity */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Background Opacity: {(customBackgroundOpacity * 100).toFixed(0)}%</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgBackgroundOpacity")}: {(customBackgroundOpacity * 100).toFixed(0)}%</label>
                 <input
                   type="range"
                   min="0"
@@ -535,7 +535,7 @@ export default function Settings() {
 
               {/* Text Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Text Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgTextColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -549,7 +549,7 @@ export default function Settings() {
 
               {/* Primary Text Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Primary Text Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgPrimaryTextColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -563,7 +563,7 @@ export default function Settings() {
 
               {/* Secondary Text Color */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Secondary Text Color</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgSecondaryTextColor")}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -577,11 +577,11 @@ export default function Settings() {
 
               {/* Background Image */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Background Image</label>
+                <label className="text-sm font-medium text-foreground mb-2 block">{t("settingsPage.stgBackgroundImage")}</label>
                 <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors">
                   <Upload className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    {backgroundImage ? "Change background" : "Upload background image"}
+                    {backgroundImage ? t("settingsPage.stgChangeBackground") : t("settingsPage.stgUploadBackground")}
                   </span>
                   <input
                     type="file"
@@ -592,7 +592,7 @@ export default function Settings() {
                   />
                 </label>
                 {backgroundImage && (
-                  <p className="text-xs text-muted-foreground mt-2">Background image uploaded</p>
+                  <p className="text-xs text-muted-foreground mt-2">{t("settingsPage.stgBackgroundUploaded")}</p>
                 )}
               </div>
             </div>
@@ -603,8 +603,8 @@ export default function Settings() {
         {/* App Theme */}
         <div className="space-y-3">
           <div>
-            <h3 className="text-lg leading-relaxed font-bold text-foreground">App Theme</h3>
-            <p className="text-sm text-muted-foreground">Choose your preferred app theme</p>
+            <h3 className="text-lg leading-relaxed font-bold text-foreground">{t("settingsPage.stgAppTheme")}</h3>
+            <p className="text-sm text-muted-foreground">{t("settingsPage.stgAppThemeDesc")}</p>
           </div>
           <Select value={theme} onValueChange={(val) => {
             localStorage.setItem("stage-theme", val);
@@ -615,11 +615,11 @@ export default function Settings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="theme-dark">Dark</SelectItem>
-              <SelectItem value="theme-light">Day</SelectItem>
-              <SelectItem value="theme-video">LIVE DARK</SelectItem>
-              <SelectItem value="theme-white">LIVE WHITE</SelectItem>
-              <SelectItem value="theme-custom">Custom</SelectItem>
+              <SelectItem value="theme-dark">{t("settingsPage.stgThemeDark")}</SelectItem>
+              <SelectItem value="theme-light">{t("settingsPage.stgThemeDay")}</SelectItem>
+              <SelectItem value="theme-video">{t("settingsPage.stgThemeLiveDark")}</SelectItem>
+              <SelectItem value="theme-white">{t("settingsPage.stgThemeLiveWhite")}</SelectItem>
+              <SelectItem value="theme-custom">{t("settingsPage.stgThemeCustom")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -630,9 +630,9 @@ export default function Settings() {
         <div className="space-y-3">
           <div>
             <h3 className="text-lg leading-relaxed font-bold text-foreground flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" /> Account Security
+              <Lock className="w-5 h-5 text-primary" /> {t("settingsPage.stgAccountSecurity")}
             </h3>
-            <p className="text-sm text-muted-foreground">Manage your password and account security</p>
+            <p className="text-sm text-muted-foreground">{t("settingsPage.stgAccountSecurityDesc")}</p>
           </div>
           
           {!showPasswordForm ? (
@@ -641,18 +641,18 @@ export default function Settings() {
               onClick={() => setShowPasswordForm(true)}
               className="w-full border-primary/30 text-primary hover:bg-primary/5"
             >
-              <Lock className="w-4 h-4 mr-2" /> Change Password
+              <Lock className="w-4 h-4 mr-2" /> {t("settingsPage.stgChangePassword")}
             </Button>
           ) : (
             <div className="space-y-3 p-4 rounded-lg bg-secondary border border-border">
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground uppercase">Current Password</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">{t("settingsPage.stgCurrentPassword")}</label>
                 <div className="relative">
                   <Input
                     type={showCurrentPass ? "text" : "password"}
                     value={currentPassword}
                     onChange={e => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
+                    placeholder={t("settingsPage.stgEnterCurrentPassword")}
                     className="bg-background border-border pr-10"
                   />
                   <button
@@ -666,13 +666,13 @@ export default function Settings() {
               </div>
               
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground uppercase">New Password</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">{t("settingsPage.stgNewPassword")}</label>
                 <div className="relative">
                   <Input
                     type={showNewPass ? "text" : "password"}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Enter new password (min 8 characters)"
+                    placeholder={t("settingsPage.stgEnterNewPassword")}
                     className="bg-background border-border pr-10"
                   />
                   <button
@@ -686,13 +686,13 @@ export default function Settings() {
               </div>
               
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground uppercase">Confirm Password</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">{t("settingsPage.stgConfirmPassword")}</label>
                 <div className="relative">
                   <Input
                     type={showConfirmPass ? "text" : "password"}
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
+                    placeholder={t("settingsPage.stgConfirmNewPassword")}
                     className="bg-background border-border pr-10"
                   />
                   <button
@@ -717,7 +717,7 @@ export default function Settings() {
                   disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
                   className="flex-1"
                 >
-                  {passwordLoading ? "Updating..." : "Update Password"}
+                  {passwordLoading ? t("settingsPage.stgUpdating") : t("settingsPage.stgUpdatePassword")}
                 </Button>
                 <Button
                   variant="outline"
@@ -730,7 +730,7 @@ export default function Settings() {
                   }}
                   className="flex-1"
                 >
-                  Cancel
+                  {t("commonPages.cancel")}
                 </Button>
               </div>
             </div>
@@ -740,8 +740,8 @@ export default function Settings() {
         {/* Community / Discord */}
         <div className="space-y-3">
           <div>
-            <h3 className="text-lg leading-relaxed font-bold text-foreground">Community</h3>
-            <p className="text-sm text-muted-foreground">Join the official Discord — new members and veterans welcome</p>
+            <h3 className="text-lg leading-relaxed font-bold text-foreground">{t("nav.community")}</h3>
+            <p className="text-sm text-muted-foreground">{t("settingsPage.stgCommunityDesc")}</p>
           </div>
           <DiscordJoinCard variant="compact" />
         </div>
@@ -770,23 +770,23 @@ export default function Settings() {
           onClick={() => stageClient.auth.logout("/")}
           className="w-full border-warning/40 text-warning hover:bg-warning/10"
         >
-          <LogOut className="w-4 h-4 mr-2" /> Sign Out
+          <LogOut className="w-4 h-4 mr-2" /> {t("settingsPage.stgSignOut")}
         </Button>
 
         {/* Danger Zone */}
         <div className="space-y-3 pt-4 border-t border-destructive/20">
           <div>
             <h3 className="text-lg font-bold text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Danger Zone
+              <AlertTriangle className="w-5 h-5" /> {t("settingsPage.stgDangerZone")}
             </h3>
-            <p className="text-sm text-muted-foreground">Permanently delete your account and all data.</p>
+            <p className="text-sm text-muted-foreground">{t("settingsPage.stgDangerZoneDesc")}</p>
           </div>
           <Button
             variant="outline"
             onClick={() => setDeleteDialogOpen(true)}
             className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
           >
-            <Trash2 className="w-4 h-4 mr-2" /> Delete Account
+            <Trash2 className="w-4 h-4 mr-2" /> {t("settingsPage.stgDeleteAccount")}
           </Button>
         </div>
       </div>
@@ -804,28 +804,28 @@ export default function Settings() {
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Delete Account
+              <AlertTriangle className="w-5 h-5" /> {t("settingsPage.stgDeleteAccount")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground space-y-2">
-              <span className="block">This permanently deletes your login, linked player profile, clubs tied to this account, contracts, purchases, and related data. <strong className="text-foreground">This cannot be undone.</strong></span>
-              <span className="block pt-2">Type <strong className="text-foreground">DELETE</strong> to confirm:</span>
+              <span className="block">{t("settingsPage.stgDeleteWarning")} <strong className="text-foreground">{t("settingsPage.stgCannotUndo")}</strong></span>
+              <span className="block pt-2">{t("settingsPage.stgTypeToConfirm")}</span>
               <input
                 value={deleteConfirm}
                 onChange={e => setDeleteConfirm(e.target.value)}
-                placeholder="Type DELETE"
+                placeholder={t("settingsPage.stgTypeDelete")}
                 className="w-full mt-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
               />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel type="button" className="border-border">Cancel</AlertDialogCancel>
+            <AlertDialogCancel type="button" className="border-border">{t("commonPages.cancel")}</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
               disabled={deleteConfirm !== "DELETE" || deleting}
               onClick={() => void handleConfirmDeleteAccount()}
             >
-              {deleting ? "Deleting..." : "Delete My Account"}
+              {deleting ? t("settingsPage.stgDeleting") : t("settingsPage.stgDeleteMyAccount")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

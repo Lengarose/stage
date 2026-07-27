@@ -30,6 +30,7 @@ import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuth } from "@/lib/AuthContext";
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
@@ -71,10 +72,17 @@ function getVisibleClubRole(player, club, contracts = []) {
   return player?.role && !["manager", "member", "owner"].includes(player.role) ? player.role : "";
 }
 
-export default function PlayerProfile({ overridePlayerId, tournamentId: _tournamentId, editMode: _editMode } = {}) {
+export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
   const { t } = useTranslation();
+  const { user: authUser } = useAuth();
   const params = useParams();
   const id = overridePlayerId || params.id;
+  const limitedTournamentId =
+    tournamentId ||
+    (authUser?.access_mode === "tournament_limited" ? authUser?.limited_tournament_id : null) ||
+    null;
+  const playersListPath = limitedTournamentId ? "/tournaments/players" : "/search";
+  const ownProfilePath = limitedTournamentId ? "/tournaments/profile-player" : "/profile";
   const [player, setPlayer] = useState(null);
   const [club, setClub] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -281,7 +289,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
     return (
       <div className="p-6 text-center">
         <p className="text-white/50">{t("commonPages.ppNotFound")}</p>
-        <Link to="/search"><Button variant="outline" className="mt-4">{t("commonPages.ppBackToSearch")}</Button></Link>
+        <Link to={playersListPath}><Button variant="outline" className="mt-4">{t("commonPages.ppBackToSearch")}</Button></Link>
       </div>
     );
   }
@@ -338,7 +346,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId: _tournam
         sideActions={(
           <>
             {isOwner ? (
-              <Link to="/profile">
+              <Link to={ownProfilePath}>
                 <Button type="button" size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
                   <Settings className="w-3.5 h-3.5" /> {t("commonPages.profEditProfile")}
                 </Button>
