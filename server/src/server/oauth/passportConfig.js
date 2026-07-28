@@ -10,18 +10,19 @@ const SERVER_URL = get('SERVER_URL') || 'http://localhost:8080';
 
 async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, avatar, streamUrl }) {
   async function ensureUserLink(player) {
-    if (!email) return player;
-    const users = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    const linkEmail = email || player?.email;
+    if (!linkEmail) return player;
+    const users = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [linkEmail]);
     if (!users.length) {
       await EXECUTESQL(
         `INSERT INTO users (id, email, created_date, updated_date)
          VALUES (?, ?, NOW(), NOW())`,
-        [uuidv4(), email]
+        [uuidv4(), linkEmail]
       );
     }
     await EXECUTESQL(
       'UPDATE players SET user_id = (SELECT id FROM users WHERE email = ? LIMIT 1) WHERE id = ?',
-      [email, player.id]
+      [linkEmail, player.id]
     );
     const refreshed = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [player.id]);
     return refreshed[0] || player;
@@ -35,6 +36,12 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
     ).catch((err) => console.warn('[oauth] stream_url update failed:', err.message));
   }
 
+  function withMeta(player, isNewUser) {
+    if (!player) return player;
+    player.__isNewUser = Boolean(isNewUser);
+    return player;
+  }
+
   // 1. Match by oauth_id + provider (returning user)
   let rows = await EXECUTESQL(
     'SELECT * FROM players WHERE oauth_provider = ? AND oauth_id = ?',
@@ -44,7 +51,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
     await persistStreamUrl(rows[0].id);
     const linked = await ensureUserLink(rows[0]);
     if (streamUrl) linked.stream_url = streamUrl;
-    return linked;
+    return withMeta(linked, false);
   }
 
   // 2. Match by email → link OAuth to existing account
@@ -58,7 +65,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
       await persistStreamUrl(rows[0].id);
       const linked = await ensureUserLink(rows[0]);
       if (streamUrl) linked.stream_url = streamUrl;
-      return linked;
+      return withMeta(linked, false);
     }
   }
 
@@ -75,7 +82,7 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
   );
 
   const created = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [id]);
-  return ensureUserLink(created[0]);
+  return withMeta(await ensureUserLink(created[0]), true);
 }
 
 /** Which OAuth providers have env vars set and were registered with Passport */

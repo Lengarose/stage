@@ -8,7 +8,7 @@ import { ChatNotificationsProvider } from '@/lib/ChatNotificationsContext';
 import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
-import { stageClient } from '@/api/stageClient';
+import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, peekOAuthEntranceMode, userNeedsOnboarding } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -109,20 +109,60 @@ const OAuthCallback = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    const ok = stageClient.auth.handleOAuthCallback();
-    if (ok) {
-      checkUserAuth().then(async () => {
-        const u = await stageClient.auth.me().catch(() => null);
-        if (isAppAdminUser(u)) {
-          ensureAdminPanelMode();
-          navigate('/admin', { replace: true });
-        } else {
-          navigate('/', { replace: true });
+    let cancelled = false;
+    (async () => {
+      const result = stageClient.auth.handleOAuthCallback();
+      if (!result?.ok) {
+        clearOAuthReturnState();
+        navigate('/', { replace: true });
+        return;
+      }
+
+      await checkUserAuth().catch(() => null);
+      if (cancelled) return;
+
+      const u = await stageClient.auth.me().catch(() => null);
+      if (isAppAdminUser(u)) {
+        ensureAdminPanelMode();
+        clearOAuthReturnState();
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // Tournament entrance invites: apply limited mode for signup / new OAuth users
+      // before onboarding mounts (Onboarding replaces the entrance route).
+      const returnTo = result.returnTo || '/';
+      const entranceMode = peekOAuthEntranceMode();
+      const entranceMatch = String(returnTo).match(/\/tournaments\/entrance\/([^/]+)\/(signin|signup)/);
+      const shouldLimit =
+        Boolean(entranceMatch) &&
+        (entranceMode === 'signup' || result.isNewUser || entranceMatch[2] === 'signup');
+
+      if (shouldLimit) {
+        try {
+          const resolved = await stageClient.http.post('/public/resolve-entrance-token', {
+            token: entranceMatch[1],
+          });
+          const tournamentId = resolved?.data?.tournament?.id;
+          if (tournamentId) {
+            await stageClient.functions
+              .invoke('applyTournamentEntranceAccessMode', { tournament_id: tournamentId })
+              .catch(() => {});
+            await checkUserAuth().catch(() => null);
+          }
+        } catch {
+          /* keep going — onboarding still required for new users */
         }
-      });
-    } else {
+      }
+
+      clearOAuthReturnState();
+      // Always land on home so AuthenticatedApp can show Onboarding when needed.
       navigate('/', { replace: true });
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -161,12 +201,17 @@ const AuthenticatedApp = () => {
   const isTournamentEntrancePath = location.pathname.startsWith('/tournaments/entrance/');
 
   const handleOnboardingComplete = React.useCallback(() => {
-    if (user?.id) localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
+    if (user?.id) {
+      localStorage.setItem(`stage_onboarding_completed_${user.id}`, '1');
+      clearNeedsOnboarding(user.id);
+    }
     setPlayerSetupComplete(true);
   }, [user?.id]);
 
   const hasCompletedOnboarding = React.useMemo(() => {
     if (!user?.id) return false;
+    // Brand-new OAuth accounts must finish onboarding even though a stub player exists.
+    if (userNeedsOnboarding(user.id)) return false;
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     if (localStorage.getItem(userScopedKey) === '1') return true;
     if (user.player_id) return true;

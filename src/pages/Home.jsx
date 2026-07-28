@@ -304,8 +304,8 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
 
   return (
     <section
-      className="border-y border-white/8 py-14 relative overflow-hidden"
-      style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw",
+      className="border-y border-white/8 py-14 relative overflow-hidden w-full"
+      style={{
         background: isLiveWhiteTheme
           ? "linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.60) 50%, rgba(255,255,255,0.72) 100%)"
           : isLiveDarkTheme
@@ -464,8 +464,8 @@ function ScheduleFrame({ matches }) {
 
   return (
     <section
-      className="py-14 relative overflow-hidden"
-      style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw",
+      className="py-14 relative overflow-hidden w-full"
+      style={{
         background: "linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--secondary)/0.3) 50%, hsl(var(--background)) 100%)" }}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
@@ -944,8 +944,8 @@ export default function Home() {
           HERO
          ══════════════════════════════════════════════════════ */}
       <section
-        className="stage-home-hero relative flex items-center overflow-hidden"
-        style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", minHeight: "88vh" }}
+        className="stage-home-hero relative flex items-center overflow-hidden w-full"
+        style={{ minHeight: "88vh" }}
       >
         <div
           className="stage-home-hero-bg absolute inset-0 bg-cover bg-no-repeat"
@@ -1077,8 +1077,8 @@ export default function Home() {
           QUICK NAVIGATION
          ══════════════════════════════════════════════════════ */}
       <section
-        className="border-y border-border py-16"
-        style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", background: "hsl(var(--secondary) / 0.3)" }}
+        className="border-y border-border py-16 w-full"
+        style={{ background: "hsl(var(--secondary) / 0.3)" }}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">{t("commonPages.homePlatform")}</p>
@@ -1119,8 +1119,8 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           FOOTER
          ══════════════════════════════════════════════════════ */}
-      <footer className="border-t border-border" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw", background: "hsl(var(--card))" }}>
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12">
+      <footer className="border-t border-border w-full" style={{ background: "hsl(var(--card))" }}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12 pb-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-10">
             <div>
               <p className="font-heading font-black text-4xl uppercase mb-3" style={{ color: "hsl(189,100%,52%)", textShadow: "0 0 16px hsl(189 100% 52% / 0.35)" }}>STAGE</p>

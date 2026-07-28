@@ -13,15 +13,15 @@ const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW",
 const inputCls = "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 
-export default function PlayerSetup({ onComplete, user }) {
+export default function PlayerSetup({ onComplete, user, initialPlayer = null }) {
   const { t } = useTranslation();
-  const [gamertag, setGamertag] = useState("");
-  const [position, setPosition] = useState("ST");
-  const [secondaryPosition, setSecondaryPosition] = useState("none");
-  const [country, setCountry] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const [avatarPosition, setAvatarPosition] = useState("50% 50%");
-  const [avatarZoom, setAvatarZoom] = useState(150);
+  const [gamertag, setGamertag] = useState(initialPlayer?.gamertag || "");
+  const [position, setPosition] = useState(initialPlayer?.position || "ST");
+  const [secondaryPosition, setSecondaryPosition] = useState(initialPlayer?.secondary_position || "none");
+  const [country, setCountry] = useState(initialPlayer?.country || "");
+  const [avatarUrl, setAvatarUrl] = useState(initialPlayer?.avatar_url || null);
+  const [avatarPosition, setAvatarPosition] = useState(initialPlayer?.avatar_position || "50% 50%");
+  const [avatarZoom, setAvatarZoom] = useState(Number(initialPlayer?.avatar_zoom) || 150);
   const [pendingAvatar, setPendingAvatar] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -129,6 +129,14 @@ export default function PlayerSetup({ onComplete, user }) {
     }
   }
 
+  const cardPlayer = {
+    avatar_url: avatarUrl,
+    avatar_position: avatarPosition,
+    avatar_zoom: avatarZoom,
+    position,
+    overall_rating: initialPlayer?.overall_rating ?? 0,
+  };
+
   return (
     <div className="space-y-5">
       <div>
@@ -136,7 +144,7 @@ export default function PlayerSetup({ onComplete, user }) {
         <p className="text-white/40 text-xs">{t("commonPages.obTellWorld")}</p>
       </div>
 
-      {/* Avatar */}
+      {/* Player card (same rectangle as profile) */}
       <div className="flex gap-4 items-start">
         <div className="relative group shrink-0">
           <GamerPlayerPhotoFrame
@@ -154,7 +162,7 @@ export default function PlayerSetup({ onComplete, user }) {
           <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
         </div>
 
-        <div className="flex-1 space-y-3 pt-1">
+        <div className="flex-1 space-y-3 pt-0.5 min-w-0">
           <div>
             <label className={labelCls}>{t("commonPages.obGamertag")}</label>
             <input
@@ -227,13 +235,13 @@ export default function PlayerSetup({ onComplete, user }) {
         open={!!pendingAvatar}
         onClose={() => setPendingAvatar(null)}
         imageUrl={pendingAvatar}
-        aspect="avatar"
+        aspect="card"
         initialPosition={avatarPosition}
         initialZoom={avatarZoom}
         previewPlayer={previewPlayer}
         onConfirm={(url, position, zoom) => {
           setAvatarUrl(url);
-          setAvatarPosition(position);
+          setAvatarPosition(nextPosition);
           setAvatarZoom(zoom || 150);
           setPendingAvatar(null);
         }}

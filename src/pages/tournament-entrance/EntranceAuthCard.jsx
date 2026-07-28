@@ -140,7 +140,13 @@ export default function EntranceAuthCard({ mode }) {
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
         if (isAuthed && row?.id && !postAuthHandledRef.current) {
           postAuthHandledRef.current = true;
-          navigate("/", { replace: true });
+          // Returning from OAuth (or already signed in): finish entrance signup then home.
+          // Onboarding gate in App.jsx will open if this is a new OAuth account.
+          try {
+            await finalizeAuthedUser(row.id);
+          } catch {
+            navigate("/", { replace: true });
+          }
           return;
         }
       } catch (err) {
@@ -151,7 +157,7 @@ export default function EntranceAuthCard({ mode }) {
     }
     bootstrap();
     return () => { mounted = false; };
-  }, [token, navigate, t]);
+  }, [token, navigate, t, finalizeAuthedUser]);
 
   async function handleAuthSubmit(e) {
     e.preventDefault();

@@ -44,6 +44,8 @@ async function issueAndRedirect(res, player) {
     playerId: player.id,
     ownerId:  clubs[0]?.id || '',
   });
+  // New OAuth accounts still need the full onboarding flow (profile, club, tutorial).
+  if (player.__isNewUser) params.set('isNewUser', '1');
   res.redirect(`${FRONTEND_URL}/auth/callback?${params}`);
 }
 

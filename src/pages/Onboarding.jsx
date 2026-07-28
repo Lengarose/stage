@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { resolveMyPlayerAndClub } from "@/api/stageClient";
+import { resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
@@ -52,14 +52,15 @@ export default function Onboarding({ onComplete }) {
       try {
         const { user: u, player: pl } = await resolveMyPlayerAndClub();
         setUser(u);
-        if (pl) {
-          setPlayer(pl);
-        }
-        // Already onboarded — don't show role chooser after localStorage was cleared
-        if (u.player_id || pl?.id) {
+        if (pl) setPlayer(pl);
+
+        const forceOnboarding = Boolean(u?.id && userNeedsOnboarding(u.id));
+        // OAuth creates a stub player — still run onboarding until profile is finished.
+        if ((u.player_id || pl?.id) && !forceOnboarding) {
           onComplete?.();
           return;
         }
+        // Keep role chooser for OAuth; PlayerSetup prefills the stub when they pick Player.
       } catch (err) {
         console.error("Failed to load user:", err);
       } finally {
@@ -223,10 +224,14 @@ export default function Onboarding({ onComplete }) {
                   )}
 
                   {/* ── PLAYER SETUP ────────────────────────── */}
-                  {step === "player" && !player && (
-                    <PlayerSetup onComplete={handlePlayerComplete} user={user} />
+                  {step === "player" && (!player || !player.country) && (
+                    <PlayerSetup
+                      onComplete={handlePlayerComplete}
+                      user={user}
+                      initialPlayer={player}
+                    />
                   )}
-                  {step === "player" && player && (
+                  {step === "player" && player?.country && (
                     <div className="space-y-5">
                       <div>
                         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obProfileReady")}</h2>
@@ -235,6 +240,7 @@ export default function Onboarding({ onComplete }) {
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setStep("identity")}
                         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
                       >

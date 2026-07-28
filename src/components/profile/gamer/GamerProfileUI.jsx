@@ -74,7 +74,9 @@ export function GamerPlayerPhotoFrame({
           }}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-white/20 text-4xl font-black">?</div>
+        <div className="absolute inset-0 flex items-center justify-center text-white/20 text-4xl font-black">
+          {emptyLabel}
+        </div>
       )}
       <div className="absolute top-2 right-2 z-[2] min-w-[42px] rounded-lg bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1 text-center shadow-lg">
         <p className="text-[8px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>

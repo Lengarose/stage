@@ -17,6 +17,87 @@ const USER_KEY    = 'stage_user_id';
 const PLAYER_KEY  = 'stage_player_id';
 const OWNER_KEY   = 'stage_owner_id';
 const AUTH_CHANGED_EVENT = 'stage-auth-changed';
+const OAUTH_RETURN_KEY = 'stage_oauth_return';
+const OAUTH_ENTRANCE_MODE_KEY = 'stage_oauth_entrance_mode';
+
+function needsOnboardingStorageKey(userId) {
+  return `stage_needs_onboarding_${userId}`;
+}
+
+/** Mark a brand-new OAuth account so AuthenticatedApp shows full Onboarding. */
+export function markNeedsOnboarding(userId) {
+  if (!userId || typeof window === 'undefined') return;
+  try {
+    const key = needsOnboardingStorageKey(userId);
+    sessionStorage.setItem(key, '1');
+    localStorage.setItem(key, '1');
+    localStorage.removeItem(`stage_onboarding_completed_${userId}`);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearNeedsOnboarding(userId) {
+  if (!userId || typeof window === 'undefined') return;
+  try {
+    const key = needsOnboardingStorageKey(userId);
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function userNeedsOnboarding(userId) {
+  if (!userId || typeof window === 'undefined') return false;
+  try {
+    const key = needsOnboardingStorageKey(userId);
+    return sessionStorage.getItem(key) === '1' || localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Same-origin relative path only (blocks open redirects). */
+function sanitizeReturnPath(returnTo) {
+  if (!returnTo || typeof window === 'undefined') return null;
+  try {
+    const url = new URL(String(returnTo), window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    if (!path.startsWith('/') || path.startsWith('//')) return null;
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+export function peekOAuthEntranceMode() {
+  try {
+    return sessionStorage.getItem(OAUTH_ENTRANCE_MODE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearOAuthReturnState() {
+  try {
+    sessionStorage.removeItem(OAUTH_RETURN_KEY);
+    sessionStorage.removeItem(OAUTH_ENTRANCE_MODE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeOAuthReturnPath() {
+  try {
+    const path = sessionStorage.getItem(OAUTH_RETURN_KEY);
+    sessionStorage.removeItem(OAUTH_RETURN_KEY);
+    return sanitizeReturnPath(path) || '/';
+  } catch {
+    return '/';
+  }
+}
 
 function notifyAuthChanged() {
   if (typeof window !== 'undefined') {
@@ -432,8 +513,24 @@ const auth = {
     window.location.href = redirectUrl || '/';
   },
 
-  // Redirect to backend OAuth — backend redirects back to /auth/callback with tokens
-  loginWithProvider(provider) {
+  // Redirect to backend OAuth — backend redirects back to /auth/callback with tokens.
+  // Optional returnTo (same-origin) is restored after callback so tournament entrance
+  // invites and deep links survive the OAuth round-trip.
+  loginWithProvider(provider, returnTo) {
+    const safe = sanitizeReturnPath(returnTo || (typeof window !== 'undefined' ? window.location.href : null));
+    try {
+      if (safe) {
+        sessionStorage.setItem(OAUTH_RETURN_KEY, safe);
+        const entrance = safe.match(/\/tournaments\/entrance\/[^/]+\/(signin|signup)/);
+        if (entrance) sessionStorage.setItem(OAUTH_ENTRANCE_MODE_KEY, entrance[1]);
+        else sessionStorage.removeItem(OAUTH_ENTRANCE_MODE_KEY);
+      } else {
+        sessionStorage.removeItem(OAUTH_RETURN_KEY);
+        sessionStorage.removeItem(OAUTH_ENTRANCE_MODE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
     window.location.href = `${API_BASE}/auth/${provider}`;
   },
 
@@ -441,7 +538,8 @@ const auth = {
     window.location.href = '/';
   },
 
-  // Call once on /auth/callback page load to store tokens from URL params
+  // Call once on /auth/callback page load to store tokens from URL params.
+  // Returns { ok, isNewUser, returnTo }.
   handleOAuthCallback() {
     const params       = new URLSearchParams(window.location.search);
     const accessToken  = params.get('accessToken');
@@ -449,12 +547,20 @@ const auth = {
     const userId       = params.get('userId');
     const playerId     = params.get('playerId');
     const ownerId      = params.get('ownerId');
+    const isNewUser    = params.get('isNewUser') === '1';
     if (accessToken && (userId || playerId)) {
       storeTokens({ accessToken, refreshToken, userId, playerId, ownerId });
-      window.history.replaceState({}, '', '/');
-      return true;
+      if (isNewUser && userId) markNeedsOnboarding(userId);
+      let returnTo = '/';
+      try {
+        returnTo = sanitizeReturnPath(sessionStorage.getItem(OAUTH_RETURN_KEY)) || '/';
+      } catch {
+        returnTo = '/';
+      }
+      window.history.replaceState({}, '', '/auth/callback');
+      return { ok: true, isNewUser, returnTo };
     }
-    return false;
+    return { ok: false, isNewUser: false, returnTo: '/' };
   },
 
   async updateMe(data) {

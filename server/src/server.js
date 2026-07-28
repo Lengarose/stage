@@ -226,6 +226,7 @@ app.get('/auth/callback', (req, res) => {
     userId = '',
     playerId = '',
     ownerId = '',
+    isNewUser = '',
   } = req.query || {};
 
   const j = (v) => JSON.stringify(String(v || ''));
@@ -240,19 +241,28 @@ app.get('/auth/callback', (req, res) => {
     <p>Finishing sign-in...</p>
     <script>
       (function () {
+        var next = '/';
         try {
           var accessToken = ${j(accessToken)};
           var refreshToken = ${j(refreshToken)};
           var userId = ${j(userId)};
           var playerId = ${j(playerId)};
           var ownerId = ${j(ownerId)};
+          var isNewUser = ${j(isNewUser)};
           if (accessToken)  localStorage.setItem('stage_access_token', accessToken);
           if (refreshToken) localStorage.setItem('stage_refresh_token', refreshToken);
           if (userId)       localStorage.setItem('stage_user_id', userId);
           if (playerId)     localStorage.setItem('stage_player_id', playerId);
           if (ownerId)      localStorage.setItem('stage_owner_id', ownerId);
+          if (isNewUser === '1' && userId) {
+            sessionStorage.setItem('stage_needs_onboarding_' + userId, '1');
+            localStorage.setItem('stage_needs_onboarding_' + userId, '1');
+            localStorage.removeItem('stage_onboarding_completed_' + userId);
+          }
+          var stored = sessionStorage.getItem('stage_oauth_return') || '';
+          if (stored && stored.charAt(0) === '/' && stored.indexOf('//') !== 0) next = stored;
         } catch (e) {}
-        window.location.replace('/');
+        window.location.replace(next);
       })();
     </script>
   </body>

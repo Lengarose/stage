@@ -172,13 +172,7 @@ export default function ImagePositionEditor({
               <div
                 className="w-36 h-36 rounded-full cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
                 style={previewStyle}
-                onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
-                onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
-                onMouseUp={endDrag}
-                onMouseLeave={endDrag}
-                onTouchStart={e => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
-                onTouchMove={e => { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget.getBoundingClientRect()); }}
-                onTouchEnd={endDrag}
+                {...dragHandlers}
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
@@ -192,13 +186,7 @@ export default function ImagePositionEditor({
             <div
               className="w-full h-28 rounded-xl cursor-grab active:cursor-grabbing select-none border border-white/20"
               style={previewStyle}
-              onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
-              onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
-              onMouseUp={endDrag}
-              onMouseLeave={endDrag}
-              onTouchStart={e => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
-              onTouchMove={e => { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget.getBoundingClientRect()); }}
-              onTouchEnd={endDrag}
+              {...dragHandlers}
             />
           )}
 
@@ -214,12 +202,14 @@ export default function ImagePositionEditor({
           {/* Actions */}
           <div className="flex gap-3 pt-1">
             <button
+              type="button"
               onClick={onClose}
               className="flex-1 bg-white/10 border border-white/20 text-white/70 hover:text-white hover:border-white/35 font-bold uppercase tracking-widest text-xs py-3 rounded-xl transition-all"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => onConfirm(imageUrl, position, Number(zoom))}
               className="flex-1 bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-gray-100 transition-all shadow-lg"
             >

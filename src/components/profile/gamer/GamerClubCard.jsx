@@ -44,7 +44,7 @@ export function GamerClubPhotoFrame({
       )}
       <div className="absolute top-2 right-2 z-[2] min-w-[42px] rounded-lg bg-gradient-to-br from-cyan-300 to-teal-500 px-2 py-1 text-center shadow-lg">
         <p className="text-[8px] font-black uppercase tracking-wider text-black/70 leading-none">WR</p>
-        <p className="font-heading text-xl font-black text-black leading-none">{rating}</p>
+        <p className="font-heading text-xl font-black text-black leading-none">{ratingLabel}</p>
       </div>
       <div className="absolute bottom-0 inset-x-0 z-[2] p-3">
         {club?.tag ? (

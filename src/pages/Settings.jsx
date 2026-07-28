@@ -18,6 +18,26 @@ import {
   getSelectedNotificationSoundId,
 } from "@/lib/notificationSound";
 import {
+  LIVE_DARK_BG_OPTIONS,
+  LIVE_DARK_MAX_UPLOADS,
+  LIVE_DARK_BLUR_MIN,
+  LIVE_DARK_BLUR_MAX,
+  LIVE_DARK_OVERLAY_MIN,
+  LIVE_DARK_OVERLAY_MAX,
+  addLiveDarkUpload,
+  clearLiveDarkUpload,
+  compressImageFileToDataUrl,
+  filledUploadCount,
+  getLiveDarkBgPreference,
+  getLiveDarkBgPreviewSrc,
+  getLiveDarkFx,
+  getLiveDarkUploadSlots,
+  replaceLiveDarkUpload,
+  setLiveDarkBgPreference,
+  setLiveDarkFx,
+} from "@/lib/liveDarkBackground";
+import { cn } from "@/lib/utils";
+import {
   AlertDialog, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -194,6 +214,10 @@ export default function Settings() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [notificationSound, setNotificationSound] = useState(() => getSelectedNotificationSoundId());
+  const [liveDarkBg, setLiveDarkBg] = useState(() => getLiveDarkBgPreference());
+  const [liveDarkSlots, setLiveDarkSlots] = useState(() => getLiveDarkUploadSlots());
+  const [liveDarkFx, setLiveDarkFxState] = useState(() => getLiveDarkFx());
+  const [liveDarkUploading, setLiveDarkUploading] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -241,6 +265,70 @@ export default function Settings() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  async function handleLiveDarkUpload(e, forcedIndex = null) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: t("settingsPage.stgLiveDarkUploadInvalid"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setLiveDarkUploading(true);
+    try {
+      const dataUrl = await compressImageFileToDataUrl(file);
+      let result;
+      if (forcedIndex != null) {
+        result = replaceLiveDarkUpload(forcedIndex, dataUrl);
+      } else if (filledUploadCount(liveDarkSlots) >= LIVE_DARK_MAX_UPLOADS) {
+        toast({
+          title: t("settingsPage.stgLiveDarkUploadFullTitle"),
+          description: t("settingsPage.stgLiveDarkUploadFullDesc"),
+          variant: "destructive",
+        });
+        return;
+      } else {
+        result = addLiveDarkUpload(dataUrl);
+      }
+      if (!result.ok) {
+        toast({
+          title: t("settingsPage.stgLiveDarkUploadFullTitle"),
+          description: t("settingsPage.stgLiveDarkUploadFullDesc"),
+          variant: "destructive",
+        });
+        return;
+      }
+      const slots = getLiveDarkUploadSlots();
+      setLiveDarkSlots(slots);
+      const idx = result.index ?? forcedIndex;
+      if (idx != null && idx >= 0) {
+        const next = setLiveDarkBgPreference(`custom-${idx}`);
+        setLiveDarkBg(next);
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: t("settingsPage.stgLiveDarkUploadFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setLiveDarkUploading(false);
+    }
+  }
+
+  function handleLiveDarkClear(index) {
+    clearLiveDarkUpload(index);
+    setLiveDarkSlots(getLiveDarkUploadSlots());
+    setLiveDarkBg(getLiveDarkBgPreference());
+  }
+
+  function handleLiveDarkFxChange(patch) {
+    const next = setLiveDarkFx(patch);
+    setLiveDarkFxState(next);
   }
 
   async function handleImageUpload(e) {
@@ -622,6 +710,208 @@ export default function Settings() {
               <SelectItem value="theme-custom">{t("settingsPage.stgThemeCustom")}</SelectItem>
             </SelectContent>
           </Select>
+
+          {theme === "theme-video" && (
+            <div className="space-y-4 pt-1">
+              <div>
+                <p className="text-sm font-medium text-foreground">{t("settingsPage.stgLiveDarkBgTitle")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("settingsPage.stgLiveDarkBgDesc")}</p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {LIVE_DARK_BG_OPTIONS.map((opt) => {
+                  const selected = liveDarkBg === opt.id;
+                  const preview = getLiveDarkBgPreviewSrc(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        const next = setLiveDarkBgPreference(opt.id);
+                        setLiveDarkBg(next);
+                      }}
+                      className={cn(
+                        "group relative overflow-hidden rounded-xl border text-left transition-all",
+                        selected
+                          ? "border-primary ring-2 ring-primary/40"
+                          : "border-border hover:border-primary/40"
+                      )}
+                    >
+                      <div
+                        className="aspect-[4/3] bg-cover bg-center"
+                        style={{ backgroundImage: `url(${preview})` }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                        <p className="text-[11px] font-semibold text-white leading-tight">
+                          {t(`settingsPage.${opt.labelKey}`)}
+                        </p>
+                        {opt.id === "daily" && (
+                          <p className="text-[10px] text-white/70 mt-0.5 leading-tight">
+                            {t("settingsPage.stgLiveDarkBgDailyDesc")}
+                          </p>
+                        )}
+                      </div>
+                      {selected && (
+                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_rgba(0,212,255,0.8)]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{t("settingsPage.stgLiveDarkUploadsTitle")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("settingsPage.stgLiveDarkUploadsDesc", {
+                        count: filledUploadCount(liveDarkSlots),
+                        max: LIVE_DARK_MAX_UPLOADS,
+                      })}
+                    </p>
+                  </div>
+                  <label
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-xs font-medium cursor-pointer hover:border-primary/50 transition-colors",
+                      (liveDarkUploading || filledUploadCount(liveDarkSlots) >= LIVE_DARK_MAX_UPLOADS) &&
+                        "opacity-50 pointer-events-none"
+                    )}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    {liveDarkUploading ? t("settingsPage.stgLiveDarkUploading") : t("settingsPage.stgLiveDarkUploadAdd")}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={liveDarkUploading || filledUploadCount(liveDarkSlots) >= LIVE_DARK_MAX_UPLOADS}
+                      onChange={(e) => handleLiveDarkUpload(e)}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                  {liveDarkSlots.map((src, index) => {
+                    const selected = liveDarkBg === `custom-${index}`;
+                    return (
+                      <div
+                        key={`slot-${index}`}
+                        className={cn(
+                          "relative overflow-hidden rounded-xl border aspect-[4/3]",
+                          selected ? "border-primary ring-2 ring-primary/40" : "border-border"
+                        )}
+                      >
+                        {src ? (
+                          <>
+                            <button
+                              type="button"
+                              className="absolute inset-0 bg-cover bg-center"
+                              style={{ backgroundImage: `url(${src})` }}
+                              onClick={() => {
+                                const next = setLiveDarkBgPreference(`custom-${index}`);
+                                setLiveDarkBg(next);
+                              }}
+                              aria-label={t("settingsPage.stgLiveDarkUseCustom")}
+                            />
+                            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 p-1.5 bg-gradient-to-t from-black/85 to-transparent">
+                              <span className="text-[10px] font-semibold text-white">
+                                {t("settingsPage.stgLiveDarkCustomSlot", { n: index + 1 })}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <label className="cursor-pointer rounded bg-white/15 hover:bg-white/25 p-1">
+                                  <Upload className="w-3 h-3 text-white" />
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={liveDarkUploading}
+                                    onChange={(e) => handleLiveDarkUpload(e, index)}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  className="rounded bg-white/15 hover:bg-red-500/80 p-1"
+                                  onClick={() => handleLiveDarkClear(index)}
+                                  aria-label={t("settingsPage.stgLiveDarkRemoveCustom")}
+                                >
+                                  <Trash2 className="w-3 h-3 text-white" />
+                                </button>
+                              </div>
+                            </div>
+                            {selected && (
+                              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_rgba(0,212,255,0.8)]" />
+                            )}
+                          </>
+                        ) : (
+                          <label className="absolute inset-0 flex flex-col items-center justify-center gap-1 cursor-pointer bg-secondary/40 hover:bg-secondary/70 transition-colors">
+                            <Upload className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground px-2 text-center">
+                              {t("settingsPage.stgLiveDarkSlotEmpty", { n: index + 1 })}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={liveDarkUploading}
+                              onChange={(e) => handleLiveDarkUpload(e, index)}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {filledUploadCount(liveDarkSlots) >= LIVE_DARK_MAX_UPLOADS && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("settingsPage.stgLiveDarkUploadFullDesc")}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border bg-secondary/30 p-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="live-dark-blur" className="text-xs font-medium text-foreground">
+                      {t("settingsPage.stgLiveDarkBlur")}
+                    </label>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      {Math.round(liveDarkFx.blur)}px
+                    </span>
+                  </div>
+                  <input
+                    id="live-dark-blur"
+                    type="range"
+                    min={LIVE_DARK_BLUR_MIN}
+                    max={LIVE_DARK_BLUR_MAX}
+                    step={0.5}
+                    value={liveDarkFx.blur}
+                    onChange={(e) => handleLiveDarkFxChange({ blur: Number(e.target.value) })}
+                    className="w-full accent-primary"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor="live-dark-overlay" className="text-xs font-medium text-foreground">
+                      {t("settingsPage.stgLiveDarkOverlay")}
+                    </label>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      {Math.round(liveDarkFx.overlay * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    id="live-dark-overlay"
+                    type="range"
+                    min={LIVE_DARK_OVERLAY_MIN}
+                    max={LIVE_DARK_OVERLAY_MAX}
+                    step={0.01}
+                    value={liveDarkFx.overlay}
+                    onChange={(e) => handleLiveDarkFxChange({ overlay: Number(e.target.value) })}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
 

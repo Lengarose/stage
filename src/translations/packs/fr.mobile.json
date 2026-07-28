@@ -1,0 +1,10 @@
+{
+  "guide": "Guide",
+  "openGuide": "Ouvrir le guide {label}",
+  "closeGuide": "Fermer le guide",
+  "previousStep": "Étape précédente",
+  "nextStep": "Étape suivante",
+  "stepCount": "Étape {current} sur {total}",
+  "next": "Suivant",
+  "done": "Terminé"
+}

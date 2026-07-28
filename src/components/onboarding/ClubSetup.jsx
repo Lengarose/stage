@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Camera, ChevronLeft } from "lucide-react";
+import { Loader2, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
@@ -198,7 +198,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         <p className="text-white/40 text-xs">{t("commonPages.obBuildEmpire")}</p>
       </div>
 
-      {/* Logo + name/tag */}
+      {/* Club card (same rectangle as club profile) */}
       <div className="flex gap-4 items-start">
         <div className="relative group shrink-0">
           <GamerClubPhotoFrame
@@ -217,7 +217,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
         </div>
 
-        <div className="flex-1 space-y-2.5">
+        <div className="flex-1 space-y-2.5 min-w-0">
           <div>
             <label className={labelCls}>{t("commonPages.obClubName")}</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder={t("commonPages.obClubNamePlaceholder")} className={inputCls} />
@@ -308,7 +308,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         open={!!pendingLogo}
         onClose={() => setPendingLogo(null)}
         imageUrl={pendingLogo}
-        aspect="avatar"
+        aspect="card"
         initialPosition={logoPosition}
         initialZoom={logoZoom}
         previewClub={previewClub}

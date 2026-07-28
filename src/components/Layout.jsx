@@ -30,6 +30,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  getLiveDarkBackgroundUrl,
+  getLiveDarkFx,
+  LIVE_DARK_BG_CHANGE_EVENT,
+} from "@/lib/liveDarkBackground";
 
 /** Paths that only match exactly (never as a prefix for child routes). */
 const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
@@ -2092,6 +2097,24 @@ export default function Layout() {
 
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
+  const isLiveDark = theme === "theme-video";
+  const [liveDarkBgUrl, setLiveDarkBgUrl] = useState(() =>
+    typeof window !== "undefined" ? getLiveDarkBackgroundUrl() : null
+  );
+  const [liveDarkFx, setLiveDarkFxState] = useState(() =>
+    typeof window !== "undefined" ? getLiveDarkFx() : { blur: 0, overlay: 0.45 }
+  );
+
+  useEffect(() => {
+    if (!isLiveDark) return undefined;
+    const refresh = () => {
+      setLiveDarkBgUrl(getLiveDarkBackgroundUrl());
+      setLiveDarkFxState(getLiveDarkFx());
+    };
+    refresh();
+    window.addEventListener(LIVE_DARK_BG_CHANGE_EVENT, refresh);
+    return () => window.removeEventListener(LIVE_DARK_BG_CHANGE_EVENT, refresh);
+  }, [isLiveDark]);
   const showAdminHeader = shouldShowAdminHeader(location.pathname, authUser, isAdmin);
   const adminTakeoverClubId =
     typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
@@ -2167,13 +2190,52 @@ export default function Layout() {
       />
 
       {isVideoTheme && (
-        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-          <style>{`@keyframes bgPan{0%{transform:scale(1.15) translate(-4%,0%) rotate(-.5deg)}25%{transform:scale(1.18) translate(0%,-2%) rotate(0deg)}50%{transform:scale(1.15) translate(4%,1%) rotate(.5deg)}75%{transform:scale(1.18) translate(1%,-1%) rotate(0deg)}100%{transform:scale(1.15) translate(-4%,0%) rotate(-.5deg)}}`}</style>
-          <div className="absolute inset-0" style={{ backgroundImage: `url(https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/fbcf1e4e7_1C12710F-CA04-4F58-908B-BCE68BB4500E.png)`, backgroundSize: "cover", backgroundPosition: "center", animation: "bgPan 20s ease-in-out infinite", filter: "blur(3px)" }} />
+        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none live-dark-stage">
+          <div className="live-dark-stage__media">
+            <img
+              key={isLiveDark ? liveDarkBgUrl : "default-live"}
+              src={
+                isLiveDark && liveDarkBgUrl
+                  ? liveDarkBgUrl
+                  : "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/fbcf1e4e7_1C12710F-CA04-4F58-908B-BCE68BB4500E.png"
+              }
+              alt=""
+              className="live-dark-stage__img"
+              decoding="async"
+              style={
+                isLiveDark
+                  ? { filter: liveDarkFx.blur > 0 ? `blur(${liveDarkFx.blur}px)` : "none" }
+                  : undefined
+              }
+            />
+          </div>
           {isWhiteTheme ? (
-            <><div className="absolute inset-0 bg-white/60" /><div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(255,255,255,.95) 0%,rgba(255,255,255,.4) 40%,rgba(255,255,255,.2) 100%)" }} /></>
+            <>
+              <div className="absolute inset-0 bg-white/60" />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to top,rgba(255,255,255,.95) 0%,rgba(255,255,255,.4) 40%,rgba(255,255,255,.2) 100%)",
+                }}
+              />
+            </>
           ) : (
-            <><div className="absolute inset-0 bg-black/50" /><div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.2) 40%,rgba(0,0,0,.1) 100%)" }} /></>
+            <>
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `rgba(6, 18, 42, ${isLiveDark ? liveDarkFx.overlay : 0.45})`,
+                }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,.12) 100%), radial-gradient(ellipse at center, transparent 40%, rgba(0,8,24,.35) 100%)",
+                }}
+              />
+            </>
           )}
         </div>
       )}
@@ -2356,16 +2418,22 @@ export default function Layout() {
       <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
         <main
           className={cn(
-            "relative z-[1] flex-1 overflow-y-auto",
+            "relative z-[1] flex-1 overflow-y-auto overflow-x-hidden",
             isVideoTheme ? "bg-transparent" : "bg-background"
           )}
         >
-          {/* pb: mobile accounts for bottom tab + home indicator; desktop uses pb-8 */}
-          <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-8">
-            <div className="mx-auto w-full max-w-7xl">
+          {/* Home is full-bleed (hero/footer); other pages keep max-width + bottom pad for mobile tabs */}
+          {location.pathname === "/" ? (
+            <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-0">
               <Outlet />
             </div>
-          </div>
+          ) : (
+            <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-8">
+              <div className="mx-auto w-full max-w-7xl">
+                <Outlet />
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
