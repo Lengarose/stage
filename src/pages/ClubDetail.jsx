@@ -38,6 +38,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
+import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
 
 const POSITION_OPTIONS = [
@@ -496,14 +497,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     navigate(clubsListPath);
   }
 
-  async function saveLogo(localUrl, position, _zoom) {
+  async function saveLogo(localUrl, position, zoom) {
     const file = pendingFileRef.current;
     if (!file) return;
     setUploadingLogo(true);
     try {
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-      await stageClient.entities.Club.update(id, { logo_url: file_url, logo_position: position });
-      setClub(prev => ({ ...prev, logo_url: file_url, logo_position: position }));
+      const logoZoom = zoom || 150;
+      await stageClient.entities.Club.update(id, { logo_url: file_url, logo_position: position, logo_zoom: logoZoom });
+      setClub(prev => ({ ...prev, logo_url: file_url, logo_position: position, logo_zoom: logoZoom }));
       URL.revokeObjectURL(localUrl);
       pendingFileRef.current = null;
     } catch (err) {
@@ -1121,6 +1123,9 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
         onClose={() => { setPendingLogo(null); pendingFileRef.current = null; }}
         imageUrl={pendingLogo}
         aspect="avatar"
+        initialPosition={club?.logo_position}
+        initialZoom={club?.logo_zoom}
+        previewClub={club}
         onConfirm={(url, position, zoom) => saveLogo(url, position, zoom)}
       />
 
@@ -1129,7 +1134,14 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
         <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm">
           <DialogHeader><DialogTitle>{t("commonPages.cdLogoTitle", { name: club.name })}</DialogTitle></DialogHeader>
           <div className="flex items-center justify-center p-4">
-            <img src={club.logo_url} alt={club.name} className="w-64 h-64 rounded-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+            <GamerClubPhotoFrame
+              club={club}
+              imageUrl={club.logo_url}
+              imagePosition={club.logo_position}
+              imageZoom={club.logo_zoom}
+              winRate={club.win_rate || 50}
+              className="w-56 sm:w-64"
+            />
           </div>
         </DialogContent>
       </Dialog>

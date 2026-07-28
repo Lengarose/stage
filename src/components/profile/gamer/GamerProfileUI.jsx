@@ -32,30 +32,45 @@ export function GamerProfileShell({ children, className }) {
   );
 }
 
-export function GamerPlayerCard({ player, onAvatarClick, className }) {
+export function GamerPlayerPhotoFrame({
+  player,
+  imageUrl,
+  imagePosition,
+  imageZoom,
+  positionLabel,
+  overallRating,
+  shirtNumber,
+  as: Component = "div",
+  className,
+  children,
+  ...props
+}) {
   const ovr = player?.overall_rating || 70;
-  const position = player?.position || "—";
+  const position = positionLabel || player?.position || "—";
+  const resolvedImageUrl = imageUrl || player?.avatar_url;
+  const resolvedZoom = imageZoom ?? player?.avatar_zoom;
+  const resolvedPosition = imagePosition || player?.avatar_position || "50% 20%";
+  const resolvedOverall = overallRating || ovr;
+  const resolvedShirtNumber = shirtNumber ?? player?.shirt_number;
 
   return (
-    <button
-      type="button"
-      onClick={onAvatarClick}
+    <Component
       className={cn(
         "relative w-[132px] sm:w-[156px] aspect-[3/4] rounded-2xl overflow-hidden shrink-0 text-left",
         "border border-cyan-400/30 shadow-[0_0_40px_-8px_rgba(0,229,255,0.55)]",
         "bg-gradient-to-br from-cyan-500/10 via-[#0d1528] to-amber-500/10",
-        "transition-transform hover:scale-[1.02] active:scale-[0.98]",
         className
       )}
+      {...props}
     >
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[1]" />
-      {player?.avatar_url ? (
+      {resolvedImageUrl ? (
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url(${player.avatar_url})`,
-            backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover",
-            backgroundPosition: player.avatar_position || "50% 20%",
+            backgroundImage: `url(${resolvedImageUrl})`,
+            backgroundSize: resolvedZoom ? `${resolvedZoom}%` : "cover",
+            backgroundPosition: resolvedPosition,
           }}
         />
       ) : (
@@ -63,15 +78,28 @@ export function GamerPlayerCard({ player, onAvatarClick, className }) {
       )}
       <div className="absolute top-2 right-2 z-[2] min-w-[42px] rounded-lg bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1 text-center shadow-lg">
         <p className="text-[8px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
-        <p className="font-heading text-xl font-black text-black leading-none">{ovr}</p>
+        <p className="font-heading text-xl font-black text-black leading-none">{resolvedOverall}</p>
       </div>
       <div className="absolute bottom-0 inset-x-0 z-[2] p-3">
         <p className="font-heading text-lg font-black uppercase leading-none tracking-tight">{position}</p>
-        {player?.shirt_number != null && player.shirt_number !== "" ? (
-          <p className="text-[10px] font-bold text-white/50 mt-0.5">#{player.shirt_number}</p>
+        {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (
+          <p className="text-[10px] font-bold text-white/50 mt-0.5">#{resolvedShirtNumber}</p>
         ) : null}
       </div>
-    </button>
+      {children}
+    </Component>
+  );
+}
+
+export function GamerPlayerCard({ player, onAvatarClick, className }) {
+  return (
+    <GamerPlayerPhotoFrame
+      as="button"
+      type="button"
+      player={player}
+      onClick={onAvatarClick}
+      className={cn("transition-transform hover:scale-[1.02] active:scale-[0.98]", className)}
+    />
   );
 }
 

@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
+import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -31,6 +32,15 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [error, setError] = useState(null);
   const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
   const logoInputRef = useRef();
+  const previewClub = {
+    name: name || t("commonPages.obClubNamePlaceholder"),
+    tag: (tag || "CLB").toUpperCase(),
+    platform,
+    logo_url: logoUrl,
+    logo_position: logoPosition,
+    logo_zoom: logoZoom,
+    win_rate: 50,
+  };
 
   async function uploadLogo(e) {
     const file = e.target.files[0];
@@ -75,6 +85,8 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         country_code: country,
         owner_email: user?.email,
         logo_url: logoUrl || null,
+        logo_position: logoPosition,
+        logo_zoom: logoZoom,
         description: "",
         wins: 0,
         losses: 0,
@@ -189,19 +201,16 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       {/* Logo + name/tag */}
       <div className="flex gap-4 items-start">
         <div className="relative group shrink-0">
-          <div
-            className="w-16 h-16 rounded-xl bg-white/10 border-2 border-white/20 flex items-center justify-center overflow-hidden"
-            style={logoUrl ? {
-              backgroundImage: `url(${logoUrl})`,
-              backgroundSize: `${logoZoom}%`,
-              backgroundPosition: logoPosition,
-              backgroundRepeat: "no-repeat",
-            } : {}}
-          >
-            {!logoUrl && <Camera className="w-5 h-5 text-white/30" />}
-          </div>
-          <div className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button type="button" onClick={() => logoInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
+          <GamerClubPhotoFrame
+            club={previewClub}
+            imageUrl={logoUrl}
+            imagePosition={logoPosition}
+            imageZoom={logoZoom}
+            winRate={50}
+            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(255,184,0,0.65)]"
+          />
+          <div className={`absolute inset-0 rounded-xl bg-black/55 transition-opacity flex items-center justify-center ${logoUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
+            <button type="button" onClick={() => logoInputRef.current?.click()} className="p-2 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
             </button>
           </div>
@@ -302,6 +311,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         aspect="avatar"
         initialPosition={logoPosition}
         initialZoom={logoZoom}
+        previewClub={previewClub}
         onConfirm={(url, position, zoom) => {
           setLogoUrl(url);
           setLogoPosition(position);

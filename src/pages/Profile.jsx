@@ -665,6 +665,7 @@ export default function Profile({
           aspect="avatar"
           initialPosition={player?.avatar_position}
           initialZoom={player?.avatar_zoom}
+          previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
@@ -834,6 +835,9 @@ export default function Profile({
           onClose={() => setPendingAvatar(null)}
           imageUrl={pendingAvatar}
           aspect="avatar"
+          initialPosition={player?.avatar_position}
+          initialZoom={player?.avatar_zoom}
+          previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
@@ -849,6 +853,7 @@ export default function Profile({
           aspect="avatar"
           initialPosition={player?.avatar_position}
           initialZoom={player?.avatar_zoom}
+          previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
             setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));

@@ -441,6 +441,7 @@ async function runStartupMigrations() {
   await addCol('match_player_stats', 'is_motm', 'TINYINT(1) DEFAULT 0');
 
   // Official STAGE rankings — rebuilt from competition/tournament fixtures only.
+  await addCol('clubs', 'logo_zoom', 'INT NULL');
   await addCol('clubs', 'country_rank', 'INT NULL');
   await addCol('players', 'ranking_points', 'INT DEFAULT 0');
   await addCol('players', 'global_rank', 'INT NULL');

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Move } from "lucide-react";
+import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 
 export default function ImagePositionEditor({
   open,
@@ -10,6 +12,8 @@ export default function ImagePositionEditor({
   initialPosition,
   initialZoom,
   onConfirm,
+  previewPlayer,
+  previewClub,
 }) {
   const [x, setX] = useState(50);
   const [y, setY] = useState(50);
@@ -54,6 +58,15 @@ export default function ImagePositionEditor({
   };
 
   const isAvatar = aspect === "avatar";
+  const previewFramePlayer = previewPlayer || {};
+  const previewFrameClub = previewClub || {};
+  const usePlayerProfileFrame = isAvatar && Boolean(previewPlayer);
+  const useClubProfileFrame = isAvatar && !usePlayerProfileFrame && Boolean(previewClub);
+  const dialogTitle = useClubProfileFrame
+    ? "Position Club Logo"
+    : isAvatar
+      ? "Position Profile Photo"
+      : "Position Banner";
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -63,7 +76,7 @@ export default function ImagePositionEditor({
         onInteractOutside={e => e.preventDefault()}
       >
         <DialogTitle className="sr-only">
-          {isAvatar ? "Position profile photo" : "Position banner image"}
+          {dialogTitle}
         </DialogTitle>
         <DialogDescription className="sr-only">
           Drag to reposition the image and use sliders to adjust zoom and alignment.
@@ -76,7 +89,7 @@ export default function ImagePositionEditor({
               style={{ fontFamily: "'Anton', sans-serif" }}
               className="text-xl italic uppercase tracking-tight text-white"
             >
-              {isAvatar ? "Position Profile Photo" : "Position Banner"}
+              {dialogTitle}
             </h2>
             <p className="text-white/35 text-[11px] flex items-center gap-1.5 mt-1">
               <Move className="w-3 h-3" />
@@ -85,9 +98,77 @@ export default function ImagePositionEditor({
           </div>
 
           {/* Preview */}
-          {isAvatar ? (
+          {usePlayerProfileFrame ? (
             <div className="flex flex-col items-center gap-4">
-              {/* Large circular preview */}
+              <GamerPlayerPhotoFrame
+                player={previewFramePlayer}
+                imageUrl={imageUrl}
+                imagePosition={position}
+                imageZoom={zoom}
+                positionLabel={previewFramePlayer.position || "CDM"}
+                overallRating={previewFramePlayer.overall_rating || 70}
+                shirtNumber={previewFramePlayer.shirt_number ?? 6}
+                className="w-40 sm:w-44 cursor-grab active:cursor-grabbing select-none"
+                onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
+                onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                onTouchStart={e => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
+                onTouchMove={e => { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget.getBoundingClientRect()); }}
+                onTouchEnd={endDrag}
+              />
+              <p className="text-white/25 text-[10px] uppercase tracking-widest">Profile card preview</p>
+
+              {/* Small previews */}
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
+                <GamerPlayerPhotoFrame
+                  player={previewFramePlayer}
+                  imageUrl={imageUrl}
+                  imagePosition={position}
+                  imageZoom={zoom}
+                  positionLabel={previewFramePlayer.position || "CDM"}
+                  overallRating={previewFramePlayer.overall_rating || 70}
+                  shirtNumber={previewFramePlayer.shirt_number ?? 6}
+                  className="w-12 rounded-lg shadow-none"
+                />
+                <div className="w-20 h-12 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
+                <p className="text-white/30 text-[10px] uppercase tracking-wider">Profile frame · wide crop</p>
+              </div>
+            </div>
+          ) : useClubProfileFrame ? (
+            <div className="flex flex-col items-center gap-4">
+              <GamerClubPhotoFrame
+                club={previewFrameClub}
+                imageUrl={imageUrl}
+                imagePosition={position}
+                imageZoom={zoom}
+                winRate={previewFrameClub.win_rate || 50}
+                className="w-40 sm:w-44 cursor-grab active:cursor-grabbing select-none"
+                onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
+                onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                onTouchStart={e => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
+                onTouchMove={e => { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget.getBoundingClientRect()); }}
+                onTouchEnd={endDrag}
+              />
+              <p className="text-white/25 text-[10px] uppercase tracking-widest">Club card preview</p>
+
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
+                <GamerClubPhotoFrame
+                  club={previewFrameClub}
+                  imageUrl={imageUrl}
+                  imagePosition={position}
+                  imageZoom={zoom}
+                  winRate={previewFrameClub.win_rate || 50}
+                  className="w-12 rounded-lg shadow-none"
+                />
+                <div className="w-20 h-12 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
+                <p className="text-white/30 text-[10px] uppercase tracking-wider">Club frame · wide crop</p>
+              </div>
+            </div>
+          ) : isAvatar ? (
+            <div className="flex flex-col items-center gap-4">
               <div
                 className="w-36 h-36 rounded-full cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
                 style={previewStyle}
@@ -101,7 +182,6 @@ export default function ImagePositionEditor({
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
-              {/* Small previews */}
               <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
                 <div className="w-9 h-9 rounded-full shrink-0 border border-white/20" style={previewStyle} />
                 <div className="w-16 h-9 rounded-lg shrink-0 border border-white/20" style={previewStyle} />

@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   country_code        VARCHAR(10),
   logo_url            TEXT,
   logo_position       VARCHAR(50),
+  logo_zoom           INT,
   description         TEXT,
   wins                INT          DEFAULT 0,
   losses              INT          DEFAULT 0,
@@ -1652,6 +1653,7 @@ SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE tab
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'banner_url'),'SELECT 1','ALTER TABLE clubs ADD COLUMN banner_url VARCHAR(500) NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'banner_position'),'SELECT 1','ALTER TABLE clubs ADD COLUMN banner_position VARCHAR(50) NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'banner_zoom'),'SELECT 1','ALTER TABLE clubs ADD COLUMN banner_zoom INT NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'logo_zoom'),'SELECT 1','ALTER TABLE clubs ADD COLUMN logo_zoom INT NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- END inlined: banner_migration.sql
 
 -- BEGIN inlined: landing_page_content_migration.sql

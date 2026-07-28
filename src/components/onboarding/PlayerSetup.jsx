@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
+import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import { COUNTRIES } from "@/lib/countries";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -26,6 +27,11 @@ export default function PlayerSetup({ onComplete, user }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const avatarInputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
+  const previewPlayer = {
+    position,
+    overall_rating: 70,
+    shirt_number: 6,
+  };
 
   async function uploadAvatar(e) {
     const file = e.target.files[0];
@@ -133,15 +139,15 @@ export default function PlayerSetup({ onComplete, user }) {
       {/* Avatar */}
       <div className="flex gap-4 items-start">
         <div className="relative group shrink-0">
-          <div className="w-20 h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center overflow-hidden">
-            {avatarUrl ? (
-              <div className="w-full h-full" style={{ backgroundImage: `url(${avatarUrl})`, backgroundSize: `${avatarZoom}%`, backgroundPosition: avatarPosition, backgroundRepeat: "no-repeat" }} />
-            ) : (
-              <Camera className="w-7 h-7 text-white/30" />
-            )}
-          </div>
-          <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <button type="button" onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
+          <GamerPlayerPhotoFrame
+            player={previewPlayer}
+            imageUrl={avatarUrl}
+            imagePosition={avatarPosition}
+            imageZoom={avatarZoom}
+            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(0,229,255,0.65)]"
+          />
+          <div className={`absolute inset-0 rounded-xl bg-black/55 transition-opacity flex items-center justify-center ${avatarUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
+            <button type="button" onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
               {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
             </button>
           </div>
@@ -224,6 +230,7 @@ export default function PlayerSetup({ onComplete, user }) {
         aspect="avatar"
         initialPosition={avatarPosition}
         initialZoom={avatarZoom}
+        previewPlayer={previewPlayer}
         onConfirm={(url, position, zoom) => {
           setAvatarUrl(url);
           setAvatarPosition(position);
