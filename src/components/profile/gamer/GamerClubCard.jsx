@@ -12,7 +12,8 @@ export function GamerClubPhotoFrame({
   children,
   ...props
 }) {
-  const rating = Math.min(99, Math.max(50, Math.round(winRate || 50)));
+  const rating = Math.min(99, Math.max(0, Math.round(Number(winRate) || 0)));
+  const ratingLabel = rating === 0 ? "0" : String(rating);
   const resolvedImageUrl = imageUrl || club?.logo_url;
   const resolvedPosition = imagePosition || club?.logo_position || "50% 50%";
   const resolvedZoom = imageZoom ?? club?.logo_zoom;

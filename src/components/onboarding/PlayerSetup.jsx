@@ -27,11 +27,6 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const avatarInputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
-  const previewPlayer = {
-    position,
-    overall_rating: 70,
-    shirt_number: 6,
-  };
 
   async function uploadAvatar(e) {
     const file = e.target.files[0];
@@ -129,12 +124,10 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
     }
   }
 
-  const cardPlayer = {
-    avatar_url: avatarUrl,
-    avatar_position: avatarPosition,
-    avatar_zoom: avatarZoom,
+  const previewPlayer = {
     position,
     overall_rating: initialPlayer?.overall_rating ?? 0,
+    shirt_number: initialPlayer?.shirt_number ?? 6,
   };
 
   return (
@@ -241,7 +234,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
         previewPlayer={previewPlayer}
         onConfirm={(url, position, zoom) => {
           setAvatarUrl(url);
-          setAvatarPosition(nextPosition);
+          setAvatarPosition(position);
           setAvatarZoom(zoom || 150);
           setPendingAvatar(null);
         }}

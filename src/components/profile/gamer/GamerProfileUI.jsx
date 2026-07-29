@@ -40,17 +40,22 @@ export function GamerPlayerPhotoFrame({
   positionLabel,
   overallRating,
   shirtNumber,
+  emptyLabel = "?",
   as: Component = "div",
   className,
   children,
   ...props
 }) {
-  const ovr = player?.overall_rating || 70;
+  const ovrRaw = overallRating ?? player?.overall_rating;
+  const ovr =
+    ovrRaw == null || ovrRaw === ""
+      ? 70
+      : Math.round(Number(ovrRaw) * 10) / 10;
   const position = positionLabel || player?.position || "—";
   const resolvedImageUrl = imageUrl || player?.avatar_url;
   const resolvedZoom = imageZoom ?? player?.avatar_zoom;
   const resolvedPosition = imagePosition || player?.avatar_position || "50% 20%";
-  const resolvedOverall = overallRating || ovr;
+  const resolvedOverall = ovr === 0 ? "0.0" : (Number.isInteger(ovr) ? String(ovr) : ovr.toFixed(1));
   const resolvedShirtNumber = shirtNumber ?? player?.shirt_number;
 
   return (

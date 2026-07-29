@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ChevronLeft } from "lucide-react";
+import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";

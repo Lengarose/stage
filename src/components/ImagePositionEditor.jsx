@@ -58,15 +58,28 @@ export default function ImagePositionEditor({
   };
 
   const isAvatar = aspect === "avatar";
+  const isCard = aspect === "card";
   const previewFramePlayer = previewPlayer || {};
   const previewFrameClub = previewClub || {};
-  const usePlayerProfileFrame = isAvatar && Boolean(previewPlayer);
-  const useClubProfileFrame = isAvatar && !usePlayerProfileFrame && Boolean(previewClub);
+  const usePlayerProfileFrame = (isAvatar || isCard) && Boolean(previewPlayer);
+  const useClubProfileFrame = (isAvatar || isCard) && !usePlayerProfileFrame && Boolean(previewClub);
   const dialogTitle = useClubProfileFrame
     ? "Position Club Logo"
-    : isAvatar
-      ? "Position Profile Photo"
-      : "Position Banner";
+    : usePlayerProfileFrame || isCard
+      ? "Position Player Card"
+      : isAvatar
+        ? "Position Profile Photo"
+        : "Position Banner";
+
+  const dragHandlers = {
+    onMouseDown: (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); },
+    onMouseMove: (e) => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); },
+    onMouseUp: endDrag,
+    onMouseLeave: endDrag,
+    onTouchStart: (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY),
+    onTouchMove: (e) => { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget.getBoundingClientRect()); },
+    onTouchEnd: endDrag,
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
