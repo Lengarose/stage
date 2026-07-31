@@ -17,6 +17,35 @@ async function runStartupMigrations() {
     }
   };
 
+  const addIndex = async (table, indexName, definition) => {
+    try {
+      const rows = await EXECUTESQL(
+        'SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ? LIMIT 1',
+        [table, indexName]
+      );
+      if (!rows.length) {
+        await EXECUTESQL(`CREATE INDEX \`${indexName}\` ON \`${table}\` ${definition}`);
+        console.log(`[migration] Added index ${table}.${indexName}`);
+      }
+    } catch (err) {
+      console.error(`[migration] Failed to add index ${table}.${indexName}:`, err.message);
+    }
+  };
+
+  await addCol('notifications', 'related_id', 'VARCHAR(36) NULL');
+  await addCol('notifications', 'idempotency_key', 'VARCHAR(190) NULL');
+  await addCol('inbox_messages', 'sender_gamertag', 'VARCHAR(100) NULL');
+  await addCol('inbox_messages', 'sender_avatar_url', 'TEXT NULL');
+  await addCol('inbox_messages', 'sender_club_name', 'VARCHAR(150) NULL');
+  await addCol('inbox_messages', 'action_type', 'VARCHAR(100) NULL');
+  await addCol('inbox_messages', 'is_system', 'TINYINT(1) NULL DEFAULT 0');
+  await addCol('inbox_messages', 'metadata', 'JSON NULL');
+  await addCol('inbox_messages', 'idempotency_key', 'VARCHAR(190) NULL');
+  await addIndex('notifications', 'idx_notifications_type_related', '(type, related_id)');
+  await addIndex('notifications', 'idx_notifications_idempotency', '(idempotency_key)');
+  await addIndex('inbox_messages', 'idx_inbox_type_related', '(message_type, related_entity_id)');
+  await addIndex('inbox_messages', 'idx_inbox_idempotency', '(idempotency_key)');
+
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
     .catch((err) => console.error('[migration] players.subscription default:', err.message));
@@ -716,11 +745,18 @@ async function runStartupMigrations() {
     LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
        SET im.recipient_email = LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))),
            im.status = 'pending',
-           im.is_read = 0
+           im.is_read = 0,
+           im.idempotency_key = COALESCE(
+             im.idempotency_key,
+             CONCAT('contract_offer:player_contract:', pc.id, ':', LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))))
+           )
      WHERE im.message_type = 'contract_offer'
        AND pc.status IN ('pending', 'pending_window', 'negotiating')
        AND COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')) IS NOT NULL
-       AND LOWER(TRIM(IFNULL(im.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+       AND (
+         LOWER(TRIM(IFNULL(im.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+         OR im.idempotency_key IS NULL
+       )
   `).catch(err => console.error('[migration] repair_contract_inbox_recipient:', err.message));
 
   await EXECUTESQL(`
@@ -728,20 +764,31 @@ async function runStartupMigrations() {
     JOIN player_contracts pc ON pc.id = n.related_id
     JOIN players p ON p.id = pc.user_id
     LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
+    JOIN inbox_messages im ON im.related_entity_id = pc.id AND im.message_type = 'contract_offer'
        SET n.recipient_email = LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))),
            n.\`read\` = 0,
-           n.link = '/inbox'
+           n.related_id = im.id,
+           n.link = CONCAT('/inbox?id=', im.id),
+           n.idempotency_key = COALESCE(
+             n.idempotency_key,
+             CONCAT('notification:contract_offer:player_contract:', pc.id, ':', LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))))
+           )
      WHERE n.type = 'contract_offer'
        AND pc.status IN ('pending', 'pending_window', 'negotiating')
        AND COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')) IS NOT NULL
-       AND LOWER(TRIM(IFNULL(n.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+       AND (
+         LOWER(TRIM(IFNULL(n.recipient_email, ''))) <> LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, ''))))
+         OR n.related_id <> im.id
+         OR n.link <> CONCAT('/inbox?id=', im.id)
+         OR n.idempotency_key IS NULL
+       )
   `).catch(err => console.error('[migration] repair_contract_notification_recipient:', err.message));
 
   await EXECUTESQL(`
     INSERT INTO inbox_messages
       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
        subject, body, message_type, action_type, status, is_read, is_system, metadata,
-       related_entity_id, related_entity_type, created_date)
+       related_entity_id, related_entity_type, idempotency_key, created_date)
     SELECT UUID(),
            LOWER(TRIM(COALESCE(p.email, u.email))),
            COALESCE(c.owner_email, 'system@stage.com'),
@@ -764,6 +811,7 @@ async function runStartupMigrations() {
            JSON_OBJECT('contract_id', pc.id, 'club_id', pc.team_id, 'club_name', c.name, 'contract_type', pc.contract_type),
            pc.id,
            'player_contract',
+           CONCAT('contract_offer:player_contract:', pc.id, ':', LOWER(TRIM(COALESCE(p.email, u.email)))),
            NOW()
       FROM player_contracts pc
       JOIN players p ON p.id = pc.user_id
@@ -779,27 +827,48 @@ async function runStartupMigrations() {
   `).catch(err => console.error('[migration] missing_contract_inbox_delivery:', err.message));
 
   await EXECUTESQL(`
+    UPDATE notifications n
+    JOIN player_contracts pc ON pc.id = n.related_id
+    JOIN players p ON p.id = pc.user_id
+    LEFT JOIN users u ON u.id = p.user_id OR u.player_id = p.id
+    JOIN inbox_messages im ON im.related_entity_id = pc.id AND im.message_type = 'contract_offer'
+       SET n.recipient_email = LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))),
+           n.\`read\` = 0,
+           n.related_id = im.id,
+           n.link = CONCAT('/inbox?id=', im.id),
+           n.idempotency_key = COALESCE(
+             n.idempotency_key,
+             CONCAT('notification:contract_offer:player_contract:', pc.id, ':', LOWER(TRIM(COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')))))
+           )
+     WHERE n.type = 'contract_offer'
+       AND pc.status IN ('pending', 'pending_window', 'negotiating')
+       AND COALESCE(NULLIF(p.email, ''), NULLIF(u.email, '')) IS NOT NULL
+  `).catch(err => console.error('[migration] repair_contract_notification_inbox_link:', err.message));
+
+  await EXECUTESQL(`
     INSERT INTO notifications
-      (id, recipient_email, type, title, body, \`read\`, link, related_id, created_date)
+      (id, recipient_email, type, title, body, \`read\`, link, related_id, idempotency_key, created_date)
     SELECT UUID(),
            LOWER(TRIM(COALESCE(p.email, u.email))),
            'contract_offer',
            CONCAT('Contract Offer from ', COALESCE(c.name, 'Club')),
            CONCAT(COALESCE(c.name, 'A club'), ' has sent you a ', COALESCE(pc.contract_type, 'squad'), ' contract offer.'),
            0,
-           '/inbox',
-           pc.id,
+           CONCAT('/inbox?id=', im.id),
+           im.id,
+           CONCAT('notification:contract_offer:player_contract:', pc.id, ':', LOWER(TRIM(COALESCE(p.email, u.email)))),
            NOW()
       FROM player_contracts pc
       JOIN players p ON p.id = pc.user_id
       LEFT JOIN users u ON u.player_id = p.id OR u.id = p.user_id
       LEFT JOIN clubs c ON c.id = pc.team_id
+      JOIN inbox_messages im ON im.related_entity_id = pc.id AND im.message_type = 'contract_offer'
      WHERE pc.status IN ('pending', 'pending_window', 'negotiating')
        AND COALESCE(p.email, u.email) IS NOT NULL
        AND NOT EXISTS (
          SELECT 1 FROM notifications n
-          WHERE n.related_id = pc.id
-            AND n.type = 'contract_offer'
+          WHERE n.type = 'contract_offer'
+            AND (n.related_id = im.id OR n.related_id = pc.id)
        )
   `).catch(err => console.error('[migration] missing_contract_notification_delivery:', err.message));
 

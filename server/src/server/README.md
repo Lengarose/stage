@@ -59,3 +59,14 @@ time into modules such as:
 
 Keep `POST /api/stage/functions/:name` stable until the frontend has migrated
 to more explicit REST endpoints.
+
+## Inbox And Notifications
+
+Actionable events must be delivered through `services/messageDeliveryService.js`.
+Use `sendActionMessage()` when the recipient must respond: it creates or reuses
+the inbox document and links the alert notification to `/inbox?id=<messageId>`.
+Pass an `idempotencyKey` for every actionable event. If a message is tied to a
+business record, the helper can derive the same key from
+`messageType:relatedEntityType:relatedEntityId:recipientEmail`.
+Use `createNotificationIfEnabled()` only for alert-only events where no user
+decision is required.

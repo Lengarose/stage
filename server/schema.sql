@@ -427,6 +427,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   body            TEXT,
   `read`          TINYINT(1)   DEFAULT 0,
   link            VARCHAR(500),
+  related_id      VARCHAR(36),
+  idempotency_key VARCHAR(190),
   created_date    DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -482,13 +484,20 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
   id                  VARCHAR(36)  PRIMARY KEY,
   recipient_email     VARCHAR(255) NOT NULL,
   sender_email        VARCHAR(255),
+  sender_gamertag     VARCHAR(100),
+  sender_avatar_url   TEXT,
+  sender_club_name    VARCHAR(150),
   subject             VARCHAR(500),
   body                TEXT,
   message_type        VARCHAR(100),
+  action_type         VARCHAR(100),
   status              VARCHAR(50)  DEFAULT 'unread',
   is_read             TINYINT(1)   DEFAULT 0,
+  is_system           TINYINT(1)   DEFAULT 0,
+  metadata            JSON,
   related_entity_id   VARCHAR(36),
   related_entity_type VARCHAR(100),
+  idempotency_key     VARCHAR(190),
   created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1137,7 +1146,11 @@ CREATE INDEX idx_posts_club          ON posts(club_id);
 CREATE INDEX idx_posts_author        ON posts(author_email);
 CREATE INDEX idx_comments_post       ON comments(post_id);
 CREATE INDEX idx_notifications_rcpt  ON notifications(recipient_email);
+CREATE INDEX idx_notifications_type_related ON notifications(type, related_id);
+CREATE INDEX idx_notifications_idempotency ON notifications(idempotency_key);
 CREATE INDEX idx_inbox_rcpt          ON inbox_messages(recipient_email);
+CREATE INDEX idx_inbox_type_related  ON inbox_messages(message_type, related_entity_id);
+CREATE INDEX idx_inbox_idempotency   ON inbox_messages(idempotency_key);
 CREATE INDEX idx_contracts_team      ON player_contracts(team_id);
 CREATE INDEX idx_contracts_user      ON player_contracts(user_id);
 CREATE INDEX idx_pic_player          ON player_identity_claims(player_id);

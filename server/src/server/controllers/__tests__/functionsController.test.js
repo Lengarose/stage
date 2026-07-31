@@ -540,6 +540,8 @@ test('contractActions offer stores duration metadata for market offers', async (
   const contractInserts = [];
   const notificationLookups = [];
   const notificationInserts = [];
+  const inboxUpdates = [];
+  const notificationUpdates = [];
   let createdContractId = null;
   const executesql = async (sql, params = []) => {
     if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
@@ -575,7 +577,22 @@ test('contractActions offer stores duration metadata for market offers', async (
     if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
       return [{ id: 'message-existing', recipient_email: 'target@example.test' }];
     }
+    if (/UPDATE inbox_messages/.test(sql)) {
+      inboxUpdates.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE notifications/.test(sql)) {
+      notificationUpdates.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/SELECT id FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) {
+      return [{ id: 'message-existing' }];
+    }
     if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/SELECT id FROM notifications WHERE idempotency_key = \?/.test(sql)) {
+      notificationLookups.push(params);
+      return [{ id: 'notification-existing' }];
+    }
     if (/SELECT id FROM notifications/.test(sql) && /related_id = \?/.test(sql)) {
       notificationLookups.push(params);
       return [{ id: 'notification-existing' }];
@@ -617,6 +634,14 @@ test('contractActions offer stores duration metadata for market offers', async (
   assert.equal(contractInserts[0].params[6], 400);
   assert.equal(contractInserts[0].params[7], 180);
   assert.equal(notificationLookups.length, 1);
+  assert.equal(
+    inboxUpdates.some(params => params.includes(`contract_offer:player_contract:${createdContractId}:target@example.test`)),
+    true
+  );
+  assert.equal(
+    notificationUpdates.some(params => params[0] === 'message-existing' && params[1] === '/inbox?id=message-existing'),
+    true
+  );
   assert.equal(notificationInserts.length, 0);
 });
 
