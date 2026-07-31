@@ -697,6 +697,22 @@ const http = {
   delete: (path)               => apiFetch(path, { method: 'DELETE' }),
 };
 
+const profileMatches = {
+  async list(filters = {}, orderBy = null, limit = 50) {
+    const rows = await http.get('/matches/profile', { ...filters, limit });
+    const normalized = normalizeEntityListFromApi('Match', rows);
+    if (!orderBy) return normalized;
+    const desc = orderBy.startsWith('-');
+    const field = desc ? orderBy.slice(1) : orderBy;
+    return [...normalized].sort((a, b) => {
+      const av = a[field] ?? '';
+      const bv = b[field] ?? '';
+      if (av === bv) return 0;
+      return (av < bv ? -1 : 1) * (desc ? -1 : 1);
+    });
+  },
+};
+
 function buildQuery(q) {
   if (!q || typeof q !== 'object') return '';
   const params = Object.entries(q)
@@ -813,6 +829,6 @@ const chatReads = {
   },
 };
 
-export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, chatReads };
+export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, profileMatches, chatReads };
 // Backward-compat alias during migration
 export const base44 = stageClient;

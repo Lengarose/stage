@@ -144,6 +144,39 @@ function matchTouchesAuthScope(record, ctx) {
     clubIds.includes(record.away_club_id);
 }
 
+function parseProfileMatchLimit(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return 50;
+  return Math.min(Math.floor(parsed), 100);
+}
+
+function toProfileMatchView(record = {}) {
+  return {
+    id: record.id,
+    tournament_id: record.tournament_id,
+    home_club_id: record.home_club_id,
+    away_club_id: record.away_club_id,
+    home_club_name: record.home_club_name,
+    away_club_name: record.away_club_name,
+    home_player_id: record.home_player_id,
+    home_player_name: record.home_player_name,
+    away_player_id: record.away_player_id,
+    away_player_name: record.away_player_name,
+    home_score: record.home_score,
+    away_score: record.away_score,
+    status: record.status,
+    mode: record.mode,
+    type: record.type,
+    round: record.round,
+    group: record.group,
+    group_number: record.group_number,
+    bracket_side: record.bracket_side,
+    scheduled_date: record.scheduled_date,
+    created_date: record.created_date,
+    updated_date: record.updated_date,
+  };
+}
+
 function eloDelta(ratingA, ratingB, result) {
   const K = 32;
   const expected = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
@@ -422,6 +455,74 @@ router.get('/', async (req, res) => {
     }
 
     res.json(await enrichMatchRows(result));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /profile
+// Read-only match data used by public player and club profile pages. Mutation
+// routes still enforce participant/admin scope below.
+router.get('/profile', async (req, res) => {
+  try {
+    const {
+      id,
+      player_id,
+      club_id,
+      home_player_id,
+      away_player_id,
+      home_club_id,
+      away_club_id,
+      status,
+      mode,
+      type,
+      tournament_id,
+      limit,
+    } = req.query;
+    const whereParts = [];
+    const values = [];
+
+    if (id) {
+      whereParts.push('id = ?');
+      values.push(id);
+    }
+    if (player_id) {
+      whereParts.push('(home_player_id = ? OR away_player_id = ?)');
+      values.push(player_id, player_id);
+    }
+    if (club_id) {
+      whereParts.push('(home_club_id = ? OR away_club_id = ?)');
+      values.push(club_id, club_id);
+    }
+    const directFilters = {
+      home_player_id,
+      away_player_id,
+      home_club_id,
+      away_club_id,
+      status,
+      mode,
+      type,
+      tournament_id,
+    };
+    for (const [key, value] of Object.entries(directFilters)) {
+      if (value === undefined || value === null || value === '') continue;
+      whereParts.push(`${key} = ?`);
+      values.push(value);
+    }
+
+    if (!whereParts.length) return res.status(400).json({ error: 'Profile match filter required' });
+
+    values.push(parseProfileMatchLimit(limit));
+    const result = await EXECUTESQL(
+      `SELECT * FROM matches
+       WHERE ${whereParts.join(' AND ')}
+       ORDER BY scheduled_date DESC, updated_date DESC
+       LIMIT ?`,
+      values
+    );
+    const enriched = await enrichMatchRows(result);
+    res.json(enriched.map(toProfileMatchView));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

@@ -145,8 +145,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         if (p.club_id) {
           const [clubs, tmHome, tmAway] = await Promise.all([
             stageClient.entities.Club.get(p.club_id).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: p.club_id })),
-            stageClient.entities.Match.filter({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
-            stageClient.entities.Match.filter({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
+            stageClient.profileMatches.list({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
+            stageClient.profileMatches.list({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
           ]);
           if (clubs.length > 0) setClub(clubs[0]);
           setUpcomingMatches([...tmHome, ...tmAway]);
@@ -175,12 +175,14 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         let filteredStats = matchStats;
         if (matchIds.length > 0) {
           const matchRecords = await Promise.all(
-            matchIds.slice(0, 50).map(mid => stageClient.entities.Match.filter({ id: mid }))
+            matchIds.slice(0, 50).map(mid => (
+              stageClient.profileMatches.list({ id: mid }, null, 1).catch(() => [])
+            ))
           );
-          const validMatchIds = new Set(
-            matchRecords.flat().filter(m => m.type !== "friendly" && m.type !== undefined).map(m => m.id)
+          const friendlyMatchIds = new Set(
+            matchRecords.flat().filter(m => m.type === "friendly").map(m => m.id)
           );
-          filteredStats = matchStats.filter(s => validMatchIds.has(s.match_id));
+          filteredStats = matchStats.filter(s => !friendlyMatchIds.has(s.match_id));
         }
         const totalGoals = filteredStats.reduce((s, r) => s + (r.goals || 0), 0);
         const totalAssists = filteredStats.reduce((s, r) => s + (r.assists || 0), 0);
@@ -189,8 +191,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         setClubStats({ matches: filteredStats.length, goals: totalGoals, assists: totalAssists, avgRating });
 
         const [pvpHome, pvpAway] = await Promise.all([
-          stageClient.entities.Match.filter({ home_player_id: p.id, status: "completed" }, "-updated_date", 50),
-          stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 50),
+          stageClient.profileMatches.list({ home_player_id: p.id, status: "completed" }, "-updated_date", 50),
+          stageClient.profileMatches.list({ away_player_id: p.id, status: "completed" }, "-updated_date", 50),
         ]);
         const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
         const pvpMap = new Map();

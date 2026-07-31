@@ -195,15 +195,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       }
 
       const [matchesHome, matchesAway, followData, allFollowersData] = await Promise.all([
-        stageClient.entities.Match.filter({ home_club_id: id, status: "completed" }, "round", 30),
-        stageClient.entities.Match.filter({ away_club_id: id, status: "completed" }, "round", 30),
+        stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30),
+        stageClient.profileMatches.list({ away_club_id: id, status: "completed" }, "round", 30),
         stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "club" }),
         stageClient.entities.Follow.filter({ target_id: id, target_type: "club" }),
       ]);
 
       const [tmHome, tmAway] = await Promise.all([
-        stageClient.entities.Match.filter({ home_club_id: id, status: "scheduled" }, "round", 30),
-        stageClient.entities.Match.filter({ away_club_id: id, status: "scheduled" }, "round", 30),
+        stageClient.profileMatches.list({ home_club_id: id, status: "scheduled" }, "round", 30),
+        stageClient.profileMatches.list({ away_club_id: id, status: "scheduled" }, "round", 30),
       ]);
 
       const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
