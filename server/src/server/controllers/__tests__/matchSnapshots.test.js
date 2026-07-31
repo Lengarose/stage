@@ -30,6 +30,7 @@ function loadMatchRouterWithDbMock(executesql, serviceMock = {}) {
     loaded: true,
     exports: {
       syncMatchResultToSource: async () => ({ synced: false }),
+      advanceCommunityTournamentIfReady: async () => ({ advanced: false }),
       ...serviceMock,
     },
   };

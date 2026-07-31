@@ -47,42 +47,22 @@ export async function ensureContractOfferInbox({
     contract_type: contractType,
   };
 
-  try {
-    // Prefer the server helper so recipient resolution and notification rules
-    // stay in one place. Callers must pass related_entity_id for de-duping.
-    return await stageClient.functions.invoke("sendInboxMessage", {
-      recipient_email: player.email || undefined,
-      recipient_player_id: player.id,
-      sender_email: senderEmail || club?.owner_email || undefined,
-      subject: `Contract Offer from ${club?.name || "Club"}`,
-      body,
-      message_type: "contract_offer",
-      action_type: "contract_negotiation",
-      related_entity_id: contractId,
-      related_entity_type: "player_contract",
-      metadata,
-      send_notification: true,
-    });
-  } catch (err) {
-    if (!player.email) throw err;
-    // Last-resort compatibility fallback for older deployments without
-    // sendInboxMessage. This path can duplicate messages if the server also
-    // delivered the same contract, so keep related_entity_id populated.
-    return stageClient.entities.InboxMessage.create({
-      recipient_email: player.email,
-      sender_email: senderEmail || club?.owner_email || "system@stage.com",
-      sender_gamertag: club?.name || "Club Management",
-      sender_avatar_url: club?.logo_url || "",
-      sender_club_name: club?.name || "",
-      subject: `Contract Offer from ${club?.name || "Club"}`,
-      body,
-      message_type: "contract_offer",
-      action_type: "contract_negotiation",
-      related_entity_id: contractId,
-      related_entity_type: "player_contract",
-      status: "pending",
-      is_read: false,
-      metadata,
-    });
-  }
+  // Contract offers must stay centralized so the backend can de-dupe the inbox
+  // row, link exactly one notification, and broadcast the repaired message.
+  return stageClient.functions.invoke("sendInboxMessage", {
+    recipient_email: player.email || undefined,
+    recipient_player_id: player.id,
+    sender_email: senderEmail || club?.owner_email || undefined,
+    sender_gamertag: club?.name || "Club Management",
+    sender_avatar_url: club?.logo_url || "",
+    sender_club_name: club?.name || "",
+    subject: `Contract Offer from ${club?.name || "Club"}`,
+    body,
+    message_type: "contract_offer",
+    action_type: "contract_negotiation",
+    related_entity_id: contractId,
+    related_entity_type: "player_contract",
+    metadata,
+    send_notification: true,
+  });
 }

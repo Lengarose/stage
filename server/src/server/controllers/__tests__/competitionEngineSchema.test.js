@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '../../../..');
 const schema = fs.readFileSync(path.join(root, 'schema.sql'), 'utf8');
-const server = fs.readFileSync(path.join(root, 'src/server.js'), 'utf8');
+const startupMigrations = fs.readFileSync(path.join(root, 'src/server/migrations/startupMigrations.js'), 'utf8');
 
 const requiredTables = [
   'competition_instances',
@@ -21,7 +21,7 @@ const requiredTables = [
 test('competition engine tables are present in schema and startup migrations', () => {
   for (const table of requiredTables) {
     assert.match(schema, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
-    assert.match(server, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+    assert.match(startupMigrations, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   }
 });
 

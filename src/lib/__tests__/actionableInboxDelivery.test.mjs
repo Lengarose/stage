@@ -6,6 +6,7 @@ import test from "node:test";
 const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 const ACTIONABLE_MESSAGE_SOURCES = [
+  "lib/contractOfferDelivery.js",
   "components/schedule/ArrangeGameDialog.jsx",
   "lib/scheduleEngine.js",
   "pages/ClubDetail.jsx",
