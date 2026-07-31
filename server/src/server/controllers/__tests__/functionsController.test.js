@@ -4,14 +4,18 @@ const test = require('node:test');
 
 function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const controllerPath = path.resolve(__dirname, '../functionsController.js');
+  const legacyFunctionsPath = path.resolve(__dirname, '../../functions/legacyFunctions.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const identityServicePath = path.resolve(__dirname, '../../services/identityService.js');
+  const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
 
   delete require.cache[controllerPath];
+  delete require.cache[legacyFunctionsPath];
   delete require.cache[identityServicePath];
+  delete require.cache[messageDeliveryServicePath];
   delete require.cache[servicePath];
   delete require.cache[matchModelPath];
   delete require.cache[socketPath];
