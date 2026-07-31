@@ -163,9 +163,45 @@ async function sendActionMessage({
   );
   const existingMessage = existingByKey[0] || existingByRelated[0] || null;
   if (existingMessage) {
+    // Keep retries and legacy rows actionable instead of preserving incomplete
+    // messages that were created before the central inbox delivery path existed.
     await EXECUTESQL(
-      'UPDATE inbox_messages SET idempotency_key = COALESCE(idempotency_key, ?) WHERE id = ?',
-      [effectiveIdempotencyKey, existingMessage.id]
+      `UPDATE inbox_messages
+          SET recipient_email = ?,
+              sender_email = ?,
+              sender_gamertag = ?,
+              sender_avatar_url = ?,
+              sender_club_name = ?,
+              subject = ?,
+              body = ?,
+              message_type = ?,
+              action_type = ?,
+              status = 'pending',
+              is_read = 0,
+              is_system = ?,
+              metadata = ?,
+              related_entity_id = ?,
+              related_entity_type = ?,
+              idempotency_key = COALESCE(idempotency_key, ?),
+              updated_date = NOW()
+        WHERE id = ?`,
+      [
+        recipient,
+        senderEmail || null,
+        senderGamertag || null,
+        senderAvatarUrl || null,
+        senderClubName || null,
+        subject,
+        body,
+        messageType,
+        actionType,
+        isSystem ? 1 : 0,
+        metadata ? JSON.stringify(metadata) : null,
+        relatedEntityId,
+        relatedEntityType,
+        effectiveIdempotencyKey,
+        existingMessage.id,
+      ]
     ).catch(() => {});
     const notificationResult = notify ? await notifyForActionMessage({
       recipient,

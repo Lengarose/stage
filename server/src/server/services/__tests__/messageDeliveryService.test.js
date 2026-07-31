@@ -106,6 +106,21 @@ test('deliverContractOfferMessage reuses existing inbox message and notification
 
   await service.deliverContractOfferMessage('contract-1');
 
+  const inboxUpdates = queries.filter(({ sql }) => /UPDATE inbox_messages/.test(sql));
+  const repairedInboxUpdate = inboxUpdates.find(({ sql }) => /action_type = \?/.test(sql));
+
+  assert.ok(repairedInboxUpdate, 'existing inbox contract offer should be repaired with actionable fields');
+  assert.equal(repairedInboxUpdate.params[5], 'Contract Offer from Longue Vie FC');
+  assert.equal(repairedInboxUpdate.params[7], 'contract_offer');
+  assert.equal(repairedInboxUpdate.params[8], 'contract_negotiation');
+  assert.equal(repairedInboxUpdate.params[10], JSON.stringify({
+    contract_id: 'contract-1',
+    club_id: 'club-1',
+    club_name: 'Longue Vie FC',
+    contract_type: 'star',
+  }));
+  assert.equal(repairedInboxUpdate.params[11], 'contract-1');
+  assert.equal(repairedInboxUpdate.params[12], 'player_contract');
   assert.equal(broadcasts.length, 0);
   assert.equal(queries.some(({ sql }) => /INSERT INTO inbox_messages/.test(sql)), false);
   assert.equal(queries.some(({ sql }) => /INSERT INTO notifications/.test(sql)), false);

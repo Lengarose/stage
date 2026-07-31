@@ -77,7 +77,13 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   const effectiveActionType =
     message.action_type && message.action_type !== "none"
       ? message.action_type
-      : (message.message_type === "match_invite" ? "accept_decline_date" : "none");
+      : message.message_type === "match_invite"
+        ? "accept_decline_date"
+        : message.message_type === "contract_offer"
+          ? "contract_negotiation"
+          : message.message_type === "trial_request"
+            ? "trial_response"
+            : "none";
   const hasAction = effectiveActionType !== "none" && status === "pending";
   const isActioned = effectiveActionType !== "none" && status !== "pending";
 
@@ -206,7 +212,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         )}
 
         {/* Trial request — club owner response UI */}
-        {message.message_type === "trial_request" && message.action_type === "trial_response" && (
+        {message.message_type === "trial_request" && effectiveActionType === "trial_response" && (
           <InboxTrialRequest
             message={message}
             onActioned={(action) => {
@@ -218,7 +224,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
         )}
 
         {/* Contract offer — inline negotiation UI */}
-        {message.message_type === "contract_offer" && message.action_type === "contract_negotiation" && (
+        {message.message_type === "contract_offer" && effectiveActionType === "contract_negotiation" && (
           <InboxContractOffer
             message={message}
             onActioned={(action) => {
