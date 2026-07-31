@@ -12,7 +12,6 @@ const {
   requireClubPermission,
   writeClubAudit,
   notifyEmail,
-  getCurrentTransferWindow,
 } = require('../services/clubOperationsService');
 
 const STATUSES = new Set(['new', 'reviewed', 'invited', 'trial_offered', 'trial_active', 'contract_offered', 'accepted', 'declined', 'withdrawn']);
@@ -124,9 +123,8 @@ async function offerContract(req, res, isTrial) {
     const { user } = await requireClubPermission(req, existing.club_id, 'offer_contracts');
     if (!existing.player_id) return res.status(400).json({ error: 'Applicant is not linked to a player profile' });
 
-    const currentWindow = await getCurrentTransferWindow();
     const contractId = uuidv4();
-    const status = currentWindow ? 'pending' : 'pending_window';
+    const status = 'pending';
     const contractType = isTrial ? 'trial' : (req.body?.contract_type || 'squad');
     await assertCanCreateContractOffer({
       playerId: existing.player_id,

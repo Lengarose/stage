@@ -138,7 +138,7 @@ router.post('/', async (req, res) => {
   try {
     const safeBody = {
       ...req.body,
-      status: ['pending', 'pending_window'].includes(req.body?.status) ? req.body.status : 'pending',
+      status: 'pending',
       start_date: null,
       end_date: null,
       games_played: Number(req.body?.games_played || 0),

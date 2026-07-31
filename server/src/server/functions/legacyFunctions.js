@@ -5001,8 +5001,7 @@ const HANDLERS = {
     if (!player) throw new Error('Player profile not found');
     if (!team_id || !user_id) throw new Error('team_id and user_id required');
 
-    const transferWindow = await getCurrentTransferWindow();
-    const status = transferWindow ? 'pending' : 'pending_window';
+    const status = 'pending';
     const duration = CONTRACT_TYPE_DURATION[contract_type] || CONTRACT_TYPE_DURATION.squad;
     await assertCanCreateContractOffer({
       playerId: user_id,
@@ -5274,24 +5273,50 @@ const HANDLERS = {
     // ── expire_overdue ───────────────────────────────────────────────────────
     if (action === 'expire_overdue') {
       const result = await withTransaction(async (query) => {
-        const overdueContracts = await query(
-          "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE() FOR UPDATE",
+        const activeContracts = await query(
+          `SELECT *, user_id AS target_player_id
+             FROM player_contracts
+            WHERE status = 'active'
+              AND (
+                (end_date IS NOT NULL AND end_date < CURDATE())
+                OR (IFNULL(max_games, 0) > 0 AND IFNULL(games_played, 0) >= IFNULL(max_games, 0))
+              )
+            FOR UPDATE`,
           []
         );
-        const updateResult = await query(
-          "UPDATE player_contracts SET status = 'expired', updated_date = NOW() WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE()",
-          []
-        );
-        for (const expiredContract of overdueContracts) {
+        let expiredCount = 0;
+        let completedCount = 0;
+        for (const contract of activeContracts) {
+          const maxGames = Number(contract.max_games || 0);
+          const gamesPlayed = Number(contract.games_played || 0);
+          // Date expiry and game-limit completion both end the club link unless another active club role remains.
+          const nextStatus = maxGames > 0 && gamesPlayed >= maxGames ? 'completed' : 'expired';
+          await query(
+            "UPDATE player_contracts SET status = ?, updated_date = NOW() WHERE id = ?",
+            [nextStatus, contract.id]
+          );
+          await query(
+            'INSERT INTO player_contract_history (id, contract_id, action_type, action_by, action_note, created_date) VALUES (?, ?, ?, NULL, ?, NOW())',
+            [
+              uuidv4(),
+              contract.id,
+              nextStatus,
+              nextStatus === 'completed'
+                ? `Contract completed: ${gamesPlayed}/${maxGames} games played.`
+                : `Contract expired: end date ${contract.end_date} reached.`,
+            ]
+          ).catch(() => {});
           await releasePlayerFromClubIfUnassigned({
-            playerId: expiredContract.user_id,
-            clubId: expiredContract.team_id,
+            playerId: contract.user_id,
+            clubId: contract.team_id,
             query,
           });
+          if (nextStatus === 'completed') completedCount += 1;
+          else expiredCount += 1;
         }
-        return updateResult;
+        return { expiredCount, completedCount };
       });
-      return { success: true, data: { expired_count: result.affectedRows || 0 } };
+      return { success: true, data: { expired_count: result.expiredCount || 0, completed_count: result.completedCount || 0 } };
     }
 
     // ── auto_pay_salaries ────────────────────────────────────────────────────
@@ -5460,16 +5485,25 @@ const HANDLERS = {
         "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'pending_window' ORDER BY created_date ASC",
         []
       ).catch(() => []);
+      let executed = 0;
+      const errors = [];
       for (const c of pendings) {
-        await EXECUTESQL("UPDATE player_contracts SET status = 'pending', updated_date = NOW() WHERE id = ?", [c.id]);
+        try {
+          // pending_window means the player already accepted while the window was closed.
+          // Opening the window should complete the same server-side activation path.
+          await HANDLERS.contractManagement({ action: 'accept', contract_id: c.id });
+          executed += 1;
+        } catch (err) {
+          errors.push({ contract_id: c.id, error: err.message });
+        }
       }
       if (current?.id) {
         await EXECUTESQL(
           'UPDATE transfer_windows SET transfers_executed = transfers_executed + ?, updated_date = NOW() WHERE id = ?',
-          [pendings.length, current.id]
+          [executed, current.id]
         );
       }
-      return { success: true, data: { transfers_executed: pendings.length } };
+      return { success: true, data: { transfers_executed: executed, errors } };
     }
 
     throw new Error(`Unknown transferWindowActions action: ${action}`);
@@ -5559,6 +5593,7 @@ const HANDLERS = {
           'INSERT INTO player_contract_history (id, contract_id, action_type, action_by, action_note, created_date) VALUES (?, ?, ?, NULL, ?, NOW())',
           [uuidv4(), c.id, 'completed', `Contract completed: ${gamesPlayed}/${maxGames} games played.`]
         ).catch(() => {});
+        await releasePlayerFromClubIfUnassigned({ playerId: c.user_id, clubId: c.team_id }).catch(() => {});
         completed += 1;
         continue;
       }
@@ -5569,6 +5604,7 @@ const HANDLERS = {
           'INSERT INTO player_contract_history (id, contract_id, action_type, action_by, action_note, created_date) VALUES (?, ?, ?, NULL, ?, NOW())',
           [uuidv4(), c.id, 'expired', `Contract expired: end date ${c.end_date} reached.`]
         ).catch(() => {});
+        await releasePlayerFromClubIfUnassigned({ playerId: c.user_id, clubId: c.team_id }).catch(() => {});
         expired += 1;
         continue;
       }

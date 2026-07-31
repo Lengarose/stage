@@ -774,6 +774,7 @@ test('contractActions offer stores duration metadata for market offers', async (
   assert.equal(contractInserts.length, 1);
   assert.match(contractInserts[0].sql, /max_games/);
   assert.match(contractInserts[0].sql, /max_days/);
+  assert.equal(contractInserts[0].params[4], 'pending');
   assert.equal(contractInserts[0].params[6], 400);
   assert.equal(contractInserts[0].params[7], 180);
   assert.equal(notificationLookups.length, 1);
@@ -1001,6 +1002,165 @@ test('contractManagement accept closes competing live offers for the same player
   assert.equal(queries.some((call) => /status = 'cancelled'/.test(call.sql) && call.params.includes('other-offer')), true);
   assert.equal(queries.some((call) => /CASE WHEN team_id = \? THEN 'completed' ELSE 'terminated' END/.test(call.sql) && call.params.includes('old-active')), true);
   assert.equal(queries.some((call) => /UPDATE inbox_messages/.test(call.sql) && call.params.includes('other-offer')), true);
+});
+
+test('transferWindowActions execute_pending activates accepted window-waiting contracts', async () => {
+  const queries = [];
+  const pendingContract = {
+    id: 'pending-window-contract',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'pending_window',
+    contract_type: 'squad',
+    weekly_salary_stc: 0,
+    max_days: 90,
+    captaincy_offered: 0,
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-player',
+    email: 'player@example.test',
+    club_id: null,
+    role: 'member',
+    club_roles: null,
+  };
+  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[pendingContract], []];
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) return [[], []];
+      if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE notifications/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE players SET club_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/DELETE FROM club_memberships/.test(sql)) return [{ affectedRows: 0 }, []];
+      if (/UPDATE club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/SELECT \* FROM club_memberships/.test(sql)) return [[], []];
+      if (/INSERT INTO club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) {
+      return [{ id: 'window-1', status: 'open' }];
+    }
+    if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE status = 'pending_window'/.test(sql)) {
+      return [pendingContract];
+    }
+    if (/UPDATE transfer_windows SET transfers_executed/.test(sql)) {
+      queries.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'transferWindowActions' },
+      body: { action: 'execute_pending' },
+      user: { id: 'admin-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.transfers_executed, 1);
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = 'active'/.test(call.sql)), true);
+  assert.equal(queries.some((call) => /UPDATE players SET club_id = \?/.test(call.sql)), true);
+});
+
+test('contractManagement expire_overdue completes max-game contracts and releases player membership', async () => {
+  const queries = [];
+  const completeByGames = {
+    id: 'contract-games-done',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'active',
+    contract_type: 'squad',
+    max_games: 2,
+    games_played: 2,
+    end_date: null,
+  };
+  const expiredByDate = {
+    id: 'contract-date-done',
+    team_id: 'club-2',
+    user_id: 'player-2',
+    status: 'active',
+    contract_type: 'squad',
+    max_games: 100,
+    games_played: 1,
+    end_date: '2026-01-01',
+  };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/FROM player_contracts/.test(sql) && /status = 'active'/.test(sql) && /FOR UPDATE/.test(sql)) {
+        return [[completeByGames, expiredByDate], []];
+      }
+      if (/UPDATE player_contracts SET status = \?/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/INSERT INTO player_contract_history/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE players p/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE club_memberships cm/.test(sql)) return [{ affectedRows: 1 }, []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const router = loadFunctionsRouterWithDbMock(async (sql) => {
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  }, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'expire_overdue' },
+      user: { id: 'admin-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.completed_count, 1);
+  assert.equal(response.body.data.expired_count, 1);
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = \?/.test(call.sql) && call.params[0] === 'completed'), true);
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = \?/.test(call.sql) && call.params[0] === 'expired'), true);
+  assert.equal(queries.filter((call) => /UPDATE players p/.test(call.sql)).length, 2);
+  assert.equal(queries.filter((call) => /UPDATE club_memberships cm/.test(call.sql)).length, 2);
 });
 
 test('contractManagement terminate releases player club membership when no active link remains', async () => {
