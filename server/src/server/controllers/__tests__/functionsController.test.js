@@ -47,6 +47,14 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
       broadcastMatchPlayerStat() {},
     },
   };
+  if (options.messageDeliveryServiceMock) {
+    require.cache[messageDeliveryServicePath] = {
+      id: messageDeliveryServicePath,
+      filename: messageDeliveryServicePath,
+      loaded: true,
+      exports: options.messageDeliveryServiceMock,
+    };
+  }
 
   return require(controllerPath);
 }
@@ -410,10 +418,6 @@ test('respondInboxMessage creates invite match with player email snapshots serve
       inserts.push(params);
       return { affectedRows: 1 };
     }
-    if (/INSERT INTO inbox_messages/.test(sql)) {
-      responseMessages.push(params);
-      return { affectedRows: 1 };
-    }
     if (/UPDATE inbox_messages SET related_entity_id = \?/.test(sql)) {
       inboxUpdates.push({ sql, params });
       return { affectedRows: 1 };
@@ -426,7 +430,17 @@ test('respondInboxMessage creates invite match with player email snapshots serve
     if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
     throw new Error(`Unexpected SQL: ${sql}`);
   };
-  const router = loadFunctionsRouterWithDbMock(executesql);
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        responseMessages.push(payload);
+        return { success: true, message: { id: 'response-message-1' } };
+      },
+    },
+  });
   const handle = postFunctionHandler(router);
   const response = {
     statusCode: 200,
@@ -455,23 +469,90 @@ test('respondInboxMessage creates invite match with player email snapshots serve
   assert.equal(inserts[0][11], 'player-away');
   assert.equal(inserts[0][13], 'away-player@example.test');
   assert.equal(responseMessages.length, 1);
-  assert.equal(responseMessages[0][1], 'home@example.test');
-  assert.equal(responseMessages[0][8], 'match_invite_response');
-  assert.equal(responseMessages[0][12], inserts[0][0]);
+  assert.equal(responseMessages[0].recipientEmail, 'home@example.test');
+  assert.equal(responseMessages[0].messageType, 'match_invite_response');
+  assert.equal(responseMessages[0].relatedEntityId, inserts[0][0]);
+  assert.equal(responseMessages[0].idempotencyKey, `match_invite_response:message-1:accepted:${inserts[0][0]}`);
   assert.equal(inboxUpdates.some(update => /related_entity_id/.test(update.sql)), true);
 });
 
-test('sendInboxMessage reuses an existing contract offer message', async () => {
-  const inboxInserts = [];
+test('respondInboxMessage sends reschedule proposals through the central action message service', async () => {
+  const deliveries = [];
   const inboxUpdates = [];
-  const notificationInserts = [];
-  const existingMessage = {
-    id: 'message-existing',
-    recipient_email: 'player@example.test',
-    related_entity_id: 'contract-1',
-    message_type: 'contract_offer',
+  const message = {
+    id: 'message-1',
+    recipient_email: 'away@example.test',
+    sender_email: 'home@example.test',
+    message_type: 'match_invite',
+    subject: 'Ranked invite',
+    related_entity_id: 'match-1',
+    related_entity_type: 'match',
+    metadata: JSON.stringify({
+      invitation_type: 'player_vs_player',
+      challenger_name: 'HomeTag',
+      opponent_name: 'AwayTag',
+      scheduled_date: '2026-06-01T20:00:00.000Z',
+    }),
   };
-  let existingLookupCount = 0;
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+    if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        deliveries.push(payload);
+        return { success: true, message: { id: 'reschedule-message-1' } };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'respondInboxMessage' },
+      body: { message_id: 'message-1', action: 'date_change_requested', new_date: '2026-06-02', new_time: '21:30' },
+      user: { id: 'user-away' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(inboxUpdates.length, 1);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0].recipientEmail, 'home@example.test');
+  assert.equal(deliveries[0].messageType, 'match_invite');
+  assert.equal(deliveries[0].actionType, 'accept_decline_date');
+  assert.equal(deliveries[0].relatedEntityId, 'match-1');
+  assert.equal(deliveries[0].idempotencyKey, 'match_reschedule:message-1:2026-06-02:21:30');
+  assert.equal(deliveries[0].notification.type, 'match_reminder');
+});
+
+test('sendInboxMessage delegates actionable delivery to the central message service', async () => {
+  const deliveries = [];
+  const inboxInserts = [];
+  const notificationInserts = [];
   const executesql = async (sql, params = []) => {
     if (/COALESCE\(NULLIF\(TRIM\(p.email\)/.test(sql)) {
       return [{ email: 'player@example.test' }];
@@ -482,16 +563,8 @@ test('sendInboxMessage reuses an existing contract offer message', async () => {
     if (/SELECT name FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ name: 'Sender FC' }];
     }
-    if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
-      existingLookupCount += 1;
-      return existingLookupCount === 1 ? [] : [existingMessage];
-    }
     if (/INSERT INTO inbox_messages/.test(sql)) {
       inboxInserts.push(params);
-      return { affectedRows: 1 };
-    }
-    if (/UPDATE inbox_messages/.test(sql)) {
-      inboxUpdates.push({ sql, params });
       return { affectedRows: 1 };
     }
     if (/SELECT notification_settings FROM players/.test(sql)) return [];
@@ -502,7 +575,17 @@ test('sendInboxMessage reuses an existing contract offer message', async () => {
     }
     throw new Error(`Unexpected SQL: ${sql}`);
   };
-  const router = loadFunctionsRouterWithDbMock(executesql);
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'contract_offer',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        deliveries.push(payload);
+        return { success: true, message: { id: 'message-created' } };
+      },
+    },
+  });
   const handle = postFunctionHandler(router);
   const makeResponse = () => ({
     statusCode: 200,
@@ -525,15 +608,20 @@ test('sendInboxMessage reuses an existing contract offer message', async () => {
 
   const firstResponse = makeResponse();
   await handle({ params: { name: 'sendInboxMessage' }, body, user: { id: 'user-1' } }, firstResponse);
-  const secondResponse = makeResponse();
-  await handle({ params: { name: 'sendInboxMessage' }, body, user: { id: 'user-1' } }, secondResponse);
 
   assert.equal(firstResponse.statusCode, 200);
-  assert.equal(secondResponse.statusCode, 200);
-  assert.equal(inboxInserts.length, 1);
-  assert.equal(inboxUpdates.length, 1);
-  assert.equal(notificationInserts.length, 1);
-  assert.equal(secondResponse.body.message.id, 'message-existing');
+  assert.equal(firstResponse.body.message.id, 'message-created');
+  assert.equal(inboxInserts.length, 0);
+  assert.equal(notificationInserts.length, 0);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0].recipientEmail, 'player@example.test');
+  assert.equal(deliveries[0].senderEmail, 'sender@example.test');
+  assert.equal(deliveries[0].senderGamertag, 'SenderTag');
+  assert.equal(deliveries[0].senderAvatarUrl, 'sender.png');
+  assert.equal(deliveries[0].senderClubName, 'Sender FC');
+  assert.equal(deliveries[0].messageType, 'contract_offer');
+  assert.equal(deliveries[0].actionType, 'contract_negotiation');
+  assert.equal(deliveries[0].idempotencyKey, 'contract_offer:player_contract:contract-1:player@example.test');
 });
 
 test('contractActions offer stores duration metadata for market offers', async () => {

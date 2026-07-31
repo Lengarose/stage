@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const RecruitmentInterest = require('../models/recruitmentInterestModel');
 const { EXECUTESQL } = require('../db/database');
-const { v4: uuidv4 } = require('uuid');
+const { sendActionMessage } = require('../services/messageDeliveryService');
 
 const STATUSES = new Set(['pending', 'accepted', 'declined', 'withdrawn']);
 
@@ -15,7 +15,7 @@ function isAdmin(user) {
   return Number(user?.role_id) === 0;
 }
 
-async function notifyRecipient(post, interest, senderName) {
+async function notifyRecipient(post, interest, senderName, senderEmail = null) {
   let email = null;
   if (post.author_user_id) {
     const users = await EXECUTESQL('SELECT email FROM users WHERE id = ? LIMIT 1', [post.author_user_id]);
@@ -30,27 +30,25 @@ async function notifyRecipient(post, interest, senderName) {
     email = clubs[0]?.owner_email || null;
   }
   if (!email) return;
-  await EXECUTESQL(
-    `INSERT INTO inbox_messages
-       (id, recipient_email, sender_email, sender_gamertag, subject, body, message_type,
-        status, is_read, related_entity_id, related_entity_type, created_date)
-     VALUES (?, ?, ?, ?, ?, ?, 'recruitment_interest', 'unread', 0, ?, 'recruitment_interest', NOW())`,
-    [
-      uuidv4(), email, null, senderName || 'Recruitment',
-      `Recruitment interest: ${post.title}`,
-      interest.message || `${senderName || 'Someone'} is interested in your recruitment post.`,
-      interest.id,
-    ]
-  ).catch(async () => {
-    await EXECUTESQL(
-      `INSERT INTO notifications
-         (id, recipient_email, type, title, body, link, created_date)
-       VALUES (?, ?, 'recruitment_interest', ?, ?, '/recruitment', NOW())`,
-      [
-        uuidv4(), email, `Recruitment interest: ${post.title}`,
-        interest.message || `${senderName || 'Someone'} is interested in your recruitment post.`,
-      ]
-    ).catch(() => {});
+  const recipient = String(email).trim().toLowerCase();
+  const subject = `Recruitment interest: ${post.title}`;
+  const body = interest.message || `${senderName || 'Someone'} is interested in your recruitment post.`;
+  await sendActionMessage({
+    recipientEmail: recipient,
+    senderEmail,
+    senderGamertag: senderName || 'Recruitment',
+    subject,
+    body,
+    messageType: 'recruitment_interest',
+    actionType: 'recruitment_interest_response',
+    relatedEntityId: interest.id,
+    relatedEntityType: 'recruitment_interest',
+    idempotencyKey: `recruitment_interest:recruitment_interest:${interest.id}:${recipient}`,
+    notification: {
+      type: 'club_update',
+      title: subject,
+      body,
+    },
   });
 }
 
@@ -113,7 +111,7 @@ router.post('/', async (req, res) => {
     const senderNameRows = body.sender_club_id
       ? await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [body.sender_club_id])
       : await EXECUTESQL('SELECT gamertag AS name FROM players WHERE id = ? LIMIT 1', [body.sender_player_id]);
-    await notifyRecipient(post, created, senderNameRows[0]?.name);
+    await notifyRecipient(post, created, senderNameRows[0]?.name, user.email);
     res.status(201).json(created);
   } catch (err) {
     console.error(err);

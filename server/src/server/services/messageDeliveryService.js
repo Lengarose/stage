@@ -133,6 +133,7 @@ async function sendActionMessage({
   isSystem = false,
   notify = true,
   notification = {},
+  reuseByRelated = true,
 }) {
   const recipient = String(recipientEmail || '').trim().toLowerCase();
   if (!recipient || !subject || !body) {
@@ -152,7 +153,7 @@ async function sendActionMessage({
     'SELECT id FROM inbox_messages WHERE idempotency_key = ? LIMIT 1',
     [effectiveIdempotencyKey]
   );
-  const existingByRelated = existingByKey.length || !relatedEntityId ? [] : await EXECUTESQL(
+  const existingByRelated = existingByKey.length || !relatedEntityId || !reuseByRelated ? [] : await EXECUTESQL(
     `SELECT id FROM inbox_messages
       WHERE recipient_email = ?
         AND message_type = ?

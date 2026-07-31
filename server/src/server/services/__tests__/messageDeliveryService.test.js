@@ -275,6 +275,36 @@ test('sendActionMessage rejects messages without an idempotency source', async (
   );
 });
 
+test('sendActionMessage can skip related-entity reuse for distinct action proposals', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [];
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.sendActionMessage({
+    recipientEmail: 'player@example.test',
+    subject: 'Reschedule Proposal',
+    body: 'New proposed date.',
+    messageType: 'match_invite',
+    actionType: 'accept_decline_date',
+    relatedEntityId: 'match-1',
+    relatedEntityType: 'match',
+    idempotencyKey: 'match_reschedule:message-1:2026-06-02:21:30',
+    reuseByRelated: false,
+  });
+
+  assert.equal(queries.some(({ sql }) => /FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)), false);
+  assert.equal(queries.some(({ sql }) => /INSERT INTO inbox_messages/.test(sql)), true);
+});
+
 test('sendActionMessage repairs a missing notification when reusing an existing inbox', async () => {
   const queries = [];
   const { service, broadcasts, inboxBroadcasts } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {

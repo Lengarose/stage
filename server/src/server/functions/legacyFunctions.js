@@ -12,6 +12,7 @@ const {
   createNotificationIfEnabled,
   deliverContractOfferMessage,
   messageTypeToNotificationType,
+  sendActionMessage,
 } = require('../services/messageDeliveryService');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
@@ -1168,7 +1169,6 @@ async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenge
 
 async function createMatchInviteResponseMessage({ originalMessage, meta, senderEmail, subject, body, matchId = null }) {
   if (!originalMessage?.sender_email) return null;
-  const responseId = uuidv4();
   let senderGamertag = meta.opponent_name || null;
   let senderAvatar = null;
   let senderClubName = null;
@@ -1185,39 +1185,24 @@ async function createMatchInviteResponseMessage({ originalMessage, meta, senderE
       senderClubName = clubRows[0]?.name || null;
     }
   }
-  await EXECUTESQL(
-    `INSERT INTO inbox_messages
-       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name,
-        subject, body, message_type, action_type, status, is_read, related_entity_id, related_entity_type, metadata, created_date)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
-    [
-      responseId,
-      originalMessage.sender_email,
-      senderEmail || originalMessage.recipient_email || null,
-      senderGamertag || senderEmail || 'Player',
-      senderAvatar,
-      senderClubName,
-      subject,
-      body,
-      'match_invite_response',
-      'none',
-      'pending',
-      0,
-      matchId || originalMessage.related_entity_id || null,
-      matchId ? 'match' : (originalMessage.related_entity_type || null),
-      JSON.stringify({ ...meta, response_to_message_id: originalMessage.id, created_match_id: matchId || meta.created_match_id || null }),
-    ]
-  );
-  await Promise.resolve(broadcastInbox({
-    id: responseId,
-    recipient_email: originalMessage.sender_email,
-    sender_email: senderEmail || originalMessage.recipient_email || null,
-    message_type: 'match_invite_response',
-    status: 'pending',
-    is_read: 0,
-    related_entity_id: matchId || originalMessage.related_entity_id || null,
-  })).catch(() => {});
-  return responseId;
+  const relatedId = matchId || originalMessage.related_entity_id || null;
+  const result = await sendActionMessage({
+    recipientEmail: originalMessage.sender_email,
+    senderEmail: senderEmail || originalMessage.recipient_email || null,
+    senderGamertag: senderGamertag || senderEmail || 'Player',
+    senderAvatarUrl: senderAvatar,
+    senderClubName,
+    subject,
+    body,
+    messageType: 'match_invite_response',
+    actionType: 'none',
+    relatedEntityId: relatedId || originalMessage.id,
+    relatedEntityType: matchId ? 'match' : (originalMessage.related_entity_type || 'inbox_message'),
+    idempotencyKey: `match_invite_response:${originalMessage.id}:${String(subject || '').toLowerCase().includes('accepted') ? 'accepted' : 'responded'}:${relatedId || originalMessage.id}`,
+    notify: false,
+    metadata: { ...meta, response_to_message_id: originalMessage.id, created_match_id: matchId || meta.created_match_id || null },
+  });
+  return result.message.id;
 }
 
 const CREDIT_PACKS = {
@@ -4641,75 +4626,32 @@ const HANDLERS = {
       }
     }
 
-    if (related_entity_id) {
-      const existing = await EXECUTESQL(
-        `SELECT id, recipient_email FROM inbox_messages
-         WHERE related_entity_id = ? AND message_type = ?
-         LIMIT 1`,
-        [related_entity_id, message_type]
-      );
-      if (existing.length) {
-        await EXECUTESQL(
-          `UPDATE inbox_messages
-              SET recipient_email = ?,
-                  sender_email = ?,
-                  sender_gamertag = ?,
-                  sender_avatar_url = ?,
-                  sender_club_name = ?,
-                  is_system = ?,
-                  subject = ?,
-                  body = ?,
-                  action_type = ?,
-                  status = 'pending',
-                  is_read = 0,
-                  related_entity_type = ?,
-                  metadata = ?,
-                  updated_date = NOW()
-            WHERE id = ?`,
-          [
-            recipient,
-            sender_email || null,
-            senderGamertag,
-            senderAvatar,
-            senderClubName,
-            isSystem ? 1 : 0,
-            subject,
-            body,
-            action_type,
-            related_entity_type || null,
-            metadata ? JSON.stringify(metadata) : null,
-            existing[0].id,
-          ]
-        );
-        return { success: true, message: { id: existing[0].id, reused: true } };
-      }
-    }
-
-    const messageId = uuidv4();
-    await EXECUTESQL(
-      `INSERT INTO inbox_messages
-       (id, recipient_email, sender_email, sender_gamertag, sender_avatar_url, sender_club_name, is_system,
-        subject, body, message_type, action_type, status, is_read, related_entity_id, related_entity_type, metadata, created_date)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
-      [
-        messageId, recipient, sender_email || null, senderGamertag, senderAvatar, senderClubName, isSystem ? 1 : 0,
-        subject, body, message_type, action_type, 'pending', 0, related_entity_id || null, related_entity_type || null,
-        metadata ? JSON.stringify(metadata) : null,
-      ]
-    );
-
-    if (send_notification) {
-      const notifType = messageTypeToNotificationType(message_type);
-      await createNotificationIfEnabled({
-        recipientEmail: recipient,
-        type: notifType,
+    const normalizedRecipient = String(recipient).trim().toLowerCase();
+    const idempotencyKey = related_entity_id
+      ? `${message_type}:${related_entity_type || 'entity'}:${related_entity_id}:${normalizedRecipient}`
+      : `manual_message:${uuidv4()}`;
+    return sendActionMessage({
+      recipientEmail: normalizedRecipient,
+      senderEmail: sender_email || null,
+      senderGamertag,
+      senderAvatarUrl: senderAvatar,
+      senderClubName,
+      subject,
+      body,
+      messageType: message_type,
+      actionType: action_type,
+      relatedEntityId: related_entity_id || null,
+      relatedEntityType: related_entity_type || null,
+      metadata,
+      idempotencyKey,
+      isSystem,
+      notify: send_notification,
+      notification: {
+        type: messageTypeToNotificationType(message_type),
         title: `New message: ${subject}`,
         body: isSystem ? 'System message' : `From ${senderGamertag || sender_email || 'Unknown'}`,
-        link: `/inbox?id=${messageId}`,
-        relatedId: messageId,
-      });
-    }
-    return { success: true, message: { id: messageId } };
+      },
+    });
   },
 
   async respondInboxMessage({ message_id, action, new_date, new_time, _auth_user_id }) {
@@ -4793,40 +4735,28 @@ const HANDLERS = {
     if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
       const proposedMysql = (new_date && new_time) ? toMysqlDateTime(`${new_date} ${new_time.length === 5 ? `${new_time}:00` : new_time}`) : null;
       const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedMysql || 'Please discuss a new time.'}`;
-      const responseId = uuidv4();
-      await EXECUTESQL(
-        `INSERT INTO inbox_messages
-         (id, recipient_email, sender_email, is_system, subject, body, message_type, action_type, status, is_read, related_entity_id, related_entity_type, metadata, created_date)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, NOW())`,
-        [
-          responseId, message.sender_email, user.email, 0,
-          `Reschedule Proposal: ${message.subject || 'Match Invite'}`,
-          proposalBody, 'match_invite', 'accept_decline_date', 'pending', 0,
-          meta.created_match_id || message.related_entity_id || null, 'match',
-          JSON.stringify({
-            ...meta,
-            scheduled_date: proposedMysql || meta.scheduled_date,
-            reschedule_request: true,
-            original_message_id: message_id,
-          }),
-        ]
-      );
-      broadcastInbox({
-        id: responseId,
-        recipient_email: message.sender_email,
-        sender_email: user.email,
-        message_type: 'match_invite',
-        status: 'pending',
-        is_read: 0,
-        related_entity_id: meta.created_match_id || message.related_entity_id || null,
-      });
-      await createNotificationIfEnabled({
+      await sendActionMessage({
         recipientEmail: message.sender_email,
-        type: 'match_reminder',
-        title: `${user.email} wants to reschedule`,
-        body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
-        link: '/inbox',
-        relatedId: responseId,
+        senderEmail: user.email,
+        subject: `Reschedule Proposal: ${message.subject || 'Match Invite'}`,
+        body: proposalBody,
+        messageType: 'match_invite',
+        actionType: 'accept_decline_date',
+        relatedEntityId: meta.created_match_id || message.related_entity_id || message_id,
+        relatedEntityType: meta.created_match_id || message.related_entity_id ? 'match' : 'inbox_message',
+        idempotencyKey: `match_reschedule:${message_id}:${new_date || 'open'}:${new_time || 'open'}`,
+        reuseByRelated: false,
+        metadata: {
+          ...meta,
+          scheduled_date: proposedMysql || meta.scheduled_date,
+          reschedule_request: true,
+          original_message_id: message_id,
+        },
+        notification: {
+          type: 'match_reminder',
+          title: `${user.email} wants to reschedule`,
+          body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
+        },
       });
     }
 
