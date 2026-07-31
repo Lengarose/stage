@@ -1,0 +1,74 @@
+{
+  "teEntrance": {
+    "en": "Tournament Entrance",
+    "fr": "Entrée tournoi"
+  },
+  "teJoining": {
+    "en": "Joining tournament",
+    "fr": "Inscription au tournoi"
+  },
+  "teSigningInFor": {
+    "en": "Signing in for",
+    "fr": "Connexion pour"
+  },
+  "teThisTournament": {
+    "en": "this tournament",
+    "fr": "ce tournoi"
+  },
+  "teAskFreshLink": {
+    "en": "Ask the tournament organiser for a fresh invite link.",
+    "fr": "Demande à l'organisateur un nouveau lien d'invitation."
+  },
+  "teScopedNote": {
+    "en": "Your account will be scoped to {name} until the tournament ends. Full access unlocks automatically afterwards.",
+    "fr": "Ton compte sera limité à {name} jusqu'à la fin du tournoi. L'accès complet se débloque automatiquement ensuite."
+  },
+  "teHidePassword": {
+    "en": "Hide password",
+    "fr": "Masquer le mot de passe"
+  },
+  "teShowPassword": {
+    "en": "Show password",
+    "fr": "Afficher le mot de passe"
+  },
+  "teUnableAccount": {
+    "en": "Unable to load your account.",
+    "fr": "Impossible de charger ton compte."
+  },
+  "teInvalidLink": {
+    "en": "This tournament entrance link is invalid.",
+    "fr": "Ce lien d'entrée de tournoi est invalide."
+  },
+  "teUnableLoadLink": {
+    "en": "Unable to load this entrance link.",
+    "fr": "Impossible de charger ce lien d'entrée."
+  },
+  "teReasonNotFound": {
+    "en": "This tournament entrance link does not exist.",
+    "fr": "Ce lien d'entrée de tournoi n'existe pas."
+  },
+  "teReasonRevoked": {
+    "en": "This entrance link has been revoked.",
+    "fr": "Ce lien d'entrée a été révoqué."
+  },
+  "teReasonTournamentGone": {
+    "en": "The tournament linked to this entrance no longer exists.",
+    "fr": "Le tournoi lié à cette entrée n'existe plus."
+  },
+  "teReasonFull": {
+    "en": "Registration is closed — all spots have been filled.",
+    "fr": "Inscriptions fermées — toutes les places sont prises."
+  },
+  "teTrophyCabinet": {
+    "en": "Trophy Cabinet",
+    "fr": "Vitrine des trophées"
+  },
+  "teLoadingProfile": {
+    "en": "Loading profile...",
+    "fr": "Chargement du profil..."
+  },
+  "teLoadingClub": {
+    "en": "Loading club...",
+    "fr": "Chargement du club..."
+  }
+}

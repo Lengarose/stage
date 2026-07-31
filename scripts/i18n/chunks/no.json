@@ -1,0 +1,34 @@
+{
+  "noClubsFound": {
+    "en": "No clubs found.",
+    "fr": "Aucun club trouvé."
+  },
+  "noEafcClubsFound": {
+    "en": "No EA FC clubs found.",
+    "fr": "Aucun club EA FC trouvé."
+  },
+  "noInternationalOpen": {
+    "en": "No international tournaments are open yet.",
+    "fr": "Aucun tournoi international n'est ouvert."
+  },
+  "noInternationalOpenDesc": {
+    "en": "An admin needs to create an international tournament and open voting before club owners can vote for the national team owner.",
+    "fr": "Un admin doit créer un tournoi international et ouvrir le vote avant que les owners puissent voter."
+  },
+  "noElectionOpen": {
+    "en": "No election is open for your country yet.",
+    "fr": "Aucun vote n'est ouvert pour ton pays."
+  },
+  "noFreeAgentsFound": {
+    "en": "No free agents found.",
+    "fr": "Aucun agent libre trouvé."
+  },
+  "noPostsYet": {
+    "en": "No posts yet",
+    "fr": "Aucun post"
+  },
+  "noOpenPostsFound": {
+    "en": "No open posts found",
+    "fr": "Aucun post ouvert trouvé"
+  }
+}

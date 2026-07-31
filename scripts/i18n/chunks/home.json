@@ -1,0 +1,194 @@
+{
+  "homeMobileWelcomeBack": {
+    "en": "Welcome back",
+    "fr": "Bon retour"
+  },
+  "homeMobileWelcome": {
+    "en": "Welcome",
+    "fr": "Bienvenue"
+  },
+  "homeMobileNextMatch": {
+    "en": "Next up",
+    "fr": "Prochain match"
+  },
+  "homeMobileOpenGameDay": {
+    "en": "Open Game Day",
+    "fr": "Ouvrir Match Day"
+  },
+  "homeMobileNoMatchHint": {
+    "en": "No match scheduled yet — open Game Day to schedule or play.",
+    "fr": "Aucun match programmé — ouvre Match Day pour planifier ou jouer."
+  },
+  "homeMobileDiscover": {
+    "en": "Discover",
+    "fr": "Découvrir"
+  },
+  "homeMobileSeeSchedule": {
+    "en": "Full schedule",
+    "fr": "Calendrier complet"
+  },
+  "homeCompetitions": {
+    "en": "Competitions",
+    "fr": "Compétitions"
+  },
+  "homeTournaments": {
+    "en": "Tournaments",
+    "fr": "Tournois"
+  },
+  "homeLeagues": {
+    "en": "Leagues",
+    "fr": "Ligues"
+  },
+  "homeTier": {
+    "en": "Tier {tier}",
+    "fr": "Palier {tier}"
+  },
+  "homeViewBracket": {
+    "en": "View bracket",
+    "fr": "Voir le tableau"
+  },
+  "homePlayers": {
+    "en": "{count}/{max} players",
+    "fr": "{count}/{max} joueurs"
+  },
+  "homeFull": {
+    "en": "Full",
+    "fr": "Complet"
+  },
+  "homeViewDetails": {
+    "en": "View details",
+    "fr": "Voir les détails"
+  },
+  "homeNoTournaments": {
+    "en": "No tournaments yet.",
+    "fr": "Aucun tournoi pour le moment."
+  },
+  "homeNoLeagues": {
+    "en": "No leagues yet.",
+    "fr": "Aucune ligue pour le moment."
+  },
+  "homePlatform": {
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  "homeViewAll": {
+    "en": "View all",
+    "fr": "Voir tout"
+  },
+  "homeLatest": {
+    "en": "Latest",
+    "fr": "Dernières"
+  },
+  "homeAllNews": {
+    "en": "All news",
+    "fr": "Toutes les news"
+  },
+  "homeUpcoming": {
+    "en": "Upcoming",
+    "fr": "À venir"
+  },
+  "homeSchedule": {
+    "en": "Schedule",
+    "fr": "Calendrier"
+  },
+  "homeScheduleDesc": {
+    "en": "Track every fixture across all competitions. Game Day is where it all happens.",
+    "fr": "Suis chaque match de toutes les compétitions. Le Match Day, c'est là que tout se joue."
+  },
+  "homeGameDay": {
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  "homeNoMatches": {
+    "en": "No upcoming matches scheduled.",
+    "fr": "Aucun match programmé."
+  },
+  "homeMessages": {
+    "en": "Messages",
+    "fr": "Messages"
+  },
+  "homeOpen": {
+    "en": "Open",
+    "fr": "Ouvrir"
+  },
+  "homeSignInMessages": {
+    "en": "Sign in to view your messages.",
+    "fr": "Connecte-toi pour voir tes messages."
+  },
+  "homeInboxEmpty": {
+    "en": "Your inbox is empty.",
+    "fr": "Ta boîte de réception est vide."
+  },
+  "homeStageSystem": {
+    "en": "STAGE System",
+    "fr": "Système STAGE"
+  },
+  "homeUnknown": {
+    "en": "Unknown",
+    "fr": "Inconnu"
+  },
+  "homeJumpIn": {
+    "en": "Jump In",
+    "fr": "Se lancer"
+  },
+  "homeJumpInDesc": {
+    "en": "Everything you need, one tap away.",
+    "fr": "Tout ce qu'il te faut, à portée de clic."
+  },
+  "homeNavCompetitions": {
+    "en": "Competitions",
+    "fr": "Compétitions"
+  },
+  "homeNavCompetitionsDesc": {
+    "en": "Leagues & knockout cups",
+    "fr": "Ligues et coupes à élimination"
+  },
+  "homeNavGameDay": {
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  "homeNavGameDayDesc": {
+    "en": "Schedule & play matches",
+    "fr": "Planifie et joue tes matchs"
+  },
+  "homeNavClubs": {
+    "en": "Clubs",
+    "fr": "Clubs"
+  },
+  "homeNavClubsDesc": {
+    "en": "Browse & manage clubs",
+    "fr": "Parcours et gère les clubs"
+  },
+  "homeNavStore": {
+    "en": "Store",
+    "fr": "Boutique"
+  },
+  "homeNavStoreDesc": {
+    "en": "Spend your STC coins",
+    "fr": "Dépense tes STC"
+  },
+  "homeFooterRankings": {
+    "en": "Rankings",
+    "fr": "Classements"
+  },
+  "homeQuestions": {
+    "en": "Questions",
+    "fr": "Questions"
+  },
+  "homeFaq": {
+    "en": "FAQ",
+    "fr": "FAQ"
+  },
+  "homeFaqDesc": {
+    "en": "Common questions about the platform.",
+    "fr": "Questions fréquentes sur la plateforme."
+  },
+  "homeContact": {
+    "en": "Contact",
+    "fr": "Contact"
+  },
+  "homeRights": {
+    "en": "All rights reserved.",
+    "fr": "Tous droits réservés."
+  }
+}

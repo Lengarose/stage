@@ -1,0 +1,278 @@
+{
+  "cdChat": {
+    "en": "Chat",
+    "fr": "Chat"
+  },
+  "cdHistory": {
+    "en": "History",
+    "fr": "Historique"
+  },
+  "cdStadium": {
+    "en": "Stadium",
+    "fr": "Stade"
+  },
+  "cdFinance": {
+    "en": "Finance",
+    "fr": "Finances"
+  },
+  "cdShirts": {
+    "en": "Shirts",
+    "fr": "Maillots"
+  },
+  "cdClubOffice": {
+    "en": "Club Office",
+    "fr": "Bureau du club"
+  },
+  "cdClubNotFound": {
+    "en": "Club not found.",
+    "fr": "Club introuvable."
+  },
+  "cdDeleteClub": {
+    "en": "Delete Club",
+    "fr": "Supprimer le club"
+  },
+  "cdDeleteConfirm": {
+    "en": "Are you sure you want to delete {name}? This cannot be undone.",
+    "fr": "Es-tu sûr de vouloir supprimer {name} ? Action irréversible."
+  },
+  "cdDeleting": {
+    "en": "Deleting...",
+    "fr": "Suppression..."
+  },
+  "cdAdminTakeover": {
+    "en": "Admin Takeover",
+    "fr": "Contrôle admin"
+  },
+  "cdExit": {
+    "en": "Exit",
+    "fr": "Quitter"
+  },
+  "cdUnfollow": {
+    "en": "Unfollow",
+    "fr": "Ne plus suivre"
+  },
+  "cdFollow": {
+    "en": "Follow",
+    "fr": "Suivre"
+  },
+  "cdFollowersLower": {
+    "en": "followers",
+    "fr": "abonnés"
+  },
+  "cdTrialSent": {
+    "en": "Trial Request Sent",
+    "fr": "Demande d'essai envoyée"
+  },
+  "cdRequestTrial": {
+    "en": "Request Trial",
+    "fr": "Demander un essai"
+  },
+  "cdRequestTrialAt": {
+    "en": "Request Trial at {name}",
+    "fr": "Demander un essai à {name}"
+  },
+  "cdTrialIntro": {
+    "en": "Send a trial request to {name}. The club owner will receive your request in their inbox and can respond with a trial contract (5 games / 14 days).",
+    "fr": "Envoie une demande d'essai à {name}. Le propriétaire du club la recevra dans sa boîte de réception et pourra répondre par un contrat d'essai (5 matchs / 14 jours)."
+  },
+  "cdPlayerName": {
+    "en": "Player Name (GamerTag)",
+    "fr": "Nom du joueur (GamerTag)"
+  },
+  "cdSelectPosition": {
+    "en": "Select position",
+    "fr": "Choisir un poste"
+  },
+  "cdWhichConsole": {
+    "en": "Which Console",
+    "fr": "Quelle console"
+  },
+  "cdSelectConsole": {
+    "en": "Select console",
+    "fr": "Choisir une console"
+  },
+  "cdExperience": {
+    "en": "Experience",
+    "fr": "Expérience"
+  },
+  "cdExperiencePlaceholder": {
+    "en": "Share your level, past clubs, strengths, and availability...",
+    "fr": "Partage ton niveau, tes anciens clubs, tes points forts et tes disponibilités..."
+  },
+  "cdAdditionalMessage": {
+    "en": "Additional Message",
+    "fr": "Message additionnel"
+  },
+  "cdAdditionalPlaceholder": {
+    "en": "Optional custom note for this club...",
+    "fr": "Note personnalisée pour ce club (optionnel)..."
+  },
+  "cdShowRequestMessage": {
+    "en": "Show Request Message",
+    "fr": "Afficher le message de demande"
+  },
+  "cdRequestPreview": {
+    "en": "Request Preview",
+    "fr": "Aperçu de la demande"
+  },
+  "cdSending": {
+    "en": "Sending...",
+    "fr": "Envoi..."
+  },
+  "cdSendTrialRequest": {
+    "en": "Send Trial Request",
+    "fr": "Envoyer la demande d'essai"
+  },
+  "cdDraws": {
+    "en": "Draws",
+    "fr": "Nuls"
+  },
+  "cdWinRate": {
+    "en": "Win Rate",
+    "fr": "Taux de victoire"
+  },
+  "cdGoalsScored": {
+    "en": "Goals Scored",
+    "fr": "Buts marqués"
+  },
+  "cdGoalsConceded": {
+    "en": "Goals Conceded",
+    "fr": "Buts encaissés"
+  },
+  "cdPastMatches": {
+    "en": "Past Matches",
+    "fr": "Matchs passés"
+  },
+  "cdNoMatches": {
+    "en": "No matches recorded yet.",
+    "fr": "Aucun match enregistré."
+  },
+  "cdClubChat": {
+    "en": "Club Chat",
+    "fr": "Chat du club"
+  },
+  "cdUnmute": {
+    "en": "Unmute chat notifications",
+    "fr": "Réactiver les notifications du chat"
+  },
+  "cdMute": {
+    "en": "Mute chat notifications",
+    "fr": "Couper les notifications du chat"
+  },
+  "cdNoMessages": {
+    "en": "No messages yet. Start the conversation.",
+    "fr": "Aucun message. Lance la conversation."
+  },
+  "cdChatPlaceholder": {
+    "en": "Write a message to your club...",
+    "fr": "Écris un message à ton club..."
+  },
+  "cdSend": {
+    "en": "Send",
+    "fr": "Envoyer"
+  },
+  "cdNoPlayers": {
+    "en": "No players registered yet.",
+    "fr": "Aucun joueur inscrit."
+  },
+  "cdLoadingHistory": {
+    "en": "Loading history…",
+    "fr": "Chargement de l'historique…"
+  },
+  "cdNoHistory": {
+    "en": "No season history yet.",
+    "fr": "Aucun historique de saison."
+  },
+  "cdCompetition": {
+    "en": "Competition",
+    "fr": "Compétition"
+  },
+  "cdSeason": {
+    "en": "Season",
+    "fr": "Saison"
+  },
+  "cdPos": {
+    "en": "Pos",
+    "fr": "Pos"
+  },
+  "cdApprovalsNote": {
+    "en": "Approvals now go through contracts. Use Operations to offer a trial or full contract.",
+    "fr": "Les approbations passent désormais par les contrats. Utilise Operations pour proposer un essai ou un contrat complet."
+  },
+  "cdOpenOperations": {
+    "en": "Open Operations",
+    "fr": "Ouvrir Operations"
+  },
+  "cdFollowers": {
+    "en": "Followers",
+    "fr": "Abonnés"
+  },
+  "cdNoFollowers": {
+    "en": "No followers yet.",
+    "fr": "Aucun abonné."
+  },
+  "cdLogoTitle": {
+    "en": "{name} Logo",
+    "fr": "Logo de {name}"
+  },
+  "cdTagMax5": {
+    "en": "Tag (max 5)",
+    "fr": "Tag (max 5)"
+  },
+  "cdRankedMatch": {
+    "en": "Ranked Match",
+    "fr": "Match classé"
+  },
+  "cdTournament": {
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  "cdKnockout": {
+    "en": "Knockout",
+    "fr": "Élimination"
+  },
+  "cdGroupStage": {
+    "en": "Group Stage",
+    "fr": "Phase de groupes"
+  },
+  "cdSwiss": {
+    "en": "Swiss",
+    "fr": "Suisse"
+  },
+  "cdDoubleElim": {
+    "en": "Double Elim.",
+    "fr": "Double élim."
+  },
+  "cdPresident": {
+    "en": "President",
+    "fr": "Président"
+  },
+  "cdCaptain": {
+    "en": "Captain",
+    "fr": "Capitaine"
+  },
+  "cdMember": {
+    "en": "Member",
+    "fr": "Membre"
+  },
+  "cdMakeCaptain": {
+    "en": "Make Captain",
+    "fr": "Nommer capitaine"
+  },
+  "cdViceCaptain": {
+    "en": "Vice-Captain",
+    "fr": "Vice-capitaine"
+  },
+  "cdMakeViceCaptain": {
+    "en": "Make Vice-Captain",
+    "fr": "Nommer vice-capitaine"
+  },
+  "cdSearchPlaceholder": {
+    "en": "Search...",
+    "fr": "Rechercher..."
+  },
+  "cdNoResults": {
+    "en": "No results found.",
+    "fr": "Aucun résultat."
+  }
+}

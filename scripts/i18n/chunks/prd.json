@@ -1,0 +1,110 @@
+{
+  "prdTitle": {
+    "en": "PRE-MATCH PRESS ROOM",
+    "fr": "CONFÉRENCE DE PRESSE D'AVANT-MATCH"
+  },
+  "prdChoosePlayer": {
+    "en": "Choose who will face the press today",
+    "fr": "Choisis qui affrontera la presse aujourd'hui"
+  },
+  "prdNoPlayers": {
+    "en": "No players found in your squad.",
+    "fr": "Aucun joueur trouvé dans ton effectif."
+  },
+  "prdInviteSent": {
+    "en": "Invitation Sent",
+    "fr": "Invitation envoyée"
+  },
+  "prdInvitedPlayer": {
+    "en": "{name} has been invited to the press room.",
+    "fr": "{name} a été invité à la conférence de presse."
+  },
+  "prdInviteHint": {
+    "en": "They'll receive a notification and message to answer the questions.",
+    "fr": "Il recevra une notification et un message pour répondre aux questions."
+  },
+  "prdCloseHint": {
+    "en": "You can close this — the player handles the rest.",
+    "fr": "Tu peux fermer — le joueur gère la suite."
+  },
+  "prdAtPodium": {
+    "en": "at the podium",
+    "fr": "au podium"
+  },
+  "prdAnswered": {
+    "en": "{count}/{max} answered",
+    "fr": "{count}/{max} répondu"
+  },
+  "prdPublishLeave": {
+    "en": "Publish & Leave",
+    "fr": "Publier & Quitter"
+  },
+  "prdNoAnswers": {
+    "en": "No answers yet",
+    "fr": "Aucune réponse"
+  },
+  "prdWriteAnswer": {
+    "en": "Write your own answer…",
+    "fr": "Écris ta propre réponse…"
+  },
+  "prdSubmitAnswer": {
+    "en": "Submit my answer",
+    "fr": "Envoyer ma réponse"
+  },
+  "prdArticlePhoto": {
+    "en": "Article Photo",
+    "fr": "Photo de l'article"
+  },
+  "prdUploadHint": {
+    "en": "Upload a photo, then drag to position it perfectly.",
+    "fr": "Importe une photo, puis fais-la glisser pour la positionner."
+  },
+  "prdPhotoPlaceholder": {
+    "en": "Photo will appear here",
+    "fr": "La photo apparaîtra ici"
+  },
+  "prdPressConference": {
+    "en": "Press Conference",
+    "fr": "Conférence de presse"
+  },
+  "prdDragHint": {
+    "en": "Drag to reposition",
+    "fr": "Glisse pour repositionner"
+  },
+  "prdZoom": {
+    "en": "Zoom — {zoom}%",
+    "fr": "Zoom — {zoom}%"
+  },
+  "prdSkipPhoto": {
+    "en": "Skip Photo",
+    "fr": "Passer la photo"
+  },
+  "prdPublishArticle": {
+    "en": "Publish Article",
+    "fr": "Publier l'article"
+  },
+  "prdArticlePublished": {
+    "en": "Article Published!",
+    "fr": "Article publié !"
+  },
+  "prdNewsHint": {
+    "en": "Head to the News section to read it.",
+    "fr": "Rends-toi dans la section News pour le lire."
+  },
+  "prdUploading": {
+    "en": "Uploading...",
+    "fr": "Import en cours..."
+  },
+  "prdChangePhoto": {
+    "en": "Change Photo",
+    "fr": "Changer la photo"
+  },
+  "prdUploadPhoto": {
+    "en": "Upload Photo",
+    "fr": "Importer une photo"
+  },
+  "prdClose": {
+    "en": "Close",
+    "fr": "Fermer"
+  }
+}

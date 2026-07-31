@@ -1,0 +1,46 @@
+{
+  "tdGroupDraw": {
+    "en": "Group Draw",
+    "fr": "Tirage des groupes"
+  },
+  "tdGroupDrawDesc": {
+    "en": "Top teams advance into the knockout bracket.",
+    "fr": "Les meilleures équipes accèdent au tableau à élimination."
+  },
+  "tdResolve": {
+    "en": "Resolve",
+    "fr": "Résoudre"
+  },
+  "tdDressingRoom": {
+    "en": "Dressing Room",
+    "fr": "Vestiaire"
+  },
+  "tdStream": {
+    "en": "Stream",
+    "fr": "Stream"
+  },
+  "tdNoTeams": {
+    "en": "No teams registered yet.",
+    "fr": "Aucune équipe inscrite."
+  },
+  "tdNoDisputes": {
+    "en": "No disputed matches. All clear!",
+    "fr": "Aucun match contesté. Tout est bon !"
+  },
+  "tdSetFinalScore": {
+    "en": "Set Final Score",
+    "fr": "Définir le score final"
+  },
+  "tdAdminNotes": {
+    "en": "Admin Notes",
+    "fr": "Notes admin"
+  },
+  "tdAddStreamLink": {
+    "en": "Add Live Stream Link",
+    "fr": "Ajouter un lien de stream"
+  },
+  "tdStreamUrl": {
+    "en": "Stream URL",
+    "fr": "URL du stream"
+  }
+}

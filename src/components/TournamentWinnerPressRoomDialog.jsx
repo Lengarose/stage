@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,7 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
   const [posY, setPosY] = useState(50);
   const [zoom, setZoom] = useState(120);
   const [dragging, setDragging] = useState(false);
+  const fileInputId = useId();
   const fileRef = useRef();
 
   async function handleFile(e) {
@@ -191,13 +192,13 @@ function PhotoUploadStep({ winnerClub, tournamentName, headline, onSubmit, onSki
         </div>
       </div>
 
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-warning/40 hover:bg-secondary/50 transition-all text-sm text-muted-foreground disabled:opacity-50">
+      <input id={fileInputId} ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="sr-only" disabled={uploading} />
+      <label htmlFor={uploading ? undefined : fileInputId}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-warning/40 hover:bg-secondary/50 transition-all text-sm text-muted-foreground cursor-pointer touch-manipulation aria-disabled:opacity-50">
         {uploading
           ? <><div className="w-4 h-4 border-2 border-warning/30 border-t-warning rounded-full animate-spin" /> {t('commonPages.prdUploading')}</>
           : <><Upload className="w-4 h-4" /> {photoUrl ? t('commonPages.prdChangePhoto') : t('commonPages.twprUploadCelebration')}</>}
-      </button>
-      <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
+      </label>
 
       {photoUrl && (
         <div>
@@ -330,7 +331,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
     : "";
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); }}>
       <DialogContent className="bg-card border-warning/30 max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warning via-yellow-300 to-warning" />
         <DialogHeader className="sr-only">

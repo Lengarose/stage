@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { prepareImageForUpload } from "@/lib/imageUpload";
 
 /**
  * Image field: paste a URL, click/drop on the preview zone, or use Upload.
+ * Uses native <label htmlFor> (not input.click) so iOS file pickers work.
  */
 const glassInputCls =
   "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all h-9";
@@ -22,6 +23,7 @@ export default function ImageUploadField({
 }) {
   const isGlass = variant === "glass";
   const fileRef = useRef(null);
+  const inputId = useId();
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -36,16 +38,16 @@ export default function ImageUploadField({
     setUploading(true);
     setUploadError(null);
     try {
-      const uploadFile = await prepareImageForUpload(file, {
+      const prepared = await prepareImageForUpload(file, {
         maxDimension: preview === "hero" ? 2400 : 1800,
         quality: 0.86,
         maxBytes: 6 * 1024 * 1024,
         fallbackName: "stage-image.jpg",
       });
-      if (uploadFile.size > 10 * 1024 * 1024) {
+      if (prepared.size > 10 * 1024 * 1024) {
         throw new Error("This image is still too large after compression. Try a smaller image.");
       }
-      const result = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
+      const result = await stageClient.integrations.Core.UploadFile({ file: prepared });
       if (!result?.file_url) throw new Error("Upload failed — no URL returned.");
       onChange(result.file_url);
     } catch (err) {
@@ -70,10 +72,6 @@ export default function ImageUploadField({
     if (file) uploadFile(file);
   }
 
-  function openFilePicker() {
-    if (!uploading) fileRef.current?.click();
-  }
-
   return (
     <div className="space-y-1.5">
       {label && (
@@ -86,37 +84,37 @@ export default function ImageUploadField({
       )}
 
       <input
+        id={inputId}
         ref={fileRef}
         type="file"
         accept="image/*"
-        className="hidden"
+        className="sr-only"
+        disabled={uploading}
         onChange={handleFileInput}
       />
 
-      {/* Dropzone + preview */}
-      <button
-        type="button"
-        disabled={uploading}
-        onClick={openFilePicker}
+      {/* Dropzone + preview — label so iOS opens the picker */}
+      <label
+        htmlFor={uploading ? undefined : inputId}
         onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
         onDrop={handleDrop}
         className={cn(
-          "group relative w-full rounded-xl border border-dashed mb-2 overflow-hidden transition-colors text-left",
+          "group relative w-full rounded-xl border border-dashed mb-2 overflow-hidden transition-colors text-left block cursor-pointer touch-manipulation",
           previewHeight,
           dragOver
             ? isGlass ? "border-white/60 bg-white/15" : "border-primary bg-primary/10"
             : isGlass
               ? "border-white/25 bg-white/5 hover:border-white/40 hover:bg-white/10"
               : "border-border bg-muted/30 hover:border-primary/40 hover:bg-muted/50",
-          uploading && "opacity-60 cursor-wait"
+          uploading && "opacity-60 cursor-wait pointer-events-none"
         )}
       >
         {value ? (
           <>
-            <img src={value} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <img src={value} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+            <div className="absolute inset-0 bg-black/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <p className="text-[10px] uppercase tracking-widest text-white font-semibold">
                 {uploading ? "Uploading…" : "Click or drop to replace"}
               </p>
@@ -133,7 +131,7 @@ export default function ImageUploadField({
             </p>
           </div>
         )}
-      </button>
+      </label>
 
       {/* URL + upload button */}
       <div className="flex gap-2 items-center">
@@ -159,20 +157,19 @@ export default function ImageUploadField({
             className="h-8 text-xs flex-1"
           />
         )}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
+        <label
+          htmlFor={uploading ? undefined : inputId}
           className={cn(
-            "h-8 text-[10px] gap-1.5 px-3 shrink-0",
-            isGlass && "border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+            "inline-flex h-8 items-center justify-center gap-1.5 px-3 shrink-0 rounded-md border text-[10px] font-medium cursor-pointer touch-manipulation",
+            isGlass
+              ? "border-white/25 bg-white/10 text-white hover:bg-white/20"
+              : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
+            uploading && "pointer-events-none opacity-50"
           )}
-          onClick={openFilePicker}
-          disabled={uploading}
         >
           <Upload className="w-3 h-3" />
           {uploading ? "…" : "Upload"}
-        </Button>
+        </label>
         {value && (
           <Button
             type="button"

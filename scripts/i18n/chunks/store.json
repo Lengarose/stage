@@ -1,0 +1,146 @@
+{
+  "storeSubtitle": {
+    "en": "Customize your profile and club with exclusive items",
+    "fr": "Personnalise ton profil et ton club avec des objets exclusifs"
+  },
+  "storePlayer": {
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  "storeCreditsWord": {
+    "en": "credits",
+    "fr": "crédits"
+  },
+  "storeClubCredits": {
+    "en": "club credits",
+    "fr": "crédits club"
+  },
+  "storeStageCredits": {
+    "en": "STAGE Credits",
+    "fr": "Crédits STAGE"
+  },
+  "storeCurrentPlan": {
+    "en": "Current Plan",
+    "fr": "Offre actuelle"
+  },
+  "storeTabCredits": {
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  "storeTabSubscriptions": {
+    "en": "Subscriptions",
+    "fr": "Abonnements"
+  },
+  "storePlusHeadline": {
+    "en": "STAGE Plus unlocks the full competition loop",
+    "fr": "STAGE Plus débloque tout le circuit compétitif"
+  },
+  "storePlusDesc": {
+    "en": "Free accounts start with {credits} credits. After that, Plus unlocks tournament creation, official competition access, ranked play, and a monthly credit refresh.",
+    "fr": "Les comptes gratuits démarrent avec {credits} crédits. Ensuite, Plus débloque la création de tournois, l'accès aux compétitions officielles, le mode classé et une recharge mensuelle de crédits."
+  },
+  "storeCreditsAmount": {
+    "en": "{amount} credits",
+    "fr": "{amount} crédits"
+  },
+  "storeTournamentsAmount": {
+    "en": "{amount} tournaments",
+    "fr": "{amount} tournois"
+  },
+  "storeMonthlyRefresh": {
+    "en": "Monthly allowance refresh, not stacked",
+    "fr": "Recharge mensuelle, non cumulable"
+  },
+  "storeEntryCost": {
+    "en": "Standard tournament entry cost",
+    "fr": "Coût d'inscription standard à un tournoi"
+  },
+  "storeActiveSlots": {
+    "en": "Active community tournament slots",
+    "fr": "Places de tournois communautaires actifs"
+  },
+  "storeViewPlus": {
+    "en": "View STAGE Plus",
+    "fr": "Voir STAGE Plus"
+  },
+  "storeMonthly": {
+    "en": "Monthly",
+    "fr": "Mensuel"
+  },
+  "storeYearly": {
+    "en": "Yearly",
+    "fr": "Annuel"
+  },
+  "storeSave25": {
+    "en": "Save 25%",
+    "fr": "-25 %"
+  },
+  "storeExpires": {
+    "en": "Expires:",
+    "fr": "Expire le :"
+  },
+  "storeFreeAccount": {
+    "en": "Free Account",
+    "fr": "Compte gratuit"
+  },
+  "storeStartWith": {
+    "en": "Start with {credits} credits",
+    "fr": "Démarre avec {credits} crédits"
+  },
+  "storeFreeDesc": {
+    "en": "Enough for one tournament entry. Credit packs stay available for extra entries or club spending without changing your subscription.",
+    "fr": "Suffisant pour une inscription à un tournoi. Les packs de crédits restent disponibles pour d'autres inscriptions ou dépenses de club sans changer ton abonnement."
+  },
+  "storeStarterCredits": {
+    "en": "Starter credits",
+    "fr": "Crédits de départ"
+  },
+  "storeTournamentEntry": {
+    "en": "Tournament entry",
+    "fr": "Inscription tournoi"
+  },
+  "storeBuyCreditsSeparately": {
+    "en": "Buy Credits Separately",
+    "fr": "Acheter des crédits séparément"
+  },
+  "storeBuy": {
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  "storeYear": {
+    "en": "year",
+    "fr": "an"
+  },
+  "storeMonth": {
+    "en": "month",
+    "fr": "mois"
+  },
+  "storeMonthlyCredits": {
+    "en": "Monthly credits",
+    "fr": "Crédits mensuels"
+  },
+  "storeEntryCostShort": {
+    "en": "Entry cost",
+    "fr": "Coût d'entrée"
+  },
+  "storeActiveEvents": {
+    "en": "Active events",
+    "fr": "Événements actifs"
+  },
+  "storeAvailableAfter": {
+    "en": "Available after {date}",
+    "fr": "Disponible après le {date}"
+  },
+  "storeSubscribe": {
+    "en": "Subscribe",
+    "fr": "S'abonner"
+  },
+  "storeYrShort": {
+    "en": "yr",
+    "fr": "an"
+  },
+  "storeMoShort": {
+    "en": "mo",
+    "fr": "mois"
+  }
+}

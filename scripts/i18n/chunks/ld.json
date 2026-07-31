@@ -1,0 +1,82 @@
+{
+  "ldStatusAwaiting": {
+    "en": "Awaiting",
+    "fr": "En attente"
+  },
+  "ldStatusProposed": {
+    "en": "Proposed",
+    "fr": "Proposé"
+  },
+  "ldStatusCounter": {
+    "en": "Counter",
+    "fr": "Contre-prop."
+  },
+  "ldStatusConfirmed": {
+    "en": "Confirmed",
+    "fr": "Confirmé"
+  },
+  "ldStatusExpired": {
+    "en": "Expired",
+    "fr": "Expiré"
+  },
+  "ldStatusReview": {
+    "en": "Review",
+    "fr": "À examiner"
+  },
+  "ldFixtures": {
+    "en": "Fixtures",
+    "fr": "Matchs"
+  },
+  "ldPlayed": {
+    "en": "Played",
+    "fr": "Joués"
+  },
+  "ldScheduled": {
+    "en": "Scheduled",
+    "fr": "Programmés"
+  },
+  "ldNotFound": {
+    "en": "League not found.",
+    "fr": "Ligue introuvable."
+  },
+  "ldBackToCompetitions": {
+    "en": "Back to Competitions",
+    "fr": "Retour aux compétitions"
+  },
+  "ldLeagueLeader": {
+    "en": "League Leader",
+    "fr": "Leader de la ligue"
+  },
+  "ldNoLeader": {
+    "en": "No leader yet.",
+    "fr": "Pas encore de leader."
+  },
+  "ldYourFixtures": {
+    "en": "Your Club Fixtures",
+    "fr": "Les matchs de ton club"
+  },
+  "ldSchemaNotPublished": {
+    "en": "Schema not published",
+    "fr": "Calendrier non publié"
+  },
+  "ldNoFixtures": {
+    "en": "No fixtures yet.",
+    "fr": "Aucun match pour le moment."
+  },
+  "ldNoClubStats": {
+    "en": "No club stats yet.",
+    "fr": "Aucune stat de club."
+  },
+  "ldNoPlayerStats": {
+    "en": "No player stats yet. Stats appear after Game Day results are submitted.",
+    "fr": "Aucune stat joueur. Les stats apparaissent après la soumission des résultats du Match Day."
+  },
+  "ldNoStandings": {
+    "en": "No standings yet.",
+    "fr": "Aucun classement pour le moment."
+  },
+  "ldZone": {
+    "en": "Zone",
+    "fr": "Zone"
+  }
+}

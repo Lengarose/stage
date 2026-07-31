@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Target, Zap, Star, CheckCircle2, Plus, Trash2, Upload, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [proofUrl,    setProofUrl]    = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const proofInputRef = useRef(null);
+  const proofInputId = useId();
 
   const alreadySubmitted = isHomeTeam ? game.result_home_submitted : game.result_away_submitted;
   const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
@@ -408,21 +409,20 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
           Proof Screenshot <span className="normal-case font-normal">(optional)</span>
         </p>
-        <input ref={proofInputRef} type="file" accept="image/*" className="hidden" onChange={handleProofChange} />
-        <button
-          type="button"
-          onClick={() => proofInputRef.current?.click()}
-          disabled={uploadingProof}
+        <input id={proofInputId} ref={proofInputRef} type="file" accept="image/*" className="sr-only" disabled={uploadingProof} onChange={handleProofChange} />
+        <label
+          htmlFor={uploadingProof ? undefined : proofInputId}
           className={cn(
-            "w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors",
+            "w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors cursor-pointer touch-manipulation",
             proofUrl
               ? "border-success/40 bg-success/10 text-success"
-              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+            uploadingProof && "opacity-60 pointer-events-none"
           )}
         >
           <Upload className="w-3.5 h-3.5" />
           {uploadingProof ? "Uploading…" : proofUrl ? "Screenshot uploaded ✓" : "Attach screenshot"}
-        </button>
+        </label>
       </div>
 
       {/* ── Submit ── */}

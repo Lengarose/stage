@@ -1,0 +1,10 @@
+{
+  "matchesCount": {
+    "en": "{count} matches",
+    "fr": "{count} matchs"
+  },
+  "matches": {
+    "en": "Matches",
+    "fr": "Matchs"
+  }
+}

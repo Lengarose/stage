@@ -70,6 +70,7 @@ async function clearAuxiliaryUserReferences(exec, userId) {
     ['UPDATE recruitment_interests SET sender_user_id = NULL WHERE sender_user_id = ?', [userId]],
     ['UPDATE recruitment_interests SET recipient_user_id = NULL WHERE recipient_user_id = ?', [userId]],
     ['UPDATE club_applicants SET user_id = NULL WHERE user_id = ?', [userId]],
+    ['UPDATE club_memberships SET user_id = NULL WHERE user_id = ?', [userId]],
     ['UPDATE club_staff_roles SET user_id = NULL WHERE user_id = ?', [userId]],
     ['UPDATE club_staff_roles SET assigned_by_user_id = NULL WHERE assigned_by_user_id = ?', [userId]],
     ['UPDATE club_fixture_availability SET user_id = NULL WHERE user_id = ?', [userId]],
@@ -194,6 +195,7 @@ async function purgeReferencesForPlayerIds(exec, playerIdsRaw) {
   await exec(`DELETE FROM player_achievements WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM sbc_submissions WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM chemistry_links WHERE player_a_id IN ${IN_IDS} OR player_b_id IN ${IN_IDS}`, [...p, ...p]);
+  await exec(`DELETE FROM club_memberships WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_staff_roles WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_fixture_availability WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM match_player_stats WHERE player_id IN ${IN_IDS}`, p);
@@ -232,6 +234,7 @@ async function purgeReferencesForClubIds(exec, clubIdsRaw) {
   const p = [...ids];
 
   await exec(`DELETE FROM club_staff_roles WHERE club_id IN ${IN_IDS}`, p);
+  await exec(`DELETE FROM club_memberships WHERE club_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_applicants WHERE club_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_fixture_availability WHERE club_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_fixture_lineups WHERE club_id IN ${IN_IDS}`, p);

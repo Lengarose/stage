@@ -12,6 +12,7 @@ const {
   requireClubPermission,
   writeClubAudit,
 } = require('../services/clubOperationsService');
+const { upsertActiveMembership } = require('../services/clubMembershipService');
 
 const ROLES = new Set(['owner', 'president', 'captain', 'vice_captain', 'recruiter', 'finance_manager', 'match_coordinator']);
 
@@ -76,6 +77,13 @@ router.post('/', async (req, res) => {
     if (existing.length) return res.status(409).json({ error: 'Role already assigned' });
     const model = new ClubStaffRole(body);
     await model.create();
+    await upsertActiveMembership({
+      clubId: body.club_id,
+      playerId: body.player_id,
+      userId: body.user_id || null,
+      primaryRole: body.role,
+      source: 'staff_assignment',
+    });
     const created = await loadRole(model.id);
     await writeClubAudit({ clubId: created.club_id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: created.id, newValue: created });
     res.status(201).json(created);
@@ -93,6 +101,13 @@ router.patch('/:id', async (req, res) => {
     if (!ROLES.has(body.role)) return res.status(400).json({ error: 'Invalid role' });
     body.permissions = (body.permissions || []).filter((p) => ALL_PERMISSIONS.includes(p));
     await new ClubStaffRole(body).update(existing.id);
+    await upsertActiveMembership({
+      clubId: body.club_id,
+      playerId: body.player_id,
+      userId: body.user_id || null,
+      primaryRole: body.role,
+      source: 'staff_assignment',
+    });
     const updated = await loadRole(existing.id);
     await writeClubAudit({ clubId: existing.club_id, user, action: 'staff_permission_changed', entityType: 'club_staff_role', entityId: existing.id, oldValue: existing, newValue: updated });
     res.json(updated);
@@ -107,6 +122,13 @@ router.delete('/:id', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const { user } = await requireClubPermission(req, existing.club_id, 'manage_staff');
     await new ClubStaffRole().delete(existing.id);
+    await upsertActiveMembership({
+      clubId: existing.club_id,
+      playerId: existing.player_id,
+      userId: existing.user_id || null,
+      primaryRole: 'member',
+      source: 'staff_removed',
+    });
     await writeClubAudit({ clubId: existing.club_id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: existing.id, oldValue: existing, reason: req.body?.reason });
     res.json({ success: true });
   } catch (err) {

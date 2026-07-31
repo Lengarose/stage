@@ -5,11 +5,13 @@ const test = require('node:test');
 function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const controllerPath = path.resolve(__dirname, '../functionsController.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
+  const identityServicePath = path.resolve(__dirname, '../../services/identityService.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
 
   delete require.cache[controllerPath];
+  delete require.cache[identityServicePath];
   delete require.cache[servicePath];
   delete require.cache[matchModelPath];
   delete require.cache[socketPath];
@@ -52,6 +54,7 @@ function postFunctionHandler(router) {
 
 test('playerWallet get_balance resolves player linked by users.player_id', async () => {
   const player = { id: 'player-1', email: 'player@example.test', stc: 1234 };
+  const contractLookups = [];
   const executesql = async (sql, params) => {
     if (/FROM users WHERE id = \?/.test(sql)) {
       return [{ id: params[0], email: player.email, player_id: player.id, owner_id: null }];
@@ -59,7 +62,10 @@ test('playerWallet get_balance resolves player linked by users.player_id', async
     if (/FROM players WHERE id = \?/.test(sql)) return [player];
     if (/FROM players WHERE user_id = \?/.test(sql)) return [];
     if (/FROM clubs WHERE/.test(sql)) return [];
-    if (/FROM player_contracts/.test(sql)) return [];
+    if (/FROM player_contracts/.test(sql)) {
+      contractLookups.push({ sql, params });
+      return [];
+    }
     if (/FROM player_stc_transactions/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
@@ -85,6 +91,8 @@ test('playerWallet get_balance resolves player linked by users.player_id', async
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.balance, 1234);
+  assert.equal(contractLookups[0].params[0], 'player-1');
+  assert.match(contractLookups[0].sql, /target_player_id/);
 });
 
 test('regionalLeagueFixtureResult processes fixture and standings on the server', async () => {
@@ -375,7 +383,7 @@ test('respondInboxMessage creates invite match with player email snapshots serve
     }),
   };
   const executesql = async (sql, params = []) => {
-    if (/SELECT id, email, player_id, owner_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
     }
     if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
@@ -410,6 +418,7 @@ test('respondInboxMessage creates invite match with player email snapshots serve
       return [{ id: 'player-away', gamertag: 'AwayTag', avatar_url: 'away.png', club_id: null }];
     }
     if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/SELECT id FROM notifications/.test(sql) && /related_id = \?/.test(sql)) return [];
     if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
     throw new Error(`Unexpected SQL: ${sql}`);
   };
@@ -446,6 +455,293 @@ test('respondInboxMessage creates invite match with player email snapshots serve
   assert.equal(responseMessages[0][8], 'match_invite_response');
   assert.equal(responseMessages[0][12], inserts[0][0]);
   assert.equal(inboxUpdates.some(update => /related_entity_id/.test(update.sql)), true);
+});
+
+test('sendInboxMessage reuses an existing contract offer message', async () => {
+  const inboxInserts = [];
+  const inboxUpdates = [];
+  const notificationInserts = [];
+  const existingMessage = {
+    id: 'message-existing',
+    recipient_email: 'player@example.test',
+    related_entity_id: 'contract-1',
+    message_type: 'contract_offer',
+  };
+  let existingLookupCount = 0;
+  const executesql = async (sql, params = []) => {
+    if (/COALESCE\(NULLIF\(TRIM\(p.email\)/.test(sql)) {
+      return [{ email: 'player@example.test' }];
+    }
+    if (/SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{ id: 'sender-player', gamertag: 'SenderTag', avatar_url: 'sender.png', club_id: 'club-1' }];
+    }
+    if (/SELECT name FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ name: 'Sender FC' }];
+    }
+    if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
+      existingLookupCount += 1;
+      return existingLookupCount === 1 ? [] : [existingMessage];
+    }
+    if (/INSERT INTO inbox_messages/.test(sql)) {
+      inboxInserts.push(params);
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE inbox_messages/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/SELECT id FROM notifications/.test(sql) && /related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) {
+      notificationInserts.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const makeResponse = () => ({
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  });
+  const body = {
+    recipient_player_id: 'player-1',
+    sender_email: 'sender@example.test',
+    subject: 'Contract Offer from Sender FC',
+    body: 'Sender FC has sent you a squad contract offer.',
+    message_type: 'contract_offer',
+    action_type: 'contract_negotiation',
+    related_entity_id: 'contract-1',
+    related_entity_type: 'player_contract',
+    metadata: { contract_id: 'contract-1' },
+    send_notification: true,
+  };
+
+  const firstResponse = makeResponse();
+  await handle({ params: { name: 'sendInboxMessage' }, body, user: { id: 'user-1' } }, firstResponse);
+  const secondResponse = makeResponse();
+  await handle({ params: { name: 'sendInboxMessage' }, body, user: { id: 'user-1' } }, secondResponse);
+
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(secondResponse.statusCode, 200);
+  assert.equal(inboxInserts.length, 1);
+  assert.equal(inboxUpdates.length, 1);
+  assert.equal(notificationInserts.length, 1);
+  assert.equal(secondResponse.body.message.id, 'message-existing');
+});
+
+test('contractActions offer stores duration metadata for market offers', async () => {
+  const contractInserts = [];
+  const notificationLookups = [];
+  const notificationInserts = [];
+  let createdContractId = null;
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'owner-user', email: 'owner@example.test', player_id: 'owner-player', owner_id: 'club-1' }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'owner-player') {
+      return [{ id: 'owner-player', email: 'owner@example.test', club_id: 'club-1' }];
+    }
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'club-1', owner_email: 'owner@example.test' }];
+    }
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [];
+    if (/INSERT INTO player_contracts/.test(sql)) {
+      createdContractId = params[0];
+      contractInserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT pc\.\*, pc\.user_id AS target_player_id/.test(sql)) {
+      return [{
+        id: createdContractId,
+        team_id: 'club-1',
+        user_id: 'target-player',
+        contract_type: 'star',
+        max_games: 400,
+        max_days: 180,
+        weekly_salary_stc: 170000,
+        club_name: 'Club One',
+        club_owner_email: 'owner@example.test',
+        player_email: 'target@example.test',
+      }];
+    }
+    if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
+      return [{ id: 'message-existing', recipient_email: 'target@example.test' }];
+    }
+    if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/SELECT id FROM notifications/.test(sql) && /related_id = \?/.test(sql)) {
+      notificationLookups.push(params);
+      return [{ id: 'notification-existing' }];
+    }
+    if (/INSERT INTO notifications/.test(sql)) {
+      notificationInserts.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractActions' },
+      body: {
+        action: 'offer',
+        team_id: 'club-1',
+        user_id: 'target-player',
+        contract_type: 'star',
+        weekly_salary_stc: 170000,
+      },
+      user: { id: 'owner-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(contractInserts.length, 1);
+  assert.match(contractInserts[0].sql, /max_games/);
+  assert.match(contractInserts[0].sql, /max_days/);
+  assert.equal(contractInserts[0].params[6], 400);
+  assert.equal(contractInserts[0].params[7], 180);
+  assert.equal(notificationLookups.length, 1);
+  assert.equal(notificationInserts.length, 0);
+});
+
+test('contractManagement accept writes active club membership', async () => {
+  const queries = [];
+  const contract = {
+    id: 'contract-1',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'pending',
+    contract_type: 'squad',
+    weekly_salary_stc: 0,
+    max_days: 90,
+    captaincy_offered: 0,
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-player',
+    email: 'player@example.test',
+    club_id: null,
+    role: 'member',
+    club_roles: null,
+  };
+  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE players SET club_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/DELETE FROM club_memberships/.test(sql)) return [{ affectedRows: 0 }, []];
+      if (/UPDATE club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/SELECT \* FROM club_memberships/.test(sql)) return [[], []];
+      if (/INSERT INTO club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const executesql = async (sql) => {
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'accept', contract_id: 'contract-1' },
+      user: { id: 'user-player' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'active');
+  assert.equal(queries.some((call) => /INSERT INTO club_memberships/.test(call.sql)), true);
+  const insert = queries.find((call) => /INSERT INTO club_memberships/.test(call.sql));
+  assert.deepEqual(insert.params.slice(1), ['club-1', 'player-1', 'user-player', 'member', 'contract_acceptance']);
+});
+
+test('contractManagement terminate releases player club membership when no active link remains', async () => {
+  const queries = [];
+  const contract = {
+    id: 'contract-1',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'active',
+  };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) {
+        return [[contract], []];
+      }
+      if (/UPDATE player_contracts SET status = 'terminated'/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE players p/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE club_memberships cm/.test(sql)) return [{ affectedRows: 1 }, []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const executesql = async (sql) => {
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'terminate', contract_id: 'contract-1' },
+      user: { id: 'admin-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(queries.some((call) => /UPDATE players p/.test(call.sql)), true);
+  assert.equal(queries.some((call) => /UPDATE club_memberships cm/.test(call.sql)), true);
 });
 
 test('createTournamentEntranceLink stores active token expiring at tournament start', async () => {

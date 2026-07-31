@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -30,6 +30,7 @@ import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
@@ -40,6 +41,7 @@ import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHer
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
+import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -47,6 +49,33 @@ const POSITION_OPTIONS = [
 ];
 
 const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
+
+const CLUB_ROLE_LABEL_KEYS = {
+  president: "commonPages.cdPresident",
+  captain: "commonPages.cdCaptain",
+  vice_captain: "commonPages.cdViceCaptain",
+  recruiter: "commonPages.coopRoleRecruiter",
+  finance_manager: "commonPages.coopRoleFinanceManager",
+  match_coordinator: "commonPages.coopRoleMatchCoordinator",
+  member: "commonPages.cdMember",
+};
+
+const CLUB_ROLE_FALLBACK_LABELS = {
+  president: "President",
+  captain: "Captain",
+  vice_captain: "Vice-Captain",
+  recruiter: "Recruiter",
+  finance_manager: "Finance Manager",
+  match_coordinator: "Match Coordinator",
+  member: "Member",
+};
+
+function clubRoleLabel(t, role) {
+  const normalized = normalizeClubRole(role) || "member";
+  const key = CLUB_ROLE_LABEL_KEYS[normalized] || CLUB_ROLE_LABEL_KEYS.member;
+  const translated = t(key);
+  return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
+}
 
 export default function ClubDetail({ overrideClubId, tournamentId = null } = {}) {
   const { t } = useTranslation();
@@ -100,6 +129,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [operationStaffRoles, setOperationStaffRoles] = useState([]);
   const navigate = useNavigate();
   const logoInputRef  = useRef();
+  const logoInputId = useId();
   const pendingFileRef = useRef(null);
 
   const isMember = !!myPlayer?.club_id && myPlayer.club_id === id;
@@ -128,9 +158,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       setCurrentUser(user);
 
       const { player: myPlResolved } = await resolveMyPlayerAndClub();
-      const [clubRecord, initialPlayerData] = await Promise.all([
+      const [clubRecord, initialPlayerData, staffRows] = await Promise.all([
         stageClient.entities.Club.get(id),
         stageClient.entities.Player.filter({ club_id: id }),
+        stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
       ]);
       const myPl = myPlResolved ? [myPlResolved] : [];
       let playerData = initialPlayerData || [];
@@ -145,8 +176,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       if (liveOwnershipContracts.length > 0) {
         const ownershipPlayers = await Promise.all(
           liveOwnershipContracts
-            .filter((contract) => contract.user_id && !playerIds.has(contract.user_id))
-            .map((contract) => stageClient.entities.Player.get(contract.user_id).catch(() => null))
+            .filter((contract) => getContractTargetPlayerId(contract) && !playerIds.has(getContractTargetPlayerId(contract)))
+            .map((contract) => stageClient.entities.Player.get(getContractTargetPlayerId(contract)).catch(() => null))
         );
         const normalizedOwners = ownershipPlayers
           .filter(Boolean)
@@ -202,7 +233,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           country_code: c.country_code || "",
         });
       }
-      setPlayers(playerData);
+      setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
       setPlayerFollowMap(pfMap);
 
       const allMatches = [...matchesHome, ...matchesAway].sort(
@@ -218,9 +249,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       if (myPl.length > 0) {
         const mine = myPl[0];
         setMyPlayer(mine);
-        const staffRows = await stageClient.entities.ClubStaffRole
-          .filter({ club_id: id }, "-created_date", 100)
-          .catch(() => []);
         setOperationStaffRoles((staffRows || []).filter((role) =>
           role.user_id === user.id || role.player_id === mine.id
         ));
@@ -440,6 +468,13 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     setPlayers(updated);
   }
 
+  function handleStaffRolesChanged(staffRows = []) {
+    setPlayers((prev) => mergeStaffRolesIntoPlayers(prev, staffRows));
+    setOperationStaffRoles((staffRows || []).filter((role) =>
+      role.user_id === currentUser?.id || role.player_id === myPlayer?.id
+    ));
+  }
+
   async function declineJoinRequest(reqId) {
     const req = joinRequests.find(r => r.id === reqId);
     if (!req) return;
@@ -624,9 +659,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         memberCount={players.length}
         onBannerClick={() => canEdit && setBannerDialogOpen(true)}
         onLogoClick={() => {
-          if (canEdit && !uploadingLogo) logoInputRef.current?.click();
-          else if (club.logo_url) setLogoPreviewOpen(true);
+          if (club.logo_url) setLogoPreviewOpen(true);
         }}
+        logoUploadHtmlFor={canEdit ? logoInputId : undefined}
+        logoUploading={uploadingLogo}
         topActions={canEdit ? (
           <button
             type="button"
@@ -779,7 +815,15 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
         ) : null}
 
         {canEdit ? (
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
+          <input
+            id={logoInputId}
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={uploadingLogo}
+            onChange={uploadLogo}
+          />
         ) : null}
 
         <GamerClubTabNav
@@ -981,6 +1025,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 myPlayer={myPlayer}
                 upcomingFixtures={tournamentMatches}
                 defaultFormation={club.formation}
+                onStaffRolesChanged={handleStaffRolesChanged}
               />
             </TabsContent>
           )}
@@ -1248,10 +1293,13 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
   const { t } = useTranslation();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
-  const playerRoles = Array.isArray(player.club_roles) ? player.club_roles : [];
-  const isPresidentRole = player.role === "president" || player.role === "owner" || playerRoles.includes("president") || playerRoles.includes("owner");
-  const isCaptainRole = !isPresidentRole && (player.role === "captain" || playerRoles.includes("captain"));
-  const roleLabel = isPresidentRole ? t("commonPages.cdPresident") : isCaptainRole ? t("commonPages.cdCaptain") : player.role === "manager" ? t("commonPages.cdMember") : (player.role || t("commonPages.cdMember"));
+  const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
+  const primaryRole = getPrimaryClubRole(player);
+  const isPresidentRole = primaryRole === "president";
+  const isCaptainRole = primaryRole === "captain";
+  const isViceCaptainRole = primaryRole === "vice_captain";
+  const isStaffRole = ["recruiter", "finance_manager", "match_coordinator"].includes(primaryRole);
+  const roleLabel = clubRoleLabel(t, primaryRole);
 
   async function _toggleFollow(e) {
     e.preventDefault();
@@ -1290,7 +1338,11 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
                   ? "border border-blue-300/40 bg-blue-400/10 text-blue-200"
                   : isCaptainRole
                     ? "border border-amber-300/40 bg-amber-400/10 text-amber-200"
-                    : "text-white/40"
+                    : isViceCaptainRole
+                      ? "border border-primary/30 bg-primary/10 text-primary"
+                      : isStaffRole
+                        ? "border border-cyan-300/30 bg-cyan-400/10 text-cyan-200"
+                        : "text-white/40"
               )}
             >
               {isPresidentRole && <Shield className="h-3 w-3" />}
@@ -1308,29 +1360,29 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
         <span>{player.assists || 0} {t("commonPages.assists").toLowerCase()}</span>
         <span>{player.matches_played || 0} {t("commonPages.matches").toLowerCase()}</span>
       </div>
-      {isPresident && currentUser?.email !== player.email && !player.club_roles?.includes("president") && (
+      {isPresident && currentUser?.email !== player.email && !playerRoles.includes("president") && (
         <div className="mt-3 flex gap-2" onClick={e => e.preventDefault()}>
           <button
             onClick={() => onAssignRole(player, "captain")}
-            disabled={player.club_roles?.includes("captain") || player.role === "captain"}
+            disabled={playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain"}
             className={cn("flex-1 text-xs py-1.5 rounded-lg border transition-all",
-              player.club_roles?.includes("captain") || player.role === "captain"
+              playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain"
                 ? "border-warning/30 bg-warning/10 text-warning cursor-default"
                 : "border-warning/30 text-warning hover:bg-warning/10"
             )}
           >
-            {player.club_roles?.includes("captain") || player.role === "captain" ? t("commonPages.cdCaptain") : t("commonPages.cdMakeCaptain")}
+            {playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain" ? t("commonPages.cdCaptain") : t("commonPages.cdMakeCaptain")}
           </button>
           <button
             onClick={() => onAssignRole(player, "vice-captain")}
-            disabled={player.club_roles?.includes("vice-captain") || player.role === "vice-captain"}
+            disabled={playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain"}
             className={cn("flex-1 text-xs py-1.5 rounded-lg border transition-all",
-              player.club_roles?.includes("vice-captain") || player.role === "vice-captain"
+              playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain"
                 ? "border-primary/30 bg-primary/10 text-primary cursor-default"
                 : "border-primary/30 text-primary hover:bg-primary/10"
             )}
           >
-            {player.club_roles?.includes("vice-captain") || player.role === "vice-captain" ? t("commonPages.cdViceCaptain") : t("commonPages.cdMakeViceCaptain")}
+            {playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain" ? t("commonPages.cdViceCaptain") : t("commonPages.cdMakeViceCaptain")}
           </button>
         </div>
       )}

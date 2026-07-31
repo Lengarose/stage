@@ -1,0 +1,74 @@
+{
+  "ppNotFound": {
+    "en": "Player not found.",
+    "fr": "Joueur introuvable."
+  },
+  "ppBackToSearch": {
+    "en": "Back to Search",
+    "fr": "Retour à la recherche"
+  },
+  "ppTransferFee": {
+    "en": "Transfer Fee",
+    "fr": "Indemnité de transfert"
+  },
+  "ppVerified": {
+    "en": "Verified",
+    "fr": "Vérifié"
+  },
+  "ppFollowingLower": {
+    "en": "following",
+    "fr": "abonnements"
+  },
+  "ppTab_posts": {
+    "en": "Posts",
+    "fr": "Posts"
+  },
+  "ppTab_stats": {
+    "en": "Stats",
+    "fr": "Stats"
+  },
+  "ppTab_career": {
+    "en": "Career",
+    "fr": "Carrière"
+  },
+  "ppTab_matches": {
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  "ppTab_trophies": {
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  "ppTab_lifestyle": {
+    "en": "Lifestyle",
+    "fr": "Lifestyle"
+  },
+  "ppRecentForm": {
+    "en": "Recent Form (last {count})",
+    "fr": "Forme récente ({count} derniers)"
+  },
+  "ppPvpRecord": {
+    "en": "PvP Record",
+    "fr": "Bilan PvP"
+  },
+  "ppPvpHistory": {
+    "en": "PvP Match History",
+    "fr": "Historique des matchs PvP"
+  },
+  "ppRound": {
+    "en": "Round {round}",
+    "fr": "Journée {round}"
+  },
+  "ppFollowingTitle": {
+    "en": "Following",
+    "fr": "Abonnements"
+  },
+  "ppNotFollowing": {
+    "en": "Not following anyone yet.",
+    "fr": "Aucun abonnement pour le moment."
+  },
+  "ppExternalStats": {
+    "en": "EA FC & Ultimate Team",
+    "fr": "EA FC & Ultimate Team"
+  }
+}

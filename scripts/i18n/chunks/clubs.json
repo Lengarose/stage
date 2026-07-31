@@ -1,0 +1,18 @@
+{
+  "clubsRecruiting": {
+    "en": "Clubs Recruiting",
+    "fr": "Clubs qui recrutent"
+  },
+  "clubsCount": {
+    "en": "{count} clubs registered",
+    "fr": "{count} clubs inscrits"
+  },
+  "clubsSearchPlaceholder": {
+    "en": "Search clubs…",
+    "fr": "Rechercher des clubs…"
+  },
+  "clubsColLogo": {
+    "en": "Logo",
+    "fr": "Logo"
+  }
+}

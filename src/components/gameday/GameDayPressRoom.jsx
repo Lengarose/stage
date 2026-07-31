@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Mic, Loader, Lock, CheckCircle2, Upload, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const fileInputRef = useRef(null);
+  const fileInputId = useId();
 
   useEffect(() => {
     async function init() {
@@ -289,12 +290,12 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
         </div>
 
         {!imagePreviewUrl ? (
-          <button type="button" onClick={() => fileInputRef.current?.click()}
-            className="w-full border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-2 hover:border-primary/40 transition-colors">
+          <label htmlFor={fileInputId}
+            className="w-full border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-2 hover:border-primary/40 transition-colors cursor-pointer touch-manipulation">
             <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
             <p className="text-xs text-muted-foreground">{t('commonPages.gdprClickUpload')}</p>
             <p className="text-[10px] text-muted-foreground/60">{t('commonPages.gdprFileHint')}</p>
-          </button>
+          </label>
         ) : (
           <div className="relative rounded-xl overflow-hidden border border-border">
             <img src={imagePreviewUrl} alt="Preview" className="w-full h-48 object-cover" />
@@ -309,7 +310,7 @@ export default function GameDayPressRoom({ game, myClub, myPlayer, user }) {
           </div>
         )}
 
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <input id={fileInputId} ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={publishArticle} disabled={publishing || uploading} className="flex-1">

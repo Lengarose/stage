@@ -676,7 +676,7 @@ export default function Settings() {
                     accept="image/*"
                     onChange={handleImageUpload}
                     disabled={loading}
-                    className="hidden"
+                    className="sr-only"
                   />
                 </label>
                 {backgroundImage && (
@@ -783,7 +783,7 @@ export default function Settings() {
                     <input
                       type="file"
                       accept="image/*"
-                      className="hidden"
+                      className="sr-only"
                       disabled={liveDarkUploading || filledUploadCount(liveDarkSlots) >= LIVE_DARK_MAX_UPLOADS}
                       onChange={(e) => handleLiveDarkUpload(e)}
                     />
@@ -823,7 +823,7 @@ export default function Settings() {
                                   <input
                                     type="file"
                                     accept="image/*"
-                                    className="hidden"
+                                    className="sr-only"
                                     disabled={liveDarkUploading}
                                     onChange={(e) => handleLiveDarkUpload(e, index)}
                                   />
@@ -851,7 +851,7 @@ export default function Settings() {
                             <input
                               type="file"
                               accept="image/*"
-                              className="hidden"
+                              className="sr-only"
                               disabled={liveDarkUploading}
                               onChange={(e) => handleLiveDarkUpload(e, index)}
                             />

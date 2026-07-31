@@ -60,7 +60,7 @@ export default function VideoCoverPicker({ open, onClose, videoUrl, onConfirm })
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent className="bg-card border-border max-w-lg">
         <DialogHeader>
           <DialogTitle className="leading-relaxed text-xl">Pick Video Cover</DialogTitle>

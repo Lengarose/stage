@@ -1,11 +1,15 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+const CONTRACT_SELECT = '*, user_id AS target_player_id';
+
 class PlayerContract {
   constructor(body = {}) {
     this.id                  = body.id;
     this.team_id             = body.team_id;
-    this.user_id             = body.user_id;
+    // Legacy DB naming: player_contracts.user_id stores the target player id.
+    this.user_id             = body.user_id || body.target_player_id;
+    this.target_player_id    = this.user_id;
     this.contract_type       = body.contract_type;
     this.status              = body.status;
     this.offered_by          = body.offered_by;
@@ -36,31 +40,31 @@ class PlayerContract {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM player_contracts LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts LIMIT ? OFFSET ?`, [pageSize, offset]);
   }
 
   selectOne(id) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE id = ?', [id]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE id = ?`, [id]);
   }
 
   selectByTeam(team_id) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE team_id = ?', [team_id]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE team_id = ?`, [team_id]);
   }
 
   selectByUser(user_id) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE user_id = ?', [user_id]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE user_id = ?`, [user_id]);
   }
 
   selectByStatus(status) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE status = ?', [status]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE status = ?`, [status]);
   }
 
   selectByTeamAndStatus(team_id, status) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE team_id = ? AND status = ?', [team_id, status]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE team_id = ? AND status = ?`, [team_id, status]);
   }
 
   selectByUserAndStatus(user_id, status) {
-    return EXECUTESQL('SELECT * FROM player_contracts WHERE user_id = ? AND status = ?', [user_id, status]);
+    return EXECUTESQL(`SELECT ${CONTRACT_SELECT} FROM player_contracts WHERE user_id = ? AND status = ?`, [user_id, status]);
   }
 
   create() {

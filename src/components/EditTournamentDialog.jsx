@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
   const [trophyPreview, setTrophyPreview] = useState(tournament.trophy_url || null);
   const bannerInputRef = useRef(null);
   const trophyInputRef = useRef(null);
+  const bannerInputId = useId();
+  const trophyInputId = useId();
 
   async function handleBannerFile(file) {
     if (!file) return;
@@ -74,7 +76,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
         <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Tournament</DialogTitle>
@@ -123,12 +125,12 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
                 </div>
               ) : (
                 <>
-                  <button onClick={() => bannerInputRef.current?.click()}
-                    className="w-full h-20 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-3">
+                  <label htmlFor={bannerInputId}
+                    className="w-full h-20 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-3 cursor-pointer touch-manipulation">
                     <Upload className="w-5 h-5" />
                     <span className="text-xs">Upload custom banner</span>
-                  </button>
-                  <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
+                  </label>
+                  <input id={bannerInputId} ref={bannerInputRef} type="file" accept="image/*" className="sr-only"
                     onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
                   <p className="text-xs text-muted-foreground mb-2">Or pick a color:</p>
                   <div className="flex flex-wrap gap-2">
@@ -153,13 +155,13 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
                   <button onClick={() => { setTrophyFile(null); setTrophyPreview(null); }} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
                 </div>
               ) : (
-                <button onClick={() => trophyInputRef.current?.click()}
-                  className="w-full h-20 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex flex-col items-center justify-center gap-1 text-warning/60 hover:text-warning transition-colors">
+                <label htmlFor={trophyInputId}
+                  className="w-full h-20 rounded-xl border-2 border-dashed border-warning/30 hover:border-warning/60 flex flex-col items-center justify-center gap-1 text-warning/60 hover:text-warning transition-colors cursor-pointer touch-manipulation">
                   <Trophy className="w-6 h-6" />
                   <span className="text-xs">Upload trophy image (PNG)</span>
-                </button>
+                </label>
               )}
-              <input ref={trophyInputRef} type="file" accept="image/png" className="hidden"
+              <input id={trophyInputId} ref={trophyInputRef} type="file" accept="image/png" className="sr-only"
                 onChange={e => { if (e.target.files[0]) { setTrophyFile(e.target.files[0]); setTrophyPreview(null); } }} />
             </div>
 

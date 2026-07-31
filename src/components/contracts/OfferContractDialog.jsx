@@ -26,9 +26,9 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   const groupedStats = groupStatOptions(statOptions);
 
   const TARGET_TYPES = [
-    { value: "min",   label: t("cccTargetMin") },
-    { value: "exact", label: t("cccTargetExact") },
-    { value: "range", label: t("cccTargetRange") },
+    { value: "min",   label: t("commonPages.cccTargetMin") },
+    { value: "exact", label: t("commonPages.cccTargetExact") },
+    { value: "range", label: t("commonPages.cccTargetRange") },
   ];
 
   function addTarget() {
@@ -71,8 +71,8 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="w-5 h-5 text-primary" />
-            {isNegotiation ? t("ocdCounterOffer") : t("offerContract")}
-            {player && <span className="text-muted-foreground font-normal text-base">{t("ocdTo", { name: player.gamertag })}</span>}
+            {isNegotiation ? t("commonPages.ocdCounterOffer") : t("commonPages.offerContract")}
+            {player && <span className="text-muted-foreground font-normal text-base">{t("commonPages.ocdTo", { name: player.gamertag })}</span>}
           </DialogTitle>
         </DialogHeader>
 
@@ -84,12 +84,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
           ) || (existingActiveContract || null);
           return conflict ? (
             <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
-              {t("ocdActiveContract", { type: conflict.contract_type, status: conflict.status })}
+              {t("commonPages.ocdActiveContract", { type: conflict.contract_type, status: conflict.status })}
               {conflict.contract_type === "ownership" && selectedType === "ownership"
-                ? ` ${t("ocdStillOfferPlayer")}`
+                ? ` ${t("commonPages.ocdStillOfferPlayer")}`
                 : conflict.contract_type !== "ownership" && selectedType !== "ownership"
-                ? ` ${t("ocdStillOfferOwnership")}`
-                : ` ${t("ocdSecondContract")}`}
+                ? ` ${t("commonPages.ocdStillOfferOwnership")}`
+                : ` ${t("commonPages.ocdSecondContract")}`}
             </div>
           ) : null;
         })()}
@@ -100,15 +100,15 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
               <FileText className="w-3.5 h-3.5 shrink-0" />
               {windowOpen === false
-                ? t("ocdWindowClosed")
+                ? t("commonPages.ocdWindowClosed")
                 : windowOpen === true
-                ? t("ocdWindowOpen")
-                : t("ocdWindowChecking")}
+                ? t("commonPages.ocdWindowOpen")
+                : t("commonPages.ocdWindowChecking")}
             </div>
 
             {/* Contract type */}
             <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">{t("ocdContractType")}</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">{t("commonPages.ocdContractType")}</label>
               <div className="space-y-2">
                 {CONTRACT_TYPE_OPTIONS.map((opt) => (
                   <button
@@ -134,7 +134,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Financials */}
             {selectedType !== "ownership" && <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block flex items-center gap-1">
-                <Coins className="w-3 h-3" /> {t("ocdFinancialTerms")}
+                <Coins className="w-3 h-3" /> {t("commonPages.ocdFinancialTerms")}
               </label>
 
               {/* Wage budget warning */}
@@ -148,11 +148,11 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     <Coins className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`} />
                     <div>
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`}>
-                        {overBudget ? t("cccExceedsWage") : t("cccWageUsage", { pct })}
+                        {overBudget ? t("commonPages.cccExceedsWage") : t("commonPages.cccWageUsage", { pct })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {t("cccClubWageBudget", { amount: (budget / 1_000_000).toFixed(1) })}
-                        {overBudget && ` ${t("cccReduceSalary")}`}
+                        {t("commonPages.cccClubWageBudget", { amount: (budget / 1_000_000).toFixed(1) })}
+                        {overBudget && ` ${t("commonPages.cccReduceSalary")}`}
                       </p>
                     </div>
                   </div>
@@ -166,10 +166,10 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20">
                     <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{t("cccSuggestedSalary")}</p>
+                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{t("commonPages.cccSuggestedSalary")}</p>
                       <p className="text-xs text-foreground font-light mt-0.5">
-                        {formatSTC(suggestion.min)} – {formatSTC(suggestion.max)} {t("cccPerWeek")}
-                        <span className="text-muted-foreground ml-1">({suggestion.label} · {t("cccBasedOnOvr", { ovr: player.overall_rating })})</span>
+                        {formatSTC(suggestion.min)} – {formatSTC(suggestion.max)} {t("commonPages.cccPerWeek")}
+                        <span className="text-muted-foreground ml-1">({suggestion.label} · {t("commonPages.cccBasedOnOvr", { ovr: player.overall_rating })})</span>
                       </p>
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                    <Coins className="w-3 h-3 text-success" /> {t("cccWeeklySalary")}
+                    <Coins className="w-3 h-3 text-success" /> {t("commonPages.cccWeeklySalary")}
                   </label>
                   <input
                     type="number"
@@ -189,11 +189,11 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     min="0"
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">{t("cccPaidMonthly")}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidMonthly")}</p>
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1 block">
-                    <Coins className="w-3 h-3 text-warning" /> {t("cccSigningBonus")}
+                    <Coins className="w-3 h-3 text-warning" /> {t("commonPages.cccSigningBonus")}
                   </label>
                   <input
                     type="number"
@@ -203,10 +203,10 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     min="0"
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">{t("cccPaidOnSigning")}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidOnSigning")}</p>
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">{t("cccCaptaincy")}</label>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 block">{t("commonPages.cccCaptaincy")}</label>
                   <button
                     type="button"
                     onClick={() => setCaptaincy(!captaincy)}
@@ -214,7 +214,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                       captaincy ? "bg-warning/10 border-warning/30 text-warning font-semibold" : "bg-secondary border-border text-muted-foreground"
                     )}
                   >
-                    {captaincy ? t("cccCaptainOffered") : t("cccNoCaptaincy")}
+                    {captaincy ? t("commonPages.cccCaptainOffered") : t("commonPages.cccNoCaptaincy")}
                   </button>
                 </div>
               </div>
@@ -229,7 +229,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               >
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-foreground">{t("ocdPerformanceTargets")}</span>
+                  <span className="font-semibold text-foreground">{t("commonPages.ocdPerformanceTargets")}</span>
                   {targets.length > 0 && (
                     <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">{targets.length}</span>
                   )}
@@ -269,7 +269,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                           type="number"
                           value={target.value}
                           onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
-                          placeholder={target.type === "range" ? t("cccMin") : t("cccValue")}
+                          placeholder={target.type === "range" ? t("commonPages.cccMin") : t("commonPages.cccValue")}
                           className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         />
                         {target.type === "range" && (
@@ -279,7 +279,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                               type="number"
                               value={target.value_max || ""}
                               onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
-                              placeholder={t("cccMax")}
+                              placeholder={t("commonPages.cccMax")}
                               className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
                             />
                           </>
@@ -292,7 +292,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     onClick={addTarget}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5" /> {t("cccAddTarget")}
+                    <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccAddTarget")}
                   </button>
                 </div>
               )}
@@ -301,13 +301,13 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Note */}
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                {t("ocdMessage")} <span className="normal-case font-normal">({t("agdOptional")})</span>
+                {t("commonPages.ocdMessage")} <span className="normal-case font-normal">({t("commonPages.agdOptional")})</span>
               </label>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="bg-secondary border-border"
-                placeholder={isNegotiation ? t("ocdCounterPlaceholder") : t("cccNotePlaceholder")}
+                placeholder={isNegotiation ? t("commonPages.ocdCounterPlaceholder") : t("commonPages.cccNotePlaceholder")}
                 rows={3}
               />
             </div>
@@ -318,7 +318,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               <FileText className="w-4 h-4" />
-              {offering ? t("ocdSending") : isNegotiation ? t("ocdSendCounter") : t("ocdSendOffer")}
+              {offering ? t("commonPages.ocdSending") : isNegotiation ? t("commonPages.ocdSendCounter") : t("commonPages.ocdSendOffer")}
             </Button>
           </div>
         )}

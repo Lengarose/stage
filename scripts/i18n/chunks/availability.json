@@ -1,0 +1,10 @@
+{
+  "availabilityExample": {
+    "en": "Availability, e.g. Tonight 21:00 CET",
+    "fr": "Disponibilité, ex. ce soir 21:00 CET"
+  },
+  "availabilityOpen": {
+    "en": "Availability open",
+    "fr": "Disponibilité ouverte"
+  }
+}

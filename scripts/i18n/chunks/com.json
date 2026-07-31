@@ -1,0 +1,114 @@
+{
+  "comJoinOrCreate": {
+    "en": "Join or Create a Club",
+    "fr": "Rejoindre ou créer un club"
+  },
+  "comCreateYourClub": {
+    "en": "Create Your Club",
+    "fr": "Crée ton club"
+  },
+  "comFindClub": {
+    "en": "Find a Club to Join",
+    "fr": "Trouver un club à rejoindre"
+  },
+  "comWelcome": {
+    "en": "Welcome to STAGE, {name}! Do you want to create your own club or join an existing one?",
+    "fr": "Bienvenue sur STAGE, {name} ! Tu veux créer ton propre club ou en rejoindre un ?"
+  },
+  "comCreateClub": {
+    "en": "Create Club",
+    "fr": "Créer un club"
+  },
+  "comCreateClubDesc": {
+    "en": "Start your own club and become the president",
+    "fr": "Fonde ton propre club et deviens président"
+  },
+  "comJoinClub": {
+    "en": "Join Club",
+    "fr": "Rejoindre un club"
+  },
+  "comJoinClubDesc": {
+    "en": "Browse clubs and send a join request",
+    "fr": "Parcours les clubs et envoie une demande"
+  },
+  "comStagePlusTitle": {
+    "en": "Compete deeper with STAGE Plus",
+    "fr": "Va plus loin avec STAGE Plus"
+  },
+  "comStagePlusDesc": {
+    "en": "Free gives you {credits} starter credits for one tournament. Plus unlocks regional league applications, community tournament creation, ranked play, and {monthlyCredits} monthly refreshed credits.",
+    "fr": "Gratuit te donne {credits} crédits pour un tournoi. Plus débloque les candidatures aux ligues régionales, la création de tournois communautaires, le mode classé et {monthlyCredits} crédits mensuels."
+  },
+  "comSkipForNow": {
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  "comBack": {
+    "en": "← Back",
+    "fr": "← Retour"
+  },
+  "comClubName": {
+    "en": "Club Name *",
+    "fr": "Nom du club *"
+  },
+  "comTagMax5": {
+    "en": "Tag (max 5 chars) *",
+    "fr": "Tag (max 5 car.) *"
+  },
+  "comPlatform": {
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  "comRegion": {
+    "en": "Region",
+    "fr": "Région"
+  },
+  "comCountry": {
+    "en": "Country *",
+    "fr": "Pays *"
+  },
+  "comSelectCountry": {
+    "en": "Select country",
+    "fr": "Choisir un pays"
+  },
+  "comClubDesc": {
+    "en": "Club Description",
+    "fr": "Description du club"
+  },
+  "comClubDescPlaceholder": {
+    "en": "Tell players about your club...",
+    "fr": "Décris ton club aux joueurs..."
+  },
+  "comCreating": {
+    "en": "Creating...",
+    "fr": "Création..."
+  },
+  "comSearchPlaceholder": {
+    "en": "Search by club name or tag...",
+    "fr": "Rechercher par nom ou tag..."
+  },
+  "comNoClubsFound": {
+    "en": "No clubs found.",
+    "fr": "Aucun club trouvé."
+  },
+  "comRating": {
+    "en": "Rating {rating}",
+    "fr": "Note {rating}"
+  },
+  "comRequest": {
+    "en": "Request",
+    "fr": "Demander"
+  },
+  "comSent": {
+    "en": "Sent",
+    "fr": "Envoyé"
+  },
+  "comDone": {
+    "en": "Done — {count} request{plural} sent",
+    "fr": "Terminé — {count} demande{plural} envoyée{plural}"
+  },
+  "comJoinMessage": {
+    "en": "I'd like to join your club!",
+    "fr": "J'aimerais rejoindre ton club !"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "internationalTitle": {
+    "en": "International",
+    "fr": "International"
+  },
+  "internationalSubtitle": {
+    "en": "Club owners vote for the national team owner, then the winner selects the squad.",
+    "fr": "Les propriétaires de club votent pour l'owner national, puis le gagnant sélectionne l'équipe."
+  },
+  "internationalLoading": {
+    "en": "Loading international tournaments...",
+    "fr": "Chargement des tournois internationaux..."
+  },
+  "internationalLoadFailed": {
+    "en": "Could not load international tournaments.",
+    "fr": "Impossible de charger les tournois internationaux."
+  }
+}

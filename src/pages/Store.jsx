@@ -15,6 +15,7 @@ import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { getOwnedClubId } from "@/lib/userIdentityFields";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -112,7 +113,8 @@ export default function Store() {
             const finalTarget = res.data.target || target;
             // Refresh the wallet balance shown in the UI.
             if (finalTarget === 'club') {
-              const c = u.owner_id ? await stageClient.entities.Club.get(u.owner_id).catch(() => null) : null;
+              const ownedClubId = getOwnedClubId(u);
+              const c = ownedClubId ? await stageClient.entities.Club.get(ownedClubId).catch(() => null) : null;
               if (c) setMyClub(c);
             } else if (u.player_id) {
               const pl2 = await stageClient.entities.Player.get(u.player_id).catch(() => null);

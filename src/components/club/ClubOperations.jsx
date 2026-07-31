@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 
 const PERMISSIONS = [
   "edit_club_profile",
@@ -60,7 +61,7 @@ function fixtureLabel(fixture, clubId, t) {
   return t("commonPages.eafcVs", { name });
 }
 
-export default function ClubOperations({ club, players = [], currentUser, myPlayer, upcomingFixtures = [], defaultFormation }) {
+export default function ClubOperations({ club, players = [], currentUser, myPlayer, upcomingFixtures = [], defaultFormation, onStaffRolesChanged }) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState("overview");
   const [loading, setLoading] = useState(true);
@@ -147,6 +148,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       ]);
       setApplicants(appRows);
       setStaffRoles(staffRows);
+      onStaffRolesChanged?.(staffRows);
       setAvailability(availRows);
       setLineups(lineupRows);
       setAuditLogs(auditRows);
@@ -566,7 +568,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
           overall_rating: offerApplicant.player_overall_rating || 70,
         } : null}
         existingActiveContract={false}
-        playerContracts={contracts.filter((contract) => contract.user_id === offerApplicant?.player_id)}
+        playerContracts={contracts.filter((contract) => getContractTargetPlayerId(contract) === offerApplicant?.player_id)}
         onOffer={handleOfferContract}
         windowOpen={null}
         club={club}

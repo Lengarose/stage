@@ -56,7 +56,7 @@ export default function TutorialPopup({ open, onClose }) {
   const isLast = step === steps.length - 1;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent className="bg-card border-border max-w-sm sm:max-w-lg p-0 overflow-hidden rounded-xl">
         {/* Banner */}
         <div className="relative h-36 sm:h-44 overflow-hidden">

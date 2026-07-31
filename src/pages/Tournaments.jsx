@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { Link } from "react-router-dom";
 import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown } from "lucide-react";
 import BannerPreviewEditor from "../components/BannerPreviewEditor";
@@ -68,6 +68,8 @@ export default function Tournaments() {
   const [creating, setCreating] = useState(false);
   const bannerInputRef = useRef(null);
   const rulesFileRef = useRef(null);
+  const bannerInputId = useId();
+  const rulesFileId = useId();
 
   const BANNER_COLORS = ["#0d1830","#0d2010","#1c0d08","#200d0d","#120d20","#0a1420","#181818","#1a1800","#001a1a","#180018"];
 
@@ -470,11 +472,11 @@ export default function Tournaments() {
                       </div>
                     ) : (
                       <>
-                        <button type="button" onClick={() => rulesFileRef.current?.click()} disabled={uploadingRules}
-                          className="w-full h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors">
+                        <label htmlFor={uploadingRules ? undefined : rulesFileId}
+                          className="w-full h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer touch-manipulation">
                           {uploadingRules ? <><div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-3.5 h-3.5" /> Attach rules file (PDF/image)</>}
-                        </button>
-                        <input ref={rulesFileRef} type="file" accept="image/*,.pdf" className="hidden"
+                        </label>
+                        <input id={rulesFileId} ref={rulesFileRef} type="file" accept="image/*,.pdf" className="sr-only" disabled={uploadingRules}
                           onChange={async e => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -569,11 +571,11 @@ export default function Tournaments() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <button type="button" onClick={() => bannerInputRef.current?.click()}
-                        className="w-full h-14 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors">
+                      <label htmlFor={bannerInputId}
+                        className="w-full h-14 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors cursor-pointer touch-manipulation">
                         <Upload className="w-3.5 h-3.5" /> Upload banner image
-                      </button>
-                      <input ref={bannerInputRef} type="file" accept="image/*" className="hidden"
+                      </label>
+                      <input id={bannerInputId} ref={bannerInputRef} type="file" accept="image/*" className="sr-only"
                         onChange={e => e.target.files[0] && handleBannerFile(e.target.files[0])} />
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         <p className="w-full text-[10px] text-muted-foreground">Or pick a colour:</p>

@@ -2,6 +2,7 @@
 // so zero changes are needed in any component file.
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { toMysqlDateTime, asWallClockDateTimeString } from "@/lib/momentDate";
+import { getOwnedClubId } from "@/lib/userIdentityFields";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 // Default is a RELATIVE path so:
@@ -106,12 +107,12 @@ function notifyAuthChanged() {
 }
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
-export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId } = /** @type {any} */({})) => {
+export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId } = /** @type {any} */({})) => {
   if (accessToken)  localStorage.setItem(ACCESS_KEY,  accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
   if (userId)       localStorage.setItem(USER_KEY,    String(userId));
   if (playerId)     localStorage.setItem(PLAYER_KEY,  String(playerId));
-  if (ownerId)      localStorage.setItem(OWNER_KEY,   String(ownerId));
+  if (ownedClubId || ownerId) localStorage.setItem(OWNER_KEY, String(ownedClubId || ownerId));
   notifyAuthChanged();
 };
 
@@ -126,7 +127,8 @@ function syncSessionFromMe(me) {
   if (me.id) localStorage.setItem(USER_KEY, String(me.id));
   if (me.player_id) localStorage.setItem(PLAYER_KEY, String(me.player_id));
   else localStorage.removeItem(PLAYER_KEY);
-  if (me.owner_id) localStorage.setItem(OWNER_KEY, String(me.owner_id));
+  const ownedClubId = getOwnedClubId(me);
+  if (ownedClubId) localStorage.setItem(OWNER_KEY, String(ownedClubId));
   else localStorage.removeItem(OWNER_KEY);
 }
 
@@ -422,7 +424,7 @@ const ENTITY_NAMES = [
   'RecruitmentPost', 'RecruitmentInterest',
   // Private club operations: applicant pipeline, staff permissions, fixture availability,
   // fixture lineups, and read-only operations audit history.
-  'ClubApplicant', 'ClubStaffRole', 'ClubFixtureAvailability', 'ClubFixtureLineup',
+  'ClubApplicant', 'ClubMembership', 'ClubStaffRole', 'ClubFixtureAvailability', 'ClubFixtureLineup',
   'ClubOperationAuditLog',
   // EAFC-inspired modules — see server/src/server.js for routes and AGENTS.md §7.2.
   // ObjectiveDefinition: catalogue of Daily/Weekly objectives (admin-managed).
@@ -547,9 +549,10 @@ const auth = {
     const userId       = params.get('userId');
     const playerId     = params.get('playerId');
     const ownerId      = params.get('ownerId');
+    const ownedClubId  = params.get('ownedClubId');
     const isNewUser    = params.get('isNewUser') === '1';
     if (accessToken && (userId || playerId)) {
-      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId });
+      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId });
       if (isNewUser && userId) markNeedsOnboarding(userId);
       let returnTo = '/';
       try {
@@ -732,7 +735,7 @@ const competitionEngine = {
 // ── Canonical user→player→club resolver ───────────────────────────────────────
 // The correct lookup chain is:
 //   users table (auth.me()) → player_id → players table → club_id → clubs table
-//   Fallbacks: players.email/users.email, users.owner_id, clubs.owner_email.
+//   Fallbacks: players.email/users.email, users.owned_club_id/owner_id, clubs.owner_email.
 //
 // Usage:
 //   const { user, player, club } = await resolveMyPlayerAndClub();
@@ -762,9 +765,10 @@ export async function resolveMyPlayerAndClub() {
     club = await entities.Club.get(player.club_id).catch(() => null);
   }
 
-  // 4) Club-only accounts may have no player profile. Use owner_id from users.
-  if (!club && u.owner_id) {
-    club = await entities.Club.get(u.owner_id).catch(() => null);
+  // 4) Club-only accounts may have no player profile. Use the owned club id.
+  const ownedClubId = getOwnedClubId(u);
+  if (!club && ownedClubId) {
+    club = await entities.Club.get(ownedClubId).catch(() => null);
   }
 
   // 5) Final fallback: find club by owner_email

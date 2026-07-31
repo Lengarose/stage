@@ -75,7 +75,7 @@ export default function BannerPreviewEditor({
   const currentSize = PREVIEW_SIZES[previewSize];
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
         className="bg-card border-border max-w-2xl p-0 overflow-hidden"
         onPointerDownOutside={e => e.preventDefault()}

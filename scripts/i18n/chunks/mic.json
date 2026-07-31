@@ -1,0 +1,10 @@
+{
+  "micRequired": {
+    "en": "Mic required",
+    "fr": "Micro requis"
+  },
+  "micOptional": {
+    "en": "Mic optional",
+    "fr": "Micro optionnel"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "selectOwnerCandidate": {
+    "en": "Select owner candidate",
+    "fr": "Choisir un candidat"
+  },
+  "selectPlayer": {
+    "en": "Select a player",
+    "fr": "Sélectionne un joueur"
+  },
+  "selectPlayerDetails": {
+    "en": "Click any player to view their details",
+    "fr": "Clique sur un joueur pour voir ses détails"
+  }
+}

@@ -11,6 +11,7 @@ const {
   requireClubPermission,
   writeClubAudit,
 } = require('../services/clubOperationsService');
+const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { v4: uuidv4 } = require('uuid');
 
 async function resolveClubUserId(req, body = {}) {
@@ -108,6 +109,13 @@ router.post('/', async (req, res) => {
          WHERE id = ?`,
         [record.id, JSON.stringify(['president']), creator.id]
       ).catch(() => {});
+      await upsertActiveMembership({
+        clubId: record.id,
+        playerId: creator.id,
+        userId: creator.user_id || record?.user_id || null,
+        primaryRole: 'president',
+        source: 'club_creation',
+      });
       const existingOwnerContract = await EXECUTESQL(
         "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','active') LIMIT 1",
         [record.id, creator.id]
@@ -207,6 +215,8 @@ router.post('/:id/staff', async (req, res) => {
     const players = await EXECUTESQL('SELECT id, user_id FROM players WHERE id = ? AND club_id = ? LIMIT 1', [playerId, id]);
     if (!players.length) return res.status(404).json({ error: 'Player is not in this club' });
     const permissions = (req.body?.permissions || ROLE_PERMISSIONS[role] || []).filter((p) => ALL_PERMISSIONS.includes(p));
+    // Operations staff roles live in club_staff_roles. Squad cards currently
+    // read players.role/club_roles, so role display must be synced or merged.
     const model = new ClubStaffRole({
       club_id: id,
       player_id: playerId,
@@ -216,6 +226,13 @@ router.post('/:id/staff', async (req, res) => {
       assigned_by_user_id: user.id,
     });
     await model.create();
+    await upsertActiveMembership({
+      clubId: id,
+      playerId,
+      userId: players[0].user_id || null,
+      primaryRole: role,
+      source: 'staff_assignment',
+    });
     const created = (await model.selectOne(model.id))[0];
     await writeClubAudit({ clubId: id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: model.id, newValue: created });
     res.status(201).json(created);
@@ -231,6 +248,12 @@ router.post('/:id/staff/:playerId/remove', async (req, res) => {
     const { user } = await requireClubPermission(req, id, 'manage_staff');
     const oldRows = await EXECUTESQL('SELECT * FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => []);
     await EXECUTESQL('DELETE FROM club_staff_roles WHERE club_id = ? AND player_id = ?', [id, playerId]).catch(() => {});
+    await upsertActiveMembership({
+      clubId: id,
+      playerId,
+      primaryRole: 'member',
+      source: 'staff_removed',
+    });
     await writeClubAudit({ clubId: id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: playerId, oldValue: oldRows, reason: req.body?.reason });
     res.json({ success: true });
   } catch (err) {

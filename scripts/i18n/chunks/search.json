@@ -1,0 +1,30 @@
+{
+  "searchTitle": {
+    "en": "Search",
+    "fr": "Recherche"
+  },
+  "searchSubtitle": {
+    "en": "Find players and clubs",
+    "fr": "Trouve des joueurs et des clubs"
+  },
+  "searchPlaceholder": {
+    "en": "Search players or clubs...",
+    "fr": "Rechercher joueurs ou clubs..."
+  },
+  "searchCta": {
+    "en": "Search",
+    "fr": "Rechercher"
+  },
+  "searchEmptyPrompt": {
+    "en": "Search for players or clubs by name",
+    "fr": "Recherche des joueurs ou clubs par nom"
+  },
+  "searchGamertag": {
+    "en": "Search gamertag...",
+    "fr": "Rechercher gamertag..."
+  },
+  "searchPosts": {
+    "en": "Search posts...",
+    "fr": "Rechercher posts..."
+  }
+}

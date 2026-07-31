@@ -1,0 +1,22 @@
+{
+  "freeAgentTitle": {
+    "en": "Free Agent Board",
+    "fr": "Tableau agents libres"
+  },
+  "freeAgentSubtitle": {
+    "en": "Players looking for a club",
+    "fr": "Joueurs qui cherchent un club"
+  },
+  "freeAgentsShort": {
+    "en": "{count} free agents",
+    "fr": "{count} agents libres"
+  },
+  "freeShort": {
+    "en": "{count} free",
+    "fr": "{count} libres"
+  },
+  "freeAgentAvailable": {
+    "en": "Free Agent - Available Now",
+    "fr": "Agent libre - disponible maintenant"
+  }
+}

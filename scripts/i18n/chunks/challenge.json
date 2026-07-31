@@ -1,0 +1,14 @@
+{
+  "challengeSentClub": {
+    "en": "Challenge sent to {name}! A live match room has been created.",
+    "fr": "Défi envoyé à {name} ! Une room de match live a été créée."
+  },
+  "challengeSentPlayer": {
+    "en": "Challenge sent to {name}! They'll see it in Live Matches.",
+    "fr": "Défi envoyé à {name} ! Il le verra dans Live Matches."
+  },
+  "challenge": {
+    "en": "Challenge",
+    "fr": "Défier"
+  }
+}

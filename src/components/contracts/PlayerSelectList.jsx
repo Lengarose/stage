@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { User, CheckCircle } from "lucide-react";
 
 export default function PlayerSelectList({ players, contracts, selectedId, onSelect }) {
   function getPlayerContractStatus(playerId) {
-    const active = contracts.find(c => c.user_id === playerId && c.status === "active");
+    const active = contracts.find(c => getContractTargetPlayerId(c) === playerId && c.status === "active");
     if (active) return { status: "active", meta: CONTRACT_TYPES[active.contract_type] };
-    const pending = contracts.find(c => c.user_id === playerId && c.status === "pending");
+    const pending = contracts.find(c => getContractTargetPlayerId(c) === playerId && c.status === "pending");
     if (pending) return { status: "pending", meta: CONTRACT_TYPES[pending.contract_type] };
     return null;
   }

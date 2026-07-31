@@ -84,7 +84,12 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="bg-card border-border max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        hideCloseButton
+        className="bg-card border-border max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="leading-relaxed text-xl">{t('commonPages.pcmTitle')}</DialogTitle>
         </DialogHeader>

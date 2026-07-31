@@ -1,0 +1,138 @@
+{
+  "landHeroYour": {
+    "en": "Your",
+    "fr": "Ta"
+  },
+  "landHeroStage": {
+    "en": "Stage",
+    "fr": "Scène"
+  },
+  "landHeroAwaits": {
+    "en": "Awaits",
+    "fr": "T'attend"
+  },
+  "landGetStarted": {
+    "en": "Get Started — It's Free",
+    "fr": "Commencer — c'est gratuit"
+  },
+  "landScroll": {
+    "en": "Scroll",
+    "fr": "Défiler"
+  },
+  "landEverything": {
+    "en": "Everything you need",
+    "fr": "Tout ce qu'il te faut"
+  },
+  "landOnePlatform": {
+    "en": "One Platform.",
+    "fr": "Une plateforme."
+  },
+  "landEveryFeature": {
+    "en": "Every Feature.",
+    "fr": "Toutes les fonctions."
+  },
+  "landGetStartedMinutes": {
+    "en": "Get started in minutes",
+    "fr": "Commence en quelques minutes"
+  },
+  "landHowItWorks": {
+    "en": "How It Works",
+    "fr": "Comment ça marche"
+  },
+  "landJoinCommunity": {
+    "en": "Join the community",
+    "fr": "Rejoins la communauté"
+  },
+  "landReadyTo": {
+    "en": "Ready to",
+    "fr": "Prêt à"
+  },
+  "landCompete": {
+    "en": "Compete?",
+    "fr": "Concourir ?"
+  },
+  "landCtaDesc": {
+    "en": "Thousands of players and clubs are already active. Sign up free and find your competition.",
+    "fr": "Des milliers de joueurs et de clubs sont déjà actifs. Inscris-toi gratuitement et trouve ta compétition."
+  },
+  "landStartPlaying": {
+    "en": "Start Playing Now",
+    "fr": "Commencer à jouer"
+  },
+  "landSignInArrow": {
+    "en": "Sign In →",
+    "fr": "Se connecter →"
+  },
+  "landFeat1Title": {
+    "en": "Competitions & Leagues",
+    "fr": "Compétitions & ligues"
+  },
+  "landFeat1Desc": {
+    "en": "Enter structured regional leagues and knockout competitions. Every season has standings, match days, and a champion crowned at the final whistle.",
+    "fr": "Participe à des ligues régionales structurées et à des compétitions à élimination. Chaque saison a son classement, ses journées de match et un champion sacré au coup de sifflet final."
+  },
+  "landFeat2Title": {
+    "en": "Club Management",
+    "fr": "Gestion de club"
+  },
+  "landFeat2Desc": {
+    "en": "Found your club, set your formation, manage your wage budget, upgrade your stadium, and build a legacy across multiple seasons.",
+    "fr": "Fonde ton club, choisis ta formation, gère ton budget salarial, améliore ton stade et bâtis une légende au fil des saisons."
+  },
+  "landFeat3Title": {
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  "landFeat3Desc": {
+    "en": "Schedule matches, submit scores, and track every result in real time. Your club's form, streaks, and standings update instantly.",
+    "fr": "Planifie les matchs, soumets les scores et suis chaque résultat en temps réel. La forme, les séries et le classement de ton club se mettent à jour instantanément."
+  },
+  "landFeat4Title": {
+    "en": "Player Contracts",
+    "fr": "Contrats joueurs"
+  },
+  "landFeat4Desc": {
+    "en": "Sign to a club on a formal contract with wages, bonuses, and release clauses — just like the real game.",
+    "fr": "Signe dans un club via un vrai contrat avec salaire, primes et clauses libératoires — comme dans le jeu."
+  },
+  "landFeat5Title": {
+    "en": "Transfer Market",
+    "fr": "Marché des transferts"
+  },
+  "landFeat5Desc": {
+    "en": "Buy and sell players during transfer windows. Negotiate fees, wages, and bonuses with clubs across the platform.",
+    "fr": "Achète et vends des joueurs pendant les mercatos. Négocie indemnités, salaires et primes avec les clubs de la plateforme."
+  },
+  "landFeat6Title": {
+    "en": "Rankings & Live Stats",
+    "fr": "Classements & stats en direct"
+  },
+  "landFeat6Desc": {
+    "en": "Goals, assists, ratings, clean sheets — every stat tracked. See where you rank against every player on the platform.",
+    "fr": "Buts, passes, notes, clean sheets — chaque stat est suivie. Vois où tu te situes face à tous les joueurs de la plateforme."
+  },
+  "landStep1Title": {
+    "en": "Create Your Profile",
+    "fr": "Crée ton profil"
+  },
+  "landStep1Desc": {
+    "en": "Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.",
+    "fr": "Inscris-toi, choisis ton poste et ta plateforme, importe ta photo et construis ton identité de joueur en quelques minutes."
+  },
+  "landStep2Title": {
+    "en": "Join or Found a Club",
+    "fr": "Rejoins ou fonde un club"
+  },
+  "landStep2Desc": {
+    "en": "Browse existing clubs and request to join, or create your own — set the name, badge, region, and start recruiting.",
+    "fr": "Parcours les clubs existants et demande à les rejoindre, ou crée le tien — choisis le nom, le blason, la région et commence à recruter."
+  },
+  "landStep3Title": {
+    "en": "Register & Compete",
+    "fr": "Inscris-toi & concours"
+  },
+  "landStep3Desc": {
+    "en": "Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.",
+    "fr": "Entre dans une ligue ou une compétition régionale, planifie tes matchs le Match Day et vise le titre chaque saison."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "inviteSent": {
+    "en": "Invite sent to {name}!",
+    "fr": "Invitation envoyée à {name} !"
+  },
+  "invite": {
+    "en": "Invite",
+    "fr": "Inviter"
+  }
+}

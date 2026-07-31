@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   User, Shield, Save, Plus, LogOut,
@@ -107,6 +107,7 @@ export default function Profile({
   const [profileTab, setProfileTab] = useState("posts");
   const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
   const avatarInputRef = useRef();
+  const avatarInputId = useId();
 
   const [playerForm, setPlayerForm] = useState({
     gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
@@ -695,18 +696,36 @@ export default function Profile({
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">{t("commonPages.profPhotoBanner")}</h2>
             <div className="flex items-start gap-4">
               <div className="relative group shrink-0">
-                <div className="w-20 h-20 rounded-full bg-secondary border-4 border-card flex items-center justify-center overflow-hidden">
+                <div className="w-20 h-20 rounded-full bg-secondary border-4 border-card flex items-center justify-center overflow-hidden pointer-events-none">
                   {player?.avatar_url
                     ? <div className="w-full h-full" style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }} />
                     : <User className="w-9 h-9 text-muted-foreground" />
                   }
                 </div>
-                <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button onClick={() => avatarInputRef.current?.click()} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title={t("commonPages.profUploadPhoto")}>
+                <label
+                  htmlFor={uploadingAvatar ? undefined : avatarInputId}
+                  className={cn(
+                    "absolute inset-0 z-10 rounded-full bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity",
+                    uploadingAvatar && "pointer-events-none opacity-60",
+                    player?.avatar_url
+                      ? "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                      : "opacity-100"
+                  )}
+                  title={t("commonPages.profUploadPhoto")}
+                >
+                  <span className="p-1.5 rounded-lg bg-white/10">
                     {uploadingAvatar ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-                  </button>
-                </div>
-                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+                  </span>
+                </label>
+                <input
+                  id={avatarInputId}
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={uploadingAvatar}
+                  onChange={uploadAvatar}
+                />
               </div>
               <div className="space-y-2 pt-1">
                 {player?.avatar_url && (

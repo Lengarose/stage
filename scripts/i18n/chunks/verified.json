@@ -1,0 +1,10 @@
+{
+  "verifiedOnly": {
+    "en": "Verified only",
+    "fr": "Vérifiés seulement"
+  },
+  "verifiedPreferred": {
+    "en": "Verified players preferred. Unverified players may need identity review before acceptance.",
+    "fr": "Joueurs vérifiés préférés. Les joueurs non vérifiés peuvent nécessiter une vérification d'identité."
+  }
+}

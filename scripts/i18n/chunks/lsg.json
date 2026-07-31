@@ -1,0 +1,70 @@
+{
+  "lsgOwned": {
+    "en": "Owned",
+    "fr": "Possédé"
+  },
+  "lsgRenting": {
+    "en": "Renting",
+    "fr": "En location"
+  },
+  "lsgBuyAnother": {
+    "en": "Buy Another",
+    "fr": "Acheter un autre"
+  },
+  "lsgBuy": {
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  "lsgAdd": {
+    "en": "Add",
+    "fr": "Ajouter"
+  },
+  "lsgNeedStc": {
+    "en": "Need STC",
+    "fr": "STC requis"
+  },
+  "lsgRentMo": {
+    "en": "Rent/mo",
+    "fr": "Loyer/mois"
+  },
+  "lsgActive": {
+    "en": "Active",
+    "fr": "Actif"
+  },
+  "lsgRent": {
+    "en": "Rent",
+    "fr": "Louer"
+  },
+  "lsgMyResidence": {
+    "en": "My Residence",
+    "fr": "Ma résidence"
+  },
+  "lsgOwnedLive": {
+    "en": "Owned (Live)",
+    "fr": "Possédé (habité)"
+  },
+  "lsgInvestment": {
+    "en": "Investment",
+    "fr": "Investissement"
+  },
+  "lsgInvestments": {
+    "en": "Investments",
+    "fr": "Investissements"
+  },
+  "lsgBuyPrice": {
+    "en": "Buy price",
+    "fr": "Prix d'achat"
+  },
+  "lsgNA": {
+    "en": "N/A",
+    "fr": "N/D"
+  },
+  "lsgBuyLive": {
+    "en": "Buy (Live)",
+    "fr": "Acheter (habiter)"
+  },
+  "lsgInvest": {
+    "en": "Invest",
+    "fr": "Investir"
+  }
+}

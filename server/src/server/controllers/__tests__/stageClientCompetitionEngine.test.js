@@ -22,3 +22,9 @@ test('stageClient registers competition engine entities and command wrapper', ()
   assert.match(client, /createMatchFromFixture/);
   assert.match(client, /submitResult/);
 });
+
+test('stageClient understands owned club id aliases for legacy owner_id', () => {
+  assert.match(client, /getOwnedClubId/);
+  assert.match(client, /ownedClubId/);
+  assert.match(client, /users\.owned_club_id\/owner_id/);
+});

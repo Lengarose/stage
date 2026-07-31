@@ -219,7 +219,7 @@ export default function AvatarGenerator({ open, onClose, player, onSelect }) {
   );
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); }}>
       <DialogContent className="bg-card border-border max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="leading-relaxed text-lg flex items-center gap-2">

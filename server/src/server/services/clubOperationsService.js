@@ -1,5 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { resolveUserIdentity } = require('./identityService');
 
 const ALL_PERMISSIONS = [
   'edit_club_profile',
@@ -53,14 +54,13 @@ async function getClub(clubId) {
 
 async function getPlayerForUser(user, clubId = null) {
   if (!user) return null;
-  const params = [user.id, user.email];
-  const clubClause = clubId ? ' AND club_id = ?' : '';
-  if (clubId) params.push(clubId);
-  const rows = await EXECUTESQL(
-    `SELECT * FROM players WHERE (user_id = ? OR LOWER(email)=LOWER(?))${clubClause} LIMIT 1`,
-    params
-  );
-  return rows[0] || null;
+  const identity = await resolveUserIdentity(user.id);
+  if (!identity.player) return null;
+  if (!clubId) return identity.player;
+  const legacyClubId = String(identity.player.club_id || '');
+  const membershipClubId = String(identity.membership?.club_id || '');
+  if (legacyClubId !== String(clubId) && membershipClubId !== String(clubId)) return null;
+  return { ...identity.player, club_id: String(clubId) };
 }
 
 async function getClubAccess(user, clubId) {
@@ -70,14 +70,21 @@ async function getClubAccess(user, clubId) {
   const club = await getClub(clubId);
   if (!club) return { allowed: false, permissions: [], roles: [] };
 
+  const identity = await resolveUserIdentity(user.id);
   const roles = [];
   const permissions = new Set();
-  if (club.user_id === user.id || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()) {
+  if (
+    club.user_id === user.id
+    || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+    || String(identity.ownedClub?.id || '') === String(clubId)
+  ) {
     roles.push('owner');
     ROLE_PERMISSIONS.owner.forEach((p) => permissions.add(p));
   }
 
-  const player = await getPlayerForUser(user, clubId);
+  const player = identity.player && String(identity.player.club_id || '') === String(clubId)
+    ? identity.player
+    : null;
   const playerRoles = parseJson(player?.club_roles, []);
   for (const role of playerRoles) {
     roles.push(role);
@@ -87,13 +94,24 @@ async function getClubAccess(user, clubId) {
     roles.push(player.role);
     (ROLE_PERMISSIONS[player.role] || []).forEach((p) => permissions.add(p));
   }
+  if (
+    identity.membership
+    && String(identity.membership.club_id || '') === String(clubId)
+    && identity.membership.primary_role
+    && identity.membership.primary_role !== 'member'
+  ) {
+    roles.push(identity.membership.primary_role);
+    (ROLE_PERMISSIONS[identity.membership.primary_role] || []).forEach((p) => permissions.add(p));
+  }
 
-  const staffRows = await EXECUTESQL(
-    `SELECT * FROM club_staff_roles
-     WHERE club_id = ? AND (user_id = ? OR player_id = ?)
-     ORDER BY created_date DESC`,
-    [clubId, user.id, player?.id || '']
-  ).catch(() => []);
+  const staffRows = identity.club && String(identity.club.id) === String(clubId)
+    ? identity.staffRoles
+    : await EXECUTESQL(
+      `SELECT * FROM club_staff_roles
+       WHERE club_id = ? AND (user_id = ? OR player_id = ?)
+       ORDER BY created_date DESC`,
+      [clubId, user.id, player?.id || '']
+    ).catch(() => []);
   for (const row of staffRows) {
     roles.push(row.role);
     (ROLE_PERMISSIONS[row.role] || []).forEach((p) => permissions.add(p));

@@ -1,0 +1,274 @@
+{
+  "obHowPlay": {
+    "en": "How do you play?",
+    "fr": "Comment joues-tu ?"
+  },
+  "obChooseRole": {
+    "en": "Choose your role — you can add the other later",
+    "fr": "Choisis ton rôle — tu pourras ajouter l'autre plus tard"
+  },
+  "obPlayerDesc": {
+    "en": "Create a player profile, join a club, sign contracts and compete in tournaments.",
+    "fr": "Crée un profil joueur, rejoins un club, signe des contrats et joue en tournoi."
+  },
+  "obClubOwner": {
+    "en": "Club Owner",
+    "fr": "Propriétaire de club"
+  },
+  "obClubOwnerDesc": {
+    "en": "Found and manage your own club, sign players and enter tournaments.",
+    "fr": "Fonde et gère ton propre club, signe des joueurs et participe aux tournois."
+  },
+  "obProfileReady": {
+    "en": "Player Profile Ready",
+    "fr": "Profil joueur prêt"
+  },
+  "obProfileReadyDesc": {
+    "en": "Your player profile already exists ({name}). Continue to identity verification.",
+    "fr": "Ton profil joueur existe déjà ({name}). Passe à la vérification d'identité."
+  },
+  "obContinueVerification": {
+    "en": "Continue to Verification →",
+    "fr": "Passer à la vérification →"
+  },
+  "obStepChooseRole": {
+    "en": "Choose Role",
+    "fr": "Choisir un rôle"
+  },
+  "obStepPlayerProfile": {
+    "en": "Player Profile",
+    "fr": "Profil joueur"
+  },
+  "obStepVerifyIdentity": {
+    "en": "Verify Identity",
+    "fr": "Vérifier l'identité"
+  },
+  "obStepClubSetup": {
+    "en": "Club Setup",
+    "fr": "Configuration du club"
+  },
+  "obStepOf": {
+    "en": "Step {current} of {total} — {label}",
+    "fr": "Étape {current} sur {total} — {label}"
+  },
+  "obCreateProfile": {
+    "en": "Create Your Profile",
+    "fr": "Crée ton profil"
+  },
+  "obTellWorld": {
+    "en": "Tell the world about your player",
+    "fr": "Présente ton joueur au monde"
+  },
+  "obGamertag": {
+    "en": "Gamertag *",
+    "fr": "Gamertag *"
+  },
+  "obGamertagPlaceholder": {
+    "en": "Your in-game name",
+    "fr": "Ton pseudo en jeu"
+  },
+  "obMainPosition": {
+    "en": "Main Position *",
+    "fr": "Poste principal *"
+  },
+  "obSecondPosition": {
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  "obNone": {
+    "en": "None",
+    "fr": "Aucun"
+  },
+  "obCountry": {
+    "en": "Country *",
+    "fr": "Pays *"
+  },
+  "obSelectCountry": {
+    "en": "Select country",
+    "fr": "Sélectionne un pays"
+  },
+  "obSaving": {
+    "en": "Saving…",
+    "fr": "Enregistrement…"
+  },
+  "obContinueClub": {
+    "en": "Continue to Club Setup →",
+    "fr": "Passer au club →"
+  },
+  "obErrImage": {
+    "en": "Please choose an image file.",
+    "fr": "Choisis un fichier image."
+  },
+  "obErrAvatarSize": {
+    "en": "Profile picture must be smaller than 10 MB.",
+    "fr": "La photo de profil doit faire moins de 10 Mo."
+  },
+  "obErrUpload": {
+    "en": "Could not upload profile picture.",
+    "fr": "Impossible d'importer la photo de profil."
+  },
+  "obErrSave": {
+    "en": "Could not save profile.",
+    "fr": "Impossible d'enregistrer le profil."
+  },
+  "obCreateYourClub": {
+    "en": "Create Your Club",
+    "fr": "Crée ton club"
+  },
+  "obClubSetupTitle": {
+    "en": "Club Setup",
+    "fr": "Configuration du club"
+  },
+  "obNeedClubContinue": {
+    "en": "You need a club to continue as an owner",
+    "fr": "Tu as besoin d'un club pour continuer en tant que propriétaire"
+  },
+  "obCreateOrJoinLater": {
+    "en": "Create a club now or join one later",
+    "fr": "Crée un club maintenant ou rejoins-en un plus tard"
+  },
+  "obCreateClub": {
+    "en": "Create Club",
+    "fr": "Créer un club"
+  },
+  "obFoundClub": {
+    "en": "Found your club and start managing",
+    "fr": "Fonde ton club et commence à le gérer"
+  },
+  "obStartJourney": {
+    "en": "Start your journey now",
+    "fr": "Commence ton aventure maintenant"
+  },
+  "obSkip": {
+    "en": "Skip",
+    "fr": "Passer"
+  },
+  "obDoItLater": {
+    "en": "Do it later",
+    "fr": "Le faire plus tard"
+  },
+  "obBack": {
+    "en": "Back",
+    "fr": "Retour"
+  },
+  "obBuildEmpire": {
+    "en": "Build your football empire",
+    "fr": "Construis ton empire footballistique"
+  },
+  "obClubName": {
+    "en": "Club Name *",
+    "fr": "Nom du club *"
+  },
+  "obClubNamePlaceholder": {
+    "en": "e.g. FC Dynasty",
+    "fr": "ex. FC Dynasty"
+  },
+  "obTagMax5": {
+    "en": "Tag (max 5 chars) *",
+    "fr": "Tag (max 5 car.) *"
+  },
+  "obTagPlaceholder": {
+    "en": "e.g. DYN",
+    "fr": "ex. DYN"
+  },
+  "obPlatform": {
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  "obRegion": {
+    "en": "Region",
+    "fr": "Région"
+  },
+  "obCreating": {
+    "en": "Creating…",
+    "fr": "Création…"
+  },
+  "obErrLogoSize": {
+    "en": "Club logo must be smaller than 10 MB.",
+    "fr": "Le logo du club doit faire moins de 10 Mo."
+  },
+  "obErrLogoUpload": {
+    "en": "Could not upload club logo.",
+    "fr": "Impossible d'importer le logo du club."
+  },
+  "obIdentityVerified": {
+    "en": "Identity Verified",
+    "fr": "Identité vérifiée"
+  },
+  "obClaimSubmitted": {
+    "en": "Claim Submitted",
+    "fr": "Demande envoyée"
+  },
+  "obIdentityLinked": {
+    "en": "Your STAGE profile is already linked to a verified player identity.",
+    "fr": "Ton profil STAGE est déjà lié à une identité joueur vérifiée."
+  },
+  "obClaimPending": {
+    "en": "Your identity claim is now waiting for admin review in the admin panel.",
+    "fr": "Ta demande d'identité est en attente de validation admin."
+  },
+  "obClaimIdentity": {
+    "en": "Claim Your Identity",
+    "fr": "Revendique ton identité"
+  },
+  "obClaimIdentityDesc": {
+    "en": "Link your player profile to your console, EA, or Discord identity for admin verification.",
+    "fr": "Lie ton profil joueur à ton identité console, EA ou Discord pour la vérification admin."
+  },
+  "obPlatformHandle": {
+    "en": "Platform Handle *",
+    "fr": "Pseudo plateforme *"
+  },
+  "obPlatformHandlePlaceholder": {
+    "en": "PSN / Xbox / EA handle",
+    "fr": "Pseudo PSN / Xbox / EA"
+  },
+  "obEaId": {
+    "en": "EA ID",
+    "fr": "EA ID"
+  },
+  "obDiscord": {
+    "en": "Discord",
+    "fr": "Discord"
+  },
+  "obOptional": {
+    "en": "Optional",
+    "fr": "Optionnel"
+  },
+  "obNotes": {
+    "en": "Notes",
+    "fr": "Notes"
+  },
+  "obNotesPlaceholder": {
+    "en": "Anything admins should know?",
+    "fr": "Quelque chose à signaler aux admins ?"
+  },
+  "obProofLabel": {
+    "en": "Proof (screenshot or link)",
+    "fr": "Preuve (capture ou lien)"
+  },
+  "obProofPlaceholder": {
+    "en": "Paste a link, or drop / upload a screenshot",
+    "fr": "Colle un lien, ou dépose / importe une capture"
+  },
+  "obProofHint": {
+    "en": "Upload saves to Stage and stores the image URL on your claim for admins to review.",
+    "fr": "L'import enregistre sur Stage et stocke l'URL de l'image sur ta demande pour les admins."
+  },
+  "obSubmitting": {
+    "en": "Submitting…",
+    "fr": "Envoi…"
+  },
+  "obSubmitClaim": {
+    "en": "Submit Claim",
+    "fr": "Envoyer la demande"
+  },
+  "obSkipForNow": {
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  "obErrClaim": {
+    "en": "Could not submit identity claim.",
+    "fr": "Impossible d'envoyer la demande d'identité."
+  }
+}

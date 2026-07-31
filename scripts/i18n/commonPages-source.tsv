@@ -1,0 +1,1434 @@
+key	en	fr
+searchTitle	Search	Recherche
+searchSubtitle	Find players and clubs	Trouve des joueurs et des clubs
+searchPlaceholder	Search players or clubs...	Rechercher joueurs ou clubs...
+searchCta	Search	Rechercher
+searchEmptyPrompt	Search for players or clubs by name	Recherche des joueurs ou clubs par nom
+needClubToChallenge	You need to be in a club to challenge.	Tu dois être dans un club pour lancer un défi.
+needPlayerToChallenge	You need a player profile to challenge.	Tu dois avoir un profil joueur pour lancer un défi.
+challengeSentClub	Challenge sent to {name}! A live match room has been created.	Défi envoyé à {name} ! Une room de match live a été créée.
+challengeSentPlayer	Challenge sent to {name}! They'll see it in Live Matches.	Défi envoyé à {name} ! Il le verra dans Live Matches.
+inviteSent	Invite sent to {name}!	Invitation envoyée à {name} !
+playersTab	Players	Joueurs
+myClubsTab	My Clubs	Mes clubs
+eafcTab	EA FC	EA FC
+noClubsFound	No clubs found.	Aucun club trouvé.
+noEafcClubsFound	No EA FC clubs found.	Aucun club EA FC trouvé.
+matchesCount	{count} matches	{count} matchs
+winsLosses	{wins}W {losses}L	{wins}W {losses}L
+membersCount	{count} members	{count} membres
+divisionShort	Div {division}	Div {division}
+formRecord	W{wins} D{draws} L{losses}	W{wins} D{draws} L{losses}
+ovr	OVR	OVR
+invite	Invite	Inviter
+challenge	Challenge	Défier
+view	View	Voir
+followBackTitle	Follow Back	Follow Back
+followedClubsEmpty	You're not following any clubs yet.	Tu ne suis encore aucun club.
+followedPlayersEmpty	You're not following any players yet.	Tu ne suis encore aucun joueur.
+internationalTitle	International	International
+internationalSubtitle	Club owners vote for the national team owner, then the winner selects the squad.	Les propriétaires de club votent pour l'owner national, puis le gagnant sélectionne l'équipe.
+internationalLoading	Loading international tournaments...	Chargement des tournois internationaux...
+internationalLoadFailed	Could not load international tournaments.	Impossible de charger les tournois internationaux.
+voteFailed	Could not submit your vote.	Impossible d'envoyer ton vote.
+squadSaveFailed	Could not save the national squad.	Impossible d'enregistrer l'équipe nationale.
+noInternationalOpen	No international tournaments are open yet.	Aucun tournoi international n'est ouvert.
+noInternationalOpenDesc	An admin needs to create an international tournament and open voting before club owners can vote for the national team owner.	Un admin doit créer un tournoi international et ouvrir le vote avant que les owners puissent voter.
+global	Global	Global
+noElectionOpen	No election is open for your country yet.	Aucun vote n'est ouvert pour ton pays.
+ownersOnlyVote	Only club owners from this country can vote for the national team owner.	Seuls les owners de club de ce pays peuvent voter pour l'owner national.
+nationalOwnerVote	{country} National Team Owner Vote	Vote owner national {country}
+chooseTopOwners	Choose between the top 5 club owners from this country.	Choisis parmi les 5 meilleurs owners de club du pays.
+selectOwnerCandidate	Select owner candidate	Choisir un candidat
+submitting	Submitting...	Submitting...
+vote	Vote	Voter
+nationalSquad	National Squad	Équipe nationale
+squadSelectedRule	{selected}/{max} selected · matchday rule: 11 starters + 7 bench	{selected}/{max} sélectionnés · règle matchday: 11 titulaires + 7 banc
+pick	Pick	Choix
+position	Position	Poste
+saveSquad	Save Squad	Enregistrer l'équipe
+saving	Saving...	Enregistrement...
+freeAgentTitle	Free Agent Board	Tableau agents libres
+freeAgentSubtitle	Players looking for a club	Joueurs qui cherchent un club
+searchGamertag	Search gamertag...	Rechercher gamertag...
+noFreeAgentsFound	No free agents found.	Aucun agent libre trouvé.
+transferTitle	Transfers	Transferts
+transferSubtitle	Browse available players and send contract offers	Parcours les joueurs disponibles et envoie des offres de contrat
+playersFound	{count} player{plural} found	{count} joueur{plural} trouvé{plural}
+freeAgentsShort	{count} free agents	{count} agents libres
+freeShort	{count} free	{count} libres
+expiringShort	{count} expiring	{count} expirants
+playerDetails	Player Details	Détails joueur
+tryAdjustingFilters	Try adjusting your filters	Essaie de modifier les filtres
+sent	Sent	Envoyé
+offer	Offer	Offre
+expiring	Expiring	Expire bientôt
+selectPlayer	Select a player	Sélectionne un joueur
+selectPlayerDetails	Click any player to view their details	Clique sur un joueur pour voir ses détails
+platform	Platform	Plateforme
+marketValue	Market Value	Valeur marché
+currentClub	Current Club	Club actuel
+underContract	Under Contract	Sous contrat
+gamesLeft	Games left	Matchs restants
+status	Status	Statut
+freeAgentAvailable	Free Agent - Available Now	Agent libre - disponible maintenant
+bio	Bio	Bio
+country	Country	Pays
+goals	Goals	Buts
+assists	Assists	Passes
+matches	Matches	Matchs
+transferWindowClosed	Transfer window is closed. Offers sent now will execute when the window opens.	Le mercato est fermé. Les offres envoyées maintenant s'exécuteront à l'ouverture.
+sendContractOffer	Send Contract Offer	Envoyer une offre de contrat
+offerAlreadySent	Offer Already Sent	Offre déjà envoyée
+viewFullProfile	View Full Profile	Voir le profil complet
+walletTitle	STC Wallet	STC Wallet
+walletSubtitle	Your full transaction history and income sources	Ton historique complet de transactions et tes sources de revenus
+feedTitle	Feed	Feed
+feedSubtitle	Community highlights & updates	Temps forts et updates de la communauté
+post	Post	Publier
+createPost	Create Post	Créer un post
+shareWithCommunity	Share something with the community...	Partage quelque chose avec la communauté...
+photoVideo	Photo/Video	Photo/Vidéo
+posting	Posting...	Publication...
+share	Share	Partager
+noPostsYet	No posts yet	Aucun post
+firstToShare	Be the first to share something with the community!	Sois le premier à partager quelque chose avec la communauté !
+delete	Delete	Supprimer
+addComment	Add a comment...	Ajouter un commentaire...
+pressConference	Press Conference	Conférence de presse
+newsTitle	News	News
+newsSubtitle	Transfers · Contracts · Club & Player news · Press Room	Transferts · Contrats · News club & joueur · Press Room
+nothingHere	Nothing here yet	Rien ici pour le moment
+newsEmptyDesc	News will appear as transfers, contracts, matches and tournaments happen.	Les news apparaîtront avec les transferts, contrats, matchs et tournois.
+all	All	Tout
+transfers	Transfers	Transferts
+contracts	Contracts	Contrats
+clubNews	Club News	News club
+playerNews	Player News	News joueur
+market	Market	Marché
+tournaments	Tournaments	Tournois
+pressRoom	Press Room	Press Room
+general	General	Général
+achievement	Achievement	Achievement
+appUpdate	App Update	Update app
+rankings	Rankings	Classements
+announcement	Announcement	Annonce
+featured	Featured	À la une
+recruitmentTitle	Recruitment	Recrutement
+recruitmentSubtitle	Find players, clubs, and trials. Official signings still go through contracts.	Trouve joueurs, clubs et essais. Les signatures officielles passent toujours par les contrats.
+playerPost	Player Post	Post joueur
+clubPost	Club Post	Post club
+playersLooking	Players Looking	Joueurs en recherche
+lookingForClub	Looking for Club	Cherche un club
+clubsRecruiting	Clubs Recruiting	Clubs qui recrutent
+clubRecruiting	Club Recruiting	Club recrute
+trials	Trials	Essais
+trialRequest	Trial Request	Demande d'essai
+interestSent	Interest sent.	Intérêt envoyé.
+contractOfferSent	Contract offer sent.	Offre de contrat envoyée.
+searchPosts	Search posts...	Rechercher posts...
+allPositions	All positions	Tous les postes
+allPlatforms	All platforms	Toutes les plateformes
+allRegions	All regions	Toutes les régions
+verifiedOnly	Verified only	Vérifiés seulement
+noOpenPostsFound	No open posts found	Aucun post ouvert trouvé
+changeFiltersRecruitment	Change filters or create the first recruitment post.	Change les filtres ou crée le premier post de recrutement.
+createRecruitmentPost	Create Recruitment Post	Créer un post de recrutement
+playerLooking	Player looking	Joueur en recherche
+title	Title	Titre
+describeLooking	Describe what you are looking for...	Décris ce que tu recherches...
+positionsNeeded	Positions needed	Postes nécessaires
+preferredPositions	Preferred positions	Postes préférés
+availabilityExample	Availability, e.g. Tonight 21:00 CET	Disponibilité, ex. ce soir 21:00 CET
+discordOptional	Discord handle optional	Pseudo Discord optionnel
+micRequired	Mic required	Micro requis
+postButton	Post	Publier
+showInterest	Show Interest	Montrer l'intérêt
+writeShortMessage	Write a short message...	Écris un court message...
+sendInterest	Send Interest	Envoyer l'intérêt
+anyPlatform	Any platform	Toute plateforme
+availabilityOpen	Availability open	Disponibilité ouverte
+micOptional	Mic optional	Micro optionnel
+verifiedPreferred	Verified players preferred. Unverified players may need identity review before acceptance.	Joueurs vérifiés préférés. Les joueurs non vérifiés peuvent nécessiter une vérification d'identité.
+viewClub	View Club	Voir club
+viewProfile	View Profile	Voir profil
+offerContract	Offer Contract	Offrir contrat
+close	Close	Fermer
+reopen	Reopen	Réouvrir
+cancel	Cancel	Annuler
+loading	Loading...	Chargement...
+getStarted	Get Started	Commencer
+complete	Complete	Compléter
+learnMore	Learn more	En savoir plus
+notifTitle	Notifications	Notifications
+notifMarkAllRead	Mark all read	Tout marquer comme lu
+notifDeleteAll	Delete all	Tout supprimer
+notifDeleteAllConfirmTitle	Delete all notifications?	Supprimer toutes les notifications ?
+notifDeleteAllConfirmDesc	This will permanently delete all {count} notifications. This cannot be undone.	Cela supprimera définitivement les {count} notifications. Action irréversible.
+notifEmpty	No notifications yet	Aucune notification
+notifMarkAsRead	Mark as read	Marquer comme lu
+homeMobileWelcomeBack	Welcome back	Bon retour
+homeMobileWelcome	Welcome	Bienvenue
+homeMobileNextMatch	Next up	Prochain match
+homeMobileOpenGameDay	Open Game Day	Ouvrir Match Day
+homeMobileNoMatchHint	No match scheduled yet — open Game Day to schedule or play.	Aucun match programmé — ouvre Match Day pour planifier ou jouer.
+homeMobileDiscover	Discover	Découvrir
+homeMobileSeeSchedule	Full schedule	Calendrier complet
+dashboardGuest	Player	Joueur
+dashboardVerified	Verified	Vérifié
+dashboardViewRankings	Rankings	Classements
+dashboardViewProfile	My profile	Mon profil
+dashboardSetupTitle	Complete your player profile	Complète ton profil joueur
+dashboardSetupDesc	Create your gamertag and position to unlock rankings, matches and club play.	Crée ton gamertag et ton poste pour débloquer classements, matchs et club.
+dashboardSetupCta	Set up profile	Configurer le profil
+dashboardGlobalRank	Global rank	Rang global
+dashboardRecord	Record	Bilan
+dashboardWinRate	WR	Victoires
+dashboardMatchesPlayed	Matches	Matchs
+dashboardGoals	goals	buts
+dashboardAvgRating	Avg rating	Note moy.
+dashboardRankedOnly	Ranked matches	Matchs classés
+dashboardNextMatch	Next opponent	Prochain adversaire
+dashboardNoNextMatch	No fixture yet	Aucun match
+dashboardNoNextMatchHint	Open Game Day to schedule or join a match.	Ouvre Match Day pour planifier ou rejoindre un match.
+dashboardOpenGameDay	Open Game Day	Ouvrir Match Day
+dashboardSeeSchedule	Schedule	Calendrier
+dashboardMyClub	My club	Mon club
+dashboardNoClub	You are not in a club yet.	Tu n'es dans aucun club.
+dashboardFindClub	Browse clubs	Parcourir les clubs
+dashboardUpcoming	Coming up	À suivre
+dashboardActiveTournaments	My tournaments	Mes tournois
+dashboardLeagueStandings	League position	Position en ligue
+dashboardNoCompetitions	Not registered in any active tournament.	Inscrit à aucun tournoi actif.
+dashboardNoLeague	No active league standing for your club.	Aucun classement de ligue actif pour ton club.
+dashboardPosition	Position	Position
+dashboardPlayed	played	joués
+dashboardWelcomeHint	News, competitions and platform info live on the welcome page.	News, compétitions et infos plateforme sont sur la page d'accueil.
+dashboardGoWelcome	Welcome page	Page d'accueil
+dashboardActivity	Activity	Activité
+dashboardRatingTrend	Rating — last matches	Note — derniers matchs
+dashboardWeeklyMatches	Matches per week	Matchs par semaine
+dashboardActivityEmpty	No recorded match stats yet. Play ranked or club matches to build your chart.	Aucune stat enregistrée. Joue des matchs classés ou club pour alimenter le graphique.
+dashboardClubStats	Club stats	Stats club
+dashboardObjectives	Objectives	Objectifs
+dashboardObjectivesDesc	Daily and weekly challenges. Claim STC when complete.	Défis daily et weekly. Réclame tes STC une fois complétés.
+dashboardObjectivesLoading	Loading objectives…	Chargement des objectifs…
+dashboardObjectivesEmpty	No active objectives right now.	Aucun objectif actif pour le moment.
+dashboardObjectivesError	Could not load objectives.	Impossible de charger les objectifs.
+dashboardObjectivesClaimError	Could not claim reward.	Impossible de réclamer la récompense.
+dashboardObjectivesReward	Reward	Récompense
+dashboardObjectivesClaimed	Claimed	Réclamé
+dashboardObjectivesClaim	Claim	Réclamer
+dashboardObjectivesClaiming	Claiming…	Réclamation…
+dashboardObjectivesInProgress	In progress	En cours
+dashboardMatchesThisMonth	This month	Ce mois
+dashboardThisWeek	this week	cette semaine
+dashboardMemberSince	On STAGE	Sur STAGE
+dashboardAtClub	at club	au club
+dashboardTrackedMatches	tracked matches	matchs suivis
+dashboardContract	Contract	Contrat
+dashboardGamesLeft	games left	matchs restants
+dashboardNoContract	No active contract	Aucun contrat actif
+dashboardContractGames	Contract games	Matchs contrat
+dashboardActivityLevel	Activity	Activité
+dashboardActivityHigh	High	Élevée
+dashboardActivityMedium	Steady	Régulière
+dashboardActivityLow	Quiet	Calme
+dashboardLast30Days	in last 30 days	sur 30 jours
+dashboardEafcTitle	EA Pro Clubs	EA Pro Clubs
+dashboardEafcDesc	Link your real Pro Clubs team to show live EA stats on your dashboard.	Lie ton vrai club Pro Clubs pour afficher tes stats EA sur le dashboard.
+dashboardEafcClub	Pro Club	Club Pro
+dashboardEafcView	Full view	Vue complète
+dashboardEafcUnlink	Unlink club	Dissocier le club
+dashboardEafcSearchPlaceholder	Search Pro Clubs name…	Rechercher un club Pro Clubs…
+dashboardEafcNoResults	No clubs found on EA.	Aucun club trouvé sur EA.
+dashboardEafcSearchError	EA search failed.	Recherche EA échouée.
+dashboardEafcLinkError	Could not save club link.	Impossible d'enregistrer le lien club.
+dashboardEafcMembers	members	membres
+dashboardEafcStatsUnavailable	Linked — EA stats temporarily unavailable.	Lié — stats EA temporairement indisponibles.
+dashboardFutTitle	Ultimate Team	Ultimate Team
+dashboardFutDesc	Log your FUT matches to track form outside STAGE competitions.	Enregistre tes matchs FUT pour suivre ta forme hors compétitions STAGE.
+dashboardFutLogMatch	Log match	Ajouter un match
+dashboardFutWins	Wins	Victoires
+dashboardFutDraws	Draws	Nuls
+dashboardFutLosses	Losses	Défaites
+dashboardFutPlayedAt	Played at	Joué le
+dashboardFutResult	Result	Résultat
+dashboardFutWin	Win	Victoire
+dashboardFutDraw	Draw	Nul
+dashboardFutLoss	Loss	Défaite
+dashboardFutMode	Mode	Mode
+dashboardFutRivals	Rivals	Rivals
+dashboardFutChampions	Champions	Champions
+dashboardFutFriendly	Friendly	Amical
+dashboardFutSquadBattles	Squad Battles	Batailles d'équipes
+dashboardFutGoalsFor	Goals for	Buts pour
+dashboardFutGoalsAgainst	Goals against	Buts contre
+dashboardFutOpponent	Opponent note	Note adversaire
+dashboardFutOpponentPlaceholder	Team name or note (optional)	Nom d'équipe ou note (optionnel)
+dashboardFutSave	Save match	Enregistrer
+dashboardFutSaveError	Could not save match.	Impossible d'enregistrer le match.
+dashboardFutDeleteError	Could not delete match.	Impossible de supprimer le match.
+dashboardFutEmpty	No FUT matches logged yet.	Aucun match FUT enregistré.
+dashboardGlanceStc	STC balance	Solde STC
+dashboardGlanceCredits	Credits	Crédits
+dashboardGlanceInbox	Unread inbox	Messages non lus
+dashboardGlanceAlerts	Unread alerts	Alertes non lues
+dashboardRecentForm	Recent form	Forme récente
+dashboardStageForm	STAGE results	Résultats STAGE
+dashboardStageFormEmpty	No completed STAGE matches yet.	Aucun match STAGE terminé.
+dashboardRatingForm	Match ratings	Notes de match
+dashboardRatingFormEmpty	No recorded ratings yet.	Aucune note enregistrée.
+dashboardFutForm	FUT results	Résultats FUT
+dashboardFutFormEmpty	Log FUT matches to build form.	Enregistre des matchs FUT pour voir ta forme.
+dashboardFutActivity	FUT activity	Activité FUT
+dashboardFutChartEmpty	Log FUT matches to see weekly trends.	Enregistre des matchs FUT pour voir les tendances.
+dashboardEafcYou	You in club	Toi au club
+dashboardEafcGames	games	matchs
+dashboardLayoutEdit	Customize layout	Personnaliser
+dashboardLayoutDone	Done	Terminer
+dashboardLayoutHint	Drag widgets to reorder. Remove with ×, add hidden blocks below.	Glisse les blocs pour les réordonner. Retire avec ×, rajoute ceux masqués ci-dessous.
+dashboardLayoutReset	Reset layout	Réinitialiser
+dashboardLayoutAllVisible	All widgets visible	Tous les blocs visibles
+dashboardWidgetGlance	Wallet & inbox	Portefeuille & inbox
+dashboardWidgetStats	Key stats	Stats clés
+dashboardWidgetForm	Recent form	Forme récente
+dashboardWidgetNextMatch	Next match & club	Prochain match & club
+dashboardWidgetUpcoming	Upcoming fixtures	Matchs à venir
+dashboardWidgetActivity	Activity & objectives	Activité & objectifs
+dashboardWidgetCompetitions	Tournaments & league	Tournois & ligue
+dashboardWidgetFutEafc	FUT chart & EA club	Graph FUT & club EA
+dashboardWidgetFutLog	FUT match log	Journal FUT
+homeCompetitions	Competitions	Compétitions
+homeTournaments	Tournaments	Tournois
+homeLeagues	Leagues	Ligues
+homeTier	Tier {tier}	Palier {tier}
+homeViewBracket	View bracket	Voir le tableau
+homePlayers	{count}/{max} players	{count}/{max} joueurs
+homeFull	Full	Complet
+homeViewDetails	View details	Voir les détails
+homeNoTournaments	No tournaments yet.	Aucun tournoi pour le moment.
+homeNoLeagues	No leagues yet.	Aucune ligue pour le moment.
+homePlatform	Platform	Plateforme
+homeViewAll	View all	Voir tout
+homeLatest	Latest	Dernières
+homeAllNews	All news	Toutes les news
+homeUpcoming	Upcoming	À venir
+homeSchedule	Schedule	Calendrier
+homeScheduleDesc	Track every fixture across all competitions. Game Day is where it all happens.	Suis chaque match de toutes les compétitions. Le Match Day, c'est là que tout se joue.
+homeGameDay	Game Day	Match Day
+homeNoMatches	No upcoming matches scheduled.	Aucun match programmé.
+homeMessages	Messages	Messages
+homeOpen	Open	Ouvrir
+homeSignInMessages	Sign in to view your messages.	Connecte-toi pour voir tes messages.
+homeInboxEmpty	Your inbox is empty.	Ta boîte de réception est vide.
+homeStageSystem	STAGE System	Système STAGE
+homeUnknown	Unknown	Inconnu
+homeJumpIn	Jump In	Se lancer
+homeJumpInDesc	Everything you need, one tap away.	Tout ce qu'il te faut, à portée de clic.
+homeNavCompetitions	Competitions	Compétitions
+homeNavCompetitionsDesc	Leagues & knockout cups	Ligues et coupes à élimination
+homeNavGameDay	Game Day	Match Day
+homeNavGameDayDesc	Schedule & play matches	Planifie et joue tes matchs
+homeNavClubs	Clubs	Clubs
+homeNavClubsDesc	Browse & manage clubs	Parcours et gère les clubs
+homeNavStore	Store	Boutique
+homeNavStoreDesc	Spend your STC coins	Dépense tes STC
+homeFooterRankings	Rankings	Classements
+homeQuestions	Questions	Questions
+homeFaq	FAQ	FAQ
+homeFaqDesc	Common questions about the platform.	Questions fréquentes sur la plateforme.
+homeContact	Contact	Contact
+homeRights	All rights reserved.	Tous droits réservés.
+profEditProfile	Edit Profile	Modifier le profil
+profWelcome	Welcome to STAGE!	Bienvenue sur STAGE !
+profWelcomeDesc	Create your player profile to get started.	Crée ton profil joueur pour commencer.
+profCreateProfile	Create Profile	Créer le profil
+profNotPlayer	You're not a player yet	Tu n'es pas encore joueur
+profNotPlayerDesc	Finish your player profile (gamertag, position, platform) to appear in clubs, matches and rankings.	Termine ton profil joueur (gamertag, poste, plateforme) pour apparaître dans les clubs, matchs et classements.
+profNotClub	You're not in a club yet	Tu n'es dans aucun club
+profNotClubDesc	Create your own club or join an existing one to compete in tournaments and leagues.	Crée ton propre club ou rejoins-en un pour participer aux tournois et ligues.
+profWins	Wins	Victoires
+profLosses	Losses	Défaites
+profAvgRating	Avg Rating	Note moy.
+profMotm	MOTM	Homme du match
+profCleanSheets	Clean Sheets	Clean sheets
+profTrophies	Trophies	Trophées
+profNoPvp	No PvP matches recorded yet.	Aucun match PvP enregistré.
+profIdentityVerified	Identity verified	Identité vérifiée
+profIdentityVerifiedDesc	This profile has been reviewed by STAGE staff and linked to {handle}.	Ce profil a été vérifié par le staff STAGE et lié à {handle}.
+profAPlatformIdentity	a platform identity	une identité de plateforme
+profIdentityReview	Identity claim under review	Demande d'identité en cours d'examen
+profClaimIdentity	Claim your player identity	Revendique ton identité de joueur
+profClaimIdentityDesc	Link your STAGE profile to your console or EA identity so clubs know this is really you.	Lie ton profil STAGE à ton identité console ou EA pour que les clubs sachent que c'est bien toi.
+profHandlePlaceholder	PSN / Xbox / EA handle	Pseudo PSN / Xbox / EA
+profEaIdPlaceholder	EA ID (optional)	EA ID (optionnel)
+profDiscordPlaceholder	Discord handle (optional)	Pseudo Discord (optionnel)
+profProofPlaceholder	Proof link: screenshot, clip, or profile URL (optional)	Lien de preuve : capture, clip ou URL de profil (optionnel)
+profNotesPlaceholder	Anything admins should know?	Quelque chose à signaler aux admins ?
+profSubmitClaim	Submit Claim	Envoyer la demande
+gamerTabCareer	Career	Carrière
+gamerAttributes	Player Attributes	Attributs joueur
+profTab_posts	Posts	Posts
+profTab_stats	Stats	Stats
+profTab_matches	Matches	Matchs
+profTab_trophies	Trophies	Trophées
+profPhotoBanner	Profile Photo & Banner	Photo de profil & bannière
+profUploadPhoto	Upload photo	Importer une photo
+profRepositionPhoto	Reposition Photo	Repositionner la photo
+profChangeBanner	Change Banner	Changer la bannière
+profPlayerInfo	Player Info	Infos joueur
+profGamertag	Gamertag	Gamertag
+profGamertagPlaceholder	Your gamertag	Ton gamertag
+profMainPosition	Main Position	Poste principal
+profSecondPosition	Second Position	Poste secondaire
+profNone	None	Aucun
+profSelectCountry	Select your country	Sélectionne ton pays
+profCountryRequired	Please select your country	Sélectionne ton pays
+profOverallRating	Overall Rating	Note globale
+profShirtNumber	Shirt Number	Numéro de maillot
+profAccountEmail	Account Email	E-mail du compte
+profBioPlaceholder	Tell the community about yourself...	Parle de toi à la communauté...
+profSaving	Saving...	Enregistrement...
+profSaveChanges	Save Changes	Enregistrer
+profViewClubPage	View Club Page	Voir la page du club
+profEditClub	Edit Club	Modifier le club
+profLeaveClub	Leave Club	Quitter le club
+profCreateOrJoin	Create or Join a Club	Créer ou rejoindre un club
+profClubName	Club Name	Nom du club
+profTag	Tag (max 5 chars)	Tag (max 5 car.)
+profRegion	Region	Région
+profSelectCountryShort	Select country	Sélectionne un pays
+profClubDesc	Club Bio / Description	Bio / description du club
+profClubDescPlaceholder	Describe your club...	Décris ton club...
+profSaveClub	Save Club	Enregistrer le club
+profJoinRequests	Join Requests	Demandes d'adhésion
+profApprovalsNote	Approvals now happen through contract offers in Club Operations.	Les approbations passent désormais par les offres de contrat dans Club Operations.
+profOperations	Operations	Operations
+profDecline	Decline	Refuser
+storeSubtitle	Customize your profile and club with exclusive items	Personnalise ton profil et ton club avec des objets exclusifs
+storePlayer	Player	Joueur
+storeCreditsWord	credits	crédits
+storeClubCredits	club credits	crédits club
+storeStageCredits	STAGE Credits	Crédits STAGE
+storeCurrentPlan	Current Plan	Offre actuelle
+storeTabCredits	Credits	Crédits
+storeTabSubscriptions	Subscriptions	Abonnements
+storePlusHeadline	STAGE Plus unlocks the full competition loop	STAGE Plus débloque tout le circuit compétitif
+storePlusDesc	Free accounts start with {credits} credits. After that, Plus unlocks tournament creation, official competition access, ranked play, and a monthly credit refresh.	Les comptes gratuits démarrent avec {credits} crédits. Ensuite, Plus débloque la création de tournois, l'accès aux compétitions officielles, le mode classé et une recharge mensuelle de crédits.
+storeCreditsAmount	{amount} credits	{amount} crédits
+storeTournamentsAmount	{amount} tournaments	{amount} tournois
+storeMonthlyRefresh	Monthly allowance refresh, not stacked	Recharge mensuelle, non cumulable
+storeEntryCost	Standard tournament entry cost	Coût d'inscription standard à un tournoi
+storeActiveSlots	Active community tournament slots	Places de tournois communautaires actifs
+storeViewPlus	View STAGE Plus	Voir STAGE Plus
+storeMonthly	Monthly	Mensuel
+storeYearly	Yearly	Annuel
+storeSave25	Save 25%	-25 %
+storeExpires	Expires:	Expire le :
+storeFreeAccount	Free Account	Compte gratuit
+storeStartWith	Start with {credits} credits	Démarre avec {credits} crédits
+storeFreeDesc	Enough for one tournament entry. Credit packs stay available for extra entries or club spending without changing your subscription.	Suffisant pour une inscription à un tournoi. Les packs de crédits restent disponibles pour d'autres inscriptions ou dépenses de club sans changer ton abonnement.
+storeStarterCredits	Starter credits	Crédits de départ
+storeTournamentEntry	Tournament entry	Inscription tournoi
+storeBuyCreditsSeparately	Buy Credits Separately	Acheter des crédits séparément
+storeBuy	Buy	Acheter
+storeYear	year	an
+storeMonth	month	mois
+storeMonthlyCredits	Monthly credits	Crédits mensuels
+storeEntryCostShort	Entry cost	Coût d'entrée
+storeActiveEvents	Active events	Événements actifs
+storeAvailableAfter	Available after {date}	Disponible après le {date}
+storeSubscribe	Subscribe	S'abonner
+storeYrShort	yr	an
+storeMoShort	mo	mois
+communitySubtitle	Stage League on Discord — free for every player and club	Stage League sur Discord — gratuit pour chaque joueur et club
+discNotConfigured	Discord link is not set up yet. Ask an admin to add invite settings.	Le lien Discord n'est pas encore configuré. Demande à un admin d'ajouter les paramètres d'invitation.
+discJoinTitle	Join our Discord	Rejoins notre Discord
+discBannerDesc	Free to join — meet players, get match updates, and find your next club.	Gratuit — rencontre des joueurs, reçois les infos de match et trouve ton prochain club.
+discJoinDiscord	Join Discord	Rejoindre Discord
+discNotNow	Not now	Plus tard
+discServerName	Stage League Discord	Discord Stage League
+discCompactJoined	You're set — hop in anytime from Community.	C'est bon — rejoins quand tu veux depuis Community.
+discCompactCta	Join competitors on Discord.	Rejoins les compétiteurs sur Discord.
+discJoinServer	Join server	Rejoindre le serveur
+discOpenCommunity	Open Community	Ouvrir Community
+discOnboardTitle	Join the community	Rejoins la communauté
+discOnboardDesc	Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.	Presque fini ! Discord, c'est là que les joueurs trouvent des clubs et suivent l'actu de la ligue. Rejoins maintenant ou plus tard depuis Community dans le menu.
+discServerPreview	Server preview	Aperçu du serveur
+discContinue	Continue to STAGE →	Continuer vers STAGE →
+discAlreadyJoined	I already joined	J'ai déjà rejoint
+discSkipForNow	Skip for now	Passer pour l'instant
+discOfficialServer	Official server	Serveur officiel
+discFullTitle	Your home off the pitch	Ta maison en dehors du terrain
+discFullDesc	Discord is free and takes under a minute. Join to chat with clubs, get match updates, and stay connected — whether you signed up today or joined months ago.	Discord est gratuit et prend moins d'une minute. Rejoins pour discuter avec les clubs, recevoir les infos de match et rester connecté — que tu viennes de t'inscrire ou que tu sois là depuis des mois.
+discStep1	Click Join Discord — opens in a new tab	Clique sur Rejoindre Discord — s'ouvre dans un nouvel onglet
+discStep2	Create a Discord account or sign in (free)	Crée un compte Discord ou connecte-toi (gratuit)
+discStep3	Accept the invite and pick your channels	Accepte l'invitation et choisis tes salons
+discOpenAgain	Open Discord again	Rouvrir Discord
+discJoinFree	Join Discord — it's free	Rejoindre Discord — c'est gratuit
+discAlreadyInServer	I'm already in the server	Je suis déjà sur le serveur
+discLivePreview	Live preview	Aperçu en direct
+discBenefit1	Find clubs, players, and scrims fast	Trouve clubs, joueurs et scrims rapidement
+discBenefit2	League announcements and match reminders	Annonces de la ligue et rappels de match
+discBenefit3	Talk tactics, transfers, and highlights	Parle tactique, transferts et highlights
+discBenefit4	Get help from staff and the community	Obtiens de l'aide du staff et de la communauté
+landHeroYour	Your	Ta
+landHeroStage	Stage	Scène
+landHeroAwaits	Awaits	T'attend
+landGetStarted	Get Started — It's Free	Commencer — c'est gratuit
+landScroll	Scroll	Défiler
+landEverything	Everything you need	Tout ce qu'il te faut
+landOnePlatform	One Platform.	Une plateforme.
+landEveryFeature	Every Feature.	Toutes les fonctions.
+landGetStartedMinutes	Get started in minutes	Commence en quelques minutes
+landHowItWorks	How It Works	Comment ça marche
+landJoinCommunity	Join the community	Rejoins la communauté
+landReadyTo	Ready to	Prêt à
+landCompete	Compete?	Concourir ?
+landCtaDesc	Thousands of players and clubs are already active. Sign up free and find your competition.	Des milliers de joueurs et de clubs sont déjà actifs. Inscris-toi gratuitement et trouve ta compétition.
+landStartPlaying	Start Playing Now	Commencer à jouer
+landSignInArrow	Sign In →	Se connecter →
+landFeat1Title	Competitions & Leagues	Compétitions & ligues
+landFeat1Desc	Enter structured regional leagues and knockout competitions. Every season has standings, match days, and a champion crowned at the final whistle.	Participe à des ligues régionales structurées et à des compétitions à élimination. Chaque saison a son classement, ses journées de match et un champion sacré au coup de sifflet final.
+landFeat2Title	Club Management	Gestion de club
+landFeat2Desc	Found your club, set your formation, manage your wage budget, upgrade your stadium, and build a legacy across multiple seasons.	Fonde ton club, choisis ta formation, gère ton budget salarial, améliore ton stade et bâtis une légende au fil des saisons.
+landFeat3Title	Game Day	Match Day
+landFeat3Desc	Schedule matches, submit scores, and track every result in real time. Your club's form, streaks, and standings update instantly.	Planifie les matchs, soumets les scores et suis chaque résultat en temps réel. La forme, les séries et le classement de ton club se mettent à jour instantanément.
+landFeat4Title	Player Contracts	Contrats joueurs
+landFeat4Desc	Sign to a club on a formal contract with wages, bonuses, and release clauses — just like the real game.	Signe dans un club via un vrai contrat avec salaire, primes et clauses libératoires — comme dans le jeu.
+landFeat5Title	Transfer Market	Marché des transferts
+landFeat5Desc	Buy and sell players during transfer windows. Negotiate fees, wages, and bonuses with clubs across the platform.	Achète et vends des joueurs pendant les mercatos. Négocie indemnités, salaires et primes avec les clubs de la plateforme.
+landFeat6Title	Rankings & Live Stats	Classements & stats en direct
+landFeat6Desc	Goals, assists, ratings, clean sheets — every stat tracked. See where you rank against every player on the platform.	Buts, passes, notes, clean sheets — chaque stat est suivie. Vois où tu te situes face à tous les joueurs de la plateforme.
+landStep1Title	Create Your Profile	Crée ton profil
+landStep1Desc	Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.	Inscris-toi, choisis ton poste et ta plateforme, importe ta photo et construis ton identité de joueur en quelques minutes.
+landStep2Title	Join or Found a Club	Rejoins ou fonde un club
+landStep2Desc	Browse existing clubs and request to join, or create your own — set the name, badge, region, and start recruiting.	Parcours les clubs existants et demande à les rejoindre, ou crée le tien — choisis le nom, le blason, la région et commence à recruter.
+landStep3Title	Register & Compete	Inscris-toi & concours
+landStep3Desc	Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.	Entre dans une ligue ou une compétition régionale, planifie tes matchs le Match Day et vise le titre chaque saison.
+clubsCount	{count} clubs registered	{count} clubs inscrits
+clubsSearchPlaceholder	Search clubs…	Rechercher des clubs…
+clubsColLogo	Logo	Logo
+cdChat	Chat	Chat
+cdHistory	History	Historique
+cdStadium	Stadium	Stade
+cdFinance	Finance	Finances
+cdShirts	Shirts	Maillots
+cdClubOffice	Club Office	Bureau du club
+cdClubNotFound	Club not found.	Club introuvable.
+cdDeleteClub	Delete Club	Supprimer le club
+cdDeleteConfirm	Are you sure you want to delete {name}? This cannot be undone.	Es-tu sûr de vouloir supprimer {name} ? Action irréversible.
+cdDeleting	Deleting...	Suppression...
+cdAdminTakeover	Admin Takeover	Contrôle admin
+cdExit	Exit	Quitter
+cdUnfollow	Unfollow	Ne plus suivre
+cdFollow	Follow	Suivre
+cdFollowersLower	followers	abonnés
+cdTrialSent	Trial Request Sent	Demande d'essai envoyée
+cdRequestTrial	Request Trial	Demander un essai
+cdRequestTrialAt	Request Trial at {name}	Demander un essai à {name}
+cdTrialIntro	Send a trial request to {name}. The club owner will receive your request in their inbox and can respond with a trial contract (5 games / 14 days).	Envoie une demande d'essai à {name}. Le propriétaire du club la recevra dans sa boîte de réception et pourra répondre par un contrat d'essai (5 matchs / 14 jours).
+cdPlayerName	Player Name (GamerTag)	Nom du joueur (GamerTag)
+cdSelectPosition	Select position	Choisir un poste
+cdWhichConsole	Which Console	Quelle console
+cdSelectConsole	Select console	Choisir une console
+cdExperience	Experience	Expérience
+cdExperiencePlaceholder	Share your level, past clubs, strengths, and availability...	Partage ton niveau, tes anciens clubs, tes points forts et tes disponibilités...
+cdAdditionalMessage	Additional Message	Message additionnel
+cdAdditionalPlaceholder	Optional custom note for this club...	Note personnalisée pour ce club (optionnel)...
+cdShowRequestMessage	Show Request Message	Afficher le message de demande
+cdRequestPreview	Request Preview	Aperçu de la demande
+cdSending	Sending...	Envoi...
+cdSendTrialRequest	Send Trial Request	Envoyer la demande d'essai
+cdDraws	Draws	Nuls
+cdWinRate	Win Rate	Taux de victoire
+cdGoalsScored	Goals Scored	Buts marqués
+cdGoalsConceded	Goals Conceded	Buts encaissés
+cdPastMatches	Past Matches	Matchs passés
+cdNoMatches	No matches recorded yet.	Aucun match enregistré.
+cdClubChat	Club Chat	Chat du club
+cdUnmute	Unmute chat notifications	Réactiver les notifications du chat
+cdMute	Mute chat notifications	Couper les notifications du chat
+cdNoMessages	No messages yet. Start the conversation.	Aucun message. Lance la conversation.
+cdChatPlaceholder	Write a message to your club...	Écris un message à ton club...
+cdSend	Send	Envoyer
+cdNoPlayers	No players registered yet.	Aucun joueur inscrit.
+cdLoadingHistory	Loading history…	Chargement de l'historique…
+cdNoHistory	No season history yet.	Aucun historique de saison.
+cdCompetition	Competition	Compétition
+cdSeason	Season	Saison
+cdPos	Pos	Pos
+cdApprovalsNote	Approvals now go through contracts. Use Operations to offer a trial or full contract.	Les approbations passent désormais par les contrats. Utilise Operations pour proposer un essai ou un contrat complet.
+cdOpenOperations	Open Operations	Ouvrir Operations
+cdFollowers	Followers	Abonnés
+cdNoFollowers	No followers yet.	Aucun abonné.
+cdLogoTitle	{name} Logo	Logo de {name}
+cdTagMax5	Tag (max 5)	Tag (max 5)
+cdRankedMatch	Ranked Match	Match classé
+cdTournament	Tournament	Tournoi
+cdKnockout	Knockout	Élimination
+cdGroupStage	Group Stage	Phase de groupes
+cdSwiss	Swiss	Suisse
+cdDoubleElim	Double Elim.	Double élim.
+cdPresident	President	Président
+cdCaptain	Captain	Capitaine
+cdMember	Member	Membre
+cdMakeCaptain	Make Captain	Nommer capitaine
+cdViceCaptain	Vice-Captain	Vice-capitaine
+cdMakeViceCaptain	Make Vice-Captain	Nommer vice-capitaine
+cdSearchPlaceholder	Search...	Rechercher...
+cdNoResults	No results found.	Aucun résultat.
+ppNotFound	Player not found.	Joueur introuvable.
+ppBackToSearch	Back to Search	Retour à la recherche
+ppTransferFee	Transfer Fee	Indemnité de transfert
+ppVerified	Verified	Vérifié
+ppFollowingLower	following	abonnements
+ppTab_posts	Posts	Posts
+ppTab_stats	Stats	Stats
+ppTab_career	Career	Carrière
+ppTab_matches	Matches	Matchs
+ppTab_trophies	Trophies	Trophées
+ppTab_lifestyle	Lifestyle	Lifestyle
+ppRecentForm	Recent Form (last {count})	Forme récente ({count} derniers)
+ppPvpRecord	PvP Record	Bilan PvP
+ppPvpHistory	PvP Match History	Historique des matchs PvP
+ppRound	Round {round}	Journée {round}
+ppFollowingTitle	Following	Abonnements
+ppNotFollowing	Not following anyone yet.	Aucun abonnement pour le moment.
+ppExternalStats	EA FC & Ultimate Team	EA FC & Ultimate Team
+trnTournamentFor	Tournament For	Tournoi pour
+trnClubsCompete	Clubs register & compete	Les clubs s'inscrivent et jouent
+trnPlayersRegister	Individual players register	Les joueurs s'inscrivent individuellement
+trnNamePlaceholder	Tournament name	Nom du tournoi
+trnDescription	Description	Description
+trnOptional	optional	optionnel
+trnDescPlaceholder	What makes this special...	Ce qui rend ce tournoi spécial...
+trnFormat	Format	Format
+trnSwissUcl	Swiss UCL	Suisse UCL
+trnMaxTeams	Max Teams	Équipes max
+trnNTeams	{count} teams	{count} équipes
+trnCrossPlatform	Cross-Platform	Cross-plateforme
+trnStartDate	Start Date	Date de début
+trnEntryFee	Entry Fee	Frais d'inscription
+trnStcPerEntry	STC per entry	STC par inscription
+trnStcEntry	STC / entry	STC / inscription
+trnCreateCost	Create cost	Coût de création
+trnEntryCost	Entry cost	Coût d'inscription
+trnWinner	Winner 70%	Vainqueur 70 %
+trnRunnerUp	Runner-up 20%	Finaliste 20 %
+trnThirdPlace	Third place 10%	3e place 10 %
+trnPrizePool	Prize pool	Cagnotte
+trnCustomRules	Custom Rules	Règles personnalisées
+trnRulesPlaceholder	Specific rules for this tournament...	Règles spécifiques à ce tournoi...
+trnRulesAttached	✓ Rules file attached	✓ Fichier de règles joint
+trnTrophy	Trophy	Trophée
+trnTrophyHint	optional — awarded to winner	optionnel — décerné au vainqueur
+trnBanner	Banner	Bannière
+trnDoubleElimination	Double Elimination	Double élimination
+tdGroupDraw	Group Draw	Tirage des groupes
+tdGroupDrawDesc	Top teams advance into the knockout bracket.	Les meilleures équipes accèdent au tableau à élimination.
+tdResolve	Resolve	Résoudre
+tdDressingRoom	Dressing Room	Vestiaire
+tdStream	Stream	Stream
+tdNoTeams	No teams registered yet.	Aucune équipe inscrite.
+tdNoDisputes	No disputed matches. All clear!	Aucun match contesté. Tout est bon !
+tdSetFinalScore	Set Final Score	Définir le score final
+tdAdminNotes	Admin Notes	Notes admin
+tdAddStreamLink	Add Live Stream Link	Ajouter un lien de stream
+tdStreamUrl	Stream URL	URL du stream
+ldStatusAwaiting	Awaiting	En attente
+ldStatusProposed	Proposed	Proposé
+ldStatusCounter	Counter	Contre-prop.
+ldStatusConfirmed	Confirmed	Confirmé
+ldStatusExpired	Expired	Expiré
+ldStatusReview	Review	À examiner
+ldFixtures	Fixtures	Matchs
+ldPlayed	Played	Joués
+ldScheduled	Scheduled	Programmés
+ldNotFound	League not found.	Ligue introuvable.
+ldBackToCompetitions	Back to Competitions	Retour aux compétitions
+ldLeagueLeader	League Leader	Leader de la ligue
+ldNoLeader	No leader yet.	Pas encore de leader.
+ldYourFixtures	Your Club Fixtures	Les matchs de ton club
+ldSchemaNotPublished	Schema not published	Calendrier non publié
+ldNoFixtures	No fixtures yet.	Aucun match pour le moment.
+ldNoClubStats	No club stats yet.	Aucune stat de club.
+ldNoPlayerStats	No player stats yet. Stats appear after Game Day results are submitted.	Aucune stat joueur. Les stats apparaissent après la soumission des résultats du Match Day.
+ldNoStandings	No standings yet.	Aucun classement pour le moment.
+ldZone	Zone	Zone
+cpResult	Result	Résultat
+cpNoFixtures	No fixtures generated yet	Aucun match généré pour l'instant
+cpFinal	Final	Finale
+cpNoQualification	No qualification entries yet	Aucune entrée de qualification
+cpNotFound	Competition not found	Compétition introuvable
+cpNotSeeded	This competition may not be seeded yet.	Cette compétition n'est peut-être pas encore initialisée.
+cpNoSeason	No season started yet	Aucune saison commencée
+lfSubtitle	Own, rent, and invest across luxury asset categories.	Possède, loue et investis dans des catégories d'actifs de luxe.
+lfNoAssets	No assets in this category yet.	Aucun actif dans cette catégorie.
+lfPrincipal	Principal	Capital
+lfReturn	Return	Rendement
+lfTotalPayout	Total payout	Gain total
+lfMatures	Matures	Échéance
+lfPaid	Paid	Payé
+lfAcquired	Acquired	Acquis
+lfUpkeep	Upkeep/wk	Entretien/sem.
+obHowPlay	How do you play?	Comment joues-tu ?
+obChooseRole	Choose your role — you can add the other later	Choisis ton rôle — tu pourras ajouter l'autre plus tard
+obPlayerDesc	Create a player profile, join a club, sign contracts and compete in tournaments.	Crée un profil joueur, rejoins un club, signe des contrats et joue en tournoi.
+obClubOwner	Club Owner	Propriétaire de club
+obClubOwnerDesc	Found and manage your own club, sign players and enter tournaments.	Fonde et gère ton propre club, signe des joueurs et participe aux tournois.
+obProfileReady	Player Profile Ready	Profil joueur prêt
+obProfileReadyDesc	Your player profile already exists ({name}). Continue to identity verification.	Ton profil joueur existe déjà ({name}). Passe à la vérification d'identité.
+obContinueVerification	Continue to Verification →	Passer à la vérification →
+obStepChooseRole	Choose Role	Choisir un rôle
+obStepPlayerProfile	Player Profile	Profil joueur
+obStepVerifyIdentity	Verify Identity	Vérifier l'identité
+obStepClubSetup	Club Setup	Configuration du club
+obStepOf	Step {current} of {total} — {label}	Étape {current} sur {total} — {label}
+obCreateProfile	Create Your Profile	Crée ton profil
+obTellWorld	Tell the world about your player	Présente ton joueur au monde
+obGamertag	Gamertag *	Gamertag *
+obGamertagPlaceholder	Your in-game name	Ton pseudo en jeu
+obMainPosition	Main Position *	Poste principal *
+obSecondPosition	Second Position	Poste secondaire
+obNone	None	Aucun
+obCountry	Country *	Pays *
+obSelectCountry	Select country	Sélectionne un pays
+obSaving	Saving…	Enregistrement…
+obContinueClub	Continue to Club Setup →	Passer au club →
+obErrImage	Please choose an image file.	Choisis un fichier image.
+obErrAvatarSize	Profile picture must be smaller than 10 MB.	La photo de profil doit faire moins de 10 Mo.
+obErrUpload	Could not upload profile picture.	Impossible d'importer la photo de profil.
+obErrSave	Could not save profile.	Impossible d'enregistrer le profil.
+obCreateYourClub	Create Your Club	Crée ton club
+obClubSetupTitle	Club Setup	Configuration du club
+obNeedClubContinue	You need a club to continue as an owner	Tu as besoin d'un club pour continuer en tant que propriétaire
+obCreateOrJoinLater	Create a club now or join one later	Crée un club maintenant ou rejoins-en un plus tard
+obCreateClub	Create Club	Créer un club
+obFoundClub	Found your club and start managing	Fonde ton club et commence à le gérer
+obStartJourney	Start your journey now	Commence ton aventure maintenant
+obSkip	Skip	Passer
+obDoItLater	Do it later	Le faire plus tard
+obBack	Back	Retour
+obBuildEmpire	Build your football empire	Construis ton empire footballistique
+obClubName	Club Name *	Nom du club *
+obClubNamePlaceholder	e.g. FC Dynasty	ex. FC Dynasty
+obTagMax5	Tag (max 5 chars) *	Tag (max 5 car.) *
+obTagPlaceholder	e.g. DYN	ex. DYN
+obPlatform	Platform	Plateforme
+obRegion	Region	Région
+obCreating	Creating…	Création…
+obErrLogoSize	Club logo must be smaller than 10 MB.	Le logo du club doit faire moins de 10 Mo.
+obErrLogoUpload	Could not upload club logo.	Impossible d'importer le logo du club.
+obIdentityVerified	Identity Verified	Identité vérifiée
+obClaimSubmitted	Claim Submitted	Demande envoyée
+obIdentityLinked	Your STAGE profile is already linked to a verified player identity.	Ton profil STAGE est déjà lié à une identité joueur vérifiée.
+obClaimPending	Your identity claim is now waiting for admin review in the admin panel.	Ta demande d'identité est en attente de validation admin.
+obClaimIdentity	Claim Your Identity	Revendique ton identité
+obClaimIdentityDesc	Link your player profile to your console, EA, or Discord identity for admin verification.	Lie ton profil joueur à ton identité console, EA ou Discord pour la vérification admin.
+obPlatformHandle	Platform Handle *	Pseudo plateforme *
+obPlatformHandlePlaceholder	PSN / Xbox / EA handle	Pseudo PSN / Xbox / EA
+obEaId	EA ID	EA ID
+obDiscord	Discord	Discord
+obOptional	Optional	Optionnel
+obNotes	Notes	Notes
+obNotesPlaceholder	Anything admins should know?	Quelque chose à signaler aux admins ?
+obProofLabel	Proof (screenshot or link)	Preuve (capture ou lien)
+obProofPlaceholder	Paste a link, or drop / upload a screenshot	Colle un lien, ou dépose / importe une capture
+obProofHint	Upload saves to Stage and stores the image URL on your claim for admins to review.	L'import enregistre sur Stage et stocke l'URL de l'image sur ta demande pour les admins.
+obSubmitting	Submitting…	Envoi…
+obSubmitClaim	Submit Claim	Envoyer la demande
+obSkipForNow	Skip for now	Passer pour l'instant
+obErrClaim	Could not submit identity claim.	Impossible d'envoyer la demande d'identité.
+profBack	Back	Retour
+cccGoBack	Go Back	Retour
+cccAccessRestricted	Access Restricted	Accès restreint
+cccPresidentOnly	Only the club president can create contracts.	Seul le président du club peut créer des contrats.
+cccTitle	Create Contract	Créer un contrat
+cccStep1	1. Select Player	1. Sélectionner un joueur
+cccStep2	2. Choose Contract Type	2. Choisir le type de contrat
+cccStep3	3. Financial Terms (STC)	3. Conditions financières (STC)
+cccStep4	4. Performance Targets	4. Objectifs de performance
+cccStep5	5. Review	5. Récapitulatif
+cccStep6	6. Message (optional)	6. Message (optionnel)
+cccSuggestedSalary	Suggested Salary Range	Fourchette de salaire suggérée
+cccWeeklySalary	Weekly Salary	Salaire hebdomadaire
+cccPaidMonthly	Paid monthly	Versé mensuellement
+cccSigningBonus	Signing Bonus	Prime à la signature
+cccPaidOnSigning	Paid on signing	Versée à la signature
+cccCaptaincy	Captaincy	Capitanat
+cccCaptainOffered	✓ Captain role offered	✓ Rôle de capitaine proposé
+cccNoCaptaincy	No captaincy	Pas de capitanat
+cccAddTarget	Add Target	Ajouter un objectif
+cccNotePlaceholder	Add a message for the player...	Ajoute un message pour le joueur...
+cccTargetMin	Minimum (≥)	Minimum (≥)
+cccTargetExact	Exact (=)	Exact (=)
+cccTargetRange	Range (between)	Plage (entre)
+cccSendFailed	Failed to send contract: {error}	Échec de l'envoi du contrat : {error}
+cccAlreadyHasContract	{name} already has a {type} contract ({status})	{name} a déjà un contrat {type} ({status})
+cccStarted	Started: {date}	Début : {date}
+cccOneActivePerType	Only one active contract per type group is allowed.	Un seul contrat actif est autorisé par groupe de type.
+cccStillOfferPlayer	You can still offer a player contract (squad, star, etc.) alongside an ownership contract.	Tu peux toujours proposer un contrat joueur (effectif, star, etc.) en plus d'un contrat de propriété.
+cccStillOfferOwnership	You can still offer an ownership contract alongside a player contract.	Tu peux toujours proposer un contrat de propriété en plus d'un contrat joueur.
+cccExceedsWage	⛔ Exceeds Wage Budget	⛔ Dépassement du budget salarial
+cccWageUsage	Wage Budget Usage: {pct}%	Utilisation du budget salarial : {pct} %
+cccClubWageBudget	Club wage budget: {amount}M STC/wk	Budget salarial du club : {amount}M STC/sem.
+cccReduceSalary	 — reduce the salary to proceed	 — réduis le salaire pour continuer
+cccPerWeek	/ week	/ sem.
+cccBasedOnValue	· based on {value} market value	· basé sur {value} de valeur marché
+cccBasedOnOvr	· OVR {ovr}	· OVR {ovr}
+cccMin	Min	Min
+cccMax	Max	Max
+cccValue	Value	Valeur
+crAddClubs	Add Participants — Clubs	Ajouter des participants — Clubs
+crSlotsFilled	{filled}/{max} slots filled	{filled}/{max} places prises
+crSaveParticipants	Save Participants	Enregistrer les participants
+crTournamentFull	🔒 Tournament is full ({max}/{max}). Remove a club to add another.	🔒 Le tournoi est complet ({max}/{max}). Retire un club pour en ajouter un autre.
+crSearchPlaceholder	Search club or tag...	Rechercher un club ou un tag...
+crRegistered	Registered	Inscrit
+crAdd	Add	Ajouter
+crLoadMore	Load More	Charger plus
+crSaved	Participants saved!	Participants enregistrés !
+prAddPlayers	Add Participants — Players	Ajouter des participants — Joueurs
+prTournamentFull	🔒 Tournament is full ({max}/{max}). Remove a player to add another.	🔒 Le tournoi est complet ({max}/{max}). Retire un joueur pour en ajouter un autre.
+prSearchPlaceholder	Search gamertag...	Rechercher un gamertag...
+prPlayer	Player	Joueur
+prRating	Rating	Note
+prNoPlayers	No players found.	Aucun joueur trouvé.
+eafcTitle	EA FC Club Lookup	Recherche club EA FC
+eafcSubtitle	Search and explore real Pro Clubs data	Cherche et explore les vraies données Pro Clubs
+eafcPlatformGen5	PS5 / Xbox Series X	PS5 / Xbox Series X
+eafcPlatformGen4	PS4 / Xbox One	PS4 / Xbox One
+eafcPlatformNx	Nintendo Switch	Nintendo Switch
+eafcSearchPlaceholder	Search club name...	Rechercher un nom de club...
+eafcNoClubs	No clubs found. Try a different name or platform.	Aucun club trouvé. Essaie un autre nom ou une autre plateforme.
+eafcSearchFailed	Search failed. EA servers may be unreachable.	Recherche échouée. Les serveurs EA sont peut-être inaccessibles.
+eafcLoadFailed	Failed to load club data.	Impossible de charger les données du club.
+eafcRecent	Recent searches	Recherches récentes
+eafcFetching	Fetching club data from EA servers…	Récupération des données club depuis les serveurs EA…
+eafcRetry	Retry	Réessayer
+eafcDivision	Division {n}	Division {n}
+eafcMembers	Members ({count})	Membres ({count})
+eafcWinRate	Win rate	Taux de victoire
+eafcCareerStats	Career Stats	Stats de carrière
+eafcRecentMatches	Recent Matches ({count})	Matchs récents ({count})
+eafcGames	Games	Matchs
+eafcCs	CS	CS
+eafcPrevious	Previous	Précédent
+eafcNoDetail	Club found but no detailed data available.	Club trouvé mais aucune donnée détaillée disponible.
+eafcResultMeta	ID: {id} · Members: {count}	ID : {id} · Membres : {count}
+eafcVs	vs {name}	vs {name}
+eafcClubFallback	Club {id}	Club {id}
+eafcMom	MoM	HdM
+eafcGp	GP	MJ
+psTitle	Player Statistics	Statistiques joueurs
+psNeedClub	You need to be in a club to view team stats.	Tu dois être dans un club pour voir les stats d'équipe.
+psPlayersCount	{name} · {count} players	{name} · {count} joueurs
+psAllPlayers	👥 All Players	👥 Tous les joueurs
+psTabGoals	⚽ Goals	⚽ Buts
+psTabAssists	🎯 Assists	🎯 Passes
+psTabRating	⭐ Rating	⭐ Note
+psTabTable	📋 Table	📋 Tableau
+psGoalsPerPlayer	Goals per Player	Buts par joueur
+psAssistsPerPlayer	Assists per Player	Passes par joueur
+psAvgMatchRating	Average Match Rating	Note moyenne par match
+psAvgRating	Avg Rating	Note moy.
+psGoalsAssistsPerMatch	Goals & Assists per Match	Buts & passes par match
+psRatingOverTime	Rating Over Time	Note dans le temps
+psPerformanceRadar	Performance Radar	Radar de performance
+psNoPlayerStats	No match stats recorded for this player yet.	Aucune stat de match pour ce joueur.
+psNoStatsYet	No match stats recorded yet. Submit match results with player stats to see charts here.	Aucune stat de match enregistrée. Soumets des résultats avec stats joueur pour voir les graphiques.
+psPos	Pos	Pos
+psMp	MP	MJ
+predTitle	Prediction Leaderboard	Classement des pronostics
+predSubtitle	Top score predictors — Compete for points	Meilleurs pronostiqueurs de scores — Gagne des points
+predCorrectScore	Correct Score = 10 Points	Score exact = 10 points
+predEmpty	No predictions yet. Start predicting match scores!	Aucun pronostic pour le moment. Commence à prédire les scores !
+predCount	{count} predictions	{count} pronostics
+predTotalPoints	total points	points totaux
+predCorrect	{correct}/{total} correct	{correct}/{total} exacts
+predAvg	Avg: {avg} pts	Moy. : {avg} pts
+teEntrance	Tournament Entrance	Entrée tournoi
+teJoining	Joining tournament	Inscription au tournoi
+teSigningInFor	Signing in for	Connexion pour
+teThisTournament	this tournament	ce tournoi
+teAskFreshLink	Ask the tournament organiser for a fresh invite link.	Demande à l'organisateur un nouveau lien d'invitation.
+teScopedNote	Your account will be scoped to {name} until the tournament ends. Full access unlocks automatically afterwards.	Ton compte sera limité à {name} jusqu'à la fin du tournoi. L'accès complet se débloque automatiquement ensuite.
+teHidePassword	Hide password	Masquer le mot de passe
+teShowPassword	Show password	Afficher le mot de passe
+teUnableAccount	Unable to load your account.	Impossible de charger ton compte.
+teInvalidLink	This tournament entrance link is invalid.	Ce lien d'entrée de tournoi est invalide.
+teUnableLoadLink	Unable to load this entrance link.	Impossible de charger ce lien d'entrée.
+teReasonNotFound	This tournament entrance link does not exist.	Ce lien d'entrée de tournoi n'existe pas.
+teReasonRevoked	This entrance link has been revoked.	Ce lien d'entrée a été révoqué.
+teReasonTournamentGone	The tournament linked to this entrance no longer exists.	Le tournoi lié à cette entrée n'existe plus.
+teReasonFull	Registration is closed — all spots have been filled.	Inscriptions fermées — toutes les places sont prises.
+teTrophyCabinet	Trophy Cabinet	Vitrine des trophées
+teLoadingProfile	Loading profile...	Chargement du profil...
+teLoadingClub	Loading club...	Chargement du club...
+walStcBalance	STC Balance	Solde STC
+walStageCoin	Stage Coin	Stage Coin
+wal30dIncome	30d Income	Revenus 30j
+wal30dSpent	30d Spent	Dépenses 30j
+walIncomeSources	Income Sources	Sources de revenus
+walFromClubContract	From club contract	Contrat club
+walNoClub	No club	Aucun club
+walSalaryDueNow	Due now	Dû maintenant
+walSalaryDueInDay	In 1 day	Dans 1 jour
+walSalaryDueInDays	In {days} days	Dans {days} jours
+walInvestmentReturns	Investment Returns	Rendements d'investissement
+walPassiveIncomeDesc	Passive income from lifestyle assets	Revenus passifs des actifs lifestyle
+walCollect	Collect	Collecter
+walTransactionHistory	Transaction History	Historique des transactions
+walTotalCount	{count} total	{count} au total
+walIncome	Income	Revenus
+walExpenses	Expenses	Dépenses
+walNoTransactions	No transactions yet	Aucune transaction pour le moment
+walHowToEarn	How to earn STC	Comment gagner des STC
+walEarnPerContract	Per contract	Par contrat
+walEarnSalaryDesc	Collect from your active contract	Collecte depuis ton contrat actif
+walEarnWagerWinVal	Wager × 2	Mise × 2
+walEarnWagerWinDesc	Win a wagered PvP match	Gagne un match PvP avec mise
+walEarnInvestmentIncome	Investment Income	Revenus d'investissement
+walEarnPassiveDaily	Passive daily	Passif quotidien
+walEarnInvestmentDesc	From lifestyle assets you own	Depuis tes actifs lifestyle
+walEarnPrizePool	Prize pool share	Part du prize pool
+walEarnCompetitionDesc	Tournament top placements	Top classements en tournoi
+walCatWelcomeBonus	Welcome Bonus	Bonus de bienvenue
+walCatLifestylePurchase	Lifestyle Purchase	Achat lifestyle
+walCatLifestyleRental	Lifestyle Rental	Location lifestyle
+walCatInvestmentReturn	Investment Return	Rendement d'investissement
+walCatWagerStake	Wager Stake	Mise de pari
+walCatWagerWon	Wager Won	Pari gagné
+walCatWagerLost	Wager Lost	Pari perdu
+walCatWagerRefunded	Wager Refunded	Pari remboursé
+walCatCompetitionReward	Competition Reward	Récompense de compétition
+walCatAdminCredit	Admin Credit	Crédit admin
+walCatAdminDebit	Admin Debit	Débit admin
+walCatTransaction	Transaction	Transaction
+cfinCatTicketRevenue	Ticket Revenue	Recettes billetterie
+cfinCatShirtSales	Shirt Sales	Ventes maillots
+cfinCatStadiumUpgrade	Stadium Upgrade	Amélioration stade
+cfinCatSalary	Salary	Salaire
+cfinCatWagerWin	Wager Win	Gain pari
+cfinCatWagerLoss	Wager Loss	Perte pari
+cfinCatWagerRefund	Wager Refund	Remboursement pari
+cfinCatWagerStake	Wager Stake	Mise pari
+cfinCatCompetition	Competition	Compétition
+cfinCatTournamentEntry	Tournament Entry	Inscription tournoi
+cfinCatTournamentPrize	Tournament Prize	Prix tournoi
+cfinCatTournamentRefund	Tournament Refund	Remboursement tournoi
+cfinCatAdjustment	Adjustment	Ajustement
+cfinCatAdminAdj	Admin Adj.	Ajust. admin
+cfinCatTransaction	Transaction	Transaction
+cfinFilterTickets	Tickets	Billets
+cfinFilterShirts	Shirts	Maillots
+cfinFilterStadium	Stadium	Stade
+cfinFilterStake	Stake	Mise
+cfinFilterRefund	Refund	Remb.
+cfinFilterTournament	Tournament	Tournoi
+cfinAdjustBudget	Adjust Budget Allocation	Ajuster la répartition du budget
+cfinManage	Manage →	Gérer →
+cfinBudgetAllocation	Budget Allocation	Répartition du budget
+cfinTotalBudgetHint	Total controllable budget: {total}. Moving funds from one budget reduces the other.	Budget total contrôlable : {total}. Déplacer des fonds d'un budget réduit l'autre.
+cfinTransferAmount	Transfer: {amount}	Transferts : {amount}
+cfinWagesAmount	Wages: {amount}	Salaires : {amount}
+cfinSliderMin	0 STC → transfers	0 STC → transferts
+cfinSliderMax	wages → {total}	salaires → {total}
+cfinWageBelowCommitted	Wage budget can't drop below committed wages ({amount}/wk)	Le budget salarial ne peut pas descendre sous les salaires engagés ({amount}/sem.)
+cfinWageUsage	Wage Usage	Utilisation salariale
+cfinApplyChanges	Apply Changes	Appliquer
+cfinAdjustFailed	Failed to adjust budgets	Échec de l'ajustement des budgets
+cfinDeleteConfirm	Delete this transaction? This cannot be undone.	Supprimer cette transaction ? Action irréversible.
+cfinActionFailed	Failed	Échec
+cfinLoadFailed	Could not load finance data.	Impossible de charger les données financières.
+cfinClubBalance	Club Balance	Solde du club
+cfinAvailableFunds	Available funds	Fonds disponibles
+cfinSquadValue	Squad Value	Valeur de l'effectif
+cfinCombinedPlayerValue	Combined player value	Valeur combinée des joueurs
+cfinWageBudget	Wage Budget	Budget salarial
+cfinWkCommitted	{amount}/wk committed	{amount}/sem. engagés
+cfinTransferBudget	Transfer Budget	Budget transferts
+cfinSigningFunds	Signing funds	Fonds de signature
+cfinWeeklyWageBill	Weekly Wage Bill	Masse salariale hebdo.
+cfinWageNearlyExhausted	Wage budget nearly exhausted	Budget salarial presque épuisé
+cfinContractLabel	{name} contract	{name} contrat
+cfinIncome30d	Income (30d)	Revenus (30 j.)
+cfinExpenses30d	Expenses (30d)	Dépenses (30 j.)
+cfinNet30d	Net (30d)	Net (30 j.)
+cfinTxHistory	Transaction History	Historique des transactions
+cfinRefresh	Refresh	Actualiser
+cfinNoTx	No transactions found.	Aucune transaction trouvée.
+cfinPageOf	Page {page} of {total}	Page {page} sur {total}
+coopTabOverview	Overview	Vue d'ensemble
+coopTabApplicants	Applicants	Candidats
+coopTabStaff	Staff	Staff
+coopTabAvailability	Availability	Disponibilités
+coopTabLineup	Lineup	Composition
+coopTabAudit	Audit	Historique
+coopDismiss	Dismiss	Fermer
+coopLoadFailed	Could not load club operations.	Impossible de charger les opérations du club.
+coopApplicantReviewed	Applicant marked as reviewed.	Candidat marqué comme examiné.
+coopApplicantDeclined	Applicant declined.	Candidat refusé.
+coopTrialOfferSent	Trial offer sent.	Offre d'essai envoyée.
+coopApplicantUpdated	Applicant updated.	Candidat mis à jour.
+coopActionFailed	Could not {action}.	Impossible de {action}.
+coopStaffAssigned	Staff role assigned.	Rôle staff attribué.
+coopStaffAssignFailed	Could not assign staff role.	Impossible d'attribuer le rôle staff.
+coopStaffPermissionsUpdated	Staff permissions updated.	Permissions staff mises à jour.
+coopStaffPermissionsFailed	Could not update staff permissions.	Impossible de mettre à jour les permissions staff.
+coopStaffRemoved	Staff role removed.	Rôle staff retiré.
+coopStaffRemoveFailed	Could not remove staff role.	Impossible de retirer le rôle staff.
+coopAvailabilitySet	Availability set to {status}.	Disponibilité définie sur {status}.
+coopAvailabilityFailed	Could not update availability.	Impossible de mettre à jour la disponibilité.
+coopLineupPublished	Lineup published.	Composition publiée.
+coopLineupDraftSaved	Lineup draft saved.	Brouillon de composition enregistré.
+coopLineupSaveFailed	Could not save lineup.	Impossible d'enregistrer la composition.
+coopStatPendingApplicants	Pending applicants	Candidats en attente
+coopStatOpenRecruitment	Open recruitment posts	Posts de recrutement ouverts
+coopStatUpcomingFixtures	Upcoming fixtures	Matchs à venir
+coopStatExpiringContracts	Expiring contracts	Contrats expirants
+coopStatPendingContracts	Pending contract offers	Offres de contrat en attente
+coopStatStaffRoles	Staff roles	Rôles staff
+coopReviewApplicants	Review Applicants	Examiner les candidats
+coopEditLineup	Edit Lineup	Modifier la composition
+coopManageStaff	Manage Staff	Gérer le staff
+coopUnknownPlayer	Unknown player	Joueur inconnu
+coopAny	Any	Tout
+coopMarkReviewed	Mark Reviewed	Marquer examiné
+coopOfferTrial	Offer Trial	Proposer un essai
+coopNoApplicants	No applicants yet.	Aucun candidat pour le moment.
+coopSelectClubMember	Select club member	Sélectionner un membre
+coopAssign	Assign	Attribuer
+coopRemove	Remove	Retirer
+coopNoUpcomingFixtures	No upcoming fixtures.	Aucun match à venir.
+coopAvailabilityCounts	{available} available · {maybe} maybe · {unavailable} out	{available} dispo · {maybe} peut-être · {unavailable} absent
+coopStatusAvailable	available	disponible
+coopStatusMaybe	maybe	peut-être
+coopStatusUnavailable	unavailable	indisponible
+coopNoLineupFixtures	No upcoming fixtures to plan a lineup for.	Aucun match à venir pour planifier une composition.
+coopStartingXi	Starting XI	Titulaires
+coopBench	Bench	Banc
+coopSelectCaptain	Select match captain	Choisir le capitaine
+coopLineupNotesPlaceholder	Lineup notes...	Notes de composition...
+coopSaveDraft	Save Draft	Enregistrer le brouillon
+coopPublish	Publish	Publier
+coopRefreshAudit	Refresh Audit	Actualiser l'historique
+coopNoAuditHistory	No operations history yet.	Aucun historique d'opérations.
+coopSystem	System	Système
+coopMemberTip	Mark yourself available here before match day. Only available players can take a Game Day dressing-room seat.	Indique ta disponibilité ici avant le match. Seuls les joueurs disponibles peuvent prendre place au vestiaire le Match Day.
+lsgOwned	Owned	Possédé
+lsgRenting	Renting	En location
+lsgBuyAnother	Buy Another	Acheter un autre
+lsgBuy	Buy	Acheter
+lsgAdd	Add	Ajouter
+lsgNeedStc	Need STC	STC requis
+lsgRentMo	Rent/mo	Loyer/mois
+lsgActive	Active	Actif
+lsgRent	Rent	Louer
+lsgMyResidence	My Residence	Ma résidence
+lsgOwnedLive	Owned (Live)	Possédé (habité)
+lsgInvestment	Investment	Investissement
+lsgInvestments	Investments	Investissements
+lsgBuyPrice	Buy price	Prix d'achat
+lsgNA	N/A	N/D
+lsgBuyLive	Buy (Live)	Acheter (habiter)
+lsgInvest	Invest	Investir
+comJoinOrCreate	Join or Create a Club	Rejoindre ou créer un club
+comCreateYourClub	Create Your Club	Crée ton club
+comFindClub	Find a Club to Join	Trouver un club à rejoindre
+comWelcome	Welcome to STAGE, {name}! Do you want to create your own club or join an existing one?	Bienvenue sur STAGE, {name} ! Tu veux créer ton propre club ou en rejoindre un ?
+comCreateClub	Create Club	Créer un club
+comCreateClubDesc	Start your own club and become the president	Fonde ton propre club et deviens président
+comJoinClub	Join Club	Rejoindre un club
+comJoinClubDesc	Browse clubs and send a join request	Parcours les clubs et envoie une demande
+comStagePlusTitle	Compete deeper with STAGE Plus	Va plus loin avec STAGE Plus
+comStagePlusDesc	Free gives you {credits} starter credits for one tournament. Plus unlocks regional league applications, community tournament creation, ranked play, and {monthlyCredits} monthly refreshed credits.	Gratuit te donne {credits} crédits pour un tournoi. Plus débloque les candidatures aux ligues régionales, la création de tournois communautaires, le mode classé et {monthlyCredits} crédits mensuels.
+comSkipForNow	Skip for now	Passer pour l'instant
+comBack	← Back	← Retour
+comClubName	Club Name *	Nom du club *
+comTagMax5	Tag (max 5 chars) *	Tag (max 5 car.) *
+comPlatform	Platform	Plateforme
+comRegion	Region	Région
+comCountry	Country *	Pays *
+comSelectCountry	Select country	Choisir un pays
+comClubDesc	Club Description	Description du club
+comClubDescPlaceholder	Tell players about your club...	Décris ton club aux joueurs...
+comCreating	Creating...	Création...
+comSearchPlaceholder	Search by club name or tag...	Rechercher par nom ou tag...
+comNoClubsFound	No clubs found.	Aucun club trouvé.
+comRating	Rating {rating}	Note {rating}
+comRequest	Request	Demander
+comSent	Sent	Envoyé
+comDone	Done — {count} request{plural} sent	Terminé — {count} demande{plural} envoyée{plural}
+comJoinMessage	I'd like to join your club!	J'aimerais rejoindre ton club !
+otWelcomeTitle	Welcome to STAGE	Bienvenue sur STAGE
+otWelcomeSubtitle	Your football career starts here	Ta carrière foot commence ici
+otWelcomeDesc	STAGE is a competitive football management platform where you play, manage, and grow. Here's a quick overview of how everything works.	STAGE est une plateforme de gestion football compétitive où tu joues, gères et progresses. Voici un aperçu rapide de son fonctionnement.
+otClubTitle	Your Club	Ton club
+otClubSubtitle	Budget • Squad • Trophies	Budget • Effectif • Trophées
+otClubDesc	Your club starts with 50,000 STC (Stage Currency). Use it to sign players, pay salaries, and build your squad. Manage your transfer budget and wage budget wisely.	Ton club démarre avec 50 000 STC (Stage Currency). Utilise-les pour signer des joueurs, payer les salaires et construire ton effectif. Gère tes budgets transferts et salaires.
+otClubHighlight	50,000 STC starting budget	50 000 STC de budget initial
+otCurrencyTitle	Two Currencies	Deux monnaies
+otCurrencySubtitle	Credits vs STC	Crédits vs STC
+otCurrencyDesc	STAGE has two separate currencies. Credits are used for platform features like tournaments and subscriptions. STC (Stage Currency) is the in-game economy — used for salaries, transfers, and lifestyle.	STAGE a deux monnaies distinctes. Les crédits servent aux fonctionnalités de la plateforme comme les tournois et abonnements. Les STC sont l'économie du jeu — salaires, transferts et lifestyle.
+otCreditsLabel	Credits	Crédits
+otCreditsDesc	Platform features, tournaments, subscriptions	Fonctionnalités plateforme, tournois, abonnements
+otStcLabel	STC	STC
+otStcDesc	Salaries, transfers, lifestyle, club economy	Salaires, transferts, lifestyle, économie club
+otContractsTitle	Contracts & Transfers	Contrats & Transferts
+otContractsSubtitle	Sign players. Negotiate terms.	Signe des joueurs. Négocie.
+otContractsDesc	Offer contracts to players with weekly salaries, signing bonuses, and performance targets. Players can accept, reject, or counter-offer. Transfers execute when the transfer window opens.	Propose des contrats avec salaires hebdo, primes à la signature et objectifs. Les joueurs peuvent accepter, refuser ou contre-proposer. Les transferts s'exécutent à l'ouverture du mercato.
+otContractsHighlight	Salaries paid monthly in real time	Salaires versés mensuellement en temps réel
+otMarketTitle	Player Market Value	Valeur marchande
+otMarketSubtitle	Your rating drives your worth	Ta note détermine ta valeur
+otMarketDesc	Every player has a market value based on their overall rating, goals, assists, and match performance. Higher value means better contract negotiations and more leverage in the transfer market.	Chaque joueur a une valeur marchande basée sur sa note, ses buts, passes et performances. Plus de valeur = meilleures négociations et plus de poids sur le marché des transferts.
+otMarketHighlight	Better stats = higher value	Meilleures stats = plus de valeur
+otLifestyleTitle	Lifestyle	Lifestyle
+otLifestyleSubtitle	Spend your STC. Build your empire.	Dépense tes STC. Bâtis ton empire.
+otLifestyleDesc	Earn STC through salaries and performance. Spend it on real estate, vehicles, clothing, and events. Some assets generate passive STC income over time.	Gagne des STC via tes salaires et performances. Dépense-les en immobilier, véhicules, vêtements et événements. Certains actifs génèrent des revenus passifs.
+otLifestyleHighlight	Some properties earn passive income	Certaines propriétés génèrent des revenus passifs
+otGetStarted	Get Started	Commencer
+otNext	Next	Suivant
+otSkipTour	Skip tour	Passer le tour
+pcardNoLocation	No location set	Aucune localisation définie
+pcardMyResidence	My Residence	Ma résidence
+pcardRenting	Renting	En location
+pcardOwnedLive	Owned (Live)	Possédé (habité)
+pcardInvestment	Investment	Investissement
+pcardDefault	Default	Défaut
+pcardBasePrice	Base Price	Prix de base
+pcardCurrentValue	Current Value	Valeur actuelle
+pcardWeeklyCost	Weekly Cost	Coût hebdo
+pcardAcquired	Acquired	Acquis
+pcardUpgradeLevel	Upgrade Level	Niveau d'amélioration
+pcardMax	MAX	MAX
+pcardSetResidence	Set as My Residence	Définir comme résidence
+pcardThisIsResidence	This is your residence	C'est ta résidence
+pcardMoveOut	Move Out	Déménager
+pcardDaysLeft	{days}d left	{days}j restants
+pcardExpires	expires {date}	expire le {date}
+pcardCancel	Cancel	Annuler
+pcardCostBreakdown	Cost Breakdown	Détail des coûts
+pcardTotalWeekly	Total Weekly	Total hebdo
+pcardPerWk	/wk	/sem.
+pcardUpgradeProperty	Upgrade Property	Améliorer la propriété
+pcardBuy	Buy	Acheter
+pcardFullyUpgraded	Fully Upgraded	Entièrement amélioré
+pcardDefaultedError	Asset defaulted — pay overdue maintenance first	Actif en défaut — règle l'entretien en retard d'abord
+pcardUpgradeApplied	Upgrade applied — Level {level}	Amélioration appliquée — Niveau {level}
+pcardRentalCancelled	Rental cancelled.	Location annulée.
+pcardCancelFailed	Failed to cancel rental	Échec de l'annulation
+pcardMovedOut	You have moved out.	Tu as déménagé.
+pcardMoveOutFailed	Failed to move out	Échec du déménagement
+pcardResidenceUpdated	Residence updated!	Résidence mise à jour !
+pcardResidenceFailed	Failed to set residence	Impossible de définir la résidence
+matNoAssets	No assets owned yet.	Aucun actif possédé.
+matStartBuilding	Head to the Store and start building your empire!	Rends-toi à la boutique et commence à bâtir ton empire !
+matNoResidence	No active residence	Aucune résidence active
+matSetResidenceHint	Set a property as your residence from the store or below.	Définis une propriété comme résidence depuis la boutique ou ci-dessous.
+matActiveResidence	Active Residence	Résidence active
+matRenting	Renting	En location
+matOwned	Owned	Possédé
+matAssets	Assets	Actifs
+matTotalValue	Total Value	Valeur totale
+matWeeklyCost	Weekly Cost	Coût hebdo
+matDefaultCount	{count} asset{plural} in default	{count} actif{plural} en défaut
+matDefaultHint	You missed maintenance payments. Top up your STC and the next automated run will restore them.	Tu as manqué des paiements d'entretien. Recharge tes STC et le prochain cycle les restaurera.
+matProperties	Properties	Propriétés
+matGarage	Garage	Garage
+matCollection	Collection	Collection
+matNoCategoryAssets	No assets in this category yet.	Aucun actif dans cette catégorie.
+matUnknownLocation	Unknown Location	Lieu inconnu
+matPropertyCount	{count} propert{plural}	{count} propriété{plural}
+acardDefaulted	Asset Defaulted — Missed Maintenance	Actif en défaut — Entretien manqué
+acardDefaultedHint	Upgrades are blocked. Top up STC — next cycle will restore this asset.	Améliorations bloquées. Recharge tes STC — le prochain cycle restaurera cet actif.
+acardValue	Value	Valeur
+acardLevel	Level {current}/{max}	Niveau {current}/{max}
+acardRental	Rental	Location
+acardDaysLeft	{days}d left (expires {date})	{days}j restants (expire le {date})
+acardCostBreakdown	Cost Breakdown	Détail des coûts
+acardTotalWeekly	Total Weekly	Total hebdo
+acardPerWk	/wk	/sem.
+acardFullyUpgraded	Fully Upgraded	Entièrement amélioré
+acardUpgradesBlocked	Upgrades Blocked	Améliorations bloquées
+acardUpgradeAsset	Upgrade Asset	Améliorer l'actif
+acardRentalCancelled	Rental cancelled.	Location annulée.
+acardCancelFailed	Failed to cancel rental	Échec de l'annulation
+acardDefaultedError	Asset is defaulted — pay overdue maintenance first	Actif en défaut — règle l'entretien en retard d'abord
+acardUpgradeApplied	Upgrade applied — now Level {level}	Amélioration appliquée — Niveau {level}
+acardUpgradeFailed	Upgrade failed	Échec de l'amélioration
+prdTitle	PRE-MATCH PRESS ROOM	CONFÉRENCE DE PRESSE D'AVANT-MATCH
+prdChoosePlayer	Choose who will face the press today	Choisis qui affrontera la presse aujourd'hui
+prdNoPlayers	No players found in your squad.	Aucun joueur trouvé dans ton effectif.
+prdInviteSent	Invitation Sent	Invitation envoyée
+prdInvitedPlayer	{name} has been invited to the press room.	{name} a été invité à la conférence de presse.
+prdInviteHint	They'll receive a notification and message to answer the questions.	Il recevra une notification et un message pour répondre aux questions.
+prdCloseHint	You can close this — the player handles the rest.	Tu peux fermer — le joueur gère la suite.
+prdAtPodium	at the podium	au podium
+prdAnswered	{count}/{max} answered	{count}/{max} répondu
+prdPublishLeave	Publish & Leave	Publier & Quitter
+prdNoAnswers	No answers yet	Aucune réponse
+prdWriteAnswer	Write your own answer…	Écris ta propre réponse…
+prdSubmitAnswer	Submit my answer	Envoyer ma réponse
+prdArticlePhoto	Article Photo	Photo de l'article
+prdUploadHint	Upload a photo, then drag to position it perfectly.	Importe une photo, puis fais-la glisser pour la positionner.
+prdPhotoPlaceholder	Photo will appear here	La photo apparaîtra ici
+prdPressConference	Press Conference	Conférence de presse
+prdDragHint	Drag to reposition	Glisse pour repositionner
+prdZoom	Zoom — {zoom}%	Zoom — {zoom}%
+prdSkipPhoto	Skip Photo	Passer la photo
+prdPublishArticle	Publish Article	Publier l'article
+prdArticlePublished	Article Published!	Article publié !
+prdNewsHint	Head to the News section to read it.	Rends-toi dans la section News pour le lire.
+prdUploading	Uploading...	Import en cours...
+prdChangePhoto	Change Photo	Changer la photo
+prdUploadPhoto	Upload Photo	Importer une photo
+prdClose	Close	Fermer
+twprChampionConference	Champion's Press Conference	Conférence de presse du champion
+twprChampion	Champion	Champion
+twprAnswered	{count}/{max} answered	{count}/{max} répondu
+twprPublish	Publish →	Publier →
+twprAnswerFirst	Answer first	Réponds d'abord
+twprChampionPhoto	Champion's Photo	Photo du champion
+twprUploadHint	Upload a celebration photo, then drag to position it.	Importe une photo de célébration, puis fais-la glisser pour la positionner.
+twprPhotoPlaceholder	Photo will appear here	La photo apparaîtra ici
+twprDragHint	Drag to reposition	Glisse pour repositionner
+twprZoom	Zoom — {zoom}%	Zoom — {zoom}%
+twprUploadCelebration	Upload Celebration Photo	Importer une photo de célébration
+twprSkipPhoto	Skip Photo	Passer la photo
+twprPublishArticle	🏆 Publish Article	🏆 Publier l'article
+twprPublished	Article Published! 🏆	Article publié ! 🏆
+twprPublishedHint	The champion's article is live in the News section and your club's Feed.	L'article du champion est en ligne dans News et le Feed de ton club.
+twprVisibleHint	Visible to all tournament participants and club followers.	Visible par tous les participants du tournoi et les abonnés du club.
+gdprComplete	Press Room Complete	Conférence de presse terminée
+gdprCompleteHint	{name} was interviewed for this match. This can only be done once per match.	{name} a été interviewé pour ce match. Cela ne peut être fait qu'une fois par match.
+gdprArticlePublished	Article Published!	Article publié !
+gdprArticleHint	The press conference article is now live in the News section.	L'article de la conférence est maintenant en ligne dans News.
+gdprSelectPlayer	Select a player to interview. Can only be done once per match.	Sélectionne un joueur à interviewer. Une seule fois par match.
+gdprQuestion	Q{n}/{total}	Q{n}/{total}
+gdprContinueImage	Continue to Image	Passer à l'image
+gdprAnswerMore	Answer {n} more to finish	Réponds à {n} de plus pour finir
+gdprNext	Next	Suivant
+gdprAnsweredCount	Answered: {count}/4 (min 3)	Répondu : {count}/4 (min 3)
+gdprAddPhoto	Add Article Photo	Ajouter une photo
+gdprOptional	Optional	Optionnel
+gdprClickUpload	Click to upload photo	Clique pour importer une photo
+gdprFileHint	JPG, PNG, WEBP · max 10MB	JPG, PNG, WEBP · max 10 Mo
+gdprSkipPublish	Skip & Publish	Passer & Publier
+gdprPublishArticle	Publish Article	Publier l'article
+gdprPublishHint	Article will appear in News → Press Room once published.	L'article apparaîtra dans News → Press Room une fois publié.
+stadCurrentStadium	Current Stadium	Stade actuel
+stadLevelOf3	Level (of 3)	Niveau (sur 3)
+stadCapacity	Capacity	Capacité
+stadTicketPrice	Ticket Price per Fan	Prix du billet par fan
+stadTicketRevenue	Ticket Revenue per Home Match	Revenus billetterie par match à domicile
+stadRevenueFormula	Revenue Formula:	Formule de revenus :
+stadCapacityFormula	{capacity} capacity × {price} STC/ticket	{capacity} places × {price} STC/billet
+stadPerHomeMatch	Per Home Match	Par match à domicile
+stadNextUpgrade	Next Upgrade	Prochaine amélioration
+stadCapacityLabel	Capacity:	Capacité :
+stadRevenueMatch	Revenue/Match:	Revenus/Match :
+stadUpgradeCost	Upgrade Cost	Coût d'amélioration
+stadClubBalance	Club Balance	Solde du club
+stadUpgradeTo	Upgrade to {name} — {cost}	Améliorer vers {name} — {cost}
+stadNeedMore	Need {amount} more STC	Besoin de {amount} STC supplémentaires
+stadUpgradePath	Upgrade Path	Parcours d'amélioration
+stadLvN	Lv {n}	Nv {n}
+stadLv1Default	Lv 1 — Default	Nv 1 — Par défaut
+stadUnlocked	✓ Unlocked	✓ Débloqué
+stadMaxLevel	Max Level — Iconic Arena	Niveau max — Arène emblématique
+stadMaxHint	Your stadium is the pinnacle of football infrastructure.	Ton stade est au sommet de l'infrastructure footballistique.
+stadUpgradeSuccess	Stadium upgraded to {name}!	Stade amélioré vers {name} !
+stadUpgradeFailed	Upgrade failed	Échec de l'amélioration
+wagTitle	STC Wager	Pari STC
+wagAwaiting	Awaiting Acceptance	En attente d'acceptation
+wagLocked	Funds Locked 🔒	Fonds verrouillés 🔒
+wagSettling	Settling…	Règlement…
+wagSettled	Settled ✅	Réglé ✅
+wagRefunded	Draw — Refunded	Nul — Remboursé
+wagDeclined	Declined	Refusé
+wagCancelled	Cancelled	Annulé
+wagEachSide	Each Side	Chaque côté
+wagTotalPot	Total Pot	Pot total
+wagHomeLocked	Home locked	Domicile verrouillé
+wagHomeNotLocked	Home not locked	Domicile non verrouillé
+wagAwayLocked	Away locked	Extérieur verrouillé
+wagAwayNotLocked	Away not locked	Extérieur non verrouillé
+wagYouWon	You won! +{pot} STC added to your balance	Tu as gagné ! +{pot} STC ajoutés à ton solde
+wagYouLost	You lost — {stake} STC forfeited	Tu as perdu — {stake} STC perdus
+wagWinnerWon	{winner} won — {pot} STC pot	{winner} a gagné — {pot} STC de pot
+wagDrawRefund	Draw — both sides refunded {stake} STC	Nul — les deux côtés remboursés de {stake} STC
+wagCancelledHint	Wager cancelled — funds refunded	Pari annulé — fonds remboursés
+wagDeclinedHint	Wager declined — no funds deducted	Pari refusé — aucun fonds déduit
+wagAccept	Accept ({stake} STC)	Accepter ({stake} STC)
+wagDecline	Decline	Refuser
+wagCancelWager	Cancel wager (refund both sides)	Annuler le pari (rembourser les deux)
+wagCancelling	Cancelling…	Annulation…
+wagAccepted	Wager accepted — funds locked. 🔒	Pari accepté — fonds verrouillés. 🔒
+wagDeclinedMsg	Wager declined. No funds deducted.	Pari refusé. Aucun fonds déduit.
+wagCancelledMsg	Wager cancelled. Funds refunded.	Pari annulé. Fonds remboursés.
+pcmTitle	Complete Your Profile 🎮	Complète ton profil 🎮
+pcmGamertag	Gamertag *	Gamertag *
+pcmGamertagPlaceholder	Your gaming name	Ton pseudo de jeu
+pcmMainPosition	Main Position *	Poste principal *
+pcmSecondPosition	Second Position	Poste secondaire
+pcmPlatform	Platform *	Plateforme *
+pcmSelect	Select	Sélectionner
+pcmNone	None	Aucun
+pcmCountry	Country	Pays
+pcmSelectCountry	Select country	Sélectionner un pays
+pcmBio	Bio	Bio
+pcmBioPlaceholder	Tell us about yourself...	Parle-nous de toi...
+pcmPlusAvailable	STAGE Plus is available	STAGE Plus est disponible
+pcmPlusDesc	Your free account starts with {credits} credits. Plus unlocks official competitions, tournament creation, ranked play, and refreshes {monthlyCredits} credits monthly.	Ton compte gratuit démarre avec {credits} crédits. Plus débloque les compétitions officielles, la création de tournois, le mode classé et rafraîchit {monthlyCredits} crédits mensuellement.
+pcmSaving	Saving...	Enregistrement...
+pcmComplete	Complete Profile →	Compléter le profil →
+pcmRequired	Please fill in required fields: Gamertag, Position, and Platform	Remplis les champs obligatoires : Gamertag, Poste et Plateforme
+agdTitle	Arrange Game	Organiser un match
+agdPlayerMatch	Player Match	Match joueur
+agdClubMatch	Club Match	Match de club
+agdPlayerMatchHint	you play as {gamertag}. The invite goes to the opponent player's personal inbox.	tu joues en tant que {gamertag}. L'invitation va dans la boîte personnelle du joueur adverse.
+agdClubMatchHint	{clubName} challenges another club. The invite goes to the opponent club's owner inbox.	{clubName} défie un autre club. L'invitation va dans la boîte du propriétaire du club adverse.
+agdSearchClubs	Search clubs...	Rechercher des clubs...
+agdSearchPlayers	Search players...	Rechercher des joueurs...
+agdBack	Back	Retour
+agdDate	Date	Date
+agdTime	Time	Heure
+agdStcWager	STC Wager	Mise STC
+agdOptional	optional	optionnel
+agdMinBet	Minimum bet is {amount} STC	Mise minimum : {amount} STC
+agdMaxBet	Maximum bet is {amount} STC	Mise maximum : {amount} STC
+agdInsufficientStc	You only have {amount} STC available	Tu n'as que {amount} STC disponibles
+agdWagerPotHint	Pot: {pot} STC total. Your {stake} STC stake will lock on acceptance.	Cagnotte : {pot} STC au total. Ta mise de {stake} STC sera bloquée à l'acceptation.
+agdContinue	Continue	Continuer
+agdMatchType	Match type	Type de match
+agdOpponent	Opponent	Adversaire
+agdWagerSummary	{stake} STC each · Pot: {pot} STC	{stake} STC chacun · Cagnotte : {pot} STC
+agdPlayerInviteNote	A player match invitation will be sent to {gamertag}'s personal inbox.	Une invitation de match joueur sera envoyée dans la boîte personnelle de {gamertag}.
+agdClubInviteNote	A club match invitation will be sent to the owner of {clubName}'s inbox.	Une invitation de match club sera envoyée au propriétaire de {clubName}.
+agdCanRespondNote	They can accept, decline, or request a different date.	Il peut accepter, refuser ou demander une autre date.
+agdWagerLockNote	The wager stake will appear in finances as locked STC when accepted.	La mise apparaîtra dans les finances comme STC bloqués une fois acceptée.
+agdSendInvitation	Send Invitation	Envoyer l'invitation
+agdInvitationSent	Invitation Sent!	Invitation envoyée !
+agdWaitingResponse	Waiting for the opponent to respond.	En attente de la réponse de l'adversaire.
+agdChooseOpponent	Please choose an opponent again.	Veuillez choisir à nouveau un adversaire.
+agdCannotReachClub	Could not reach this club's owner. They may not have a login email yet.	Impossible de joindre le propriétaire de ce club. Il n'a peut-être pas encore d'email de connexion.
+agdCannotReachPlayer	Could not reach this player. They may not have an account yet.	Impossible de joindre ce joueur. Il n'a peut-être pas encore de compte.
+agdSendFailed	Failed to send invitation. Please try again.	Échec de l'envoi de l'invitation. Réessaie.
+fspMatchScheduling	Match Scheduling	Planification du match
+fspAwaitingSchedule	Awaiting Schedule	En attente de planification
+fspTimeProposed	Time Proposed	Heure proposée
+fspCounterProposal	Counter-Proposal	Contre-proposition
+fspConfirmed	Confirmed	Confirmé
+fspWindowExpired	Window Expired	Délai expiré
+fspAdminReview	Admin Review	Examen admin
+fspDeadlinePassed	Deadline passed — awaiting admin review	Délai dépassé — en attente d'examen admin
+fspDeadlineIn	Deadline in {hours}h	Deadline dans {hours}h
+fspDeadline	Deadline: {date}	Deadline : {date}
+fspExpiredNote	Both teams failed to agree before the deadline. This fixture has been flagged for admin review.	Les deux équipes n'ont pas réussi à se mettre d'accord avant la deadline. Ce match a été signalé pour examen admin.
+fspAdminReviewNote	An admin is reviewing this scheduling dispute.	Un admin examine ce litige de planification.
+fspOpponentProposes	Opponent proposes:	L'adversaire propose :
+fspConfirming	Confirming…	Confirmation…
+fspProposeDifferent	Propose Different Time	Proposer une autre heure
+fspYourProposal	Your proposal	Ta proposition
+fspWaitingResponse	waiting for response	en attente de réponse
+fspProposeTime	Propose a Time	Proposer une heure
+fspWaitingHome	Waiting for the home team to propose a time…	En attente de la proposition de l'équipe à domicile…
+fspNotScheduled	Not yet scheduled	Pas encore planifié
+fspProposalsExchanged	{count} proposal(s) exchanged	{count} proposition(s) échangée(s)
+fspMustBeBefore	must be before {date}	doit être avant le {date}
+fspSending	Sending…	Envoi…
+fspSendProposal	Send Proposal	Envoyer la proposition
+fspProposalFailed	Failed to send proposal. Please try again.	Échec de l'envoi de la proposition. Réessaie.
+fspConfirmFailed	Failed to confirm match. Please try again.	Échec de la confirmation du match. Réessaie.
+scalEventsCount	{count} events	{count} événements
+scalMatch	Match	Match
+scalContractEnd	Contract End	Fin de contrat
+scalTournament	Tournament	Tournoi
+scalToday	Today	Aujourd'hui
+scalClickDate	Click a date to see events	Clique sur une date pour voir les événements
+scalNoEvents	No events on this day	Aucun événement ce jour
+scalBackTo	Back to {date}	Retour au {date}
+scalBack	Back	Retour
+scalMore	+{count} more	+{count} autres
+scalStarts	Starts	Commence
+scalPlayerContractEnds	{name} contract ends	Fin du contrat de {name}
+scalGames	games	matchs
+scalEnd	End	Fin
+scalTournamentStart	Tournament Start	Début du tournoi
+scalInDays	In {days} day(s)	Dans {days} jour(s)
+scalTodayExcl	Today!	Aujourd'hui !
+scalTBD	TBD	À définir
+scalHome	Home	Domicile
+scalAway	Away	Extérieur
+scalScheduled	Scheduled	Planifié
+scalPending	Pending	En attente
+scalFT	FT	Terminé
+scalForfeit	Forfeit	Forfait
+scalLive	Live	Live
+scalDisputed	Disputed	Contesté
+ocdCounterOffer	Counter Offer	Contre-offre
+ocdTo	to {name}	à {name}
+ocdActiveContract	This player already has an active {type} contract ({status}).	Ce joueur a déjà un contrat {type} actif ({status}).
+ocdStillOfferPlayer	You can still offer a player contract alongside it.	Tu peux quand même offrir un contrat joueur en parallèle.
+ocdStillOfferOwnership	You can still offer an ownership contract alongside it.	Tu peux quand même offrir un contrat de propriété en parallèle.
+ocdSecondContract	This will create a second contract of the same type.	Cela créera un second contrat du même type.
+ocdWindowClosed	Transfer window is closed. Offer queued — transfer executes when window opens.	Le mercato est fermé. L'offre est mise en file — le transfert s'exécute à l'ouverture du mercato.
+ocdWindowOpen	Transfer window OPEN. Accepted offers take effect immediately.	Mercato OUVERT. Les offres acceptées prennent effet immédiatement.
+ocdWindowChecking	Checking transfer window status...	Vérification du statut du mercato...
+ocdContractType	Contract Type	Type de contrat
+ocdFinancialTerms	Financial Terms (STC)	Conditions financières (STC)
+ocdPerformanceTargets	Performance Targets	Objectifs de performance
+ocdMessage	Message	Message
+ocdCounterPlaceholder	Explain your counter-offer...	Explique ta contre-offre...
+ocdSending	Sending...	Envoi...
+ocdSendCounter	Send Counter-Offer	Envoyer la contre-offre
+ocdSendOffer	Send Contract Offer	Envoyer l'offre de contrat
+icoContractUnavailable	Contract data unavailable or already resolved.	Données du contrat indisponibles ou déjà résolues.
+icoAwaitingResponse	Awaiting your response	En attente de ta réponse
+icoNegotiatingRound	Negotiating — Round {round}	Négociation — Tour {round}
+icoContractActive	✅ Contract Active	✅ Contrat actif
+icoDeclined	❌ Declined	❌ Refusé
+icoAcceptedPendingWindow	✅ Accepted — awaiting transfer window	✅ Accepté — en attente du mercato
+icoClubOwnership	🏢 Club Ownership	🏢 Propriété du club
+icoContract	Contract	Contrat
+icoRound	Round {round}	Tour {round}
+icoDuration	Duration	Durée
+icoDurationValue	{games} games / {days} days	{games} matchs / {days} jours
+icoTransferFee	Transfer Fee	Indemnité de transfert
+icoOffered	⭐ Offered	⭐ Proposé
+icoTargets	Targets	Objectifs
+icoTargetCount	{count} target(s)	{count} objectif(s)
+icoWindowOpenImmediate	Transfer window OPEN — accepting will activate this contract immediately.	Mercato OUVERT — accepter activera ce contrat immédiatement.
+icoWindowClosedQueue	Transfer window is currently CLOSED. Accepting will queue the transfer — it executes when the window opens.	Le mercato est actuellement FERMÉ. Accepter mettra le transfert en file — il s'exécute à l'ouverture du mercato.
+icoWindowChecking	Checking transfer window status...	Vérification du statut du mercato...
+icoAcceptQueue	Accept & Queue Transfer	Accepter et mettre en file
+icoAcceptContract	Accept Contract	Accepter le contrat
+icoCounterOffer	Counter-Offer	Contre-offre
+icoWaitingOther	Waiting for the other party to respond.	En attente de la réponse de l'autre partie.
+icoWeeklySalaryStc	Weekly Salary (STC)	Salaire hebdo (STC)
+icoSigningBonusStc	Signing Bonus (STC)	Prime à la signature (STC)
+icoTransferFeeStc	Transfer Fee (STC)	Indemnité de transfert (STC)
+icoCounterPlaceholder	Explain your counter-offer... (optional)	Explique ta contre-offre... (optionnel)
+icoSendCounter	Send Counter-Offer	Envoyer la contre-offre
+tpdTitle	Pay Transfer Fee	Payer l'indemnité de transfert
+tpdEnterValidAmount	Enter a valid transfer fee amount.	Saisis un montant valide pour l'indemnité de transfert.
+tpdInsufficientFunds	Insufficient funds. Club balance: {balance}	Fonds insuffisants. Solde du club : {balance}
+tpdPaymentFailed	Payment failed. Please try again.	Paiement échoué. Réessaie.
+tpdFeePaid	Transfer fee paid!	Indemnité de transfert payée !
+tpdFeePaidDetail	{amount} sent to {clubName} for {gamertag}.	{amount} envoyés à {clubName} pour {gamertag}.
+tpdTheClub	the club	le club
+tpdDone	Done	Terminé
+tpdFrom	From	De
+tpdTo	To	À
+tpdBalance	Balance	Solde
+tpdNoClub	No club	Aucun club
+tpdFor	For {name}	Pour {name}
+tpdAmountLabel	Transfer Fee Amount (STC)	Montant de l'indemnité (STC)
+tpdExceedsBalance	⛔ Exceeds club balance — need {needed} more STC	⛔ Dépasse le solde du club — il manque {needed} STC
+tpdExceedsBudget	⚠ Exceeds transfer budget ({budget}) — deducted from main balance	⚠ Dépasse le budget transferts ({budget}) — déduit du solde principal
+tpdWithinBudget	✓ Within transfer budget ({budget})	✓ Dans le budget transferts ({budget})
+tpdPaying	Paying…	Paiement…
+tpdPayTransferFee	Pay Transfer Fee	Payer l'indemnité de transfert

@@ -1,0 +1,122 @@
+{
+  "discNotConfigured": {
+    "en": "Discord link is not set up yet. Ask an admin to add invite settings.",
+    "fr": "Le lien Discord n'est pas encore configuré. Demande à un admin d'ajouter les paramètres d'invitation."
+  },
+  "discJoinTitle": {
+    "en": "Join our Discord",
+    "fr": "Rejoins notre Discord"
+  },
+  "discBannerDesc": {
+    "en": "Free to join — meet players, get match updates, and find your next club.",
+    "fr": "Gratuit — rencontre des joueurs, reçois les infos de match et trouve ton prochain club."
+  },
+  "discJoinDiscord": {
+    "en": "Join Discord",
+    "fr": "Rejoindre Discord"
+  },
+  "discNotNow": {
+    "en": "Not now",
+    "fr": "Plus tard"
+  },
+  "discServerName": {
+    "en": "Stage League Discord",
+    "fr": "Discord Stage League"
+  },
+  "discCompactJoined": {
+    "en": "You're set — hop in anytime from Community.",
+    "fr": "C'est bon — rejoins quand tu veux depuis Community."
+  },
+  "discCompactCta": {
+    "en": "Join competitors on Discord.",
+    "fr": "Rejoins les compétiteurs sur Discord."
+  },
+  "discJoinServer": {
+    "en": "Join server",
+    "fr": "Rejoindre le serveur"
+  },
+  "discOpenCommunity": {
+    "en": "Open Community",
+    "fr": "Ouvrir Community"
+  },
+  "discOnboardTitle": {
+    "en": "Join the community",
+    "fr": "Rejoins la communauté"
+  },
+  "discOnboardDesc": {
+    "en": "Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.",
+    "fr": "Presque fini ! Discord, c'est là que les joueurs trouvent des clubs et suivent l'actu de la ligue. Rejoins maintenant ou plus tard depuis Community dans le menu."
+  },
+  "discServerPreview": {
+    "en": "Server preview",
+    "fr": "Aperçu du serveur"
+  },
+  "discContinue": {
+    "en": "Continue to STAGE →",
+    "fr": "Continuer vers STAGE →"
+  },
+  "discAlreadyJoined": {
+    "en": "I already joined",
+    "fr": "J'ai déjà rejoint"
+  },
+  "discSkipForNow": {
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  "discOfficialServer": {
+    "en": "Official server",
+    "fr": "Serveur officiel"
+  },
+  "discFullTitle": {
+    "en": "Your home off the pitch",
+    "fr": "Ta maison en dehors du terrain"
+  },
+  "discFullDesc": {
+    "en": "Discord is free and takes under a minute. Join to chat with clubs, get match updates, and stay connected — whether you signed up today or joined months ago.",
+    "fr": "Discord est gratuit et prend moins d'une minute. Rejoins pour discuter avec les clubs, recevoir les infos de match et rester connecté — que tu viennes de t'inscrire ou que tu sois là depuis des mois."
+  },
+  "discStep1": {
+    "en": "Click Join Discord — opens in a new tab",
+    "fr": "Clique sur Rejoindre Discord — s'ouvre dans un nouvel onglet"
+  },
+  "discStep2": {
+    "en": "Create a Discord account or sign in (free)",
+    "fr": "Crée un compte Discord ou connecte-toi (gratuit)"
+  },
+  "discStep3": {
+    "en": "Accept the invite and pick your channels",
+    "fr": "Accepte l'invitation et choisis tes salons"
+  },
+  "discOpenAgain": {
+    "en": "Open Discord again",
+    "fr": "Rouvrir Discord"
+  },
+  "discJoinFree": {
+    "en": "Join Discord — it's free",
+    "fr": "Rejoindre Discord — c'est gratuit"
+  },
+  "discAlreadyInServer": {
+    "en": "I'm already in the server",
+    "fr": "Je suis déjà sur le serveur"
+  },
+  "discLivePreview": {
+    "en": "Live preview",
+    "fr": "Aperçu en direct"
+  },
+  "discBenefit1": {
+    "en": "Find clubs, players, and scrims fast",
+    "fr": "Trouve clubs, joueurs et scrims rapidement"
+  },
+  "discBenefit2": {
+    "en": "League announcements and match reminders",
+    "fr": "Annonces de la ligue et rappels de match"
+  },
+  "discBenefit3": {
+    "en": "Talk tactics, transfers, and highlights",
+    "fr": "Parle tactique, transferts et highlights"
+  },
+  "discBenefit4": {
+    "en": "Get help from staff and the community",
+    "fr": "Obtiens de l'aide du staff et de la communauté"
+  }
+}

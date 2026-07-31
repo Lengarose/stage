@@ -22,7 +22,8 @@ function handleError(res, err) {
 
 async function deliverApplicantContractOffer(contractId) {
   const rows = await EXECUTESQL(
-    `SELECT pc.*, c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
+    `SELECT pc.*, pc.user_id AS target_player_id,
+            c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
             p.email AS player_email, p.gamertag AS player_gamertag,
             u.email AS user_email
        FROM player_contracts pc

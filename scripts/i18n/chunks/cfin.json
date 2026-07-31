@@ -1,0 +1,218 @@
+{
+  "cfinCatTicketRevenue": {
+    "en": "Ticket Revenue",
+    "fr": "Recettes billetterie"
+  },
+  "cfinCatShirtSales": {
+    "en": "Shirt Sales",
+    "fr": "Ventes maillots"
+  },
+  "cfinCatStadiumUpgrade": {
+    "en": "Stadium Upgrade",
+    "fr": "Amélioration stade"
+  },
+  "cfinCatSalary": {
+    "en": "Salary",
+    "fr": "Salaire"
+  },
+  "cfinCatWagerWin": {
+    "en": "Wager Win",
+    "fr": "Gain pari"
+  },
+  "cfinCatWagerLoss": {
+    "en": "Wager Loss",
+    "fr": "Perte pari"
+  },
+  "cfinCatWagerRefund": {
+    "en": "Wager Refund",
+    "fr": "Remboursement pari"
+  },
+  "cfinCatWagerStake": {
+    "en": "Wager Stake",
+    "fr": "Mise pari"
+  },
+  "cfinCatCompetition": {
+    "en": "Competition",
+    "fr": "Compétition"
+  },
+  "cfinCatTournamentEntry": {
+    "en": "Tournament Entry",
+    "fr": "Inscription tournoi"
+  },
+  "cfinCatTournamentPrize": {
+    "en": "Tournament Prize",
+    "fr": "Prix tournoi"
+  },
+  "cfinCatTournamentRefund": {
+    "en": "Tournament Refund",
+    "fr": "Remboursement tournoi"
+  },
+  "cfinCatAdjustment": {
+    "en": "Adjustment",
+    "fr": "Ajustement"
+  },
+  "cfinCatAdminAdj": {
+    "en": "Admin Adj.",
+    "fr": "Ajust. admin"
+  },
+  "cfinCatTransaction": {
+    "en": "Transaction",
+    "fr": "Transaction"
+  },
+  "cfinFilterTickets": {
+    "en": "Tickets",
+    "fr": "Billets"
+  },
+  "cfinFilterShirts": {
+    "en": "Shirts",
+    "fr": "Maillots"
+  },
+  "cfinFilterStadium": {
+    "en": "Stadium",
+    "fr": "Stade"
+  },
+  "cfinFilterStake": {
+    "en": "Stake",
+    "fr": "Mise"
+  },
+  "cfinFilterRefund": {
+    "en": "Refund",
+    "fr": "Remb."
+  },
+  "cfinFilterTournament": {
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  "cfinAdjustBudget": {
+    "en": "Adjust Budget Allocation",
+    "fr": "Ajuster la répartition du budget"
+  },
+  "cfinManage": {
+    "en": "Manage →",
+    "fr": "Gérer →"
+  },
+  "cfinBudgetAllocation": {
+    "en": "Budget Allocation",
+    "fr": "Répartition du budget"
+  },
+  "cfinTotalBudgetHint": {
+    "en": "Total controllable budget: {total}. Moving funds from one budget reduces the other.",
+    "fr": "Budget total contrôlable : {total}. Déplacer des fonds d'un budget réduit l'autre."
+  },
+  "cfinTransferAmount": {
+    "en": "Transfer: {amount}",
+    "fr": "Transferts : {amount}"
+  },
+  "cfinWagesAmount": {
+    "en": "Wages: {amount}",
+    "fr": "Salaires : {amount}"
+  },
+  "cfinSliderMin": {
+    "en": "0 STC → transfers",
+    "fr": "0 STC → transferts"
+  },
+  "cfinSliderMax": {
+    "en": "wages → {total}",
+    "fr": "salaires → {total}"
+  },
+  "cfinWageBelowCommitted": {
+    "en": "Wage budget can't drop below committed wages ({amount}/wk)",
+    "fr": "Le budget salarial ne peut pas descendre sous les salaires engagés ({amount}/sem.)"
+  },
+  "cfinWageUsage": {
+    "en": "Wage Usage",
+    "fr": "Utilisation salariale"
+  },
+  "cfinApplyChanges": {
+    "en": "Apply Changes",
+    "fr": "Appliquer"
+  },
+  "cfinAdjustFailed": {
+    "en": "Failed to adjust budgets",
+    "fr": "Échec de l'ajustement des budgets"
+  },
+  "cfinDeleteConfirm": {
+    "en": "Delete this transaction? This cannot be undone.",
+    "fr": "Supprimer cette transaction ? Action irréversible."
+  },
+  "cfinActionFailed": {
+    "en": "Failed",
+    "fr": "Échec"
+  },
+  "cfinLoadFailed": {
+    "en": "Could not load finance data.",
+    "fr": "Impossible de charger les données financières."
+  },
+  "cfinClubBalance": {
+    "en": "Club Balance",
+    "fr": "Solde du club"
+  },
+  "cfinAvailableFunds": {
+    "en": "Available funds",
+    "fr": "Fonds disponibles"
+  },
+  "cfinSquadValue": {
+    "en": "Squad Value",
+    "fr": "Valeur de l'effectif"
+  },
+  "cfinCombinedPlayerValue": {
+    "en": "Combined player value",
+    "fr": "Valeur combinée des joueurs"
+  },
+  "cfinWageBudget": {
+    "en": "Wage Budget",
+    "fr": "Budget salarial"
+  },
+  "cfinWkCommitted": {
+    "en": "{amount}/wk committed",
+    "fr": "{amount}/sem. engagés"
+  },
+  "cfinTransferBudget": {
+    "en": "Transfer Budget",
+    "fr": "Budget transferts"
+  },
+  "cfinSigningFunds": {
+    "en": "Signing funds",
+    "fr": "Fonds de signature"
+  },
+  "cfinWeeklyWageBill": {
+    "en": "Weekly Wage Bill",
+    "fr": "Masse salariale hebdo."
+  },
+  "cfinWageNearlyExhausted": {
+    "en": "Wage budget nearly exhausted",
+    "fr": "Budget salarial presque épuisé"
+  },
+  "cfinContractLabel": {
+    "en": "{name} contract",
+    "fr": "{name} contrat"
+  },
+  "cfinIncome30d": {
+    "en": "Income (30d)",
+    "fr": "Revenus (30 j.)"
+  },
+  "cfinExpenses30d": {
+    "en": "Expenses (30d)",
+    "fr": "Dépenses (30 j.)"
+  },
+  "cfinNet30d": {
+    "en": "Net (30d)",
+    "fr": "Net (30 j.)"
+  },
+  "cfinTxHistory": {
+    "en": "Transaction History",
+    "fr": "Historique des transactions"
+  },
+  "cfinRefresh": {
+    "en": "Refresh",
+    "fr": "Actualiser"
+  },
+  "cfinNoTx": {
+    "en": "No transactions found.",
+    "fr": "Aucune transaction trouvée."
+  },
+  "cfinPageOf": {
+    "en": "Page {page} of {total}",
+    "fr": "Page {page} sur {total}"
+  }
+}

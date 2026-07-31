@@ -1,0 +1,18 @@
+{
+  "playerDetails": {
+    "en": "Player Details",
+    "fr": "Détails joueur"
+  },
+  "playerNews": {
+    "en": "Player News",
+    "fr": "News joueur"
+  },
+  "playerPost": {
+    "en": "Player Post",
+    "fr": "Post joueur"
+  },
+  "playerLooking": {
+    "en": "Player looking",
+    "fr": "Joueur en recherche"
+  }
+}

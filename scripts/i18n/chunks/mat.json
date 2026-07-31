@@ -1,0 +1,74 @@
+{
+  "matNoAssets": {
+    "en": "No assets owned yet.",
+    "fr": "Aucun actif possédé."
+  },
+  "matStartBuilding": {
+    "en": "Head to the Store and start building your empire!",
+    "fr": "Rends-toi à la boutique et commence à bâtir ton empire !"
+  },
+  "matNoResidence": {
+    "en": "No active residence",
+    "fr": "Aucune résidence active"
+  },
+  "matSetResidenceHint": {
+    "en": "Set a property as your residence from the store or below.",
+    "fr": "Définis une propriété comme résidence depuis la boutique ou ci-dessous."
+  },
+  "matActiveResidence": {
+    "en": "Active Residence",
+    "fr": "Résidence active"
+  },
+  "matRenting": {
+    "en": "Renting",
+    "fr": "En location"
+  },
+  "matOwned": {
+    "en": "Owned",
+    "fr": "Possédé"
+  },
+  "matAssets": {
+    "en": "Assets",
+    "fr": "Actifs"
+  },
+  "matTotalValue": {
+    "en": "Total Value",
+    "fr": "Valeur totale"
+  },
+  "matWeeklyCost": {
+    "en": "Weekly Cost",
+    "fr": "Coût hebdo"
+  },
+  "matDefaultCount": {
+    "en": "{count} asset{plural} in default",
+    "fr": "{count} actif{plural} en défaut"
+  },
+  "matDefaultHint": {
+    "en": "You missed maintenance payments. Top up your STC and the next automated run will restore them.",
+    "fr": "Tu as manqué des paiements d'entretien. Recharge tes STC et le prochain cycle les restaurera."
+  },
+  "matProperties": {
+    "en": "Properties",
+    "fr": "Propriétés"
+  },
+  "matGarage": {
+    "en": "Garage",
+    "fr": "Garage"
+  },
+  "matCollection": {
+    "en": "Collection",
+    "fr": "Collection"
+  },
+  "matNoCategoryAssets": {
+    "en": "No assets in this category yet.",
+    "fr": "Aucun actif dans cette catégorie."
+  },
+  "matUnknownLocation": {
+    "en": "Unknown Location",
+    "fr": "Lieu inconnu"
+  },
+  "matPropertyCount": {
+    "en": "{count} propert{plural}",
+    "fr": "{count} propriété{plural}"
+  }
+}

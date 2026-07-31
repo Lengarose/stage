@@ -8,6 +8,7 @@ import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -60,7 +61,7 @@ export default function TransferMarket() {
   }
 
   function hasConflict(playerId) {
-    return myContracts.some(c => c.user_id === playerId && (c.status === "active" || c.status === "pending" || c.status === "pending_window"));
+    return myContracts.some(c => getContractTargetPlayerId(c) === playerId && (c.status === "active" || c.status === "pending" || c.status === "pending_window"));
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
@@ -80,6 +81,8 @@ export default function TransferMarket() {
     });
     const contractId = result?.data?.contract_id || result?.contract_id;
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
+    // Contract offer delivery is also handled server-side. Keep this fallback
+    // idempotent until every contract entry point uses one canonical endpoint.
     if (contractId) {
       await ensureContractOfferInbox({
         contractId,

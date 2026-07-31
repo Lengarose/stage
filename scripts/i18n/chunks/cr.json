@@ -1,0 +1,38 @@
+{
+  "crAddClubs": {
+    "en": "Add Participants — Clubs",
+    "fr": "Ajouter des participants — Clubs"
+  },
+  "crSlotsFilled": {
+    "en": "{filled}/{max} slots filled",
+    "fr": "{filled}/{max} places prises"
+  },
+  "crSaveParticipants": {
+    "en": "Save Participants",
+    "fr": "Enregistrer les participants"
+  },
+  "crTournamentFull": {
+    "en": "🔒 Tournament is full ({max}/{max}). Remove a club to add another.",
+    "fr": "🔒 Le tournoi est complet ({max}/{max}). Retire un club pour en ajouter un autre."
+  },
+  "crSearchPlaceholder": {
+    "en": "Search club or tag...",
+    "fr": "Rechercher un club ou un tag..."
+  },
+  "crRegistered": {
+    "en": "Registered",
+    "fr": "Inscrit"
+  },
+  "crAdd": {
+    "en": "Add",
+    "fr": "Ajouter"
+  },
+  "crLoadMore": {
+    "en": "Load More",
+    "fr": "Charger plus"
+  },
+  "crSaved": {
+    "en": "Participants saved!",
+    "fr": "Participants enregistrés !"
+  }
+}

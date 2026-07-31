@@ -101,9 +101,15 @@ export default defineConfig(async ({ mode }) => {
       outDir: 'build',
     },
     resolve: {
+      // Keep a single React instance across Vite dep re-optimizations (avoids
+      // "Cannot read properties of null (reading 'useContext')" after HMR churn).
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom'],
     },
     server: {
       proxy: {

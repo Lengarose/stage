@@ -46,11 +46,11 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   const wagerNumber = wagerStc ? Number(wagerStc) : 0;
   const wagerError = wagerStc && (
     wagerNumber < MIN_BET
-      ? t("agdMinBet", { amount: MIN_BET.toLocaleString() })
+      ? t("commonPages.agdMinBet", { amount: MIN_BET.toLocaleString() })
       : wagerNumber > MAX_BET
-        ? t("agdMaxBet", { amount: MAX_BET.toLocaleString() })
+        ? t("commonPages.agdMaxBet", { amount: MAX_BET.toLocaleString() })
         : wagerNumber > availableWagerBalance
-          ? t("agdInsufficientStc", { amount: availableWagerBalance.toLocaleString() })
+          ? t("commonPages.agdInsufficientStc", { amount: availableWagerBalance.toLocaleString() })
           : ""
   );
 
@@ -194,7 +194,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const invitationType = matchType === "club" ? "club_vs_club" : "player_vs_player";
 
       if (!recipientKind) {
-        setSendError(t("agdChooseOpponent"));
+        setSendError(t("commonPages.agdChooseOpponent"));
         return;
       }
 
@@ -206,8 +206,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       if (!recipientEmail) {
         setSendError(
           recipientIsClub
-            ? t("agdCannotReachClub")
-            : t("agdCannotReachPlayer")
+            ? t("commonPages.agdCannotReachClub")
+            : t("commonPages.agdCannotReachPlayer")
         );
         return;
       }
@@ -261,7 +261,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       setTimeout(() => { reset(); onSent(); }, 1500);
     } catch (err) {
       console.error("[ArrangeGame] send failed:", err);
-      setSendError(err?.response?.data?.error || err?.message || t("agdSendFailed"));
+      setSendError(err?.response?.data?.error || err?.message || t("commonPages.agdSendFailed"));
     } finally {
       setSending(false);
     }
@@ -273,7 +273,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         <DialogHeader>
           <DialogTitle className="font-heading text-xl uppercase tracking-wide flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-primary" />
-            {t("agdTitle")}
+            {t("commonPages.agdTitle")}
           </DialogTitle>
         </DialogHeader>
 
@@ -282,8 +282,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-3">
               <Send className="w-5 h-5 text-success" />
             </div>
-            <p className="text-foreground font-semibold">{t("agdInvitationSent")}</p>
-            <p className="text-xs text-muted-foreground">{t("agdWaitingResponse")}</p>
+            <p className="text-foreground font-semibold">{t("commonPages.agdInvitationSent")}</p>
+            <p className="text-xs text-muted-foreground">{t("commonPages.agdWaitingResponse")}</p>
           </div>
         ) : step === "search" ? (
           <div className="space-y-4">
@@ -296,7 +296,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "player" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
-                  <User className="w-3.5 h-3.5" /> {t("agdPlayerMatch")}
+                  <User className="w-3.5 h-3.5" /> {t("commonPages.agdPlayerMatch")}
                 </button>
                 <button
                   type="button"
@@ -304,7 +304,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   className={cn("flex-1 py-2 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors",
                     searchType === "club" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
                 >
-                  <Shield className="w-3.5 h-3.5" /> {t("agdClubMatch")}
+                  <Shield className="w-3.5 h-3.5" /> {t("commonPages.agdClubMatch")}
                 </button>
               </div>
             )}
@@ -312,8 +312,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {/* Context hint */}
             <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
               {(isOwnerMode ? "club" : searchType) === "player"
-                ? <><span className="text-primary font-semibold">{t("agdPlayerMatch")}</span> — {t("agdPlayerMatchHint", { gamertag: myPlayer?.gamertag })}</>
-                : <><span className="text-primary font-semibold">{t("agdClubMatch")}</span> — {t("agdClubMatchHint", { clubName: myClub?.name })}</>
+                ? <><span className="text-primary font-semibold">{t("commonPages.agdPlayerMatch")}</span> — {t("commonPages.agdPlayerMatchHint", { gamertag: myPlayer?.gamertag })}</>
+                : <><span className="text-primary font-semibold">{t("commonPages.agdClubMatch")}</span> — {t("commonPages.agdClubMatchHint", { clubName: myClub?.name })}</>
               }
             </p>
 
@@ -324,12 +324,12 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
-                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? t("agdSearchClubs") : t("agdSearchPlayers")}
+                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? t("commonPages.agdSearchClubs") : t("commonPages.agdSearchPlayers")}
                   className="pl-9 bg-secondary border-border text-sm"
                 />
               </div>
               <Button onClick={handleSearch} disabled={searching} size="sm" className="bg-primary text-primary-foreground">
-                {searching ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : t("searchCta")}
+                {searching ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : t("commonPages.searchCta")}
               </Button>
             </div>
 
@@ -365,7 +365,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ) : step === "details" ? (
           <div className="space-y-4">
             <button type="button" onClick={() => setStep("search")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> {t("agdBack")}
+              <ArrowLeft className="w-3.5 h-3.5" /> {t("commonPages.agdBack")}
             </button>
 
             {/* Selected opponent */}
@@ -387,7 +387,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("agdDate")}</label>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("commonPages.agdDate")}</label>
                 <div className="relative">
                   <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -400,7 +400,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 </div>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("agdTime")}</label>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("commonPages.agdTime")}</label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -416,7 +416,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             {/* Optional wager */}
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block flex items-center gap-1">
-                <Coins className="w-3 h-3 inline" /> {t("agdStcWager")} <span className="normal-case font-normal">({t("agdOptional")})</span>
+                <Coins className="w-3 h-3 inline" /> {t("commonPages.agdStcWager")} <span className="normal-case font-normal">({t("commonPages.agdOptional")})</span>
               </label>
               <div className="relative">
                 <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -433,7 +433,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               </div>
               {wagerStc && (
                 <p className={cn("text-[10px] mt-1", wagerError ? "text-destructive" : "text-warning")}>
-                  {wagerError || t("agdWagerPotHint", { pot: (Number(wagerStc) * 2).toLocaleString(), stake: Number(wagerStc).toLocaleString() })}
+                  {wagerError || t("commonPages.agdWagerPotHint", { pot: (Number(wagerStc) * 2).toLocaleString(), stake: Number(wagerStc).toLocaleString() })}
                 </p>
               )}
             </div>
@@ -443,48 +443,48 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               disabled={!date || !time || !!wagerError}
               className="w-full bg-primary text-primary-foreground"
             >
-              {t("agdContinue")}
+              {t("commonPages.agdContinue")}
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <button type="button" onClick={() => setStep("details")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" /> {t("agdBack")}
+              <ArrowLeft className="w-3.5 h-3.5" /> {t("commonPages.agdBack")}
             </button>
 
             <div className="bg-secondary/60 rounded-lg border border-border p-4 space-y-2 text-sm">
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{t("agdMatchType")}</span>
+                <span className="text-muted-foreground">{t("commonPages.agdMatchType")}</span>
                 <span className={cn("font-semibold", searchType === "player" ? "text-primary" : "text-accent")}>
-                  {searchType === "player" ? t("agdPlayerMatch") : t("agdClubMatch")}
+                  {searchType === "player" ? t("commonPages.agdPlayerMatch") : t("commonPages.agdClubMatch")}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{t("agdOpponent")}</span>
+                <span className="text-muted-foreground">{t("commonPages.agdOpponent")}</span>
                 <span className="text-foreground font-medium">{selected?.name || selected?.gamertag}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{t("agdDate")}</span>
+                <span className="text-muted-foreground">{t("commonPages.agdDate")}</span>
                 <span className="text-foreground font-medium">{date}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{t("agdTime")}</span>
+                <span className="text-muted-foreground">{t("commonPages.agdTime")}</span>
                 <span className="text-foreground font-medium">{time}</span>
               </div>
               {wagerStc && Number(wagerStc) >= MIN_BET && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{t("agdStcWager")}</span>
-                  <span className="text-warning font-bold">{t("agdWagerSummary", { stake: Number(wagerStc).toLocaleString(), pot: (Number(wagerStc) * 2).toLocaleString() })}</span>
+                  <span className="text-muted-foreground">{t("commonPages.agdStcWager")}</span>
+                  <span className="text-warning font-bold">{t("commonPages.agdWagerSummary", { stake: Number(wagerStc).toLocaleString(), pot: (Number(wagerStc) * 2).toLocaleString() })}</span>
                 </div>
               )}
             </div>
 
             <p className="text-xs text-muted-foreground">
               {searchType === "player"
-                ? t("agdPlayerInviteNote", { gamertag: selected?.gamertag })
-                : t("agdClubInviteNote", { clubName: selected?.name })
-              } {t("agdCanRespondNote")}
-              {wagerNumber > 0 && !wagerError ? ` ${t("agdWagerLockNote")}` : ""}
+                ? t("commonPages.agdPlayerInviteNote", { gamertag: selected?.gamertag })
+                : t("commonPages.agdClubInviteNote", { clubName: selected?.name })
+              } {t("commonPages.agdCanRespondNote")}
+              {wagerNumber > 0 && !wagerError ? ` ${t("commonPages.agdWagerLockNote")}` : ""}
             </p>
 
             {sendError && (
@@ -501,7 +501,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               {sending
                 ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 : <Send className="w-4 h-4" />}
-              {t("agdSendInvitation")}
+              {t("commonPages.agdSendInvitation")}
             </Button>
           </div>
         )}

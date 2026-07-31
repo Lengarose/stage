@@ -48,6 +48,8 @@ export async function ensureContractOfferInbox({
   };
 
   try {
+    // Prefer the server helper so recipient resolution and notification rules
+    // stay in one place. Callers must pass related_entity_id for de-duping.
     return await stageClient.functions.invoke("sendInboxMessage", {
       recipient_email: player.email || undefined,
       recipient_player_id: player.id,
@@ -63,6 +65,9 @@ export async function ensureContractOfferInbox({
     });
   } catch (err) {
     if (!player.email) throw err;
+    // Last-resort compatibility fallback for older deployments without
+    // sendInboxMessage. This path can duplicate messages if the server also
+    // delivered the same contract, so keep related_entity_id populated.
     return stageClient.entities.InboxMessage.create({
       recipient_email: player.email,
       sender_email: senderEmail || club?.owner_email || "system@stage.com",

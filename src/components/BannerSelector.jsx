@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import BannerPreviewEditor from "./BannerPreviewEditor";
 import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Move } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function BannerSelector({ open, onClose, currentBannerId, onSelect, previewData, currentBannerPosition, currentBannerZoom }) {
   const [uploading, setUploading] = useState(false);
@@ -10,6 +11,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
   const [pendingUrl, setPendingUrl] = useState(null);
   const [repositioning, setRepositioning] = useState(false);
   const fileRef = useRef();
+  const fileInputId = useId();
 
   // Reset state every time the dialog opens so stale uploading/error state never shows
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
   }
 
   return (<>
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
         className="bg-card border-border max-w-sm"
         // Prevent the dialog from closing when the OS file-picker opens.
@@ -68,18 +70,28 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
         <DialogHeader>
           <DialogTitle className="text-xl">Change Banner</DialogTitle>
         </DialogHeader>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+        <input
+          id={fileInputId}
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          disabled={uploading}
+          onChange={handleUpload}
+        />
 
         <div className="space-y-3 pt-1">
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-3 w-full border border-dashed border-border rounded-xl p-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors disabled:opacity-60"
+          <label
+            htmlFor={uploading ? undefined : fileInputId}
+            className={cn(
+              "flex items-center gap-3 w-full border border-dashed border-border rounded-xl p-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors cursor-pointer touch-manipulation",
+              uploading && "opacity-60 pointer-events-none"
+            )}
           >
             {uploading
               ? <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" /> Uploading…</>
               : <><Upload className="w-4 h-4 shrink-0" /> Upload a banner image</>}
-          </button>
+          </label>
           {uploadError && (
             <p className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
               {uploadError}

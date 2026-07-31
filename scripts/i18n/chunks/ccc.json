@@ -1,0 +1,158 @@
+{
+  "cccGoBack": {
+    "en": "Go Back",
+    "fr": "Retour"
+  },
+  "cccAccessRestricted": {
+    "en": "Access Restricted",
+    "fr": "Accès restreint"
+  },
+  "cccPresidentOnly": {
+    "en": "Only the club president can create contracts.",
+    "fr": "Seul le président du club peut créer des contrats."
+  },
+  "cccTitle": {
+    "en": "Create Contract",
+    "fr": "Créer un contrat"
+  },
+  "cccStep1": {
+    "en": "1. Select Player",
+    "fr": "1. Sélectionner un joueur"
+  },
+  "cccStep2": {
+    "en": "2. Choose Contract Type",
+    "fr": "2. Choisir le type de contrat"
+  },
+  "cccStep3": {
+    "en": "3. Financial Terms (STC)",
+    "fr": "3. Conditions financières (STC)"
+  },
+  "cccStep4": {
+    "en": "4. Performance Targets",
+    "fr": "4. Objectifs de performance"
+  },
+  "cccStep5": {
+    "en": "5. Review",
+    "fr": "5. Récapitulatif"
+  },
+  "cccStep6": {
+    "en": "6. Message (optional)",
+    "fr": "6. Message (optionnel)"
+  },
+  "cccSuggestedSalary": {
+    "en": "Suggested Salary Range",
+    "fr": "Fourchette de salaire suggérée"
+  },
+  "cccWeeklySalary": {
+    "en": "Weekly Salary",
+    "fr": "Salaire hebdomadaire"
+  },
+  "cccPaidMonthly": {
+    "en": "Paid monthly",
+    "fr": "Versé mensuellement"
+  },
+  "cccSigningBonus": {
+    "en": "Signing Bonus",
+    "fr": "Prime à la signature"
+  },
+  "cccPaidOnSigning": {
+    "en": "Paid on signing",
+    "fr": "Versée à la signature"
+  },
+  "cccCaptaincy": {
+    "en": "Captaincy",
+    "fr": "Capitanat"
+  },
+  "cccCaptainOffered": {
+    "en": "✓ Captain role offered",
+    "fr": "✓ Rôle de capitaine proposé"
+  },
+  "cccNoCaptaincy": {
+    "en": "No captaincy",
+    "fr": "Pas de capitanat"
+  },
+  "cccAddTarget": {
+    "en": "Add Target",
+    "fr": "Ajouter un objectif"
+  },
+  "cccNotePlaceholder": {
+    "en": "Add a message for the player...",
+    "fr": "Ajoute un message pour le joueur..."
+  },
+  "cccTargetMin": {
+    "en": "Minimum (≥)",
+    "fr": "Minimum (≥)"
+  },
+  "cccTargetExact": {
+    "en": "Exact (=)",
+    "fr": "Exact (=)"
+  },
+  "cccTargetRange": {
+    "en": "Range (between)",
+    "fr": "Plage (entre)"
+  },
+  "cccSendFailed": {
+    "en": "Failed to send contract: {error}",
+    "fr": "Échec de l'envoi du contrat : {error}"
+  },
+  "cccAlreadyHasContract": {
+    "en": "{name} already has a {type} contract ({status})",
+    "fr": "{name} a déjà un contrat {type} ({status})"
+  },
+  "cccStarted": {
+    "en": "Started: {date}",
+    "fr": "Début : {date}"
+  },
+  "cccOneActivePerType": {
+    "en": "Only one active contract per type group is allowed.",
+    "fr": "Un seul contrat actif est autorisé par groupe de type."
+  },
+  "cccStillOfferPlayer": {
+    "en": "You can still offer a player contract (squad, star, etc.) alongside an ownership contract.",
+    "fr": "Tu peux toujours proposer un contrat joueur (effectif, star, etc.) en plus d'un contrat de propriété."
+  },
+  "cccStillOfferOwnership": {
+    "en": "You can still offer an ownership contract alongside a player contract.",
+    "fr": "Tu peux toujours proposer un contrat de propriété en plus d'un contrat joueur."
+  },
+  "cccExceedsWage": {
+    "en": "⛔ Exceeds Wage Budget",
+    "fr": "⛔ Dépassement du budget salarial"
+  },
+  "cccWageUsage": {
+    "en": "Wage Budget Usage: {pct}%",
+    "fr": "Utilisation du budget salarial : {pct} %"
+  },
+  "cccClubWageBudget": {
+    "en": "Club wage budget: {amount}M STC/wk",
+    "fr": "Budget salarial du club : {amount}M STC/sem."
+  },
+  "cccReduceSalary": {
+    "en": " — reduce the salary to proceed",
+    "fr": " — réduis le salaire pour continuer"
+  },
+  "cccPerWeek": {
+    "en": "/ week",
+    "fr": "/ sem."
+  },
+  "cccBasedOnValue": {
+    "en": "· based on {value} market value",
+    "fr": "· basé sur {value} de valeur marché"
+  },
+  "cccBasedOnOvr": {
+    "en": "· OVR {ovr}",
+    "fr": "· OVR {ovr}"
+  },
+  "cccMin": {
+    "en": "Min",
+    "fr": "Min"
+  },
+  "cccMax": {
+    "en": "Max",
+    "fr": "Max"
+  },
+  "cccValue": {
+    "en": "Value",
+    "fr": "Valeur"
+  }
+}

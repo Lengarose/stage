@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId} from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,8 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
   const [expandedPost, setExpandedPost] = useState(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [mediaCoverUrl, setMediaCoverUrl] = useState(null);
+  const imageInputId = useId();
+  const videoInputId = useId();
   const imageRef = useRef();
   const videoRef = useRef();
 
@@ -128,16 +130,16 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
 
           <div className="flex items-center justify-between ml-12">
             <div className="flex gap-2">
-              <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={e => uploadMedia(e, "image")} />
-              <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={e => uploadMedia(e, "video")} />
-              <button onClick={() => imageRef.current?.click()} disabled={uploading}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary">
+              <input id={imageInputId} ref={imageRef} type="file" accept="image/*" className="sr-only" disabled={uploading} onChange={e => uploadMedia(e, "image")} />
+              <input id={videoInputId} ref={videoRef} type="file" accept="video/*" className="sr-only" disabled={uploading} onChange={e => uploadMedia(e, "video")} />
+              <label htmlFor={uploading ? undefined : imageInputId}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />} Photo
-              </button>
-              <button onClick={() => videoRef.current?.click()} disabled={uploading}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary">
+              </label>
+              <label htmlFor={uploading ? undefined : videoInputId}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
                 <Video className="w-4 h-4" /> Video
-              </button>
+              </label>
             </div>
             <Button onClick={submitPost} disabled={posting || (!content.trim() && !mediaUrl)}
               size="sm" className="bg-primary text-primary-foreground leading-relaxed">

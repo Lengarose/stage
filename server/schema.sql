@@ -663,6 +663,23 @@ CREATE TABLE IF NOT EXISTS club_applicants (
   UNIQUE KEY uq_ca_source (source_type, source_id)
 );
 
+-- ── club_memberships ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS club_memberships (
+  id            VARCHAR(36) PRIMARY KEY,
+  club_id       VARCHAR(36) NOT NULL,
+  player_id     VARCHAR(36) NOT NULL,
+  user_id       VARCHAR(36),
+  status        VARCHAR(30) DEFAULT 'active',
+  primary_role  VARCHAR(40) DEFAULT 'member',
+  source        VARCHAR(40) DEFAULT 'manual',
+  created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_cm_player_club (club_id, player_id),
+  INDEX idx_cm_club_status (club_id, status),
+  INDEX idx_cm_player_status (player_id, status),
+  INDEX idx_cm_user_status (user_id, status)
+);
+
 -- ── club_staff_roles ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS club_staff_roles (
   id                  VARCHAR(36) PRIMARY KEY,
@@ -1500,7 +1517,8 @@ CREATE TABLE IF NOT EXISTS transfer_windows (
   label VARCHAR(100),
   notes TEXT,
   transfers_executed INT DEFAULT 0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 -- END inlined: new_tables_migration.sql
 

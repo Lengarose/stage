@@ -8,6 +8,7 @@ import {
 } from "@/lib/momentDate";
 import { ChevronLeft, ChevronRight, X, Trophy, FileText, Shield, Star } from "lucide-react";
 import MatchDetail from "./MatchDetail";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function parseDate(d) {
@@ -48,9 +49,9 @@ const STATUS_BADGE_CLS = {
 function contractPlayerName(ev, players) {
   const c = ev.contractData;
   if (!c) return null;
-  // Try to find by player id stored in user_id
-  if (players && c.user_id) {
-    const p = players.find(pl => pl.id === c.user_id);
+  const targetPlayerId = getContractTargetPlayerId(c);
+  if (players && targetPlayerId) {
+    const p = players.find(pl => pl.id === targetPlayerId);
     if (p?.gamertag) return p.gamertag;
   }
   return null;
@@ -192,7 +193,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                 {/* Inline event count label on larger tiles */}
                 {dayEvents.length > 1 && (
                   <span className="hidden sm:block text-[9px] text-muted-foreground font-medium">
-                    {t("scalEventsCount", { count: dayEvents.length })}
+                    {t("commonPages.scalEventsCount", { count: dayEvents.length })}
                   </span>
                 )}
               </button>
@@ -204,19 +205,19 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
         <div className="px-5 py-3 border-t border-border bg-secondary/20 flex items-center gap-5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalMatch")}</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalMatch")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-warning" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalContractEnd")}</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalContractEnd")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-accent" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalTournament")}</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalTournament")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-primary/40" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("scalToday")}</span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalToday")}</span>
           </div>
         </div>
       </div>
@@ -229,7 +230,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
         {!selectedDate ? (
           <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center min-h-[300px] shadow-lg">
             <Trophy className="w-10 h-10 text-muted-foreground/20" />
-            <p className="text-sm text-muted-foreground">{t("scalClickDate")}</p>
+            <p className="text-sm text-muted-foreground">{t("commonPages.scalClickDate")}</p>
           </div>
         ) : (
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
@@ -251,7 +252,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
 
             {selectedEvents.length === 0 ? (
               <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">{t("scalNoEvents")}</p>
+                <p className="text-sm text-muted-foreground">{t("commonPages.scalNoEvents")}</p>
               </div>
             ) : detailEvent ? (
               <div>
@@ -260,7 +261,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                   onClick={() => setDetailEvent(null)}
                   className="flex items-center gap-1.5 px-5 py-2.5 text-xs text-primary hover:underline border-b border-border w-full text-left"
                 >
-                  ← {t("scalBackTo", { date: format(selectedDate, "d MMM") })}
+                  ← {t("commonPages.scalBackTo", { date: format(selectedDate, "d MMM") })}
                 </button>
                 <div className="p-4">
                   <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
@@ -285,7 +286,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
             <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
               <div className="w-10 h-1 rounded-full bg-border mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
               {detailEvent ? (
-                <button type="button" onClick={() => setDetailEvent(null)} className="text-xs text-primary">← {t("scalBack")}</button>
+                <button type="button" onClick={() => setDetailEvent(null)} className="text-xs text-primary">← {t("commonPages.scalBack")}</button>
               ) : (
                 <p className="font-semibold text-foreground text-sm">{format(selectedDate, "EEEE d MMMM")}</p>
               )}
@@ -300,7 +301,7 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
                 </div>
               ) : selectedEvents.length === 0 ? (
                 <div className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">{t("scalNoEvents")}</p>
+                  <p className="text-sm text-muted-foreground">{t("commonPages.scalNoEvents")}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -354,14 +355,14 @@ function HoverTooltip({ t, tooltip, players, onMouseEnter, onMouseLeave }) {
       className="bg-card border border-border rounded-xl shadow-2xl p-3 animate-in fade-in duration-100"
     >
       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-        {dayLabel} · {t("scalEventsCount", { count: dayEvents.length })}
+        {dayLabel} · {t("commonPages.scalEventsCount", { count: dayEvents.length })}
       </p>
       <div className="space-y-2">
         {dayEvents.slice(0, 4).map(ev => (
           <HoverEventCard key={ev.id} ev={ev} players={players} t={t} />
         ))}
         {dayEvents.length > 4 && (
-          <p className="text-[10px] text-muted-foreground text-center">{t("scalMore", { count: dayEvents.length - 4 })}</p>
+          <p className="text-[10px] text-muted-foreground text-center">{t("commonPages.scalMore", { count: dayEvents.length - 4 })}</p>
         )}
       </div>
     </div>
@@ -375,7 +376,7 @@ function HoverEventCard({ ev, players, t }) {
     return (
       <div className="flex items-center gap-2">
         <Star className="w-3 h-3 text-accent shrink-0" />
-        <span className="text-[11px] text-foreground truncate font-semibold">{td.name} — {t("scalStarts")}</span>
+        <span className="text-[11px] text-foreground truncate font-semibold">{td.name} — {t("commonPages.scalStarts")}</span>
       </div>
     );
   }
@@ -385,7 +386,7 @@ function HoverEventCard({ ev, players, t }) {
       <div className="flex items-center gap-2">
         <FileText className="w-3 h-3 text-warning shrink-0" />
         <span className="text-[11px] text-foreground truncate">
-          {name ? t("scalPlayerContractEnds", { name }) : t("scalContractEnd")}
+          {name ? t("commonPages.scalPlayerContractEnds", { name }) : t("commonPages.scalContractEnd")}
         </span>
       </div>
     );
@@ -416,12 +417,12 @@ function HoverEventCard({ ev, players, t }) {
 function DayEventRow({ ev, players, onClick }) {
   const { t } = useTranslation();
   const STATUS_LABELS = {
-    scheduled: t("scalScheduled"),
-    awaiting_confirmation: t("scalPending"),
-    completed: t("scalFT"),
-    forfeit: t("scalForfeit"),
-    in_progress: t("scalLive"),
-    disputed: t("scalDisputed"),
+    scheduled: t("commonPages.scalScheduled"),
+    awaiting_confirmation: t("commonPages.scalPending"),
+    completed: t("commonPages.scalFT"),
+    forfeit: t("commonPages.scalForfeit"),
+    in_progress: t("commonPages.scalLive"),
+    disputed: t("commonPages.scalDisputed"),
   };
 
   if (ev.type === "tournament_start") {
@@ -431,7 +432,7 @@ function DayEventRow({ ev, players, onClick }) {
     const startDate = td.start_date ? parseISO(td.start_date) : null;
     const diffMs = startDate ? startDate - now : null;
     const diffDays = diffMs !== null ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : null;
-    const countdown = diffDays !== null && diffDays > 0 ? t("scalInDays", { days: diffDays }) : diffDays === 0 ? t("scalTodayExcl") : null;
+    const countdown = diffDays !== null && diffDays > 0 ? t("commonPages.scalInDays", { days: diffDays }) : diffDays === 0 ? t("commonPages.scalTodayExcl") : null;
     return (
       <div className="w-full text-left px-5 py-4 flex items-center gap-3 bg-accent/5 border-l-2 border-accent">
         <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
@@ -440,7 +441,7 @@ function DayEventRow({ ev, players, onClick }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground truncate">{td.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-[10px] text-accent font-semibold uppercase tracking-wider">{t("scalTournamentStart")}</span>
+            <span className="text-[10px] text-accent font-semibold uppercase tracking-wider">{t("commonPages.scalTournamentStart")}</span>
             {startTime && <span className="text-[10px] text-muted-foreground">{startTime}</span>}
             {td.platform && <span className="text-[10px] text-muted-foreground/60">{td.platform}</span>}
           </div>
@@ -461,11 +462,11 @@ function DayEventRow({ ev, players, onClick }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground truncate">
-            {name ? t("scalPlayerContractEnds", { name }) : t("scalContractEnd")}
+            {name ? t("commonPages.scalPlayerContractEnds", { name }) : t("commonPages.scalContractEnd")}
           </p>
-          <p className="text-xs text-muted-foreground capitalize">{c?.contract_type} · {c?.max_games} {t("scalGames")}</p>
+          <p className="text-xs text-muted-foreground capitalize">{c?.contract_type} · {c?.max_games} {t("commonPages.scalGames")}</p>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-warning/10 text-warning font-medium shrink-0">{t("scalEnd")}</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-warning/10 text-warning font-medium shrink-0">{t("commonPages.scalEnd")}</span>
       </button>
     );
   }
@@ -489,13 +490,13 @@ function DayEventRow({ ev, players, onClick }) {
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{ev.opposition || t("scalTBD")}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{ev.opposition || t("commonPages.scalTBD")}</p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {m?.scheduled_date && (
             <span className="text-[10px] text-muted-foreground">{format(parseISO(m.scheduled_date), "HH:mm")}</span>
           )}
           <span className={cn("text-[10px] font-medium", ev.venue === "Home" ? "text-primary" : "text-muted-foreground")}>
-            {ev.venue === "Home" ? t("scalHome") : t("scalAway")}
+            {ev.venue === "Home" ? t("commonPages.scalHome") : t("commonPages.scalAway")}
           </span>
           <span className="text-[10px] text-muted-foreground/60 truncate max-w-[140px]">{ev.competition}</span>
         </div>

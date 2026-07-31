@@ -1,0 +1,10 @@
+{
+  "voteFailed": {
+    "en": "Could not submit your vote.",
+    "fr": "Impossible d'envoyer ton vote."
+  },
+  "vote": {
+    "en": "Vote",
+    "fr": "Voter"
+  }
+}

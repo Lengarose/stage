@@ -1,0 +1,30 @@
+{
+  "cpResult": {
+    "en": "Result",
+    "fr": "Résultat"
+  },
+  "cpNoFixtures": {
+    "en": "No fixtures generated yet",
+    "fr": "Aucun match généré pour l'instant"
+  },
+  "cpFinal": {
+    "en": "Final",
+    "fr": "Finale"
+  },
+  "cpNoQualification": {
+    "en": "No qualification entries yet",
+    "fr": "Aucune entrée de qualification"
+  },
+  "cpNotFound": {
+    "en": "Competition not found",
+    "fr": "Compétition introuvable"
+  },
+  "cpNotSeeded": {
+    "en": "This competition may not be seeded yet.",
+    "fr": "Cette compétition n'est peut-être pas encore initialisée."
+  },
+  "cpNoSeason": {
+    "en": "No season started yet",
+    "fr": "Aucune saison commencée"
+  }
+}

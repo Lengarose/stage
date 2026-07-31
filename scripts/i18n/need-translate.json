@@ -1,0 +1,6772 @@
+[
+  {
+    "key": "searchTitle",
+    "en": "Search",
+    "fr": "Recherche"
+  },
+  {
+    "key": "searchSubtitle",
+    "en": "Find players and clubs",
+    "fr": "Trouve des joueurs et des clubs"
+  },
+  {
+    "key": "searchPlaceholder",
+    "en": "Search players or clubs...",
+    "fr": "Rechercher joueurs ou clubs..."
+  },
+  {
+    "key": "searchCta",
+    "en": "Search",
+    "fr": "Rechercher"
+  },
+  {
+    "key": "searchEmptyPrompt",
+    "en": "Search for players or clubs by name",
+    "fr": "Recherche des joueurs ou clubs par nom"
+  },
+  {
+    "key": "needClubToChallenge",
+    "en": "You need to be in a club to challenge.",
+    "fr": "Tu dois être dans un club pour lancer un défi."
+  },
+  {
+    "key": "needPlayerToChallenge",
+    "en": "You need a player profile to challenge.",
+    "fr": "Tu dois avoir un profil joueur pour lancer un défi."
+  },
+  {
+    "key": "challengeSentClub",
+    "en": "Challenge sent to {name}! A live match room has been created.",
+    "fr": "Défi envoyé à {name} ! Une room de match live a été créée."
+  },
+  {
+    "key": "challengeSentPlayer",
+    "en": "Challenge sent to {name}! They'll see it in Live Matches.",
+    "fr": "Défi envoyé à {name} ! Il le verra dans Live Matches."
+  },
+  {
+    "key": "inviteSent",
+    "en": "Invite sent to {name}!",
+    "fr": "Invitation envoyée à {name} !"
+  },
+  {
+    "key": "playersTab",
+    "en": "Players",
+    "fr": "Joueurs"
+  },
+  {
+    "key": "myClubsTab",
+    "en": "My Clubs",
+    "fr": "Mes clubs"
+  },
+  {
+    "key": "noClubsFound",
+    "en": "No clubs found.",
+    "fr": "Aucun club trouvé."
+  },
+  {
+    "key": "noEafcClubsFound",
+    "en": "No EA FC clubs found.",
+    "fr": "Aucun club EA FC trouvé."
+  },
+  {
+    "key": "matchesCount",
+    "en": "{count} matches",
+    "fr": "{count} matchs"
+  },
+  {
+    "key": "membersCount",
+    "en": "{count} members",
+    "fr": "{count} membres"
+  },
+  {
+    "key": "invite",
+    "en": "Invite",
+    "fr": "Inviter"
+  },
+  {
+    "key": "challenge",
+    "en": "Challenge",
+    "fr": "Défier"
+  },
+  {
+    "key": "view",
+    "en": "View",
+    "fr": "Voir"
+  },
+  {
+    "key": "followedClubsEmpty",
+    "en": "You're not following any clubs yet.",
+    "fr": "Tu ne suis encore aucun club."
+  },
+  {
+    "key": "followedPlayersEmpty",
+    "en": "You're not following any players yet.",
+    "fr": "Tu ne suis encore aucun joueur."
+  },
+  {
+    "key": "internationalSubtitle",
+    "en": "Club owners vote for the national team owner, then the winner selects the squad.",
+    "fr": "Les propriétaires de club votent pour l'owner national, puis le gagnant sélectionne l'équipe."
+  },
+  {
+    "key": "internationalLoading",
+    "en": "Loading international tournaments...",
+    "fr": "Chargement des tournois internationaux..."
+  },
+  {
+    "key": "internationalLoadFailed",
+    "en": "Could not load international tournaments.",
+    "fr": "Impossible de charger les tournois internationaux."
+  },
+  {
+    "key": "voteFailed",
+    "en": "Could not submit your vote.",
+    "fr": "Impossible d'envoyer ton vote."
+  },
+  {
+    "key": "squadSaveFailed",
+    "en": "Could not save the national squad.",
+    "fr": "Impossible d'enregistrer l'équipe nationale."
+  },
+  {
+    "key": "noInternationalOpen",
+    "en": "No international tournaments are open yet.",
+    "fr": "Aucun tournoi international n'est ouvert."
+  },
+  {
+    "key": "noInternationalOpenDesc",
+    "en": "An admin needs to create an international tournament and open voting before club owners can vote for the national team owner.",
+    "fr": "Un admin doit créer un tournoi international et ouvrir le vote avant que les owners puissent voter."
+  },
+  {
+    "key": "noElectionOpen",
+    "en": "No election is open for your country yet.",
+    "fr": "Aucun vote n'est ouvert pour ton pays."
+  },
+  {
+    "key": "ownersOnlyVote",
+    "en": "Only club owners from this country can vote for the national team owner.",
+    "fr": "Seuls les owners de club de ce pays peuvent voter pour l'owner national."
+  },
+  {
+    "key": "nationalOwnerVote",
+    "en": "{country} National Team Owner Vote",
+    "fr": "Vote owner national {country}"
+  },
+  {
+    "key": "chooseTopOwners",
+    "en": "Choose between the top 5 club owners from this country.",
+    "fr": "Choisis parmi les 5 meilleurs owners de club du pays."
+  },
+  {
+    "key": "selectOwnerCandidate",
+    "en": "Select owner candidate",
+    "fr": "Choisir un candidat"
+  },
+  {
+    "key": "vote",
+    "en": "Vote",
+    "fr": "Voter"
+  },
+  {
+    "key": "nationalSquad",
+    "en": "National Squad",
+    "fr": "Équipe nationale"
+  },
+  {
+    "key": "squadSelectedRule",
+    "en": "{selected}/{max} selected · matchday rule: 11 starters + 7 bench",
+    "fr": "{selected}/{max} sélectionnés · règle matchday: 11 titulaires + 7 banc"
+  },
+  {
+    "key": "pick",
+    "en": "Pick",
+    "fr": "Choix"
+  },
+  {
+    "key": "position",
+    "en": "Position",
+    "fr": "Poste"
+  },
+  {
+    "key": "saveSquad",
+    "en": "Save Squad",
+    "fr": "Enregistrer l'équipe"
+  },
+  {
+    "key": "saving",
+    "en": "Saving...",
+    "fr": "Enregistrement..."
+  },
+  {
+    "key": "freeAgentTitle",
+    "en": "Free Agent Board",
+    "fr": "Tableau agents libres"
+  },
+  {
+    "key": "freeAgentSubtitle",
+    "en": "Players looking for a club",
+    "fr": "Joueurs qui cherchent un club"
+  },
+  {
+    "key": "searchGamertag",
+    "en": "Search gamertag...",
+    "fr": "Rechercher gamertag..."
+  },
+  {
+    "key": "noFreeAgentsFound",
+    "en": "No free agents found.",
+    "fr": "Aucun agent libre trouvé."
+  },
+  {
+    "key": "transferTitle",
+    "en": "Transfers",
+    "fr": "Transferts"
+  },
+  {
+    "key": "transferSubtitle",
+    "en": "Browse available players and send contract offers",
+    "fr": "Parcours les joueurs disponibles et envoie des offres de contrat"
+  },
+  {
+    "key": "playersFound",
+    "en": "{count} player{plural} found",
+    "fr": "{count} joueur{plural} trouvé{plural}"
+  },
+  {
+    "key": "freeAgentsShort",
+    "en": "{count} free agents",
+    "fr": "{count} agents libres"
+  },
+  {
+    "key": "freeShort",
+    "en": "{count} free",
+    "fr": "{count} libres"
+  },
+  {
+    "key": "expiringShort",
+    "en": "{count} expiring",
+    "fr": "{count} expirants"
+  },
+  {
+    "key": "playerDetails",
+    "en": "Player Details",
+    "fr": "Détails joueur"
+  },
+  {
+    "key": "tryAdjustingFilters",
+    "en": "Try adjusting your filters",
+    "fr": "Essaie de modifier les filtres"
+  },
+  {
+    "key": "sent",
+    "en": "Sent",
+    "fr": "Envoyé"
+  },
+  {
+    "key": "offer",
+    "en": "Offer",
+    "fr": "Offre"
+  },
+  {
+    "key": "expiring",
+    "en": "Expiring",
+    "fr": "Expire bientôt"
+  },
+  {
+    "key": "selectPlayer",
+    "en": "Select a player",
+    "fr": "Sélectionne un joueur"
+  },
+  {
+    "key": "selectPlayerDetails",
+    "en": "Click any player to view their details",
+    "fr": "Clique sur un joueur pour voir ses détails"
+  },
+  {
+    "key": "platform",
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  {
+    "key": "marketValue",
+    "en": "Market Value",
+    "fr": "Valeur marché"
+  },
+  {
+    "key": "currentClub",
+    "en": "Current Club",
+    "fr": "Club actuel"
+  },
+  {
+    "key": "underContract",
+    "en": "Under Contract",
+    "fr": "Sous contrat"
+  },
+  {
+    "key": "gamesLeft",
+    "en": "Games left",
+    "fr": "Matchs restants"
+  },
+  {
+    "key": "status",
+    "en": "Status",
+    "fr": "Statut"
+  },
+  {
+    "key": "freeAgentAvailable",
+    "en": "Free Agent - Available Now",
+    "fr": "Agent libre - disponible maintenant"
+  },
+  {
+    "key": "country",
+    "en": "Country",
+    "fr": "Pays"
+  },
+  {
+    "key": "goals",
+    "en": "Goals",
+    "fr": "Buts"
+  },
+  {
+    "key": "assists",
+    "en": "Assists",
+    "fr": "Passes"
+  },
+  {
+    "key": "matches",
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  {
+    "key": "transferWindowClosed",
+    "en": "Transfer window is closed. Offers sent now will execute when the window opens.",
+    "fr": "Le mercato est fermé. Les offres envoyées maintenant s'exécuteront à l'ouverture."
+  },
+  {
+    "key": "sendContractOffer",
+    "en": "Send Contract Offer",
+    "fr": "Envoyer une offre de contrat"
+  },
+  {
+    "key": "offerAlreadySent",
+    "en": "Offer Already Sent",
+    "fr": "Offre déjà envoyée"
+  },
+  {
+    "key": "viewFullProfile",
+    "en": "View Full Profile",
+    "fr": "Voir le profil complet"
+  },
+  {
+    "key": "walletSubtitle",
+    "en": "Your full transaction history and income sources",
+    "fr": "Ton historique complet de transactions et tes sources de revenus"
+  },
+  {
+    "key": "feedSubtitle",
+    "en": "Community highlights & updates",
+    "fr": "Temps forts et updates de la communauté"
+  },
+  {
+    "key": "post",
+    "en": "Post",
+    "fr": "Publier"
+  },
+  {
+    "key": "createPost",
+    "en": "Create Post",
+    "fr": "Créer un post"
+  },
+  {
+    "key": "shareWithCommunity",
+    "en": "Share something with the community...",
+    "fr": "Partage quelque chose avec la communauté..."
+  },
+  {
+    "key": "photoVideo",
+    "en": "Photo/Video",
+    "fr": "Photo/Vidéo"
+  },
+  {
+    "key": "posting",
+    "en": "Posting...",
+    "fr": "Publication..."
+  },
+  {
+    "key": "share",
+    "en": "Share",
+    "fr": "Partager"
+  },
+  {
+    "key": "noPostsYet",
+    "en": "No posts yet",
+    "fr": "Aucun post"
+  },
+  {
+    "key": "firstToShare",
+    "en": "Be the first to share something with the community!",
+    "fr": "Sois le premier à partager quelque chose avec la communauté !"
+  },
+  {
+    "key": "delete",
+    "en": "Delete",
+    "fr": "Supprimer"
+  },
+  {
+    "key": "addComment",
+    "en": "Add a comment...",
+    "fr": "Ajouter un commentaire..."
+  },
+  {
+    "key": "pressConference",
+    "en": "Press Conference",
+    "fr": "Conférence de presse"
+  },
+  {
+    "key": "newsSubtitle",
+    "en": "Transfers · Contracts · Club & Player news · Press Room",
+    "fr": "Transferts · Contrats · News club & joueur · Press Room"
+  },
+  {
+    "key": "nothingHere",
+    "en": "Nothing here yet",
+    "fr": "Rien ici pour le moment"
+  },
+  {
+    "key": "newsEmptyDesc",
+    "en": "News will appear as transfers, contracts, matches and tournaments happen.",
+    "fr": "Les news apparaîtront avec les transferts, contrats, matchs et tournois."
+  },
+  {
+    "key": "all",
+    "en": "All",
+    "fr": "Tout"
+  },
+  {
+    "key": "transfers",
+    "en": "Transfers",
+    "fr": "Transferts"
+  },
+  {
+    "key": "contracts",
+    "en": "Contracts",
+    "fr": "Contrats"
+  },
+  {
+    "key": "clubNews",
+    "en": "Club News",
+    "fr": "News club"
+  },
+  {
+    "key": "playerNews",
+    "en": "Player News",
+    "fr": "News joueur"
+  },
+  {
+    "key": "market",
+    "en": "Market",
+    "fr": "Marché"
+  },
+  {
+    "key": "tournaments",
+    "en": "Tournaments",
+    "fr": "Tournois"
+  },
+  {
+    "key": "general",
+    "en": "General",
+    "fr": "Général"
+  },
+  {
+    "key": "appUpdate",
+    "en": "App Update",
+    "fr": "Update app"
+  },
+  {
+    "key": "rankings",
+    "en": "Rankings",
+    "fr": "Classements"
+  },
+  {
+    "key": "announcement",
+    "en": "Announcement",
+    "fr": "Annonce"
+  },
+  {
+    "key": "featured",
+    "en": "Featured",
+    "fr": "À la une"
+  },
+  {
+    "key": "recruitmentTitle",
+    "en": "Recruitment",
+    "fr": "Recrutement"
+  },
+  {
+    "key": "recruitmentSubtitle",
+    "en": "Find players, clubs, and trials. Official signings still go through contracts.",
+    "fr": "Trouve joueurs, clubs et essais. Les signatures officielles passent toujours par les contrats."
+  },
+  {
+    "key": "playerPost",
+    "en": "Player Post",
+    "fr": "Post joueur"
+  },
+  {
+    "key": "clubPost",
+    "en": "Club Post",
+    "fr": "Post club"
+  },
+  {
+    "key": "playersLooking",
+    "en": "Players Looking",
+    "fr": "Joueurs en recherche"
+  },
+  {
+    "key": "lookingForClub",
+    "en": "Looking for Club",
+    "fr": "Cherche un club"
+  },
+  {
+    "key": "clubsRecruiting",
+    "en": "Clubs Recruiting",
+    "fr": "Clubs qui recrutent"
+  },
+  {
+    "key": "clubRecruiting",
+    "en": "Club Recruiting",
+    "fr": "Club recrute"
+  },
+  {
+    "key": "trials",
+    "en": "Trials",
+    "fr": "Essais"
+  },
+  {
+    "key": "trialRequest",
+    "en": "Trial Request",
+    "fr": "Demande d'essai"
+  },
+  {
+    "key": "interestSent",
+    "en": "Interest sent.",
+    "fr": "Intérêt envoyé."
+  },
+  {
+    "key": "contractOfferSent",
+    "en": "Contract offer sent.",
+    "fr": "Offre de contrat envoyée."
+  },
+  {
+    "key": "searchPosts",
+    "en": "Search posts...",
+    "fr": "Rechercher posts..."
+  },
+  {
+    "key": "allPositions",
+    "en": "All positions",
+    "fr": "Tous les postes"
+  },
+  {
+    "key": "allPlatforms",
+    "en": "All platforms",
+    "fr": "Toutes les plateformes"
+  },
+  {
+    "key": "allRegions",
+    "en": "All regions",
+    "fr": "Toutes les régions"
+  },
+  {
+    "key": "verifiedOnly",
+    "en": "Verified only",
+    "fr": "Vérifiés seulement"
+  },
+  {
+    "key": "noOpenPostsFound",
+    "en": "No open posts found",
+    "fr": "Aucun post ouvert trouvé"
+  },
+  {
+    "key": "changeFiltersRecruitment",
+    "en": "Change filters or create the first recruitment post.",
+    "fr": "Change les filtres ou crée le premier post de recrutement."
+  },
+  {
+    "key": "createRecruitmentPost",
+    "en": "Create Recruitment Post",
+    "fr": "Créer un post de recrutement"
+  },
+  {
+    "key": "playerLooking",
+    "en": "Player looking",
+    "fr": "Joueur en recherche"
+  },
+  {
+    "key": "title",
+    "en": "Title",
+    "fr": "Titre"
+  },
+  {
+    "key": "describeLooking",
+    "en": "Describe what you are looking for...",
+    "fr": "Décris ce que tu recherches..."
+  },
+  {
+    "key": "positionsNeeded",
+    "en": "Positions needed",
+    "fr": "Postes nécessaires"
+  },
+  {
+    "key": "preferredPositions",
+    "en": "Preferred positions",
+    "fr": "Postes préférés"
+  },
+  {
+    "key": "availabilityExample",
+    "en": "Availability, e.g. Tonight 21:00 CET",
+    "fr": "Disponibilité, ex. ce soir 21:00 CET"
+  },
+  {
+    "key": "discordOptional",
+    "en": "Discord handle optional",
+    "fr": "Pseudo Discord optionnel"
+  },
+  {
+    "key": "micRequired",
+    "en": "Mic required",
+    "fr": "Micro requis"
+  },
+  {
+    "key": "postButton",
+    "en": "Post",
+    "fr": "Publier"
+  },
+  {
+    "key": "showInterest",
+    "en": "Show Interest",
+    "fr": "Montrer l'intérêt"
+  },
+  {
+    "key": "writeShortMessage",
+    "en": "Write a short message...",
+    "fr": "Écris un court message..."
+  },
+  {
+    "key": "sendInterest",
+    "en": "Send Interest",
+    "fr": "Envoyer l'intérêt"
+  },
+  {
+    "key": "anyPlatform",
+    "en": "Any platform",
+    "fr": "Toute plateforme"
+  },
+  {
+    "key": "availabilityOpen",
+    "en": "Availability open",
+    "fr": "Disponibilité ouverte"
+  },
+  {
+    "key": "micOptional",
+    "en": "Mic optional",
+    "fr": "Micro optionnel"
+  },
+  {
+    "key": "verifiedPreferred",
+    "en": "Verified players preferred. Unverified players may need identity review before acceptance.",
+    "fr": "Joueurs vérifiés préférés. Les joueurs non vérifiés peuvent nécessiter une vérification d'identité."
+  },
+  {
+    "key": "viewClub",
+    "en": "View Club",
+    "fr": "Voir club"
+  },
+  {
+    "key": "viewProfile",
+    "en": "View Profile",
+    "fr": "Voir profil"
+  },
+  {
+    "key": "offerContract",
+    "en": "Offer Contract",
+    "fr": "Offrir contrat"
+  },
+  {
+    "key": "close",
+    "en": "Close",
+    "fr": "Fermer"
+  },
+  {
+    "key": "reopen",
+    "en": "Reopen",
+    "fr": "Réouvrir"
+  },
+  {
+    "key": "cancel",
+    "en": "Cancel",
+    "fr": "Annuler"
+  },
+  {
+    "key": "loading",
+    "en": "Loading...",
+    "fr": "Chargement..."
+  },
+  {
+    "key": "getStarted",
+    "en": "Get Started",
+    "fr": "Commencer"
+  },
+  {
+    "key": "complete",
+    "en": "Complete",
+    "fr": "Compléter"
+  },
+  {
+    "key": "learnMore",
+    "en": "Learn more",
+    "fr": "En savoir plus"
+  },
+  {
+    "key": "notifMarkAllRead",
+    "en": "Mark all read",
+    "fr": "Tout marquer comme lu"
+  },
+  {
+    "key": "notifDeleteAll",
+    "en": "Delete all",
+    "fr": "Tout supprimer"
+  },
+  {
+    "key": "notifDeleteAllConfirmTitle",
+    "en": "Delete all notifications?",
+    "fr": "Supprimer toutes les notifications ?"
+  },
+  {
+    "key": "notifDeleteAllConfirmDesc",
+    "en": "This will permanently delete all {count} notifications. This cannot be undone.",
+    "fr": "Cela supprimera définitivement les {count} notifications. Action irréversible."
+  },
+  {
+    "key": "notifEmpty",
+    "en": "No notifications yet",
+    "fr": "Aucune notification"
+  },
+  {
+    "key": "notifMarkAsRead",
+    "en": "Mark as read",
+    "fr": "Marquer comme lu"
+  },
+  {
+    "key": "homeMobileWelcomeBack",
+    "en": "Welcome back",
+    "fr": "Bon retour"
+  },
+  {
+    "key": "homeMobileWelcome",
+    "en": "Welcome",
+    "fr": "Bienvenue"
+  },
+  {
+    "key": "homeMobileNextMatch",
+    "en": "Next up",
+    "fr": "Prochain match"
+  },
+  {
+    "key": "homeMobileOpenGameDay",
+    "en": "Open Game Day",
+    "fr": "Ouvrir Match Day"
+  },
+  {
+    "key": "homeMobileNoMatchHint",
+    "en": "No match scheduled yet — open Game Day to schedule or play.",
+    "fr": "Aucun match programmé — ouvre Match Day pour planifier ou jouer."
+  },
+  {
+    "key": "homeMobileDiscover",
+    "en": "Discover",
+    "fr": "Découvrir"
+  },
+  {
+    "key": "homeMobileSeeSchedule",
+    "en": "Full schedule",
+    "fr": "Calendrier complet"
+  },
+  {
+    "key": "dashboardGuest",
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  {
+    "key": "dashboardVerified",
+    "en": "Verified",
+    "fr": "Vérifié"
+  },
+  {
+    "key": "dashboardViewRankings",
+    "en": "Rankings",
+    "fr": "Classements"
+  },
+  {
+    "key": "dashboardViewProfile",
+    "en": "My profile",
+    "fr": "Mon profil"
+  },
+  {
+    "key": "dashboardSetupTitle",
+    "en": "Complete your player profile",
+    "fr": "Complète ton profil joueur"
+  },
+  {
+    "key": "dashboardSetupDesc",
+    "en": "Create your gamertag and position to unlock rankings, matches and club play.",
+    "fr": "Crée ton gamertag et ton poste pour débloquer classements, matchs et club."
+  },
+  {
+    "key": "dashboardSetupCta",
+    "en": "Set up profile",
+    "fr": "Configurer le profil"
+  },
+  {
+    "key": "dashboardGlobalRank",
+    "en": "Global rank",
+    "fr": "Rang global"
+  },
+  {
+    "key": "dashboardRecord",
+    "en": "Record",
+    "fr": "Bilan"
+  },
+  {
+    "key": "dashboardWinRate",
+    "en": "WR",
+    "fr": "Victoires"
+  },
+  {
+    "key": "dashboardMatchesPlayed",
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  {
+    "key": "dashboardGoals",
+    "en": "goals",
+    "fr": "buts"
+  },
+  {
+    "key": "dashboardAvgRating",
+    "en": "Avg rating",
+    "fr": "Note moy."
+  },
+  {
+    "key": "dashboardRankedOnly",
+    "en": "Ranked matches",
+    "fr": "Matchs classés"
+  },
+  {
+    "key": "dashboardNextMatch",
+    "en": "Next opponent",
+    "fr": "Prochain adversaire"
+  },
+  {
+    "key": "dashboardNoNextMatch",
+    "en": "No fixture yet",
+    "fr": "Aucun match"
+  },
+  {
+    "key": "dashboardNoNextMatchHint",
+    "en": "Open Game Day to schedule or join a match.",
+    "fr": "Ouvre Match Day pour planifier ou rejoindre un match."
+  },
+  {
+    "key": "dashboardOpenGameDay",
+    "en": "Open Game Day",
+    "fr": "Ouvrir Match Day"
+  },
+  {
+    "key": "dashboardSeeSchedule",
+    "en": "Schedule",
+    "fr": "Calendrier"
+  },
+  {
+    "key": "dashboardMyClub",
+    "en": "My club",
+    "fr": "Mon club"
+  },
+  {
+    "key": "dashboardNoClub",
+    "en": "You are not in a club yet.",
+    "fr": "Tu n'es dans aucun club."
+  },
+  {
+    "key": "dashboardFindClub",
+    "en": "Browse clubs",
+    "fr": "Parcourir les clubs"
+  },
+  {
+    "key": "dashboardUpcoming",
+    "en": "Coming up",
+    "fr": "À suivre"
+  },
+  {
+    "key": "dashboardActiveTournaments",
+    "en": "My tournaments",
+    "fr": "Mes tournois"
+  },
+  {
+    "key": "dashboardLeagueStandings",
+    "en": "League position",
+    "fr": "Position en ligue"
+  },
+  {
+    "key": "dashboardNoCompetitions",
+    "en": "Not registered in any active tournament.",
+    "fr": "Inscrit à aucun tournoi actif."
+  },
+  {
+    "key": "dashboardNoLeague",
+    "en": "No active league standing for your club.",
+    "fr": "Aucun classement de ligue actif pour ton club."
+  },
+  {
+    "key": "dashboardPlayed",
+    "en": "played",
+    "fr": "joués"
+  },
+  {
+    "key": "dashboardWelcomeHint",
+    "en": "News, competitions and platform info live on the welcome page.",
+    "fr": "News, compétitions et infos plateforme sont sur la page d'accueil."
+  },
+  {
+    "key": "dashboardGoWelcome",
+    "en": "Welcome page",
+    "fr": "Page d'accueil"
+  },
+  {
+    "key": "dashboardActivity",
+    "en": "Activity",
+    "fr": "Activité"
+  },
+  {
+    "key": "dashboardRatingTrend",
+    "en": "Rating — last matches",
+    "fr": "Note — derniers matchs"
+  },
+  {
+    "key": "dashboardWeeklyMatches",
+    "en": "Matches per week",
+    "fr": "Matchs par semaine"
+  },
+  {
+    "key": "dashboardActivityEmpty",
+    "en": "No recorded match stats yet. Play ranked or club matches to build your chart.",
+    "fr": "Aucune stat enregistrée. Joue des matchs classés ou club pour alimenter le graphique."
+  },
+  {
+    "key": "dashboardClubStats",
+    "en": "Club stats",
+    "fr": "Stats club"
+  },
+  {
+    "key": "dashboardObjectives",
+    "en": "Objectives",
+    "fr": "Objectifs"
+  },
+  {
+    "key": "dashboardObjectivesDesc",
+    "en": "Daily and weekly challenges. Claim STC when complete.",
+    "fr": "Défis daily et weekly. Réclame tes STC une fois complétés."
+  },
+  {
+    "key": "dashboardObjectivesLoading",
+    "en": "Loading objectives…",
+    "fr": "Chargement des objectifs…"
+  },
+  {
+    "key": "dashboardObjectivesEmpty",
+    "en": "No active objectives right now.",
+    "fr": "Aucun objectif actif pour le moment."
+  },
+  {
+    "key": "dashboardObjectivesError",
+    "en": "Could not load objectives.",
+    "fr": "Impossible de charger les objectifs."
+  },
+  {
+    "key": "dashboardObjectivesClaimError",
+    "en": "Could not claim reward.",
+    "fr": "Impossible de réclamer la récompense."
+  },
+  {
+    "key": "dashboardObjectivesReward",
+    "en": "Reward",
+    "fr": "Récompense"
+  },
+  {
+    "key": "dashboardObjectivesClaimed",
+    "en": "Claimed",
+    "fr": "Réclamé"
+  },
+  {
+    "key": "dashboardObjectivesClaim",
+    "en": "Claim",
+    "fr": "Réclamer"
+  },
+  {
+    "key": "dashboardObjectivesClaiming",
+    "en": "Claiming…",
+    "fr": "Réclamation…"
+  },
+  {
+    "key": "dashboardObjectivesInProgress",
+    "en": "In progress",
+    "fr": "En cours"
+  },
+  {
+    "key": "dashboardMatchesThisMonth",
+    "en": "This month",
+    "fr": "Ce mois"
+  },
+  {
+    "key": "dashboardThisWeek",
+    "en": "this week",
+    "fr": "cette semaine"
+  },
+  {
+    "key": "dashboardMemberSince",
+    "en": "On STAGE",
+    "fr": "Sur STAGE"
+  },
+  {
+    "key": "dashboardAtClub",
+    "en": "at club",
+    "fr": "au club"
+  },
+  {
+    "key": "dashboardTrackedMatches",
+    "en": "tracked matches",
+    "fr": "matchs suivis"
+  },
+  {
+    "key": "dashboardContract",
+    "en": "Contract",
+    "fr": "Contrat"
+  },
+  {
+    "key": "dashboardGamesLeft",
+    "en": "games left",
+    "fr": "matchs restants"
+  },
+  {
+    "key": "dashboardNoContract",
+    "en": "No active contract",
+    "fr": "Aucun contrat actif"
+  },
+  {
+    "key": "dashboardContractGames",
+    "en": "Contract games",
+    "fr": "Matchs contrat"
+  },
+  {
+    "key": "dashboardActivityLevel",
+    "en": "Activity",
+    "fr": "Activité"
+  },
+  {
+    "key": "dashboardActivityHigh",
+    "en": "High",
+    "fr": "Élevée"
+  },
+  {
+    "key": "dashboardActivityMedium",
+    "en": "Steady",
+    "fr": "Régulière"
+  },
+  {
+    "key": "dashboardActivityLow",
+    "en": "Quiet",
+    "fr": "Calme"
+  },
+  {
+    "key": "dashboardLast30Days",
+    "en": "in last 30 days",
+    "fr": "sur 30 jours"
+  },
+  {
+    "key": "dashboardEafcDesc",
+    "en": "Link your real Pro Clubs team to show live EA stats on your dashboard.",
+    "fr": "Lie ton vrai club Pro Clubs pour afficher tes stats EA sur le dashboard."
+  },
+  {
+    "key": "dashboardEafcClub",
+    "en": "Pro Club",
+    "fr": "Club Pro"
+  },
+  {
+    "key": "dashboardEafcView",
+    "en": "Full view",
+    "fr": "Vue complète"
+  },
+  {
+    "key": "dashboardEafcUnlink",
+    "en": "Unlink club",
+    "fr": "Dissocier le club"
+  },
+  {
+    "key": "dashboardEafcSearchPlaceholder",
+    "en": "Search Pro Clubs name…",
+    "fr": "Rechercher un club Pro Clubs…"
+  },
+  {
+    "key": "dashboardEafcNoResults",
+    "en": "No clubs found on EA.",
+    "fr": "Aucun club trouvé sur EA."
+  },
+  {
+    "key": "dashboardEafcSearchError",
+    "en": "EA search failed.",
+    "fr": "Recherche EA échouée."
+  },
+  {
+    "key": "dashboardEafcLinkError",
+    "en": "Could not save club link.",
+    "fr": "Impossible d'enregistrer le lien club."
+  },
+  {
+    "key": "dashboardEafcMembers",
+    "en": "members",
+    "fr": "membres"
+  },
+  {
+    "key": "dashboardEafcStatsUnavailable",
+    "en": "Linked — EA stats temporarily unavailable.",
+    "fr": "Lié — stats EA temporairement indisponibles."
+  },
+  {
+    "key": "dashboardFutDesc",
+    "en": "Log your FUT matches to track form outside STAGE competitions.",
+    "fr": "Enregistre tes matchs FUT pour suivre ta forme hors compétitions STAGE."
+  },
+  {
+    "key": "dashboardFutLogMatch",
+    "en": "Log match",
+    "fr": "Ajouter un match"
+  },
+  {
+    "key": "dashboardFutWins",
+    "en": "Wins",
+    "fr": "Victoires"
+  },
+  {
+    "key": "dashboardFutDraws",
+    "en": "Draws",
+    "fr": "Nuls"
+  },
+  {
+    "key": "dashboardFutLosses",
+    "en": "Losses",
+    "fr": "Défaites"
+  },
+  {
+    "key": "dashboardFutPlayedAt",
+    "en": "Played at",
+    "fr": "Joué le"
+  },
+  {
+    "key": "dashboardFutResult",
+    "en": "Result",
+    "fr": "Résultat"
+  },
+  {
+    "key": "dashboardFutWin",
+    "en": "Win",
+    "fr": "Victoire"
+  },
+  {
+    "key": "dashboardFutDraw",
+    "en": "Draw",
+    "fr": "Nul"
+  },
+  {
+    "key": "dashboardFutLoss",
+    "en": "Loss",
+    "fr": "Défaite"
+  },
+  {
+    "key": "dashboardFutFriendly",
+    "en": "Friendly",
+    "fr": "Amical"
+  },
+  {
+    "key": "dashboardFutSquadBattles",
+    "en": "Squad Battles",
+    "fr": "Batailles d'équipes"
+  },
+  {
+    "key": "dashboardFutGoalsFor",
+    "en": "Goals for",
+    "fr": "Buts pour"
+  },
+  {
+    "key": "dashboardFutGoalsAgainst",
+    "en": "Goals against",
+    "fr": "Buts contre"
+  },
+  {
+    "key": "dashboardFutOpponent",
+    "en": "Opponent note",
+    "fr": "Note adversaire"
+  },
+  {
+    "key": "dashboardFutOpponentPlaceholder",
+    "en": "Team name or note (optional)",
+    "fr": "Nom d'équipe ou note (optionnel)"
+  },
+  {
+    "key": "dashboardFutSave",
+    "en": "Save match",
+    "fr": "Enregistrer"
+  },
+  {
+    "key": "dashboardFutSaveError",
+    "en": "Could not save match.",
+    "fr": "Impossible d'enregistrer le match."
+  },
+  {
+    "key": "dashboardFutDeleteError",
+    "en": "Could not delete match.",
+    "fr": "Impossible de supprimer le match."
+  },
+  {
+    "key": "dashboardFutEmpty",
+    "en": "No FUT matches logged yet.",
+    "fr": "Aucun match FUT enregistré."
+  },
+  {
+    "key": "dashboardGlanceStc",
+    "en": "STC balance",
+    "fr": "Solde STC"
+  },
+  {
+    "key": "dashboardGlanceCredits",
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  {
+    "key": "dashboardGlanceInbox",
+    "en": "Unread inbox",
+    "fr": "Messages non lus"
+  },
+  {
+    "key": "dashboardGlanceAlerts",
+    "en": "Unread alerts",
+    "fr": "Alertes non lues"
+  },
+  {
+    "key": "dashboardRecentForm",
+    "en": "Recent form",
+    "fr": "Forme récente"
+  },
+  {
+    "key": "dashboardStageForm",
+    "en": "STAGE results",
+    "fr": "Résultats STAGE"
+  },
+  {
+    "key": "dashboardStageFormEmpty",
+    "en": "No completed STAGE matches yet.",
+    "fr": "Aucun match STAGE terminé."
+  },
+  {
+    "key": "dashboardRatingForm",
+    "en": "Match ratings",
+    "fr": "Notes de match"
+  },
+  {
+    "key": "dashboardRatingFormEmpty",
+    "en": "No recorded ratings yet.",
+    "fr": "Aucune note enregistrée."
+  },
+  {
+    "key": "dashboardFutForm",
+    "en": "FUT results",
+    "fr": "Résultats FUT"
+  },
+  {
+    "key": "dashboardFutFormEmpty",
+    "en": "Log FUT matches to build form.",
+    "fr": "Enregistre des matchs FUT pour voir ta forme."
+  },
+  {
+    "key": "dashboardFutActivity",
+    "en": "FUT activity",
+    "fr": "Activité FUT"
+  },
+  {
+    "key": "dashboardFutChartEmpty",
+    "en": "Log FUT matches to see weekly trends.",
+    "fr": "Enregistre des matchs FUT pour voir les tendances."
+  },
+  {
+    "key": "dashboardEafcYou",
+    "en": "You in club",
+    "fr": "Toi au club"
+  },
+  {
+    "key": "dashboardEafcGames",
+    "en": "games",
+    "fr": "matchs"
+  },
+  {
+    "key": "dashboardLayoutEdit",
+    "en": "Customize layout",
+    "fr": "Personnaliser"
+  },
+  {
+    "key": "dashboardLayoutDone",
+    "en": "Done",
+    "fr": "Terminer"
+  },
+  {
+    "key": "dashboardLayoutHint",
+    "en": "Drag widgets to reorder. Remove with ×, add hidden blocks below.",
+    "fr": "Glisse les blocs pour les réordonner. Retire avec ×, rajoute ceux masqués ci-dessous."
+  },
+  {
+    "key": "dashboardLayoutReset",
+    "en": "Reset layout",
+    "fr": "Réinitialiser"
+  },
+  {
+    "key": "dashboardLayoutAllVisible",
+    "en": "All widgets visible",
+    "fr": "Tous les blocs visibles"
+  },
+  {
+    "key": "dashboardWidgetGlance",
+    "en": "Wallet & inbox",
+    "fr": "Portefeuille & inbox"
+  },
+  {
+    "key": "dashboardWidgetStats",
+    "en": "Key stats",
+    "fr": "Stats clés"
+  },
+  {
+    "key": "dashboardWidgetForm",
+    "en": "Recent form",
+    "fr": "Forme récente"
+  },
+  {
+    "key": "dashboardWidgetNextMatch",
+    "en": "Next match & club",
+    "fr": "Prochain match & club"
+  },
+  {
+    "key": "dashboardWidgetUpcoming",
+    "en": "Upcoming fixtures",
+    "fr": "Matchs à venir"
+  },
+  {
+    "key": "dashboardWidgetActivity",
+    "en": "Activity & objectives",
+    "fr": "Activité & objectifs"
+  },
+  {
+    "key": "dashboardWidgetCompetitions",
+    "en": "Tournaments & league",
+    "fr": "Tournois & ligue"
+  },
+  {
+    "key": "dashboardWidgetFutEafc",
+    "en": "FUT chart & EA club",
+    "fr": "Graph FUT & club EA"
+  },
+  {
+    "key": "dashboardWidgetFutLog",
+    "en": "FUT match log",
+    "fr": "Journal FUT"
+  },
+  {
+    "key": "homeCompetitions",
+    "en": "Competitions",
+    "fr": "Compétitions"
+  },
+  {
+    "key": "homeTournaments",
+    "en": "Tournaments",
+    "fr": "Tournois"
+  },
+  {
+    "key": "homeLeagues",
+    "en": "Leagues",
+    "fr": "Ligues"
+  },
+  {
+    "key": "homeTier",
+    "en": "Tier {tier}",
+    "fr": "Palier {tier}"
+  },
+  {
+    "key": "homeViewBracket",
+    "en": "View bracket",
+    "fr": "Voir le tableau"
+  },
+  {
+    "key": "homePlayers",
+    "en": "{count}/{max} players",
+    "fr": "{count}/{max} joueurs"
+  },
+  {
+    "key": "homeFull",
+    "en": "Full",
+    "fr": "Complet"
+  },
+  {
+    "key": "homeViewDetails",
+    "en": "View details",
+    "fr": "Voir les détails"
+  },
+  {
+    "key": "homeNoTournaments",
+    "en": "No tournaments yet.",
+    "fr": "Aucun tournoi pour le moment."
+  },
+  {
+    "key": "homeNoLeagues",
+    "en": "No leagues yet.",
+    "fr": "Aucune ligue pour le moment."
+  },
+  {
+    "key": "homePlatform",
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  {
+    "key": "homeViewAll",
+    "en": "View all",
+    "fr": "Voir tout"
+  },
+  {
+    "key": "homeLatest",
+    "en": "Latest",
+    "fr": "Dernières"
+  },
+  {
+    "key": "homeAllNews",
+    "en": "All news",
+    "fr": "Toutes les news"
+  },
+  {
+    "key": "homeUpcoming",
+    "en": "Upcoming",
+    "fr": "À venir"
+  },
+  {
+    "key": "homeSchedule",
+    "en": "Schedule",
+    "fr": "Calendrier"
+  },
+  {
+    "key": "homeScheduleDesc",
+    "en": "Track every fixture across all competitions. Game Day is where it all happens.",
+    "fr": "Suis chaque match de toutes les compétitions. Le Match Day, c'est là que tout se joue."
+  },
+  {
+    "key": "homeGameDay",
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  {
+    "key": "homeNoMatches",
+    "en": "No upcoming matches scheduled.",
+    "fr": "Aucun match programmé."
+  },
+  {
+    "key": "homeOpen",
+    "en": "Open",
+    "fr": "Ouvrir"
+  },
+  {
+    "key": "homeSignInMessages",
+    "en": "Sign in to view your messages.",
+    "fr": "Connecte-toi pour voir tes messages."
+  },
+  {
+    "key": "homeInboxEmpty",
+    "en": "Your inbox is empty.",
+    "fr": "Ta boîte de réception est vide."
+  },
+  {
+    "key": "homeStageSystem",
+    "en": "STAGE System",
+    "fr": "Système STAGE"
+  },
+  {
+    "key": "homeUnknown",
+    "en": "Unknown",
+    "fr": "Inconnu"
+  },
+  {
+    "key": "homeJumpIn",
+    "en": "Jump In",
+    "fr": "Se lancer"
+  },
+  {
+    "key": "homeJumpInDesc",
+    "en": "Everything you need, one tap away.",
+    "fr": "Tout ce qu'il te faut, à portée de clic."
+  },
+  {
+    "key": "homeNavCompetitions",
+    "en": "Competitions",
+    "fr": "Compétitions"
+  },
+  {
+    "key": "homeNavCompetitionsDesc",
+    "en": "Leagues & knockout cups",
+    "fr": "Ligues et coupes à élimination"
+  },
+  {
+    "key": "homeNavGameDay",
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  {
+    "key": "homeNavGameDayDesc",
+    "en": "Schedule & play matches",
+    "fr": "Planifie et joue tes matchs"
+  },
+  {
+    "key": "homeNavClubsDesc",
+    "en": "Browse & manage clubs",
+    "fr": "Parcours et gère les clubs"
+  },
+  {
+    "key": "homeNavStore",
+    "en": "Store",
+    "fr": "Boutique"
+  },
+  {
+    "key": "homeNavStoreDesc",
+    "en": "Spend your STC coins",
+    "fr": "Dépense tes STC"
+  },
+  {
+    "key": "homeFooterRankings",
+    "en": "Rankings",
+    "fr": "Classements"
+  },
+  {
+    "key": "homeFaqDesc",
+    "en": "Common questions about the platform.",
+    "fr": "Questions fréquentes sur la plateforme."
+  },
+  {
+    "key": "homeRights",
+    "en": "All rights reserved.",
+    "fr": "Tous droits réservés."
+  },
+  {
+    "key": "profEditProfile",
+    "en": "Edit Profile",
+    "fr": "Modifier le profil"
+  },
+  {
+    "key": "profWelcome",
+    "en": "Welcome to STAGE!",
+    "fr": "Bienvenue sur STAGE !"
+  },
+  {
+    "key": "profWelcomeDesc",
+    "en": "Create your player profile to get started.",
+    "fr": "Crée ton profil joueur pour commencer."
+  },
+  {
+    "key": "profCreateProfile",
+    "en": "Create Profile",
+    "fr": "Créer le profil"
+  },
+  {
+    "key": "profNotPlayer",
+    "en": "You're not a player yet",
+    "fr": "Tu n'es pas encore joueur"
+  },
+  {
+    "key": "profNotPlayerDesc",
+    "en": "Finish your player profile (gamertag, position, platform) to appear in clubs, matches and rankings.",
+    "fr": "Termine ton profil joueur (gamertag, poste, plateforme) pour apparaître dans les clubs, matchs et classements."
+  },
+  {
+    "key": "profNotClub",
+    "en": "You're not in a club yet",
+    "fr": "Tu n'es dans aucun club"
+  },
+  {
+    "key": "profNotClubDesc",
+    "en": "Create your own club or join an existing one to compete in tournaments and leagues.",
+    "fr": "Crée ton propre club ou rejoins-en un pour participer aux tournois et ligues."
+  },
+  {
+    "key": "profWins",
+    "en": "Wins",
+    "fr": "Victoires"
+  },
+  {
+    "key": "profLosses",
+    "en": "Losses",
+    "fr": "Défaites"
+  },
+  {
+    "key": "profAvgRating",
+    "en": "Avg Rating",
+    "fr": "Note moy."
+  },
+  {
+    "key": "profMotm",
+    "en": "MOTM",
+    "fr": "Homme du match"
+  },
+  {
+    "key": "profCleanSheets",
+    "en": "Clean Sheets",
+    "fr": "Clean sheets"
+  },
+  {
+    "key": "profTrophies",
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  {
+    "key": "profNoPvp",
+    "en": "No PvP matches recorded yet.",
+    "fr": "Aucun match PvP enregistré."
+  },
+  {
+    "key": "profIdentityVerified",
+    "en": "Identity verified",
+    "fr": "Identité vérifiée"
+  },
+  {
+    "key": "profIdentityVerifiedDesc",
+    "en": "This profile has been reviewed by STAGE staff and linked to {handle}.",
+    "fr": "Ce profil a été vérifié par le staff STAGE et lié à {handle}."
+  },
+  {
+    "key": "profAPlatformIdentity",
+    "en": "a platform identity",
+    "fr": "une identité de plateforme"
+  },
+  {
+    "key": "profIdentityReview",
+    "en": "Identity claim under review",
+    "fr": "Demande d'identité en cours d'examen"
+  },
+  {
+    "key": "profClaimIdentity",
+    "en": "Claim your player identity",
+    "fr": "Revendique ton identité de joueur"
+  },
+  {
+    "key": "profClaimIdentityDesc",
+    "en": "Link your STAGE profile to your console or EA identity so clubs know this is really you.",
+    "fr": "Lie ton profil STAGE à ton identité console ou EA pour que les clubs sachent que c'est bien toi."
+  },
+  {
+    "key": "profHandlePlaceholder",
+    "en": "PSN / Xbox / EA handle",
+    "fr": "Pseudo PSN / Xbox / EA"
+  },
+  {
+    "key": "profEaIdPlaceholder",
+    "en": "EA ID (optional)",
+    "fr": "EA ID (optionnel)"
+  },
+  {
+    "key": "profDiscordPlaceholder",
+    "en": "Discord handle (optional)",
+    "fr": "Pseudo Discord (optionnel)"
+  },
+  {
+    "key": "profProofPlaceholder",
+    "en": "Proof link: screenshot, clip, or profile URL (optional)",
+    "fr": "Lien de preuve : capture, clip ou URL de profil (optionnel)"
+  },
+  {
+    "key": "profNotesPlaceholder",
+    "en": "Anything admins should know?",
+    "fr": "Quelque chose à signaler aux admins ?"
+  },
+  {
+    "key": "profSubmitClaim",
+    "en": "Submit Claim",
+    "fr": "Envoyer la demande"
+  },
+  {
+    "key": "gamerTabCareer",
+    "en": "Career",
+    "fr": "Carrière"
+  },
+  {
+    "key": "gamerAttributes",
+    "en": "Player Attributes",
+    "fr": "Attributs joueur"
+  },
+  {
+    "key": "profTab_matches",
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  {
+    "key": "profTab_trophies",
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  {
+    "key": "profPhotoBanner",
+    "en": "Profile Photo & Banner",
+    "fr": "Photo de profil & bannière"
+  },
+  {
+    "key": "profUploadPhoto",
+    "en": "Upload photo",
+    "fr": "Importer une photo"
+  },
+  {
+    "key": "profRepositionPhoto",
+    "en": "Reposition Photo",
+    "fr": "Repositionner la photo"
+  },
+  {
+    "key": "profChangeBanner",
+    "en": "Change Banner",
+    "fr": "Changer la bannière"
+  },
+  {
+    "key": "profPlayerInfo",
+    "en": "Player Info",
+    "fr": "Infos joueur"
+  },
+  {
+    "key": "profGamertagPlaceholder",
+    "en": "Your gamertag",
+    "fr": "Ton gamertag"
+  },
+  {
+    "key": "profMainPosition",
+    "en": "Main Position",
+    "fr": "Poste principal"
+  },
+  {
+    "key": "profSecondPosition",
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  {
+    "key": "profNone",
+    "en": "None",
+    "fr": "Aucun"
+  },
+  {
+    "key": "profSelectCountry",
+    "en": "Select your country",
+    "fr": "Sélectionne ton pays"
+  },
+  {
+    "key": "profCountryRequired",
+    "en": "Please select your country",
+    "fr": "Sélectionne ton pays"
+  },
+  {
+    "key": "profOverallRating",
+    "en": "Overall Rating",
+    "fr": "Note globale"
+  },
+  {
+    "key": "profShirtNumber",
+    "en": "Shirt Number",
+    "fr": "Numéro de maillot"
+  },
+  {
+    "key": "profAccountEmail",
+    "en": "Account Email",
+    "fr": "E-mail du compte"
+  },
+  {
+    "key": "profBioPlaceholder",
+    "en": "Tell the community about yourself...",
+    "fr": "Parle de toi à la communauté..."
+  },
+  {
+    "key": "profSaving",
+    "en": "Saving...",
+    "fr": "Enregistrement..."
+  },
+  {
+    "key": "profSaveChanges",
+    "en": "Save Changes",
+    "fr": "Enregistrer"
+  },
+  {
+    "key": "profViewClubPage",
+    "en": "View Club Page",
+    "fr": "Voir la page du club"
+  },
+  {
+    "key": "profEditClub",
+    "en": "Edit Club",
+    "fr": "Modifier le club"
+  },
+  {
+    "key": "profLeaveClub",
+    "en": "Leave Club",
+    "fr": "Quitter le club"
+  },
+  {
+    "key": "profCreateOrJoin",
+    "en": "Create or Join a Club",
+    "fr": "Créer ou rejoindre un club"
+  },
+  {
+    "key": "profClubName",
+    "en": "Club Name",
+    "fr": "Nom du club"
+  },
+  {
+    "key": "profTag",
+    "en": "Tag (max 5 chars)",
+    "fr": "Tag (max 5 car.)"
+  },
+  {
+    "key": "profRegion",
+    "en": "Region",
+    "fr": "Région"
+  },
+  {
+    "key": "profSelectCountryShort",
+    "en": "Select country",
+    "fr": "Sélectionne un pays"
+  },
+  {
+    "key": "profClubDesc",
+    "en": "Club Bio / Description",
+    "fr": "Bio / description du club"
+  },
+  {
+    "key": "profClubDescPlaceholder",
+    "en": "Describe your club...",
+    "fr": "Décris ton club..."
+  },
+  {
+    "key": "profSaveClub",
+    "en": "Save Club",
+    "fr": "Enregistrer le club"
+  },
+  {
+    "key": "profJoinRequests",
+    "en": "Join Requests",
+    "fr": "Demandes d'adhésion"
+  },
+  {
+    "key": "profApprovalsNote",
+    "en": "Approvals now happen through contract offers in Club Operations.",
+    "fr": "Les approbations passent désormais par les offres de contrat dans Club Operations."
+  },
+  {
+    "key": "profDecline",
+    "en": "Decline",
+    "fr": "Refuser"
+  },
+  {
+    "key": "storeSubtitle",
+    "en": "Customize your profile and club with exclusive items",
+    "fr": "Personnalise ton profil et ton club avec des objets exclusifs"
+  },
+  {
+    "key": "storePlayer",
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  {
+    "key": "storeCreditsWord",
+    "en": "credits",
+    "fr": "crédits"
+  },
+  {
+    "key": "storeClubCredits",
+    "en": "club credits",
+    "fr": "crédits club"
+  },
+  {
+    "key": "storeStageCredits",
+    "en": "STAGE Credits",
+    "fr": "Crédits STAGE"
+  },
+  {
+    "key": "storeCurrentPlan",
+    "en": "Current Plan",
+    "fr": "Offre actuelle"
+  },
+  {
+    "key": "storeTabCredits",
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  {
+    "key": "storeTabSubscriptions",
+    "en": "Subscriptions",
+    "fr": "Abonnements"
+  },
+  {
+    "key": "storePlusHeadline",
+    "en": "STAGE Plus unlocks the full competition loop",
+    "fr": "STAGE Plus débloque tout le circuit compétitif"
+  },
+  {
+    "key": "storePlusDesc",
+    "en": "Free accounts start with {credits} credits. After that, Plus unlocks tournament creation, official competition access, ranked play, and a monthly credit refresh.",
+    "fr": "Les comptes gratuits démarrent avec {credits} crédits. Ensuite, Plus débloque la création de tournois, l'accès aux compétitions officielles, le mode classé et une recharge mensuelle de crédits."
+  },
+  {
+    "key": "storeCreditsAmount",
+    "en": "{amount} credits",
+    "fr": "{amount} crédits"
+  },
+  {
+    "key": "storeTournamentsAmount",
+    "en": "{amount} tournaments",
+    "fr": "{amount} tournois"
+  },
+  {
+    "key": "storeMonthlyRefresh",
+    "en": "Monthly allowance refresh, not stacked",
+    "fr": "Recharge mensuelle, non cumulable"
+  },
+  {
+    "key": "storeEntryCost",
+    "en": "Standard tournament entry cost",
+    "fr": "Coût d'inscription standard à un tournoi"
+  },
+  {
+    "key": "storeActiveSlots",
+    "en": "Active community tournament slots",
+    "fr": "Places de tournois communautaires actifs"
+  },
+  {
+    "key": "storeViewPlus",
+    "en": "View STAGE Plus",
+    "fr": "Voir STAGE Plus"
+  },
+  {
+    "key": "storeMonthly",
+    "en": "Monthly",
+    "fr": "Mensuel"
+  },
+  {
+    "key": "storeYearly",
+    "en": "Yearly",
+    "fr": "Annuel"
+  },
+  {
+    "key": "storeSave25",
+    "en": "Save 25%",
+    "fr": "-25 %"
+  },
+  {
+    "key": "storeExpires",
+    "en": "Expires:",
+    "fr": "Expire le :"
+  },
+  {
+    "key": "storeFreeAccount",
+    "en": "Free Account",
+    "fr": "Compte gratuit"
+  },
+  {
+    "key": "storeStartWith",
+    "en": "Start with {credits} credits",
+    "fr": "Démarre avec {credits} crédits"
+  },
+  {
+    "key": "storeFreeDesc",
+    "en": "Enough for one tournament entry. Credit packs stay available for extra entries or club spending without changing your subscription.",
+    "fr": "Suffisant pour une inscription à un tournoi. Les packs de crédits restent disponibles pour d'autres inscriptions ou dépenses de club sans changer ton abonnement."
+  },
+  {
+    "key": "storeStarterCredits",
+    "en": "Starter credits",
+    "fr": "Crédits de départ"
+  },
+  {
+    "key": "storeTournamentEntry",
+    "en": "Tournament entry",
+    "fr": "Inscription tournoi"
+  },
+  {
+    "key": "storeBuyCreditsSeparately",
+    "en": "Buy Credits Separately",
+    "fr": "Acheter des crédits séparément"
+  },
+  {
+    "key": "storeBuy",
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  {
+    "key": "storeYear",
+    "en": "year",
+    "fr": "an"
+  },
+  {
+    "key": "storeMonth",
+    "en": "month",
+    "fr": "mois"
+  },
+  {
+    "key": "storeMonthlyCredits",
+    "en": "Monthly credits",
+    "fr": "Crédits mensuels"
+  },
+  {
+    "key": "storeEntryCostShort",
+    "en": "Entry cost",
+    "fr": "Coût d'entrée"
+  },
+  {
+    "key": "storeActiveEvents",
+    "en": "Active events",
+    "fr": "Événements actifs"
+  },
+  {
+    "key": "storeAvailableAfter",
+    "en": "Available after {date}",
+    "fr": "Disponible après le {date}"
+  },
+  {
+    "key": "storeSubscribe",
+    "en": "Subscribe",
+    "fr": "S'abonner"
+  },
+  {
+    "key": "storeYrShort",
+    "en": "yr",
+    "fr": "an"
+  },
+  {
+    "key": "storeMoShort",
+    "en": "mo",
+    "fr": "mois"
+  },
+  {
+    "key": "communitySubtitle",
+    "en": "Stage League on Discord — free for every player and club",
+    "fr": "Stage League sur Discord — gratuit pour chaque joueur et club"
+  },
+  {
+    "key": "discNotConfigured",
+    "en": "Discord link is not set up yet. Ask an admin to add invite settings.",
+    "fr": "Le lien Discord n'est pas encore configuré. Demande à un admin d'ajouter les paramètres d'invitation."
+  },
+  {
+    "key": "discJoinTitle",
+    "en": "Join our Discord",
+    "fr": "Rejoins notre Discord"
+  },
+  {
+    "key": "discBannerDesc",
+    "en": "Free to join — meet players, get match updates, and find your next club.",
+    "fr": "Gratuit — rencontre des joueurs, reçois les infos de match et trouve ton prochain club."
+  },
+  {
+    "key": "discJoinDiscord",
+    "en": "Join Discord",
+    "fr": "Rejoindre Discord"
+  },
+  {
+    "key": "discNotNow",
+    "en": "Not now",
+    "fr": "Plus tard"
+  },
+  {
+    "key": "discServerName",
+    "en": "Stage League Discord",
+    "fr": "Discord Stage League"
+  },
+  {
+    "key": "discCompactJoined",
+    "en": "You're set — hop in anytime from Community.",
+    "fr": "C'est bon — rejoins quand tu veux depuis Community."
+  },
+  {
+    "key": "discCompactCta",
+    "en": "Join competitors on Discord.",
+    "fr": "Rejoins les compétiteurs sur Discord."
+  },
+  {
+    "key": "discJoinServer",
+    "en": "Join server",
+    "fr": "Rejoindre le serveur"
+  },
+  {
+    "key": "discOpenCommunity",
+    "en": "Open Community",
+    "fr": "Ouvrir Community"
+  },
+  {
+    "key": "discOnboardTitle",
+    "en": "Join the community",
+    "fr": "Rejoins la communauté"
+  },
+  {
+    "key": "discOnboardDesc",
+    "en": "Almost done! Discord is where players find clubs and get league news. Join now or later from Community in the menu.",
+    "fr": "Presque fini ! Discord, c'est là que les joueurs trouvent des clubs et suivent l'actu de la ligue. Rejoins maintenant ou plus tard depuis Community dans le menu."
+  },
+  {
+    "key": "discServerPreview",
+    "en": "Server preview",
+    "fr": "Aperçu du serveur"
+  },
+  {
+    "key": "discContinue",
+    "en": "Continue to STAGE →",
+    "fr": "Continuer vers STAGE →"
+  },
+  {
+    "key": "discAlreadyJoined",
+    "en": "I already joined",
+    "fr": "J'ai déjà rejoint"
+  },
+  {
+    "key": "discSkipForNow",
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  {
+    "key": "discOfficialServer",
+    "en": "Official server",
+    "fr": "Serveur officiel"
+  },
+  {
+    "key": "discFullTitle",
+    "en": "Your home off the pitch",
+    "fr": "Ta maison en dehors du terrain"
+  },
+  {
+    "key": "discFullDesc",
+    "en": "Discord is free and takes under a minute. Join to chat with clubs, get match updates, and stay connected — whether you signed up today or joined months ago.",
+    "fr": "Discord est gratuit et prend moins d'une minute. Rejoins pour discuter avec les clubs, recevoir les infos de match et rester connecté — que tu viennes de t'inscrire ou que tu sois là depuis des mois."
+  },
+  {
+    "key": "discStep1",
+    "en": "Click Join Discord — opens in a new tab",
+    "fr": "Clique sur Rejoindre Discord — s'ouvre dans un nouvel onglet"
+  },
+  {
+    "key": "discStep2",
+    "en": "Create a Discord account or sign in (free)",
+    "fr": "Crée un compte Discord ou connecte-toi (gratuit)"
+  },
+  {
+    "key": "discStep3",
+    "en": "Accept the invite and pick your channels",
+    "fr": "Accepte l'invitation et choisis tes salons"
+  },
+  {
+    "key": "discOpenAgain",
+    "en": "Open Discord again",
+    "fr": "Rouvrir Discord"
+  },
+  {
+    "key": "discJoinFree",
+    "en": "Join Discord — it's free",
+    "fr": "Rejoindre Discord — c'est gratuit"
+  },
+  {
+    "key": "discAlreadyInServer",
+    "en": "I'm already in the server",
+    "fr": "Je suis déjà sur le serveur"
+  },
+  {
+    "key": "discLivePreview",
+    "en": "Live preview",
+    "fr": "Aperçu en direct"
+  },
+  {
+    "key": "discBenefit1",
+    "en": "Find clubs, players, and scrims fast",
+    "fr": "Trouve clubs, joueurs et scrims rapidement"
+  },
+  {
+    "key": "discBenefit2",
+    "en": "League announcements and match reminders",
+    "fr": "Annonces de la ligue et rappels de match"
+  },
+  {
+    "key": "discBenefit3",
+    "en": "Talk tactics, transfers, and highlights",
+    "fr": "Parle tactique, transferts et highlights"
+  },
+  {
+    "key": "discBenefit4",
+    "en": "Get help from staff and the community",
+    "fr": "Obtiens de l'aide du staff et de la communauté"
+  },
+  {
+    "key": "landHeroYour",
+    "en": "Your",
+    "fr": "Ta"
+  },
+  {
+    "key": "landHeroStage",
+    "en": "Stage",
+    "fr": "Scène"
+  },
+  {
+    "key": "landHeroAwaits",
+    "en": "Awaits",
+    "fr": "T'attend"
+  },
+  {
+    "key": "landGetStarted",
+    "en": "Get Started — It's Free",
+    "fr": "Commencer — c'est gratuit"
+  },
+  {
+    "key": "landScroll",
+    "en": "Scroll",
+    "fr": "Défiler"
+  },
+  {
+    "key": "landEverything",
+    "en": "Everything you need",
+    "fr": "Tout ce qu'il te faut"
+  },
+  {
+    "key": "landOnePlatform",
+    "en": "One Platform.",
+    "fr": "Une plateforme."
+  },
+  {
+    "key": "landEveryFeature",
+    "en": "Every Feature.",
+    "fr": "Toutes les fonctions."
+  },
+  {
+    "key": "landGetStartedMinutes",
+    "en": "Get started in minutes",
+    "fr": "Commence en quelques minutes"
+  },
+  {
+    "key": "landHowItWorks",
+    "en": "How It Works",
+    "fr": "Comment ça marche"
+  },
+  {
+    "key": "landJoinCommunity",
+    "en": "Join the community",
+    "fr": "Rejoins la communauté"
+  },
+  {
+    "key": "landReadyTo",
+    "en": "Ready to",
+    "fr": "Prêt à"
+  },
+  {
+    "key": "landCompete",
+    "en": "Compete?",
+    "fr": "Concourir ?"
+  },
+  {
+    "key": "landCtaDesc",
+    "en": "Thousands of players and clubs are already active. Sign up free and find your competition.",
+    "fr": "Des milliers de joueurs et de clubs sont déjà actifs. Inscris-toi gratuitement et trouve ta compétition."
+  },
+  {
+    "key": "landStartPlaying",
+    "en": "Start Playing Now",
+    "fr": "Commencer à jouer"
+  },
+  {
+    "key": "landSignInArrow",
+    "en": "Sign In →",
+    "fr": "Se connecter →"
+  },
+  {
+    "key": "landFeat1Title",
+    "en": "Competitions & Leagues",
+    "fr": "Compétitions & ligues"
+  },
+  {
+    "key": "landFeat1Desc",
+    "en": "Enter structured regional leagues and knockout competitions. Every season has standings, match days, and a champion crowned at the final whistle.",
+    "fr": "Participe à des ligues régionales structurées et à des compétitions à élimination. Chaque saison a son classement, ses journées de match et un champion sacré au coup de sifflet final."
+  },
+  {
+    "key": "landFeat2Title",
+    "en": "Club Management",
+    "fr": "Gestion de club"
+  },
+  {
+    "key": "landFeat2Desc",
+    "en": "Found your club, set your formation, manage your wage budget, upgrade your stadium, and build a legacy across multiple seasons.",
+    "fr": "Fonde ton club, choisis ta formation, gère ton budget salarial, améliore ton stade et bâtis une légende au fil des saisons."
+  },
+  {
+    "key": "landFeat3Title",
+    "en": "Game Day",
+    "fr": "Match Day"
+  },
+  {
+    "key": "landFeat3Desc",
+    "en": "Schedule matches, submit scores, and track every result in real time. Your club's form, streaks, and standings update instantly.",
+    "fr": "Planifie les matchs, soumets les scores et suis chaque résultat en temps réel. La forme, les séries et le classement de ton club se mettent à jour instantanément."
+  },
+  {
+    "key": "landFeat4Title",
+    "en": "Player Contracts",
+    "fr": "Contrats joueurs"
+  },
+  {
+    "key": "landFeat4Desc",
+    "en": "Sign to a club on a formal contract with wages, bonuses, and release clauses — just like the real game.",
+    "fr": "Signe dans un club via un vrai contrat avec salaire, primes et clauses libératoires — comme dans le jeu."
+  },
+  {
+    "key": "landFeat5Title",
+    "en": "Transfer Market",
+    "fr": "Marché des transferts"
+  },
+  {
+    "key": "landFeat5Desc",
+    "en": "Buy and sell players during transfer windows. Negotiate fees, wages, and bonuses with clubs across the platform.",
+    "fr": "Achète et vends des joueurs pendant les mercatos. Négocie indemnités, salaires et primes avec les clubs de la plateforme."
+  },
+  {
+    "key": "landFeat6Title",
+    "en": "Rankings & Live Stats",
+    "fr": "Classements & stats en direct"
+  },
+  {
+    "key": "landFeat6Desc",
+    "en": "Goals, assists, ratings, clean sheets — every stat tracked. See where you rank against every player on the platform.",
+    "fr": "Buts, passes, notes, clean sheets — chaque stat est suivie. Vois où tu te situes face à tous les joueurs de la plateforme."
+  },
+  {
+    "key": "landStep1Title",
+    "en": "Create Your Profile",
+    "fr": "Crée ton profil"
+  },
+  {
+    "key": "landStep1Desc",
+    "en": "Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.",
+    "fr": "Inscris-toi, choisis ton poste et ta plateforme, importe ta photo et construis ton identité de joueur en quelques minutes."
+  },
+  {
+    "key": "landStep2Title",
+    "en": "Join or Found a Club",
+    "fr": "Rejoins ou fonde un club"
+  },
+  {
+    "key": "landStep2Desc",
+    "en": "Browse existing clubs and request to join, or create your own — set the name, badge, region, and start recruiting.",
+    "fr": "Parcours les clubs existants et demande à les rejoindre, ou crée le tien — choisis le nom, le blason, la région et commence à recruter."
+  },
+  {
+    "key": "landStep3Title",
+    "en": "Register & Compete",
+    "fr": "Inscris-toi & concours"
+  },
+  {
+    "key": "landStep3Desc",
+    "en": "Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.",
+    "fr": "Entre dans une ligue ou une compétition régionale, planifie tes matchs le Match Day et vise le titre chaque saison."
+  },
+  {
+    "key": "clubsCount",
+    "en": "{count} clubs registered",
+    "fr": "{count} clubs inscrits"
+  },
+  {
+    "key": "clubsSearchPlaceholder",
+    "en": "Search clubs…",
+    "fr": "Rechercher des clubs…"
+  },
+  {
+    "key": "cdHistory",
+    "en": "History",
+    "fr": "Historique"
+  },
+  {
+    "key": "cdStadium",
+    "en": "Stadium",
+    "fr": "Stade"
+  },
+  {
+    "key": "cdFinance",
+    "en": "Finance",
+    "fr": "Finances"
+  },
+  {
+    "key": "cdShirts",
+    "en": "Shirts",
+    "fr": "Maillots"
+  },
+  {
+    "key": "cdClubOffice",
+    "en": "Club Office",
+    "fr": "Bureau du club"
+  },
+  {
+    "key": "cdClubNotFound",
+    "en": "Club not found.",
+    "fr": "Club introuvable."
+  },
+  {
+    "key": "cdDeleteClub",
+    "en": "Delete Club",
+    "fr": "Supprimer le club"
+  },
+  {
+    "key": "cdDeleteConfirm",
+    "en": "Are you sure you want to delete {name}? This cannot be undone.",
+    "fr": "Es-tu sûr de vouloir supprimer {name} ? Action irréversible."
+  },
+  {
+    "key": "cdDeleting",
+    "en": "Deleting...",
+    "fr": "Suppression..."
+  },
+  {
+    "key": "cdAdminTakeover",
+    "en": "Admin Takeover",
+    "fr": "Contrôle admin"
+  },
+  {
+    "key": "cdExit",
+    "en": "Exit",
+    "fr": "Quitter"
+  },
+  {
+    "key": "cdUnfollow",
+    "en": "Unfollow",
+    "fr": "Ne plus suivre"
+  },
+  {
+    "key": "cdFollow",
+    "en": "Follow",
+    "fr": "Suivre"
+  },
+  {
+    "key": "cdFollowersLower",
+    "en": "followers",
+    "fr": "abonnés"
+  },
+  {
+    "key": "cdTrialSent",
+    "en": "Trial Request Sent",
+    "fr": "Demande d'essai envoyée"
+  },
+  {
+    "key": "cdRequestTrial",
+    "en": "Request Trial",
+    "fr": "Demander un essai"
+  },
+  {
+    "key": "cdRequestTrialAt",
+    "en": "Request Trial at {name}",
+    "fr": "Demander un essai à {name}"
+  },
+  {
+    "key": "cdTrialIntro",
+    "en": "Send a trial request to {name}. The club owner will receive your request in their inbox and can respond with a trial contract (5 games / 14 days).",
+    "fr": "Envoie une demande d'essai à {name}. Le propriétaire du club la recevra dans sa boîte de réception et pourra répondre par un contrat d'essai (5 matchs / 14 jours)."
+  },
+  {
+    "key": "cdPlayerName",
+    "en": "Player Name (GamerTag)",
+    "fr": "Nom du joueur (GamerTag)"
+  },
+  {
+    "key": "cdSelectPosition",
+    "en": "Select position",
+    "fr": "Choisir un poste"
+  },
+  {
+    "key": "cdWhichConsole",
+    "en": "Which Console",
+    "fr": "Quelle console"
+  },
+  {
+    "key": "cdSelectConsole",
+    "en": "Select console",
+    "fr": "Choisir une console"
+  },
+  {
+    "key": "cdExperience",
+    "en": "Experience",
+    "fr": "Expérience"
+  },
+  {
+    "key": "cdExperiencePlaceholder",
+    "en": "Share your level, past clubs, strengths, and availability...",
+    "fr": "Partage ton niveau, tes anciens clubs, tes points forts et tes disponibilités..."
+  },
+  {
+    "key": "cdAdditionalMessage",
+    "en": "Additional Message",
+    "fr": "Message additionnel"
+  },
+  {
+    "key": "cdAdditionalPlaceholder",
+    "en": "Optional custom note for this club...",
+    "fr": "Note personnalisée pour ce club (optionnel)..."
+  },
+  {
+    "key": "cdShowRequestMessage",
+    "en": "Show Request Message",
+    "fr": "Afficher le message de demande"
+  },
+  {
+    "key": "cdRequestPreview",
+    "en": "Request Preview",
+    "fr": "Aperçu de la demande"
+  },
+  {
+    "key": "cdSending",
+    "en": "Sending...",
+    "fr": "Envoi..."
+  },
+  {
+    "key": "cdSendTrialRequest",
+    "en": "Send Trial Request",
+    "fr": "Envoyer la demande d'essai"
+  },
+  {
+    "key": "cdDraws",
+    "en": "Draws",
+    "fr": "Nuls"
+  },
+  {
+    "key": "cdWinRate",
+    "en": "Win Rate",
+    "fr": "Taux de victoire"
+  },
+  {
+    "key": "cdGoalsScored",
+    "en": "Goals Scored",
+    "fr": "Buts marqués"
+  },
+  {
+    "key": "cdGoalsConceded",
+    "en": "Goals Conceded",
+    "fr": "Buts encaissés"
+  },
+  {
+    "key": "cdPastMatches",
+    "en": "Past Matches",
+    "fr": "Matchs passés"
+  },
+  {
+    "key": "cdNoMatches",
+    "en": "No matches recorded yet.",
+    "fr": "Aucun match enregistré."
+  },
+  {
+    "key": "cdClubChat",
+    "en": "Club Chat",
+    "fr": "Chat du club"
+  },
+  {
+    "key": "cdUnmute",
+    "en": "Unmute chat notifications",
+    "fr": "Réactiver les notifications du chat"
+  },
+  {
+    "key": "cdMute",
+    "en": "Mute chat notifications",
+    "fr": "Couper les notifications du chat"
+  },
+  {
+    "key": "cdNoMessages",
+    "en": "No messages yet. Start the conversation.",
+    "fr": "Aucun message. Lance la conversation."
+  },
+  {
+    "key": "cdChatPlaceholder",
+    "en": "Write a message to your club...",
+    "fr": "Écris un message à ton club..."
+  },
+  {
+    "key": "cdSend",
+    "en": "Send",
+    "fr": "Envoyer"
+  },
+  {
+    "key": "cdNoPlayers",
+    "en": "No players registered yet.",
+    "fr": "Aucun joueur inscrit."
+  },
+  {
+    "key": "cdLoadingHistory",
+    "en": "Loading history…",
+    "fr": "Chargement de l'historique…"
+  },
+  {
+    "key": "cdNoHistory",
+    "en": "No season history yet.",
+    "fr": "Aucun historique de saison."
+  },
+  {
+    "key": "cdCompetition",
+    "en": "Competition",
+    "fr": "Compétition"
+  },
+  {
+    "key": "cdSeason",
+    "en": "Season",
+    "fr": "Saison"
+  },
+  {
+    "key": "cdApprovalsNote",
+    "en": "Approvals now go through contracts. Use Operations to offer a trial or full contract.",
+    "fr": "Les approbations passent désormais par les contrats. Utilise Operations pour proposer un essai ou un contrat complet."
+  },
+  {
+    "key": "cdOpenOperations",
+    "en": "Open Operations",
+    "fr": "Ouvrir Operations"
+  },
+  {
+    "key": "cdFollowers",
+    "en": "Followers",
+    "fr": "Abonnés"
+  },
+  {
+    "key": "cdNoFollowers",
+    "en": "No followers yet.",
+    "fr": "Aucun abonné."
+  },
+  {
+    "key": "cdLogoTitle",
+    "en": "{name} Logo",
+    "fr": "Logo de {name}"
+  },
+  {
+    "key": "cdRankedMatch",
+    "en": "Ranked Match",
+    "fr": "Match classé"
+  },
+  {
+    "key": "cdTournament",
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  {
+    "key": "cdKnockout",
+    "en": "Knockout",
+    "fr": "Élimination"
+  },
+  {
+    "key": "cdGroupStage",
+    "en": "Group Stage",
+    "fr": "Phase de groupes"
+  },
+  {
+    "key": "cdSwiss",
+    "en": "Swiss",
+    "fr": "Suisse"
+  },
+  {
+    "key": "cdDoubleElim",
+    "en": "Double Elim.",
+    "fr": "Double élim."
+  },
+  {
+    "key": "cdPresident",
+    "en": "President",
+    "fr": "Président"
+  },
+  {
+    "key": "cdCaptain",
+    "en": "Captain",
+    "fr": "Capitaine"
+  },
+  {
+    "key": "cdMember",
+    "en": "Member",
+    "fr": "Membre"
+  },
+  {
+    "key": "cdMakeCaptain",
+    "en": "Make Captain",
+    "fr": "Nommer capitaine"
+  },
+  {
+    "key": "cdViceCaptain",
+    "en": "Vice-Captain",
+    "fr": "Vice-capitaine"
+  },
+  {
+    "key": "cdMakeViceCaptain",
+    "en": "Make Vice-Captain",
+    "fr": "Nommer vice-capitaine"
+  },
+  {
+    "key": "cdSearchPlaceholder",
+    "en": "Search...",
+    "fr": "Rechercher..."
+  },
+  {
+    "key": "cdNoResults",
+    "en": "No results found.",
+    "fr": "Aucun résultat."
+  },
+  {
+    "key": "ppNotFound",
+    "en": "Player not found.",
+    "fr": "Joueur introuvable."
+  },
+  {
+    "key": "ppBackToSearch",
+    "en": "Back to Search",
+    "fr": "Retour à la recherche"
+  },
+  {
+    "key": "ppTransferFee",
+    "en": "Transfer Fee",
+    "fr": "Indemnité de transfert"
+  },
+  {
+    "key": "ppVerified",
+    "en": "Verified",
+    "fr": "Vérifié"
+  },
+  {
+    "key": "ppFollowingLower",
+    "en": "following",
+    "fr": "abonnements"
+  },
+  {
+    "key": "ppTab_career",
+    "en": "Career",
+    "fr": "Carrière"
+  },
+  {
+    "key": "ppTab_matches",
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  {
+    "key": "ppTab_trophies",
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  {
+    "key": "ppRecentForm",
+    "en": "Recent Form (last {count})",
+    "fr": "Forme récente ({count} derniers)"
+  },
+  {
+    "key": "ppPvpRecord",
+    "en": "PvP Record",
+    "fr": "Bilan PvP"
+  },
+  {
+    "key": "ppPvpHistory",
+    "en": "PvP Match History",
+    "fr": "Historique des matchs PvP"
+  },
+  {
+    "key": "ppRound",
+    "en": "Round {round}",
+    "fr": "Journée {round}"
+  },
+  {
+    "key": "ppFollowingTitle",
+    "en": "Following",
+    "fr": "Abonnements"
+  },
+  {
+    "key": "ppNotFollowing",
+    "en": "Not following anyone yet.",
+    "fr": "Aucun abonnement pour le moment."
+  },
+  {
+    "key": "trnTournamentFor",
+    "en": "Tournament For",
+    "fr": "Tournoi pour"
+  },
+  {
+    "key": "trnClubsCompete",
+    "en": "Clubs register & compete",
+    "fr": "Les clubs s'inscrivent et jouent"
+  },
+  {
+    "key": "trnPlayersRegister",
+    "en": "Individual players register",
+    "fr": "Les joueurs s'inscrivent individuellement"
+  },
+  {
+    "key": "trnNamePlaceholder",
+    "en": "Tournament name",
+    "fr": "Nom du tournoi"
+  },
+  {
+    "key": "trnOptional",
+    "en": "optional",
+    "fr": "optionnel"
+  },
+  {
+    "key": "trnDescPlaceholder",
+    "en": "What makes this special...",
+    "fr": "Ce qui rend ce tournoi spécial..."
+  },
+  {
+    "key": "trnSwissUcl",
+    "en": "Swiss UCL",
+    "fr": "Suisse UCL"
+  },
+  {
+    "key": "trnMaxTeams",
+    "en": "Max Teams",
+    "fr": "Équipes max"
+  },
+  {
+    "key": "trnNTeams",
+    "en": "{count} teams",
+    "fr": "{count} équipes"
+  },
+  {
+    "key": "trnCrossPlatform",
+    "en": "Cross-Platform",
+    "fr": "Cross-plateforme"
+  },
+  {
+    "key": "trnStartDate",
+    "en": "Start Date",
+    "fr": "Date de début"
+  },
+  {
+    "key": "trnEntryFee",
+    "en": "Entry Fee",
+    "fr": "Frais d'inscription"
+  },
+  {
+    "key": "trnStcPerEntry",
+    "en": "STC per entry",
+    "fr": "STC par inscription"
+  },
+  {
+    "key": "trnStcEntry",
+    "en": "STC / entry",
+    "fr": "STC / inscription"
+  },
+  {
+    "key": "trnCreateCost",
+    "en": "Create cost",
+    "fr": "Coût de création"
+  },
+  {
+    "key": "trnEntryCost",
+    "en": "Entry cost",
+    "fr": "Coût d'inscription"
+  },
+  {
+    "key": "trnWinner",
+    "en": "Winner 70%",
+    "fr": "Vainqueur 70 %"
+  },
+  {
+    "key": "trnRunnerUp",
+    "en": "Runner-up 20%",
+    "fr": "Finaliste 20 %"
+  },
+  {
+    "key": "trnThirdPlace",
+    "en": "Third place 10%",
+    "fr": "3e place 10 %"
+  },
+  {
+    "key": "trnPrizePool",
+    "en": "Prize pool",
+    "fr": "Cagnotte"
+  },
+  {
+    "key": "trnCustomRules",
+    "en": "Custom Rules",
+    "fr": "Règles personnalisées"
+  },
+  {
+    "key": "trnRulesPlaceholder",
+    "en": "Specific rules for this tournament...",
+    "fr": "Règles spécifiques à ce tournoi..."
+  },
+  {
+    "key": "trnRulesAttached",
+    "en": "✓ Rules file attached",
+    "fr": "✓ Fichier de règles joint"
+  },
+  {
+    "key": "trnTrophy",
+    "en": "Trophy",
+    "fr": "Trophée"
+  },
+  {
+    "key": "trnTrophyHint",
+    "en": "optional — awarded to winner",
+    "fr": "optionnel — décerné au vainqueur"
+  },
+  {
+    "key": "trnBanner",
+    "en": "Banner",
+    "fr": "Bannière"
+  },
+  {
+    "key": "trnDoubleElimination",
+    "en": "Double Elimination",
+    "fr": "Double élimination"
+  },
+  {
+    "key": "tdGroupDraw",
+    "en": "Group Draw",
+    "fr": "Tirage des groupes"
+  },
+  {
+    "key": "tdGroupDrawDesc",
+    "en": "Top teams advance into the knockout bracket.",
+    "fr": "Les meilleures équipes accèdent au tableau à élimination."
+  },
+  {
+    "key": "tdResolve",
+    "en": "Resolve",
+    "fr": "Résoudre"
+  },
+  {
+    "key": "tdDressingRoom",
+    "en": "Dressing Room",
+    "fr": "Vestiaire"
+  },
+  {
+    "key": "tdNoTeams",
+    "en": "No teams registered yet.",
+    "fr": "Aucune équipe inscrite."
+  },
+  {
+    "key": "tdNoDisputes",
+    "en": "No disputed matches. All clear!",
+    "fr": "Aucun match contesté. Tout est bon !"
+  },
+  {
+    "key": "tdSetFinalScore",
+    "en": "Set Final Score",
+    "fr": "Définir le score final"
+  },
+  {
+    "key": "tdAdminNotes",
+    "en": "Admin Notes",
+    "fr": "Notes admin"
+  },
+  {
+    "key": "tdAddStreamLink",
+    "en": "Add Live Stream Link",
+    "fr": "Ajouter un lien de stream"
+  },
+  {
+    "key": "tdStreamUrl",
+    "en": "Stream URL",
+    "fr": "URL du stream"
+  },
+  {
+    "key": "ldStatusAwaiting",
+    "en": "Awaiting",
+    "fr": "En attente"
+  },
+  {
+    "key": "ldStatusProposed",
+    "en": "Proposed",
+    "fr": "Proposé"
+  },
+  {
+    "key": "ldStatusCounter",
+    "en": "Counter",
+    "fr": "Contre-prop."
+  },
+  {
+    "key": "ldStatusConfirmed",
+    "en": "Confirmed",
+    "fr": "Confirmé"
+  },
+  {
+    "key": "ldStatusExpired",
+    "en": "Expired",
+    "fr": "Expiré"
+  },
+  {
+    "key": "ldStatusReview",
+    "en": "Review",
+    "fr": "À examiner"
+  },
+  {
+    "key": "ldFixtures",
+    "en": "Fixtures",
+    "fr": "Matchs"
+  },
+  {
+    "key": "ldPlayed",
+    "en": "Played",
+    "fr": "Joués"
+  },
+  {
+    "key": "ldScheduled",
+    "en": "Scheduled",
+    "fr": "Programmés"
+  },
+  {
+    "key": "ldNotFound",
+    "en": "League not found.",
+    "fr": "Ligue introuvable."
+  },
+  {
+    "key": "ldBackToCompetitions",
+    "en": "Back to Competitions",
+    "fr": "Retour aux compétitions"
+  },
+  {
+    "key": "ldLeagueLeader",
+    "en": "League Leader",
+    "fr": "Leader de la ligue"
+  },
+  {
+    "key": "ldNoLeader",
+    "en": "No leader yet.",
+    "fr": "Pas encore de leader."
+  },
+  {
+    "key": "ldYourFixtures",
+    "en": "Your Club Fixtures",
+    "fr": "Les matchs de ton club"
+  },
+  {
+    "key": "ldSchemaNotPublished",
+    "en": "Schema not published",
+    "fr": "Calendrier non publié"
+  },
+  {
+    "key": "ldNoFixtures",
+    "en": "No fixtures yet.",
+    "fr": "Aucun match pour le moment."
+  },
+  {
+    "key": "ldNoClubStats",
+    "en": "No club stats yet.",
+    "fr": "Aucune stat de club."
+  },
+  {
+    "key": "ldNoPlayerStats",
+    "en": "No player stats yet. Stats appear after Game Day results are submitted.",
+    "fr": "Aucune stat joueur. Les stats apparaissent après la soumission des résultats du Match Day."
+  },
+  {
+    "key": "ldNoStandings",
+    "en": "No standings yet.",
+    "fr": "Aucun classement pour le moment."
+  },
+  {
+    "key": "cpResult",
+    "en": "Result",
+    "fr": "Résultat"
+  },
+  {
+    "key": "cpNoFixtures",
+    "en": "No fixtures generated yet",
+    "fr": "Aucun match généré pour l'instant"
+  },
+  {
+    "key": "cpFinal",
+    "en": "Final",
+    "fr": "Finale"
+  },
+  {
+    "key": "cpNoQualification",
+    "en": "No qualification entries yet",
+    "fr": "Aucune entrée de qualification"
+  },
+  {
+    "key": "cpNotFound",
+    "en": "Competition not found",
+    "fr": "Compétition introuvable"
+  },
+  {
+    "key": "cpNotSeeded",
+    "en": "This competition may not be seeded yet.",
+    "fr": "Cette compétition n'est peut-être pas encore initialisée."
+  },
+  {
+    "key": "cpNoSeason",
+    "en": "No season started yet",
+    "fr": "Aucune saison commencée"
+  },
+  {
+    "key": "lfSubtitle",
+    "en": "Own, rent, and invest across luxury asset categories.",
+    "fr": "Possède, loue et investis dans des catégories d'actifs de luxe."
+  },
+  {
+    "key": "lfNoAssets",
+    "en": "No assets in this category yet.",
+    "fr": "Aucun actif dans cette catégorie."
+  },
+  {
+    "key": "lfPrincipal",
+    "en": "Principal",
+    "fr": "Capital"
+  },
+  {
+    "key": "lfReturn",
+    "en": "Return",
+    "fr": "Rendement"
+  },
+  {
+    "key": "lfTotalPayout",
+    "en": "Total payout",
+    "fr": "Gain total"
+  },
+  {
+    "key": "lfMatures",
+    "en": "Matures",
+    "fr": "Échéance"
+  },
+  {
+    "key": "lfPaid",
+    "en": "Paid",
+    "fr": "Payé"
+  },
+  {
+    "key": "lfAcquired",
+    "en": "Acquired",
+    "fr": "Acquis"
+  },
+  {
+    "key": "lfUpkeep",
+    "en": "Upkeep/wk",
+    "fr": "Entretien/sem."
+  },
+  {
+    "key": "obHowPlay",
+    "en": "How do you play?",
+    "fr": "Comment joues-tu ?"
+  },
+  {
+    "key": "obChooseRole",
+    "en": "Choose your role — you can add the other later",
+    "fr": "Choisis ton rôle — tu pourras ajouter l'autre plus tard"
+  },
+  {
+    "key": "obPlayerDesc",
+    "en": "Create a player profile, join a club, sign contracts and compete in tournaments.",
+    "fr": "Crée un profil joueur, rejoins un club, signe des contrats et joue en tournoi."
+  },
+  {
+    "key": "obClubOwner",
+    "en": "Club Owner",
+    "fr": "Propriétaire de club"
+  },
+  {
+    "key": "obClubOwnerDesc",
+    "en": "Found and manage your own club, sign players and enter tournaments.",
+    "fr": "Fonde et gère ton propre club, signe des joueurs et participe aux tournois."
+  },
+  {
+    "key": "obProfileReady",
+    "en": "Player Profile Ready",
+    "fr": "Profil joueur prêt"
+  },
+  {
+    "key": "obProfileReadyDesc",
+    "en": "Your player profile already exists ({name}). Continue to identity verification.",
+    "fr": "Ton profil joueur existe déjà ({name}). Passe à la vérification d'identité."
+  },
+  {
+    "key": "obContinueVerification",
+    "en": "Continue to Verification →",
+    "fr": "Passer à la vérification →"
+  },
+  {
+    "key": "obStepChooseRole",
+    "en": "Choose Role",
+    "fr": "Choisir un rôle"
+  },
+  {
+    "key": "obStepPlayerProfile",
+    "en": "Player Profile",
+    "fr": "Profil joueur"
+  },
+  {
+    "key": "obStepVerifyIdentity",
+    "en": "Verify Identity",
+    "fr": "Vérifier l'identité"
+  },
+  {
+    "key": "obStepClubSetup",
+    "en": "Club Setup",
+    "fr": "Configuration du club"
+  },
+  {
+    "key": "obStepOf",
+    "en": "Step {current} of {total} — {label}",
+    "fr": "Étape {current} sur {total} — {label}"
+  },
+  {
+    "key": "obCreateProfile",
+    "en": "Create Your Profile",
+    "fr": "Crée ton profil"
+  },
+  {
+    "key": "obTellWorld",
+    "en": "Tell the world about your player",
+    "fr": "Présente ton joueur au monde"
+  },
+  {
+    "key": "obGamertagPlaceholder",
+    "en": "Your in-game name",
+    "fr": "Ton pseudo en jeu"
+  },
+  {
+    "key": "obMainPosition",
+    "en": "Main Position *",
+    "fr": "Poste principal *"
+  },
+  {
+    "key": "obSecondPosition",
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  {
+    "key": "obNone",
+    "en": "None",
+    "fr": "Aucun"
+  },
+  {
+    "key": "obCountry",
+    "en": "Country *",
+    "fr": "Pays *"
+  },
+  {
+    "key": "obSelectCountry",
+    "en": "Select country",
+    "fr": "Sélectionne un pays"
+  },
+  {
+    "key": "obSaving",
+    "en": "Saving…",
+    "fr": "Enregistrement…"
+  },
+  {
+    "key": "obContinueClub",
+    "en": "Continue to Club Setup →",
+    "fr": "Passer au club →"
+  },
+  {
+    "key": "obErrImage",
+    "en": "Please choose an image file.",
+    "fr": "Choisis un fichier image."
+  },
+  {
+    "key": "obErrAvatarSize",
+    "en": "Profile picture must be smaller than 10 MB.",
+    "fr": "La photo de profil doit faire moins de 10 Mo."
+  },
+  {
+    "key": "obErrUpload",
+    "en": "Could not upload profile picture.",
+    "fr": "Impossible d'importer la photo de profil."
+  },
+  {
+    "key": "obErrSave",
+    "en": "Could not save profile.",
+    "fr": "Impossible d'enregistrer le profil."
+  },
+  {
+    "key": "obCreateYourClub",
+    "en": "Create Your Club",
+    "fr": "Crée ton club"
+  },
+  {
+    "key": "obClubSetupTitle",
+    "en": "Club Setup",
+    "fr": "Configuration du club"
+  },
+  {
+    "key": "obNeedClubContinue",
+    "en": "You need a club to continue as an owner",
+    "fr": "Tu as besoin d'un club pour continuer en tant que propriétaire"
+  },
+  {
+    "key": "obCreateOrJoinLater",
+    "en": "Create a club now or join one later",
+    "fr": "Crée un club maintenant ou rejoins-en un plus tard"
+  },
+  {
+    "key": "obCreateClub",
+    "en": "Create Club",
+    "fr": "Créer un club"
+  },
+  {
+    "key": "obFoundClub",
+    "en": "Found your club and start managing",
+    "fr": "Fonde ton club et commence à le gérer"
+  },
+  {
+    "key": "obStartJourney",
+    "en": "Start your journey now",
+    "fr": "Commence ton aventure maintenant"
+  },
+  {
+    "key": "obSkip",
+    "en": "Skip",
+    "fr": "Passer"
+  },
+  {
+    "key": "obDoItLater",
+    "en": "Do it later",
+    "fr": "Le faire plus tard"
+  },
+  {
+    "key": "obBack",
+    "en": "Back",
+    "fr": "Retour"
+  },
+  {
+    "key": "obBuildEmpire",
+    "en": "Build your football empire",
+    "fr": "Construis ton empire footballistique"
+  },
+  {
+    "key": "obClubName",
+    "en": "Club Name *",
+    "fr": "Nom du club *"
+  },
+  {
+    "key": "obClubNamePlaceholder",
+    "en": "e.g. FC Dynasty",
+    "fr": "ex. FC Dynasty"
+  },
+  {
+    "key": "obTagMax5",
+    "en": "Tag (max 5 chars) *",
+    "fr": "Tag (max 5 car.) *"
+  },
+  {
+    "key": "obTagPlaceholder",
+    "en": "e.g. DYN",
+    "fr": "ex. DYN"
+  },
+  {
+    "key": "obPlatform",
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  {
+    "key": "obRegion",
+    "en": "Region",
+    "fr": "Région"
+  },
+  {
+    "key": "obCreating",
+    "en": "Creating…",
+    "fr": "Création…"
+  },
+  {
+    "key": "obErrLogoSize",
+    "en": "Club logo must be smaller than 10 MB.",
+    "fr": "Le logo du club doit faire moins de 10 Mo."
+  },
+  {
+    "key": "obErrLogoUpload",
+    "en": "Could not upload club logo.",
+    "fr": "Impossible d'importer le logo du club."
+  },
+  {
+    "key": "obIdentityVerified",
+    "en": "Identity Verified",
+    "fr": "Identité vérifiée"
+  },
+  {
+    "key": "obClaimSubmitted",
+    "en": "Claim Submitted",
+    "fr": "Demande envoyée"
+  },
+  {
+    "key": "obIdentityLinked",
+    "en": "Your STAGE profile is already linked to a verified player identity.",
+    "fr": "Ton profil STAGE est déjà lié à une identité joueur vérifiée."
+  },
+  {
+    "key": "obClaimPending",
+    "en": "Your identity claim is now waiting for admin review in the admin panel.",
+    "fr": "Ta demande d'identité est en attente de validation admin."
+  },
+  {
+    "key": "obClaimIdentity",
+    "en": "Claim Your Identity",
+    "fr": "Revendique ton identité"
+  },
+  {
+    "key": "obClaimIdentityDesc",
+    "en": "Link your player profile to your console, EA, or Discord identity for admin verification.",
+    "fr": "Lie ton profil joueur à ton identité console, EA ou Discord pour la vérification admin."
+  },
+  {
+    "key": "obPlatformHandle",
+    "en": "Platform Handle *",
+    "fr": "Pseudo plateforme *"
+  },
+  {
+    "key": "obPlatformHandlePlaceholder",
+    "en": "PSN / Xbox / EA handle",
+    "fr": "Pseudo PSN / Xbox / EA"
+  },
+  {
+    "key": "obOptional",
+    "en": "Optional",
+    "fr": "Optionnel"
+  },
+  {
+    "key": "obNotesPlaceholder",
+    "en": "Anything admins should know?",
+    "fr": "Quelque chose à signaler aux admins ?"
+  },
+  {
+    "key": "obProofLabel",
+    "en": "Proof (screenshot or link)",
+    "fr": "Preuve (capture ou lien)"
+  },
+  {
+    "key": "obProofPlaceholder",
+    "en": "Paste a link, or drop / upload a screenshot",
+    "fr": "Colle un lien, ou dépose / importe une capture"
+  },
+  {
+    "key": "obProofHint",
+    "en": "Upload saves to Stage and stores the image URL on your claim for admins to review.",
+    "fr": "L'import enregistre sur Stage et stocke l'URL de l'image sur ta demande pour les admins."
+  },
+  {
+    "key": "obSubmitting",
+    "en": "Submitting…",
+    "fr": "Envoi…"
+  },
+  {
+    "key": "obSubmitClaim",
+    "en": "Submit Claim",
+    "fr": "Envoyer la demande"
+  },
+  {
+    "key": "obSkipForNow",
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  {
+    "key": "obErrClaim",
+    "en": "Could not submit identity claim.",
+    "fr": "Impossible d'envoyer la demande d'identité."
+  },
+  {
+    "key": "profBack",
+    "en": "Back",
+    "fr": "Retour"
+  },
+  {
+    "key": "cccGoBack",
+    "en": "Go Back",
+    "fr": "Retour"
+  },
+  {
+    "key": "cccAccessRestricted",
+    "en": "Access Restricted",
+    "fr": "Accès restreint"
+  },
+  {
+    "key": "cccPresidentOnly",
+    "en": "Only the club president can create contracts.",
+    "fr": "Seul le président du club peut créer des contrats."
+  },
+  {
+    "key": "cccTitle",
+    "en": "Create Contract",
+    "fr": "Créer un contrat"
+  },
+  {
+    "key": "cccStep1",
+    "en": "1. Select Player",
+    "fr": "1. Sélectionner un joueur"
+  },
+  {
+    "key": "cccStep2",
+    "en": "2. Choose Contract Type",
+    "fr": "2. Choisir le type de contrat"
+  },
+  {
+    "key": "cccStep3",
+    "en": "3. Financial Terms (STC)",
+    "fr": "3. Conditions financières (STC)"
+  },
+  {
+    "key": "cccStep4",
+    "en": "4. Performance Targets",
+    "fr": "4. Objectifs de performance"
+  },
+  {
+    "key": "cccStep5",
+    "en": "5. Review",
+    "fr": "5. Récapitulatif"
+  },
+  {
+    "key": "cccStep6",
+    "en": "6. Message (optional)",
+    "fr": "6. Message (optionnel)"
+  },
+  {
+    "key": "cccSuggestedSalary",
+    "en": "Suggested Salary Range",
+    "fr": "Fourchette de salaire suggérée"
+  },
+  {
+    "key": "cccWeeklySalary",
+    "en": "Weekly Salary",
+    "fr": "Salaire hebdomadaire"
+  },
+  {
+    "key": "cccPaidMonthly",
+    "en": "Paid monthly",
+    "fr": "Versé mensuellement"
+  },
+  {
+    "key": "cccSigningBonus",
+    "en": "Signing Bonus",
+    "fr": "Prime à la signature"
+  },
+  {
+    "key": "cccPaidOnSigning",
+    "en": "Paid on signing",
+    "fr": "Versée à la signature"
+  },
+  {
+    "key": "cccCaptaincy",
+    "en": "Captaincy",
+    "fr": "Capitanat"
+  },
+  {
+    "key": "cccCaptainOffered",
+    "en": "✓ Captain role offered",
+    "fr": "✓ Rôle de capitaine proposé"
+  },
+  {
+    "key": "cccNoCaptaincy",
+    "en": "No captaincy",
+    "fr": "Pas de capitanat"
+  },
+  {
+    "key": "cccAddTarget",
+    "en": "Add Target",
+    "fr": "Ajouter un objectif"
+  },
+  {
+    "key": "cccNotePlaceholder",
+    "en": "Add a message for the player...",
+    "fr": "Ajoute un message pour le joueur..."
+  },
+  {
+    "key": "cccTargetRange",
+    "en": "Range (between)",
+    "fr": "Plage (entre)"
+  },
+  {
+    "key": "cccSendFailed",
+    "en": "Failed to send contract: {error}",
+    "fr": "Échec de l'envoi du contrat : {error}"
+  },
+  {
+    "key": "cccAlreadyHasContract",
+    "en": "{name} already has a {type} contract ({status})",
+    "fr": "{name} a déjà un contrat {type} ({status})"
+  },
+  {
+    "key": "cccStarted",
+    "en": "Started: {date}",
+    "fr": "Début : {date}"
+  },
+  {
+    "key": "cccOneActivePerType",
+    "en": "Only one active contract per type group is allowed.",
+    "fr": "Un seul contrat actif est autorisé par groupe de type."
+  },
+  {
+    "key": "cccStillOfferPlayer",
+    "en": "You can still offer a player contract (squad, star, etc.) alongside an ownership contract.",
+    "fr": "Tu peux toujours proposer un contrat joueur (effectif, star, etc.) en plus d'un contrat de propriété."
+  },
+  {
+    "key": "cccStillOfferOwnership",
+    "en": "You can still offer an ownership contract alongside a player contract.",
+    "fr": "Tu peux toujours proposer un contrat de propriété en plus d'un contrat joueur."
+  },
+  {
+    "key": "cccExceedsWage",
+    "en": "⛔ Exceeds Wage Budget",
+    "fr": "⛔ Dépassement du budget salarial"
+  },
+  {
+    "key": "cccWageUsage",
+    "en": "Wage Budget Usage: {pct}%",
+    "fr": "Utilisation du budget salarial : {pct} %"
+  },
+  {
+    "key": "cccClubWageBudget",
+    "en": "Club wage budget: {amount}M STC/wk",
+    "fr": "Budget salarial du club : {amount}M STC/sem."
+  },
+  {
+    "key": "cccReduceSalary",
+    "en": " — reduce the salary to proceed",
+    "fr": " — réduis le salaire pour continuer"
+  },
+  {
+    "key": "cccPerWeek",
+    "en": "/ week",
+    "fr": "/ sem."
+  },
+  {
+    "key": "cccBasedOnValue",
+    "en": "· based on {value} market value",
+    "fr": "· basé sur {value} de valeur marché"
+  },
+  {
+    "key": "cccValue",
+    "en": "Value",
+    "fr": "Valeur"
+  },
+  {
+    "key": "crAddClubs",
+    "en": "Add Participants — Clubs",
+    "fr": "Ajouter des participants — Clubs"
+  },
+  {
+    "key": "crSlotsFilled",
+    "en": "{filled}/{max} slots filled",
+    "fr": "{filled}/{max} places prises"
+  },
+  {
+    "key": "crSaveParticipants",
+    "en": "Save Participants",
+    "fr": "Enregistrer les participants"
+  },
+  {
+    "key": "crTournamentFull",
+    "en": "🔒 Tournament is full ({max}/{max}). Remove a club to add another.",
+    "fr": "🔒 Le tournoi est complet ({max}/{max}). Retire un club pour en ajouter un autre."
+  },
+  {
+    "key": "crSearchPlaceholder",
+    "en": "Search club or tag...",
+    "fr": "Rechercher un club ou un tag..."
+  },
+  {
+    "key": "crRegistered",
+    "en": "Registered",
+    "fr": "Inscrit"
+  },
+  {
+    "key": "crAdd",
+    "en": "Add",
+    "fr": "Ajouter"
+  },
+  {
+    "key": "crLoadMore",
+    "en": "Load More",
+    "fr": "Charger plus"
+  },
+  {
+    "key": "crSaved",
+    "en": "Participants saved!",
+    "fr": "Participants enregistrés !"
+  },
+  {
+    "key": "prAddPlayers",
+    "en": "Add Participants — Players",
+    "fr": "Ajouter des participants — Joueurs"
+  },
+  {
+    "key": "prTournamentFull",
+    "en": "🔒 Tournament is full ({max}/{max}). Remove a player to add another.",
+    "fr": "🔒 Le tournoi est complet ({max}/{max}). Retire un joueur pour en ajouter un autre."
+  },
+  {
+    "key": "prSearchPlaceholder",
+    "en": "Search gamertag...",
+    "fr": "Rechercher un gamertag..."
+  },
+  {
+    "key": "prPlayer",
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  {
+    "key": "prRating",
+    "en": "Rating",
+    "fr": "Note"
+  },
+  {
+    "key": "prNoPlayers",
+    "en": "No players found.",
+    "fr": "Aucun joueur trouvé."
+  },
+  {
+    "key": "eafcTitle",
+    "en": "EA FC Club Lookup",
+    "fr": "Recherche club EA FC"
+  },
+  {
+    "key": "eafcSubtitle",
+    "en": "Search and explore real Pro Clubs data",
+    "fr": "Cherche et explore les vraies données Pro Clubs"
+  },
+  {
+    "key": "eafcSearchPlaceholder",
+    "en": "Search club name...",
+    "fr": "Rechercher un nom de club..."
+  },
+  {
+    "key": "eafcNoClubs",
+    "en": "No clubs found. Try a different name or platform.",
+    "fr": "Aucun club trouvé. Essaie un autre nom ou une autre plateforme."
+  },
+  {
+    "key": "eafcSearchFailed",
+    "en": "Search failed. EA servers may be unreachable.",
+    "fr": "Recherche échouée. Les serveurs EA sont peut-être inaccessibles."
+  },
+  {
+    "key": "eafcLoadFailed",
+    "en": "Failed to load club data.",
+    "fr": "Impossible de charger les données du club."
+  },
+  {
+    "key": "eafcRecent",
+    "en": "Recent searches",
+    "fr": "Recherches récentes"
+  },
+  {
+    "key": "eafcFetching",
+    "en": "Fetching club data from EA servers…",
+    "fr": "Récupération des données club depuis les serveurs EA…"
+  },
+  {
+    "key": "eafcRetry",
+    "en": "Retry",
+    "fr": "Réessayer"
+  },
+  {
+    "key": "eafcMembers",
+    "en": "Members ({count})",
+    "fr": "Membres ({count})"
+  },
+  {
+    "key": "eafcWinRate",
+    "en": "Win rate",
+    "fr": "Taux de victoire"
+  },
+  {
+    "key": "eafcCareerStats",
+    "en": "Career Stats",
+    "fr": "Stats de carrière"
+  },
+  {
+    "key": "eafcRecentMatches",
+    "en": "Recent Matches ({count})",
+    "fr": "Matchs récents ({count})"
+  },
+  {
+    "key": "eafcGames",
+    "en": "Games",
+    "fr": "Matchs"
+  },
+  {
+    "key": "eafcPrevious",
+    "en": "Previous",
+    "fr": "Précédent"
+  },
+  {
+    "key": "eafcNoDetail",
+    "en": "Club found but no detailed data available.",
+    "fr": "Club trouvé mais aucune donnée détaillée disponible."
+  },
+  {
+    "key": "eafcResultMeta",
+    "en": "ID: {id} · Members: {count}",
+    "fr": "ID : {id} · Membres : {count}"
+  },
+  {
+    "key": "eafcMom",
+    "en": "MoM",
+    "fr": "HdM"
+  },
+  {
+    "key": "eafcGp",
+    "en": "GP",
+    "fr": "MJ"
+  },
+  {
+    "key": "psTitle",
+    "en": "Player Statistics",
+    "fr": "Statistiques joueurs"
+  },
+  {
+    "key": "psNeedClub",
+    "en": "You need to be in a club to view team stats.",
+    "fr": "Tu dois être dans un club pour voir les stats d'équipe."
+  },
+  {
+    "key": "psPlayersCount",
+    "en": "{name} · {count} players",
+    "fr": "{name} · {count} joueurs"
+  },
+  {
+    "key": "psAllPlayers",
+    "en": "👥 All Players",
+    "fr": "👥 Tous les joueurs"
+  },
+  {
+    "key": "psTabGoals",
+    "en": "⚽ Goals",
+    "fr": "⚽ Buts"
+  },
+  {
+    "key": "psTabAssists",
+    "en": "🎯 Assists",
+    "fr": "🎯 Passes"
+  },
+  {
+    "key": "psTabRating",
+    "en": "⭐ Rating",
+    "fr": "⭐ Note"
+  },
+  {
+    "key": "psTabTable",
+    "en": "📋 Table",
+    "fr": "📋 Tableau"
+  },
+  {
+    "key": "psGoalsPerPlayer",
+    "en": "Goals per Player",
+    "fr": "Buts par joueur"
+  },
+  {
+    "key": "psAssistsPerPlayer",
+    "en": "Assists per Player",
+    "fr": "Passes par joueur"
+  },
+  {
+    "key": "psAvgMatchRating",
+    "en": "Average Match Rating",
+    "fr": "Note moyenne par match"
+  },
+  {
+    "key": "psAvgRating",
+    "en": "Avg Rating",
+    "fr": "Note moy."
+  },
+  {
+    "key": "psGoalsAssistsPerMatch",
+    "en": "Goals & Assists per Match",
+    "fr": "Buts & passes par match"
+  },
+  {
+    "key": "psRatingOverTime",
+    "en": "Rating Over Time",
+    "fr": "Note dans le temps"
+  },
+  {
+    "key": "psPerformanceRadar",
+    "en": "Performance Radar",
+    "fr": "Radar de performance"
+  },
+  {
+    "key": "psNoPlayerStats",
+    "en": "No match stats recorded for this player yet.",
+    "fr": "Aucune stat de match pour ce joueur."
+  },
+  {
+    "key": "psNoStatsYet",
+    "en": "No match stats recorded yet. Submit match results with player stats to see charts here.",
+    "fr": "Aucune stat de match enregistrée. Soumets des résultats avec stats joueur pour voir les graphiques."
+  },
+  {
+    "key": "psMp",
+    "en": "MP",
+    "fr": "MJ"
+  },
+  {
+    "key": "predTitle",
+    "en": "Prediction Leaderboard",
+    "fr": "Classement des pronostics"
+  },
+  {
+    "key": "predSubtitle",
+    "en": "Top score predictors — Compete for points",
+    "fr": "Meilleurs pronostiqueurs de scores — Gagne des points"
+  },
+  {
+    "key": "predCorrectScore",
+    "en": "Correct Score = 10 Points",
+    "fr": "Score exact = 10 points"
+  },
+  {
+    "key": "predEmpty",
+    "en": "No predictions yet. Start predicting match scores!",
+    "fr": "Aucun pronostic pour le moment. Commence à prédire les scores !"
+  },
+  {
+    "key": "predCount",
+    "en": "{count} predictions",
+    "fr": "{count} pronostics"
+  },
+  {
+    "key": "predTotalPoints",
+    "en": "total points",
+    "fr": "points totaux"
+  },
+  {
+    "key": "predCorrect",
+    "en": "{correct}/{total} correct",
+    "fr": "{correct}/{total} exacts"
+  },
+  {
+    "key": "predAvg",
+    "en": "Avg: {avg} pts",
+    "fr": "Moy. : {avg} pts"
+  },
+  {
+    "key": "teEntrance",
+    "en": "Tournament Entrance",
+    "fr": "Entrée tournoi"
+  },
+  {
+    "key": "teJoining",
+    "en": "Joining tournament",
+    "fr": "Inscription au tournoi"
+  },
+  {
+    "key": "teSigningInFor",
+    "en": "Signing in for",
+    "fr": "Connexion pour"
+  },
+  {
+    "key": "teThisTournament",
+    "en": "this tournament",
+    "fr": "ce tournoi"
+  },
+  {
+    "key": "teAskFreshLink",
+    "en": "Ask the tournament organiser for a fresh invite link.",
+    "fr": "Demande à l'organisateur un nouveau lien d'invitation."
+  },
+  {
+    "key": "teScopedNote",
+    "en": "Your account will be scoped to {name} until the tournament ends. Full access unlocks automatically afterwards.",
+    "fr": "Ton compte sera limité à {name} jusqu'à la fin du tournoi. L'accès complet se débloque automatiquement ensuite."
+  },
+  {
+    "key": "teHidePassword",
+    "en": "Hide password",
+    "fr": "Masquer le mot de passe"
+  },
+  {
+    "key": "teShowPassword",
+    "en": "Show password",
+    "fr": "Afficher le mot de passe"
+  },
+  {
+    "key": "teUnableAccount",
+    "en": "Unable to load your account.",
+    "fr": "Impossible de charger ton compte."
+  },
+  {
+    "key": "teInvalidLink",
+    "en": "This tournament entrance link is invalid.",
+    "fr": "Ce lien d'entrée de tournoi est invalide."
+  },
+  {
+    "key": "teUnableLoadLink",
+    "en": "Unable to load this entrance link.",
+    "fr": "Impossible de charger ce lien d'entrée."
+  },
+  {
+    "key": "teReasonNotFound",
+    "en": "This tournament entrance link does not exist.",
+    "fr": "Ce lien d'entrée de tournoi n'existe pas."
+  },
+  {
+    "key": "teReasonRevoked",
+    "en": "This entrance link has been revoked.",
+    "fr": "Ce lien d'entrée a été révoqué."
+  },
+  {
+    "key": "teReasonTournamentGone",
+    "en": "The tournament linked to this entrance no longer exists.",
+    "fr": "Le tournoi lié à cette entrée n'existe plus."
+  },
+  {
+    "key": "teReasonFull",
+    "en": "Registration is closed — all spots have been filled.",
+    "fr": "Inscriptions fermées — toutes les places sont prises."
+  },
+  {
+    "key": "teTrophyCabinet",
+    "en": "Trophy Cabinet",
+    "fr": "Vitrine des trophées"
+  },
+  {
+    "key": "teLoadingProfile",
+    "en": "Loading profile...",
+    "fr": "Chargement du profil..."
+  },
+  {
+    "key": "teLoadingClub",
+    "en": "Loading club...",
+    "fr": "Chargement du club..."
+  },
+  {
+    "key": "walStcBalance",
+    "en": "STC Balance",
+    "fr": "Solde STC"
+  },
+  {
+    "key": "wal30dIncome",
+    "en": "30d Income",
+    "fr": "Revenus 30j"
+  },
+  {
+    "key": "wal30dSpent",
+    "en": "30d Spent",
+    "fr": "Dépenses 30j"
+  },
+  {
+    "key": "walIncomeSources",
+    "en": "Income Sources",
+    "fr": "Sources de revenus"
+  },
+  {
+    "key": "walFromClubContract",
+    "en": "From club contract",
+    "fr": "Contrat club"
+  },
+  {
+    "key": "walNoClub",
+    "en": "No club",
+    "fr": "Aucun club"
+  },
+  {
+    "key": "walSalaryDueNow",
+    "en": "Due now",
+    "fr": "Dû maintenant"
+  },
+  {
+    "key": "walSalaryDueInDay",
+    "en": "In 1 day",
+    "fr": "Dans 1 jour"
+  },
+  {
+    "key": "walSalaryDueInDays",
+    "en": "In {days} days",
+    "fr": "Dans {days} jours"
+  },
+  {
+    "key": "walInvestmentReturns",
+    "en": "Investment Returns",
+    "fr": "Rendements d'investissement"
+  },
+  {
+    "key": "walPassiveIncomeDesc",
+    "en": "Passive income from lifestyle assets",
+    "fr": "Revenus passifs des actifs lifestyle"
+  },
+  {
+    "key": "walCollect",
+    "en": "Collect",
+    "fr": "Collecter"
+  },
+  {
+    "key": "walTransactionHistory",
+    "en": "Transaction History",
+    "fr": "Historique des transactions"
+  },
+  {
+    "key": "walTotalCount",
+    "en": "{count} total",
+    "fr": "{count} au total"
+  },
+  {
+    "key": "walIncome",
+    "en": "Income",
+    "fr": "Revenus"
+  },
+  {
+    "key": "walExpenses",
+    "en": "Expenses",
+    "fr": "Dépenses"
+  },
+  {
+    "key": "walNoTransactions",
+    "en": "No transactions yet",
+    "fr": "Aucune transaction pour le moment"
+  },
+  {
+    "key": "walHowToEarn",
+    "en": "How to earn STC",
+    "fr": "Comment gagner des STC"
+  },
+  {
+    "key": "walEarnPerContract",
+    "en": "Per contract",
+    "fr": "Par contrat"
+  },
+  {
+    "key": "walEarnSalaryDesc",
+    "en": "Collect from your active contract",
+    "fr": "Collecte depuis ton contrat actif"
+  },
+  {
+    "key": "walEarnWagerWinVal",
+    "en": "Wager × 2",
+    "fr": "Mise × 2"
+  },
+  {
+    "key": "walEarnWagerWinDesc",
+    "en": "Win a wagered PvP match",
+    "fr": "Gagne un match PvP avec mise"
+  },
+  {
+    "key": "walEarnInvestmentIncome",
+    "en": "Investment Income",
+    "fr": "Revenus d'investissement"
+  },
+  {
+    "key": "walEarnPassiveDaily",
+    "en": "Passive daily",
+    "fr": "Passif quotidien"
+  },
+  {
+    "key": "walEarnInvestmentDesc",
+    "en": "From lifestyle assets you own",
+    "fr": "Depuis tes actifs lifestyle"
+  },
+  {
+    "key": "walEarnPrizePool",
+    "en": "Prize pool share",
+    "fr": "Part du prize pool"
+  },
+  {
+    "key": "walEarnCompetitionDesc",
+    "en": "Tournament top placements",
+    "fr": "Top classements en tournoi"
+  },
+  {
+    "key": "walCatWelcomeBonus",
+    "en": "Welcome Bonus",
+    "fr": "Bonus de bienvenue"
+  },
+  {
+    "key": "walCatLifestylePurchase",
+    "en": "Lifestyle Purchase",
+    "fr": "Achat lifestyle"
+  },
+  {
+    "key": "walCatLifestyleRental",
+    "en": "Lifestyle Rental",
+    "fr": "Location lifestyle"
+  },
+  {
+    "key": "walCatInvestmentReturn",
+    "en": "Investment Return",
+    "fr": "Rendement d'investissement"
+  },
+  {
+    "key": "walCatWagerStake",
+    "en": "Wager Stake",
+    "fr": "Mise de pari"
+  },
+  {
+    "key": "walCatWagerWon",
+    "en": "Wager Won",
+    "fr": "Pari gagné"
+  },
+  {
+    "key": "walCatWagerLost",
+    "en": "Wager Lost",
+    "fr": "Pari perdu"
+  },
+  {
+    "key": "walCatWagerRefunded",
+    "en": "Wager Refunded",
+    "fr": "Pari remboursé"
+  },
+  {
+    "key": "walCatCompetitionReward",
+    "en": "Competition Reward",
+    "fr": "Récompense de compétition"
+  },
+  {
+    "key": "walCatAdminCredit",
+    "en": "Admin Credit",
+    "fr": "Crédit admin"
+  },
+  {
+    "key": "walCatAdminDebit",
+    "en": "Admin Debit",
+    "fr": "Débit admin"
+  },
+  {
+    "key": "cfinCatTicketRevenue",
+    "en": "Ticket Revenue",
+    "fr": "Recettes billetterie"
+  },
+  {
+    "key": "cfinCatShirtSales",
+    "en": "Shirt Sales",
+    "fr": "Ventes maillots"
+  },
+  {
+    "key": "cfinCatStadiumUpgrade",
+    "en": "Stadium Upgrade",
+    "fr": "Amélioration stade"
+  },
+  {
+    "key": "cfinCatSalary",
+    "en": "Salary",
+    "fr": "Salaire"
+  },
+  {
+    "key": "cfinCatWagerWin",
+    "en": "Wager Win",
+    "fr": "Gain pari"
+  },
+  {
+    "key": "cfinCatWagerLoss",
+    "en": "Wager Loss",
+    "fr": "Perte pari"
+  },
+  {
+    "key": "cfinCatWagerRefund",
+    "en": "Wager Refund",
+    "fr": "Remboursement pari"
+  },
+  {
+    "key": "cfinCatWagerStake",
+    "en": "Wager Stake",
+    "fr": "Mise pari"
+  },
+  {
+    "key": "cfinCatCompetition",
+    "en": "Competition",
+    "fr": "Compétition"
+  },
+  {
+    "key": "cfinCatTournamentEntry",
+    "en": "Tournament Entry",
+    "fr": "Inscription tournoi"
+  },
+  {
+    "key": "cfinCatTournamentPrize",
+    "en": "Tournament Prize",
+    "fr": "Prix tournoi"
+  },
+  {
+    "key": "cfinCatTournamentRefund",
+    "en": "Tournament Refund",
+    "fr": "Remboursement tournoi"
+  },
+  {
+    "key": "cfinCatAdjustment",
+    "en": "Adjustment",
+    "fr": "Ajustement"
+  },
+  {
+    "key": "cfinCatAdminAdj",
+    "en": "Admin Adj.",
+    "fr": "Ajust. admin"
+  },
+  {
+    "key": "cfinFilterTickets",
+    "en": "Tickets",
+    "fr": "Billets"
+  },
+  {
+    "key": "cfinFilterShirts",
+    "en": "Shirts",
+    "fr": "Maillots"
+  },
+  {
+    "key": "cfinFilterStadium",
+    "en": "Stadium",
+    "fr": "Stade"
+  },
+  {
+    "key": "cfinFilterStake",
+    "en": "Stake",
+    "fr": "Mise"
+  },
+  {
+    "key": "cfinFilterRefund",
+    "en": "Refund",
+    "fr": "Remb."
+  },
+  {
+    "key": "cfinFilterTournament",
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  {
+    "key": "cfinAdjustBudget",
+    "en": "Adjust Budget Allocation",
+    "fr": "Ajuster la répartition du budget"
+  },
+  {
+    "key": "cfinManage",
+    "en": "Manage →",
+    "fr": "Gérer →"
+  },
+  {
+    "key": "cfinBudgetAllocation",
+    "en": "Budget Allocation",
+    "fr": "Répartition du budget"
+  },
+  {
+    "key": "cfinTotalBudgetHint",
+    "en": "Total controllable budget: {total}. Moving funds from one budget reduces the other.",
+    "fr": "Budget total contrôlable : {total}. Déplacer des fonds d'un budget réduit l'autre."
+  },
+  {
+    "key": "cfinTransferAmount",
+    "en": "Transfer: {amount}",
+    "fr": "Transferts : {amount}"
+  },
+  {
+    "key": "cfinWagesAmount",
+    "en": "Wages: {amount}",
+    "fr": "Salaires : {amount}"
+  },
+  {
+    "key": "cfinSliderMin",
+    "en": "0 STC → transfers",
+    "fr": "0 STC → transferts"
+  },
+  {
+    "key": "cfinSliderMax",
+    "en": "wages → {total}",
+    "fr": "salaires → {total}"
+  },
+  {
+    "key": "cfinWageBelowCommitted",
+    "en": "Wage budget can't drop below committed wages ({amount}/wk)",
+    "fr": "Le budget salarial ne peut pas descendre sous les salaires engagés ({amount}/sem.)"
+  },
+  {
+    "key": "cfinWageUsage",
+    "en": "Wage Usage",
+    "fr": "Utilisation salariale"
+  },
+  {
+    "key": "cfinApplyChanges",
+    "en": "Apply Changes",
+    "fr": "Appliquer"
+  },
+  {
+    "key": "cfinAdjustFailed",
+    "en": "Failed to adjust budgets",
+    "fr": "Échec de l'ajustement des budgets"
+  },
+  {
+    "key": "cfinDeleteConfirm",
+    "en": "Delete this transaction? This cannot be undone.",
+    "fr": "Supprimer cette transaction ? Action irréversible."
+  },
+  {
+    "key": "cfinActionFailed",
+    "en": "Failed",
+    "fr": "Échec"
+  },
+  {
+    "key": "cfinLoadFailed",
+    "en": "Could not load finance data.",
+    "fr": "Impossible de charger les données financières."
+  },
+  {
+    "key": "cfinClubBalance",
+    "en": "Club Balance",
+    "fr": "Solde du club"
+  },
+  {
+    "key": "cfinAvailableFunds",
+    "en": "Available funds",
+    "fr": "Fonds disponibles"
+  },
+  {
+    "key": "cfinSquadValue",
+    "en": "Squad Value",
+    "fr": "Valeur de l'effectif"
+  },
+  {
+    "key": "cfinCombinedPlayerValue",
+    "en": "Combined player value",
+    "fr": "Valeur combinée des joueurs"
+  },
+  {
+    "key": "cfinWageBudget",
+    "en": "Wage Budget",
+    "fr": "Budget salarial"
+  },
+  {
+    "key": "cfinWkCommitted",
+    "en": "{amount}/wk committed",
+    "fr": "{amount}/sem. engagés"
+  },
+  {
+    "key": "cfinTransferBudget",
+    "en": "Transfer Budget",
+    "fr": "Budget transferts"
+  },
+  {
+    "key": "cfinSigningFunds",
+    "en": "Signing funds",
+    "fr": "Fonds de signature"
+  },
+  {
+    "key": "cfinWeeklyWageBill",
+    "en": "Weekly Wage Bill",
+    "fr": "Masse salariale hebdo."
+  },
+  {
+    "key": "cfinWageNearlyExhausted",
+    "en": "Wage budget nearly exhausted",
+    "fr": "Budget salarial presque épuisé"
+  },
+  {
+    "key": "cfinContractLabel",
+    "en": "{name} contract",
+    "fr": "{name} contrat"
+  },
+  {
+    "key": "cfinIncome30d",
+    "en": "Income (30d)",
+    "fr": "Revenus (30 j.)"
+  },
+  {
+    "key": "cfinExpenses30d",
+    "en": "Expenses (30d)",
+    "fr": "Dépenses (30 j.)"
+  },
+  {
+    "key": "cfinNet30d",
+    "en": "Net (30d)",
+    "fr": "Net (30 j.)"
+  },
+  {
+    "key": "cfinTxHistory",
+    "en": "Transaction History",
+    "fr": "Historique des transactions"
+  },
+  {
+    "key": "cfinRefresh",
+    "en": "Refresh",
+    "fr": "Actualiser"
+  },
+  {
+    "key": "cfinNoTx",
+    "en": "No transactions found.",
+    "fr": "Aucune transaction trouvée."
+  },
+  {
+    "key": "cfinPageOf",
+    "en": "Page {page} of {total}",
+    "fr": "Page {page} sur {total}"
+  },
+  {
+    "key": "coopTabOverview",
+    "en": "Overview",
+    "fr": "Vue d'ensemble"
+  },
+  {
+    "key": "coopTabApplicants",
+    "en": "Applicants",
+    "fr": "Candidats"
+  },
+  {
+    "key": "coopTabAvailability",
+    "en": "Availability",
+    "fr": "Disponibilités"
+  },
+  {
+    "key": "coopTabLineup",
+    "en": "Lineup",
+    "fr": "Composition"
+  },
+  {
+    "key": "coopTabAudit",
+    "en": "Audit",
+    "fr": "Historique"
+  },
+  {
+    "key": "coopDismiss",
+    "en": "Dismiss",
+    "fr": "Fermer"
+  },
+  {
+    "key": "coopLoadFailed",
+    "en": "Could not load club operations.",
+    "fr": "Impossible de charger les opérations du club."
+  },
+  {
+    "key": "coopApplicantReviewed",
+    "en": "Applicant marked as reviewed.",
+    "fr": "Candidat marqué comme examiné."
+  },
+  {
+    "key": "coopApplicantDeclined",
+    "en": "Applicant declined.",
+    "fr": "Candidat refusé."
+  },
+  {
+    "key": "coopTrialOfferSent",
+    "en": "Trial offer sent.",
+    "fr": "Offre d'essai envoyée."
+  },
+  {
+    "key": "coopApplicantUpdated",
+    "en": "Applicant updated.",
+    "fr": "Candidat mis à jour."
+  },
+  {
+    "key": "coopActionFailed",
+    "en": "Could not {action}.",
+    "fr": "Impossible de {action}."
+  },
+  {
+    "key": "coopStaffAssigned",
+    "en": "Staff role assigned.",
+    "fr": "Rôle staff attribué."
+  },
+  {
+    "key": "coopStaffAssignFailed",
+    "en": "Could not assign staff role.",
+    "fr": "Impossible d'attribuer le rôle staff."
+  },
+  {
+    "key": "coopStaffPermissionsUpdated",
+    "en": "Staff permissions updated.",
+    "fr": "Permissions staff mises à jour."
+  },
+  {
+    "key": "coopStaffPermissionsFailed",
+    "en": "Could not update staff permissions.",
+    "fr": "Impossible de mettre à jour les permissions staff."
+  },
+  {
+    "key": "coopStaffRemoved",
+    "en": "Staff role removed.",
+    "fr": "Rôle staff retiré."
+  },
+  {
+    "key": "coopStaffRemoveFailed",
+    "en": "Could not remove staff role.",
+    "fr": "Impossible de retirer le rôle staff."
+  },
+  {
+    "key": "coopAvailabilitySet",
+    "en": "Availability set to {status}.",
+    "fr": "Disponibilité définie sur {status}."
+  },
+  {
+    "key": "coopAvailabilityFailed",
+    "en": "Could not update availability.",
+    "fr": "Impossible de mettre à jour la disponibilité."
+  },
+  {
+    "key": "coopLineupPublished",
+    "en": "Lineup published.",
+    "fr": "Composition publiée."
+  },
+  {
+    "key": "coopLineupDraftSaved",
+    "en": "Lineup draft saved.",
+    "fr": "Brouillon de composition enregistré."
+  },
+  {
+    "key": "coopLineupSaveFailed",
+    "en": "Could not save lineup.",
+    "fr": "Impossible d'enregistrer la composition."
+  },
+  {
+    "key": "coopStatPendingApplicants",
+    "en": "Pending applicants",
+    "fr": "Candidats en attente"
+  },
+  {
+    "key": "coopStatOpenRecruitment",
+    "en": "Open recruitment posts",
+    "fr": "Posts de recrutement ouverts"
+  },
+  {
+    "key": "coopStatUpcomingFixtures",
+    "en": "Upcoming fixtures",
+    "fr": "Matchs à venir"
+  },
+  {
+    "key": "coopStatExpiringContracts",
+    "en": "Expiring contracts",
+    "fr": "Contrats expirants"
+  },
+  {
+    "key": "coopStatPendingContracts",
+    "en": "Pending contract offers",
+    "fr": "Offres de contrat en attente"
+  },
+  {
+    "key": "coopStatStaffRoles",
+    "en": "Staff roles",
+    "fr": "Rôles staff"
+  },
+  {
+    "key": "coopReviewApplicants",
+    "en": "Review Applicants",
+    "fr": "Examiner les candidats"
+  },
+  {
+    "key": "coopEditLineup",
+    "en": "Edit Lineup",
+    "fr": "Modifier la composition"
+  },
+  {
+    "key": "coopManageStaff",
+    "en": "Manage Staff",
+    "fr": "Gérer le staff"
+  },
+  {
+    "key": "coopUnknownPlayer",
+    "en": "Unknown player",
+    "fr": "Joueur inconnu"
+  },
+  {
+    "key": "coopAny",
+    "en": "Any",
+    "fr": "Tout"
+  },
+  {
+    "key": "coopMarkReviewed",
+    "en": "Mark Reviewed",
+    "fr": "Marquer examiné"
+  },
+  {
+    "key": "coopOfferTrial",
+    "en": "Offer Trial",
+    "fr": "Proposer un essai"
+  },
+  {
+    "key": "coopNoApplicants",
+    "en": "No applicants yet.",
+    "fr": "Aucun candidat pour le moment."
+  },
+  {
+    "key": "coopSelectClubMember",
+    "en": "Select club member",
+    "fr": "Sélectionner un membre"
+  },
+  {
+    "key": "coopAssign",
+    "en": "Assign",
+    "fr": "Attribuer"
+  },
+  {
+    "key": "coopRemove",
+    "en": "Remove",
+    "fr": "Retirer"
+  },
+  {
+    "key": "coopNoUpcomingFixtures",
+    "en": "No upcoming fixtures.",
+    "fr": "Aucun match à venir."
+  },
+  {
+    "key": "coopAvailabilityCounts",
+    "en": "{available} available · {maybe} maybe · {unavailable} out",
+    "fr": "{available} dispo · {maybe} peut-être · {unavailable} absent"
+  },
+  {
+    "key": "coopStatusAvailable",
+    "en": "available",
+    "fr": "disponible"
+  },
+  {
+    "key": "coopStatusMaybe",
+    "en": "maybe",
+    "fr": "peut-être"
+  },
+  {
+    "key": "coopStatusUnavailable",
+    "en": "unavailable",
+    "fr": "indisponible"
+  },
+  {
+    "key": "coopNoLineupFixtures",
+    "en": "No upcoming fixtures to plan a lineup for.",
+    "fr": "Aucun match à venir pour planifier une composition."
+  },
+  {
+    "key": "coopStartingXi",
+    "en": "Starting XI",
+    "fr": "Titulaires"
+  },
+  {
+    "key": "coopBench",
+    "en": "Bench",
+    "fr": "Banc"
+  },
+  {
+    "key": "coopSelectCaptain",
+    "en": "Select match captain",
+    "fr": "Choisir le capitaine"
+  },
+  {
+    "key": "coopLineupNotesPlaceholder",
+    "en": "Lineup notes...",
+    "fr": "Notes de composition..."
+  },
+  {
+    "key": "coopSaveDraft",
+    "en": "Save Draft",
+    "fr": "Enregistrer le brouillon"
+  },
+  {
+    "key": "coopPublish",
+    "en": "Publish",
+    "fr": "Publier"
+  },
+  {
+    "key": "coopRefreshAudit",
+    "en": "Refresh Audit",
+    "fr": "Actualiser l'historique"
+  },
+  {
+    "key": "coopNoAuditHistory",
+    "en": "No operations history yet.",
+    "fr": "Aucun historique d'opérations."
+  },
+  {
+    "key": "coopSystem",
+    "en": "System",
+    "fr": "Système"
+  },
+  {
+    "key": "coopMemberTip",
+    "en": "Mark yourself available here before match day. Only available players can take a Game Day dressing-room seat.",
+    "fr": "Indique ta disponibilité ici avant le match. Seuls les joueurs disponibles peuvent prendre place au vestiaire le Match Day."
+  },
+  {
+    "key": "lsgOwned",
+    "en": "Owned",
+    "fr": "Possédé"
+  },
+  {
+    "key": "lsgRenting",
+    "en": "Renting",
+    "fr": "En location"
+  },
+  {
+    "key": "lsgBuyAnother",
+    "en": "Buy Another",
+    "fr": "Acheter un autre"
+  },
+  {
+    "key": "lsgBuy",
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  {
+    "key": "lsgAdd",
+    "en": "Add",
+    "fr": "Ajouter"
+  },
+  {
+    "key": "lsgNeedStc",
+    "en": "Need STC",
+    "fr": "STC requis"
+  },
+  {
+    "key": "lsgRentMo",
+    "en": "Rent/mo",
+    "fr": "Loyer/mois"
+  },
+  {
+    "key": "lsgActive",
+    "en": "Active",
+    "fr": "Actif"
+  },
+  {
+    "key": "lsgRent",
+    "en": "Rent",
+    "fr": "Louer"
+  },
+  {
+    "key": "lsgMyResidence",
+    "en": "My Residence",
+    "fr": "Ma résidence"
+  },
+  {
+    "key": "lsgOwnedLive",
+    "en": "Owned (Live)",
+    "fr": "Possédé (habité)"
+  },
+  {
+    "key": "lsgInvestment",
+    "en": "Investment",
+    "fr": "Investissement"
+  },
+  {
+    "key": "lsgInvestments",
+    "en": "Investments",
+    "fr": "Investissements"
+  },
+  {
+    "key": "lsgBuyPrice",
+    "en": "Buy price",
+    "fr": "Prix d'achat"
+  },
+  {
+    "key": "lsgNA",
+    "en": "N/A",
+    "fr": "N/D"
+  },
+  {
+    "key": "lsgBuyLive",
+    "en": "Buy (Live)",
+    "fr": "Acheter (habiter)"
+  },
+  {
+    "key": "lsgInvest",
+    "en": "Invest",
+    "fr": "Investir"
+  },
+  {
+    "key": "comJoinOrCreate",
+    "en": "Join or Create a Club",
+    "fr": "Rejoindre ou créer un club"
+  },
+  {
+    "key": "comCreateYourClub",
+    "en": "Create Your Club",
+    "fr": "Crée ton club"
+  },
+  {
+    "key": "comFindClub",
+    "en": "Find a Club to Join",
+    "fr": "Trouver un club à rejoindre"
+  },
+  {
+    "key": "comWelcome",
+    "en": "Welcome to STAGE, {name}! Do you want to create your own club or join an existing one?",
+    "fr": "Bienvenue sur STAGE, {name} ! Tu veux créer ton propre club ou en rejoindre un ?"
+  },
+  {
+    "key": "comCreateClub",
+    "en": "Create Club",
+    "fr": "Créer un club"
+  },
+  {
+    "key": "comCreateClubDesc",
+    "en": "Start your own club and become the president",
+    "fr": "Fonde ton propre club et deviens président"
+  },
+  {
+    "key": "comJoinClub",
+    "en": "Join Club",
+    "fr": "Rejoindre un club"
+  },
+  {
+    "key": "comJoinClubDesc",
+    "en": "Browse clubs and send a join request",
+    "fr": "Parcours les clubs et envoie une demande"
+  },
+  {
+    "key": "comStagePlusTitle",
+    "en": "Compete deeper with STAGE Plus",
+    "fr": "Va plus loin avec STAGE Plus"
+  },
+  {
+    "key": "comStagePlusDesc",
+    "en": "Free gives you {credits} starter credits for one tournament. Plus unlocks regional league applications, community tournament creation, ranked play, and {monthlyCredits} monthly refreshed credits.",
+    "fr": "Gratuit te donne {credits} crédits pour un tournoi. Plus débloque les candidatures aux ligues régionales, la création de tournois communautaires, le mode classé et {monthlyCredits} crédits mensuels."
+  },
+  {
+    "key": "comSkipForNow",
+    "en": "Skip for now",
+    "fr": "Passer pour l'instant"
+  },
+  {
+    "key": "comBack",
+    "en": "← Back",
+    "fr": "← Retour"
+  },
+  {
+    "key": "comClubName",
+    "en": "Club Name *",
+    "fr": "Nom du club *"
+  },
+  {
+    "key": "comTagMax5",
+    "en": "Tag (max 5 chars) *",
+    "fr": "Tag (max 5 car.) *"
+  },
+  {
+    "key": "comPlatform",
+    "en": "Platform",
+    "fr": "Plateforme"
+  },
+  {
+    "key": "comRegion",
+    "en": "Region",
+    "fr": "Région"
+  },
+  {
+    "key": "comCountry",
+    "en": "Country *",
+    "fr": "Pays *"
+  },
+  {
+    "key": "comSelectCountry",
+    "en": "Select country",
+    "fr": "Choisir un pays"
+  },
+  {
+    "key": "comClubDesc",
+    "en": "Club Description",
+    "fr": "Description du club"
+  },
+  {
+    "key": "comClubDescPlaceholder",
+    "en": "Tell players about your club...",
+    "fr": "Décris ton club aux joueurs..."
+  },
+  {
+    "key": "comCreating",
+    "en": "Creating...",
+    "fr": "Création..."
+  },
+  {
+    "key": "comSearchPlaceholder",
+    "en": "Search by club name or tag...",
+    "fr": "Rechercher par nom ou tag..."
+  },
+  {
+    "key": "comNoClubsFound",
+    "en": "No clubs found.",
+    "fr": "Aucun club trouvé."
+  },
+  {
+    "key": "comRating",
+    "en": "Rating {rating}",
+    "fr": "Note {rating}"
+  },
+  {
+    "key": "comRequest",
+    "en": "Request",
+    "fr": "Demander"
+  },
+  {
+    "key": "comSent",
+    "en": "Sent",
+    "fr": "Envoyé"
+  },
+  {
+    "key": "comDone",
+    "en": "Done — {count} request{plural} sent",
+    "fr": "Terminé — {count} demande{plural} envoyée{plural}"
+  },
+  {
+    "key": "comJoinMessage",
+    "en": "I'd like to join your club!",
+    "fr": "J'aimerais rejoindre ton club !"
+  },
+  {
+    "key": "otWelcomeTitle",
+    "en": "Welcome to STAGE",
+    "fr": "Bienvenue sur STAGE"
+  },
+  {
+    "key": "otWelcomeSubtitle",
+    "en": "Your football career starts here",
+    "fr": "Ta carrière foot commence ici"
+  },
+  {
+    "key": "otWelcomeDesc",
+    "en": "STAGE is a competitive football management platform where you play, manage, and grow. Here's a quick overview of how everything works.",
+    "fr": "STAGE est une plateforme de gestion football compétitive où tu joues, gères et progresses. Voici un aperçu rapide de son fonctionnement."
+  },
+  {
+    "key": "otClubTitle",
+    "en": "Your Club",
+    "fr": "Ton club"
+  },
+  {
+    "key": "otClubSubtitle",
+    "en": "Budget • Squad • Trophies",
+    "fr": "Budget • Effectif • Trophées"
+  },
+  {
+    "key": "otClubDesc",
+    "en": "Your club starts with 50,000 STC (Stage Currency). Use it to sign players, pay salaries, and build your squad. Manage your transfer budget and wage budget wisely.",
+    "fr": "Ton club démarre avec 50 000 STC (Stage Currency). Utilise-les pour signer des joueurs, payer les salaires et construire ton effectif. Gère tes budgets transferts et salaires."
+  },
+  {
+    "key": "otClubHighlight",
+    "en": "50,000 STC starting budget",
+    "fr": "50 000 STC de budget initial"
+  },
+  {
+    "key": "otCurrencyTitle",
+    "en": "Two Currencies",
+    "fr": "Deux monnaies"
+  },
+  {
+    "key": "otCurrencySubtitle",
+    "en": "Credits vs STC",
+    "fr": "Crédits vs STC"
+  },
+  {
+    "key": "otCurrencyDesc",
+    "en": "STAGE has two separate currencies. Credits are used for platform features like tournaments and subscriptions. STC (Stage Currency) is the in-game economy — used for salaries, transfers, and lifestyle.",
+    "fr": "STAGE a deux monnaies distinctes. Les crédits servent aux fonctionnalités de la plateforme comme les tournois et abonnements. Les STC sont l'économie du jeu — salaires, transferts et lifestyle."
+  },
+  {
+    "key": "otCreditsLabel",
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  {
+    "key": "otCreditsDesc",
+    "en": "Platform features, tournaments, subscriptions",
+    "fr": "Fonctionnalités plateforme, tournois, abonnements"
+  },
+  {
+    "key": "otStcDesc",
+    "en": "Salaries, transfers, lifestyle, club economy",
+    "fr": "Salaires, transferts, lifestyle, économie club"
+  },
+  {
+    "key": "otContractsTitle",
+    "en": "Contracts & Transfers",
+    "fr": "Contrats & Transferts"
+  },
+  {
+    "key": "otContractsSubtitle",
+    "en": "Sign players. Negotiate terms.",
+    "fr": "Signe des joueurs. Négocie."
+  },
+  {
+    "key": "otContractsDesc",
+    "en": "Offer contracts to players with weekly salaries, signing bonuses, and performance targets. Players can accept, reject, or counter-offer. Transfers execute when the transfer window opens.",
+    "fr": "Propose des contrats avec salaires hebdo, primes à la signature et objectifs. Les joueurs peuvent accepter, refuser ou contre-proposer. Les transferts s'exécutent à l'ouverture du mercato."
+  },
+  {
+    "key": "otContractsHighlight",
+    "en": "Salaries paid monthly in real time",
+    "fr": "Salaires versés mensuellement en temps réel"
+  },
+  {
+    "key": "otMarketTitle",
+    "en": "Player Market Value",
+    "fr": "Valeur marchande"
+  },
+  {
+    "key": "otMarketSubtitle",
+    "en": "Your rating drives your worth",
+    "fr": "Ta note détermine ta valeur"
+  },
+  {
+    "key": "otMarketDesc",
+    "en": "Every player has a market value based on their overall rating, goals, assists, and match performance. Higher value means better contract negotiations and more leverage in the transfer market.",
+    "fr": "Chaque joueur a une valeur marchande basée sur sa note, ses buts, passes et performances. Plus de valeur = meilleures négociations et plus de poids sur le marché des transferts."
+  },
+  {
+    "key": "otMarketHighlight",
+    "en": "Better stats = higher value",
+    "fr": "Meilleures stats = plus de valeur"
+  },
+  {
+    "key": "otLifestyleSubtitle",
+    "en": "Spend your STC. Build your empire.",
+    "fr": "Dépense tes STC. Bâtis ton empire."
+  },
+  {
+    "key": "otLifestyleDesc",
+    "en": "Earn STC through salaries and performance. Spend it on real estate, vehicles, clothing, and events. Some assets generate passive STC income over time.",
+    "fr": "Gagne des STC via tes salaires et performances. Dépense-les en immobilier, véhicules, vêtements et événements. Certains actifs génèrent des revenus passifs."
+  },
+  {
+    "key": "otLifestyleHighlight",
+    "en": "Some properties earn passive income",
+    "fr": "Certaines propriétés génèrent des revenus passifs"
+  },
+  {
+    "key": "otGetStarted",
+    "en": "Get Started",
+    "fr": "Commencer"
+  },
+  {
+    "key": "otNext",
+    "en": "Next",
+    "fr": "Suivant"
+  },
+  {
+    "key": "otSkipTour",
+    "en": "Skip tour",
+    "fr": "Passer le tour"
+  },
+  {
+    "key": "pcardNoLocation",
+    "en": "No location set",
+    "fr": "Aucune localisation définie"
+  },
+  {
+    "key": "pcardMyResidence",
+    "en": "My Residence",
+    "fr": "Ma résidence"
+  },
+  {
+    "key": "pcardRenting",
+    "en": "Renting",
+    "fr": "En location"
+  },
+  {
+    "key": "pcardOwnedLive",
+    "en": "Owned (Live)",
+    "fr": "Possédé (habité)"
+  },
+  {
+    "key": "pcardInvestment",
+    "en": "Investment",
+    "fr": "Investissement"
+  },
+  {
+    "key": "pcardDefault",
+    "en": "Default",
+    "fr": "Défaut"
+  },
+  {
+    "key": "pcardBasePrice",
+    "en": "Base Price",
+    "fr": "Prix de base"
+  },
+  {
+    "key": "pcardCurrentValue",
+    "en": "Current Value",
+    "fr": "Valeur actuelle"
+  },
+  {
+    "key": "pcardWeeklyCost",
+    "en": "Weekly Cost",
+    "fr": "Coût hebdo"
+  },
+  {
+    "key": "pcardAcquired",
+    "en": "Acquired",
+    "fr": "Acquis"
+  },
+  {
+    "key": "pcardUpgradeLevel",
+    "en": "Upgrade Level",
+    "fr": "Niveau d'amélioration"
+  },
+  {
+    "key": "pcardSetResidence",
+    "en": "Set as My Residence",
+    "fr": "Définir comme résidence"
+  },
+  {
+    "key": "pcardThisIsResidence",
+    "en": "This is your residence",
+    "fr": "C'est ta résidence"
+  },
+  {
+    "key": "pcardMoveOut",
+    "en": "Move Out",
+    "fr": "Déménager"
+  },
+  {
+    "key": "pcardDaysLeft",
+    "en": "{days}d left",
+    "fr": "{days}j restants"
+  },
+  {
+    "key": "pcardExpires",
+    "en": "expires {date}",
+    "fr": "expire le {date}"
+  },
+  {
+    "key": "pcardCancel",
+    "en": "Cancel",
+    "fr": "Annuler"
+  },
+  {
+    "key": "pcardCostBreakdown",
+    "en": "Cost Breakdown",
+    "fr": "Détail des coûts"
+  },
+  {
+    "key": "pcardTotalWeekly",
+    "en": "Total Weekly",
+    "fr": "Total hebdo"
+  },
+  {
+    "key": "pcardPerWk",
+    "en": "/wk",
+    "fr": "/sem."
+  },
+  {
+    "key": "pcardUpgradeProperty",
+    "en": "Upgrade Property",
+    "fr": "Améliorer la propriété"
+  },
+  {
+    "key": "pcardBuy",
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  {
+    "key": "pcardFullyUpgraded",
+    "en": "Fully Upgraded",
+    "fr": "Entièrement amélioré"
+  },
+  {
+    "key": "pcardDefaultedError",
+    "en": "Asset defaulted — pay overdue maintenance first",
+    "fr": "Actif en défaut — règle l'entretien en retard d'abord"
+  },
+  {
+    "key": "pcardUpgradeApplied",
+    "en": "Upgrade applied — Level {level}",
+    "fr": "Amélioration appliquée — Niveau {level}"
+  },
+  {
+    "key": "pcardRentalCancelled",
+    "en": "Rental cancelled.",
+    "fr": "Location annulée."
+  },
+  {
+    "key": "pcardCancelFailed",
+    "en": "Failed to cancel rental",
+    "fr": "Échec de l'annulation"
+  },
+  {
+    "key": "pcardMovedOut",
+    "en": "You have moved out.",
+    "fr": "Tu as déménagé."
+  },
+  {
+    "key": "pcardMoveOutFailed",
+    "en": "Failed to move out",
+    "fr": "Échec du déménagement"
+  },
+  {
+    "key": "pcardResidenceUpdated",
+    "en": "Residence updated!",
+    "fr": "Résidence mise à jour !"
+  },
+  {
+    "key": "pcardResidenceFailed",
+    "en": "Failed to set residence",
+    "fr": "Impossible de définir la résidence"
+  },
+  {
+    "key": "matNoAssets",
+    "en": "No assets owned yet.",
+    "fr": "Aucun actif possédé."
+  },
+  {
+    "key": "matStartBuilding",
+    "en": "Head to the Store and start building your empire!",
+    "fr": "Rends-toi à la boutique et commence à bâtir ton empire !"
+  },
+  {
+    "key": "matNoResidence",
+    "en": "No active residence",
+    "fr": "Aucune résidence active"
+  },
+  {
+    "key": "matSetResidenceHint",
+    "en": "Set a property as your residence from the store or below.",
+    "fr": "Définis une propriété comme résidence depuis la boutique ou ci-dessous."
+  },
+  {
+    "key": "matActiveResidence",
+    "en": "Active Residence",
+    "fr": "Résidence active"
+  },
+  {
+    "key": "matRenting",
+    "en": "Renting",
+    "fr": "En location"
+  },
+  {
+    "key": "matOwned",
+    "en": "Owned",
+    "fr": "Possédé"
+  },
+  {
+    "key": "matAssets",
+    "en": "Assets",
+    "fr": "Actifs"
+  },
+  {
+    "key": "matTotalValue",
+    "en": "Total Value",
+    "fr": "Valeur totale"
+  },
+  {
+    "key": "matWeeklyCost",
+    "en": "Weekly Cost",
+    "fr": "Coût hebdo"
+  },
+  {
+    "key": "matDefaultCount",
+    "en": "{count} asset{plural} in default",
+    "fr": "{count} actif{plural} en défaut"
+  },
+  {
+    "key": "matDefaultHint",
+    "en": "You missed maintenance payments. Top up your STC and the next automated run will restore them.",
+    "fr": "Tu as manqué des paiements d'entretien. Recharge tes STC et le prochain cycle les restaurera."
+  },
+  {
+    "key": "matProperties",
+    "en": "Properties",
+    "fr": "Propriétés"
+  },
+  {
+    "key": "matNoCategoryAssets",
+    "en": "No assets in this category yet.",
+    "fr": "Aucun actif dans cette catégorie."
+  },
+  {
+    "key": "matUnknownLocation",
+    "en": "Unknown Location",
+    "fr": "Lieu inconnu"
+  },
+  {
+    "key": "matPropertyCount",
+    "en": "{count} propert{plural}",
+    "fr": "{count} propriété{plural}"
+  },
+  {
+    "key": "acardDefaulted",
+    "en": "Asset Defaulted — Missed Maintenance",
+    "fr": "Actif en défaut — Entretien manqué"
+  },
+  {
+    "key": "acardDefaultedHint",
+    "en": "Upgrades are blocked. Top up STC — next cycle will restore this asset.",
+    "fr": "Améliorations bloquées. Recharge tes STC — le prochain cycle restaurera cet actif."
+  },
+  {
+    "key": "acardValue",
+    "en": "Value",
+    "fr": "Valeur"
+  },
+  {
+    "key": "acardLevel",
+    "en": "Level {current}/{max}",
+    "fr": "Niveau {current}/{max}"
+  },
+  {
+    "key": "acardRental",
+    "en": "Rental",
+    "fr": "Location"
+  },
+  {
+    "key": "acardDaysLeft",
+    "en": "{days}d left (expires {date})",
+    "fr": "{days}j restants (expire le {date})"
+  },
+  {
+    "key": "acardCostBreakdown",
+    "en": "Cost Breakdown",
+    "fr": "Détail des coûts"
+  },
+  {
+    "key": "acardTotalWeekly",
+    "en": "Total Weekly",
+    "fr": "Total hebdo"
+  },
+  {
+    "key": "acardPerWk",
+    "en": "/wk",
+    "fr": "/sem."
+  },
+  {
+    "key": "acardFullyUpgraded",
+    "en": "Fully Upgraded",
+    "fr": "Entièrement amélioré"
+  },
+  {
+    "key": "acardUpgradesBlocked",
+    "en": "Upgrades Blocked",
+    "fr": "Améliorations bloquées"
+  },
+  {
+    "key": "acardUpgradeAsset",
+    "en": "Upgrade Asset",
+    "fr": "Améliorer l'actif"
+  },
+  {
+    "key": "acardRentalCancelled",
+    "en": "Rental cancelled.",
+    "fr": "Location annulée."
+  },
+  {
+    "key": "acardCancelFailed",
+    "en": "Failed to cancel rental",
+    "fr": "Échec de l'annulation"
+  },
+  {
+    "key": "acardDefaultedError",
+    "en": "Asset is defaulted — pay overdue maintenance first",
+    "fr": "Actif en défaut — règle l'entretien en retard d'abord"
+  },
+  {
+    "key": "acardUpgradeApplied",
+    "en": "Upgrade applied — now Level {level}",
+    "fr": "Amélioration appliquée — Niveau {level}"
+  },
+  {
+    "key": "acardUpgradeFailed",
+    "en": "Upgrade failed",
+    "fr": "Échec de l'amélioration"
+  },
+  {
+    "key": "prdTitle",
+    "en": "PRE-MATCH PRESS ROOM",
+    "fr": "CONFÉRENCE DE PRESSE D'AVANT-MATCH"
+  },
+  {
+    "key": "prdChoosePlayer",
+    "en": "Choose who will face the press today",
+    "fr": "Choisis qui affrontera la presse aujourd'hui"
+  },
+  {
+    "key": "prdNoPlayers",
+    "en": "No players found in your squad.",
+    "fr": "Aucun joueur trouvé dans ton effectif."
+  },
+  {
+    "key": "prdInviteSent",
+    "en": "Invitation Sent",
+    "fr": "Invitation envoyée"
+  },
+  {
+    "key": "prdInvitedPlayer",
+    "en": "{name} has been invited to the press room.",
+    "fr": "{name} a été invité à la conférence de presse."
+  },
+  {
+    "key": "prdInviteHint",
+    "en": "They'll receive a notification and message to answer the questions.",
+    "fr": "Il recevra une notification et un message pour répondre aux questions."
+  },
+  {
+    "key": "prdCloseHint",
+    "en": "You can close this — the player handles the rest.",
+    "fr": "Tu peux fermer — le joueur gère la suite."
+  },
+  {
+    "key": "prdAtPodium",
+    "en": "at the podium",
+    "fr": "au podium"
+  },
+  {
+    "key": "prdAnswered",
+    "en": "{count}/{max} answered",
+    "fr": "{count}/{max} répondu"
+  },
+  {
+    "key": "prdPublishLeave",
+    "en": "Publish & Leave",
+    "fr": "Publier & Quitter"
+  },
+  {
+    "key": "prdNoAnswers",
+    "en": "No answers yet",
+    "fr": "Aucune réponse"
+  },
+  {
+    "key": "prdWriteAnswer",
+    "en": "Write your own answer…",
+    "fr": "Écris ta propre réponse…"
+  },
+  {
+    "key": "prdSubmitAnswer",
+    "en": "Submit my answer",
+    "fr": "Envoyer ma réponse"
+  },
+  {
+    "key": "prdArticlePhoto",
+    "en": "Article Photo",
+    "fr": "Photo de l'article"
+  },
+  {
+    "key": "prdUploadHint",
+    "en": "Upload a photo, then drag to position it perfectly.",
+    "fr": "Importe une photo, puis fais-la glisser pour la positionner."
+  },
+  {
+    "key": "prdPhotoPlaceholder",
+    "en": "Photo will appear here",
+    "fr": "La photo apparaîtra ici"
+  },
+  {
+    "key": "prdPressConference",
+    "en": "Press Conference",
+    "fr": "Conférence de presse"
+  },
+  {
+    "key": "prdDragHint",
+    "en": "Drag to reposition",
+    "fr": "Glisse pour repositionner"
+  },
+  {
+    "key": "prdSkipPhoto",
+    "en": "Skip Photo",
+    "fr": "Passer la photo"
+  },
+  {
+    "key": "prdPublishArticle",
+    "en": "Publish Article",
+    "fr": "Publier l'article"
+  },
+  {
+    "key": "prdArticlePublished",
+    "en": "Article Published!",
+    "fr": "Article publié !"
+  },
+  {
+    "key": "prdNewsHint",
+    "en": "Head to the News section to read it.",
+    "fr": "Rends-toi dans la section News pour le lire."
+  },
+  {
+    "key": "prdUploading",
+    "en": "Uploading...",
+    "fr": "Import en cours..."
+  },
+  {
+    "key": "prdChangePhoto",
+    "en": "Change Photo",
+    "fr": "Changer la photo"
+  },
+  {
+    "key": "prdUploadPhoto",
+    "en": "Upload Photo",
+    "fr": "Importer une photo"
+  },
+  {
+    "key": "prdClose",
+    "en": "Close",
+    "fr": "Fermer"
+  },
+  {
+    "key": "twprChampionConference",
+    "en": "Champion's Press Conference",
+    "fr": "Conférence de presse du champion"
+  },
+  {
+    "key": "twprAnswered",
+    "en": "{count}/{max} answered",
+    "fr": "{count}/{max} répondu"
+  },
+  {
+    "key": "twprPublish",
+    "en": "Publish →",
+    "fr": "Publier →"
+  },
+  {
+    "key": "twprAnswerFirst",
+    "en": "Answer first",
+    "fr": "Réponds d'abord"
+  },
+  {
+    "key": "twprChampionPhoto",
+    "en": "Champion's Photo",
+    "fr": "Photo du champion"
+  },
+  {
+    "key": "twprUploadHint",
+    "en": "Upload a celebration photo, then drag to position it.",
+    "fr": "Importe une photo de célébration, puis fais-la glisser pour la positionner."
+  },
+  {
+    "key": "twprPhotoPlaceholder",
+    "en": "Photo will appear here",
+    "fr": "La photo apparaîtra ici"
+  },
+  {
+    "key": "twprDragHint",
+    "en": "Drag to reposition",
+    "fr": "Glisse pour repositionner"
+  },
+  {
+    "key": "twprUploadCelebration",
+    "en": "Upload Celebration Photo",
+    "fr": "Importer une photo de célébration"
+  },
+  {
+    "key": "twprSkipPhoto",
+    "en": "Skip Photo",
+    "fr": "Passer la photo"
+  },
+  {
+    "key": "twprPublishArticle",
+    "en": "🏆 Publish Article",
+    "fr": "🏆 Publier l'article"
+  },
+  {
+    "key": "twprPublished",
+    "en": "Article Published! 🏆",
+    "fr": "Article publié ! 🏆"
+  },
+  {
+    "key": "twprPublishedHint",
+    "en": "The champion's article is live in the News section and your club's Feed.",
+    "fr": "L'article du champion est en ligne dans News et le Feed de ton club."
+  },
+  {
+    "key": "twprVisibleHint",
+    "en": "Visible to all tournament participants and club followers.",
+    "fr": "Visible par tous les participants du tournoi et les abonnés du club."
+  },
+  {
+    "key": "gdprComplete",
+    "en": "Press Room Complete",
+    "fr": "Conférence de presse terminée"
+  },
+  {
+    "key": "gdprCompleteHint",
+    "en": "{name} was interviewed for this match. This can only be done once per match.",
+    "fr": "{name} a été interviewé pour ce match. Cela ne peut être fait qu'une fois par match."
+  },
+  {
+    "key": "gdprArticlePublished",
+    "en": "Article Published!",
+    "fr": "Article publié !"
+  },
+  {
+    "key": "gdprArticleHint",
+    "en": "The press conference article is now live in the News section.",
+    "fr": "L'article de la conférence est maintenant en ligne dans News."
+  },
+  {
+    "key": "gdprSelectPlayer",
+    "en": "Select a player to interview. Can only be done once per match.",
+    "fr": "Sélectionne un joueur à interviewer. Une seule fois par match."
+  },
+  {
+    "key": "gdprContinueImage",
+    "en": "Continue to Image",
+    "fr": "Passer à l'image"
+  },
+  {
+    "key": "gdprAnswerMore",
+    "en": "Answer {n} more to finish",
+    "fr": "Réponds à {n} de plus pour finir"
+  },
+  {
+    "key": "gdprNext",
+    "en": "Next",
+    "fr": "Suivant"
+  },
+  {
+    "key": "gdprAnsweredCount",
+    "en": "Answered: {count}/4 (min 3)",
+    "fr": "Répondu : {count}/4 (min 3)"
+  },
+  {
+    "key": "gdprAddPhoto",
+    "en": "Add Article Photo",
+    "fr": "Ajouter une photo"
+  },
+  {
+    "key": "gdprOptional",
+    "en": "Optional",
+    "fr": "Optionnel"
+  },
+  {
+    "key": "gdprClickUpload",
+    "en": "Click to upload photo",
+    "fr": "Clique pour importer une photo"
+  },
+  {
+    "key": "gdprFileHint",
+    "en": "JPG, PNG, WEBP · max 10MB",
+    "fr": "JPG, PNG, WEBP · max 10 Mo"
+  },
+  {
+    "key": "gdprSkipPublish",
+    "en": "Skip & Publish",
+    "fr": "Passer & Publier"
+  },
+  {
+    "key": "gdprPublishArticle",
+    "en": "Publish Article",
+    "fr": "Publier l'article"
+  },
+  {
+    "key": "gdprPublishHint",
+    "en": "Article will appear in News → Press Room once published.",
+    "fr": "L'article apparaîtra dans News → Press Room une fois publié."
+  },
+  {
+    "key": "stadCurrentStadium",
+    "en": "Current Stadium",
+    "fr": "Stade actuel"
+  },
+  {
+    "key": "stadLevelOf3",
+    "en": "Level (of 3)",
+    "fr": "Niveau (sur 3)"
+  },
+  {
+    "key": "stadCapacity",
+    "en": "Capacity",
+    "fr": "Capacité"
+  },
+  {
+    "key": "stadTicketPrice",
+    "en": "Ticket Price per Fan",
+    "fr": "Prix du billet par fan"
+  },
+  {
+    "key": "stadTicketRevenue",
+    "en": "Ticket Revenue per Home Match",
+    "fr": "Revenus billetterie par match à domicile"
+  },
+  {
+    "key": "stadRevenueFormula",
+    "en": "Revenue Formula:",
+    "fr": "Formule de revenus :"
+  },
+  {
+    "key": "stadCapacityFormula",
+    "en": "{capacity} capacity × {price} STC/ticket",
+    "fr": "{capacity} places × {price} STC/billet"
+  },
+  {
+    "key": "stadPerHomeMatch",
+    "en": "Per Home Match",
+    "fr": "Par match à domicile"
+  },
+  {
+    "key": "stadNextUpgrade",
+    "en": "Next Upgrade",
+    "fr": "Prochaine amélioration"
+  },
+  {
+    "key": "stadCapacityLabel",
+    "en": "Capacity:",
+    "fr": "Capacité :"
+  },
+  {
+    "key": "stadRevenueMatch",
+    "en": "Revenue/Match:",
+    "fr": "Revenus/Match :"
+  },
+  {
+    "key": "stadUpgradeCost",
+    "en": "Upgrade Cost",
+    "fr": "Coût d'amélioration"
+  },
+  {
+    "key": "stadClubBalance",
+    "en": "Club Balance",
+    "fr": "Solde du club"
+  },
+  {
+    "key": "stadUpgradeTo",
+    "en": "Upgrade to {name} — {cost}",
+    "fr": "Améliorer vers {name} — {cost}"
+  },
+  {
+    "key": "stadNeedMore",
+    "en": "Need {amount} more STC",
+    "fr": "Besoin de {amount} STC supplémentaires"
+  },
+  {
+    "key": "stadUpgradePath",
+    "en": "Upgrade Path",
+    "fr": "Parcours d'amélioration"
+  },
+  {
+    "key": "stadLvN",
+    "en": "Lv {n}",
+    "fr": "Nv {n}"
+  },
+  {
+    "key": "stadLv1Default",
+    "en": "Lv 1 — Default",
+    "fr": "Nv 1 — Par défaut"
+  },
+  {
+    "key": "stadUnlocked",
+    "en": "✓ Unlocked",
+    "fr": "✓ Débloqué"
+  },
+  {
+    "key": "stadMaxLevel",
+    "en": "Max Level — Iconic Arena",
+    "fr": "Niveau max — Arène emblématique"
+  },
+  {
+    "key": "stadMaxHint",
+    "en": "Your stadium is the pinnacle of football infrastructure.",
+    "fr": "Ton stade est au sommet de l'infrastructure footballistique."
+  },
+  {
+    "key": "stadUpgradeSuccess",
+    "en": "Stadium upgraded to {name}!",
+    "fr": "Stade amélioré vers {name} !"
+  },
+  {
+    "key": "stadUpgradeFailed",
+    "en": "Upgrade failed",
+    "fr": "Échec de l'amélioration"
+  },
+  {
+    "key": "wagTitle",
+    "en": "STC Wager",
+    "fr": "Pari STC"
+  },
+  {
+    "key": "wagAwaiting",
+    "en": "Awaiting Acceptance",
+    "fr": "En attente d'acceptation"
+  },
+  {
+    "key": "wagLocked",
+    "en": "Funds Locked 🔒",
+    "fr": "Fonds verrouillés 🔒"
+  },
+  {
+    "key": "wagSettling",
+    "en": "Settling…",
+    "fr": "Règlement…"
+  },
+  {
+    "key": "wagSettled",
+    "en": "Settled ✅",
+    "fr": "Réglé ✅"
+  },
+  {
+    "key": "wagRefunded",
+    "en": "Draw — Refunded",
+    "fr": "Nul — Remboursé"
+  },
+  {
+    "key": "wagDeclined",
+    "en": "Declined",
+    "fr": "Refusé"
+  },
+  {
+    "key": "wagCancelled",
+    "en": "Cancelled",
+    "fr": "Annulé"
+  },
+  {
+    "key": "wagEachSide",
+    "en": "Each Side",
+    "fr": "Chaque côté"
+  },
+  {
+    "key": "wagTotalPot",
+    "en": "Total Pot",
+    "fr": "Pot total"
+  },
+  {
+    "key": "wagHomeLocked",
+    "en": "Home locked",
+    "fr": "Domicile verrouillé"
+  },
+  {
+    "key": "wagHomeNotLocked",
+    "en": "Home not locked",
+    "fr": "Domicile non verrouillé"
+  },
+  {
+    "key": "wagAwayLocked",
+    "en": "Away locked",
+    "fr": "Extérieur verrouillé"
+  },
+  {
+    "key": "wagAwayNotLocked",
+    "en": "Away not locked",
+    "fr": "Extérieur non verrouillé"
+  },
+  {
+    "key": "wagYouWon",
+    "en": "You won! +{pot} STC added to your balance",
+    "fr": "Tu as gagné ! +{pot} STC ajoutés à ton solde"
+  },
+  {
+    "key": "wagYouLost",
+    "en": "You lost — {stake} STC forfeited",
+    "fr": "Tu as perdu — {stake} STC perdus"
+  },
+  {
+    "key": "wagWinnerWon",
+    "en": "{winner} won — {pot} STC pot",
+    "fr": "{winner} a gagné — {pot} STC de pot"
+  },
+  {
+    "key": "wagDrawRefund",
+    "en": "Draw — both sides refunded {stake} STC",
+    "fr": "Nul — les deux côtés remboursés de {stake} STC"
+  },
+  {
+    "key": "wagCancelledHint",
+    "en": "Wager cancelled — funds refunded",
+    "fr": "Pari annulé — fonds remboursés"
+  },
+  {
+    "key": "wagDeclinedHint",
+    "en": "Wager declined — no funds deducted",
+    "fr": "Pari refusé — aucun fonds déduit"
+  },
+  {
+    "key": "wagAccept",
+    "en": "Accept ({stake} STC)",
+    "fr": "Accepter ({stake} STC)"
+  },
+  {
+    "key": "wagDecline",
+    "en": "Decline",
+    "fr": "Refuser"
+  },
+  {
+    "key": "wagCancelWager",
+    "en": "Cancel wager (refund both sides)",
+    "fr": "Annuler le pari (rembourser les deux)"
+  },
+  {
+    "key": "wagCancelling",
+    "en": "Cancelling…",
+    "fr": "Annulation…"
+  },
+  {
+    "key": "wagAccepted",
+    "en": "Wager accepted — funds locked. 🔒",
+    "fr": "Pari accepté — fonds verrouillés. 🔒"
+  },
+  {
+    "key": "wagDeclinedMsg",
+    "en": "Wager declined. No funds deducted.",
+    "fr": "Pari refusé. Aucun fonds déduit."
+  },
+  {
+    "key": "wagCancelledMsg",
+    "en": "Wager cancelled. Funds refunded.",
+    "fr": "Pari annulé. Fonds remboursés."
+  },
+  {
+    "key": "pcmTitle",
+    "en": "Complete Your Profile 🎮",
+    "fr": "Complète ton profil 🎮"
+  },
+  {
+    "key": "pcmGamertagPlaceholder",
+    "en": "Your gaming name",
+    "fr": "Ton pseudo de jeu"
+  },
+  {
+    "key": "pcmMainPosition",
+    "en": "Main Position *",
+    "fr": "Poste principal *"
+  },
+  {
+    "key": "pcmSecondPosition",
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  {
+    "key": "pcmPlatform",
+    "en": "Platform *",
+    "fr": "Plateforme *"
+  },
+  {
+    "key": "pcmSelect",
+    "en": "Select",
+    "fr": "Sélectionner"
+  },
+  {
+    "key": "pcmNone",
+    "en": "None",
+    "fr": "Aucun"
+  },
+  {
+    "key": "pcmCountry",
+    "en": "Country",
+    "fr": "Pays"
+  },
+  {
+    "key": "pcmSelectCountry",
+    "en": "Select country",
+    "fr": "Sélectionner un pays"
+  },
+  {
+    "key": "pcmBioPlaceholder",
+    "en": "Tell us about yourself...",
+    "fr": "Parle-nous de toi..."
+  },
+  {
+    "key": "pcmPlusAvailable",
+    "en": "STAGE Plus is available",
+    "fr": "STAGE Plus est disponible"
+  },
+  {
+    "key": "pcmPlusDesc",
+    "en": "Your free account starts with {credits} credits. Plus unlocks official competitions, tournament creation, ranked play, and refreshes {monthlyCredits} credits monthly.",
+    "fr": "Ton compte gratuit démarre avec {credits} crédits. Plus débloque les compétitions officielles, la création de tournois, le mode classé et rafraîchit {monthlyCredits} crédits mensuellement."
+  },
+  {
+    "key": "pcmSaving",
+    "en": "Saving...",
+    "fr": "Enregistrement..."
+  },
+  {
+    "key": "pcmComplete",
+    "en": "Complete Profile →",
+    "fr": "Compléter le profil →"
+  },
+  {
+    "key": "pcmRequired",
+    "en": "Please fill in required fields: Gamertag, Position, and Platform",
+    "fr": "Remplis les champs obligatoires : Gamertag, Poste et Plateforme"
+  },
+  {
+    "key": "agdTitle",
+    "en": "Arrange Game",
+    "fr": "Organiser un match"
+  },
+  {
+    "key": "agdPlayerMatch",
+    "en": "Player Match",
+    "fr": "Match joueur"
+  },
+  {
+    "key": "agdClubMatch",
+    "en": "Club Match",
+    "fr": "Match de club"
+  },
+  {
+    "key": "agdPlayerMatchHint",
+    "en": "you play as {gamertag}. The invite goes to the opponent player's personal inbox.",
+    "fr": "tu joues en tant que {gamertag}. L'invitation va dans la boîte personnelle du joueur adverse."
+  },
+  {
+    "key": "agdClubMatchHint",
+    "en": "{clubName} challenges another club. The invite goes to the opponent club's owner inbox.",
+    "fr": "{clubName} défie un autre club. L'invitation va dans la boîte du propriétaire du club adverse."
+  },
+  {
+    "key": "agdSearchClubs",
+    "en": "Search clubs...",
+    "fr": "Rechercher des clubs..."
+  },
+  {
+    "key": "agdSearchPlayers",
+    "en": "Search players...",
+    "fr": "Rechercher des joueurs..."
+  },
+  {
+    "key": "agdBack",
+    "en": "Back",
+    "fr": "Retour"
+  },
+  {
+    "key": "agdTime",
+    "en": "Time",
+    "fr": "Heure"
+  },
+  {
+    "key": "agdStcWager",
+    "en": "STC Wager",
+    "fr": "Mise STC"
+  },
+  {
+    "key": "agdOptional",
+    "en": "optional",
+    "fr": "optionnel"
+  },
+  {
+    "key": "agdMinBet",
+    "en": "Minimum bet is {amount} STC",
+    "fr": "Mise minimum : {amount} STC"
+  },
+  {
+    "key": "agdMaxBet",
+    "en": "Maximum bet is {amount} STC",
+    "fr": "Mise maximum : {amount} STC"
+  },
+  {
+    "key": "agdInsufficientStc",
+    "en": "You only have {amount} STC available",
+    "fr": "Tu n'as que {amount} STC disponibles"
+  },
+  {
+    "key": "agdWagerPotHint",
+    "en": "Pot: {pot} STC total. Your {stake} STC stake will lock on acceptance.",
+    "fr": "Cagnotte : {pot} STC au total. Ta mise de {stake} STC sera bloquée à l'acceptation."
+  },
+  {
+    "key": "agdContinue",
+    "en": "Continue",
+    "fr": "Continuer"
+  },
+  {
+    "key": "agdMatchType",
+    "en": "Match type",
+    "fr": "Type de match"
+  },
+  {
+    "key": "agdOpponent",
+    "en": "Opponent",
+    "fr": "Adversaire"
+  },
+  {
+    "key": "agdWagerSummary",
+    "en": "{stake} STC each · Pot: {pot} STC",
+    "fr": "{stake} STC chacun · Cagnotte : {pot} STC"
+  },
+  {
+    "key": "agdPlayerInviteNote",
+    "en": "A player match invitation will be sent to {gamertag}'s personal inbox.",
+    "fr": "Une invitation de match joueur sera envoyée dans la boîte personnelle de {gamertag}."
+  },
+  {
+    "key": "agdClubInviteNote",
+    "en": "A club match invitation will be sent to the owner of {clubName}'s inbox.",
+    "fr": "Une invitation de match club sera envoyée au propriétaire de {clubName}."
+  },
+  {
+    "key": "agdCanRespondNote",
+    "en": "They can accept, decline, or request a different date.",
+    "fr": "Il peut accepter, refuser ou demander une autre date."
+  },
+  {
+    "key": "agdWagerLockNote",
+    "en": "The wager stake will appear in finances as locked STC when accepted.",
+    "fr": "La mise apparaîtra dans les finances comme STC bloqués une fois acceptée."
+  },
+  {
+    "key": "agdSendInvitation",
+    "en": "Send Invitation",
+    "fr": "Envoyer l'invitation"
+  },
+  {
+    "key": "agdInvitationSent",
+    "en": "Invitation Sent!",
+    "fr": "Invitation envoyée !"
+  },
+  {
+    "key": "agdWaitingResponse",
+    "en": "Waiting for the opponent to respond.",
+    "fr": "En attente de la réponse de l'adversaire."
+  },
+  {
+    "key": "agdChooseOpponent",
+    "en": "Please choose an opponent again.",
+    "fr": "Veuillez choisir à nouveau un adversaire."
+  },
+  {
+    "key": "agdCannotReachClub",
+    "en": "Could not reach this club's owner. They may not have a login email yet.",
+    "fr": "Impossible de joindre le propriétaire de ce club. Il n'a peut-être pas encore d'email de connexion."
+  },
+  {
+    "key": "agdCannotReachPlayer",
+    "en": "Could not reach this player. They may not have an account yet.",
+    "fr": "Impossible de joindre ce joueur. Il n'a peut-être pas encore de compte."
+  },
+  {
+    "key": "agdSendFailed",
+    "en": "Failed to send invitation. Please try again.",
+    "fr": "Échec de l'envoi de l'invitation. Réessaie."
+  },
+  {
+    "key": "fspMatchScheduling",
+    "en": "Match Scheduling",
+    "fr": "Planification du match"
+  },
+  {
+    "key": "fspAwaitingSchedule",
+    "en": "Awaiting Schedule",
+    "fr": "En attente de planification"
+  },
+  {
+    "key": "fspTimeProposed",
+    "en": "Time Proposed",
+    "fr": "Heure proposée"
+  },
+  {
+    "key": "fspCounterProposal",
+    "en": "Counter-Proposal",
+    "fr": "Contre-proposition"
+  },
+  {
+    "key": "fspConfirmed",
+    "en": "Confirmed",
+    "fr": "Confirmé"
+  },
+  {
+    "key": "fspWindowExpired",
+    "en": "Window Expired",
+    "fr": "Délai expiré"
+  },
+  {
+    "key": "fspAdminReview",
+    "en": "Admin Review",
+    "fr": "Examen admin"
+  },
+  {
+    "key": "fspDeadlinePassed",
+    "en": "Deadline passed — awaiting admin review",
+    "fr": "Délai dépassé — en attente d'examen admin"
+  },
+  {
+    "key": "fspDeadlineIn",
+    "en": "Deadline in {hours}h",
+    "fr": "Deadline dans {hours}h"
+  },
+  {
+    "key": "fspDeadline",
+    "en": "Deadline: {date}",
+    "fr": "Deadline : {date}"
+  },
+  {
+    "key": "fspExpiredNote",
+    "en": "Both teams failed to agree before the deadline. This fixture has been flagged for admin review.",
+    "fr": "Les deux équipes n'ont pas réussi à se mettre d'accord avant la deadline. Ce match a été signalé pour examen admin."
+  },
+  {
+    "key": "fspAdminReviewNote",
+    "en": "An admin is reviewing this scheduling dispute.",
+    "fr": "Un admin examine ce litige de planification."
+  },
+  {
+    "key": "fspOpponentProposes",
+    "en": "Opponent proposes:",
+    "fr": "L'adversaire propose :"
+  },
+  {
+    "key": "fspConfirming",
+    "en": "Confirming…",
+    "fr": "Confirmation…"
+  },
+  {
+    "key": "fspProposeDifferent",
+    "en": "Propose Different Time",
+    "fr": "Proposer une autre heure"
+  },
+  {
+    "key": "fspYourProposal",
+    "en": "Your proposal",
+    "fr": "Ta proposition"
+  },
+  {
+    "key": "fspWaitingResponse",
+    "en": "waiting for response",
+    "fr": "en attente de réponse"
+  },
+  {
+    "key": "fspProposeTime",
+    "en": "Propose a Time",
+    "fr": "Proposer une heure"
+  },
+  {
+    "key": "fspWaitingHome",
+    "en": "Waiting for the home team to propose a time…",
+    "fr": "En attente de la proposition de l'équipe à domicile…"
+  },
+  {
+    "key": "fspNotScheduled",
+    "en": "Not yet scheduled",
+    "fr": "Pas encore planifié"
+  },
+  {
+    "key": "fspProposalsExchanged",
+    "en": "{count} proposal(s) exchanged",
+    "fr": "{count} proposition(s) échangée(s)"
+  },
+  {
+    "key": "fspMustBeBefore",
+    "en": "must be before {date}",
+    "fr": "doit être avant le {date}"
+  },
+  {
+    "key": "fspSending",
+    "en": "Sending…",
+    "fr": "Envoi…"
+  },
+  {
+    "key": "fspSendProposal",
+    "en": "Send Proposal",
+    "fr": "Envoyer la proposition"
+  },
+  {
+    "key": "fspProposalFailed",
+    "en": "Failed to send proposal. Please try again.",
+    "fr": "Échec de l'envoi de la proposition. Réessaie."
+  },
+  {
+    "key": "fspConfirmFailed",
+    "en": "Failed to confirm match. Please try again.",
+    "fr": "Échec de la confirmation du match. Réessaie."
+  },
+  {
+    "key": "scalEventsCount",
+    "en": "{count} events",
+    "fr": "{count} événements"
+  },
+  {
+    "key": "scalContractEnd",
+    "en": "Contract End",
+    "fr": "Fin de contrat"
+  },
+  {
+    "key": "scalTournament",
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  {
+    "key": "scalToday",
+    "en": "Today",
+    "fr": "Aujourd'hui"
+  },
+  {
+    "key": "scalClickDate",
+    "en": "Click a date to see events",
+    "fr": "Clique sur une date pour voir les événements"
+  },
+  {
+    "key": "scalNoEvents",
+    "en": "No events on this day",
+    "fr": "Aucun événement ce jour"
+  },
+  {
+    "key": "scalBackTo",
+    "en": "Back to {date}",
+    "fr": "Retour au {date}"
+  },
+  {
+    "key": "scalBack",
+    "en": "Back",
+    "fr": "Retour"
+  },
+  {
+    "key": "scalMore",
+    "en": "+{count} more",
+    "fr": "+{count} autres"
+  },
+  {
+    "key": "scalStarts",
+    "en": "Starts",
+    "fr": "Commence"
+  },
+  {
+    "key": "scalPlayerContractEnds",
+    "en": "{name} contract ends",
+    "fr": "Fin du contrat de {name}"
+  },
+  {
+    "key": "scalGames",
+    "en": "games",
+    "fr": "matchs"
+  },
+  {
+    "key": "scalEnd",
+    "en": "End",
+    "fr": "Fin"
+  },
+  {
+    "key": "scalTournamentStart",
+    "en": "Tournament Start",
+    "fr": "Début du tournoi"
+  },
+  {
+    "key": "scalInDays",
+    "en": "In {days} day(s)",
+    "fr": "Dans {days} jour(s)"
+  },
+  {
+    "key": "scalTodayExcl",
+    "en": "Today!",
+    "fr": "Aujourd'hui !"
+  },
+  {
+    "key": "scalTBD",
+    "en": "TBD",
+    "fr": "À définir"
+  },
+  {
+    "key": "scalHome",
+    "en": "Home",
+    "fr": "Domicile"
+  },
+  {
+    "key": "scalAway",
+    "en": "Away",
+    "fr": "Extérieur"
+  },
+  {
+    "key": "scalScheduled",
+    "en": "Scheduled",
+    "fr": "Planifié"
+  },
+  {
+    "key": "scalPending",
+    "en": "Pending",
+    "fr": "En attente"
+  },
+  {
+    "key": "scalFT",
+    "en": "FT",
+    "fr": "Terminé"
+  },
+  {
+    "key": "scalForfeit",
+    "en": "Forfeit",
+    "fr": "Forfait"
+  },
+  {
+    "key": "scalDisputed",
+    "en": "Disputed",
+    "fr": "Contesté"
+  },
+  {
+    "key": "ocdCounterOffer",
+    "en": "Counter Offer",
+    "fr": "Contre-offre"
+  },
+  {
+    "key": "ocdTo",
+    "en": "to {name}",
+    "fr": "à {name}"
+  },
+  {
+    "key": "ocdActiveContract",
+    "en": "This player already has an active {type} contract ({status}).",
+    "fr": "Ce joueur a déjà un contrat {type} actif ({status})."
+  },
+  {
+    "key": "ocdStillOfferPlayer",
+    "en": "You can still offer a player contract alongside it.",
+    "fr": "Tu peux quand même offrir un contrat joueur en parallèle."
+  },
+  {
+    "key": "ocdStillOfferOwnership",
+    "en": "You can still offer an ownership contract alongside it.",
+    "fr": "Tu peux quand même offrir un contrat de propriété en parallèle."
+  },
+  {
+    "key": "ocdSecondContract",
+    "en": "This will create a second contract of the same type.",
+    "fr": "Cela créera un second contrat du même type."
+  },
+  {
+    "key": "ocdWindowClosed",
+    "en": "Transfer window is closed. Offer queued — transfer executes when window opens.",
+    "fr": "Le mercato est fermé. L'offre est mise en file — le transfert s'exécute à l'ouverture du mercato."
+  },
+  {
+    "key": "ocdWindowOpen",
+    "en": "Transfer window OPEN. Accepted offers take effect immediately.",
+    "fr": "Mercato OUVERT. Les offres acceptées prennent effet immédiatement."
+  },
+  {
+    "key": "ocdWindowChecking",
+    "en": "Checking transfer window status...",
+    "fr": "Vérification du statut du mercato..."
+  },
+  {
+    "key": "ocdContractType",
+    "en": "Contract Type",
+    "fr": "Type de contrat"
+  },
+  {
+    "key": "ocdFinancialTerms",
+    "en": "Financial Terms (STC)",
+    "fr": "Conditions financières (STC)"
+  },
+  {
+    "key": "ocdPerformanceTargets",
+    "en": "Performance Targets",
+    "fr": "Objectifs de performance"
+  },
+  {
+    "key": "ocdCounterPlaceholder",
+    "en": "Explain your counter-offer...",
+    "fr": "Explique ta contre-offre..."
+  },
+  {
+    "key": "ocdSending",
+    "en": "Sending...",
+    "fr": "Envoi..."
+  },
+  {
+    "key": "ocdSendCounter",
+    "en": "Send Counter-Offer",
+    "fr": "Envoyer la contre-offre"
+  },
+  {
+    "key": "ocdSendOffer",
+    "en": "Send Contract Offer",
+    "fr": "Envoyer l'offre de contrat"
+  },
+  {
+    "key": "icoContractUnavailable",
+    "en": "Contract data unavailable or already resolved.",
+    "fr": "Données du contrat indisponibles ou déjà résolues."
+  },
+  {
+    "key": "icoAwaitingResponse",
+    "en": "Awaiting your response",
+    "fr": "En attente de ta réponse"
+  },
+  {
+    "key": "icoNegotiatingRound",
+    "en": "Negotiating — Round {round}",
+    "fr": "Négociation — Tour {round}"
+  },
+  {
+    "key": "icoContractActive",
+    "en": "✅ Contract Active",
+    "fr": "✅ Contrat actif"
+  },
+  {
+    "key": "icoDeclined",
+    "en": "❌ Declined",
+    "fr": "❌ Refusé"
+  },
+  {
+    "key": "icoAcceptedPendingWindow",
+    "en": "✅ Accepted — awaiting transfer window",
+    "fr": "✅ Accepté — en attente du mercato"
+  },
+  {
+    "key": "icoClubOwnership",
+    "en": "🏢 Club Ownership",
+    "fr": "🏢 Propriété du club"
+  },
+  {
+    "key": "icoContract",
+    "en": "Contract",
+    "fr": "Contrat"
+  },
+  {
+    "key": "icoRound",
+    "en": "Round {round}",
+    "fr": "Tour {round}"
+  },
+  {
+    "key": "icoDuration",
+    "en": "Duration",
+    "fr": "Durée"
+  },
+  {
+    "key": "icoDurationValue",
+    "en": "{games} games / {days} days",
+    "fr": "{games} matchs / {days} jours"
+  },
+  {
+    "key": "icoTransferFee",
+    "en": "Transfer Fee",
+    "fr": "Indemnité de transfert"
+  },
+  {
+    "key": "icoOffered",
+    "en": "⭐ Offered",
+    "fr": "⭐ Proposé"
+  },
+  {
+    "key": "icoTargets",
+    "en": "Targets",
+    "fr": "Objectifs"
+  },
+  {
+    "key": "icoTargetCount",
+    "en": "{count} target(s)",
+    "fr": "{count} objectif(s)"
+  },
+  {
+    "key": "icoWindowOpenImmediate",
+    "en": "Transfer window OPEN — accepting will activate this contract immediately.",
+    "fr": "Mercato OUVERT — accepter activera ce contrat immédiatement."
+  },
+  {
+    "key": "icoWindowClosedQueue",
+    "en": "Transfer window is currently CLOSED. Accepting will queue the transfer — it executes when the window opens.",
+    "fr": "Le mercato est actuellement FERMÉ. Accepter mettra le transfert en file — il s'exécute à l'ouverture du mercato."
+  },
+  {
+    "key": "icoWindowChecking",
+    "en": "Checking transfer window status...",
+    "fr": "Vérification du statut du mercato..."
+  },
+  {
+    "key": "icoAcceptQueue",
+    "en": "Accept & Queue Transfer",
+    "fr": "Accepter et mettre en file"
+  },
+  {
+    "key": "icoAcceptContract",
+    "en": "Accept Contract",
+    "fr": "Accepter le contrat"
+  },
+  {
+    "key": "icoCounterOffer",
+    "en": "Counter-Offer",
+    "fr": "Contre-offre"
+  },
+  {
+    "key": "icoWaitingOther",
+    "en": "Waiting for the other party to respond.",
+    "fr": "En attente de la réponse de l'autre partie."
+  },
+  {
+    "key": "icoWeeklySalaryStc",
+    "en": "Weekly Salary (STC)",
+    "fr": "Salaire hebdo (STC)"
+  },
+  {
+    "key": "icoSigningBonusStc",
+    "en": "Signing Bonus (STC)",
+    "fr": "Prime à la signature (STC)"
+  },
+  {
+    "key": "icoTransferFeeStc",
+    "en": "Transfer Fee (STC)",
+    "fr": "Indemnité de transfert (STC)"
+  },
+  {
+    "key": "icoCounterPlaceholder",
+    "en": "Explain your counter-offer... (optional)",
+    "fr": "Explique ta contre-offre... (optionnel)"
+  },
+  {
+    "key": "icoSendCounter",
+    "en": "Send Counter-Offer",
+    "fr": "Envoyer la contre-offre"
+  },
+  {
+    "key": "tpdTitle",
+    "en": "Pay Transfer Fee",
+    "fr": "Payer l'indemnité de transfert"
+  },
+  {
+    "key": "tpdEnterValidAmount",
+    "en": "Enter a valid transfer fee amount.",
+    "fr": "Saisis un montant valide pour l'indemnité de transfert."
+  },
+  {
+    "key": "tpdInsufficientFunds",
+    "en": "Insufficient funds. Club balance: {balance}",
+    "fr": "Fonds insuffisants. Solde du club : {balance}"
+  },
+  {
+    "key": "tpdPaymentFailed",
+    "en": "Payment failed. Please try again.",
+    "fr": "Paiement échoué. Réessaie."
+  },
+  {
+    "key": "tpdFeePaid",
+    "en": "Transfer fee paid!",
+    "fr": "Indemnité de transfert payée !"
+  },
+  {
+    "key": "tpdFeePaidDetail",
+    "en": "{amount} sent to {clubName} for {gamertag}.",
+    "fr": "{amount} envoyés à {clubName} pour {gamertag}."
+  },
+  {
+    "key": "tpdTheClub",
+    "en": "the club",
+    "fr": "le club"
+  },
+  {
+    "key": "tpdDone",
+    "en": "Done",
+    "fr": "Terminé"
+  },
+  {
+    "key": "tpdFrom",
+    "en": "From",
+    "fr": "De"
+  },
+  {
+    "key": "tpdTo",
+    "en": "To",
+    "fr": "À"
+  },
+  {
+    "key": "tpdBalance",
+    "en": "Balance",
+    "fr": "Solde"
+  },
+  {
+    "key": "tpdNoClub",
+    "en": "No club",
+    "fr": "Aucun club"
+  },
+  {
+    "key": "tpdFor",
+    "en": "For {name}",
+    "fr": "Pour {name}"
+  },
+  {
+    "key": "tpdAmountLabel",
+    "en": "Transfer Fee Amount (STC)",
+    "fr": "Montant de l'indemnité (STC)"
+  },
+  {
+    "key": "tpdExceedsBalance",
+    "en": "⛔ Exceeds club balance — need {needed} more STC",
+    "fr": "⛔ Dépasse le solde du club — il manque {needed} STC"
+  },
+  {
+    "key": "tpdExceedsBudget",
+    "en": "⚠ Exceeds transfer budget ({budget}) — deducted from main balance",
+    "fr": "⚠ Dépasse le budget transferts ({budget}) — déduit du solde principal"
+  },
+  {
+    "key": "tpdWithinBudget",
+    "en": "✓ Within transfer budget ({budget})",
+    "fr": "✓ Dans le budget transferts ({budget})"
+  },
+  {
+    "key": "tpdPaying",
+    "en": "Paying…",
+    "fr": "Paiement…"
+  },
+  {
+    "key": "tpdPayTransferFee",
+    "en": "Pay Transfer Fee",
+    "fr": "Payer l'indemnité de transfert"
+  }
+]

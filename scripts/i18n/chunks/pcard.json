@@ -1,0 +1,130 @@
+{
+  "pcardNoLocation": {
+    "en": "No location set",
+    "fr": "Aucune localisation définie"
+  },
+  "pcardMyResidence": {
+    "en": "My Residence",
+    "fr": "Ma résidence"
+  },
+  "pcardRenting": {
+    "en": "Renting",
+    "fr": "En location"
+  },
+  "pcardOwnedLive": {
+    "en": "Owned (Live)",
+    "fr": "Possédé (habité)"
+  },
+  "pcardInvestment": {
+    "en": "Investment",
+    "fr": "Investissement"
+  },
+  "pcardDefault": {
+    "en": "Default",
+    "fr": "Défaut"
+  },
+  "pcardBasePrice": {
+    "en": "Base Price",
+    "fr": "Prix de base"
+  },
+  "pcardCurrentValue": {
+    "en": "Current Value",
+    "fr": "Valeur actuelle"
+  },
+  "pcardWeeklyCost": {
+    "en": "Weekly Cost",
+    "fr": "Coût hebdo"
+  },
+  "pcardAcquired": {
+    "en": "Acquired",
+    "fr": "Acquis"
+  },
+  "pcardUpgradeLevel": {
+    "en": "Upgrade Level",
+    "fr": "Niveau d'amélioration"
+  },
+  "pcardMax": {
+    "en": "MAX",
+    "fr": "MAX"
+  },
+  "pcardSetResidence": {
+    "en": "Set as My Residence",
+    "fr": "Définir comme résidence"
+  },
+  "pcardThisIsResidence": {
+    "en": "This is your residence",
+    "fr": "C'est ta résidence"
+  },
+  "pcardMoveOut": {
+    "en": "Move Out",
+    "fr": "Déménager"
+  },
+  "pcardDaysLeft": {
+    "en": "{days}d left",
+    "fr": "{days}j restants"
+  },
+  "pcardExpires": {
+    "en": "expires {date}",
+    "fr": "expire le {date}"
+  },
+  "pcardCancel": {
+    "en": "Cancel",
+    "fr": "Annuler"
+  },
+  "pcardCostBreakdown": {
+    "en": "Cost Breakdown",
+    "fr": "Détail des coûts"
+  },
+  "pcardTotalWeekly": {
+    "en": "Total Weekly",
+    "fr": "Total hebdo"
+  },
+  "pcardPerWk": {
+    "en": "/wk",
+    "fr": "/sem."
+  },
+  "pcardUpgradeProperty": {
+    "en": "Upgrade Property",
+    "fr": "Améliorer la propriété"
+  },
+  "pcardBuy": {
+    "en": "Buy",
+    "fr": "Acheter"
+  },
+  "pcardFullyUpgraded": {
+    "en": "Fully Upgraded",
+    "fr": "Entièrement amélioré"
+  },
+  "pcardDefaultedError": {
+    "en": "Asset defaulted — pay overdue maintenance first",
+    "fr": "Actif en défaut — règle l'entretien en retard d'abord"
+  },
+  "pcardUpgradeApplied": {
+    "en": "Upgrade applied — Level {level}",
+    "fr": "Amélioration appliquée — Niveau {level}"
+  },
+  "pcardRentalCancelled": {
+    "en": "Rental cancelled.",
+    "fr": "Location annulée."
+  },
+  "pcardCancelFailed": {
+    "en": "Failed to cancel rental",
+    "fr": "Échec de l'annulation"
+  },
+  "pcardMovedOut": {
+    "en": "You have moved out.",
+    "fr": "Tu as déménagé."
+  },
+  "pcardMoveOutFailed": {
+    "en": "Failed to move out",
+    "fr": "Échec du déménagement"
+  },
+  "pcardResidenceUpdated": {
+    "en": "Residence updated!",
+    "fr": "Résidence mise à jour !"
+  },
+  "pcardResidenceFailed": {
+    "en": "Failed to set residence",
+    "fr": "Impossible de définir la résidence"
+  }
+}

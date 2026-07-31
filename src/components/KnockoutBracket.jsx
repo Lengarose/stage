@@ -1,7 +1,7 @@
 import { Shield, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit, onDressingRoom }) {
+function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
   const isMyMatch = match?.home_club_id === myClubId || match?.away_club_id === myClubId;
   const completed = match?.status === "completed";
   const homeWon = completed && match.winner_club_id === match.home_club_id;
@@ -110,10 +110,6 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
       )}
       {isMyMatch && pending && (
         <div className="border-t border-border/50">
-          <button onClick={() => onDressingRoom && onDressingRoom(match)}
-            className="w-full text-[10px] uppercase tracking-wider font-semibold text-primary/80 bg-primary/5 hover:bg-primary/10 py-1.5 border-b border-border/50 transition-colors">
-            Dressing Room
-          </button>
           <div className="grid grid-cols-2">
             <button onClick={() => onSchedule(match)}
               className="text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-2.5 transition-colors border-r border-border/50">
@@ -160,7 +156,7 @@ function Connector({ count }) {
   );
 }
 
-export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit, onDressingRoom }) {
+export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
   const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
 
   if (rounds.length === 0) return null;
@@ -211,7 +207,7 @@ export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedul
                 <div className="flex flex-col gap-8">
                   {roundMatches.map(match => (
                     <div key={match.id} className="flex items-center">
-                      <MatchCard match={match} myClubId={myClubId} onSubmit={onSubmit} onSchedule={onSchedule} onViewStats={onViewStats} onAddStream={onAddStream} onForfeit={onForfeit} onDressingRoom={onDressingRoom} />
+                      <MatchCard match={match} myClubId={myClubId} onSubmit={onSubmit} onSchedule={onSchedule} onViewStats={onViewStats} onAddStream={onAddStream} onForfeit={onForfeit} />
                     </div>
                   ))}
                 </div>

@@ -10,7 +10,7 @@ export default function TournamentResultDialog({
   onSubmit,
 }) {
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent className="bg-card border-border">
         <DialogHeader>
           <DialogTitle className="leading-relaxed text-xl">Submit Match Result</DialogTitle>

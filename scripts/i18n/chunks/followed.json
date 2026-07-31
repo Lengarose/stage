@@ -1,0 +1,10 @@
+{
+  "followedClubsEmpty": {
+    "en": "You're not following any clubs yet.",
+    "fr": "Tu ne suis encore aucun club."
+  },
+  "followedPlayersEmpty": {
+    "en": "You're not following any players yet.",
+    "fr": "Tu ne suis encore aucun joueur."
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
@@ -8,6 +8,7 @@ import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
+import { cn } from "@/lib/utils";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
 
@@ -32,6 +33,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [error, setError] = useState(null);
   const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
   const logoInputRef = useRef();
+  const logoInputId = useId();
   const previewClub = {
     name: name || t("commonPages.obClubNamePlaceholder"),
     tag: (tag || "CLB").toUpperCase(),
@@ -207,14 +209,32 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
             imagePosition={logoPosition}
             imageZoom={logoZoom}
             winRate={50}
-            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(255,184,0,0.65)]"
+            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(255,184,0,0.65)] pointer-events-none"
           />
-          <div className={`absolute inset-0 rounded-xl bg-black/55 transition-opacity flex items-center justify-center ${logoUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
-            <button type="button" onClick={() => logoInputRef.current?.click()} className="p-2 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
-              {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-            </button>
-          </div>
-          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
+          <label
+            htmlFor={logoInputId}
+            className={cn(
+              "absolute inset-0 z-10 rounded-xl bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
+              uploading && "pointer-events-none opacity-60",
+              logoUrl
+                ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                : "opacity-100"
+            )}
+            title={t("commonPages.profUploadPhoto")}
+          >
+            <span className="p-2.5 rounded-lg bg-white/15 active:bg-white/25 transition-colors">
+              {uploading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
+            </span>
+          </label>
+          <input
+            id={logoInputId}
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={uploading}
+            onChange={uploadLogo}
+          />
         </div>
 
         <div className="flex-1 space-y-2.5 min-w-0">

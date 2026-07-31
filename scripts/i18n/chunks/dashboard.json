@@ -1,0 +1,502 @@
+{
+  "dashboardGuest": {
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  "dashboardVerified": {
+    "en": "Verified",
+    "fr": "Vérifié"
+  },
+  "dashboardViewRankings": {
+    "en": "Rankings",
+    "fr": "Classements"
+  },
+  "dashboardViewProfile": {
+    "en": "My profile",
+    "fr": "Mon profil"
+  },
+  "dashboardSetupTitle": {
+    "en": "Complete your player profile",
+    "fr": "Complète ton profil joueur"
+  },
+  "dashboardSetupDesc": {
+    "en": "Create your gamertag and position to unlock rankings, matches and club play.",
+    "fr": "Crée ton gamertag et ton poste pour débloquer classements, matchs et club."
+  },
+  "dashboardSetupCta": {
+    "en": "Set up profile",
+    "fr": "Configurer le profil"
+  },
+  "dashboardGlobalRank": {
+    "en": "Global rank",
+    "fr": "Rang global"
+  },
+  "dashboardRecord": {
+    "en": "Record",
+    "fr": "Bilan"
+  },
+  "dashboardWinRate": {
+    "en": "WR",
+    "fr": "Victoires"
+  },
+  "dashboardMatchesPlayed": {
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  "dashboardGoals": {
+    "en": "goals",
+    "fr": "buts"
+  },
+  "dashboardAvgRating": {
+    "en": "Avg rating",
+    "fr": "Note moy."
+  },
+  "dashboardRankedOnly": {
+    "en": "Ranked matches",
+    "fr": "Matchs classés"
+  },
+  "dashboardNextMatch": {
+    "en": "Next opponent",
+    "fr": "Prochain adversaire"
+  },
+  "dashboardNoNextMatch": {
+    "en": "No fixture yet",
+    "fr": "Aucun match"
+  },
+  "dashboardNoNextMatchHint": {
+    "en": "Open Game Day to schedule or join a match.",
+    "fr": "Ouvre Match Day pour planifier ou rejoindre un match."
+  },
+  "dashboardOpenGameDay": {
+    "en": "Open Game Day",
+    "fr": "Ouvrir Match Day"
+  },
+  "dashboardSeeSchedule": {
+    "en": "Schedule",
+    "fr": "Calendrier"
+  },
+  "dashboardMyClub": {
+    "en": "My club",
+    "fr": "Mon club"
+  },
+  "dashboardNoClub": {
+    "en": "You are not in a club yet.",
+    "fr": "Tu n'es dans aucun club."
+  },
+  "dashboardFindClub": {
+    "en": "Browse clubs",
+    "fr": "Parcourir les clubs"
+  },
+  "dashboardUpcoming": {
+    "en": "Coming up",
+    "fr": "À suivre"
+  },
+  "dashboardActiveTournaments": {
+    "en": "My tournaments",
+    "fr": "Mes tournois"
+  },
+  "dashboardLeagueStandings": {
+    "en": "League position",
+    "fr": "Position en ligue"
+  },
+  "dashboardNoCompetitions": {
+    "en": "Not registered in any active tournament.",
+    "fr": "Inscrit à aucun tournoi actif."
+  },
+  "dashboardNoLeague": {
+    "en": "No active league standing for your club.",
+    "fr": "Aucun classement de ligue actif pour ton club."
+  },
+  "dashboardPosition": {
+    "en": "Position",
+    "fr": "Position"
+  },
+  "dashboardPlayed": {
+    "en": "played",
+    "fr": "joués"
+  },
+  "dashboardWelcomeHint": {
+    "en": "News, competitions and platform info live on the welcome page.",
+    "fr": "News, compétitions et infos plateforme sont sur la page d'accueil."
+  },
+  "dashboardGoWelcome": {
+    "en": "Welcome page",
+    "fr": "Page d'accueil"
+  },
+  "dashboardActivity": {
+    "en": "Activity",
+    "fr": "Activité"
+  },
+  "dashboardRatingTrend": {
+    "en": "Rating — last matches",
+    "fr": "Note — derniers matchs"
+  },
+  "dashboardWeeklyMatches": {
+    "en": "Matches per week",
+    "fr": "Matchs par semaine"
+  },
+  "dashboardActivityEmpty": {
+    "en": "No recorded match stats yet. Play ranked or club matches to build your chart.",
+    "fr": "Aucune stat enregistrée. Joue des matchs classés ou club pour alimenter le graphique."
+  },
+  "dashboardClubStats": {
+    "en": "Club stats",
+    "fr": "Stats club"
+  },
+  "dashboardObjectives": {
+    "en": "Objectives",
+    "fr": "Objectifs"
+  },
+  "dashboardObjectivesDesc": {
+    "en": "Daily and weekly challenges. Claim STC when complete.",
+    "fr": "Défis daily et weekly. Réclame tes STC une fois complétés."
+  },
+  "dashboardObjectivesLoading": {
+    "en": "Loading objectives…",
+    "fr": "Chargement des objectifs…"
+  },
+  "dashboardObjectivesEmpty": {
+    "en": "No active objectives right now.",
+    "fr": "Aucun objectif actif pour le moment."
+  },
+  "dashboardObjectivesError": {
+    "en": "Could not load objectives.",
+    "fr": "Impossible de charger les objectifs."
+  },
+  "dashboardObjectivesClaimError": {
+    "en": "Could not claim reward.",
+    "fr": "Impossible de réclamer la récompense."
+  },
+  "dashboardObjectivesReward": {
+    "en": "Reward",
+    "fr": "Récompense"
+  },
+  "dashboardObjectivesClaimed": {
+    "en": "Claimed",
+    "fr": "Réclamé"
+  },
+  "dashboardObjectivesClaim": {
+    "en": "Claim",
+    "fr": "Réclamer"
+  },
+  "dashboardObjectivesClaiming": {
+    "en": "Claiming…",
+    "fr": "Réclamation…"
+  },
+  "dashboardObjectivesInProgress": {
+    "en": "In progress",
+    "fr": "En cours"
+  },
+  "dashboardMatchesThisMonth": {
+    "en": "This month",
+    "fr": "Ce mois"
+  },
+  "dashboardThisWeek": {
+    "en": "this week",
+    "fr": "cette semaine"
+  },
+  "dashboardMemberSince": {
+    "en": "On STAGE",
+    "fr": "Sur STAGE"
+  },
+  "dashboardAtClub": {
+    "en": "at club",
+    "fr": "au club"
+  },
+  "dashboardTrackedMatches": {
+    "en": "tracked matches",
+    "fr": "matchs suivis"
+  },
+  "dashboardContract": {
+    "en": "Contract",
+    "fr": "Contrat"
+  },
+  "dashboardGamesLeft": {
+    "en": "games left",
+    "fr": "matchs restants"
+  },
+  "dashboardNoContract": {
+    "en": "No active contract",
+    "fr": "Aucun contrat actif"
+  },
+  "dashboardContractGames": {
+    "en": "Contract games",
+    "fr": "Matchs contrat"
+  },
+  "dashboardActivityLevel": {
+    "en": "Activity",
+    "fr": "Activité"
+  },
+  "dashboardActivityHigh": {
+    "en": "High",
+    "fr": "Élevée"
+  },
+  "dashboardActivityMedium": {
+    "en": "Steady",
+    "fr": "Régulière"
+  },
+  "dashboardActivityLow": {
+    "en": "Quiet",
+    "fr": "Calme"
+  },
+  "dashboardLast30Days": {
+    "en": "in last 30 days",
+    "fr": "sur 30 jours"
+  },
+  "dashboardEafcTitle": {
+    "en": "EA Pro Clubs",
+    "fr": "EA Pro Clubs"
+  },
+  "dashboardEafcDesc": {
+    "en": "Link your real Pro Clubs team to show live EA stats on your dashboard.",
+    "fr": "Lie ton vrai club Pro Clubs pour afficher tes stats EA sur le dashboard."
+  },
+  "dashboardEafcClub": {
+    "en": "Pro Club",
+    "fr": "Club Pro"
+  },
+  "dashboardEafcView": {
+    "en": "Full view",
+    "fr": "Vue complète"
+  },
+  "dashboardEafcUnlink": {
+    "en": "Unlink club",
+    "fr": "Dissocier le club"
+  },
+  "dashboardEafcSearchPlaceholder": {
+    "en": "Search Pro Clubs name…",
+    "fr": "Rechercher un club Pro Clubs…"
+  },
+  "dashboardEafcNoResults": {
+    "en": "No clubs found on EA.",
+    "fr": "Aucun club trouvé sur EA."
+  },
+  "dashboardEafcSearchError": {
+    "en": "EA search failed.",
+    "fr": "Recherche EA échouée."
+  },
+  "dashboardEafcLinkError": {
+    "en": "Could not save club link.",
+    "fr": "Impossible d'enregistrer le lien club."
+  },
+  "dashboardEafcMembers": {
+    "en": "members",
+    "fr": "membres"
+  },
+  "dashboardEafcStatsUnavailable": {
+    "en": "Linked — EA stats temporarily unavailable.",
+    "fr": "Lié — stats EA temporairement indisponibles."
+  },
+  "dashboardFutTitle": {
+    "en": "Ultimate Team",
+    "fr": "Ultimate Team"
+  },
+  "dashboardFutDesc": {
+    "en": "Log your FUT matches to track form outside STAGE competitions.",
+    "fr": "Enregistre tes matchs FUT pour suivre ta forme hors compétitions STAGE."
+  },
+  "dashboardFutLogMatch": {
+    "en": "Log match",
+    "fr": "Ajouter un match"
+  },
+  "dashboardFutWins": {
+    "en": "Wins",
+    "fr": "Victoires"
+  },
+  "dashboardFutDraws": {
+    "en": "Draws",
+    "fr": "Nuls"
+  },
+  "dashboardFutLosses": {
+    "en": "Losses",
+    "fr": "Défaites"
+  },
+  "dashboardFutPlayedAt": {
+    "en": "Played at",
+    "fr": "Joué le"
+  },
+  "dashboardFutResult": {
+    "en": "Result",
+    "fr": "Résultat"
+  },
+  "dashboardFutWin": {
+    "en": "Win",
+    "fr": "Victoire"
+  },
+  "dashboardFutDraw": {
+    "en": "Draw",
+    "fr": "Nul"
+  },
+  "dashboardFutLoss": {
+    "en": "Loss",
+    "fr": "Défaite"
+  },
+  "dashboardFutMode": {
+    "en": "Mode",
+    "fr": "Mode"
+  },
+  "dashboardFutRivals": {
+    "en": "Rivals",
+    "fr": "Rivals"
+  },
+  "dashboardFutChampions": {
+    "en": "Champions",
+    "fr": "Champions"
+  },
+  "dashboardFutFriendly": {
+    "en": "Friendly",
+    "fr": "Amical"
+  },
+  "dashboardFutSquadBattles": {
+    "en": "Squad Battles",
+    "fr": "Batailles d'équipes"
+  },
+  "dashboardFutGoalsFor": {
+    "en": "Goals for",
+    "fr": "Buts pour"
+  },
+  "dashboardFutGoalsAgainst": {
+    "en": "Goals against",
+    "fr": "Buts contre"
+  },
+  "dashboardFutOpponent": {
+    "en": "Opponent note",
+    "fr": "Note adversaire"
+  },
+  "dashboardFutOpponentPlaceholder": {
+    "en": "Team name or note (optional)",
+    "fr": "Nom d'équipe ou note (optionnel)"
+  },
+  "dashboardFutSave": {
+    "en": "Save match",
+    "fr": "Enregistrer"
+  },
+  "dashboardFutSaveError": {
+    "en": "Could not save match.",
+    "fr": "Impossible d'enregistrer le match."
+  },
+  "dashboardFutDeleteError": {
+    "en": "Could not delete match.",
+    "fr": "Impossible de supprimer le match."
+  },
+  "dashboardFutEmpty": {
+    "en": "No FUT matches logged yet.",
+    "fr": "Aucun match FUT enregistré."
+  },
+  "dashboardGlanceStc": {
+    "en": "STC balance",
+    "fr": "Solde STC"
+  },
+  "dashboardGlanceCredits": {
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  "dashboardGlanceInbox": {
+    "en": "Unread inbox",
+    "fr": "Messages non lus"
+  },
+  "dashboardGlanceAlerts": {
+    "en": "Unread alerts",
+    "fr": "Alertes non lues"
+  },
+  "dashboardRecentForm": {
+    "en": "Recent form",
+    "fr": "Forme récente"
+  },
+  "dashboardStageForm": {
+    "en": "STAGE results",
+    "fr": "Résultats STAGE"
+  },
+  "dashboardStageFormEmpty": {
+    "en": "No completed STAGE matches yet.",
+    "fr": "Aucun match STAGE terminé."
+  },
+  "dashboardRatingForm": {
+    "en": "Match ratings",
+    "fr": "Notes de match"
+  },
+  "dashboardRatingFormEmpty": {
+    "en": "No recorded ratings yet.",
+    "fr": "Aucune note enregistrée."
+  },
+  "dashboardFutForm": {
+    "en": "FUT results",
+    "fr": "Résultats FUT"
+  },
+  "dashboardFutFormEmpty": {
+    "en": "Log FUT matches to build form.",
+    "fr": "Enregistre des matchs FUT pour voir ta forme."
+  },
+  "dashboardFutActivity": {
+    "en": "FUT activity",
+    "fr": "Activité FUT"
+  },
+  "dashboardFutChartEmpty": {
+    "en": "Log FUT matches to see weekly trends.",
+    "fr": "Enregistre des matchs FUT pour voir les tendances."
+  },
+  "dashboardEafcYou": {
+    "en": "You in club",
+    "fr": "Toi au club"
+  },
+  "dashboardEafcGames": {
+    "en": "games",
+    "fr": "matchs"
+  },
+  "dashboardLayoutEdit": {
+    "en": "Customize layout",
+    "fr": "Personnaliser"
+  },
+  "dashboardLayoutDone": {
+    "en": "Done",
+    "fr": "Terminer"
+  },
+  "dashboardLayoutHint": {
+    "en": "Drag widgets to reorder. Remove with ×, add hidden blocks below.",
+    "fr": "Glisse les blocs pour les réordonner. Retire avec ×, rajoute ceux masqués ci-dessous."
+  },
+  "dashboardLayoutReset": {
+    "en": "Reset layout",
+    "fr": "Réinitialiser"
+  },
+  "dashboardLayoutAllVisible": {
+    "en": "All widgets visible",
+    "fr": "Tous les blocs visibles"
+  },
+  "dashboardWidgetGlance": {
+    "en": "Wallet & inbox",
+    "fr": "Portefeuille & inbox"
+  },
+  "dashboardWidgetStats": {
+    "en": "Key stats",
+    "fr": "Stats clés"
+  },
+  "dashboardWidgetForm": {
+    "en": "Recent form",
+    "fr": "Forme récente"
+  },
+  "dashboardWidgetNextMatch": {
+    "en": "Next match & club",
+    "fr": "Prochain match & club"
+  },
+  "dashboardWidgetUpcoming": {
+    "en": "Upcoming fixtures",
+    "fr": "Matchs à venir"
+  },
+  "dashboardWidgetActivity": {
+    "en": "Activity & objectives",
+    "fr": "Activité & objectifs"
+  },
+  "dashboardWidgetCompetitions": {
+    "en": "Tournaments & league",
+    "fr": "Tournois & ligue"
+  },
+  "dashboardWidgetFutEafc": {
+    "en": "FUT chart & EA club",
+    "fr": "Graph FUT & club EA"
+  },
+  "dashboardWidgetFutLog": {
+    "en": "FUT match log",
+    "fr": "Journal FUT"
+  }
+}

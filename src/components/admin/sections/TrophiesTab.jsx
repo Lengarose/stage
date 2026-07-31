@@ -1,5 +1,5 @@
 import { useTranslation } from "@/hooks/useTranslation";
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trophy, Upload, X, Trash2, Pencil, Check, Link2, Unlink } from "lucide-react";
@@ -98,6 +98,7 @@ export default function TrophiesTab({
   const [savingEdit, setSavingEdit] = useState(false);
   const [previewTrophy, setPreviewTrophy] = useState(null);
   const replaceFileRef = useRef(null);
+  const trophyInputId = useId();
 
   function openEdit(trophy) {
     setEditingId(trophy.id);
@@ -158,15 +159,14 @@ export default function TrophiesTab({
               </button>
             </div>
           ) : (
-            <button type="button"
-              onClick={() => trophyFileRef.current?.click()}
-              className="w-full h-16 rounded border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors"
+            <label htmlFor={trophyInputId}
+              className="w-full h-16 rounded border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors cursor-pointer touch-manipulation"
             >
               <Upload className="w-4 h-4" />
               <span className="text-xs">Upload PNG trophy image</span>
-            </button>
+            </label>
           )}
-          <input ref={trophyFileRef} type="file" accept="image/png,image/*" className="hidden"
+          <input id={trophyInputId} ref={trophyFileRef} type="file" accept="image/png,image/*" className="sr-only"
             onChange={e => e.target.files[0] && setNewTrophyFile(e.target.files[0])} />
         </div>
 
@@ -319,6 +319,7 @@ function TrophyCard({
   competitions, regionalLeagues,
 }) {
   const imagePreview = replaceFile ? URL.createObjectURL(replaceFile) : trophy.image_url;
+  const replaceInputId = useId();
 
   return (
     <div className={cn(
@@ -391,12 +392,12 @@ function TrophyCard({
                 <button type="button" onClick={() => setReplaceFile(null)}><X className="w-3 h-3 text-muted-foreground" /></button>
               </div>
             ) : (
-              <button type="button" onClick={() => replaceFileRef.current?.click()}
-                className="w-full h-8 rounded border border-dashed border-warning/30 hover:border-warning/50 flex items-center justify-center gap-1 text-warning/60 hover:text-warning text-[10px] transition-colors">
+              <label htmlFor={replaceInputId}
+                className="w-full h-8 rounded border border-dashed border-warning/30 hover:border-warning/50 flex items-center justify-center gap-1 text-warning/60 hover:text-warning text-[10px] transition-colors cursor-pointer touch-manipulation">
                 <Upload className="w-3 h-3" /> Upload new PNG
-              </button>
+              </label>
             )}
-            <input ref={replaceFileRef} type="file" accept="image/png,image/*" className="hidden"
+            <input id={replaceInputId} ref={replaceFileRef} type="file" accept="image/png,image/*" className="sr-only"
               onChange={e => e.target.files[0] && setReplaceFile(e.target.files[0])} />
           </div>
           <div>

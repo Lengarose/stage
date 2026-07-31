@@ -10,6 +10,7 @@ import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
 import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, peekOAuthEntranceMode, userNeedsOnboarding } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
+import { getOwnedClubId } from '@/lib/userIdentityFields';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import TournamentEntranceRouteGuard from '@/components/TournamentEntranceRouteGuard';
@@ -215,7 +216,7 @@ const AuthenticatedApp = () => {
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     if (localStorage.getItem(userScopedKey) === '1') return true;
     if (user.player_id) return true;
-    if (user.owner_id && !user.player_id) return true;
+    if (getOwnedClubId(user) && !user.player_id) return true;
     return false;
   }, [user]);
 

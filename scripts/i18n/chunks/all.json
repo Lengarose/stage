@@ -1,0 +1,18 @@
+{
+  "all": {
+    "en": "All",
+    "fr": "Tout"
+  },
+  "allPositions": {
+    "en": "All positions",
+    "fr": "Tous les postes"
+  },
+  "allPlatforms": {
+    "en": "All platforms",
+    "fr": "Toutes les plateformes"
+  },
+  "allRegions": {
+    "en": "All regions",
+    "fr": "Toutes les régions"
+  }
+}

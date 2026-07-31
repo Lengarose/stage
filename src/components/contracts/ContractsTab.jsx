@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { notify, postContractNews } from "@/lib/notify";
 import { swalConfirm } from "@/lib/swal";
 
@@ -35,7 +36,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     for (const p of players) pMap[p.id] = p;
 
     // Fetch any referenced players not in current squad (e.g. terminated contracts)
-    const uniqueIds = [...new Set(all.map(c => c.user_id).filter(Boolean))];
+    const uniqueIds = [...new Set(all.map(getContractTargetPlayerId).filter(Boolean))];
     const missing = uniqueIds.filter(uid => !pMap[uid]);
     if (missing.length > 0) {
       const extras = await Promise.all(
@@ -100,7 +101,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       status: "negotiating",
       negotiation_round: (contract.negotiation_round || 0) + 1,
     };
-    const recipient = playerMap[contract.user_id];
+    const recipient = playerMap[getContractTargetPlayerId(contract)];
     const recipientEmail = recipient?.email || null;
     if (recipientEmail) {
       notify(recipientEmail, "contract_offer",
@@ -109,7 +110,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         "/inbox"
       );
     }
-    const nplayer = playerMap[contract.user_id];
+    const nplayer = playerMap[getContractTargetPlayerId(contract)];
     postContractNews({
       title: `🔄 ${club.name} sent a counter-offer to ${nplayer?.gamertag || "a player"}`,
       body: `${club.name} is negotiating a contract — Round ${(contract.negotiation_round || 0) + 1}.`,
@@ -125,7 +126,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   }
 
   async function acceptContract(contract) {
-    const player = playerMap[contract.user_id];
+    const player = playerMap[getContractTargetPlayerId(contract)];
     const result = await stageClient.functions.invoke("contractManagement", {
       action: "accept",
       contract_id: contract.id,
@@ -154,7 +155,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       contract_id: contract.id,
     });
     const updatedContract = result?.data?.contract || { ...contract, status: "rejected" };
-    const player = playerMap[contract.user_id];
+    const player = playerMap[getContractTargetPlayerId(contract)];
     notify(club.owner_email, "contract_rejected",
       `❌ Contract Rejected`,
       `${player?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
@@ -178,7 +179,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         contract_id: contract.id,
       });
       const updated = result?.data?.contract;
-      const player = playerMap[contract.user_id];
+      const player = playerMap[getContractTargetPlayerId(contract)];
       postContractNews({
         title: `↩ ${club.name} cancelled a contract offer`,
         body: `${club.name} cancelled the ${contract.contract_type} contract offer to ${player?.gamertag || "a player"}.`,
@@ -195,7 +196,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   async function terminateContract(contract) {
     if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
-    const player = playerMap[contract.user_id];
+    const player = playerMap[getContractTargetPlayerId(contract)];
     notify(player?.email, "contract_terminated",
       `🚫 Contract Terminated`,
       `Your ${contract.contract_type} contract with ${club.name} has been terminated.`,
@@ -213,7 +214,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   async function renewContract({ contract_type, offer_note }) {
     const contract = renewDialog;
-    const player   = playerMap[contract.user_id];
+    const player   = playerMap[getContractTargetPlayerId(contract)];
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
     const result = await stageClient.functions.invoke("contractManagement", {
       action: "renewal_offer",
@@ -252,7 +253,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   // A player is eligible for an offer if they're missing at least one contract group.
   const LIVE = ["active", "pending", "pending_window", "negotiating"];
   const eligiblePlayers = players.filter(p => {
-    const live = contracts.filter(c => c.user_id === p.id && LIVE.includes(c.status));
+    const live = contracts.filter(c => getContractTargetPlayerId(c) === p.id && LIVE.includes(c.status));
     const hasOwnership = live.some(c => c.contract_type === "ownership");
     const hasPlayer    = live.some(c => c.contract_type !== "ownership");
     return !hasOwnership || !hasPlayer; // eligible if at least one slot is open
@@ -260,7 +261,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
 
   // Pending contracts for the current player (to accept/reject/negotiate)
   const myPendingContracts = contracts.filter(c =>
-    c.user_id === myPlayer?.id && (c.status === "pending" || c.status === "negotiating")
+    getContractTargetPlayerId(c) === myPlayer?.id && (c.status === "pending" || c.status === "negotiating")
   );
 
   if (loading) {
@@ -311,7 +312,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
             <ContractCard
               key={c.id}
               contract={c}
-              player={playerMap[c.user_id]}
+              player={playerMap[getContractTargetPlayerId(c)]}
               canManage={false}
               isMyContract={true}
               onAccept={acceptContract}
@@ -356,12 +357,12 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
             const dualPlayerIds = new Set(
               byStatus.active
                 .filter(c => c.contract_type === "ownership")
-                .map(c => c.user_id)
-                .filter(uid => byStatus.active.some(c => c.user_id === uid && c.contract_type !== "ownership"))
+                .map(getContractTargetPlayerId)
+                .filter(uid => byStatus.active.some(c => getContractTargetPlayerId(c) === uid && c.contract_type !== "ownership"))
             );
             // Group: dual-contract players first with a banner, then the rest
-            const dualContracts   = byStatus.active.filter(c => dualPlayerIds.has(c.user_id));
-            const singleContracts = byStatus.active.filter(c => !dualPlayerIds.has(c.user_id));
+            const dualContracts   = byStatus.active.filter(c => dualPlayerIds.has(getContractTargetPlayerId(c)));
+            const singleContracts = byStatus.active.filter(c => !dualPlayerIds.has(getContractTargetPlayerId(c)));
             return (
               <>
                 {dualContracts.length > 0 && (
@@ -373,9 +374,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                       <ContractCard
                         key={c.id}
                         contract={c}
-                        player={playerMap[c.user_id]}
+                        player={playerMap[getContractTargetPlayerId(c)]}
                         canManage={canManage}
-                        isMyContract={c.user_id === myPlayer?.id}
+                        isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
                         onAccept={acceptContract}
                         onReject={rejectContract}
                         onTerminate={terminateContract}
@@ -390,9 +391,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                   <ContractCard
                     key={c.id}
                     contract={c}
-                    player={playerMap[c.user_id]}
+                    player={playerMap[getContractTargetPlayerId(c)]}
                     canManage={canManage}
-                    isMyContract={c.user_id === myPlayer?.id}
+                    isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
                     onAccept={acceptContract}
                     onReject={rejectContract}
                     onTerminate={terminateContract}
@@ -413,9 +414,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
               <ContractCard
                 key={c.id}
                 contract={c}
-                player={playerMap[c.user_id]}
+                player={playerMap[getContractTargetPlayerId(c)]}
                 canManage={canManage}
-                isMyContract={c.user_id === myPlayer?.id}
+                isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
                 onAccept={acceptContract}
                 onReject={rejectContract}
                 onTerminate={terminateContract}
@@ -434,7 +435,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
               <ContractCard
                 key={c.id}
                 contract={c}
-                player={playerMap[c.user_id]}
+                player={playerMap[getContractTargetPlayerId(c)]}
                 canManage={canManage}
                 isMyContract={false}
                 onAccept={() => {}}
@@ -475,7 +476,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         open={!!offerDialog}
         onClose={() => setOfferDialog(null)}
         player={offerDialog}
-        playerContracts={offerDialog ? contracts.filter(c => c.user_id === offerDialog.id && LIVE.includes(c.status)) : []}
+        playerContracts={offerDialog ? contracts.filter(c => getContractTargetPlayerId(c) === offerDialog.id && LIVE.includes(c.status)) : []}
         existingActiveContract={null}
         onOffer={offerContract}
         windowOpen={null}
@@ -485,7 +486,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       <OfferContractDialog
         open={!!negotiateDialog}
         onClose={() => setNegotiateDialog(null)}
-        player={negotiateDialog ? playerMap[negotiateDialog.user_id] : null}
+        player={negotiateDialog ? playerMap[getContractTargetPlayerId(negotiateDialog)] : null}
         existingActiveContract={null}
         existingContract={negotiateDialog}
         isNegotiation={true}
@@ -498,7 +499,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         open={!!renewDialog}
         onClose={() => setRenewDialog(null)}
         contract={renewDialog}
-        player={renewDialog ? playerMap[renewDialog.user_id] : null}
+        player={renewDialog ? playerMap[getContractTargetPlayerId(renewDialog)] : null}
         onRenew={renewContract}
       />
     </div>

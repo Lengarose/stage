@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera } from "lucide-react";
@@ -7,6 +7,7 @@ import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI
 import { COUNTRIES } from "@/lib/countries";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
+import { cn } from "@/lib/utils";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 
@@ -27,6 +28,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const avatarInputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
+  const avatarInputId = useId();
 
   async function uploadAvatar(e) {
     const file = e.target.files[0];
@@ -145,14 +147,33 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
             imageUrl={avatarUrl}
             imagePosition={avatarPosition}
             imageZoom={avatarZoom}
-            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(0,229,255,0.65)]"
+            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(0,229,255,0.65)] pointer-events-none"
           />
-          <div className={`absolute inset-0 rounded-xl bg-black/55 transition-opacity flex items-center justify-center ${avatarUrl ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
-            <button type="button" onClick={() => { if (avatarInputRef.current) avatarInputRef.current.click(); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25 transition-colors" title="Upload">
-              {uploading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-            </button>
-          </div>
-          <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+          {/* Label (not programmatic input.click) so iOS/Android file pickers open reliably. */}
+          <label
+            htmlFor={avatarInputId}
+            className={cn(
+              "absolute inset-0 z-10 rounded-xl bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
+              uploading && "pointer-events-none opacity-60",
+              avatarUrl
+                ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                : "opacity-100"
+            )}
+            title={t("commonPages.profUploadPhoto")}
+          >
+            <span className="p-2.5 rounded-lg bg-white/15 active:bg-white/25 transition-colors">
+              {uploading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
+            </span>
+          </label>
+          <input
+            id={avatarInputId}
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={uploading}
+            onChange={uploadAvatar}
+          />
         </div>
 
         <div className="flex-1 space-y-3 pt-0.5 min-w-0">

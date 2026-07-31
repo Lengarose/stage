@@ -1,0 +1,14 @@
+{
+  "newsTitle": {
+    "en": "News",
+    "fr": "News"
+  },
+  "newsSubtitle": {
+    "en": "Transfers · Contracts · Club & Player news · Press Room",
+    "fr": "Transferts · Contrats · News club & joueur · Press Room"
+  },
+  "newsEmptyDesc": {
+    "en": "News will appear as transfers, contracts, matches and tournaments happen.",
+    "fr": "Les news apparaîtront avec les transferts, contrats, matchs et tournois."
+  }
+}

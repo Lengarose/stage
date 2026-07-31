@@ -1,0 +1,66 @@
+{
+  "twprChampionConference": {
+    "en": "Champion's Press Conference",
+    "fr": "Conférence de presse du champion"
+  },
+  "twprChampion": {
+    "en": "Champion",
+    "fr": "Champion"
+  },
+  "twprAnswered": {
+    "en": "{count}/{max} answered",
+    "fr": "{count}/{max} répondu"
+  },
+  "twprPublish": {
+    "en": "Publish →",
+    "fr": "Publier →"
+  },
+  "twprAnswerFirst": {
+    "en": "Answer first",
+    "fr": "Réponds d'abord"
+  },
+  "twprChampionPhoto": {
+    "en": "Champion's Photo",
+    "fr": "Photo du champion"
+  },
+  "twprUploadHint": {
+    "en": "Upload a celebration photo, then drag to position it.",
+    "fr": "Importe une photo de célébration, puis fais-la glisser pour la positionner."
+  },
+  "twprPhotoPlaceholder": {
+    "en": "Photo will appear here",
+    "fr": "La photo apparaîtra ici"
+  },
+  "twprDragHint": {
+    "en": "Drag to reposition",
+    "fr": "Glisse pour repositionner"
+  },
+  "twprZoom": {
+    "en": "Zoom — {zoom}%",
+    "fr": "Zoom — {zoom}%"
+  },
+  "twprUploadCelebration": {
+    "en": "Upload Celebration Photo",
+    "fr": "Importer une photo de célébration"
+  },
+  "twprSkipPhoto": {
+    "en": "Skip Photo",
+    "fr": "Passer la photo"
+  },
+  "twprPublishArticle": {
+    "en": "🏆 Publish Article",
+    "fr": "🏆 Publier l'article"
+  },
+  "twprPublished": {
+    "en": "Article Published! 🏆",
+    "fr": "Article publié ! 🏆"
+  },
+  "twprPublishedHint": {
+    "en": "The champion's article is live in the News section and your club's Feed.",
+    "fr": "L'article du champion est en ligne dans News et le Feed de ton club."
+  },
+  "twprVisibleHint": {
+    "en": "Visible to all tournament participants and club followers.",
+    "fr": "Visible par tous les participants du tournoi et les abonnés du club."
+  }
+}

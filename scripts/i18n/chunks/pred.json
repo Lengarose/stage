@@ -1,0 +1,34 @@
+{
+  "predTitle": {
+    "en": "Prediction Leaderboard",
+    "fr": "Classement des pronostics"
+  },
+  "predSubtitle": {
+    "en": "Top score predictors — Compete for points",
+    "fr": "Meilleurs pronostiqueurs de scores — Gagne des points"
+  },
+  "predCorrectScore": {
+    "en": "Correct Score = 10 Points",
+    "fr": "Score exact = 10 points"
+  },
+  "predEmpty": {
+    "en": "No predictions yet. Start predicting match scores!",
+    "fr": "Aucun pronostic pour le moment. Commence à prédire les scores !"
+  },
+  "predCount": {
+    "en": "{count} predictions",
+    "fr": "{count} pronostics"
+  },
+  "predTotalPoints": {
+    "en": "total points",
+    "fr": "points totaux"
+  },
+  "predCorrect": {
+    "en": "{correct}/{total} correct",
+    "fr": "{correct}/{total} exacts"
+  },
+  "predAvg": {
+    "en": "Avg: {avg} pts",
+    "fr": "Moy. : {avg} pts"
+  }
+}

@@ -1,0 +1,230 @@
+{
+  "coopTabOverview": {
+    "en": "Overview",
+    "fr": "Vue d'ensemble"
+  },
+  "coopTabApplicants": {
+    "en": "Applicants",
+    "fr": "Candidats"
+  },
+  "coopTabStaff": {
+    "en": "Staff",
+    "fr": "Staff"
+  },
+  "coopTabAvailability": {
+    "en": "Availability",
+    "fr": "Disponibilités"
+  },
+  "coopTabLineup": {
+    "en": "Lineup",
+    "fr": "Composition"
+  },
+  "coopTabAudit": {
+    "en": "Audit",
+    "fr": "Historique"
+  },
+  "coopDismiss": {
+    "en": "Dismiss",
+    "fr": "Fermer"
+  },
+  "coopLoadFailed": {
+    "en": "Could not load club operations.",
+    "fr": "Impossible de charger les opérations du club."
+  },
+  "coopApplicantReviewed": {
+    "en": "Applicant marked as reviewed.",
+    "fr": "Candidat marqué comme examiné."
+  },
+  "coopApplicantDeclined": {
+    "en": "Applicant declined.",
+    "fr": "Candidat refusé."
+  },
+  "coopTrialOfferSent": {
+    "en": "Trial offer sent.",
+    "fr": "Offre d'essai envoyée."
+  },
+  "coopApplicantUpdated": {
+    "en": "Applicant updated.",
+    "fr": "Candidat mis à jour."
+  },
+  "coopActionFailed": {
+    "en": "Could not {action}.",
+    "fr": "Impossible de {action}."
+  },
+  "coopStaffAssigned": {
+    "en": "Staff role assigned.",
+    "fr": "Rôle staff attribué."
+  },
+  "coopStaffAssignFailed": {
+    "en": "Could not assign staff role.",
+    "fr": "Impossible d'attribuer le rôle staff."
+  },
+  "coopStaffPermissionsUpdated": {
+    "en": "Staff permissions updated.",
+    "fr": "Permissions staff mises à jour."
+  },
+  "coopStaffPermissionsFailed": {
+    "en": "Could not update staff permissions.",
+    "fr": "Impossible de mettre à jour les permissions staff."
+  },
+  "coopStaffRemoved": {
+    "en": "Staff role removed.",
+    "fr": "Rôle staff retiré."
+  },
+  "coopStaffRemoveFailed": {
+    "en": "Could not remove staff role.",
+    "fr": "Impossible de retirer le rôle staff."
+  },
+  "coopAvailabilitySet": {
+    "en": "Availability set to {status}.",
+    "fr": "Disponibilité définie sur {status}."
+  },
+  "coopAvailabilityFailed": {
+    "en": "Could not update availability.",
+    "fr": "Impossible de mettre à jour la disponibilité."
+  },
+  "coopLineupPublished": {
+    "en": "Lineup published.",
+    "fr": "Composition publiée."
+  },
+  "coopLineupDraftSaved": {
+    "en": "Lineup draft saved.",
+    "fr": "Brouillon de composition enregistré."
+  },
+  "coopLineupSaveFailed": {
+    "en": "Could not save lineup.",
+    "fr": "Impossible d'enregistrer la composition."
+  },
+  "coopStatPendingApplicants": {
+    "en": "Pending applicants",
+    "fr": "Candidats en attente"
+  },
+  "coopStatOpenRecruitment": {
+    "en": "Open recruitment posts",
+    "fr": "Posts de recrutement ouverts"
+  },
+  "coopStatUpcomingFixtures": {
+    "en": "Upcoming fixtures",
+    "fr": "Matchs à venir"
+  },
+  "coopStatExpiringContracts": {
+    "en": "Expiring contracts",
+    "fr": "Contrats expirants"
+  },
+  "coopStatPendingContracts": {
+    "en": "Pending contract offers",
+    "fr": "Offres de contrat en attente"
+  },
+  "coopStatStaffRoles": {
+    "en": "Staff roles",
+    "fr": "Rôles staff"
+  },
+  "coopReviewApplicants": {
+    "en": "Review Applicants",
+    "fr": "Examiner les candidats"
+  },
+  "coopEditLineup": {
+    "en": "Edit Lineup",
+    "fr": "Modifier la composition"
+  },
+  "coopManageStaff": {
+    "en": "Manage Staff",
+    "fr": "Gérer le staff"
+  },
+  "coopUnknownPlayer": {
+    "en": "Unknown player",
+    "fr": "Joueur inconnu"
+  },
+  "coopAny": {
+    "en": "Any",
+    "fr": "Tout"
+  },
+  "coopMarkReviewed": {
+    "en": "Mark Reviewed",
+    "fr": "Marquer examiné"
+  },
+  "coopOfferTrial": {
+    "en": "Offer Trial",
+    "fr": "Proposer un essai"
+  },
+  "coopNoApplicants": {
+    "en": "No applicants yet.",
+    "fr": "Aucun candidat pour le moment."
+  },
+  "coopSelectClubMember": {
+    "en": "Select club member",
+    "fr": "Sélectionner un membre"
+  },
+  "coopAssign": {
+    "en": "Assign",
+    "fr": "Attribuer"
+  },
+  "coopRemove": {
+    "en": "Remove",
+    "fr": "Retirer"
+  },
+  "coopNoUpcomingFixtures": {
+    "en": "No upcoming fixtures.",
+    "fr": "Aucun match à venir."
+  },
+  "coopAvailabilityCounts": {
+    "en": "{available} available · {maybe} maybe · {unavailable} out",
+    "fr": "{available} dispo · {maybe} peut-être · {unavailable} absent"
+  },
+  "coopStatusAvailable": {
+    "en": "available",
+    "fr": "disponible"
+  },
+  "coopStatusMaybe": {
+    "en": "maybe",
+    "fr": "peut-être"
+  },
+  "coopStatusUnavailable": {
+    "en": "unavailable",
+    "fr": "indisponible"
+  },
+  "coopNoLineupFixtures": {
+    "en": "No upcoming fixtures to plan a lineup for.",
+    "fr": "Aucun match à venir pour planifier une composition."
+  },
+  "coopStartingXi": {
+    "en": "Starting XI",
+    "fr": "Titulaires"
+  },
+  "coopBench": {
+    "en": "Bench",
+    "fr": "Banc"
+  },
+  "coopSelectCaptain": {
+    "en": "Select match captain",
+    "fr": "Choisir le capitaine"
+  },
+  "coopLineupNotesPlaceholder": {
+    "en": "Lineup notes...",
+    "fr": "Notes de composition..."
+  },
+  "coopSaveDraft": {
+    "en": "Save Draft",
+    "fr": "Enregistrer le brouillon"
+  },
+  "coopPublish": {
+    "en": "Publish",
+    "fr": "Publier"
+  },
+  "coopRefreshAudit": {
+    "en": "Refresh Audit",
+    "fr": "Actualiser l'historique"
+  },
+  "coopNoAuditHistory": {
+    "en": "No operations history yet.",
+    "fr": "Aucun historique d'opérations."
+  },
+  "coopSystem": {
+    "en": "System",
+    "fr": "Système"
+  },
+  "coopMemberTip": {
+    "en": "Mark yourself available here before match day. Only available players can take a Game Day dressing-room seat.",
+    "fr": "Indique ta disponibilité ici avant le match. Seuls les joueurs disponibles peuvent prendre place au vestiaire le Match Day."
+  }
+}

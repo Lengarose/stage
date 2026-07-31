@@ -1,0 +1,18 @@
+{
+  "view": {
+    "en": "View",
+    "fr": "Voir"
+  },
+  "viewFullProfile": {
+    "en": "View Full Profile",
+    "fr": "Voir le profil complet"
+  },
+  "viewClub": {
+    "en": "View Club",
+    "fr": "Voir club"
+  },
+  "viewProfile": {
+    "en": "View Profile",
+    "fr": "Voir profil"
+  }
+}

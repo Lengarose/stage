@@ -1,0 +1,162 @@
+{
+  "walStcBalance": {
+    "en": "STC Balance",
+    "fr": "Solde STC"
+  },
+  "walStageCoin": {
+    "en": "Stage Coin",
+    "fr": "Stage Coin"
+  },
+  "wal30dIncome": {
+    "en": "30d Income",
+    "fr": "Revenus 30j"
+  },
+  "wal30dSpent": {
+    "en": "30d Spent",
+    "fr": "Dépenses 30j"
+  },
+  "walIncomeSources": {
+    "en": "Income Sources",
+    "fr": "Sources de revenus"
+  },
+  "walFromClubContract": {
+    "en": "From club contract",
+    "fr": "Contrat club"
+  },
+  "walNoClub": {
+    "en": "No club",
+    "fr": "Aucun club"
+  },
+  "walSalaryDueNow": {
+    "en": "Due now",
+    "fr": "Dû maintenant"
+  },
+  "walSalaryDueInDay": {
+    "en": "In 1 day",
+    "fr": "Dans 1 jour"
+  },
+  "walSalaryDueInDays": {
+    "en": "In {days} days",
+    "fr": "Dans {days} jours"
+  },
+  "walInvestmentReturns": {
+    "en": "Investment Returns",
+    "fr": "Rendements d'investissement"
+  },
+  "walPassiveIncomeDesc": {
+    "en": "Passive income from lifestyle assets",
+    "fr": "Revenus passifs des actifs lifestyle"
+  },
+  "walCollect": {
+    "en": "Collect",
+    "fr": "Collecter"
+  },
+  "walTransactionHistory": {
+    "en": "Transaction History",
+    "fr": "Historique des transactions"
+  },
+  "walTotalCount": {
+    "en": "{count} total",
+    "fr": "{count} au total"
+  },
+  "walIncome": {
+    "en": "Income",
+    "fr": "Revenus"
+  },
+  "walExpenses": {
+    "en": "Expenses",
+    "fr": "Dépenses"
+  },
+  "walNoTransactions": {
+    "en": "No transactions yet",
+    "fr": "Aucune transaction pour le moment"
+  },
+  "walHowToEarn": {
+    "en": "How to earn STC",
+    "fr": "Comment gagner des STC"
+  },
+  "walEarnPerContract": {
+    "en": "Per contract",
+    "fr": "Par contrat"
+  },
+  "walEarnSalaryDesc": {
+    "en": "Collect from your active contract",
+    "fr": "Collecte depuis ton contrat actif"
+  },
+  "walEarnWagerWinVal": {
+    "en": "Wager × 2",
+    "fr": "Mise × 2"
+  },
+  "walEarnWagerWinDesc": {
+    "en": "Win a wagered PvP match",
+    "fr": "Gagne un match PvP avec mise"
+  },
+  "walEarnInvestmentIncome": {
+    "en": "Investment Income",
+    "fr": "Revenus d'investissement"
+  },
+  "walEarnPassiveDaily": {
+    "en": "Passive daily",
+    "fr": "Passif quotidien"
+  },
+  "walEarnInvestmentDesc": {
+    "en": "From lifestyle assets you own",
+    "fr": "Depuis tes actifs lifestyle"
+  },
+  "walEarnPrizePool": {
+    "en": "Prize pool share",
+    "fr": "Part du prize pool"
+  },
+  "walEarnCompetitionDesc": {
+    "en": "Tournament top placements",
+    "fr": "Top classements en tournoi"
+  },
+  "walCatWelcomeBonus": {
+    "en": "Welcome Bonus",
+    "fr": "Bonus de bienvenue"
+  },
+  "walCatLifestylePurchase": {
+    "en": "Lifestyle Purchase",
+    "fr": "Achat lifestyle"
+  },
+  "walCatLifestyleRental": {
+    "en": "Lifestyle Rental",
+    "fr": "Location lifestyle"
+  },
+  "walCatInvestmentReturn": {
+    "en": "Investment Return",
+    "fr": "Rendement d'investissement"
+  },
+  "walCatWagerStake": {
+    "en": "Wager Stake",
+    "fr": "Mise de pari"
+  },
+  "walCatWagerWon": {
+    "en": "Wager Won",
+    "fr": "Pari gagné"
+  },
+  "walCatWagerLost": {
+    "en": "Wager Lost",
+    "fr": "Pari perdu"
+  },
+  "walCatWagerRefunded": {
+    "en": "Wager Refunded",
+    "fr": "Pari remboursé"
+  },
+  "walCatCompetitionReward": {
+    "en": "Competition Reward",
+    "fr": "Récompense de compétition"
+  },
+  "walCatAdminCredit": {
+    "en": "Admin Credit",
+    "fr": "Crédit admin"
+  },
+  "walCatAdminDebit": {
+    "en": "Admin Debit",
+    "fr": "Débit admin"
+  },
+  "walCatTransaction": {
+    "en": "Transaction",
+    "fr": "Transaction"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "agdTitle": {
+    "en": "Arrange Game",
+    "fr": "Organiser un match"
+  },
+  "agdPlayerMatch": {
+    "en": "Player Match",
+    "fr": "Match joueur"
+  },
+  "agdClubMatch": {
+    "en": "Club Match",
+    "fr": "Match de club"
+  },
+  "agdPlayerMatchHint": {
+    "en": "you play as {gamertag}. The invite goes to the opponent player's personal inbox.",
+    "fr": "tu joues en tant que {gamertag}. L'invitation va dans la boîte personnelle du joueur adverse."
+  },
+  "agdClubMatchHint": {
+    "en": "{clubName} challenges another club. The invite goes to the opponent club's owner inbox.",
+    "fr": "{clubName} défie un autre club. L'invitation va dans la boîte du propriétaire du club adverse."
+  },
+  "agdSearchClubs": {
+    "en": "Search clubs...",
+    "fr": "Rechercher des clubs..."
+  },
+  "agdSearchPlayers": {
+    "en": "Search players...",
+    "fr": "Rechercher des joueurs..."
+  },
+  "agdBack": {
+    "en": "Back",
+    "fr": "Retour"
+  },
+  "agdDate": {
+    "en": "Date",
+    "fr": "Date"
+  },
+  "agdTime": {
+    "en": "Time",
+    "fr": "Heure"
+  },
+  "agdStcWager": {
+    "en": "STC Wager",
+    "fr": "Mise STC"
+  },
+  "agdOptional": {
+    "en": "optional",
+    "fr": "optionnel"
+  },
+  "agdMinBet": {
+    "en": "Minimum bet is {amount} STC",
+    "fr": "Mise minimum : {amount} STC"
+  },
+  "agdMaxBet": {
+    "en": "Maximum bet is {amount} STC",
+    "fr": "Mise maximum : {amount} STC"
+  },
+  "agdInsufficientStc": {
+    "en": "You only have {amount} STC available",
+    "fr": "Tu n'as que {amount} STC disponibles"
+  },
+  "agdWagerPotHint": {
+    "en": "Pot: {pot} STC total. Your {stake} STC stake will lock on acceptance.",
+    "fr": "Cagnotte : {pot} STC au total. Ta mise de {stake} STC sera bloquée à l'acceptation."
+  },
+  "agdContinue": {
+    "en": "Continue",
+    "fr": "Continuer"
+  },
+  "agdMatchType": {
+    "en": "Match type",
+    "fr": "Type de match"
+  },
+  "agdOpponent": {
+    "en": "Opponent",
+    "fr": "Adversaire"
+  },
+  "agdWagerSummary": {
+    "en": "{stake} STC each · Pot: {pot} STC",
+    "fr": "{stake} STC chacun · Cagnotte : {pot} STC"
+  },
+  "agdPlayerInviteNote": {
+    "en": "A player match invitation will be sent to {gamertag}'s personal inbox.",
+    "fr": "Une invitation de match joueur sera envoyée dans la boîte personnelle de {gamertag}."
+  },
+  "agdClubInviteNote": {
+    "en": "A club match invitation will be sent to the owner of {clubName}'s inbox.",
+    "fr": "Une invitation de match club sera envoyée au propriétaire de {clubName}."
+  },
+  "agdCanRespondNote": {
+    "en": "They can accept, decline, or request a different date.",
+    "fr": "Il peut accepter, refuser ou demander une autre date."
+  },
+  "agdWagerLockNote": {
+    "en": "The wager stake will appear in finances as locked STC when accepted.",
+    "fr": "La mise apparaîtra dans les finances comme STC bloqués une fois acceptée."
+  },
+  "agdSendInvitation": {
+    "en": "Send Invitation",
+    "fr": "Envoyer l'invitation"
+  },
+  "agdInvitationSent": {
+    "en": "Invitation Sent!",
+    "fr": "Invitation envoyée !"
+  },
+  "agdWaitingResponse": {
+    "en": "Waiting for the opponent to respond.",
+    "fr": "En attente de la réponse de l'adversaire."
+  },
+  "agdChooseOpponent": {
+    "en": "Please choose an opponent again.",
+    "fr": "Veuillez choisir à nouveau un adversaire."
+  },
+  "agdCannotReachClub": {
+    "en": "Could not reach this club's owner. They may not have a login email yet.",
+    "fr": "Impossible de joindre le propriétaire de ce club. Il n'a peut-être pas encore d'email de connexion."
+  },
+  "agdCannotReachPlayer": {
+    "en": "Could not reach this player. They may not have an account yet.",
+    "fr": "Impossible de joindre ce joueur. Il n'a peut-être pas encore de compte."
+  },
+  "agdSendFailed": {
+    "en": "Failed to send invitation. Please try again.",
+    "fr": "Échec de l'envoi de l'invitation. Réessaie."
+  }
+}

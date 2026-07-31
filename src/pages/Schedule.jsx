@@ -8,6 +8,7 @@ import { CalendarDays, Plus, X, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
@@ -173,7 +174,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     const contractEvents = [];
     const today = new Date();
     const myContracts = contracts.filter(c =>
-      (c.user_id === player?.id || c.team_id === club?.id) && c.status === "active"
+      (getContractTargetPlayerId(c) === player?.id || c.team_id === club?.id) && c.status === "active"
     );
     myContracts.forEach(c => {
       const gamesLeft = c.max_games - (c.games_played || 0);

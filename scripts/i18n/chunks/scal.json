@@ -1,0 +1,106 @@
+{
+  "scalEventsCount": {
+    "en": "{count} events",
+    "fr": "{count} événements"
+  },
+  "scalMatch": {
+    "en": "Match",
+    "fr": "Match"
+  },
+  "scalContractEnd": {
+    "en": "Contract End",
+    "fr": "Fin de contrat"
+  },
+  "scalTournament": {
+    "en": "Tournament",
+    "fr": "Tournoi"
+  },
+  "scalToday": {
+    "en": "Today",
+    "fr": "Aujourd'hui"
+  },
+  "scalClickDate": {
+    "en": "Click a date to see events",
+    "fr": "Clique sur une date pour voir les événements"
+  },
+  "scalNoEvents": {
+    "en": "No events on this day",
+    "fr": "Aucun événement ce jour"
+  },
+  "scalBackTo": {
+    "en": "Back to {date}",
+    "fr": "Retour au {date}"
+  },
+  "scalBack": {
+    "en": "Back",
+    "fr": "Retour"
+  },
+  "scalMore": {
+    "en": "+{count} more",
+    "fr": "+{count} autres"
+  },
+  "scalStarts": {
+    "en": "Starts",
+    "fr": "Commence"
+  },
+  "scalPlayerContractEnds": {
+    "en": "{name} contract ends",
+    "fr": "Fin du contrat de {name}"
+  },
+  "scalGames": {
+    "en": "games",
+    "fr": "matchs"
+  },
+  "scalEnd": {
+    "en": "End",
+    "fr": "Fin"
+  },
+  "scalTournamentStart": {
+    "en": "Tournament Start",
+    "fr": "Début du tournoi"
+  },
+  "scalInDays": {
+    "en": "In {days} day(s)",
+    "fr": "Dans {days} jour(s)"
+  },
+  "scalTodayExcl": {
+    "en": "Today!",
+    "fr": "Aujourd'hui !"
+  },
+  "scalTBD": {
+    "en": "TBD",
+    "fr": "À définir"
+  },
+  "scalHome": {
+    "en": "Home",
+    "fr": "Domicile"
+  },
+  "scalAway": {
+    "en": "Away",
+    "fr": "Extérieur"
+  },
+  "scalScheduled": {
+    "en": "Scheduled",
+    "fr": "Planifié"
+  },
+  "scalPending": {
+    "en": "Pending",
+    "fr": "En attente"
+  },
+  "scalFT": {
+    "en": "FT",
+    "fr": "Terminé"
+  },
+  "scalForfeit": {
+    "en": "Forfeit",
+    "fr": "Forfait"
+  },
+  "scalLive": {
+    "en": "Live",
+    "fr": "Live"
+  },
+  "scalDisputed": {
+    "en": "Disputed",
+    "fr": "Contesté"
+  }
+}

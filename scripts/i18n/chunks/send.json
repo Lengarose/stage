@@ -1,0 +1,10 @@
+{
+  "sendContractOffer": {
+    "en": "Send Contract Offer",
+    "fr": "Envoyer une offre de contrat"
+  },
+  "sendInterest": {
+    "en": "Send Interest",
+    "fr": "Envoyer l'intérêt"
+  }
+}

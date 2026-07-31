@@ -1,0 +1,70 @@
+{
+  "acardDefaulted": {
+    "en": "Asset Defaulted — Missed Maintenance",
+    "fr": "Actif en défaut — Entretien manqué"
+  },
+  "acardDefaultedHint": {
+    "en": "Upgrades are blocked. Top up STC — next cycle will restore this asset.",
+    "fr": "Améliorations bloquées. Recharge tes STC — le prochain cycle restaurera cet actif."
+  },
+  "acardValue": {
+    "en": "Value",
+    "fr": "Valeur"
+  },
+  "acardLevel": {
+    "en": "Level {current}/{max}",
+    "fr": "Niveau {current}/{max}"
+  },
+  "acardRental": {
+    "en": "Rental",
+    "fr": "Location"
+  },
+  "acardDaysLeft": {
+    "en": "{days}d left (expires {date})",
+    "fr": "{days}j restants (expire le {date})"
+  },
+  "acardCostBreakdown": {
+    "en": "Cost Breakdown",
+    "fr": "Détail des coûts"
+  },
+  "acardTotalWeekly": {
+    "en": "Total Weekly",
+    "fr": "Total hebdo"
+  },
+  "acardPerWk": {
+    "en": "/wk",
+    "fr": "/sem."
+  },
+  "acardFullyUpgraded": {
+    "en": "Fully Upgraded",
+    "fr": "Entièrement amélioré"
+  },
+  "acardUpgradesBlocked": {
+    "en": "Upgrades Blocked",
+    "fr": "Améliorations bloquées"
+  },
+  "acardUpgradeAsset": {
+    "en": "Upgrade Asset",
+    "fr": "Améliorer l'actif"
+  },
+  "acardRentalCancelled": {
+    "en": "Rental cancelled.",
+    "fr": "Location annulée."
+  },
+  "acardCancelFailed": {
+    "en": "Failed to cancel rental",
+    "fr": "Échec de l'annulation"
+  },
+  "acardDefaultedError": {
+    "en": "Asset is defaulted — pay overdue maintenance first",
+    "fr": "Actif en défaut — règle l'entretien en retard d'abord"
+  },
+  "acardUpgradeApplied": {
+    "en": "Upgrade applied — now Level {level}",
+    "fr": "Amélioration appliquée — Niveau {level}"
+  },
+  "acardUpgradeFailed": {
+    "en": "Upgrade failed",
+    "fr": "Échec de l'amélioration"
+  }
+}

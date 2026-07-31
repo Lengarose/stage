@@ -1,0 +1,110 @@
+{
+  "wagTitle": {
+    "en": "STC Wager",
+    "fr": "Pari STC"
+  },
+  "wagAwaiting": {
+    "en": "Awaiting Acceptance",
+    "fr": "En attente d'acceptation"
+  },
+  "wagLocked": {
+    "en": "Funds Locked 🔒",
+    "fr": "Fonds verrouillés 🔒"
+  },
+  "wagSettling": {
+    "en": "Settling…",
+    "fr": "Règlement…"
+  },
+  "wagSettled": {
+    "en": "Settled ✅",
+    "fr": "Réglé ✅"
+  },
+  "wagRefunded": {
+    "en": "Draw — Refunded",
+    "fr": "Nul — Remboursé"
+  },
+  "wagDeclined": {
+    "en": "Declined",
+    "fr": "Refusé"
+  },
+  "wagCancelled": {
+    "en": "Cancelled",
+    "fr": "Annulé"
+  },
+  "wagEachSide": {
+    "en": "Each Side",
+    "fr": "Chaque côté"
+  },
+  "wagTotalPot": {
+    "en": "Total Pot",
+    "fr": "Pot total"
+  },
+  "wagHomeLocked": {
+    "en": "Home locked",
+    "fr": "Domicile verrouillé"
+  },
+  "wagHomeNotLocked": {
+    "en": "Home not locked",
+    "fr": "Domicile non verrouillé"
+  },
+  "wagAwayLocked": {
+    "en": "Away locked",
+    "fr": "Extérieur verrouillé"
+  },
+  "wagAwayNotLocked": {
+    "en": "Away not locked",
+    "fr": "Extérieur non verrouillé"
+  },
+  "wagYouWon": {
+    "en": "You won! +{pot} STC added to your balance",
+    "fr": "Tu as gagné ! +{pot} STC ajoutés à ton solde"
+  },
+  "wagYouLost": {
+    "en": "You lost — {stake} STC forfeited",
+    "fr": "Tu as perdu — {stake} STC perdus"
+  },
+  "wagWinnerWon": {
+    "en": "{winner} won — {pot} STC pot",
+    "fr": "{winner} a gagné — {pot} STC de pot"
+  },
+  "wagDrawRefund": {
+    "en": "Draw — both sides refunded {stake} STC",
+    "fr": "Nul — les deux côtés remboursés de {stake} STC"
+  },
+  "wagCancelledHint": {
+    "en": "Wager cancelled — funds refunded",
+    "fr": "Pari annulé — fonds remboursés"
+  },
+  "wagDeclinedHint": {
+    "en": "Wager declined — no funds deducted",
+    "fr": "Pari refusé — aucun fonds déduit"
+  },
+  "wagAccept": {
+    "en": "Accept ({stake} STC)",
+    "fr": "Accepter ({stake} STC)"
+  },
+  "wagDecline": {
+    "en": "Decline",
+    "fr": "Refuser"
+  },
+  "wagCancelWager": {
+    "en": "Cancel wager (refund both sides)",
+    "fr": "Annuler le pari (rembourser les deux)"
+  },
+  "wagCancelling": {
+    "en": "Cancelling…",
+    "fr": "Annulation…"
+  },
+  "wagAccepted": {
+    "en": "Wager accepted — funds locked. 🔒",
+    "fr": "Pari accepté — fonds verrouillés. 🔒"
+  },
+  "wagDeclinedMsg": {
+    "en": "Wager declined. No funds deducted.",
+    "fr": "Pari refusé. Aucun fonds déduit."
+  },
+  "wagCancelledMsg": {
+    "en": "Wager cancelled. Funds refunded.",
+    "fr": "Pari annulé. Fonds remboursés."
+  }
+}

@@ -177,7 +177,7 @@ export default function LifestylesTab({
             <Input value={lifestyleForm.image_url || ''} onChange={e => setLifestyleForm(p => ({ ...p, image_url: e.target.value }))}
               className="bg-secondary border-border text-xs" placeholder="https://..." />
             <label className="shrink-0 cursor-pointer">
-              <input type="file" accept="image/*" className="hidden" onChange={e => {
+              <input type="file" accept="image/*" className="sr-only" onChange={e => {
                 const f = e.target.files[0]; if (!f) return;
                 setLifestyleImageFile(f);
                 setLifestyleForm(prev => ({ ...prev, _imgPreview: URL.createObjectURL(f) }));

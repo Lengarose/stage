@@ -1,0 +1,118 @@
+{
+  "trnTournamentFor": {
+    "en": "Tournament For",
+    "fr": "Tournoi pour"
+  },
+  "trnClubsCompete": {
+    "en": "Clubs register & compete",
+    "fr": "Les clubs s'inscrivent et jouent"
+  },
+  "trnPlayersRegister": {
+    "en": "Individual players register",
+    "fr": "Les joueurs s'inscrivent individuellement"
+  },
+  "trnNamePlaceholder": {
+    "en": "Tournament name",
+    "fr": "Nom du tournoi"
+  },
+  "trnDescription": {
+    "en": "Description",
+    "fr": "Description"
+  },
+  "trnOptional": {
+    "en": "optional",
+    "fr": "optionnel"
+  },
+  "trnDescPlaceholder": {
+    "en": "What makes this special...",
+    "fr": "Ce qui rend ce tournoi spécial..."
+  },
+  "trnFormat": {
+    "en": "Format",
+    "fr": "Format"
+  },
+  "trnSwissUcl": {
+    "en": "Swiss UCL",
+    "fr": "Suisse UCL"
+  },
+  "trnMaxTeams": {
+    "en": "Max Teams",
+    "fr": "Équipes max"
+  },
+  "trnNTeams": {
+    "en": "{count} teams",
+    "fr": "{count} équipes"
+  },
+  "trnCrossPlatform": {
+    "en": "Cross-Platform",
+    "fr": "Cross-plateforme"
+  },
+  "trnStartDate": {
+    "en": "Start Date",
+    "fr": "Date de début"
+  },
+  "trnEntryFee": {
+    "en": "Entry Fee",
+    "fr": "Frais d'inscription"
+  },
+  "trnStcPerEntry": {
+    "en": "STC per entry",
+    "fr": "STC par inscription"
+  },
+  "trnStcEntry": {
+    "en": "STC / entry",
+    "fr": "STC / inscription"
+  },
+  "trnCreateCost": {
+    "en": "Create cost",
+    "fr": "Coût de création"
+  },
+  "trnEntryCost": {
+    "en": "Entry cost",
+    "fr": "Coût d'inscription"
+  },
+  "trnWinner": {
+    "en": "Winner 70%",
+    "fr": "Vainqueur 70 %"
+  },
+  "trnRunnerUp": {
+    "en": "Runner-up 20%",
+    "fr": "Finaliste 20 %"
+  },
+  "trnThirdPlace": {
+    "en": "Third place 10%",
+    "fr": "3e place 10 %"
+  },
+  "trnPrizePool": {
+    "en": "Prize pool",
+    "fr": "Cagnotte"
+  },
+  "trnCustomRules": {
+    "en": "Custom Rules",
+    "fr": "Règles personnalisées"
+  },
+  "trnRulesPlaceholder": {
+    "en": "Specific rules for this tournament...",
+    "fr": "Règles spécifiques à ce tournoi..."
+  },
+  "trnRulesAttached": {
+    "en": "✓ Rules file attached",
+    "fr": "✓ Fichier de règles joint"
+  },
+  "trnTrophy": {
+    "en": "Trophy",
+    "fr": "Trophée"
+  },
+  "trnTrophyHint": {
+    "en": "optional — awarded to winner",
+    "fr": "optionnel — décerné au vainqueur"
+  },
+  "trnBanner": {
+    "en": "Banner",
+    "fr": "Bannière"
+  },
+  "trnDoubleElimination": {
+    "en": "Double Elimination",
+    "fr": "Double élimination"
+  }
+}

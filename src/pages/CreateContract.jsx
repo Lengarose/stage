@@ -11,11 +11,12 @@ import PlayerSelectList from "@/components/contracts/PlayerSelectList";
 import ContractTypeCards from "@/components/contracts/ContractTypeCards";
 import ContractSummary from "@/components/contracts/ContractSummary";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
-import { notify, postContractNews } from "@/lib/notify";
+import { postContractNews } from "@/lib/notify";
 import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
+import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function CreateContract() {
@@ -138,11 +139,6 @@ export default function CreateContract() {
         senderEmail: myPlayer?.email,
       }).catch((err) => console.warn("[CreateContract] inbox fallback failed:", err?.message || err));
 
-      notify(recipientEmail, "contract_offer",
-        `📋 Contract Offer from ${club.name}`,
-        `${club.name} has sent you a ${selectedType} contract offer. Open your inbox to review the terms.`,
-        "/inbox"
-      );
       postContractNews({
         title: `📄 ${club.name} offered a contract to ${selectedPlayer.gamertag}`,
         body: `${club.name} has sent a ${selectedType} contract offer to ${selectedPlayer.gamertag}.`,
@@ -163,7 +159,7 @@ export default function CreateContract() {
   const isOwnershipOffer = selectedType === "ownership";
   const conflictContract = selectedPlayer
     ? contracts.find(c =>
-        c.user_id === selectedPlayer.id &&
+        getContractTargetPlayerId(c) === selectedPlayer.id &&
         LIVE_STATUSES.includes(c.status) &&
         (isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership")
       )

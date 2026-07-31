@@ -1,8 +1,9 @@
 import { Gamepad2, Globe, Users } from "lucide-react";
 import { getBannerStyle } from "@/lib/storeItems";
 import { getCountryFlag } from "@/lib/allCountries";
-import GamerClubCard from "./GamerClubCard";
+import GamerClubCard, { GamerClubPhotoFrame } from "./GamerClubCard";
 import { GamerMetaPill, GamerRecordStrip } from "./GamerProfileUI";
+import { cn } from "@/lib/utils";
 
 export default function GamerClubProfileHero({
   club,
@@ -16,6 +17,8 @@ export default function GamerClubProfileHero({
   memberCount,
   onBannerClick,
   onLogoClick,
+  logoUploadHtmlFor,
+  logoUploading = false,
   children,
 }) {
   const bannerStyle = getBannerStyle(club?.banner_url, club?.banner_position);
@@ -37,7 +40,28 @@ export default function GamerClubProfileHero({
 
       <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
-          <GamerClubCard club={club} winRate={winRate} onLogoClick={onLogoClick} />
+          {logoUploadHtmlFor ? (
+            <label
+              htmlFor={logoUploading ? undefined : logoUploadHtmlFor}
+              className={cn(
+                "relative block cursor-pointer touch-manipulation shrink-0",
+                logoUploading && "pointer-events-none opacity-60"
+              )}
+            >
+              <GamerClubPhotoFrame
+                club={club}
+                winRate={winRate}
+                className="pointer-events-none"
+              />
+              <span className="absolute inset-0 z-10 rounded-2xl bg-black/45 flex items-center justify-center opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity">
+                <span className="text-[10px] font-black uppercase tracking-wider text-white bg-black/50 px-2 py-1 rounded-lg">
+                  {logoUploading ? "…" : "Change logo"}
+                </span>
+              </span>
+            </label>
+          ) : (
+            <GamerClubCard club={club} winRate={winRate} onLogoClick={onLogoClick} />
+          )}
 
           <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-6">
             <div className="flex flex-wrap items-start justify-between gap-3">

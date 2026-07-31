@@ -62,7 +62,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       setPropDate(""); setPropTime("");
       onUpdate();
     } catch (err) {
-      setError(err?.message || t("fspProposalFailed"));
+      setError(err?.message || t("commonPages.fspProposalFailed"));
     } finally { setBusy(false); }
   }
 
@@ -73,17 +73,17 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       await acceptProposal({ fixture, fixtureType, role, myClub, myEmail });
       onUpdate();
     } catch (err) {
-      setError(err?.message || t("fspConfirmFailed"));
+      setError(err?.message || t("commonPages.fspConfirmFailed"));
     } finally { setBusy(false); }
   }
 
   const STATUS_LABELS = {
-    open: t("fspAwaitingSchedule"),
-    home_proposed: t("fspTimeProposed"),
-    away_proposed: t("fspCounterProposal"),
-    confirmed: t("fspConfirmed"),
-    expired: t("fspWindowExpired"),
-    admin_review: t("fspAdminReview"),
+    open: t("commonPages.fspAwaitingSchedule"),
+    home_proposed: t("commonPages.fspTimeProposed"),
+    away_proposed: t("commonPages.fspCounterProposal"),
+    confirmed: t("commonPages.fspConfirmed"),
+    expired: t("commonPages.fspWindowExpired"),
+    admin_review: t("commonPages.fspAdminReview"),
   };
   const statusLabel = STATUS_LABELS[sched] || STATUS_LABELS.open;
   const statusCls = STATUS_CLS[sched] || STATUS_CLS.open;
@@ -111,7 +111,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t("fspMatchScheduling")}
+            {t("commonPages.fspMatchScheduling")}
           </span>
         </div>
         <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider", statusCls)}>
@@ -124,10 +124,10 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
         <div className={cn("flex items-center gap-1.5 text-[11px]", deadlinePast ? "text-destructive" : hoursLeft < 24 ? "text-warning" : "text-muted-foreground")}>
           <Timer className="w-3.5 h-3.5 shrink-0" />
           {deadlinePast
-            ? t("fspDeadlinePassed")
+            ? t("commonPages.fspDeadlinePassed")
             : hoursLeft < 24
-            ? t("fspDeadlineIn", { hours: hoursLeft })
-            : t("fspDeadline", { date: format(deadline, "EEE d MMM, HH:mm") })}
+            ? t("commonPages.fspDeadlineIn", { hours: hoursLeft })
+            : t("commonPages.fspDeadline", { date: format(deadline, "EEE d MMM, HH:mm") })}
         </div>
       )}
 
@@ -142,14 +142,14 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {/* ── Expired ── */}
       {sched === "expired" && (
         <p className="text-xs text-destructive/80">
-          {t("fspExpiredNote")}
+          {t("commonPages.fspExpiredNote")}
         </p>
       )}
 
       {/* ── Admin review ── */}
       {sched === "admin_review" && (
         <p className="text-xs text-warning/80">
-          {t("fspAdminReviewNote")}
+          {t("commonPages.fspAdminReviewNote")}
         </p>
       )}
 
@@ -159,7 +159,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
           <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded px-3 py-2">
             <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
             <div>
-              <p className="text-[11px] text-muted-foreground">{t("fspOpponentProposes")}</p>
+              <p className="text-[11px] text-muted-foreground">{t("commonPages.fspOpponentProposes")}</p>
               <p className="text-sm font-semibold text-foreground">
                 {format(new Date(pendingProposal), "EEEE d MMMM yyyy 'at' HH:mm")}
               </p>
@@ -170,12 +170,12 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
               <Button size="sm" onClick={handleAccept} disabled={busy}
                 className="bg-success text-white hover:bg-success/90 gap-1.5 h-7 text-xs">
                 <Check className="w-3.5 h-3.5" />
-                {busy ? t("fspConfirming") : t("accept")}
+                {busy ? t("commonPages.fspConfirming") : t("matchFlow.accept")}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setProposing(true)} disabled={busy}
                 className="gap-1.5 h-7 text-xs border-warning/40 text-warning hover:bg-warning/10">
                 <RefreshCw className="w-3.5 h-3.5" />
-                {t("fspProposeDifferent")}
+                {t("commonPages.fspProposeDifferent")}
               </Button>
             </div>
           ) : <ProposalForm t={t} propDate={propDate} propTime={propTime} deadline={deadline}
@@ -188,10 +188,10 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {myPendingProposal && (
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          {t("fspYourProposal")}: <span className="text-foreground font-medium ml-1">
+          {t("commonPages.fspYourProposal")}: <span className="text-foreground font-medium ml-1">
             {format(new Date(myPendingProposal), "EEE d MMM 'at' HH:mm")}
           </span>
-          <span className="ml-1">— {t("fspWaitingResponse")}</span>
+          <span className="ml-1">— {t("commonPages.fspWaitingResponse")}</span>
         </div>
       )}
 
@@ -204,7 +204,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
           : <Button size="sm" onClick={() => setProposing(true)}
               className="gap-1.5 h-7 text-xs bg-primary text-primary-foreground">
               <CalendarDays className="w-3.5 h-3.5" />
-              {t("fspProposeTime")}
+              {t("commonPages.fspProposeTime")}
             </Button>
       )}
 
@@ -212,7 +212,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {sched === "open" && role === "away" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          {t("fspWaitingHome")}
+          {t("commonPages.fspWaitingHome")}
         </p>
       )}
 
@@ -220,7 +220,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {!role && sched === "open" && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5 shrink-0" />
-          {t("fspNotScheduled")}
+          {t("commonPages.fspNotScheduled")}
         </p>
       )}
 
@@ -234,7 +234,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {/* Proposal counter */}
       {(fixture.proposal_count || 0) > 0 && sched !== "confirmed" && (
         <p className="text-[10px] text-muted-foreground/50">
-          {t("fspProposalsExchanged", { count: fixture.proposal_count })}
+          {t("commonPages.fspProposalsExchanged", { count: fixture.proposal_count })}
         </p>
       )}
     </div>
@@ -250,9 +250,9 @@ function ProposalForm({ t, propDate, propTime, deadline, onDateChange, onTimeCha
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-warning font-semibold uppercase tracking-wider flex items-center gap-1">
-        <AlertTriangle className="w-3 h-3" /> {t("fspProposeTime")}
+        <AlertTriangle className="w-3 h-3" /> {t("commonPages.fspProposeTime")}
         {deadline && <span className="normal-case font-normal ml-1 text-muted-foreground">
-          ({t("fspMustBeBefore", { date: format(new Date(deadline), "d MMM") })})
+          ({t("commonPages.fspMustBeBefore", { date: format(new Date(deadline), "d MMM") })})
         </span>}
       </p>
       <div className="flex gap-2">
@@ -272,11 +272,11 @@ function ProposalForm({ t, propDate, propTime, deadline, onDateChange, onTimeCha
         <Button size="sm" onClick={onSubmit} disabled={busy || !propDate || !propTime}
           className="bg-primary text-primary-foreground h-7 text-xs gap-1">
           {busy ? <div className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : null}
-          {busy ? t("fspSending") : t("fspSendProposal")}
+          {busy ? t("commonPages.fspSending") : t("commonPages.fspSendProposal")}
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}
           className="h-7 text-xs text-muted-foreground">
-          {t("cancel")}
+          {t("commonPages.cancel")}
         </Button>
       </div>
     </div>

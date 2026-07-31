@@ -43,6 +43,7 @@ async function issueAndRedirect(res, player) {
     userId,
     playerId: player.id,
     ownerId:  clubs[0]?.id || '',
+    ownedClubId: clubs[0]?.id || '',
   });
   // New OAuth accounts still need the full onboarding flow (profile, club, tutorial).
   if (player.__isNewUser) params.set('isNewUser', '1');

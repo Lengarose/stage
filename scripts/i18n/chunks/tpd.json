@@ -1,0 +1,78 @@
+{
+  "tpdTitle": {
+    "en": "Pay Transfer Fee",
+    "fr": "Payer l'indemnité de transfert"
+  },
+  "tpdEnterValidAmount": {
+    "en": "Enter a valid transfer fee amount.",
+    "fr": "Saisis un montant valide pour l'indemnité de transfert."
+  },
+  "tpdInsufficientFunds": {
+    "en": "Insufficient funds. Club balance: {balance}",
+    "fr": "Fonds insuffisants. Solde du club : {balance}"
+  },
+  "tpdPaymentFailed": {
+    "en": "Payment failed. Please try again.",
+    "fr": "Paiement échoué. Réessaie."
+  },
+  "tpdFeePaid": {
+    "en": "Transfer fee paid!",
+    "fr": "Indemnité de transfert payée !"
+  },
+  "tpdFeePaidDetail": {
+    "en": "{amount} sent to {clubName} for {gamertag}.",
+    "fr": "{amount} envoyés à {clubName} pour {gamertag}."
+  },
+  "tpdTheClub": {
+    "en": "the club",
+    "fr": "le club"
+  },
+  "tpdDone": {
+    "en": "Done",
+    "fr": "Terminé"
+  },
+  "tpdFrom": {
+    "en": "From",
+    "fr": "De"
+  },
+  "tpdTo": {
+    "en": "To",
+    "fr": "À"
+  },
+  "tpdBalance": {
+    "en": "Balance",
+    "fr": "Solde"
+  },
+  "tpdNoClub": {
+    "en": "No club",
+    "fr": "Aucun club"
+  },
+  "tpdFor": {
+    "en": "For {name}",
+    "fr": "Pour {name}"
+  },
+  "tpdAmountLabel": {
+    "en": "Transfer Fee Amount (STC)",
+    "fr": "Montant de l'indemnité (STC)"
+  },
+  "tpdExceedsBalance": {
+    "en": "⛔ Exceeds club balance — need {needed} more STC",
+    "fr": "⛔ Dépasse le solde du club — il manque {needed} STC"
+  },
+  "tpdExceedsBudget": {
+    "en": "⚠ Exceeds transfer budget ({budget}) — deducted from main balance",
+    "fr": "⚠ Dépasse le budget transferts ({budget}) — déduit du solde principal"
+  },
+  "tpdWithinBudget": {
+    "en": "✓ Within transfer budget ({budget})",
+    "fr": "✓ Dans le budget transferts ({budget})"
+  },
+  "tpdPaying": {
+    "en": "Paying…",
+    "fr": "Paiement…"
+  },
+  "tpdPayTransferFee": {
+    "en": "Pay Transfer Fee",
+    "fr": "Payer l'indemnité de transfert"
+  }
+}

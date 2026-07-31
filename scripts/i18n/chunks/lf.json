@@ -1,0 +1,38 @@
+{
+  "lfSubtitle": {
+    "en": "Own, rent, and invest across luxury asset categories.",
+    "fr": "Possède, loue et investis dans des catégories d'actifs de luxe."
+  },
+  "lfNoAssets": {
+    "en": "No assets in this category yet.",
+    "fr": "Aucun actif dans cette catégorie."
+  },
+  "lfPrincipal": {
+    "en": "Principal",
+    "fr": "Capital"
+  },
+  "lfReturn": {
+    "en": "Return",
+    "fr": "Rendement"
+  },
+  "lfTotalPayout": {
+    "en": "Total payout",
+    "fr": "Gain total"
+  },
+  "lfMatures": {
+    "en": "Matures",
+    "fr": "Échéance"
+  },
+  "lfPaid": {
+    "en": "Paid",
+    "fr": "Payé"
+  },
+  "lfAcquired": {
+    "en": "Acquired",
+    "fr": "Acquis"
+  },
+  "lfUpkeep": {
+    "en": "Upkeep/wk",
+    "fr": "Entretien/sem."
+  }
+}

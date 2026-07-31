@@ -1,0 +1,70 @@
+{
+  "pcmTitle": {
+    "en": "Complete Your Profile 🎮",
+    "fr": "Complète ton profil 🎮"
+  },
+  "pcmGamertag": {
+    "en": "Gamertag *",
+    "fr": "Gamertag *"
+  },
+  "pcmGamertagPlaceholder": {
+    "en": "Your gaming name",
+    "fr": "Ton pseudo de jeu"
+  },
+  "pcmMainPosition": {
+    "en": "Main Position *",
+    "fr": "Poste principal *"
+  },
+  "pcmSecondPosition": {
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  "pcmPlatform": {
+    "en": "Platform *",
+    "fr": "Plateforme *"
+  },
+  "pcmSelect": {
+    "en": "Select",
+    "fr": "Sélectionner"
+  },
+  "pcmNone": {
+    "en": "None",
+    "fr": "Aucun"
+  },
+  "pcmCountry": {
+    "en": "Country",
+    "fr": "Pays"
+  },
+  "pcmSelectCountry": {
+    "en": "Select country",
+    "fr": "Sélectionner un pays"
+  },
+  "pcmBio": {
+    "en": "Bio",
+    "fr": "Bio"
+  },
+  "pcmBioPlaceholder": {
+    "en": "Tell us about yourself...",
+    "fr": "Parle-nous de toi..."
+  },
+  "pcmPlusAvailable": {
+    "en": "STAGE Plus is available",
+    "fr": "STAGE Plus est disponible"
+  },
+  "pcmPlusDesc": {
+    "en": "Your free account starts with {credits} credits. Plus unlocks official competitions, tournament creation, ranked play, and refreshes {monthlyCredits} credits monthly.",
+    "fr": "Ton compte gratuit démarre avec {credits} crédits. Plus débloque les compétitions officielles, la création de tournois, le mode classé et rafraîchit {monthlyCredits} crédits mensuellement."
+  },
+  "pcmSaving": {
+    "en": "Saving...",
+    "fr": "Enregistrement..."
+  },
+  "pcmComplete": {
+    "en": "Complete Profile →",
+    "fr": "Compléter le profil →"
+  },
+  "pcmRequired": {
+    "en": "Please fill in required fields: Gamertag, Position, and Platform",
+    "fr": "Remplis les champs obligatoires : Gamertag, Poste et Plateforme"
+  }
+}

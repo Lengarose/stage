@@ -1,0 +1,10 @@
+{
+  "expiringShort": {
+    "en": "{count} expiring",
+    "fr": "{count} expirants"
+  },
+  "expiring": {
+    "en": "Expiring",
+    "fr": "Expire bientôt"
+  }
+}

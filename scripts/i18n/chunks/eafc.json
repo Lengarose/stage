@@ -1,0 +1,110 @@
+{
+  "eafcTab": {
+    "en": "EA FC",
+    "fr": "EA FC"
+  },
+  "eafcTitle": {
+    "en": "EA FC Club Lookup",
+    "fr": "Recherche club EA FC"
+  },
+  "eafcSubtitle": {
+    "en": "Search and explore real Pro Clubs data",
+    "fr": "Cherche et explore les vraies données Pro Clubs"
+  },
+  "eafcPlatformGen5": {
+    "en": "PS5 / Xbox Series X",
+    "fr": "PS5 / Xbox Series X"
+  },
+  "eafcPlatformGen4": {
+    "en": "PS4 / Xbox One",
+    "fr": "PS4 / Xbox One"
+  },
+  "eafcPlatformNx": {
+    "en": "Nintendo Switch",
+    "fr": "Nintendo Switch"
+  },
+  "eafcSearchPlaceholder": {
+    "en": "Search club name...",
+    "fr": "Rechercher un nom de club..."
+  },
+  "eafcNoClubs": {
+    "en": "No clubs found. Try a different name or platform.",
+    "fr": "Aucun club trouvé. Essaie un autre nom ou une autre plateforme."
+  },
+  "eafcSearchFailed": {
+    "en": "Search failed. EA servers may be unreachable.",
+    "fr": "Recherche échouée. Les serveurs EA sont peut-être inaccessibles."
+  },
+  "eafcLoadFailed": {
+    "en": "Failed to load club data.",
+    "fr": "Impossible de charger les données du club."
+  },
+  "eafcRecent": {
+    "en": "Recent searches",
+    "fr": "Recherches récentes"
+  },
+  "eafcFetching": {
+    "en": "Fetching club data from EA servers…",
+    "fr": "Récupération des données club depuis les serveurs EA…"
+  },
+  "eafcRetry": {
+    "en": "Retry",
+    "fr": "Réessayer"
+  },
+  "eafcDivision": {
+    "en": "Division {n}",
+    "fr": "Division {n}"
+  },
+  "eafcMembers": {
+    "en": "Members ({count})",
+    "fr": "Membres ({count})"
+  },
+  "eafcWinRate": {
+    "en": "Win rate",
+    "fr": "Taux de victoire"
+  },
+  "eafcCareerStats": {
+    "en": "Career Stats",
+    "fr": "Stats de carrière"
+  },
+  "eafcRecentMatches": {
+    "en": "Recent Matches ({count})",
+    "fr": "Matchs récents ({count})"
+  },
+  "eafcGames": {
+    "en": "Games",
+    "fr": "Matchs"
+  },
+  "eafcCs": {
+    "en": "CS",
+    "fr": "CS"
+  },
+  "eafcPrevious": {
+    "en": "Previous",
+    "fr": "Précédent"
+  },
+  "eafcNoDetail": {
+    "en": "Club found but no detailed data available.",
+    "fr": "Club trouvé mais aucune donnée détaillée disponible."
+  },
+  "eafcResultMeta": {
+    "en": "ID: {id} · Members: {count}",
+    "fr": "ID : {id} · Membres : {count}"
+  },
+  "eafcVs": {
+    "en": "vs {name}",
+    "fr": "vs {name}"
+  },
+  "eafcClubFallback": {
+    "en": "Club {id}",
+    "fr": "Club {id}"
+  },
+  "eafcMom": {
+    "en": "MoM",
+    "fr": "HdM"
+  },
+  "eafcGp": {
+    "en": "GP",
+    "fr": "MJ"
+  }
+}

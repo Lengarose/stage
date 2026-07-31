@@ -1,0 +1,118 @@
+{
+  "otWelcomeTitle": {
+    "en": "Welcome to STAGE",
+    "fr": "Bienvenue sur STAGE"
+  },
+  "otWelcomeSubtitle": {
+    "en": "Your football career starts here",
+    "fr": "Ta carrière foot commence ici"
+  },
+  "otWelcomeDesc": {
+    "en": "STAGE is a competitive football management platform where you play, manage, and grow. Here's a quick overview of how everything works.",
+    "fr": "STAGE est une plateforme de gestion football compétitive où tu joues, gères et progresses. Voici un aperçu rapide de son fonctionnement."
+  },
+  "otClubTitle": {
+    "en": "Your Club",
+    "fr": "Ton club"
+  },
+  "otClubSubtitle": {
+    "en": "Budget • Squad • Trophies",
+    "fr": "Budget • Effectif • Trophées"
+  },
+  "otClubDesc": {
+    "en": "Your club starts with 50,000 STC (Stage Currency). Use it to sign players, pay salaries, and build your squad. Manage your transfer budget and wage budget wisely.",
+    "fr": "Ton club démarre avec 50 000 STC (Stage Currency). Utilise-les pour signer des joueurs, payer les salaires et construire ton effectif. Gère tes budgets transferts et salaires."
+  },
+  "otClubHighlight": {
+    "en": "50,000 STC starting budget",
+    "fr": "50 000 STC de budget initial"
+  },
+  "otCurrencyTitle": {
+    "en": "Two Currencies",
+    "fr": "Deux monnaies"
+  },
+  "otCurrencySubtitle": {
+    "en": "Credits vs STC",
+    "fr": "Crédits vs STC"
+  },
+  "otCurrencyDesc": {
+    "en": "STAGE has two separate currencies. Credits are used for platform features like tournaments and subscriptions. STC (Stage Currency) is the in-game economy — used for salaries, transfers, and lifestyle.",
+    "fr": "STAGE a deux monnaies distinctes. Les crédits servent aux fonctionnalités de la plateforme comme les tournois et abonnements. Les STC sont l'économie du jeu — salaires, transferts et lifestyle."
+  },
+  "otCreditsLabel": {
+    "en": "Credits",
+    "fr": "Crédits"
+  },
+  "otCreditsDesc": {
+    "en": "Platform features, tournaments, subscriptions",
+    "fr": "Fonctionnalités plateforme, tournois, abonnements"
+  },
+  "otStcLabel": {
+    "en": "STC",
+    "fr": "STC"
+  },
+  "otStcDesc": {
+    "en": "Salaries, transfers, lifestyle, club economy",
+    "fr": "Salaires, transferts, lifestyle, économie club"
+  },
+  "otContractsTitle": {
+    "en": "Contracts & Transfers",
+    "fr": "Contrats & Transferts"
+  },
+  "otContractsSubtitle": {
+    "en": "Sign players. Negotiate terms.",
+    "fr": "Signe des joueurs. Négocie."
+  },
+  "otContractsDesc": {
+    "en": "Offer contracts to players with weekly salaries, signing bonuses, and performance targets. Players can accept, reject, or counter-offer. Transfers execute when the transfer window opens.",
+    "fr": "Propose des contrats avec salaires hebdo, primes à la signature et objectifs. Les joueurs peuvent accepter, refuser ou contre-proposer. Les transferts s'exécutent à l'ouverture du mercato."
+  },
+  "otContractsHighlight": {
+    "en": "Salaries paid monthly in real time",
+    "fr": "Salaires versés mensuellement en temps réel"
+  },
+  "otMarketTitle": {
+    "en": "Player Market Value",
+    "fr": "Valeur marchande"
+  },
+  "otMarketSubtitle": {
+    "en": "Your rating drives your worth",
+    "fr": "Ta note détermine ta valeur"
+  },
+  "otMarketDesc": {
+    "en": "Every player has a market value based on their overall rating, goals, assists, and match performance. Higher value means better contract negotiations and more leverage in the transfer market.",
+    "fr": "Chaque joueur a une valeur marchande basée sur sa note, ses buts, passes et performances. Plus de valeur = meilleures négociations et plus de poids sur le marché des transferts."
+  },
+  "otMarketHighlight": {
+    "en": "Better stats = higher value",
+    "fr": "Meilleures stats = plus de valeur"
+  },
+  "otLifestyleTitle": {
+    "en": "Lifestyle",
+    "fr": "Lifestyle"
+  },
+  "otLifestyleSubtitle": {
+    "en": "Spend your STC. Build your empire.",
+    "fr": "Dépense tes STC. Bâtis ton empire."
+  },
+  "otLifestyleDesc": {
+    "en": "Earn STC through salaries and performance. Spend it on real estate, vehicles, clothing, and events. Some assets generate passive STC income over time.",
+    "fr": "Gagne des STC via tes salaires et performances. Dépense-les en immobilier, véhicules, vêtements et événements. Certains actifs génèrent des revenus passifs."
+  },
+  "otLifestyleHighlight": {
+    "en": "Some properties earn passive income",
+    "fr": "Certaines propriétés génèrent des revenus passifs"
+  },
+  "otGetStarted": {
+    "en": "Get Started",
+    "fr": "Commencer"
+  },
+  "otNext": {
+    "en": "Next",
+    "fr": "Suivant"
+  },
+  "otSkipTour": {
+    "en": "Skip tour",
+    "fr": "Passer le tour"
+  }
+}

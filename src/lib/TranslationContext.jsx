@@ -72,27 +72,47 @@ export function TranslationProvider({ children }) {
   }, [language]);
 
   const t = (key, params = {}) => {
-    const keys = key.split('.');
-    let value = translations[language];
-    
-    for (const k of keys) {
-      if (value && typeof value === 'object') {
-        value = value[k];
-      } else {
-        value = null;
-        break;
-      }
-    }
-    
-    if (!value) {
-      value = translations[DEFAULT_LANGUAGE];
-      for (const k of keys) {
-        if (value && typeof value === 'object') {
+    // Many UI strings live under commonPages / matchFlow / etc., but some
+    // components still call t("agdTitle") instead of t("commonPages.agdTitle").
+    // When a bare key misses, walk these namespaces before showing the raw key.
+    const FALLBACK_NAMESPACES = [
+      "commonPages",
+      "matchFlow",
+      "competitionFlow",
+      "tournamentDetail",
+      "settingsPage",
+      "nav",
+      "auth",
+      "mobile",
+      "common",
+    ];
+
+    const lookup = (dict, pathKeys) => {
+      let value = dict;
+      for (const k of pathKeys) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
           value = value[k];
         } else {
-          value = null;
-          break;
+          return null;
         }
+      }
+      return value;
+    };
+
+    const resolve = (pathKeys) => {
+      let value = lookup(translations[language], pathKeys);
+      if (typeof value === "string") return value;
+      value = lookup(translations[DEFAULT_LANGUAGE], pathKeys);
+      return typeof value === "string" ? value : null;
+    };
+
+    const keys = key.split(".");
+    let value = resolve(keys);
+
+    if (value == null && keys.length === 1) {
+      for (const ns of FALLBACK_NAMESPACES) {
+        value = resolve([ns, keys[0]]);
+        if (value != null) break;
       }
     }
 

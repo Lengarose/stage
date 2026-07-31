@@ -1,0 +1,30 @@
+{
+  "notifTitle": {
+    "en": "Notifications",
+    "fr": "Notifications"
+  },
+  "notifMarkAllRead": {
+    "en": "Mark all read",
+    "fr": "Tout marquer comme lu"
+  },
+  "notifDeleteAll": {
+    "en": "Delete all",
+    "fr": "Tout supprimer"
+  },
+  "notifDeleteAllConfirmTitle": {
+    "en": "Delete all notifications?",
+    "fr": "Supprimer toutes les notifications ?"
+  },
+  "notifDeleteAllConfirmDesc": {
+    "en": "This will permanently delete all {count} notifications. This cannot be undone.",
+    "fr": "Cela supprimera définitivement les {count} notifications. Action irréversible."
+  },
+  "notifEmpty": {
+    "en": "No notifications yet",
+    "fr": "Aucune notification"
+  },
+  "notifMarkAsRead": {
+    "en": "Mark as read",
+    "fr": "Marquer comme lu"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "prAddPlayers": {
+    "en": "Add Participants — Players",
+    "fr": "Ajouter des participants — Joueurs"
+  },
+  "prTournamentFull": {
+    "en": "🔒 Tournament is full ({max}/{max}). Remove a player to add another.",
+    "fr": "🔒 Le tournoi est complet ({max}/{max}). Retire un joueur pour en ajouter un autre."
+  },
+  "prSearchPlaceholder": {
+    "en": "Search gamertag...",
+    "fr": "Rechercher un gamertag..."
+  },
+  "prPlayer": {
+    "en": "Player",
+    "fr": "Joueur"
+  },
+  "prRating": {
+    "en": "Rating",
+    "fr": "Note"
+  },
+  "prNoPlayers": {
+    "en": "No players found.",
+    "fr": "Aucun joueur trouvé."
+  }
+}

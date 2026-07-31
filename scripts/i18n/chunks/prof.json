@@ -1,0 +1,262 @@
+{
+  "profEditProfile": {
+    "en": "Edit Profile",
+    "fr": "Modifier le profil"
+  },
+  "profWelcome": {
+    "en": "Welcome to STAGE!",
+    "fr": "Bienvenue sur STAGE !"
+  },
+  "profWelcomeDesc": {
+    "en": "Create your player profile to get started.",
+    "fr": "Crée ton profil joueur pour commencer."
+  },
+  "profCreateProfile": {
+    "en": "Create Profile",
+    "fr": "Créer le profil"
+  },
+  "profNotPlayer": {
+    "en": "You're not a player yet",
+    "fr": "Tu n'es pas encore joueur"
+  },
+  "profNotPlayerDesc": {
+    "en": "Finish your player profile (gamertag, position, platform) to appear in clubs, matches and rankings.",
+    "fr": "Termine ton profil joueur (gamertag, poste, plateforme) pour apparaître dans les clubs, matchs et classements."
+  },
+  "profNotClub": {
+    "en": "You're not in a club yet",
+    "fr": "Tu n'es dans aucun club"
+  },
+  "profNotClubDesc": {
+    "en": "Create your own club or join an existing one to compete in tournaments and leagues.",
+    "fr": "Crée ton propre club ou rejoins-en un pour participer aux tournois et ligues."
+  },
+  "profWins": {
+    "en": "Wins",
+    "fr": "Victoires"
+  },
+  "profLosses": {
+    "en": "Losses",
+    "fr": "Défaites"
+  },
+  "profAvgRating": {
+    "en": "Avg Rating",
+    "fr": "Note moy."
+  },
+  "profMotm": {
+    "en": "MOTM",
+    "fr": "Homme du match"
+  },
+  "profCleanSheets": {
+    "en": "Clean Sheets",
+    "fr": "Clean sheets"
+  },
+  "profTrophies": {
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  "profNoPvp": {
+    "en": "No PvP matches recorded yet.",
+    "fr": "Aucun match PvP enregistré."
+  },
+  "profIdentityVerified": {
+    "en": "Identity verified",
+    "fr": "Identité vérifiée"
+  },
+  "profIdentityVerifiedDesc": {
+    "en": "This profile has been reviewed by STAGE staff and linked to {handle}.",
+    "fr": "Ce profil a été vérifié par le staff STAGE et lié à {handle}."
+  },
+  "profAPlatformIdentity": {
+    "en": "a platform identity",
+    "fr": "une identité de plateforme"
+  },
+  "profIdentityReview": {
+    "en": "Identity claim under review",
+    "fr": "Demande d'identité en cours d'examen"
+  },
+  "profClaimIdentity": {
+    "en": "Claim your player identity",
+    "fr": "Revendique ton identité de joueur"
+  },
+  "profClaimIdentityDesc": {
+    "en": "Link your STAGE profile to your console or EA identity so clubs know this is really you.",
+    "fr": "Lie ton profil STAGE à ton identité console ou EA pour que les clubs sachent que c'est bien toi."
+  },
+  "profHandlePlaceholder": {
+    "en": "PSN / Xbox / EA handle",
+    "fr": "Pseudo PSN / Xbox / EA"
+  },
+  "profEaIdPlaceholder": {
+    "en": "EA ID (optional)",
+    "fr": "EA ID (optionnel)"
+  },
+  "profDiscordPlaceholder": {
+    "en": "Discord handle (optional)",
+    "fr": "Pseudo Discord (optionnel)"
+  },
+  "profProofPlaceholder": {
+    "en": "Proof link: screenshot, clip, or profile URL (optional)",
+    "fr": "Lien de preuve : capture, clip ou URL de profil (optionnel)"
+  },
+  "profNotesPlaceholder": {
+    "en": "Anything admins should know?",
+    "fr": "Quelque chose à signaler aux admins ?"
+  },
+  "profSubmitClaim": {
+    "en": "Submit Claim",
+    "fr": "Envoyer la demande"
+  },
+  "profTab_posts": {
+    "en": "Posts",
+    "fr": "Posts"
+  },
+  "profTab_stats": {
+    "en": "Stats",
+    "fr": "Stats"
+  },
+  "profTab_matches": {
+    "en": "Matches",
+    "fr": "Matchs"
+  },
+  "profTab_trophies": {
+    "en": "Trophies",
+    "fr": "Trophées"
+  },
+  "profPhotoBanner": {
+    "en": "Profile Photo & Banner",
+    "fr": "Photo de profil & bannière"
+  },
+  "profUploadPhoto": {
+    "en": "Upload photo",
+    "fr": "Importer une photo"
+  },
+  "profRepositionPhoto": {
+    "en": "Reposition Photo",
+    "fr": "Repositionner la photo"
+  },
+  "profChangeBanner": {
+    "en": "Change Banner",
+    "fr": "Changer la bannière"
+  },
+  "profPlayerInfo": {
+    "en": "Player Info",
+    "fr": "Infos joueur"
+  },
+  "profGamertag": {
+    "en": "Gamertag",
+    "fr": "Gamertag"
+  },
+  "profGamertagPlaceholder": {
+    "en": "Your gamertag",
+    "fr": "Ton gamertag"
+  },
+  "profMainPosition": {
+    "en": "Main Position",
+    "fr": "Poste principal"
+  },
+  "profSecondPosition": {
+    "en": "Second Position",
+    "fr": "Poste secondaire"
+  },
+  "profNone": {
+    "en": "None",
+    "fr": "Aucun"
+  },
+  "profSelectCountry": {
+    "en": "Select your country",
+    "fr": "Sélectionne ton pays"
+  },
+  "profCountryRequired": {
+    "en": "Please select your country",
+    "fr": "Sélectionne ton pays"
+  },
+  "profOverallRating": {
+    "en": "Overall Rating",
+    "fr": "Note globale"
+  },
+  "profShirtNumber": {
+    "en": "Shirt Number",
+    "fr": "Numéro de maillot"
+  },
+  "profAccountEmail": {
+    "en": "Account Email",
+    "fr": "E-mail du compte"
+  },
+  "profBioPlaceholder": {
+    "en": "Tell the community about yourself...",
+    "fr": "Parle de toi à la communauté..."
+  },
+  "profSaving": {
+    "en": "Saving...",
+    "fr": "Enregistrement..."
+  },
+  "profSaveChanges": {
+    "en": "Save Changes",
+    "fr": "Enregistrer"
+  },
+  "profViewClubPage": {
+    "en": "View Club Page",
+    "fr": "Voir la page du club"
+  },
+  "profEditClub": {
+    "en": "Edit Club",
+    "fr": "Modifier le club"
+  },
+  "profLeaveClub": {
+    "en": "Leave Club",
+    "fr": "Quitter le club"
+  },
+  "profCreateOrJoin": {
+    "en": "Create or Join a Club",
+    "fr": "Créer ou rejoindre un club"
+  },
+  "profClubName": {
+    "en": "Club Name",
+    "fr": "Nom du club"
+  },
+  "profTag": {
+    "en": "Tag (max 5 chars)",
+    "fr": "Tag (max 5 car.)"
+  },
+  "profRegion": {
+    "en": "Region",
+    "fr": "Région"
+  },
+  "profSelectCountryShort": {
+    "en": "Select country",
+    "fr": "Sélectionne un pays"
+  },
+  "profClubDesc": {
+    "en": "Club Bio / Description",
+    "fr": "Bio / description du club"
+  },
+  "profClubDescPlaceholder": {
+    "en": "Describe your club...",
+    "fr": "Décris ton club..."
+  },
+  "profSaveClub": {
+    "en": "Save Club",
+    "fr": "Enregistrer le club"
+  },
+  "profJoinRequests": {
+    "en": "Join Requests",
+    "fr": "Demandes d'adhésion"
+  },
+  "profApprovalsNote": {
+    "en": "Approvals now happen through contract offers in Club Operations.",
+    "fr": "Les approbations passent désormais par les offres de contrat dans Club Operations."
+  },
+  "profOperations": {
+    "en": "Operations",
+    "fr": "Operations"
+  },
+  "profDecline": {
+    "en": "Decline",
+    "fr": "Refuser"
+  },
+  "profBack": {
+    "en": "Back",
+    "fr": "Retour"
+  }
+}

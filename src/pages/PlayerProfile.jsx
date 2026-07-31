@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSTC, calculatePlayerValue, getValueTier } from "@/lib/playerValue";
 import { TrendingUp } from "lucide-react";
-import { notify, postContractNews } from "@/lib/notify";
+import { postContractNews } from "@/lib/notify";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
 import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
@@ -254,6 +254,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       captaincy_offered:   terms.captaincy_offered   || false,
       status: "pending",
     });
+    // This legacy profile path creates contracts directly, unlike Transfer Market.
+    // Do not add more delivery calls here; move offer creation to the server path.
     await ensureContractOfferInbox({
       contractId: newContract.id,
       player: { ...player, email: recipientEmail || player.email },
@@ -266,11 +268,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       offerNote: terms.offer_note,
       senderEmail: myPlayer?.email,
     }).catch((err) => console.warn("[PlayerProfile] inbox fallback failed:", err?.message || err));
-    notify(recipientEmail, "contract_offer",
-      `📋 Contract Offer from ${viewerClub.name}`,
-      `${viewerClub.name} has sent you a ${terms.contract_type} contract offer. Open your inbox to review.`,
-      "/inbox"
-    );
     postContractNews({
       title: `📄 ${viewerClub.name} offered a contract to ${player.gamertag}`,
       body: `${viewerClub.name} sent a ${terms.contract_type} contract offer to ${player.gamertag}.`,

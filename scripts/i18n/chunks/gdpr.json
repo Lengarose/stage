@@ -1,0 +1,70 @@
+{
+  "gdprComplete": {
+    "en": "Press Room Complete",
+    "fr": "Conférence de presse terminée"
+  },
+  "gdprCompleteHint": {
+    "en": "{name} was interviewed for this match. This can only be done once per match.",
+    "fr": "{name} a été interviewé pour ce match. Cela ne peut être fait qu'une fois par match."
+  },
+  "gdprArticlePublished": {
+    "en": "Article Published!",
+    "fr": "Article publié !"
+  },
+  "gdprArticleHint": {
+    "en": "The press conference article is now live in the News section.",
+    "fr": "L'article de la conférence est maintenant en ligne dans News."
+  },
+  "gdprSelectPlayer": {
+    "en": "Select a player to interview. Can only be done once per match.",
+    "fr": "Sélectionne un joueur à interviewer. Une seule fois par match."
+  },
+  "gdprQuestion": {
+    "en": "Q{n}/{total}",
+    "fr": "Q{n}/{total}"
+  },
+  "gdprContinueImage": {
+    "en": "Continue to Image",
+    "fr": "Passer à l'image"
+  },
+  "gdprAnswerMore": {
+    "en": "Answer {n} more to finish",
+    "fr": "Réponds à {n} de plus pour finir"
+  },
+  "gdprNext": {
+    "en": "Next",
+    "fr": "Suivant"
+  },
+  "gdprAnsweredCount": {
+    "en": "Answered: {count}/4 (min 3)",
+    "fr": "Répondu : {count}/4 (min 3)"
+  },
+  "gdprAddPhoto": {
+    "en": "Add Article Photo",
+    "fr": "Ajouter une photo"
+  },
+  "gdprOptional": {
+    "en": "Optional",
+    "fr": "Optionnel"
+  },
+  "gdprClickUpload": {
+    "en": "Click to upload photo",
+    "fr": "Clique pour importer une photo"
+  },
+  "gdprFileHint": {
+    "en": "JPG, PNG, WEBP · max 10MB",
+    "fr": "JPG, PNG, WEBP · max 10 Mo"
+  },
+  "gdprSkipPublish": {
+    "en": "Skip & Publish",
+    "fr": "Passer & Publier"
+  },
+  "gdprPublishArticle": {
+    "en": "Publish Article",
+    "fr": "Publier l'article"
+  },
+  "gdprPublishHint": {
+    "en": "Article will appear in News → Press Room once published.",
+    "fr": "L'article apparaîtra dans News → Press Room une fois publié."
+  }
+}

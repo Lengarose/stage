@@ -1,0 +1,14 @@
+{
+  "playersTab": {
+    "en": "Players",
+    "fr": "Joueurs"
+  },
+  "playersFound": {
+    "en": "{count} player{plural} found",
+    "fr": "{count} joueur{plural} trouvé{plural}"
+  },
+  "playersLooking": {
+    "en": "Players Looking",
+    "fr": "Joueurs en recherche"
+  }
+}

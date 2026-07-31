@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId} from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Heart, MessageCircle, Plus, Image, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export default function Social() {
   const [postForm, setPostForm] = useState({ content: "", media_type: "none" });
   const [mediaFile, setMediaFile] = useState(null);
   const [posting, setPosting] = useState(false);
+  const fileInputId = useId();
   const fileRef = useRef();
 
   useEffect(() => {
@@ -149,10 +150,10 @@ export default function Social() {
                   </div>
                 )}
                 <div className="flex items-center gap-3">
-                  <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary">
+                  <input id={fileInputId} ref={fileRef} type="file" accept="image/*,video/*" className="sr-only" onChange={e => setMediaFile(e.target.files[0])} />
+                  <label htmlFor={fileInputId} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
                     <Image className="w-4 h-4" /> {t("commonPages.photoVideo")}
-                  </button>
-                  <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={e => setMediaFile(e.target.files[0])} />
+                  </label>
                 </div>
                 <Button onClick={createPost} disabled={posting || (!postForm.content.trim() && !mediaFile)}
                   className="w-full bg-primary text-primary-foreground">

@@ -51,6 +51,15 @@ const TEST_PLAYER_NAMES = [
 
 const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
 
+const CONTRACT_TYPE_DURATION = {
+  trial: { max_games: 5, max_days: 14 },
+  academy: { max_games: 20, max_days: 30 },
+  squad: { max_games: 100, max_days: 90 },
+  important: { max_games: 250, max_days: 120 },
+  star: { max_games: 400, max_days: 180 },
+  ownership: { max_games: 999, max_days: 3650 },
+};
+
 const DEFAULT_MV_WEIGHTS = {
   base_per_match: 60_000,
   max_base: 8_000_000,
@@ -163,32 +172,17 @@ const {
   broadcastMatchPlayerStat,
   broadcastTournamentDeleted,
 } = require('../utils/socketBroadcast');
+const {
+  resolveUserIdentity,
+  resolvePlayerForUserId,
+  resolveClubForUserId,
+} = require('../services/identityService');
+const { upsertActiveMembership, endActiveMemberships } = require('../services/clubMembershipService');
+const { listActiveClubPlayers, listActiveClubPlayerEmails } = require('../services/clubPlayerService');
 
 async function getMe(_auth_user_id) {
-  if (!_auth_user_id) throw new Error('not authenticated');
-  const users = await EXECUTESQL('SELECT id, email, player_id, owner_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
-  if (!users.length) throw new Error('User not found');
-  const me = users[0];
-  const playerRows = me.player_id
-    ? await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [me.player_id]).catch(() => [])
-    : [];
-  const player = playerRows[0] || (await EXECUTESQL('SELECT * FROM players WHERE user_id = ? LIMIT 1', [_auth_user_id]).catch(() => []))[0] || null;
-
-  const clubRows = player?.club_id
-    ? await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [player.club_id]).catch(() => [])
-    : [];
-  const ownerClubRows = !clubRows.length && me.owner_id
-    ? await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [me.owner_id]).catch(() => [])
-    : [];
-  const userClubRows = !clubRows.length && !ownerClubRows.length
-    ? await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [_auth_user_id]).catch(() => [])
-    : [];
-  const emailClubRows = !clubRows.length && !ownerClubRows.length && !userClubRows.length && me.email
-    ? await EXECUTESQL('SELECT * FROM clubs WHERE owner_email = ? LIMIT 1', [me.email]).catch(() => [])
-    : [];
-  const club = clubRows[0] || ownerClubRows[0] || userClubRows[0] || emailClubRows[0] || null;
-
-  return { user: me, player, club };
+  const identity = await resolveUserIdentity(_auth_user_id);
+  return { user: identity.user, player: identity.player, club: identity.club };
 }
 
 function isTransferWindowEndPassed(endDate) {
@@ -204,30 +198,38 @@ function isTransferWindowEndPassed(endDate) {
 
 /** Returns the currently open window, or null. Auto-closes past end_date. */
 async function getCurrentTransferWindow() {
-  await EXECUTESQL(`
-    CREATE TABLE IF NOT EXISTS transfer_windows (
-      id VARCHAR(36) PRIMARY KEY,
-      label VARCHAR(255),
-      status VARCHAR(50) DEFAULT 'open',
-      start_date DATETIME,
-      end_date DATETIME,
-      notes TEXT,
-      transfers_executed INT DEFAULT 0,
-      created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-  `);
+  try {
+    await EXECUTESQL(`
+      CREATE TABLE IF NOT EXISTS transfer_windows (
+        id VARCHAR(36) PRIMARY KEY,
+        label VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'open',
+        start_date DATETIME,
+        end_date DATETIME,
+        notes TEXT,
+        transfers_executed INT DEFAULT 0,
+        created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    // Table may already exist, or host may lack CREATE — continue to SELECT.
+    console.warn('[transfer_windows] ensure table:', err?.message || err);
+  }
   const rows = await EXECUTESQL(
     "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
     []
-  );
+  ).catch((err) => {
+    console.warn('[transfer_windows] select open:', err?.message || err);
+    return [];
+  });
   const win = rows[0] || null;
   if (!win) return null;
   if (isTransferWindowEndPassed(win.end_date)) {
     await EXECUTESQL(
       "UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ? AND status = 'open'",
       [win.id]
-    );
+    ).catch(() => null);
     return null;
   }
   return win;
@@ -441,6 +443,13 @@ async function createNotificationIfEnabled({
   const settingKey = getNotificationSettingKey(type);
   const enabled = settingKey ? (settings[settingKey] === undefined ? true : settings[settingKey] === true) : true;
   if (!enabled) return { skipped: true, reason: 'disabled in settings' };
+  if (relatedId) {
+    const existing = await EXECUTESQL(
+      'SELECT id FROM notifications WHERE recipient_email = ? AND type = ? AND related_id = ? LIMIT 1',
+      [recipientEmail, type, relatedId]
+    );
+    if (existing.length) return { success: true, id: existing[0].id, reused: true };
+  }
   const id = uuidv4();
   await EXECUTESQL(
     'INSERT INTO notifications (id, recipient_email, type, title, body, `read`, link, related_id, created_date) VALUES (?,?,?,?,?,?,?,?, NOW())',
@@ -461,7 +470,8 @@ async function createNotificationIfEnabled({
 
 async function deliverContractOfferMessage(contractId) {
   const rows = await EXECUTESQL(
-    `SELECT pc.*, c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
+    `SELECT pc.*, pc.user_id AS target_player_id,
+            c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
             p.email AS player_email, p.gamertag AS player_gamertag,
             u.email AS user_email
        FROM player_contracts pc
@@ -537,6 +547,50 @@ async function deliverContractOfferMessage(contractId) {
     link: '/inbox',
     relatedId: contractId,
   }).catch(() => {});
+}
+
+async function releasePlayerFromClubIfUnassigned({ playerId, clubId, query = null }) {
+  if (!playerId || !clubId) return { skipped: true };
+  const run = query || EXECUTESQL;
+  await run(
+    `UPDATE players p
+       LEFT JOIN player_contracts active_pc
+         ON active_pc.user_id = p.id
+        AND active_pc.team_id = ?
+        AND active_pc.status = 'active'
+       LEFT JOIN club_staff_roles csr
+         ON csr.player_id = p.id
+        AND csr.club_id = ?
+        SET p.club_id = NULL,
+            p.role = 'member',
+            p.club_roles = JSON_ARRAY('member'),
+            p.status = 'free_agent',
+            p.updated_date = NOW()
+      WHERE p.id = ?
+        AND p.club_id = ?
+        AND active_pc.id IS NULL
+        AND csr.id IS NULL`,
+    [clubId, clubId, playerId, clubId]
+  );
+  await run(
+    `UPDATE club_memberships cm
+       LEFT JOIN player_contracts active_pc
+         ON active_pc.user_id = cm.player_id
+        AND active_pc.team_id = cm.club_id
+        AND active_pc.status = 'active'
+       LEFT JOIN club_staff_roles csr
+         ON csr.player_id = cm.player_id
+        AND csr.club_id = cm.club_id
+        SET cm.status = 'inactive',
+            cm.updated_date = NOW()
+      WHERE cm.player_id = ?
+        AND cm.club_id = ?
+        AND cm.status = 'active'
+        AND active_pc.id IS NULL
+        AND csr.id IS NULL`,
+    [playerId, clubId]
+  );
+  return { success: true };
 }
 
 async function withTransaction(callback) {
@@ -1378,42 +1432,6 @@ async function claimStripeSession(sessionId, kind) {
   }
 }
 
-// Resolve the player row that should receive credits / STAGE Plus for a user id.
-async function resolvePlayerForUserId(userId) {
-  const rows = await EXECUTESQL(
-    `SELECT p.*
-       FROM players p
-       LEFT JOIN users u ON u.id = ?
-      WHERE p.user_id = ?
-         OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
-      ORDER BY p.user_id = ? DESC, p.updated_date DESC
-      LIMIT 1`,
-    [userId, userId, userId]
-  );
-  return rows[0] || null;
-}
-
-// Resolve the club that a user owns (for club-targeted credit purchases).
-async function resolveClubForUserId(userId) {
-  const users = await EXECUTESQL(
-    'SELECT id, email, owner_id FROM users WHERE id = ? LIMIT 1',
-    [userId]
-  );
-  const me = users[0];
-  if (!me) return null;
-  if (me.owner_id) {
-    const byOwner = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [me.owner_id]).catch(() => []);
-    if (byOwner.length) return byOwner[0];
-  }
-  const byUser = await EXECUTESQL('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [userId]).catch(() => []);
-  if (byUser.length) return byUser[0];
-  if (me.email) {
-    const byEmail = await EXECUTESQL('SELECT * FROM clubs WHERE owner_email = ? LIMIT 1', [me.email]).catch(() => []);
-    if (byEmail.length) return byEmail[0];
-  }
-  return null;
-}
-
 // Add `credits` to a player or club wallet. Idempotency is enforced by the
 // caller via claimStripeSession(); this just performs the additive update.
 async function grantCreditsToTarget({ userId, credits, target }) {
@@ -2118,16 +2136,13 @@ async function notifyTournamentStarted(tournament) {
       const rows = await EXECUTESQL(`SELECT email FROM players WHERE id IN (${placeholders(playerIds)})`, playerIds).catch(() => []);
       rows.forEach(row => { if (row.email) recipients.add(String(row.email).toLowerCase()); });
     }
-  } else {
-    const clubIds = parseMaybeJson(tournament.registered_clubs, []).map(String).filter(Boolean);
-    if (clubIds.length) {
-      const rows = await EXECUTESQL(
-        `SELECT email FROM players WHERE club_id IN (${placeholders(clubIds)}) AND email IS NOT NULL AND email <> ''`,
-        clubIds
-      ).catch(() => []);
-      rows.forEach(row => { if (row.email) recipients.add(String(row.email).toLowerCase()); });
+    } else {
+      const clubIds = parseMaybeJson(tournament.registered_clubs, []).map(String).filter(Boolean);
+      if (clubIds.length) {
+      const emails = await listActiveClubPlayerEmails(clubIds);
+      emails.forEach(email => { recipients.add(String(email).toLowerCase()); });
+      }
     }
-  }
 
   let notified = 0;
   for (const email of recipients) {
@@ -3220,10 +3235,10 @@ const HANDLERS = {
 
     const [homePlayers, awayPlayers] = await Promise.all([
       match.home_club_id
-        ? EXECUTESQL('SELECT * FROM players WHERE club_id = ? ORDER BY FIELD(position, "ST","LW","RW","CAM","CM","CDM","CB","LB","RB","GK"), gamertag LIMIT 11', [match.home_club_id]).catch(() => [])
+        ? listActiveClubPlayers(match.home_club_id, { limit: 11 })
         : Promise.resolve([]),
       match.away_club_id
-        ? EXECUTESQL('SELECT * FROM players WHERE club_id = ? ORDER BY FIELD(position, "ST","LW","RW","CAM","CM","CDM","CB","LB","RB","GK"), gamertag LIMIT 11', [match.away_club_id]).catch(() => [])
+        ? listActiveClubPlayers(match.away_club_id, { limit: 11 })
         : Promise.resolve([]),
     ]);
     const simulatedStats = buildSimulatedPlayerStats(homePlayers, awayPlayers, match, homeScore, awayScore);
@@ -3849,6 +3864,7 @@ const HANDLERS = {
            WHERE id = ?`,
           [JSON.stringify(['member']), player_id]
         );
+        await endActiveMemberships({ playerId: player_id, reason: 'removed', query });
         const updatedRows = await query('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
         const updated = updatedRows[0] || {
           ...player,
@@ -3888,6 +3904,7 @@ const HANDLERS = {
         if (!rows.length) throw new Error('Club not found');
         const club = rows[0];
         await query('UPDATE players SET club_id = NULL, updated_date = NOW() WHERE club_id = ?', [club_id]);
+        await query('DELETE FROM club_memberships WHERE club_id = ?', [club_id]);
         await query('DELETE FROM clubs WHERE id = ?', [club_id]);
         await createAuditLog({
           adminUserId: admin.id,
@@ -4746,6 +4763,50 @@ const HANDLERS = {
       }
     }
 
+    if (related_entity_id) {
+      const existing = await EXECUTESQL(
+        `SELECT id, recipient_email FROM inbox_messages
+         WHERE related_entity_id = ? AND message_type = ?
+         LIMIT 1`,
+        [related_entity_id, message_type]
+      );
+      if (existing.length) {
+        await EXECUTESQL(
+          `UPDATE inbox_messages
+              SET recipient_email = ?,
+                  sender_email = ?,
+                  sender_gamertag = ?,
+                  sender_avatar_url = ?,
+                  sender_club_name = ?,
+                  is_system = ?,
+                  subject = ?,
+                  body = ?,
+                  action_type = ?,
+                  status = 'pending',
+                  is_read = 0,
+                  related_entity_type = ?,
+                  metadata = ?,
+                  updated_date = NOW()
+            WHERE id = ?`,
+          [
+            recipient,
+            sender_email || null,
+            senderGamertag,
+            senderAvatar,
+            senderClubName,
+            isSystem ? 1 : 0,
+            subject,
+            body,
+            action_type,
+            related_entity_type || null,
+            metadata ? JSON.stringify(metadata) : null,
+            existing[0].id,
+          ]
+        );
+        return { success: true, message: { id: existing[0].id, reused: true } };
+      }
+    }
+
     const messageId = uuidv4();
     await EXECUTESQL(
       `INSERT INTO inbox_messages
@@ -5091,7 +5152,7 @@ const HANDLERS = {
     const free_agents = players.filter((p) => !activeIds.has(p.id));
 
     const expiringContracts = await EXECUTESQL(
-      "SELECT * FROM player_contracts WHERE status = 'active' AND end_date IS NOT NULL ORDER BY end_date ASC",
+      "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active' AND end_date IS NOT NULL ORDER BY end_date ASC",
       []
     );
     const expiring_players = [];
@@ -5124,22 +5185,25 @@ const HANDLERS = {
     if (!player) throw new Error('Player profile not found');
     if (!team_id || !user_id) throw new Error('team_id and user_id required');
 
-    const window = await getCurrentTransferWindow();
-    const status = window ? 'pending' : 'pending_window';
+    const transferWindow = await getCurrentTransferWindow();
+    const status = transferWindow ? 'pending' : 'pending_window';
+    const duration = CONTRACT_TYPE_DURATION[contract_type] || CONTRACT_TYPE_DURATION.squad;
     const id = uuidv4();
     await EXECUTESQL(
       `INSERT INTO player_contracts (
-        id, team_id, user_id, contract_type, status, offered_by,
+        id, team_id, user_id, contract_type, status, offered_by, max_games, max_days,
         weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
         captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
       [
         id,
         team_id,
         user_id,
-        contract_type || 'standard',
+        contract_type || 'squad',
         status,
         user.email,
+        duration.max_games,
+        duration.max_days,
         Number(weekly_salary_stc || 0),
         Number(signing_bonus_stc || 0),
         Number(transfer_fee_stc || 0),
@@ -5170,7 +5234,7 @@ const HANDLERS = {
       let sourceContract = null;
       if (action === 'renewal_offer') {
         if (!contract_id) throw new Error('contract_id required');
-        const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+        const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
         if (!rows.length) throw new Error('Contract not found');
         sourceContract = rows[0];
       }
@@ -5205,14 +5269,14 @@ const HANDLERS = {
         ]
       );
       await deliverContractOfferMessage(id).catch(err => console.error('[contract delivery]', err.message));
-      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [id]);
+      const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [id]);
       return { success: true, data: { contract: rows[0], contract_id: id, status: 'pending' } };
     }
 
     // ── counter ─────────────────────────────────────────────────────────────
     if (action === 'counter') {
       if (!contract_id) throw new Error('contract_id required');
-      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       if (!rows.length) throw new Error('Contract not found');
       const contract = rows[0];
       if (!['pending', 'negotiating'].includes(contract.status)) {
@@ -5234,7 +5298,7 @@ const HANDLERS = {
         [...Object.values(updates), contract_id]
       );
       await deliverContractOfferMessage(contract_id).catch(err => console.error('[contract delivery]', err.message));
-      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'negotiating' } };
     }
 
@@ -5242,7 +5306,7 @@ const HANDLERS = {
     if (action === 'reject') {
       if (!contract_id) throw new Error('contract_id required');
       await EXECUTESQL("UPDATE player_contracts SET status = 'rejected', updated_date = NOW() WHERE id = ?", [contract_id]);
-      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'rejected' } };
     }
 
@@ -5250,7 +5314,7 @@ const HANDLERS = {
     if (action === 'mark_pending_window') {
       if (!contract_id) throw new Error('contract_id required');
       await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
-      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'pending_window' } };
     }
 
@@ -5261,7 +5325,7 @@ const HANDLERS = {
         "UPDATE player_contracts SET status = 'cancelled', start_date = NULL, end_date = NULL, updated_date = NOW() WHERE id = ?",
         [contract_id]
       );
-      const updated = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'cancelled' } };
     }
 
@@ -5322,6 +5386,14 @@ const HANDLERS = {
           "UPDATE players SET club_id = ?, club_roles = ?, role = ?, status = 'active', updated_date = NOW() WHERE id = ?",
           [contract.team_id, JSON.stringify(nextRoles), nextRole, contract.user_id]
         );
+        await upsertActiveMembership({
+          clubId: contract.team_id,
+          playerId: contract.user_id,
+          userId: player.user_id || null,
+          primaryRole: nextRole,
+          source: 'contract_acceptance',
+          query,
+        });
 
         const bonus = Number(contract.signing_bonus_stc || 0);
         if (bonus > 0) {
@@ -5352,19 +5424,40 @@ const HANDLERS = {
     // ── terminate ────────────────────────────────────────────────────────────
     if (action === 'terminate') {
       if (!contract_id) throw new Error('contract_id required');
-      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      if (!contracts.length) throw new Error('Contract not found');
-      if (contracts[0].status !== 'active') throw new Error('Can only terminate active contracts');
-      await EXECUTESQL("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+      await withTransaction(async (query) => {
+        const contracts = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1 FOR UPDATE', [contract_id]);
+        if (!contracts.length) throw new Error('Contract not found');
+        if (contracts[0].status !== 'active') throw new Error('Can only terminate active contracts');
+        await query("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+        await releasePlayerFromClubIfUnassigned({
+          playerId: contracts[0].user_id,
+          clubId: contracts[0].team_id,
+          query,
+        });
+      });
       return { success: true, data: { status: 'terminated' } };
     }
 
     // ── expire_overdue ───────────────────────────────────────────────────────
     if (action === 'expire_overdue') {
-      const result = await EXECUTESQL(
-        "UPDATE player_contracts SET status = 'expired', updated_date = NOW() WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE()",
-        []
-      );
+      const result = await withTransaction(async (query) => {
+        const overdueContracts = await query(
+          "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE() FOR UPDATE",
+          []
+        );
+        const updateResult = await query(
+          "UPDATE player_contracts SET status = 'expired', updated_date = NOW() WHERE status = 'active' AND end_date IS NOT NULL AND end_date < CURDATE()",
+          []
+        );
+        for (const expiredContract of overdueContracts) {
+          await releasePlayerFromClubIfUnassigned({
+            playerId: expiredContract.user_id,
+            clubId: expiredContract.team_id,
+            query,
+          });
+        }
+        return updateResult;
+      });
       return { success: true, data: { expired_count: result.affectedRows || 0 } };
     }
 
@@ -5455,7 +5548,16 @@ const HANDLERS = {
       const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
       if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
       if (!contract_id) throw new Error('contract_id required');
-      await EXECUTESQL("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+      await withTransaction(async (query) => {
+        const contracts = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1 FOR UPDATE', [contract_id]);
+        if (!contracts.length) throw new Error('Contract not found');
+        await query("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
+        await releasePlayerFromClubIfUnassigned({
+          playerId: contracts[0].user_id,
+          clubId: contracts[0].team_id,
+          query,
+        });
+      });
       return { success: true };
     }
 
@@ -5464,7 +5566,7 @@ const HANDLERS = {
       const adminCheck = await EXECUTESQL('SELECT role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
       if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin access required');
       if (!contract_id || amount == null) throw new Error('contract_id and amount required');
-      const contracts = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
+      const contracts = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       if (!contracts.length) throw new Error('Contract not found');
       const contract  = contracts[0];
       const players   = await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [contract.user_id]);
@@ -5496,8 +5598,9 @@ const HANDLERS = {
 
     if (action === 'get_current') {
       // Prefer the live open window; otherwise return the most recent closed one for admin UI.
-      const window = current || (await getLatestTransferWindow());
-      return { data: { window } };
+      // Do not name this binding `window` — shadows the browser global if this ever runs in a web context.
+      const transferWindow = current || (await getLatestTransferWindow());
+      return { data: { window: transferWindow } };
     }
 
     if (action === 'open_window') {
@@ -5521,9 +5624,9 @@ const HANDLERS = {
 
     if (action === 'execute_pending') {
       const pendings = await EXECUTESQL(
-        "SELECT * FROM player_contracts WHERE status = 'pending_window' ORDER BY created_date ASC",
+        "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'pending_window' ORDER BY created_date ASC",
         []
-      );
+      ).catch(() => []);
       for (const c of pendings) {
         await EXECUTESQL("UPDATE player_contracts SET status = 'pending', updated_date = NOW() WHERE id = ?", [c.id]);
       }
@@ -5548,7 +5651,7 @@ const HANDLERS = {
     }
 
     const activeContracts = await EXECUTESQL(
-      "SELECT * FROM player_contracts WHERE status = 'active' AND IFNULL(weekly_salary_stc,0) > 0",
+      "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active' AND IFNULL(weekly_salary_stc,0) > 0",
       []
     );
     const now = new Date();
@@ -5605,7 +5708,7 @@ const HANDLERS = {
     const CONTRACT_META = {
       trial: { max_games: 5 }, academy: { max_games: 20 }, squad: { max_games: 100 }, important: { max_games: 250 }, star: { max_games: 400 },
     };
-    const active = await EXECUTESQL("SELECT * FROM player_contracts WHERE status = 'active'", []);
+    const active = await EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active'", []);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let completed = 0;
@@ -7284,7 +7387,7 @@ const HANDLERS = {
       const offset = (pageNum - 1) * limit;
 
       const [contracts, transactions, countRows, summaryRows] = await Promise.all([
-        EXECUTESQL("SELECT * FROM player_contracts WHERE team_id = ? AND status = 'active' ORDER BY created_date DESC", [cid]),
+        EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE team_id = ? AND status = 'active' ORDER BY created_date DESC", [cid]),
         EXECUTESQL('SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY created_date DESC LIMIT ? OFFSET ?', [cid, limit, offset]),
         EXECUTESQL('SELECT COUNT(*) as total FROM stc_transactions WHERE club_id = ?', [cid]),
         EXECUTESQL(
@@ -7518,6 +7621,7 @@ const HANDLERS = {
     const club = clubs[0];
     if (club.owner_email !== user.email) throw new Error('Only owner can delete this club');
     await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club_id]);
+    await EXECUTESQL('DELETE FROM club_memberships WHERE club_id = ?', [club_id]).catch(() => {});
     await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club_id]);
     return { success: true };
   },
@@ -7531,7 +7635,7 @@ const HANDLERS = {
       if (!player) throw new Error('Player not found');
 
       const [contracts, summary, recent] = await Promise.all([
-        EXECUTESQL("SELECT * FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [_auth_user_id]),
+        EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [player.id]),
         EXECUTESQL(
           `SELECT type, category, SUM(amount) as total FROM player_stc_transactions
            WHERE player_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -7574,7 +7678,7 @@ const HANDLERS = {
       const { user, player } = await getMe(_auth_user_id);
       if (!player) throw new Error('Player not found');
 
-      const contracts = await EXECUTESQL("SELECT * FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [_auth_user_id]);
+      const contracts = await EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [player.id]);
       if (!contracts.length || !contracts[0].weekly_salary_stc) throw new Error('No active salary contract');
       const contract = contracts[0];
       const salary = Number(contract.weekly_salary_stc);
@@ -7769,7 +7873,7 @@ const HANDLERS = {
           [p.id]
         ),
         EXECUTESQL(
-          "SELECT * FROM player_contracts WHERE user_id = ? AND status IN ('active','pending') ORDER BY created_date DESC LIMIT 1",
+          "SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status IN ('active','pending') ORDER BY created_date DESC LIMIT 1",
           [p.id]
         ),
         EXECUTESQL(
@@ -8744,10 +8848,7 @@ const HANDLERS = {
       || String(club.user_id || '') === String(_auth_user_id);
     if (!ownerOk) throw new Error('Only the club owner can notify players for this registration');
 
-    const clubPlayers = await EXECUTESQL(
-      'SELECT email FROM players WHERE club_id = ? AND email IS NOT NULL AND email <> \'\'',
-      [club_id],
-    );
+    const clubPlayerEmails = await listActiveClubPlayerEmails(club_id);
 
     const startLabel = tournament.start_date
       ? new Date(tournament.start_date).toLocaleString('en-GB', {
@@ -8760,8 +8861,7 @@ const HANDLERS = {
       : 'TBD';
 
     let notified = 0;
-    for (const row of clubPlayers) {
-      const email = row.email;
+    for (const email of clubPlayerEmails) {
       if (!email) continue;
       const result = await createNotificationIfEnabled({
         recipientEmail: email,

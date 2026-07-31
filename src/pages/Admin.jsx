@@ -1922,7 +1922,7 @@ export default function Admin(props) {
                     <label className="flex items-center justify-center gap-2 h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs cursor-pointer transition-colors">
                       <Upload className="w-3.5 h-3.5" />
                       {rulesFile ? rulesFile.name : t("admin.dialogs.attachRulesFile")}
-                      <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => setRulesFile(e.target.files[0])} />
+                      <input type="file" accept=".pdf,image/*" className="sr-only" onChange={e => setRulesFile(e.target.files[0])} />
                     </label>
                     {rulesFile && (
                       <div className="flex items-center gap-2 mt-1">
@@ -1973,7 +1973,7 @@ export default function Admin(props) {
                     <label className="w-full h-12 rounded-lg border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors cursor-pointer">
                       <Upload className="w-4 h-4" />
                       <span className="text-xs">{t("admin.dialogs.uploadTrophyPng")}</span>
-                      <input type="file" accept="image/png,image/*" className="hidden" onChange={e => { if (e.target.files[0]) { setAdminTrophyFile(e.target.files[0]); setAdminTrophyItemId(""); } }} />
+                      <input type="file" accept="image/png,image/*" className="sr-only" onChange={e => { if (e.target.files[0]) { setAdminTrophyFile(e.target.files[0]); setAdminTrophyItemId(""); } }} />
                     </label>
                   )}
                   {(adminTrophyItemId || adminTrophyFile) && (
@@ -1986,7 +1986,7 @@ export default function Admin(props) {
                   <label className="flex items-center justify-center gap-2 border border-dashed border-border rounded p-4 cursor-pointer hover:border-primary/50 transition-colors mb-3">
                     <Upload className="w-4 h-4 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">{bannerFile ? bannerFile.name : t("admin.dialogs.uploadBanner")}</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={e => setBannerFile(e.target.files[0])} />
+                    <input type="file" accept="image/*" className="sr-only" onChange={e => setBannerFile(e.target.files[0])} />
                   </label>
                   {!bannerFile && (
                     <div>

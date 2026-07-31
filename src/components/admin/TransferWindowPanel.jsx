@@ -30,48 +30,74 @@ export default function TransferWindowPanel() {
 
   async function load() {
     setLoading(true);
-    const [winRes, pendingContracts] = await Promise.all([
-      stageClient.functions.invoke("transferWindowActions", { action: "get_current" }),
-      stageClient.entities.PlayerContract.filter({ status: "pending_window" }),
-    ]);
-    setCurrentWindow(winRes.data.window || null);
-    setPendingCount(pendingContracts.length);
-    setLoading(false);
+    try {
+      const [winRes, pendingContracts] = await Promise.all([
+        stageClient.functions.invoke("transferWindowActions", { action: "get_current" }),
+        stageClient.entities.PlayerContract.filter({ status: "pending_window" }).catch(() => []),
+      ]);
+      setCurrentWindow(winRes?.data?.window || null);
+      setPendingCount(Array.isArray(pendingContracts) ? pendingContracts.length : 0);
+    } catch (err) {
+      console.error("[TransferWindowPanel] load failed", err);
+      setCurrentWindow(null);
+      setPendingCount(0);
+      await swalAlert(err?.message || err?.data?.error || t("admin.transfers.loadFailed") || "Failed to load transfer window.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function openWindow() {
     setSaving(true);
-    const res = await stageClient.functions.invoke("transferWindowActions", {
-      action: "open_window",
-      label: form.label || `Transfer Window ${new Date().toLocaleDateString()}`,
-      start_date: form.start_date || new Date().toISOString(),
-      end_date: form.end_date || null,
-      notes: form.notes,
-    });
-    setCurrentWindow(res.data.window);
-    setForm({ label: "", start_date: "", end_date: "", notes: "" });
-    await load();
-    setSaving(false);
+    try {
+      const res = await stageClient.functions.invoke("transferWindowActions", {
+        action: "open_window",
+        label: form.label || `Transfer Window ${new Date().toLocaleDateString()}`,
+        start_date: form.start_date || new Date().toISOString(),
+        end_date: form.end_date || null,
+        notes: form.notes,
+      });
+      setCurrentWindow(res?.data?.window || null);
+      setForm({ label: "", start_date: "", end_date: "", notes: "" });
+      await load();
+    } catch (err) {
+      console.error("[TransferWindowPanel] open failed", err);
+      await swalAlert(err?.message || err?.data?.error || "Failed to open transfer window.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function closeWindow() {
     if (!currentWindow) return;
     if (!(await swalConfirm(t("admin.transfers.closeConfirm")))) return;
     setSaving(true);
-    await stageClient.functions.invoke("transferWindowActions", {
-      action: "close_window",
-      window_id: currentWindow.id,
-    });
-    await load();
-    setSaving(false);
+    try {
+      await stageClient.functions.invoke("transferWindowActions", {
+        action: "close_window",
+        window_id: currentWindow.id,
+      });
+      await load();
+    } catch (err) {
+      console.error("[TransferWindowPanel] close failed", err);
+      await swalAlert(err?.message || err?.data?.error || "Failed to close transfer window.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function executePending() {
     setSaving(true);
-    const res = await stageClient.functions.invoke("transferWindowActions", { action: "execute_pending" });
-    await swalAlert(t("admin.transfers.executedCount", { count: res.data.transfers_executed }));
-    await load();
-    setSaving(false);
+    try {
+      const res = await stageClient.functions.invoke("transferWindowActions", { action: "execute_pending" });
+      await swalAlert(t("admin.transfers.executedCount", { count: res?.data?.transfers_executed ?? 0 }));
+      await load();
+    } catch (err) {
+      console.error("[TransferWindowPanel] execute failed", err);
+      await swalAlert(err?.message || err?.data?.error || "Failed to execute pending transfers.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const isOpen = isTransferWindowOpen(currentWindow);

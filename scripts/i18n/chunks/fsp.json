@@ -1,0 +1,106 @@
+{
+  "fspMatchScheduling": {
+    "en": "Match Scheduling",
+    "fr": "Planification du match"
+  },
+  "fspAwaitingSchedule": {
+    "en": "Awaiting Schedule",
+    "fr": "En attente de planification"
+  },
+  "fspTimeProposed": {
+    "en": "Time Proposed",
+    "fr": "Heure proposée"
+  },
+  "fspCounterProposal": {
+    "en": "Counter-Proposal",
+    "fr": "Contre-proposition"
+  },
+  "fspConfirmed": {
+    "en": "Confirmed",
+    "fr": "Confirmé"
+  },
+  "fspWindowExpired": {
+    "en": "Window Expired",
+    "fr": "Délai expiré"
+  },
+  "fspAdminReview": {
+    "en": "Admin Review",
+    "fr": "Examen admin"
+  },
+  "fspDeadlinePassed": {
+    "en": "Deadline passed — awaiting admin review",
+    "fr": "Délai dépassé — en attente d'examen admin"
+  },
+  "fspDeadlineIn": {
+    "en": "Deadline in {hours}h",
+    "fr": "Deadline dans {hours}h"
+  },
+  "fspDeadline": {
+    "en": "Deadline: {date}",
+    "fr": "Deadline : {date}"
+  },
+  "fspExpiredNote": {
+    "en": "Both teams failed to agree before the deadline. This fixture has been flagged for admin review.",
+    "fr": "Les deux équipes n'ont pas réussi à se mettre d'accord avant la deadline. Ce match a été signalé pour examen admin."
+  },
+  "fspAdminReviewNote": {
+    "en": "An admin is reviewing this scheduling dispute.",
+    "fr": "Un admin examine ce litige de planification."
+  },
+  "fspOpponentProposes": {
+    "en": "Opponent proposes:",
+    "fr": "L'adversaire propose :"
+  },
+  "fspConfirming": {
+    "en": "Confirming…",
+    "fr": "Confirmation…"
+  },
+  "fspProposeDifferent": {
+    "en": "Propose Different Time",
+    "fr": "Proposer une autre heure"
+  },
+  "fspYourProposal": {
+    "en": "Your proposal",
+    "fr": "Ta proposition"
+  },
+  "fspWaitingResponse": {
+    "en": "waiting for response",
+    "fr": "en attente de réponse"
+  },
+  "fspProposeTime": {
+    "en": "Propose a Time",
+    "fr": "Proposer une heure"
+  },
+  "fspWaitingHome": {
+    "en": "Waiting for the home team to propose a time…",
+    "fr": "En attente de la proposition de l'équipe à domicile…"
+  },
+  "fspNotScheduled": {
+    "en": "Not yet scheduled",
+    "fr": "Pas encore planifié"
+  },
+  "fspProposalsExchanged": {
+    "en": "{count} proposal(s) exchanged",
+    "fr": "{count} proposition(s) échangée(s)"
+  },
+  "fspMustBeBefore": {
+    "en": "must be before {date}",
+    "fr": "doit être avant le {date}"
+  },
+  "fspSending": {
+    "en": "Sending…",
+    "fr": "Envoi…"
+  },
+  "fspSendProposal": {
+    "en": "Send Proposal",
+    "fr": "Envoyer la proposition"
+  },
+  "fspProposalFailed": {
+    "en": "Failed to send proposal. Please try again.",
+    "fr": "Échec de l'envoi de la proposition. Réessaie."
+  },
+  "fspConfirmFailed": {
+    "en": "Failed to confirm match. Please try again.",
+    "fr": "Échec de la confirmation du match. Réessaie."
+  }
+}

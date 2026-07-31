@@ -97,7 +97,7 @@ router.post('/register', validate({
       [uuidv4(), email, refreshToken]
     );
 
-    res.status(201).json({ accessToken, refreshToken, userId, playerId: null, ownerId: null });
+    res.status(201).json({ accessToken, refreshToken, userId, playerId: null, ownerId: null, ownedClubId: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -162,6 +162,7 @@ router.post('/login', validate({
       userId: user.id,
       playerId: players[0]?.id || null,
       ownerId: clubs[0]?.id || null,
+      ownedClubId: clubs[0]?.id || null,
       roleId: Number(user.role_id ?? 1),
     });
   } catch (err) {
@@ -232,6 +233,7 @@ router.get('/me', async (req, res) => {
          p.role AS player_role,
          p.club_id,
          c.id AS owner_id,
+         c.id AS owned_club_id,
          c.name AS club_name
        FROM users u
        LEFT JOIN roles r   ON r.id = u.role_id
@@ -255,6 +257,7 @@ router.get('/me', async (req, res) => {
       updated_date: me.updated_date,
       player_id: me.player_id || null,
       owner_id: me.owner_id || null,
+      owned_club_id: me.owned_club_id || me.owner_id || null,
       role_id: roleId,
       role_name: roleName,
       role: appRole,

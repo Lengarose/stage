@@ -1,0 +1,78 @@
+{
+  "psTitle": {
+    "en": "Player Statistics",
+    "fr": "Statistiques joueurs"
+  },
+  "psNeedClub": {
+    "en": "You need to be in a club to view team stats.",
+    "fr": "Tu dois être dans un club pour voir les stats d'équipe."
+  },
+  "psPlayersCount": {
+    "en": "{name} · {count} players",
+    "fr": "{name} · {count} joueurs"
+  },
+  "psAllPlayers": {
+    "en": "👥 All Players",
+    "fr": "👥 Tous les joueurs"
+  },
+  "psTabGoals": {
+    "en": "⚽ Goals",
+    "fr": "⚽ Buts"
+  },
+  "psTabAssists": {
+    "en": "🎯 Assists",
+    "fr": "🎯 Passes"
+  },
+  "psTabRating": {
+    "en": "⭐ Rating",
+    "fr": "⭐ Note"
+  },
+  "psTabTable": {
+    "en": "📋 Table",
+    "fr": "📋 Tableau"
+  },
+  "psGoalsPerPlayer": {
+    "en": "Goals per Player",
+    "fr": "Buts par joueur"
+  },
+  "psAssistsPerPlayer": {
+    "en": "Assists per Player",
+    "fr": "Passes par joueur"
+  },
+  "psAvgMatchRating": {
+    "en": "Average Match Rating",
+    "fr": "Note moyenne par match"
+  },
+  "psAvgRating": {
+    "en": "Avg Rating",
+    "fr": "Note moy."
+  },
+  "psGoalsAssistsPerMatch": {
+    "en": "Goals & Assists per Match",
+    "fr": "Buts & passes par match"
+  },
+  "psRatingOverTime": {
+    "en": "Rating Over Time",
+    "fr": "Note dans le temps"
+  },
+  "psPerformanceRadar": {
+    "en": "Performance Radar",
+    "fr": "Radar de performance"
+  },
+  "psNoPlayerStats": {
+    "en": "No match stats recorded for this player yet.",
+    "fr": "Aucune stat de match pour ce joueur."
+  },
+  "psNoStatsYet": {
+    "en": "No match stats recorded yet. Submit match results with player stats to see charts here.",
+    "fr": "Aucune stat de match enregistrée. Soumets des résultats avec stats joueur pour voir les graphiques."
+  },
+  "psPos": {
+    "en": "Pos",
+    "fr": "Pos"
+  },
+  "psMp": {
+    "en": "MP",
+    "fr": "MJ"
+  }
+}

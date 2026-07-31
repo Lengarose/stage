@@ -1,0 +1,94 @@
+{
+  "stadCurrentStadium": {
+    "en": "Current Stadium",
+    "fr": "Stade actuel"
+  },
+  "stadLevelOf3": {
+    "en": "Level (of 3)",
+    "fr": "Niveau (sur 3)"
+  },
+  "stadCapacity": {
+    "en": "Capacity",
+    "fr": "Capacité"
+  },
+  "stadTicketPrice": {
+    "en": "Ticket Price per Fan",
+    "fr": "Prix du billet par fan"
+  },
+  "stadTicketRevenue": {
+    "en": "Ticket Revenue per Home Match",
+    "fr": "Revenus billetterie par match à domicile"
+  },
+  "stadRevenueFormula": {
+    "en": "Revenue Formula:",
+    "fr": "Formule de revenus :"
+  },
+  "stadCapacityFormula": {
+    "en": "{capacity} capacity × {price} STC/ticket",
+    "fr": "{capacity} places × {price} STC/billet"
+  },
+  "stadPerHomeMatch": {
+    "en": "Per Home Match",
+    "fr": "Par match à domicile"
+  },
+  "stadNextUpgrade": {
+    "en": "Next Upgrade",
+    "fr": "Prochaine amélioration"
+  },
+  "stadCapacityLabel": {
+    "en": "Capacity:",
+    "fr": "Capacité :"
+  },
+  "stadRevenueMatch": {
+    "en": "Revenue/Match:",
+    "fr": "Revenus/Match :"
+  },
+  "stadUpgradeCost": {
+    "en": "Upgrade Cost",
+    "fr": "Coût d'amélioration"
+  },
+  "stadClubBalance": {
+    "en": "Club Balance",
+    "fr": "Solde du club"
+  },
+  "stadUpgradeTo": {
+    "en": "Upgrade to {name} — {cost}",
+    "fr": "Améliorer vers {name} — {cost}"
+  },
+  "stadNeedMore": {
+    "en": "Need {amount} more STC",
+    "fr": "Besoin de {amount} STC supplémentaires"
+  },
+  "stadUpgradePath": {
+    "en": "Upgrade Path",
+    "fr": "Parcours d'amélioration"
+  },
+  "stadLvN": {
+    "en": "Lv {n}",
+    "fr": "Nv {n}"
+  },
+  "stadLv1Default": {
+    "en": "Lv 1 — Default",
+    "fr": "Nv 1 — Par défaut"
+  },
+  "stadUnlocked": {
+    "en": "✓ Unlocked",
+    "fr": "✓ Débloqué"
+  },
+  "stadMaxLevel": {
+    "en": "Max Level — Iconic Arena",
+    "fr": "Niveau max — Arène emblématique"
+  },
+  "stadMaxHint": {
+    "en": "Your stadium is the pinnacle of football infrastructure.",
+    "fr": "Ton stade est au sommet de l'infrastructure footballistique."
+  },
+  "stadUpgradeSuccess": {
+    "en": "Stadium upgraded to {name}!",
+    "fr": "Stade amélioré vers {name} !"
+  },
+  "stadUpgradeFailed": {
+    "en": "Upgrade failed",
+    "fr": "Échec de l'amélioration"
+  }
+}

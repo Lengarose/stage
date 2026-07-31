@@ -82,7 +82,7 @@ export default function ImagePositionEditor({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
         className="bg-[#06091a]/95 backdrop-blur-xl border border-white/20 text-white rounded-2xl max-w-sm p-0 shadow-2xl"
         onPointerDownOutside={e => e.preventDefault()}

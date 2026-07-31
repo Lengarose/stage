@@ -168,6 +168,7 @@ app.use('/api/stage/recruitment-interests',     verifyToken, require('./server/c
 app.use('/api/stage/rankings',                  verifyToken, require('./server/controllers/rankingController'));
 app.use('/api/stage/admin-analytics',           verifyToken, require('./server/controllers/adminAnalyticsController'));
 app.use('/api/stage/club-applicants',           verifyToken, require('./server/controllers/clubApplicantController'));
+app.use('/api/stage/club-memberships',          verifyToken, require('./server/controllers/clubMembershipController'));
 app.use('/api/stage/club-staff-roles',          verifyToken, require('./server/controllers/clubStaffRoleController'));
 app.use('/api/stage/club-fixture-availability', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
 app.use('/api/stage/club-fixture-availabilities', verifyToken, require('./server/controllers/clubFixtureAvailabilityController'));
@@ -226,6 +227,7 @@ app.get('/auth/callback', (req, res) => {
     userId = '',
     playerId = '',
     ownerId = '',
+    ownedClubId = '',
     isNewUser = '',
   } = req.query || {};
 
@@ -248,12 +250,13 @@ app.get('/auth/callback', (req, res) => {
           var userId = ${j(userId)};
           var playerId = ${j(playerId)};
           var ownerId = ${j(ownerId)};
+          var ownedClubId = ${j(ownedClubId)};
           var isNewUser = ${j(isNewUser)};
           if (accessToken)  localStorage.setItem('stage_access_token', accessToken);
           if (refreshToken) localStorage.setItem('stage_refresh_token', refreshToken);
           if (userId)       localStorage.setItem('stage_user_id', userId);
           if (playerId)     localStorage.setItem('stage_player_id', playerId);
-          if (ownerId)      localStorage.setItem('stage_owner_id', ownerId);
+          if (ownedClubId || ownerId) localStorage.setItem('stage_owner_id', ownedClubId || ownerId);
           if (isNewUser === '1' && userId) {
             sessionStorage.setItem('stage_needs_onboarding_' + userId, '1');
             localStorage.setItem('stage_needs_onboarding_' + userId, '1');
@@ -711,6 +714,73 @@ async function runStartupMigrations() {
     INDEX idx_ca_player (player_id)
   )`).catch(err => console.error('[migration] club_applicants:', err.message));
 
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_memberships (
+    id            VARCHAR(36) PRIMARY KEY,
+    club_id       VARCHAR(36) NOT NULL,
+    player_id     VARCHAR(36) NOT NULL,
+    user_id       VARCHAR(36) NULL,
+    status        VARCHAR(30) DEFAULT 'active',
+    primary_role  VARCHAR(40) DEFAULT 'member',
+    source        VARCHAR(40) DEFAULT 'manual',
+    created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_cm_player_club (club_id, player_id),
+    INDEX idx_cm_club_status (club_id, status),
+    INDEX idx_cm_player_status (player_id, status),
+    INDEX idx_cm_user_status (user_id, status)
+  )`).catch(err => console.error('[migration] club_memberships:', err.message));
+
+  await EXECUTESQL('ALTER TABLE club_memberships DROP INDEX uq_cm_active_player_club')
+    .catch(() => {});
+  await EXECUTESQL('CREATE INDEX idx_cm_player_club ON club_memberships (club_id, player_id)')
+    .catch(() => {});
+
+  await EXECUTESQL(`
+    INSERT IGNORE INTO club_memberships
+      (id, club_id, player_id, user_id, status, primary_role, source, created_date, updated_date)
+    SELECT UUID(), p.club_id, p.id, p.user_id, 'active',
+           COALESCE(NULLIF(p.role, ''), 'member'),
+           'legacy_player_club_id',
+           COALESCE(p.created_date, NOW()),
+           NOW()
+      FROM players p
+     WHERE p.club_id IS NOT NULL AND p.club_id <> ''
+       AND NOT EXISTS (
+         SELECT 1
+           FROM club_memberships cm
+          WHERE cm.club_id = p.club_id
+            AND cm.player_id = p.id
+            AND cm.status = 'active'
+       )
+  `).catch(err => console.error('[migration] club_memberships players backfill:', err.message));
+
+  await EXECUTESQL(`
+    INSERT IGNORE INTO club_memberships
+      (id, club_id, player_id, user_id, status, primary_role, source, created_date, updated_date)
+    SELECT UUID(), c.id, p.id, u.id, 'active',
+           'president',
+           'legacy_owner_link',
+           NOW(),
+           NOW()
+      FROM users u
+      JOIN clubs c
+        ON c.id = u.owner_id
+        OR c.user_id = u.id
+        OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
+      JOIN players p
+        ON p.id = u.player_id
+        OR p.user_id = u.id
+        OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+     WHERE c.id IS NOT NULL AND p.id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+           FROM club_memberships cm
+          WHERE cm.club_id = c.id
+            AND cm.player_id = p.id
+            AND cm.status = 'active'
+       )
+  `).catch(err => console.error('[migration] club_memberships owners backfill:', err.message));
+
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_staff_roles (
     id                  VARCHAR(36) PRIMARY KEY,
     club_id             VARCHAR(36) NOT NULL,
@@ -774,6 +844,19 @@ async function runStartupMigrations() {
     created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_coal_club_created (club_id, created_date)
   )`).catch(err => console.error('[migration] club_operation_audit_logs:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS transfer_windows (
+    id VARCHAR(36) PRIMARY KEY,
+    label VARCHAR(255) NULL,
+    status VARCHAR(50) DEFAULT 'closed',
+    start_date DATETIME NULL,
+    end_date DATETIME NULL,
+    notes TEXT NULL,
+    transfers_executed INT DEFAULT 0,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`).catch(err => console.error('[migration] transfer_windows:', err.message));
+  await addCol('transfer_windows', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
   // chat_reads — per-user last-read marker per chat channel.
   // channel_id is a string so it supports both raw match UUIDs and

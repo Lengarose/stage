@@ -1,0 +1,10 @@
+{
+  "squadSaveFailed": {
+    "en": "Could not save the national squad.",
+    "fr": "Impossible d'enregistrer l'équipe nationale."
+  },
+  "squadSelectedRule": {
+    "en": "{selected}/{max} selected · matchday rule: 11 starters + 7 bench",
+    "fr": "{selected}/{max} sélectionnés · règle matchday: 11 titulaires + 7 banc"
+  }
+}

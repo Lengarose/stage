@@ -1,0 +1,110 @@
+{
+  "icoContractUnavailable": {
+    "en": "Contract data unavailable or already resolved.",
+    "fr": "Données du contrat indisponibles ou déjà résolues."
+  },
+  "icoAwaitingResponse": {
+    "en": "Awaiting your response",
+    "fr": "En attente de ta réponse"
+  },
+  "icoNegotiatingRound": {
+    "en": "Negotiating — Round {round}",
+    "fr": "Négociation — Tour {round}"
+  },
+  "icoContractActive": {
+    "en": "✅ Contract Active",
+    "fr": "✅ Contrat actif"
+  },
+  "icoDeclined": {
+    "en": "❌ Declined",
+    "fr": "❌ Refusé"
+  },
+  "icoAcceptedPendingWindow": {
+    "en": "✅ Accepted — awaiting transfer window",
+    "fr": "✅ Accepté — en attente du mercato"
+  },
+  "icoClubOwnership": {
+    "en": "🏢 Club Ownership",
+    "fr": "🏢 Propriété du club"
+  },
+  "icoContract": {
+    "en": "Contract",
+    "fr": "Contrat"
+  },
+  "icoRound": {
+    "en": "Round {round}",
+    "fr": "Tour {round}"
+  },
+  "icoDuration": {
+    "en": "Duration",
+    "fr": "Durée"
+  },
+  "icoDurationValue": {
+    "en": "{games} games / {days} days",
+    "fr": "{games} matchs / {days} jours"
+  },
+  "icoTransferFee": {
+    "en": "Transfer Fee",
+    "fr": "Indemnité de transfert"
+  },
+  "icoOffered": {
+    "en": "⭐ Offered",
+    "fr": "⭐ Proposé"
+  },
+  "icoTargets": {
+    "en": "Targets",
+    "fr": "Objectifs"
+  },
+  "icoTargetCount": {
+    "en": "{count} target(s)",
+    "fr": "{count} objectif(s)"
+  },
+  "icoWindowOpenImmediate": {
+    "en": "Transfer window OPEN — accepting will activate this contract immediately.",
+    "fr": "Mercato OUVERT — accepter activera ce contrat immédiatement."
+  },
+  "icoWindowClosedQueue": {
+    "en": "Transfer window is currently CLOSED. Accepting will queue the transfer — it executes when the window opens.",
+    "fr": "Le mercato est actuellement FERMÉ. Accepter mettra le transfert en file — il s'exécute à l'ouverture du mercato."
+  },
+  "icoWindowChecking": {
+    "en": "Checking transfer window status...",
+    "fr": "Vérification du statut du mercato..."
+  },
+  "icoAcceptQueue": {
+    "en": "Accept & Queue Transfer",
+    "fr": "Accepter et mettre en file"
+  },
+  "icoAcceptContract": {
+    "en": "Accept Contract",
+    "fr": "Accepter le contrat"
+  },
+  "icoCounterOffer": {
+    "en": "Counter-Offer",
+    "fr": "Contre-offre"
+  },
+  "icoWaitingOther": {
+    "en": "Waiting for the other party to respond.",
+    "fr": "En attente de la réponse de l'autre partie."
+  },
+  "icoWeeklySalaryStc": {
+    "en": "Weekly Salary (STC)",
+    "fr": "Salaire hebdo (STC)"
+  },
+  "icoSigningBonusStc": {
+    "en": "Signing Bonus (STC)",
+    "fr": "Prime à la signature (STC)"
+  },
+  "icoTransferFeeStc": {
+    "en": "Transfer Fee (STC)",
+    "fr": "Indemnité de transfert (STC)"
+  },
+  "icoCounterPlaceholder": {
+    "en": "Explain your counter-offer... (optional)",
+    "fr": "Explique ta contre-offre... (optionnel)"
+  },
+  "icoSendCounter": {
+    "en": "Send Counter-Offer",
+    "fr": "Envoyer la contre-offre"
+  }
+}

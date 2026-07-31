@@ -24,7 +24,8 @@ function contractBody({ club, player, contract }) {
 
 async function deliverContractOffer(contractId) {
   const rows = await EXECUTESQL(
-    `SELECT pc.*, c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
+    `SELECT pc.*, pc.user_id AS target_player_id,
+            c.name AS club_name, c.logo_url AS club_logo_url, c.owner_email AS club_owner_email,
             p.email AS player_email, p.gamertag AS player_gamertag, p.avatar_url AS player_avatar_url,
             u.email AS user_email
        FROM player_contracts pc
@@ -171,6 +172,24 @@ async function cancelContractOffer(contractId, req, reason = null) {
         AND active_pc.id IS NULL
         AND csr.id IS NULL`,
     [contract.team_id, contract.team_id, contract.user_id, contract.team_id]
+  ).catch(() => {});
+  await EXECUTESQL(
+    `UPDATE club_memberships cm
+       LEFT JOIN player_contracts active_pc
+         ON active_pc.user_id = cm.player_id
+        AND active_pc.team_id = cm.club_id
+        AND active_pc.status = 'active'
+       LEFT JOIN club_staff_roles csr
+         ON csr.player_id = cm.player_id
+        AND csr.club_id = cm.club_id
+        SET cm.status = 'inactive',
+            cm.updated_date = NOW()
+      WHERE cm.player_id = ?
+        AND cm.club_id = ?
+        AND cm.status = 'active'
+        AND active_pc.id IS NULL
+        AND csr.id IS NULL`,
+    [contract.user_id, contract.team_id]
   ).catch(() => {});
 
   await writeClubAudit({

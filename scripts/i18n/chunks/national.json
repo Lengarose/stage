@@ -1,0 +1,10 @@
+{
+  "nationalOwnerVote": {
+    "en": "{country} National Team Owner Vote",
+    "fr": "Vote owner national {country}"
+  },
+  "nationalSquad": {
+    "en": "National Squad",
+    "fr": "Équipe nationale"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "transferTitle": {
+    "en": "Transfers",
+    "fr": "Transferts"
+  },
+  "transferSubtitle": {
+    "en": "Browse available players and send contract offers",
+    "fr": "Parcours les joueurs disponibles et envoie des offres de contrat"
+  },
+  "transferWindowClosed": {
+    "en": "Transfer window is closed. Offers sent now will execute when the window opens.",
+    "fr": "Le mercato est fermé. Les offres envoyées maintenant s'exécuteront à l'ouverture."
+  }
+}

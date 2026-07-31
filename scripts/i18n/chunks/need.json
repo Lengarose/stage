@@ -1,0 +1,10 @@
+{
+  "needClubToChallenge": {
+    "en": "You need to be in a club to challenge.",
+    "fr": "Tu dois être dans un club pour lancer un défi."
+  },
+  "needPlayerToChallenge": {
+    "en": "You need a player profile to challenge.",
+    "fr": "Tu dois avoir un profil joueur pour lancer un défi."
+  }
+}

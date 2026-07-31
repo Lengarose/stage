@@ -1,0 +1,14 @@
+{
+  "offer": {
+    "en": "Offer",
+    "fr": "Offre"
+  },
+  "offerAlreadySent": {
+    "en": "Offer Already Sent",
+    "fr": "Offre déjà envoyée"
+  },
+  "offerContract": {
+    "en": "Offer Contract",
+    "fr": "Offrir contrat"
+  }
+}

@@ -142,12 +142,12 @@ export default function RewardConfigPanel({ sourceId, sourceType, sourceName, so
               placeholder="https://… trophy image URL"
               className="h-8 text-xs bg-background border-border"
             />
-            <label className="cursor-pointer">
-              <input type="file" accept="image/*" className="hidden" onChange={handleTrophyUpload} ref={r => { trophyFileRef.current = r; }} />
-              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1.5 border-border" onClick={() => trophyFileRef.current?.click()} disabled={uploading} type="button">
+            <label className="cursor-pointer touch-manipulation inline-flex">
+              <input type="file" accept="image/*" className="sr-only" onChange={handleTrophyUpload} disabled={uploading} ref={r => { trophyFileRef.current = r; }} />
+              <span className={`inline-flex h-7 items-center justify-center gap-1.5 px-3 rounded-md border border-border text-[10px] font-medium ${uploading ? "opacity-50 pointer-events-none" : "hover:bg-accent"}`}>
                 <Upload className="w-3 h-3" />
                 {uploading ? "Uploading…" : "Upload PNG"}
-              </Button>
+              </span>
             </label>
           </div>
         </div>

@@ -1,0 +1,70 @@
+{
+  "ocdCounterOffer": {
+    "en": "Counter Offer",
+    "fr": "Contre-offre"
+  },
+  "ocdTo": {
+    "en": "to {name}",
+    "fr": "à {name}"
+  },
+  "ocdActiveContract": {
+    "en": "This player already has an active {type} contract ({status}).",
+    "fr": "Ce joueur a déjà un contrat {type} actif ({status})."
+  },
+  "ocdStillOfferPlayer": {
+    "en": "You can still offer a player contract alongside it.",
+    "fr": "Tu peux quand même offrir un contrat joueur en parallèle."
+  },
+  "ocdStillOfferOwnership": {
+    "en": "You can still offer an ownership contract alongside it.",
+    "fr": "Tu peux quand même offrir un contrat de propriété en parallèle."
+  },
+  "ocdSecondContract": {
+    "en": "This will create a second contract of the same type.",
+    "fr": "Cela créera un second contrat du même type."
+  },
+  "ocdWindowClosed": {
+    "en": "Transfer window is closed. Offer queued — transfer executes when window opens.",
+    "fr": "Le mercato est fermé. L'offre est mise en file — le transfert s'exécute à l'ouverture du mercato."
+  },
+  "ocdWindowOpen": {
+    "en": "Transfer window OPEN. Accepted offers take effect immediately.",
+    "fr": "Mercato OUVERT. Les offres acceptées prennent effet immédiatement."
+  },
+  "ocdWindowChecking": {
+    "en": "Checking transfer window status...",
+    "fr": "Vérification du statut du mercato..."
+  },
+  "ocdContractType": {
+    "en": "Contract Type",
+    "fr": "Type de contrat"
+  },
+  "ocdFinancialTerms": {
+    "en": "Financial Terms (STC)",
+    "fr": "Conditions financières (STC)"
+  },
+  "ocdPerformanceTargets": {
+    "en": "Performance Targets",
+    "fr": "Objectifs de performance"
+  },
+  "ocdMessage": {
+    "en": "Message",
+    "fr": "Message"
+  },
+  "ocdCounterPlaceholder": {
+    "en": "Explain your counter-offer...",
+    "fr": "Explique ta contre-offre..."
+  },
+  "ocdSending": {
+    "en": "Sending...",
+    "fr": "Envoi..."
+  },
+  "ocdSendCounter": {
+    "en": "Send Counter-Offer",
+    "fr": "Envoyer la contre-offre"
+  },
+  "ocdSendOffer": {
+    "en": "Send Contract Offer",
+    "fr": "Envoyer l'offre de contrat"
+  }
+}
