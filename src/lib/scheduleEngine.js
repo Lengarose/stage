@@ -101,7 +101,7 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
     ? format(new Date(fixture.window_end), "d MMM yyyy")
     : "TBD";
 
-  await stageClient.entities.InboxMessage.create({
+  await stageClient.functions.invoke("sendInboxMessage", {
     recipient_email:     recipientEmail,
     sender_email:        myEmail,
     sender_gamertag:     proposerName,
@@ -129,15 +129,8 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
       match_context:        matchContext,
       window_end:           fixture.window_end,
     },
+    send_notification:   true,
   });
-
-  await notify(
-    recipientEmail,
-    "schedule_proposed",
-    `📅 Match Time Proposed: ${fixtureName}`,
-    `${proposerName} proposed ${formattedDate}. Open your inbox to accept or suggest a different time.`,
-    "/inbox"
-  );
 }
 
 // ─── Accept a proposal ────────────────────────────────────────────────────────
@@ -165,7 +158,7 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
   await createMatchFromFixture({ ...fixture, confirmed_date: confirmedDate, status: "scheduled" }, fixtureType);
 
   if (proposerEmail) {
-    await stageClient.entities.InboxMessage.create({
+    await stageClient.functions.invoke("sendInboxMessage", {
       recipient_email: proposerEmail,
       sender_email:    myEmail,
       sender_gamertag: accepterName,
@@ -181,15 +174,8 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
         fixture_type: fixtureType,
         confirmed_date: confirmedDate,
       },
+      send_notification: true,
     });
-
-    await notify(
-      proposerEmail,
-      "schedule_confirmed",
-      `✅ Match Confirmed: ${fixtureName}`,
-      `${accepterName} accepted your proposed time. Match on ${formattedDate}.`,
-      "/schedule"
-    );
   }
 }
 

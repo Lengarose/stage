@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
-import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -224,7 +223,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds are locked from both balances when this invite is accepted.`
         : "";
 
-      await stageClient.entities.InboxMessage.create({
+      await stageClient.functions.invoke("sendInboxMessage", {
         recipient_email:      recipientEmail,
         sender_email:         senderIsClub ? (myClub?.owner_email || myPlayer?.email || "system@stage.com") : (myPlayer?.email || "system@stage.com"),
         sender_gamertag:      senderName,
@@ -249,13 +248,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           opponent_player_id:   !recipientIsClub ? selected.id : null,
           wager_stc:            wagerAmount,
         },
+        send_notification:    true,
       });
-
-      notify(recipientEmail, "match_scheduled",
-        `⚽ Match Invitation from ${senderName}`,
-        `${senderName} wants to play against you on ${date} at ${time}${wagerAmount ? ` — wager: ${wagerAmount.toLocaleString()} STC` : ""}. Check your inbox to respond.`,
-        "/inbox"
-      );
 
       setSent(true);
       setTimeout(() => { reset(); onSent(); }, 1500);

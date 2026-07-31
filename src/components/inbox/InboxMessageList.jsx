@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
+import { inboxMessageIsActioned, inboxMessageNeedsAction } from "@/lib/inboxActionTypes";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -34,8 +35,8 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
       {messages.map((msg) => {
         const badge = TYPE_BADGE[msg.message_type] || TYPE_BADGE.general;
         const isSelected = msg.id === selectedId;
-        const needsAction = msg.action_type && msg.action_type !== "none" && msg.status === "pending";
-        const isActioned = msg.action_type && msg.action_type !== "none" && msg.status !== "pending";
+        const needsAction = inboxMessageNeedsAction(msg);
+        const isActioned = inboxMessageIsActioned(msg);
         const statusInfo = isActioned ? STATUS_LABEL[msg.status] : null;
 
         return (

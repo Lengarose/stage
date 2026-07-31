@@ -29,7 +29,6 @@ import ClubOperations from "@/components/club/ClubOperations";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
-import { notify } from "@/lib/notify";
 import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
@@ -363,7 +362,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
     setSendingTrial(true);
     try {
-      await stageClient.entities.InboxMessage.create({
+      await stageClient.functions.invoke("sendInboxMessage", {
         recipient_email:   recipientEmail,
         sender_email:      currentUser.email,
         sender_gamertag:   gamerTag,
@@ -389,12 +388,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           club_name:        club.name,
           club_logo_url:    club.logo_url || "",
         },
+        send_notification: true,
       });
-      await notify(recipientEmail, "club_update",
-        `⚽ Trial Request — ${myPlayer.gamertag}`,
-        `${myPlayer.gamertag} is requesting a trial at ${club.name}. Check your inbox to respond.`,
-        "/inbox"
-      );
       setTrialRequestSent(true);
       setTrialDialogOpen(false);
       setTrialMsg("");

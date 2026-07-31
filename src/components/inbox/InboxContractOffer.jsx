@@ -144,7 +144,8 @@ export default function InboxContractOffer({ message, onActioned }) {
             contract_id: contractId,
           });
           setContract(prev => ({ ...prev, ...(result?.data?.contract || {}), status: "pending_window" }));
-          onActioned?.("pending_window");
+          await stageClient.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
+          onActioned?.("accept");
           return;
         }
         const result = await stageClient.functions.invoke("contractManagement", {
@@ -185,6 +186,10 @@ export default function InboxContractOffer({ message, onActioned }) {
           link: `/clubs/${contract.team_id}`,
         });
       }
+      await stageClient.entities.InboxMessage.update(message.id, {
+        status: action === "accept" ? "accepted" : "declined",
+        is_read: true,
+      });
       onActioned?.(action);
     } catch (e) {
       setError(e.message || "Action failed");

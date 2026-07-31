@@ -4586,6 +4586,9 @@ const HANDLERS = {
     recipient_email,
     recipient_player_id,
     sender_email,
+    sender_gamertag,
+    sender_avatar_url,
+    sender_club_name,
     subject,
     body,
     message_type = 'general',
@@ -4609,19 +4612,19 @@ const HANDLERS = {
     }
     if (!recipient || !subject || !body) throw new Error('Missing required fields: recipient_email (or recipient_player_id), subject, body');
 
-    let senderGamertag = null;
-    let senderAvatar = null;
-    let senderClubName = null;
+    let senderGamertag = sender_gamertag || null;
+    let senderAvatar = sender_avatar_url || null;
+    let senderClubName = sender_club_name || null;
     const isSystem = !sender_email;
     if (sender_email) {
       const senderPlayerRows = await EXECUTESQL('SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1', [sender_email]);
       const senderPlayer = senderPlayerRows[0];
       if (senderPlayer) {
-        senderGamertag = senderPlayer.gamertag || null;
-        senderAvatar = senderPlayer.avatar_url || null;
+        senderGamertag = senderGamertag || senderPlayer.gamertag || null;
+        senderAvatar = senderAvatar || senderPlayer.avatar_url || null;
         if (senderPlayer.club_id) {
           const clubRows = await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [senderPlayer.club_id]);
-          senderClubName = clubRows[0]?.name || null;
+          senderClubName = senderClubName || clubRows[0]?.name || null;
         }
       }
     }

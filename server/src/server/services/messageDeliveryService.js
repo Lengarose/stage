@@ -203,6 +203,8 @@ async function sendActionMessage({
         existingMessage.id,
       ]
     ).catch(() => {});
+    const repairedRows = await EXECUTESQL('SELECT * FROM inbox_messages WHERE id = ? LIMIT 1', [existingMessage.id]).catch(() => []);
+    if (repairedRows[0]) broadcastInbox(repairedRows[0]);
     const notificationResult = notify ? await notifyForActionMessage({
       recipient,
       messageId: existingMessage.id,

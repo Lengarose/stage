@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
-import { notify, postContractNews } from "@/lib/notify";
+import { postContractNews } from "@/lib/notify";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { Loader2, Check, X, ClipboardList } from "lucide-react";
 
@@ -44,34 +44,8 @@ export default function InboxTrialRequest({ message, onActioned }) {
         offer_note: `Trial offer from ${clubName} in response to your request.`,
       });
 
-      // Send contract offer to player's inbox
-      await stageClient.entities.InboxMessage.create({
-        recipient_email:  playerEmail,
-        sender_email:     message.recipient_email,
-        sender_gamertag:  clubName,
-        sender_avatar_url: clubLogo,
-        sender_club_name: clubName,
-        subject:          `📄 Trial Contract Offer from ${clubName}`,
-        body:             `Dear ${playerGamertag},\n\n${clubName} would like to offer you a trial contract.\n\nType: Trial · ${trialMeta.max_games} games or ${trialMeta.max_days} days\n\nThis trial is your chance to prove yourself. Please respond using the buttons below.\n\nBest regards,\n${clubName} Management`,
-        message_type:     "contract_offer",
-        action_type:      "contract_negotiation",
-        related_entity_id: contract.id,
-        status:           "pending",
-        is_read:          false,
-        metadata: {
-          contract_id: contract.id,
-          club_id:     clubId,
-          club_name:   clubName,
-          contract_type: "trial",
-        },
-      });
-
-      // Notify player
-      await notify(playerEmail, "contract_offer",
-        `📋 Trial Contract Offer from ${clubName}`,
-        `${clubName} has sent you a trial contract offer. Open your inbox to review.`,
-        "/inbox"
-      );
+      // PlayerContract.create already routes delivery through the central
+      // backend helper, which creates one actionable inbox row and one reminder.
 
       // Post to news
       postContractNews({
@@ -97,15 +71,9 @@ export default function InboxTrialRequest({ message, onActioned }) {
   async function declineTrial() {
     setLoading("decline");
     try {
-      // Notify the player of the decline
-      await notify(playerEmail, "contract_offer",
-        `❌ Trial Request Declined — ${clubName}`,
-        `${clubName} has declined your trial request.`,
-        `/clubs/${clubId}`
-      );
-
-      // Send decline inbox message to player
-      await stageClient.entities.InboxMessage.create({
+      // Send decline inbox message to player through the central helper so
+      // repeated clicks/retries cannot create duplicate decline messages.
+      await stageClient.functions.invoke("sendInboxMessage", {
         recipient_email:  playerEmail,
         sender_email:     message.recipient_email,
         sender_gamertag:  clubName,
@@ -115,8 +83,11 @@ export default function InboxTrialRequest({ message, onActioned }) {
         body:             `Dear ${playerGamertag},\n\nUnfortunately, ${clubName} has decided not to offer you a trial at this time.\n\nBest of luck in your search.\n\n${clubName} Management`,
         message_type:     "general",
         action_type:      "none",
+        related_entity_id: message.id,
+        related_entity_type: "trial_request",
         status:           "pending",
         is_read:          false,
+        send_notification: true,
       });
 
       await stageClient.entities.InboxMessage.update(message.id, { status: "declined", is_read: true });

@@ -325,6 +325,18 @@ test('sendActionMessage repairs a missing notification when reusing an existing 
   const { service, broadcasts, inboxBroadcasts } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
     queries.push({ sql, params });
     if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [{ id: 'inbox-1' }];
+    if (/UPDATE inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'player@example.test',
+        subject: 'Match Invite',
+        message_type: 'match_invite',
+        action_type: 'match_invite_response',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
     if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
     if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
     if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
@@ -349,6 +361,7 @@ test('sendActionMessage repairs a missing notification when reusing an existing 
   assert.equal(notificationInsert.params[6], '/inbox?id=inbox-1');
   assert.equal(notificationInsert.params[7], 'inbox-1');
   assert.equal(notificationInsert.params.at(-1), 'notification:match_invite:fixture-1:player@example.test');
-  assert.equal(inboxBroadcasts.length, 0);
+  assert.equal(inboxBroadcasts.length, 1);
+  assert.equal(inboxBroadcasts[0].id, 'inbox-1');
   assert.equal(broadcasts.length, 1);
 });

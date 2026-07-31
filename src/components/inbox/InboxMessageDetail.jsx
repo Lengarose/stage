@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getEffectiveInboxActionType } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
 import InboxScheduleProposal from "@/components/inbox/InboxScheduleProposal";
@@ -72,18 +73,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   }
 
   const status = message.status || "pending";
-  // Some older/legacy messages were created without action_type even when they
-  // require accept/decline controls (notably match_invite).
-  const effectiveActionType =
-    message.action_type && message.action_type !== "none"
-      ? message.action_type
-      : message.message_type === "match_invite"
-        ? "accept_decline_date"
-        : message.message_type === "contract_offer"
-          ? "contract_negotiation"
-          : message.message_type === "trial_request"
-            ? "trial_response"
-            : "none";
+  const effectiveActionType = getEffectiveInboxActionType(message);
   const hasAction = effectiveActionType !== "none" && status === "pending";
   const isActioned = effectiveActionType !== "none" && status !== "pending";
 

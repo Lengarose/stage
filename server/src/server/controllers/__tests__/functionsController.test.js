@@ -624,6 +624,58 @@ test('sendInboxMessage delegates actionable delivery to the central message serv
   assert.equal(deliveries[0].idempotencyKey, 'contract_offer:player_contract:contract-1:player@example.test');
 });
 
+test('sendInboxMessage preserves explicit sender display fields for club-sent actions', async () => {
+  const deliveries = [];
+  const executesql = async (sql) => {
+    if (/SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'match_reminder',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        deliveries.push(payload);
+        return { success: true, message: { id: 'message-created' } };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'sendInboxMessage' },
+      body: {
+        recipient_email: 'opponent@example.test',
+        sender_email: 'owner@example.test',
+        sender_gamertag: 'Longue Vie FC',
+        sender_avatar_url: '/uploads/club-logo.png',
+        sender_club_name: 'Longue Vie FC',
+        subject: 'Match Invitation',
+        body: 'Please respond.',
+        message_type: 'match_invite',
+        action_type: 'accept_decline_date',
+        related_entity_id: 'player-1',
+        related_entity_type: 'player',
+      },
+      user: { id: 'owner-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(deliveries[0].senderGamertag, 'Longue Vie FC');
+  assert.equal(deliveries[0].senderAvatarUrl, '/uploads/club-logo.png');
+  assert.equal(deliveries[0].senderClubName, 'Longue Vie FC');
+});
+
 test('contractActions offer stores duration metadata for market offers', async () => {
   const contractInserts = [];
   const notificationLookups = [];
