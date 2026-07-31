@@ -182,6 +182,11 @@ const {
 } = require('../services/identityService');
 const { upsertActiveMembership, endActiveMemberships } = require('../services/clubMembershipService');
 const { listActiveClubPlayers, listActiveClubPlayerEmails } = require('../services/clubPlayerService');
+const {
+  assertCanCreateContractOffer,
+  closeAcceptedContractConflicts,
+  markContractInboxStatus,
+} = require('../services/contractRulesService');
 
 async function getMe(_auth_user_id) {
   const identity = await resolveUserIdentity(_auth_user_id);
@@ -4954,7 +4959,7 @@ const HANDLERS = {
     // Latest row for banner display (may be closed); open status is derived client/server-side.
     const currentWindow = await getLatestTransferWindow();
     const activeContracts = await EXECUTESQL(
-      "SELECT DISTINCT user_id FROM player_contracts WHERE status IN ('active','pending','pending_window')",
+      "SELECT DISTINCT user_id FROM player_contracts WHERE status IN ('active','pending','pending_window','negotiating')",
       []
     );
     const activeIds = new Set(activeContracts.map((r) => r.user_id));
@@ -4999,6 +5004,11 @@ const HANDLERS = {
     const transferWindow = await getCurrentTransferWindow();
     const status = transferWindow ? 'pending' : 'pending_window';
     const duration = CONTRACT_TYPE_DURATION[contract_type] || CONTRACT_TYPE_DURATION.squad;
+    await assertCanCreateContractOffer({
+      playerId: user_id,
+      teamId: team_id,
+      contractType: contract_type || 'squad',
+    });
     const id = uuidv4();
     await EXECUTESQL(
       `INSERT INTO player_contracts (
@@ -5053,6 +5063,13 @@ const HANDLERS = {
       const targetTeamId = team_id || sourceContract?.team_id;
       const targetUserId = user_id || sourceContract?.user_id;
       if (!targetTeamId || !targetUserId) throw new Error('team_id and user_id required');
+      const targetContractType = contract_type || sourceContract?.contract_type || 'squad';
+      await assertCanCreateContractOffer({
+        playerId: targetUserId,
+        teamId: targetTeamId,
+        contractType: targetContractType,
+        allowedActiveContractId: action === 'renewal_offer' ? sourceContract?.id : null,
+      });
 
       const id = uuidv4();
       await EXECUTESQL(
@@ -5065,7 +5082,7 @@ const HANDLERS = {
           id,
           targetTeamId,
           targetUserId,
-          contract_type || sourceContract?.contract_type || 'squad',
+          targetContractType,
           'pending',
           offered_by || player?.id || user?.email || '',
           Number(max_games ?? sourceContract?.max_games ?? 0),
@@ -5117,6 +5134,7 @@ const HANDLERS = {
     if (action === 'reject') {
       if (!contract_id) throw new Error('contract_id required');
       await EXECUTESQL("UPDATE player_contracts SET status = 'rejected', updated_date = NOW() WHERE id = ?", [contract_id]);
+      await markContractInboxStatus({ contractIds: [contract_id], status: 'declined' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'rejected' } };
     }
@@ -5125,6 +5143,7 @@ const HANDLERS = {
     if (action === 'mark_pending_window') {
       if (!contract_id) throw new Error('contract_id required');
       await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
+      await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'pending_window' } };
     }
@@ -5136,6 +5155,7 @@ const HANDLERS = {
         "UPDATE player_contracts SET status = 'cancelled', start_date = NULL, end_date = NULL, updated_date = NOW() WHERE id = ?",
         [contract_id]
       );
+      await markContractInboxStatus({ contractIds: [contract_id], status: 'cancelled' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'cancelled' } };
     }
@@ -5177,6 +5197,8 @@ const HANDLERS = {
           "UPDATE player_contracts SET status = 'active', start_date = ?, end_date = ?, updated_date = NOW() WHERE id = ?",
           [today, endDate, contract_id]
         );
+        await closeAcceptedContractConflicts({ acceptedContract: contract, query });
+        await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted', query });
 
         const roles = parseMaybeJson(player.club_roles, []);
         const isSameClub = player.club_id && player.club_id === contract.team_id;

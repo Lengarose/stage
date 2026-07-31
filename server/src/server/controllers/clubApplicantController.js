@@ -4,6 +4,7 @@ const ClubApplicant = require('../models/clubApplicantModel');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { deliverContractOfferMessage } = require('../services/messageDeliveryService');
+const { assertCanCreateContractOffer } = require('../services/contractRulesService');
 const {
   getUser,
   isAdmin,
@@ -18,7 +19,10 @@ const STATUSES = new Set(['new', 'reviewed', 'invited', 'trial_offered', 'trial_
 const SOURCE_TYPES = new Set(['join_request', 'recruitment_interest', 'trial_request', 'manual']);
 
 function handleError(res, err) {
-  res.status(err.status || 500).json({ error: err.message });
+  const status = err.status || 500;
+  const payload = { error: err.message };
+  if (err.code) payload.code = String(err.code);
+  res.status(status).json(payload);
 }
 
 async function syncLegacyApplicants(clubId) {
@@ -124,6 +128,11 @@ async function offerContract(req, res, isTrial) {
     const contractId = uuidv4();
     const status = currentWindow ? 'pending' : 'pending_window';
     const contractType = isTrial ? 'trial' : (req.body?.contract_type || 'squad');
+    await assertCanCreateContractOffer({
+      playerId: existing.player_id,
+      teamId: existing.club_id,
+      contractType,
+    });
     await EXECUTESQL(
       `INSERT INTO player_contracts (
         id, team_id, user_id, contract_type, status, offered_by,

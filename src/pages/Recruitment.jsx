@@ -418,7 +418,7 @@ export default function Recruitment() {
           secondary_position: offerTarget.author_player_secondary_position,
           overall_rating: offerTarget.overall_rating || 70,
         } : null}
-        existingActiveContract={offerTarget ? myContracts.some(c => getContractTargetPlayerId(c) === offerTarget.author_player_id && ['active', 'pending', 'pending_window'].includes(c.status)) : null}
+        existingActiveContract={null}
         playerContracts={myContracts.filter(c => getContractTargetPlayerId(c) === offerTarget?.author_player_id)}
         onOffer={handleOffer}
         windowOpen={null}
@@ -435,7 +435,7 @@ function RecruitmentCard({ post, user, myClub, canManageClub, myContracts, onInt
   const positions = post.post_type === "club_recruiting" ? normalizeList(post.positions_needed) : normalizeList(post.preferred_positions);
   const isMine = post.author_user_id === user?.id || post.author_club_id === myClub?.id;
   const canOffer = canManageClub && post.author_player_id && post.author_club_id !== myClub?.id;
-  const hasContractConflict = myContracts.some(c => getContractTargetPlayerId(c) === post.author_player_id && ['active', 'pending', 'pending_window'].includes(c.status));
+  const hasContractConflict = myContracts.some(c => getContractTargetPlayerId(c) === post.author_player_id && ['active', 'pending', 'pending_window', 'negotiating'].includes(c.status));
   const targetLink = post.author_club_id ? `/clubs/${post.author_club_id}` : `/players/${post.author_player_id}`;
 
   return (

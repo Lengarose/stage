@@ -10,6 +10,7 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const deliveryPath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
+  const contractRulesPath = path.resolve(__dirname, '../../services/contractRulesService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[modelPath];
@@ -18,6 +19,7 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   delete require.cache[dbPath];
   delete require.cache[operationsPath];
   delete require.cache[deliveryPath];
+  delete require.cache[contractRulesPath];
 
   class PlayerContractMock {
     constructor(body = {}) {
@@ -109,6 +111,7 @@ test('creating a player contract delegates offer delivery to the central message
   const deliveredContractIds = [];
   const directDeliveryQueries = [];
   const executesql = async (sql, params = []) => {
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
     if (sql === 'TEST_CREATE_PLAYER_CONTRACT') return { affectedRows: 1 };
     if (sql === 'TEST_SELECT_PLAYER_CONTRACT') {
       return [{
@@ -146,4 +149,52 @@ test('creating a player contract delegates offer delivery to the central message
   assert.equal(response.statusCode, 201);
   assert.deepEqual(deliveredContractIds, ['contract-1']);
   assert.deepEqual(directDeliveryQueries, []);
+});
+
+test('creating a player contract rejects duplicate live contract offers for the same club group', async () => {
+  let createCalled = false;
+  const executesql = async (sql, params = []) => {
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
+      return [{
+        id: 'active-contract',
+        team_id: 'club-1',
+        user_id: 'player-1',
+        contract_type: 'squad',
+        status: 'active',
+      }];
+    }
+    if (sql === 'TEST_CREATE_PLAYER_CONTRACT') {
+      createCalled = true;
+      return { affectedRows: 1 };
+    }
+    if (sql === 'TEST_SELECT_PLAYER_CONTRACT') {
+      return [{
+        id: params[0],
+        team_id: 'club-1',
+        user_id: 'player-1',
+        contract_type: 'squad',
+        status: 'pending',
+      }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadPlayerContractRouterWithMocks(executesql, async () => {});
+  const handle = routeHandler(router, 'post', '/');
+  const response = makeResponse();
+
+  await handle(
+    {
+      body: {
+        team_id: 'club-1',
+        user_id: 'player-1',
+        contract_type: 'star',
+      },
+      user: { id: 'owner-user' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'contract_conflict');
+  assert.equal(createCalled, false);
 });

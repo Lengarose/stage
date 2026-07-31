@@ -117,7 +117,7 @@ router.post('/', async (req, res) => {
         source: 'club_creation',
       });
       const existingOwnerContract = await EXECUTESQL(
-        "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','active') LIMIT 1",
+        "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','negotiating','active') LIMIT 1",
         [record.id, creator.id]
       ).catch(() => []);
       if (existingOwnerContract[0]?.id) {

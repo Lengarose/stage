@@ -7,8 +7,8 @@ export default function PlayerSelectList({ players, contracts, selectedId, onSel
   function getPlayerContractStatus(playerId) {
     const active = contracts.find(c => getContractTargetPlayerId(c) === playerId && c.status === "active");
     if (active) return { status: "active", meta: CONTRACT_TYPES[active.contract_type] };
-    const pending = contracts.find(c => getContractTargetPlayerId(c) === playerId && c.status === "pending");
-    if (pending) return { status: "pending", meta: CONTRACT_TYPES[pending.contract_type] };
+    const pending = contracts.find(c => getContractTargetPlayerId(c) === playerId && ["pending", "pending_window", "negotiating"].includes(c.status));
+    if (pending) return { status: pending.status, meta: CONTRACT_TYPES[pending.contract_type] };
     return null;
   }
 
@@ -56,7 +56,7 @@ export default function PlayerSelectList({ players, contracts, selectedId, onSel
                   "text-[11px] font-medium",
                   contractInfo.status === "active" ? "text-success" : "text-warning"
                 )}>
-                  {contractInfo.status === "active" ? "Active" : "Pending"}: {contractInfo.meta?.label}
+                  {contractInfo.status === "active" ? "Active" : contractInfo.status.replace("_", " ")}: {contractInfo.meta?.label}
                 </span>
               ) : (
                 <span className="text-[11px] text-muted-foreground">No contract</span>

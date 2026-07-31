@@ -61,7 +61,7 @@ export default function TransferMarket() {
   }
 
   function hasConflict(playerId) {
-    return myContracts.some(c => getContractTargetPlayerId(c) === playerId && (c.status === "active" || c.status === "pending" || c.status === "pending_window"));
+    return myContracts.some(c => getContractTargetPlayerId(c) === playerId && ["active", "pending", "pending_window", "negotiating"].includes(c.status));
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
@@ -259,9 +259,11 @@ export default function TransferMarket() {
         open={!!offerTarget}
         onClose={() => setOfferTarget(null)}
         player={offerTarget?.player || offerTarget}
-        existingActiveContract={offerTarget ? (hasConflict((offerTarget.player || offerTarget)?.id) ? true : null) : null}
+        existingActiveContract={null}
+        playerContracts={offerTarget ? myContracts.filter(c => getContractTargetPlayerId(c) === (offerTarget.player || offerTarget)?.id) : []}
         onOffer={handleOffer}
         windowOpen={windowOpen}
+        club={myClub}
       />
     </div>
   );

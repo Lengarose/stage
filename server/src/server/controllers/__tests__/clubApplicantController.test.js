@@ -8,12 +8,14 @@ function loadClubApplicantRouterWithMocks(executesql, deliveryMock) {
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const deliveryPath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
+  const contractRulesPath = path.resolve(__dirname, '../../services/contractRulesService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[modelPath];
   delete require.cache[dbPath];
   delete require.cache[operationsPath];
   delete require.cache[deliveryPath];
+  delete require.cache[contractRulesPath];
 
   class ClubApplicantMock {
     constructor(body = {}) {
@@ -97,6 +99,7 @@ test('offering an applicant contract delegates delivery to the central contract 
       return [{ ...applicant, status: contractInserts.length ? 'contract_offered' : 'new' }];
     }
     if (sql === 'TEST_UPDATE_CLUB_APPLICANT') return { affectedRows: 1 };
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
     if (/INSERT INTO player_contracts/.test(sql)) {
       contractInserts.push(params);
       return { affectedRows: 1 };
@@ -121,4 +124,45 @@ test('offering an applicant contract delegates delivery to the central contract 
   assert.equal(response.statusCode, 200);
   assert.equal(contractInserts.length, 1);
   assert.deepEqual(deliveredContractIds, [contractInserts[0][0]]);
+});
+
+test('offering an applicant contract rejects same-club live contract conflicts', async () => {
+  let inserted = false;
+  const applicant = {
+    id: 'applicant-1',
+    club_id: 'club-1',
+    player_id: 'player-1',
+    player_email: 'player@example.test',
+    club_name: 'Club One',
+    status: 'new',
+    source_type: 'manual',
+    source_id: null,
+  };
+  const executesql = async (sql) => {
+    if (sql === 'TEST_SELECT_CLUB_APPLICANT') return [applicant];
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
+      return [{ id: 'active-contract', team_id: 'club-1', user_id: 'player-1', contract_type: 'squad', status: 'active' }];
+    }
+    if (/INSERT INTO player_contracts/.test(sql)) {
+      inserted = true;
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadClubApplicantRouterWithMocks(executesql, async () => {});
+  const handle = routeHandler(router, 'post', '/:id/offer-contract');
+  const response = makeResponse();
+
+  await handle(
+    {
+      params: { id: 'applicant-1' },
+      body: { contract_type: 'squad', weekly_salary_stc: 5000 },
+      user: { id: 'owner-user' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'contract_conflict');
+  assert.equal(inserted, false);
 });

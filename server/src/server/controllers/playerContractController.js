@@ -4,6 +4,7 @@ const PlayerContract = require('../models/playerContractModel');
 const { EXECUTESQL } = require('../db/database');
 const { requireClubPermission, writeClubAudit } = require('../services/clubOperationsService');
 const { deliverContractOfferMessage } = require('../services/messageDeliveryService');
+const { assertCanCreateContractOffer } = require('../services/contractRulesService');
 
 async function cancelContractOffer(contractId, req, reason = null) {
   const existing = await new PlayerContract().selectOne(contractId);
@@ -142,14 +143,22 @@ router.post('/', async (req, res) => {
       end_date: null,
       games_played: Number(req.body?.games_played || 0),
     };
+    await assertCanCreateContractOffer({
+      playerId: safeBody.user_id || safeBody.target_player_id,
+      teamId: safeBody.team_id,
+      contractType: safeBody.contract_type,
+    });
     const contract = new PlayerContract(safeBody);
     await contract.create();
     const created = await contract.selectOne(contract.id);
     await deliverContractOfferMessage(contract.id).catch(err => console.error('[contract delivery]', err.message));
     res.status(201).json(created[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+    if (status >= 500) console.error(err);
+    const payload = { error: err.message };
+    if (err?.code) payload.code = String(err.code);
+    res.status(status).json(payload);
   }
 });
 

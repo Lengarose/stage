@@ -24,6 +24,16 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   const statOptions = getStatOptionsForPosition(player?.position);
   const groupedStats = groupStatOptions(statOptions);
+  const liveStatuses = ["active", "pending", "pending_window", "negotiating"];
+  const isOwnershipOffer = selectedType === "ownership";
+  const blockingConflict = !isNegotiation
+    ? (
+      playerContracts.find(c =>
+        liveStatuses.includes(c.status) &&
+        (isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership")
+      ) || existingActiveContract || null
+    )
+    : null;
 
   const TARGET_TYPES = [
     { value: "min",   label: t("commonPages.cccTargetMin") },
@@ -44,6 +54,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   }
 
   async function handleOffer() {
+    if (blockingConflict && !isNegotiation) return;
     setOffering(true);
     try {
       await onOffer({
@@ -78,23 +89,22 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
         {/* Type-aware conflict warning: only warn when the selected type group is already occupied */}
         {!isNegotiation && (() => {
-          const isOwnershipOffer = selectedType === "ownership";
-          const conflict = playerContracts.find(c =>
-            isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership"
-          ) || (existingActiveContract || null);
+          const conflict = blockingConflict;
+          const conflictType = typeof conflict === "object" ? conflict.contract_type : selectedType;
+          const conflictStatus = typeof conflict === "object" ? conflict.status : "live";
           return conflict ? (
             <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
-              {t("commonPages.ocdActiveContract", { type: conflict.contract_type, status: conflict.status })}
-              {conflict.contract_type === "ownership" && selectedType === "ownership"
+              {t("commonPages.ocdActiveContract", { type: conflictType, status: conflictStatus })}
+              {conflictType === "ownership" && selectedType === "ownership"
                 ? ` ${t("commonPages.ocdStillOfferPlayer")}`
-                : conflict.contract_type !== "ownership" && selectedType !== "ownership"
+                : conflictType !== "ownership" && selectedType !== "ownership"
                 ? ` ${t("commonPages.ocdStillOfferOwnership")}`
                 : ` ${t("commonPages.ocdSecondContract")}`}
             </div>
           ) : null;
         })()}
 
-        {(!existingActiveContract || isNegotiation) && (
+        {(!blockingConflict || isNegotiation) && (
           <div className="space-y-5 mt-2">
             {/* Transfer window awareness */}
             <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
