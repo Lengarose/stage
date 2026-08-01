@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { asObject, asObjectArray, parseJsonArray } from "@/lib/safeData";
 
 export default function EAFCClub() {
   const { t } = useTranslation();
@@ -27,7 +28,7 @@ export default function EAFCClub() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [searchHistory, setSearchHistory] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("eafc_search_history") || "[]"); } catch { return []; }
+    return parseJsonArray(localStorage.getItem("eafc_search_history") || "[]");
   });
 
   const [clubId, setClubId] = useState(initClubId || null);
@@ -51,7 +52,7 @@ export default function EAFCClub() {
     setSearchResults([]);
     try {
       const clubs = await searchClub(query.trim(), platform);
-      const list = Array.isArray(clubs) ? clubs : [];
+      const list = asObjectArray(clubs);
       setSearchResults(list);
       if (list.length === 0) setSearchError(t("commonPages.eafcNoClubs"));
     } catch (e) {
@@ -68,7 +69,7 @@ export default function EAFCClub() {
     setMatchPage(0);
     try {
       const data = await getClubDashboard(id, plt || platform);
-      setDashboard(data);
+      setDashboard(asObject(data));
     } catch (e) {
       setDashError(e.message || t("commonPages.eafcLoadFailed"));
     }
@@ -76,19 +77,27 @@ export default function EAFCClub() {
   }
 
   function selectClub(club) {
-    const id = club.clubId || club.id;
-    const name = club.name || club.clubName || "";
+    const safeClub = asObject(club);
+    if (!safeClub) return;
+    const id = safeClub.clubId || safeClub.id;
+    const name = safeClub.name || safeClub.clubName || "";
+    if (!id) return;
     setClubName(name);
     setSearchResults([]);
     setQuery("");
     const entry = { id, name, platform };
-    const updated = [entry, ...searchHistory.filter(h => h.id !== id)].slice(0, 8);
+    const updated = [entry, ...asObjectArray(searchHistory).filter(h => h.id !== id)].slice(0, 8);
     setSearchHistory(updated);
     localStorage.setItem("eafc_search_history", JSON.stringify(updated));
     loadDashboard(id, platform);
   }
 
-  const sortedMembers = [...(dashboard?.members || [])].sort((a, b) => {
+  const safeSearchResults = asObjectArray(searchResults);
+  const safeSearchHistory = asObjectArray(searchHistory);
+  const safeMembers = asObjectArray(dashboard?.members);
+  const safeCareer = asObjectArray(dashboard?.career);
+  const safeMatches = asObjectArray(dashboard?.matches);
+  const sortedMembers = [...safeMembers].sort((a, b) => {
     const av = Number(a[memberSort.key]) || 0;
     const bv = Number(b[memberSort.key]) || 0;
     return memberSort.dir * (bv - av);
@@ -98,11 +107,11 @@ export default function EAFCClub() {
     setMemberSort(s => s.key === key ? { key, dir: s.dir * -1 } : { key, dir: -1 });
   }
 
-  const pagedMatches = (dashboard?.matches || []).slice(matchPage * MATCH_PAGE_SIZE, (matchPage + 1) * MATCH_PAGE_SIZE);
-  const totalMatchPages = Math.ceil((dashboard?.matches?.length || 0) / MATCH_PAGE_SIZE);
+  const pagedMatches = safeMatches.slice(matchPage * MATCH_PAGE_SIZE, (matchPage + 1) * MATCH_PAGE_SIZE);
+  const totalMatchPages = Math.ceil(safeMatches.length / MATCH_PAGE_SIZE);
 
-  const club = dashboard?.club;
-  const stats = club?.seasons?.[0] || {};
+  const club = asObject(dashboard?.club);
+  const stats = asObject(club?.seasons?.[0]) || {};
 
   const memberCols = [
     { key: "gamesPlayed", label: t("commonPages.eafcGp") },
@@ -148,9 +157,9 @@ export default function EAFCClub() {
           </Button>
         </div>
 
-        {searchResults.length > 0 && (
+        {safeSearchResults.length > 0 && (
           <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
-            {searchResults.map((c, i) => (
+            {safeSearchResults.map((c, i) => (
               <button type="button" key={c.clubId || i} onClick={() => selectClub(c)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition-colors text-left">
                 <Shield className="w-5 h-5 text-primary shrink-0" />
@@ -174,11 +183,11 @@ export default function EAFCClub() {
           </div>
         )}
 
-        {!searching && searchResults.length === 0 && !searchError && searchHistory.length > 0 && (
+        {!searching && safeSearchResults.length === 0 && !searchError && safeSearchHistory.length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{t("commonPages.eafcRecent")}</p>
             <div className="flex flex-wrap gap-2">
-              {searchHistory.map(h => (
+              {safeSearchHistory.map(h => (
                 <button type="button" key={h.id} onClick={() => { setClubName(h.name); loadDashboard(h.id, h.platform); }}
                   className="text-xs px-3 py-1.5 rounded-full bg-secondary border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors">
                   {h.name}
@@ -223,7 +232,7 @@ export default function EAFCClub() {
               <StatBox icon={Trophy} label={t("commonPages.profWins")} value={stats.wins || club?.wins || 0} color="text-success" />
               <StatBox icon={Swords} label={t("commonPages.profLosses")} value={stats.losses || club?.losses || 0} color="text-destructive" />
               <StatBox icon={Star} label={t("commonPages.cdDraws")} value={stats.draws || club?.draws || 0} color="text-warning" />
-              <StatBox icon={Users} label={t("commonPages.dashboardEafcMembers")} value={club?.memberCount || dashboard.members?.length || 0} color="text-primary" />
+              <StatBox icon={Users} label={t("commonPages.dashboardEafcMembers")} value={club?.memberCount || safeMembers.length || 0} color="text-primary" />
             </div>
 
             {(stats.wins || stats.losses || stats.draws) && (
@@ -242,11 +251,11 @@ export default function EAFCClub() {
             )}
           </div>
 
-          {dashboard.members?.length > 0 && (
+          {safeMembers.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" /> {t("commonPages.eafcMembers", { count: dashboard.members.length })}
+                  <Users className="w-5 h-5 text-primary" /> {t("commonPages.eafcMembers", { count: safeMembers.length })}
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -289,7 +298,7 @@ export default function EAFCClub() {
             </div>
           )}
 
-          {dashboard.career?.length > 0 && (
+          {safeCareer.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
@@ -309,7 +318,7 @@ export default function EAFCClub() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboard.career.slice(0, 20).map((m, i) => (
+                    {safeCareer.slice(0, 20).map((m, i) => (
                       <tr key={m.name || i} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                         <td className="px-5 py-3 font-medium text-foreground">{m.name || t("commonPages.homeUnknown")}</td>
                         <td className="px-3 py-3 text-center text-muted-foreground">{m.gamesPlayed || 0}</td>
@@ -325,16 +334,16 @@ export default function EAFCClub() {
             </div>
           )}
 
-          {dashboard.matches?.length > 0 && (
+          {safeMatches.length > 0 && (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <Swords className="w-5 h-5 text-destructive" /> {t("commonPages.eafcRecentMatches", { count: dashboard.matches.length })}
+                  <Swords className="w-5 h-5 text-destructive" /> {t("commonPages.eafcRecentMatches", { count: safeMatches.length })}
                 </h3>
               </div>
               <div className="divide-y divide-border">
                 {pagedMatches.map((m, i) => {
-                  const clubs = m.clubs || {};
+                  const clubs = asObject(m.clubs) || {};
                   const clubIds = Object.keys(clubs);
                   const myEntry = clubs[clubId] || clubs[String(clubId)] || clubs[clubIds[0]];
                   const oppId = clubIds.find(id => id !== String(clubId)) || clubIds[1];
@@ -372,7 +381,7 @@ export default function EAFCClub() {
             </div>
           )}
 
-          {dashboard.members?.length === 0 && dashboard.matches?.length === 0 && (
+          {safeMembers.length === 0 && safeMatches.length === 0 && (
             <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground">
               {t("commonPages.eafcNoDetail")}
             </div>

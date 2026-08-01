@@ -291,6 +291,9 @@ function makeEntity(name) {
             add(CHANNELS.TOURNAMENT);
             if (filters.id) add(makeChannel(filters.id, CHANNELS.TOURNAMENT));
             break;
+          case "TransferWindow":
+            add(CHANNELS.TRANSFER_WINDOW);
+            break;
           case "MatchPlayerStat":
             if (filters.tournament_id) add(makeChannel(filters.tournament_id, CHANNELS.TOURNAMENT));
             if (filters.match_id) add(makeChannel(filters.match_id, CHANNELS.MATCH));
@@ -305,7 +308,7 @@ function makeEntity(name) {
 
     return () => {
       disposed = true;
-      for (const ch of channels) offSocketListeners(ch);
+      for (const ch of channels) offSocketListeners(ch, onPayload);
     };
   };
 

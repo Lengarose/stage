@@ -29,10 +29,13 @@ import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
+import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
+import { asObject, asObjectArray, parseJsonArray } from "@/lib/safeData";
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
@@ -54,7 +57,7 @@ function normalizeClubRoles(roles) {
 function getVisibleClubRole(player, club, contracts = []) {
   const roles = normalizeClubRoles(player?.club_roles);
   const hasOwnershipContract = contracts.some((contract) => (
-    contract?.contract_type === "ownership" &&
+    getContractType(contract) === "ownership" &&
     ["active", "pending", "pending_window", "negotiating"].includes(contract?.status)
   ));
   const isClubCreator = Boolean(
@@ -77,6 +80,7 @@ function getVisibleClubRole(player, club, contracts = []) {
 export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
   const { t } = useTranslation();
   const { user: authUser } = useAuth();
+  const { windowOpen } = useTransferWindowStatus();
   const params = useParams();
   const id = overridePlayerId || params.id;
   const limitedTournamentId =
@@ -107,7 +111,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [activeContract, setActiveContract] = useState(null);
   const [playerContracts, setPlayerContracts] = useState([]);
   const [viewerClub, setViewerClub] = useState(null);
-  const [windowOpen, setWindowOpen] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const [futMatches, setFutMatches] = useState([]);
@@ -117,110 +120,150 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
   useEffect(() => {
     async function load() {
-      if (!id) return;
-      const user = await stageClient.auth.me();
-      setCurrentUser(user);
-
-      const [playerResult, follows, allFollowers] = await Promise.all([
-        stageClient.entities.Player.get(id),
-        stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "player" }),
-        stageClient.entities.Follow.filter({ target_id: id }),
-      ]);
-      const players = playerResult ? [playerResult] : [];
-      setFollowersCount(allFollowers.length);
-
-      const enrichedFollowers = await Promise.all(
-        allFollowers.filter(f => f.follower_player_id).map(async (f) => {
-          const pl = await stageClient.entities.Player.get(f.follower_player_id).catch(() => null);
-          return { ...f, _player_id: f.follower_player_id, _player_name: pl?.gamertag, avatar_url: pl?.avatar_url };
-        })
-      );
-      setFollowersList(enrichedFollowers);
-
-      const { player: myPl, club: myClubResolved } = await resolveMyPlayerAndClub();
-      if (myPl) setMyPlayer(myPl);
-
-      if (players.length > 0 && players[0].id && players[0].email) {
-        const p = players[0];
-        setPlayer(p);
-        const contractArr = await stageClient.entities.PlayerContract.filter({ user_id: p.id });
-        const LIVE = ["active", "pending", "pending_window", "negotiating"];
-        const liveContracts = contractArr.filter(c => LIVE.includes(c.status));
-        const signedClubId = getSignedClubIdForPlayer(p, contractArr);
-        setPlayerContracts(liveContracts);
-        setActiveContract(contractArr.find(c => c.status === "active") || null);
-
-        if (signedClubId) {
-          const [clubs, tmHome, tmAway] = await Promise.all([
-            stageClient.entities.Club.get(signedClubId).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: signedClubId })),
-            stageClient.profileMatches.list({ home_club_id: signedClubId, status: "scheduled" }, "round", 20),
-            stageClient.profileMatches.list({ away_club_id: signedClubId, status: "scheduled" }, "round", 20),
-          ]);
-          if (clubs.length > 0) setClub(clubs[0]);
-          setUpcomingMatches([...tmHome, ...tmAway]);
-        }
-
-      // Load viewer's club if in club mode
-      const acctMode = localStorage.getItem("stage-account-mode") || "player";
-      if (acctMode === "club" && myClubResolved) {
-        setViewerClub(myClubResolved);
+      if (!id) {
+        setLoading(false);
+        return;
       }
-
-      // Transfer window
+      setLoading(true);
       try {
-        const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
-        setWindowOpen(isTransferWindowOpen(winRes?.data?.window));
-      } catch { setWindowOpen(false); }
+        const user = await stageClient.auth.me().catch(() => null);
+        const userEmail = user?.email || "";
+        setCurrentUser(user);
 
-      const matchStats = await stageClient.entities.MatchPlayerStat.filter({ player_email: p.email });
-        const matchIds = [...new Set(matchStats.map(s => s.match_id))];
-        let filteredStats = matchStats;
-        if (matchIds.length > 0) {
-          const matchRecords = await Promise.all(
-            matchIds.slice(0, 50).map(mid => (
-              stageClient.profileMatches.list({ id: mid }, null, 1).catch(() => [])
-            ))
-          );
-          const friendlyMatchIds = new Set(
-            matchRecords.flat().filter(m => m.type === "friendly").map(m => m.id)
-          );
-          filteredStats = matchStats.filter(s => !friendlyMatchIds.has(s.match_id));
+        const [playerResult, followsRaw, allFollowersRaw] = await Promise.all([
+          stageClient.entities.Player.get(id).catch(() => null),
+          userEmail
+            ? stageClient.entities.Follow.filter({ follower_email: userEmail, target_id: id, target_type: "player" }).catch(() => [])
+            : Promise.resolve([]),
+          stageClient.entities.Follow.filter({ target_id: id }).catch(() => []),
+        ]);
+        const p = asObject(playerResult);
+        const follows = asObjectArray(followsRaw);
+        const allFollowers = asObjectArray(allFollowersRaw);
+        setFollowersCount(allFollowers.length);
+
+        const enrichedFollowers = await Promise.all(
+          allFollowers.filter(f => f.follower_player_id).map(async (f) => {
+            const pl = asObject(await stageClient.entities.Player.get(f.follower_player_id).catch(() => null));
+            return { ...f, _player_id: f.follower_player_id, _player_name: pl?.gamertag, avatar_url: pl?.avatar_url };
+          })
+        );
+        setFollowersList(asObjectArray(enrichedFollowers));
+
+        const resolved = await resolveMyPlayerAndClub().catch(() => ({}));
+        const myPl = asObject(resolved?.player);
+        const myClubResolved = asObject(resolved?.club);
+        if (myPl) setMyPlayer(myPl);
+
+        const acctMode = localStorage.getItem("stage-account-mode") || "player";
+        if (acctMode === "club" && myClubResolved) {
+          setViewerClub(myClubResolved);
         }
-        const totalGoals = filteredStats.reduce((s, r) => s + (r.goals || 0), 0);
-        const totalAssists = filteredStats.reduce((s, r) => s + (r.assists || 0), 0);
-        const ratings = filteredStats.filter(r => r.rating > 0).map(r => r.rating);
-        const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
-        setClubStats({ matches: filteredStats.length, goals: totalGoals, assists: totalAssists, avgRating });
 
-        const [pvpHome, pvpAway] = await Promise.all([
-          stageClient.profileMatches.list({ home_player_id: p.id, status: "completed" }, "-updated_date", 50),
-          stageClient.profileMatches.list({ away_player_id: p.id, status: "completed" }, "-updated_date", 50),
-        ]);
-        const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
-        const pvpMap = new Map();
-        allPvp.forEach(m => pvpMap.set(m.id, m));
-        setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)));
+        if (p?.id) {
+          setPlayer(p);
+          const contractArr = await stageClient.entities.PlayerContract.filter({ user_id: p.id }).catch(() => []);
+          const safeContracts = normalizePlayerContracts(contractArr);
+          const LIVE = ["active", "pending", "pending_window", "negotiating"];
+          const liveContracts = safeContracts.filter(c => LIVE.includes(c.status));
+          const signedClubId = getSignedClubIdForPlayer(p, safeContracts);
+          setPlayerContracts(liveContracts);
+          setActiveContract(safeContracts.find(c => c.status === "active") || null);
 
-        const [futRows, eafcData] = await Promise.all([
-          loadFutMatches(p, 20),
-          p.eafc_club_id ? loadEafcSummary(p) : Promise.resolve(null),
-        ]);
-        setFutMatches(futRows);
-        setEafcSummary(eafcData);
+          if (signedClubId) {
+            const [clubsRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
+              stageClient.entities.Club.get(signedClubId)
+                .then((clubRecord) => clubRecord ? [clubRecord] : [])
+                .catch(() => stageClient.entities.Club.filter({ id: signedClubId }).catch(() => [])),
+              stageClient.profileMatches.list({ home_club_id: signedClubId, status: "scheduled" }, "round", 20).catch(() => []),
+              stageClient.profileMatches.list({ away_club_id: signedClubId, status: "scheduled" }, "round", 20).catch(() => []),
+            ]);
+            const clubs = asObjectArray(clubsRaw);
+            if (clubs.length > 0) setClub(clubs[0]);
+            setUpcomingMatches(asObjectArray([...asObjectArray(tmHomeRaw), ...asObjectArray(tmAwayRaw)]));
+          } else {
+            setClub(null);
+            setUpcomingMatches([]);
+          }
+
+          const matchStats = asObjectArray(
+            p.email
+              ? await stageClient.entities.MatchPlayerStat.filter({ player_email: p.email }).catch(() => [])
+              : []
+          );
+          const matchIds = [...new Set(matchStats.map(s => s.match_id).filter(Boolean))];
+          let filteredStats = matchStats;
+          if (matchIds.length > 0) {
+            const matchRecords = await Promise.all(
+              matchIds.slice(0, 50).map(mid => (
+                stageClient.profileMatches.list({ id: mid }, null, 1).catch(() => [])
+              ))
+            );
+            const friendlyMatchIds = new Set(
+              asObjectArray(matchRecords.flat()).filter(m => m.type === "friendly").map(m => m.id)
+            );
+            filteredStats = matchStats.filter(s => !friendlyMatchIds.has(s.match_id));
+          }
+          const totalGoals = filteredStats.reduce((s, r) => s + (Number(r.goals) || 0), 0);
+          const totalAssists = filteredStats.reduce((s, r) => s + (Number(r.assists) || 0), 0);
+          const ratings = filteredStats.map(r => Number(r.rating) || 0).filter(rating => rating > 0);
+          const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+          setClubStats({ matches: filteredStats.length, goals: totalGoals, assists: totalAssists, avgRating });
+
+          const [pvpHomeRaw, pvpAwayRaw] = await Promise.all([
+            stageClient.profileMatches.list({ home_player_id: p.id, status: "completed" }, "-updated_date", 50).catch(() => []),
+            stageClient.profileMatches.list({ away_player_id: p.id, status: "completed" }, "-updated_date", 50).catch(() => []),
+          ]);
+          const allPvp = asObjectArray([...asObjectArray(pvpHomeRaw), ...asObjectArray(pvpAwayRaw)])
+            .filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
+          const pvpMap = new Map();
+          allPvp.forEach(m => { if (m.id) pvpMap.set(m.id, m); });
+          setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0)));
+
+          const [futRows, eafcData] = await Promise.all([
+            loadFutMatches(p, 20).catch(() => []),
+            p.eafc_club_id ? loadEafcSummary(p).catch(() => null) : Promise.resolve(null),
+          ]);
+          setFutMatches(asObjectArray(futRows));
+          setEafcSummary(eafcData);
+
+          const playerFollowing = asObjectArray(
+            p.email ? await stageClient.entities.Follow.filter({ follower_email: p.email }).catch(() => []) : []
+          );
+          const validFollows = playerFollowing.filter(f => f.target_id && typeof f.target_id === "string" && f.target_id.trim());
+          setFollowingCount(playerFollowing.length);
+          setFollowingList(validFollows);
+        } else {
+          setPlayer(null);
+          setPlayerContracts([]);
+          setActiveContract(null);
+          setClub(null);
+          setUpcomingMatches([]);
+          setPvpMatches([]);
+          setFutMatches([]);
+          setFollowingCount(0);
+          setFollowingList([]);
+        }
+
+        if (follows.length > 0 && follows[0]?.target_id) {
+          setIsFollowing(true);
+          setFollowId(follows[0].id || null);
+        } else {
+          setIsFollowing(false);
+          setFollowId(null);
+        }
+      } catch (err) {
+        console.error("PlayerProfile load failed:", err);
+        setPlayer(null);
+      } finally {
+        setLoading(false);
       }
-
-      if (follows.length > 0 && follows[0].target_id) { setIsFollowing(true); setFollowId(follows[0].id); }
-
-      const playerFollowing = await stageClient.entities.Follow.filter({ follower_email: players[0]?.email });
-      const validFollows = playerFollowing.filter(f => f.target_id && typeof f.target_id === 'string' && f.target_id.trim());
-      setFollowingCount(playerFollowing.length);
-      setFollowingList(validFollows);
-      setLoading(false);
     }
     load();
   }, [id]);
 
   async function toggleFollow() {
+    if (!currentUser?.email || !id) return;
     if (isFollowing && followId) {
       await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
@@ -240,7 +283,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
 
   async function handleOfferContract(terms) {
-    if (!viewerClub || !player) return;
+    if (!viewerClub?.id || !player?.id) return;
+    if (!canCreateContractOffer(windowOpen)) return;
     const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
     let recipientEmail = player.email;
     if (!recipientEmail) {
@@ -280,7 +324,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       link: `/players/${player.id}`,
     });
     setOfferDialogOpen(false);
-    setPlayerContracts(prev => [...prev, newContract]);
+    setPlayerContracts(prev => normalizePlayerContracts([...prev, newContract]));
   }
 
   if (loading || !id) {
@@ -317,15 +361,14 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const valueTier = getValueTier(marketValue);
   const roleBadges = visibleClubRole ? [visibleClubRole] : [];
   const signedClubIdForProfile = getSignedClubIdForPlayer(player, playerContracts);
-  const canOfferProfileContract = canShowContractOfferButton({
+  const canOfferProfileContract = canCreateContractOffer(windowOpen) && canShowContractOfferButton({
     player,
     viewerClub,
     playerContracts,
     limitedTournamentId,
   });
 
-  let recentForm = [];
-  try { recentForm = JSON.parse(player.form_last10 || "[]"); } catch { /* ignore */ }
+  const recentForm = parseJsonArray(player.form_last10 || "[]").map((rating) => Number(rating)).filter((rating) => Number.isFinite(rating));
 
   const pvpW = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score > m.away_score : m.away_score > m.home_score).length;
   const pvpL = pvpMatches.filter(m => m.home_player_id === player.id ? m.home_score < m.away_score : m.away_score < m.home_score).length;
@@ -382,7 +425,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                         <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
                       </Button>
                     ) : null}
-                    {signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
+                    {windowOpen === true && signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
                       <Button
                         type="button"
                         size="sm"
@@ -423,7 +466,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                 </span>
               ) : null}
               <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 font-medium capitalize">
-                <FileText className="w-2.5 h-2.5" />{activeContract.contract_type} contract
+                <FileText className="w-2.5 h-2.5" />{getContractType(activeContract)} contract
               </span>
               {progress && progress.daysLeft > 0 ? (
                 <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
@@ -682,13 +725,14 @@ function FollowList({ items, emptyLabel, onClose }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const safeItems = asObjectArray(items);
 
-  const filtered = items.filter(item => {
-    const name = item.target_name || item._player_name || item.follower_email || "";
+  const filtered = safeItems.filter(item => {
+    const name = String(item.target_name || item._player_name || item.follower_email || "");
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
-  if (items.length === 0) {
+  if (safeItems.length === 0) {
     return <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center"><p className="text-white/40 text-sm">{emptyLabel}</p></div>;
   }
 
@@ -704,14 +748,14 @@ function FollowList({ items, emptyLabel, onClose }) {
       <div className="space-y-2">
         {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">{t("commonPages.cdNoResults")}</p>}
         {filtered.map(item => {
-          const name = item.target_name || item._player_name || item.follower_email || t("commonPages.homeUnknown");
+          const name = String(item.target_name || item._player_name || item.follower_email || t("commonPages.homeUnknown"));
           const imageUrl = item.avatar_url || item.logo_url;
           const targetId = item._player_id || item._target_id || item.target_id;
           const targetType = item.target_type === "club" ? "clubs" : "players";
           return (
             <button
               key={item.id}
-              onClick={() => { onClose?.(); navigate(`/${targetType}/${targetId}`); }}
+              onClick={() => { if (!targetId) return; onClose?.(); navigate(`/${targetType}/${targetId}`); }}
               className="w-full text-left bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-blue-400/30 transition-all"
             >
               <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">

@@ -39,6 +39,14 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionError, setActionError] = useState("");
 
+  if (!message || typeof message !== "object") {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+        {t("matchFlow.messageUnavailable", "Message unavailable.")}
+      </div>
+    );
+  }
+
   async function handleAction(action) {
     if (action === "date_change_requested" && !showDatePicker) {
       setShowDatePicker(true);

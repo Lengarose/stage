@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canShowContractOfferButton,
+  findBlockingContractConflict,
   getSignedClubIdForPlayer,
 } from "../contractOfferVisibility.js";
 
@@ -41,5 +42,28 @@ test("free players can receive a contract offer from a club account", () => {
       playerContracts: [],
     }),
     true
+  );
+});
+
+test("contract conflict checks ignore malformed rows from the API", () => {
+  const liveSquadContract = {
+    id: "contract-live",
+    user_id: "player-1",
+    team_id: "club-1",
+    status: "pending",
+    contract_type: "star",
+  };
+
+  assert.deepEqual(
+    findBlockingContractConflict({
+      selectedType: "star",
+      playerContracts: [
+        null,
+        undefined,
+        { id: "contract-history", status: "declined", contract_type: "star" },
+        liveSquadContract,
+      ],
+    }),
+    liveSquadContract
   );
 });

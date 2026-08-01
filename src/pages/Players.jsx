@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Shield, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { asObjectArray, parseJsonArray } from "@/lib/safeData";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
@@ -23,28 +24,25 @@ export default function Players({ tournamentId } = {}) {
     async function load() {
       try {
         // Kick off the (tournament-independent) club fetch in parallel with player resolution.
-        const clubsPromise = stageClient.entities.Club.list();
+        const clubsPromise = stageClient.entities.Club.list().catch(() => []);
         let data;
         if (tournamentId) {
           const tournament = await stageClient.entities.Tournament.get(tournamentId).catch(() => null);
           const registeredIds = tournament?.registered_players || [];
-          let parsed = registeredIds;
-          if (typeof registeredIds === "string") {
-            try { parsed = JSON.parse(registeredIds); } catch { parsed = []; }
-          }
+          const parsed = parseJsonArray(registeredIds);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const all = await stageClient.entities.Player.list(null, 500);
-            data = all.filter(p => parsed.includes(p.id));
+            const all = asObjectArray(await stageClient.entities.Player.list(null, 500).catch(() => []));
+            data = all.filter(p => p?.id && parsed.includes(p.id));
           } else {
             data = [];
           }
         } else {
-          data = await stageClient.entities.Player.list(null, 500);
+          data = await stageClient.entities.Player.list(null, 500).catch(() => []);
         }
-        const clubData = await clubsPromise;
-        setPlayers(data);
+        const clubData = asObjectArray(await clubsPromise);
+        setPlayers(asObjectArray(data).filter((p) => p.id));
         const m = {};
-        clubData.forEach(c => { m[c.id] = c; });
+        clubData.forEach(c => { if (c?.id) m[c.id] = c; });
         setClubs(m);
       } catch {
         setPlayers([]);
@@ -55,7 +53,7 @@ export default function Players({ tournamentId } = {}) {
     load();
   }, [tournamentId]);
 
-  const filtered = players.filter(p => {
+  const filtered = asObjectArray(players).filter(p => {
     const matchSearch   = !search   || (p.gamertag || "").toLowerCase().includes(search.toLowerCase());
     const matchPlatform = platform === "All Platforms" || p.platform === platform;
     const matchPosition = position === "All Positions" || p.position === position || p.secondary_position === position;

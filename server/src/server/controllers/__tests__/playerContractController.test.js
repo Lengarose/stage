@@ -11,6 +11,7 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const deliveryPath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesPath = path.resolve(__dirname, '../../services/contractRulesService.js');
+  const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[modelPath];
@@ -20,6 +21,7 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   delete require.cache[operationsPath];
   delete require.cache[deliveryPath];
   delete require.cache[contractRulesPath];
+  delete require.cache[transferWindowServicePath];
 
   class PlayerContractMock {
     constructor(body = {}) {
@@ -111,6 +113,8 @@ test('creating a player contract delegates offer delivery to the central message
   const deliveredContractIds = [];
   const directDeliveryQueries = [];
   const executesql = async (sql, params = []) => {
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
     if (sql === 'TEST_CREATE_PLAYER_CONTRACT') return { affectedRows: 1 };
     if (sql === 'TEST_SELECT_PLAYER_CONTRACT') {
@@ -151,9 +155,45 @@ test('creating a player contract delegates offer delivery to the central message
   assert.deepEqual(directDeliveryQueries, []);
 });
 
+test('creating a player contract rejects new offers while the transfer window is closed', async () => {
+  let createCalled = false;
+  const executesql = async (sql) => {
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [];
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
+    if (sql === 'TEST_CREATE_PLAYER_CONTRACT') {
+      createCalled = true;
+      return { affectedRows: 1 };
+    }
+    if (sql === 'TEST_SELECT_PLAYER_CONTRACT') return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadPlayerContractRouterWithMocks(executesql, async () => {});
+  const handle = routeHandler(router, 'post', '/');
+  const response = makeResponse();
+
+  await handle(
+    {
+      body: {
+        team_id: 'club-1',
+        user_id: 'player-1',
+        contract_type: 'squad',
+      },
+      user: { id: 'owner-user' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'transfer_window_closed');
+  assert.equal(createCalled, false);
+});
+
 test('creating a player contract rejects duplicate live contract offers for the same club group', async () => {
   let createCalled = false;
   const executesql = async (sql, params = []) => {
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
       return [{
         id: 'active-contract',

@@ -1,23 +1,38 @@
-import { getContractTargetPlayerId } from "./playerContractFields.js";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "./playerContractFields.js";
 
 const ACTIVE_STATUS = "active";
 const LIVE_CONTRACT_STATUSES = new Set(["active", "pending", "pending_window", "negotiating"]);
 
+export function findBlockingContractConflict({
+  selectedType = "squad",
+  playerContracts = [],
+  existingActiveContract = null,
+} = {}) {
+  const isOwnershipOffer = selectedType === "ownership";
+  // API rows are not trusted; a malformed contract must not crash transfer routes.
+  const liveConflict = normalizePlayerContracts(playerContracts).find((contract) => (
+    LIVE_CONTRACT_STATUSES.has(contract.status) &&
+    (isOwnershipOffer ? getContractType(contract) === "ownership" : getContractType(contract) !== "ownership")
+  ));
+
+  return liveConflict || existingActiveContract || null;
+}
+
 export function getSignedClubIdForPlayer(player, playerContracts = []) {
   if (player?.club_id) return player.club_id;
-  const activeContract = playerContracts.find((contract) => (
+  const activeContract = normalizePlayerContracts(playerContracts).find((contract) => (
     getContractTargetPlayerId(contract) === player?.id &&
-    contract?.status === ACTIVE_STATUS &&
-    contract?.team_id
+    contract.status === ACTIVE_STATUS &&
+    contract.team_id
   ));
   return activeContract?.team_id || null;
 }
 
 export function getContractOfferBlockReason({ player, playerContracts = [] } = {}) {
   if (getSignedClubIdForPlayer(player, playerContracts)) return "signed";
-  const hasLiveOffer = playerContracts.some((contract) => (
+  const hasLiveOffer = normalizePlayerContracts(playerContracts).some((contract) => (
     getContractTargetPlayerId(contract) === player?.id &&
-    LIVE_CONTRACT_STATUSES.has(contract?.status)
+    LIVE_CONTRACT_STATUSES.has(contract.status)
   ));
   return hasLiveOffer ? "live_offer" : null;
 }

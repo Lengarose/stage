@@ -14,16 +14,18 @@ import {
 import { notify, postContractNews } from "@/lib/notify";
 import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
-import { isTransferWindowOpen } from "@/lib/transferWindow";
 import { useTranslation } from "@/hooks/useTranslation";
 import { withTranslationFallback } from "@/lib/translationFallback";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContract } from "@/lib/playerContractFields";
+import { getContractAcceptanceFlow } from "@/lib/contractAcceptanceFlow";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
 export default function InboxContractOffer({ message, onActioned }) {
   const { t } = useTranslation();
   const tx = withTranslationFallback(t);
+  const { windowOpen: realtimeWindowOpen, loading: transferWindowLoading } = useTransferWindowStatus();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -37,7 +39,6 @@ export default function InboxContractOffer({ message, onActioned }) {
   const [counterTargets, setCounterTargets] = useState([]);
   const [showTargets, setShowTargets] = useState(false);
   const [error, setError] = useState(null);
-  const [windowOpen, setWindowOpen] = useState(null); // null=loading, true/false
   const [clubOwnerEmail, setClubOwnerEmail] = useState(null);
   const [clubName, setClubName] = useState(null);
   const [clubLogoUrl, setClubLogoUrl] = useState(null);
@@ -53,7 +54,7 @@ export default function InboxContractOffer({ message, onActioned }) {
         stageClient.entities.PlayerContract.get(contractId).catch(() => null),
       ]);
       setMyEmail(user?.email);
-      setContract(c);
+      setContract(normalizePlayerContract(c));
       setMyPlayer(player);
 
       if (c?.team_id) {
@@ -77,18 +78,12 @@ export default function InboxContractOffer({ message, onActioned }) {
         setCounterTargets(c.performance_targets || []);
       }
 
-      // Check transfer window status
-      try {
-        const winRes = await stageClient.functions.invoke("transferWindowActions", { action: "get_current" });
-        setWindowOpen(isTransferWindowOpen(winRes?.data?.window));
-      } catch {
-        setWindowOpen(false); // default to closed if can't check
-      }
-
       setLoading(false);
     }
     load();
   }, [contractId]);
+
+  const windowOpen = transferWindowLoading ? null : realtimeWindowOpen;
 
   const TARGET_TYPES = [
     { value: "min",   label: t("commonPages.cccTargetMin") },
@@ -130,21 +125,29 @@ export default function InboxContractOffer({ message, onActioned }) {
     contract.last_negotiated_by !== myClub?.id;
 
   const canAct = playerCanAct || clubCanAct;
+  const acceptanceFlow = getContractAcceptanceFlow({ contract, player: myPlayer, windowOpen });
+  const contractType = getContractType(contract);
+  const contractTypeLabel = contractType === "ownership"
+    ? tx("commonPages.icoClubOwnership", "Club Ownership")
+    : contractType.replace("_", " ");
 
   async function doAction(action) {
     setActionLoading(action);
     setError(null);
     try {
       if (action === "accept") {
-        // Renewal = player already belongs to this club; transfers need an open window
-        const isRenewal = myPlayer?.club_id && myPlayer.club_id === contract.team_id;
-        if (!isRenewal && !windowOpen) {
+        const currentAcceptanceFlow = getContractAcceptanceFlow({ contract, player: myPlayer, windowOpen });
+        if (currentAcceptanceFlow.waitingForWindowCheck) {
+          setError(tx("commonPages.icoWindowChecking", "Checking transfer window status..."));
+          return;
+        }
+        if (currentAcceptanceFlow.action === "mark_pending_window") {
           const result = await stageClient.functions.invoke("contractManagement", {
             action: "mark_pending_window",
             contract_id: contractId,
           });
-          setContract(prev => ({ ...prev, ...(result?.data?.contract || {}), status: "pending_window" }));
-          await stageClient.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
+          setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || {}), status: "pending_window" }));
+          if (message?.id) await stageClient.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
           onActioned?.("accept");
           return;
         }
@@ -153,16 +156,16 @@ export default function InboxContractOffer({ message, onActioned }) {
           contract_id: contractId,
         });
         const { start_date, end_date } = result?.data || {};
-        setContract(prev => ({ ...prev, status: "active", start_date, end_date }));
+        setContract(prev => normalizePlayerContract({ ...(prev || {}), status: "active", start_date, end_date }));
 
         notify(clubOwnerEmail, "contract_accepted",
           `✅ Contract Accepted`,
-          `${myPlayer?.gamertag || "A player"} has accepted the ${contract.contract_type} contract offer.`,
+          `${myPlayer?.gamertag || "A player"} has accepted the ${contractType} contract offer.`,
           `/clubs/${contract.team_id}`
         );
         postContractNews({
           title: `✅ ${myPlayer?.gamertag || "A player"} joined ${clubName || "a club"}`,
-          body: `${myPlayer?.gamertag || "A player"} has accepted a ${contract.contract_type} contract.`,
+          body: `${myPlayer?.gamertag || "A player"} has accepted a ${contractType} contract.`,
           club_name: clubName || "", club_logo_url: clubLogoUrl || "",
           player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
           link: `/clubs/${contract.team_id}`,
@@ -172,24 +175,26 @@ export default function InboxContractOffer({ message, onActioned }) {
           action: "reject",
           contract_id: contractId,
         });
-        setContract(prev => ({ ...prev, ...(result?.data?.contract || {}), status: "rejected" }));
+        setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || {}), status: "rejected" }));
         notify(clubOwnerEmail, "contract_rejected",
           `❌ Contract Declined`,
-          `${myPlayer?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
+          `${myPlayer?.gamertag || "A player"} has declined your ${contractType} contract offer.`,
           `/clubs/${contract.team_id}`
         );
         postContractNews({
           title: `❌ ${myPlayer?.gamertag || "A player"} rejected contract from ${clubName || "a club"}`,
-          body: `${myPlayer?.gamertag || "A player"} has rejected the ${contract.contract_type} contract offer.`,
+          body: `${myPlayer?.gamertag || "A player"} has rejected the ${contractType} contract offer.`,
           club_name: clubName || "", club_logo_url: clubLogoUrl || "",
           player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
           link: `/clubs/${contract.team_id}`,
         });
       }
-      await stageClient.entities.InboxMessage.update(message.id, {
-        status: action === "accept" ? "accepted" : "declined",
-        is_read: true,
-      });
+      if (message?.id) {
+        await stageClient.entities.InboxMessage.update(message.id, {
+          status: action === "accept" ? "accepted" : "declined",
+          is_read: true,
+        });
+      }
       onActioned?.(action);
     } catch (e) {
       setError(e.message || "Action failed");
@@ -219,7 +224,7 @@ export default function InboxContractOffer({ message, onActioned }) {
         ...updatedFields,
         last_negotiated_by: myPlayer?.id || "",
       });
-      setContract(prev => ({ ...prev, ...(result?.data?.contract || updatedFields) }));
+      setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || updatedFields) }));
       setShowCounter(false);
       setCounterNote("");
       notify(clubOwnerEmail, "contract_offer",
@@ -268,9 +273,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           <div className="flex items-center gap-2">
             <Gamepad2 className="w-4 h-4 text-primary" />
             <span className="font-bold text-foreground text-sm capitalize">
-              {contract.contract_type === "ownership" 
-                ? tx("commonPages.icoClubOwnership", "Club Ownership") 
-                : contract.contract_type?.replace("_", " ") || tx("commonPages.icoContract", "Contract")} {contract.contract_type !== "ownership" && tx("commonPages.icoContract", "Contract")}
+              {contractTypeLabel} {contractType !== "ownership" && tx("commonPages.icoContract", "Contract")}
             </span>
             {contract.negotiation_round > 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
@@ -352,8 +355,8 @@ export default function InboxContractOffer({ message, onActioned }) {
         </div>
       )}
 
-      {/* Transfer window notice — shown to the player when it's a transfer (not renewal) */}
-      {isPlayer && canAct && myPlayer?.club_id !== contract.team_id && (
+      {/* Transfer window notice — shown only for players moving from another club. */}
+      {isPlayer && canAct && acceptanceFlow.isClubTransfer && (
         <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold ${
           windowOpen === true
             ? "bg-success/10 border-success/20 text-success"
@@ -376,13 +379,13 @@ export default function InboxContractOffer({ message, onActioned }) {
           <Button
             size="sm"
             onClick={() => doAction("accept")}
-            disabled={!!actionLoading}
+            disabled={!!actionLoading || acceptanceFlow.waitingForWindowCheck}
             className="bg-success text-white hover:bg-success/90 gap-1.5"
           >
             {actionLoading === "accept"
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <CheckCircle className="w-3.5 h-3.5" />}
-            {isPlayer && myPlayer?.club_id !== contract.team_id && !windowOpen
+            {acceptanceFlow.queuedForTransferWindow
               ? tx("commonPages.icoAcceptQueue", "Accept & Queue Transfer")
               : tx("commonPages.icoAcceptContract", "Accept Contract")}
           </Button>

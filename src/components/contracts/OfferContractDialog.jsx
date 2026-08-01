@@ -8,6 +8,7 @@ import { FileText, Coins, Plus, Trash2, Target, ChevronDown, ChevronUp, Lightbul
 import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { useTranslation } from "@/hooks/useTranslation";
+import { findBlockingContractConflict } from "@/lib/contractOfferVisibility";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
@@ -24,15 +25,9 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   const statOptions = getStatOptionsForPosition(player?.position);
   const groupedStats = groupStatOptions(statOptions);
-  const liveStatuses = ["active", "pending", "pending_window", "negotiating"];
-  const isOwnershipOffer = selectedType === "ownership";
+  const offerLockedByWindow = !isNegotiation && windowOpen !== true;
   const blockingConflict = !isNegotiation
-    ? (
-      playerContracts.find(c =>
-        liveStatuses.includes(c.status) &&
-        (isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership")
-      ) || existingActiveContract || null
-    )
+    ? findBlockingContractConflict({ selectedType, playerContracts, existingActiveContract })
     : null;
 
   const TARGET_TYPES = [
@@ -54,6 +49,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   }
 
   async function handleOffer() {
+    if (offerLockedByWindow) return;
     if (blockingConflict && !isNegotiation) return;
     setOffering(true);
     try {
@@ -324,7 +320,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
             <Button
               onClick={handleOffer}
-              disabled={offering}
+              disabled={offering || offerLockedByWindow}
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               <FileText className="w-4 h-4" />

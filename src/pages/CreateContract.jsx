@@ -16,11 +16,14 @@ import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function CreateContract() {
   const { t } = useTranslation();
+  const { windowOpen, loading: windowStatusLoading } = useTransferWindowStatus();
   const navigate = useNavigate();
   const TARGET_TYPES = [
     { value: "min",   label: t("commonPages.cccTargetMin") },
@@ -70,7 +73,7 @@ export default function CreateContract() {
       stageClient.entities.PlayerContract.filter({ team_id: clubId }),
     ]);
     setPlayers(playerArr);
-    setContracts(contractArr);
+    setContracts(normalizePlayerContracts(contractArr));
 
     const me = playerArr.find(p => p.email === user.email);
     setMyPlayer(me);
@@ -95,6 +98,7 @@ export default function CreateContract() {
 
   async function handleSend() {
     if (!selectedPlayer || !selectedType) return;
+    if (!canCreateContractOffer(windowOpen)) return;
     setSending(true);
     setSendError(null);
     try {
@@ -161,7 +165,7 @@ export default function CreateContract() {
     ? contracts.find(c =>
         getContractTargetPlayerId(c) === selectedPlayer.id &&
         LIVE_STATUSES.includes(c.status) &&
-        (isOwnershipOffer ? c.contract_type === "ownership" : c.contract_type !== "ownership")
+        (isOwnershipOffer ? getContractType(c) === "ownership" : getContractType(c) !== "ownership")
       )
     : null;
   const playerHasConflict = !!conflictContract;
@@ -174,9 +178,9 @@ export default function CreateContract() {
   const wagePct = club?.wage_budget_stc > 0 && salaryNum > 0 ? Math.round((salaryNum / club.wage_budget_stc) * 100) : 0;
   const overBudget = club?.wage_budget_stc > 0 && salaryNum > club.wage_budget_stc;
 
-  const canProceed = selectedPlayer && !playerHasConflict && selectedType;
+  const canProceed = canCreateContractOffer(windowOpen) && selectedPlayer && !playerHasConflict && selectedType;
 
-  if (loading) {
+  if (loading || windowStatusLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-6 h-6 text-primary animate-spin" />
@@ -200,6 +204,19 @@ export default function CreateContract() {
           <ShieldAlert className="w-10 h-10 text-destructive mx-auto mb-3" />
           <h2 className="font-heading text-xl uppercase text-foreground">{t("commonPages.cccAccessRestricted")}</h2>
           <p className="text-sm text-muted-foreground mt-2">{t("commonPages.cccPresidentOnly")}</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>{t("commonPages.cccGoBack")}</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canCreateContractOffer(windowOpen)) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="bg-card border border-border rounded-xl p-8 text-center">
+          <ShieldAlert className="w-10 h-10 text-warning mx-auto mb-3" />
+          <h2 className="font-heading text-xl uppercase text-foreground">Transfer window closed</h2>
+          <p className="text-sm text-muted-foreground mt-2">New contract offers can only be sent while the transfer window is open.</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>{t("commonPages.cccGoBack")}</Button>
         </div>
       </div>

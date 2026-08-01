@@ -17,6 +17,9 @@ test('club memberships table is present in schema and startup migrations', () =>
   assert.match(startupMigrations, /NOT EXISTS \(\s*SELECT 1\s*FROM club_memberships cm/s);
   assert.match(startupMigrations, /legacy_player_club_id/);
   assert.match(startupMigrations, /legacy_owner_link/);
+  assert.match(startupMigrations, /pending_window_free_agent_activation/);
+  assert.match(startupMigrations, /active_contract_player_link/);
+  assert.match(startupMigrations, /active_contract_membership_backfill/);
   assert.match(stageClient, /'ClubMembership'/);
 });
 

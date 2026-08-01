@@ -9,6 +9,7 @@ function loadClubApplicantRouterWithMocks(executesql, deliveryMock) {
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const deliveryPath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesPath = path.resolve(__dirname, '../../services/contractRulesService.js');
+  const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[modelPath];
@@ -16,6 +17,7 @@ function loadClubApplicantRouterWithMocks(executesql, deliveryMock) {
   delete require.cache[operationsPath];
   delete require.cache[deliveryPath];
   delete require.cache[contractRulesPath];
+  delete require.cache[transferWindowServicePath];
 
   class ClubApplicantMock {
     constructor(body = {}) {
@@ -99,6 +101,8 @@ test('offering an applicant contract delegates delivery to the central contract 
       return [{ ...applicant, status: contractInserts.length ? 'contract_offered' : 'new' }];
     }
     if (sql === 'TEST_UPDATE_CLUB_APPLICANT') return { affectedRows: 1 };
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
     if (/INSERT INTO player_contracts/.test(sql)) {
       contractInserts.push(params);
@@ -140,6 +144,8 @@ test('offering an applicant contract rejects same-club live contract conflicts',
   };
   const executesql = async (sql) => {
     if (sql === 'TEST_SELECT_CLUB_APPLICANT') return [applicant];
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
       return [{ id: 'active-contract', team_id: 'club-1', user_id: 'player-1', contract_type: 'squad', status: 'active' }];
     }

@@ -3,20 +3,24 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { postContractNews } from "@/lib/notify";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { Loader2, Check, X, ClipboardList } from "lucide-react";
 
 export default function InboxTrialRequest({ message, onActioned }) {
+  const { windowOpen } = useTransferWindowStatus();
   const [loading, setLoading] = useState(null);
   const [done, setDone] = useState(null);
+  const safeMessage = message && typeof message === "object" ? message : {};
 
-  const meta = typeof message.metadata === "string"
-    ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
-    : (message.metadata || {});
-  const currentStatus = String(message.status || "pending").toLowerCase();
+  const meta = typeof safeMessage.metadata === "string"
+    ? (() => { try { return JSON.parse(safeMessage.metadata); } catch { return {}; } })()
+    : (safeMessage.metadata || {});
+  const currentStatus = String(safeMessage.status || "pending").toLowerCase();
   const isAlreadyResolved = ["accepted", "declined", "confirmed", "rejected"].includes(currentStatus);
-  const playerEmail    = meta.player_email    || message.sender_email;
+  const playerEmail    = meta.player_email    || safeMessage.sender_email;
   const playerId       = meta.player_id       || "";
-  const playerGamertag = meta.player_gamertag || message.sender_gamertag || "Player";
+  const playerGamertag = meta.player_gamertag || safeMessage.sender_gamertag || "Player";
   const playerAvatar   = meta.player_avatar_url || "";
   const playerPosition = meta.player_position || "";
   const playerOvr      = meta.player_overall  || "";
@@ -26,6 +30,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
   const trialMeta      = CONTRACT_TYPES.trial;
 
   async function offerTrial() {
+    if (!canCreateContractOffer(windowOpen)) return;
     setLoading("offer");
     try {
       // Create trial PlayerContract (pending — player still needs to accept)
@@ -57,7 +62,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       });
 
       // Mark the trial request message as accepted
-      await stageClient.entities.InboxMessage.update(message.id, { status: "accepted", is_read: true });
+      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "accepted", is_read: true });
 
       setDone("offered");
       onActioned?.("offer");
@@ -75,7 +80,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       // repeated clicks/retries cannot create duplicate decline messages.
       await stageClient.functions.invoke("sendInboxMessage", {
         recipient_email:  playerEmail,
-        sender_email:     message.recipient_email,
+        sender_email:     safeMessage.recipient_email,
         sender_gamertag:  clubName,
         sender_avatar_url: clubLogo,
         sender_club_name: clubName,
@@ -83,14 +88,14 @@ export default function InboxTrialRequest({ message, onActioned }) {
         body:             `Dear ${playerGamertag},\n\nUnfortunately, ${clubName} has decided not to offer you a trial at this time.\n\nBest of luck in your search.\n\n${clubName} Management`,
         message_type:     "general",
         action_type:      "none",
-        related_entity_id: message.id,
+        related_entity_id: safeMessage.id,
         related_entity_type: "trial_request",
         status:           "pending",
         is_read:          false,
         send_notification: true,
       });
 
-      await stageClient.entities.InboxMessage.update(message.id, { status: "declined", is_read: true });
+      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "declined", is_read: true });
 
       setDone("declined");
       onActioned?.("decline");
@@ -157,15 +162,17 @@ export default function InboxTrialRequest({ message, onActioned }) {
       </div>
 
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={offerTrial}
-          disabled={!!loading}
-          className="flex-1 bg-success/20 text-success hover:bg-success/30 border border-success/30 gap-1.5"
-        >
-          {loading === "offer" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-          Offer Trial Contract
-        </Button>
+        {canCreateContractOffer(windowOpen) ? (
+          <Button
+            size="sm"
+            onClick={offerTrial}
+            disabled={!!loading}
+            className="flex-1 bg-success/20 text-success hover:bg-success/30 border border-success/30 gap-1.5"
+          >
+            {loading === "offer" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Offer Trial Contract
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="outline"

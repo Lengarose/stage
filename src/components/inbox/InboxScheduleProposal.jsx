@@ -15,8 +15,22 @@ import { proposeTime, acceptProposal } from "@/lib/scheduleEngine";
 //   myGamertag – display name fallback
 //   onActioned – (newStatus: string) => void
 
+function parseMessageMetadata(value) {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" ? value : {};
+}
+
 export default function InboxScheduleProposal({ message, myClub, myEmail, myGamertag, onActioned }) {
-  const meta     = message.metadata || {};
+  const safeMessage = message && typeof message === "object" ? message : {};
+  const meta     = parseMessageMetadata(safeMessage.metadata);
   const [fixture, setFixture] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy,    setBusy]    = useState(null);
@@ -42,7 +56,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
   // meta is derived from message.metadata; keying on message.id is the
   // most reliable signal that the user switched messages.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [message.id, meta.fixture_id, meta.fixture_type]);
+  }, [safeMessage.id, meta.fixture_id, meta.fixture_type]);
 
   async function loadFixture() {
     setLoading(true);
@@ -64,7 +78,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     try {
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
       await acceptProposal({ fixture, fixtureType: meta.fixture_type, role, myClub, myEmail });
-      await stageClient.entities.InboxMessage.update(message.id, { status: "confirmed", is_read: true });
+      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "confirmed", is_read: true });
       onActioned("confirmed");
     } catch (err) {
       setError(err?.message || "Failed to confirm match. Please try again.");
@@ -79,7 +93,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
       const proposedDate = combineDateTimeToMysql(cDate, cTime);
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
       await proposeTime({ fixture, fixtureType: meta.fixture_type, role, proposedDate, myClub, myEmail, myGamertag });
-      await stageClient.entities.InboxMessage.update(message.id, { status: "date_change_requested", is_read: true });
+      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "date_change_requested", is_read: true });
       setCounter(false);
       setCDate(""); setCTime("");
       onActioned("date_change_requested");
@@ -88,7 +102,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     } finally { setBusy(null); }
   }
 
-  const isAlreadyActioned = message.status !== "pending";
+  const isAlreadyActioned = safeMessage.status !== "pending";
 
   if (loading) {
     return <div className="py-4 flex justify-center"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -180,13 +194,13 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
         )
       ) : (
         <div className={cn("text-xs px-3 py-2 rounded border font-medium",
-          message.status === "confirmed" ? "text-success bg-success/10 border-success/20"
-          : message.status === "date_change_requested" ? "text-warning bg-warning/10 border-warning/20"
+          safeMessage.status === "confirmed" ? "text-success bg-success/10 border-success/20"
+          : safeMessage.status === "date_change_requested" ? "text-warning bg-warning/10 border-warning/20"
           : "text-muted-foreground bg-secondary border-border"
         )}>
-          {message.status === "confirmed" ? "✅ You accepted this time — match confirmed."
-          : message.status === "date_change_requested" ? "📅 Counter-proposal sent. Waiting for opponent's response."
-          : `Responded: ${message.status.replace(/_/g, " ")}`}
+          {safeMessage.status === "confirmed" ? "✅ You accepted this time — match confirmed."
+          : safeMessage.status === "date_change_requested" ? "📅 Counter-proposal sent. Waiting for opponent's response."
+          : `Responded: ${String(safeMessage.status || "pending").replace(/_/g, " ")}`}
         </div>
       )}
     </div>

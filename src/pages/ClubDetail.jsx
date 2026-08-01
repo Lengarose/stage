@@ -29,7 +29,9 @@ import ClubOperations from "@/components/club/ClubOperations";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
+import { asObject, asObjectArray } from "@/lib/safeData";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
@@ -153,34 +155,39 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   useEffect(() => {
     async function load() {
       try {
-      const user = await stageClient.auth.me();
-      setCurrentUser(user);
+        const user = asObject(await stageClient.auth.me().catch(() => null));
+        setCurrentUser(user);
+        const userEmail = user?.email || "";
 
-      const { player: myPlResolved } = await resolveMyPlayerAndClub();
-      const [clubRecord, initialPlayerData, staffRows] = await Promise.all([
-        stageClient.entities.Club.get(id),
-        stageClient.entities.Player.filter({ club_id: id }),
-        stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
-      ]);
-      const myPl = myPlResolved ? [myPlResolved] : [];
-      let playerData = initialPlayerData || [];
-      const playerIds = new Set(playerData.map((p) => p.id).filter(Boolean));
+        const { player: resolvedPlayer = null } = await resolveMyPlayerAndClub().catch(() => ({}));
+        const myPlResolved = asObject(resolvedPlayer);
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, activeContractRows] = await Promise.all([
+          stageClient.entities.Club.get(id).catch(() => null),
+          stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
+          stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
+          stageClient.entities.PlayerContract.filter({ team_id: id, status: "active" }, "-created_date", 200).catch(() => []),
+        ]);
 
-      const ownershipContracts = await stageClient.entities.PlayerContract
-        .filter({ team_id: id, contract_type: "ownership" }, "-created_date", 20)
-        .catch(() => []);
-      const liveOwnershipContracts = (ownershipContracts || []).filter((contract) =>
-        contract.status === "active"
-      );
-      if (liveOwnershipContracts.length > 0) {
-        const ownershipPlayers = await Promise.all(
-          liveOwnershipContracts
-            .filter((contract) => getContractTargetPlayerId(contract) && !playerIds.has(getContractTargetPlayerId(contract)))
-            .map((contract) => stageClient.entities.Player.get(getContractTargetPlayerId(contract)).catch(() => null))
+        const c = asObject(clubRecordRaw);
+        const staffRows = asObjectArray(staffRoleRows);
+        const myPl = myPlResolved ? [myPlResolved] : [];
+        let playerData = asObjectArray(initialPlayerRows).filter((player) => player.id);
+        const playerIds = new Set(playerData.map((player) => player.id).filter(Boolean));
+
+        const safeActiveContracts = normalizePlayerContracts(activeContractRows);
+        const liveOwnershipContracts = safeActiveContracts.filter((contract) =>
+          getContractType(contract) === "ownership"
         );
-        const normalizedOwners = ownershipPlayers
-          .filter(Boolean)
-          .map((ownerPlayer) => ({
+        if (liveOwnershipContracts.length > 0) {
+          const ownershipPlayers = await Promise.all(
+            liveOwnershipContracts
+              .filter((contract) => {
+                const playerId = getContractTargetPlayerId(contract);
+                return playerId && !playerIds.has(playerId);
+              })
+              .map((contract) => stageClient.entities.Player.get(getContractTargetPlayerId(contract)).catch(() => null))
+          );
+          const normalizedOwners = asObjectArray(ownershipPlayers).map((ownerPlayer) => ({
             ...ownerPlayer,
             club_id: ownerPlayer.club_id || id,
             club_roles: Array.isArray(ownerPlayer.club_roles) && ownerPlayer.club_roles.includes("president")
@@ -190,99 +197,140 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               ? "president"
               : ownerPlayer.role,
           }));
-        playerData = [...playerData, ...normalizedOwners];
-      }
-
-      const [matchesHome, matchesAway, followData, allFollowersData] = await Promise.all([
-        stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30),
-        stageClient.profileMatches.list({ away_club_id: id, status: "completed" }, "round", 30),
-        stageClient.entities.Follow.filter({ follower_email: user.email, target_id: id, target_type: "club" }),
-        stageClient.entities.Follow.filter({ target_id: id, target_type: "club" }),
-      ]);
-
-      const [tmHome, tmAway] = await Promise.all([
-        stageClient.profileMatches.list({ home_club_id: id, status: "scheduled" }, "round", 30),
-        stageClient.profileMatches.list({ away_club_id: id, status: "scheduled" }, "round", 30),
-      ]);
-
-      const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
-      const tIds = [...new Set(allMatchesRaw.map(m => m.tournament_id).filter(tid => tid && tid !== "ranked"))];
-      let tMap = {};
-      if (tIds.length > 0) {
-        const tResults = await Promise.all(tIds.map(tid => stageClient.entities.Tournament.filter({ id: tid }, null, 1)));
-        tResults.forEach(arr => { if (arr[0]) tMap[arr[0].id] = arr[0]; });
-      }
-      setTournamentMap(tMap);
-
-      const playerFollows = playerData.length > 0
-        ? await stageClient.entities.Follow.filter({ follower_email: user.email, target_type: "player" })
-        : [];
-      const pfMap = {};
-      for (const f of playerFollows) { pfMap[f.target_id] = f; }
-
-      const c = clubRecord || null;
-      setClub(c);
-      if (c) {
-        setClubForm({
-          name: c.name || "",
-          tag: c.tag || "",
-          platform: c.platform || "PlayStation",
-          region: c.region || "Europe",
-          description: c.description || "",
-          country_code: c.country_code || "",
-        });
-      }
-      setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
-      setPlayerFollowMap(pfMap);
-
-      const allMatches = [...matchesHome, ...matchesAway].sort(
-        (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
-      );
-      setMatches(allMatches);
-      setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
-
-      if (followData.length > 0) { setIsFollowing(true); setFollowId(followData[0].id); }
-      setFollowersCount(allFollowersData.length);
-      setFollowersList(allFollowersData);
-
-      if (myPl.length > 0) {
-        const mine = myPl[0];
-        setMyPlayer(mine);
-        setOperationStaffRoles((staffRows || []).filter((role) =>
-          role.user_id === user.id || role.player_id === mine.id
-        ));
-        if (myPl[0].club_id && myPl[0].club_id !== id) {
-          const myClubRecord = await stageClient.entities.Club.get(myPl[0].club_id).catch(() => null);
-          if (myClubRecord) setMyClubData(myClubRecord);
+          playerData = [...playerData, ...normalizedOwners];
         }
-      } else {
-        setOperationStaffRoles([]);
-      }
 
-      if (myPl.length > 0 && (
-        myPl[0].role === "captain" ||
-        myPl[0].role === "vice-captain" ||
-        myPl[0].club_roles?.includes("president") ||
-        c?.owner_email === user.email
-      )) {
-        const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" });
-        setJoinRequests(reqs);
-      }
+        const activeContractPlayerIds = [
+          ...new Set(safeActiveContracts.map(getContractTargetPlayerId).filter(Boolean)),
+        ];
+        const visiblePlayerIds = new Set(playerData.map((player) => player.id).filter(Boolean));
+        const missingContractPlayerIds = activeContractPlayerIds.filter((playerId) => !visiblePlayerIds.has(playerId));
+        if (missingContractPlayerIds.length > 0) {
+          const contractedPlayerRows = await Promise.all(
+            missingContractPlayerIds.map((playerId) =>
+              stageClient.entities.Player.get(playerId).catch(() => null)
+            )
+          );
+          playerData = mergeActiveContractPlayersIntoSquad(
+            playerData,
+            safeActiveContracts,
+            asObjectArray(contractedPlayerRows),
+            id
+          );
+        }
 
-      // Check if this player already sent a trial request to this club
-      if (myPl.length > 0) {
-        const existingTrials = await stageClient.entities.InboxMessage.filter(
-          { sender_email: user.email, message_type: "trial_request" }, null, 20
-        ).catch(() => []);
-        const sentToThisClub = existingTrials.some(m => (m.metadata?.club_id === id || m.related_entity_id === id));
-        if (sentToThisClub) setTrialRequestSent(true);
-      }
+        const [matchesHomeRaw, matchesAwayRaw, followRows, followerRows, tmHomeRaw, tmAwayRaw] = await Promise.all([
+          stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30).catch(() => []),
+          stageClient.profileMatches.list({ away_club_id: id, status: "completed" }, "round", 30).catch(() => []),
+          userEmail
+            ? stageClient.entities.Follow.filter({ follower_email: userEmail, target_id: id, target_type: "club" }).catch(() => [])
+            : Promise.resolve([]),
+          stageClient.entities.Follow.filter({ target_id: id, target_type: "club" }).catch(() => []),
+          stageClient.profileMatches.list({ home_club_id: id, status: "scheduled" }, "round", 30).catch(() => []),
+          stageClient.profileMatches.list({ away_club_id: id, status: "scheduled" }, "round", 30).catch(() => []),
+        ]);
 
-      const clubChatRows = await stageClient.entities.ChatMessage
-        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
-        .catch(() => []);
-      setClubChatMessages(clubChatRows || []);
+        const matchesHome = asObjectArray(matchesHomeRaw);
+        const matchesAway = asObjectArray(matchesAwayRaw);
+        const tmHome = asObjectArray(tmHomeRaw);
+        const tmAway = asObjectArray(tmAwayRaw);
+        const followData = asObjectArray(followRows);
+        const allFollowersData = asObjectArray(followerRows);
+        const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
+        const tIds = [...new Set(allMatchesRaw.map((match) => match.tournament_id).filter((tid) => tid && tid !== "ranked"))];
+        const tMap = {};
+        if (tIds.length > 0) {
+          const tournamentResults = await Promise.all(
+            tIds.map((tid) => stageClient.entities.Tournament.filter({ id: tid }, null, 1).catch(() => []))
+          );
+          tournamentResults.forEach((rows) => {
+            const [tournament] = asObjectArray(rows);
+            if (tournament?.id) tMap[tournament.id] = tournament;
+          });
+        }
+        setTournamentMap(tMap);
 
+        const playerFollows = playerData.length > 0 && userEmail
+          ? asObjectArray(await stageClient.entities.Follow.filter({ follower_email: userEmail, target_type: "player" }).catch(() => []))
+          : [];
+        const pfMap = {};
+        for (const follow of playerFollows) {
+          if (follow.target_id) pfMap[follow.target_id] = follow;
+        }
+
+        setClub(c);
+        if (c) {
+          setClubForm({
+            name: c.name || "",
+            tag: c.tag || "",
+            platform: c.platform || "PlayStation",
+            region: c.region || "Europe",
+            description: c.description || "",
+            country_code: c.country_code || "",
+          });
+        }
+        setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
+        setPlayerFollowMap(pfMap);
+
+        const allMatches = [...matchesHome, ...matchesAway].sort(
+          (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
+        );
+        setMatches(allMatches);
+        setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
+
+        if (followData.length > 0) {
+          setIsFollowing(true);
+          setFollowId(followData[0].id || null);
+        } else {
+          setIsFollowing(false);
+          setFollowId(null);
+        }
+        setFollowersCount(allFollowersData.length);
+        setFollowersList(allFollowersData);
+
+        if (myPl.length > 0) {
+          const mine = myPl[0];
+          setMyPlayer(mine);
+          setOperationStaffRoles(staffRows.filter((role) =>
+            role.user_id === user?.id || role.player_id === mine.id
+          ));
+          if (mine.club_id && mine.club_id !== id) {
+            const myClubRecord = asObject(await stageClient.entities.Club.get(mine.club_id).catch(() => null));
+            if (myClubRecord) setMyClubData(myClubRecord);
+          }
+        } else {
+          setMyPlayer(null);
+          setOperationStaffRoles([]);
+        }
+
+        if (myPl.length > 0 && (
+          myPl[0].role === "captain" ||
+          myPl[0].role === "vice-captain" ||
+          myPl[0].club_roles?.includes("president") ||
+          c?.owner_email === userEmail
+        )) {
+          const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" }).catch(() => []);
+          setJoinRequests(asObjectArray(reqs));
+        } else {
+          setJoinRequests([]);
+        }
+
+        if (myPl.length > 0 && userEmail) {
+          const existingTrials = asObjectArray(await stageClient.entities.InboxMessage.filter(
+            { sender_email: userEmail, message_type: "trial_request" }, null, 20
+          ).catch(() => []));
+          const sentToThisClub = existingTrials.some((message) => (
+            asObject(message.metadata)?.club_id === id || message.related_entity_id === id
+          ));
+          setTrialRequestSent(sentToThisClub);
+        } else {
+          setTrialRequestSent(false);
+        }
+
+        const clubChatRows = await stageClient.entities.ChatMessage
+          .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
+          .catch(() => []);
+        setClubChatMessages(asObjectArray(clubChatRows));
       } catch (err) {
         console.error("ClubDetail load failed:", err);
         setClub(null);
@@ -293,15 +341,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     load();
 
     const unsubPlayer = stageClient.entities.Player.subscribe((event) => {
-      const row = event.data;
-      if (!row || row.club_id !== id) return;
+      const row = asObject(event.data);
+      if (!row || row.club_id !== id || !row.id) return;
       if (row._entity === "player" || row.gamertag) {
         if (event.type === "delete") {
-          setPlayers((prev) => prev.filter((p) => p.id !== event.id));
+          setPlayers((prev) => asObjectArray(prev).filter((p) => p.id !== event.id));
         } else if (event.type === "update") {
-          setPlayers((prev) => prev.map((p) => (p.id === event.id ? row : p)));
+          setPlayers((prev) => asObjectArray(prev).map((p) => (p.id === event.id ? row : p)));
         } else if (event.type === "create") {
-          setPlayers((prev) => (prev.some((p) => p.id === event.id) ? prev : [row, ...prev]));
+          setPlayers((prev) => {
+            const safePrev = asObjectArray(prev);
+            return safePrev.some((p) => p.id === row.id) ? safePrev : [row, ...safePrev];
+          });
         }
       }
     }, { club_id: id });
@@ -309,10 +360,11 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }, [id]);
 
   async function toggleFollow() {
+    if (!currentUser?.email) return;
     if (isFollowing && followId) {
       await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
-      setFollowersCount(c => c - 1);
+      setFollowersCount(c => Math.max(0, c - 1));
     } else {
       const f = await stageClient.entities.Follow.create({
         follower_email: currentUser.email,
@@ -406,20 +458,21 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
   useEffect(() => {
     const unsub = stageClient.entities.ChatMessage.subscribe((event) => {
-      const payload = event.data;
-      if (!payload || payload.match_id !== CLUB_CHAT_CHANNEL) return;
+      const payload = asObject(event.data);
+      if (!payload || payload.match_id !== CLUB_CHAT_CHANNEL || !payload.id) return;
       if (event.type === "delete") {
-        setClubChatMessages((prev) => prev.filter((m) => m.id !== event.id));
+        setClubChatMessages((prev) => asObjectArray(prev).filter((m) => m.id !== event.id));
         return;
       }
       setClubChatMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === payload.id);
+        const safePrev = asObjectArray(prev);
+        const idx = safePrev.findIndex((m) => m.id === payload.id);
         if (idx >= 0) {
-          const next = [...prev];
+          const next = [...safePrev];
           next[idx] = { ...next[idx], ...payload };
           return next;
         }
-        return [...prev, payload].sort(
+        return [...safePrev, payload].sort(
           (a, b) => new Date(a.created_date || 0).getTime() - new Date(b.created_date || 0).getTime()
         );
       });
@@ -441,40 +494,47 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       const latest = await stageClient.entities.ChatMessage
         .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
         .catch(() => []);
-      setClubChatMessages(latest || []);
+      setClubChatMessages(asObjectArray(latest));
     } finally {
       setSendingClubChat(false);
     }
   }
 
   async function assignRole(targetPlayer, role) {
-    const currentHolders = players.filter(p => (p.club_roles?.includes(role) || p.role === role) && p.id !== targetPlayer.id);
+    const target = asObject(targetPlayer);
+    if (!target?.id) return;
+    const currentHolders = asObjectArray(players).filter((player) => (
+      (Array.isArray(player.club_roles) && player.club_roles.includes(role)) || player.role === role
+    ) && player.id !== target.id);
     await Promise.all(currentHolders.map(p =>
       stageClient.entities.Player.update(p.id, {
-        club_roles: (p.club_roles || []).filter(r => r !== role),
+        club_roles: Array.isArray(p.club_roles) ? p.club_roles.filter(r => r !== role) : [],
         role: p.role === role ? "member" : p.role,
       })
     ));
-    const otherRoles = (targetPlayer.club_roles || []).filter(r => r !== "captain" && r !== "vice-captain");
+    const otherRoles = Array.isArray(target.club_roles)
+      ? target.club_roles.filter(r => r !== "captain" && r !== "vice-captain")
+      : [];
     const newRoles = [...new Set([...otherRoles, role])];
     const primaryRole = newRoles.includes("captain") ? "captain" : newRoles.includes("vice-captain") ? "vice-captain" : "member";
-    await stageClient.entities.Player.update(targetPlayer.id, { club_roles: newRoles, role: primaryRole });
-    const updated = await stageClient.entities.Player.filter({ club_id: id });
-    setPlayers(updated);
+    await stageClient.entities.Player.update(target.id, { club_roles: newRoles, role: primaryRole });
+    const updated = await stageClient.entities.Player.filter({ club_id: id }).catch(() => []);
+    setPlayers(asObjectArray(updated));
   }
 
   function handleStaffRolesChanged(staffRows = []) {
-    setPlayers((prev) => mergeStaffRolesIntoPlayers(prev, staffRows));
-    setOperationStaffRoles((staffRows || []).filter((role) =>
+    const safeStaffRows = asObjectArray(staffRows);
+    setPlayers((prev) => mergeStaffRolesIntoPlayers(asObjectArray(prev), safeStaffRows));
+    setOperationStaffRoles(safeStaffRows.filter((role) =>
       role.user_id === currentUser?.id || role.player_id === myPlayer?.id
     ));
   }
 
   async function declineJoinRequest(reqId) {
-    const req = joinRequests.find(r => r.id === reqId);
+    const req = asObjectArray(joinRequests).find(r => r.id === reqId);
     if (!req) return;
     await stageClient.entities.JoinRequest.update(reqId, { status: "rejected" });
-    setJoinRequests(prev => prev.filter(r => r.id !== reqId));
+    setJoinRequests(prev => asObjectArray(prev).filter(r => r.id !== reqId));
   }
 
   function uploadLogo(e) {
@@ -492,7 +552,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       (stageClient.entities.CompetitionStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
       (stageClient.entities.RegionalLeagueStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
     ]);
-    const comp = compRows.map(r => ({
+    const comp = asObjectArray(compRows).map(r => ({
       type: "competition",
       name: r.competition_name || "Competition",
       season: r.season_number || 0,
@@ -503,7 +563,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       promoted: r.is_promoted || false,
       relegated: r.is_relegated || false,
     }));
-    const league = leagueRows.map(r => ({
+    const league = asObjectArray(leagueRows).map(r => ({
       type: "league",
       name: r.league_name || "League",
       season: r.season_number || 0,
@@ -554,7 +614,13 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     return <div className="p-6 text-center"><p className="text-white/50">{t("commonPages.cdClubNotFound")}</p><Link to={clubsListPath}><Button variant="outline" className="mt-4">{t("commonPages.profBack")}</Button></Link></div>;
   }
 
-  const confirmedMatches = matches.filter(m => m.status === "completed");
+  const safePlayers = asObjectArray(players);
+  const safeMatches = asObjectArray(matches);
+  const safeTournamentMatches = asObjectArray(tournamentMatches);
+  const safeJoinRequests = asObjectArray(joinRequests);
+  const safeClubChatMessages = asObjectArray(clubChatMessages);
+  const safeHistoryRows = asObjectArray(historyRows);
+  const confirmedMatches = safeMatches.filter(m => m.status === "completed");
   const totalGames = confirmedMatches.length;
   const wins = confirmedMatches.filter(m => {
     const isHome = m.home_club_id === id;
@@ -585,7 +651,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     trophies: t("commonPages.profTab_trophies"),
     history: t("commonPages.cdHistory"),
     operations: t("commonPages.profOperations"),
-    requests: `${t("commonPages.profJoinRequests")} (${joinRequests.length})`,
+    requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
     stadium: t("commonPages.cdStadium"),
     contracts: t("commonPages.contracts"),
     finance: t("commonPages.cdFinance"),
@@ -596,7 +662,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     { label: t("nav.squad"), tabs: ["squad", "trophies", "history"] },
     { label: t("commonPages.profOperations"), tabs: [
       ...(canOpenOperations ? ["operations"] : []),
-      ...((isCaptain || isOwner) && joinRequests.length > 0 && !limitedTournamentId ? ["requests"] : []),
+      ...((isCaptain || isOwner) && safeJoinRequests.length > 0 && !limitedTournamentId ? ["requests"] : []),
     ] },
     {
       label: t("commonPages.cdClubOffice"),
@@ -635,7 +701,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         draws={draws}
         losses={losses}
         winRate={winRate}
-        memberCount={players.length}
+        memberCount={safePlayers.length}
         onBannerClick={() => canEdit && setBannerDialogOpen(true)}
         onLogoClick={() => {
           if (club.logo_url) setLogoPreviewOpen(true);
@@ -687,7 +753,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         )}
       >
         <div className="mt-1">
-          <ClubForm matches={matches} clubId={id} />
+          <ClubForm matches={safeMatches} clubId={id} />
         </div>
       </GamerClubProfileHero>
 
@@ -846,18 +912,18 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 <GamerStatTile label={t("commonPages.cdGoalsScored")} value={club.goals_scored || 0} accent="green" />
                 <GamerStatTile label={t("commonPages.cdGoalsConceded")} value={club.goals_conceded || 0} accent="rose" />
               </div>
-              <ClubPlayerStats players={players} clubId={id} />
+              <ClubPlayerStats players={safePlayers} clubId={id} />
             </div>
           </TabsContent>
 
           {/* Matches */}
           <TabsContent value="matches" className="px-4 pt-4">
             <div className="space-y-6">
-              {tournamentMatches.length > 0 && (
+              {safeTournamentMatches.length > 0 && (
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.homeUpcoming")}</p>
                   <div className="space-y-2">
-                    {tournamentMatches.map(m => {
+                    {safeTournamentMatches.map(m => {
                       const isHome = m.home_club_id === id;
                       const oppName = isHome ? m.away_club_name : m.home_club_name;
                       const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
@@ -880,14 +946,14 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
               )}
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.cdPastMatches")}</p>
-                {matches.length === 0 ? (
+                {safeMatches.length === 0 ? (
                   <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                     <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
                     <p className="text-sm text-white/40">{t("commonPages.cdNoMatches")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {matches.map(m => {
+                    {safeMatches.map(m => {
                       const isHome = m.home_club_id === id;
                       const myScore = isHome ? m.home_score : m.away_score;
                       const oppScore = isHome ? m.away_score : m.home_score;
@@ -930,10 +996,10 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 </button>
               </div>
               <div className="max-h-[45vh] overflow-y-auto p-3 space-y-2">
-                {clubChatMessages.length === 0 ? (
+                {safeClubChatMessages.length === 0 ? (
                   <p className="text-sm text-white/45 text-center py-6">{t("commonPages.cdNoMessages")}</p>
                 ) : (
-                  clubChatMessages.map((msg) => {
+                  safeClubChatMessages.map((msg) => {
                     const mine = msg.sender_email === currentUser?.email;
                     return (
                       <div key={msg.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
@@ -979,14 +1045,14 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
           {/* Squad */}
           <TabsContent value="squad" className="px-4 pt-4">
-            {players.length === 0 ? (
+            {safePlayers.length === 0 ? (
               <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                 <Users className="w-10 h-10 text-white/20 mx-auto mb-3" />
                 <p className="text-white/40 text-sm">{t("commonPages.cdNoPlayers")}</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-3">
-                {players.map(p => (
+                {safePlayers.map(p => (
                   <PlayerCard
                     key={p.id}
                     player={p}
@@ -1015,10 +1081,10 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             <TabsContent value="operations" className="px-4 pt-4 pb-6">
               <ClubOperations
                 club={club}
-                players={players}
+                players={safePlayers}
                 currentUser={currentUser}
                 myPlayer={myPlayer}
-                upcomingFixtures={tournamentMatches}
+                upcomingFixtures={safeTournamentMatches}
                 defaultFormation={club.formation}
                 onStaffRolesChanged={handleStaffRolesChanged}
               />
@@ -1029,7 +1095,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           <TabsContent value="history" className="px-4 pt-4 pb-6">
             {!historyLoaded ? (
               <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdLoadingHistory")}</p>
-            ) : historyRows.length === 0 ? (
+            ) : safeHistoryRows.length === 0 ? (
               <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdNoHistory")}</p>
             ) : (
               <div className="overflow-x-auto">
@@ -1047,7 +1113,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {historyRows.map((r, i) => (
+                    {safeHistoryRows.map((r, i) => (
                       <tr key={i} className="text-white/70 hover:bg-white/5 transition-colors">
                         <td className="py-2 pr-3 font-medium text-white">{r.name}</td>
                         <td className="py-2 pr-3 text-white/50">S{r.season}</td>
@@ -1072,7 +1138,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           {/* Contracts — owner only */}
           {isOwner && (
             <TabsContent value="contracts" className="px-4 pt-4">
-              <ContractsTab club={club} players={players} myPlayer={myPlayer} canManage={true} />
+              <ContractsTab club={club} players={safePlayers} myPlayer={myPlayer} canManage={true} />
             </TabsContent>
           )}
 
@@ -1094,7 +1160,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 <ClubFinanceTab club={club} />
               </TabsContent>
               <TabsContent value="shirts" className="px-4 pt-4 pb-6">
-                <ShirtSalesPanel club={club} players={players} />
+                <ShirtSalesPanel club={club} players={safePlayers} />
               </TabsContent>
             </>
           )}
@@ -1103,7 +1169,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           {(isCaptain || isOwner) && (
             <TabsContent value="requests" className="px-4 pt-4">
               <div className="space-y-3">
-                {joinRequests.map(req => (
+                {safeJoinRequests.map(req => (
                   <div key={req.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
                       <p className="font-bold text-white">{req.player_gamertag}</p>
@@ -1273,8 +1339,9 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 }
 
 function deriveCompetitionLabel(match, tournamentMap = {}, tr = (k) => k) {
-  if (!match.tournament_id || match.tournament_id === "ranked") return tr("commonPages.cdRankedMatch");
-  const tour = tournamentMap[match.tournament_id];
+  const safeMatch = asObject(match);
+  if (!safeMatch?.tournament_id || safeMatch.tournament_id === "ranked") return tr("commonPages.cdRankedMatch");
+  const tour = asObject(tournamentMap[safeMatch.tournament_id]);
   if (!tour) return tr("commonPages.cdTournament");
   if (tour.type === "knockout") return `${tour.name} · ${tr("commonPages.cdKnockout")}`;
   if (tour.type === "league") return `${tour.name} · ${tr("commonPages.homeLeagues")}`;
@@ -1284,10 +1351,12 @@ function deriveCompetitionLabel(match, tournamentMap = {}, tr = (k) => k) {
   return tour.name || tr("commonPages.cdTournament");
 }
 
-function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
+function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
   const { t } = useTranslation();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [followId, setFollowId] = useState(initialFollowId);
+  const player = asObject(rawPlayer);
+  if (!player?.id) return null;
   const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
   const primaryRole = getPrimaryClubRole(player);
   const isPresidentRole = primaryRole === "president";
@@ -1298,6 +1367,7 @@ function PlayerCard({ player, currentUser, myPlayer: _myPlayer, isPresident, onA
 
   async function _toggleFollow(e) {
     e.preventDefault();
+    if (!currentUser?.email || !player?.id) return;
     if (isFollowing && followId) {
       await stageClient.entities.Follow.delete(followId);
       setIsFollowing(false); setFollowId(null);
@@ -1389,13 +1459,14 @@ function FollowList({ items, emptyLabel, onClose }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const safeItems = asObjectArray(items);
 
-  const filtered = items.filter(item => {
-    const name = item.target_name || item._player_name || item.follower_email || "";
+  const filtered = safeItems.filter(item => {
+    const name = String(item.target_name || item._player_name || item.follower_email || "");
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
-  if (items.length === 0) {
+  if (safeItems.length === 0) {
     return <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center"><p className="text-white/40 text-sm">{emptyLabel}</p></div>;
   }
 
@@ -1407,10 +1478,11 @@ function FollowList({ items, emptyLabel, onClose }) {
       <div className="space-y-2">
         {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">{t("commonPages.cdNoResults")}</p>}
         {filtered.map(item => {
-          const name = item.target_name || item._player_name || item.follower_email || "Unknown";
+          const name = String(item.target_name || item._player_name || item.follower_email || "Unknown");
           const imageUrl = item.avatar_url || item.logo_url;
+          const targetId = item._player_id || item.target_id;
           return (
-            <button key={item.id} onClick={() => { onClose?.(); navigate(`/players/${item._player_id || item.target_id}`); }}
+            <button key={item.id || targetId} onClick={() => { if (targetId) { onClose?.(); navigate(`/players/${targetId}`); } }}
               className="w-full text-left bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-blue-400/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
                 {imageUrl ? <img src={imageUrl} alt={name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(name[0] || "?").toUpperCase()}</span>}

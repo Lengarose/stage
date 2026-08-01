@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { notify, postContractNews } from "@/lib/notify";
 import { swalConfirm } from "@/lib/swal";
 
@@ -12,8 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Plus, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 
 export default function ContractsTab({ club, players, myPlayer, canManage }) {
+  const { windowOpen } = useTransferWindowStatus();
   const [contracts, setContracts] = useState([]);
   const [playerMap, setPlayerMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -30,13 +33,14 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   async function loadContracts() {
     setLoading(true);
     const all = await stageClient.entities.PlayerContract.filter({ team_id: club.id });
-    setContracts(all);
+    const safeContracts = normalizePlayerContracts(all);
+    setContracts(safeContracts);
 
     const pMap = {};
     for (const p of players) pMap[p.id] = p;
 
     // Fetch any referenced players not in current squad (e.g. terminated contracts)
-    const uniqueIds = [...new Set(all.map(getContractTargetPlayerId).filter(Boolean))];
+    const uniqueIds = [...new Set(safeContracts.map(getContractTargetPlayerId).filter(Boolean))];
     const missing = uniqueIds.filter(uid => !pMap[uid]);
     if (missing.length > 0) {
       const extras = await Promise.all(
@@ -51,6 +55,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   async function offerContract({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     setContractError(null);
     const player = offerDialog;
+    if (!canCreateContractOffer(windowOpen)) return;
 
     let newContract;
     try {
@@ -84,7 +89,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       link: `/clubs/${club.id}`,
     });
 
-    if (newContract) setContracts(prev => [...prev, newContract]);
+    if (newContract) setContracts(prev => normalizePlayerContracts([...prev, newContract]));
     setPlayerMap(prev => ({ ...prev, [player.id]: player }));
   }
 
@@ -118,15 +123,16 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       player_name: nplayer?.gamertag || "", player_avatar_url: nplayer?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => prev.map(c =>
+    setContracts(prev => normalizePlayerContracts(prev.map(c =>
       c.id === contract.id
         ? { ...c, ...updatedContract }
         : c
-    ));
+    )));
   }
 
   async function acceptContract(contract) {
     const player = playerMap[getContractTargetPlayerId(contract)];
+    const contractType = getContractType(contract);
     const result = await stageClient.functions.invoke("contractManagement", {
       action: "accept",
       contract_id: contract.id,
@@ -134,22 +140,23 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const { start_date, end_date } = result?.data || {};
     notify(club.owner_email, "contract_accepted",
       `✅ Contract Accepted`,
-      `${player?.gamertag || "A player"} has accepted your ${contract.contract_type} contract offer.`,
+      `${player?.gamertag || "A player"} has accepted your ${contractType} contract offer.`,
       `/clubs/${club.id}`
     );
     postContractNews({
       title: `✅ ${player?.gamertag || "A player"} joined ${club.name}`,
-      body: `${player?.gamertag || "A player"} has accepted a ${contract.contract_type} contract with ${club.name}.`,
+      body: `${player?.gamertag || "A player"} has accepted a ${contractType} contract with ${club.name}.`,
       club_name: club.name, club_logo_url: club.logo_url || "",
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => prev.map(c =>
+    setContracts(prev => normalizePlayerContracts(prev.map(c =>
       c.id === contract.id ? { ...c, status: "active", start_date, end_date } : c
-    ));
+    )));
   }
 
   async function rejectContract(contract) {
+    const contractType = getContractType(contract);
     const result = await stageClient.functions.invoke("contractManagement", {
       action: "reject",
       contract_id: contract.id,
@@ -158,17 +165,17 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     const player = playerMap[getContractTargetPlayerId(contract)];
     notify(club.owner_email, "contract_rejected",
       `❌ Contract Rejected`,
-      `${player?.gamertag || "A player"} has declined your ${contract.contract_type} contract offer.`,
+      `${player?.gamertag || "A player"} has declined your ${contractType} contract offer.`,
       `/clubs/${club.id}`
     );
     postContractNews({
       title: `❌ ${player?.gamertag || "A player"} rejected contract from ${club.name}`,
-      body: `${player?.gamertag || "A player"} has rejected the ${contract.contract_type} contract offer from ${club.name}.`,
+      body: `${player?.gamertag || "A player"} has rejected the ${contractType} contract offer from ${club.name}.`,
       club_name: club.name, club_logo_url: club.logo_url || "",
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, ...updatedContract } : c));
+    setContracts(prev => normalizePlayerContracts(prev.map(c => c.id === contract.id ? { ...c, ...updatedContract } : c)));
   }
 
   async function cancelContractOffer(contract) {
@@ -180,14 +187,15 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       });
       const updated = result?.data?.contract;
       const player = playerMap[getContractTargetPlayerId(contract)];
+      const contractType = getContractType(contract);
       postContractNews({
         title: `↩ ${club.name} cancelled a contract offer`,
-        body: `${club.name} cancelled the ${contract.contract_type} contract offer to ${player?.gamertag || "a player"}.`,
+        body: `${club.name} cancelled the ${contractType} contract offer to ${player?.gamertag || "a player"}.`,
         club_name: club.name, club_logo_url: club.logo_url || "",
         player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
         link: `/clubs/${club.id}`,
       });
-      setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, ...(updated || {}), status: "cancelled" } : c));
+      setContracts(prev => normalizePlayerContracts(prev.map(c => c.id === contract.id ? { ...c, ...(updated || {}), status: "cancelled" } : c)));
     } catch (err) {
       setContractError(`Failed to cancel contract: ${err?.message || "unknown error"}`);
     }
@@ -197,22 +205,24 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
     const player = playerMap[getContractTargetPlayerId(contract)];
+    const contractType = getContractType(contract);
     notify(player?.email, "contract_terminated",
       `🚫 Contract Terminated`,
-      `Your ${contract.contract_type} contract with ${club.name} has been terminated.`,
+      `Your ${contractType} contract with ${club.name} has been terminated.`,
       "/inbox"
     );
     postContractNews({
       title: `🚫 ${club.name} terminated contract with ${player?.gamertag || "a player"}`,
-      body: `${club.name} has terminated the ${contract.contract_type} contract with ${player?.gamertag || "a player"}.`,
+      body: `${club.name} has terminated the ${contractType} contract with ${player?.gamertag || "a player"}.`,
       club_name: club.name, club_logo_url: club.logo_url || "",
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    setContracts(prev => prev.map(c => c.id === contract.id ? { ...c, status: "terminated" } : c));
+    setContracts(prev => normalizePlayerContracts(prev.map(c => c.id === contract.id ? { ...c, status: "terminated" } : c)));
   }
 
   async function renewContract({ contract_type, offer_note }) {
+    if (!canCreateContractOffer(windowOpen)) return;
     const contract = renewDialog;
     const player   = playerMap[getContractTargetPlayerId(contract)];
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
@@ -236,33 +246,35 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
     });
-    if (newContract) setContracts(prev => [...prev, newContract]);
+    if (newContract) setContracts(prev => normalizePlayerContracts([...prev, newContract]));
     setRenewDialog(null);
   }
 
   const HISTORY_STATUSES = ["rejected", "expired", "terminated", "completed", "cancelled"];
   const [negotiateDialog, setNegotiateDialog] = useState(null); // contract object
 
+  const safeContracts = normalizePlayerContracts(contracts);
   const byStatus = {
-    active:  contracts.filter(c => c.status === "active"),
-    pending: contracts.filter(c => c.status === "pending" || c.status === "pending_window" || c.status === "negotiating"),
-    history: contracts.filter(c => HISTORY_STATUSES.includes(c.status)),
+    active:  safeContracts.filter(c => c.status === "active"),
+    pending: safeContracts.filter(c => c.status === "pending" || c.status === "pending_window" || c.status === "negotiating"),
+    history: safeContracts.filter(c => HISTORY_STATUSES.includes(c.status)),
   };
 
   // Owners can hold BOTH an ownership contract AND a player contract simultaneously.
   // A player is eligible for an offer if they're missing at least one contract group.
   const LIVE = ["active", "pending", "pending_window", "negotiating"];
   const eligiblePlayers = players.filter(p => {
-    const live = contracts.filter(c => getContractTargetPlayerId(c) === p.id && LIVE.includes(c.status));
-    const hasOwnership = live.some(c => c.contract_type === "ownership");
-    const hasPlayer    = live.some(c => c.contract_type !== "ownership");
+    const live = safeContracts.filter(c => getContractTargetPlayerId(c) === p.id && LIVE.includes(c.status));
+    const hasOwnership = live.some(c => getContractType(c) === "ownership");
+    const hasPlayer    = live.some(c => getContractType(c) !== "ownership");
     return !hasOwnership || !hasPlayer; // eligible if at least one slot is open
   });
 
   // Pending contracts for the current player (to accept/reject/negotiate)
-  const myPendingContracts = contracts.filter(c =>
+  const myPendingContracts = safeContracts.filter(c =>
     getContractTargetPlayerId(c) === myPlayer?.id && (c.status === "pending" || c.status === "negotiating")
   );
+  const canManageContractOffers = canManage && canCreateContractOffer(windowOpen);
 
   if (loading) {
     return (
@@ -290,7 +302,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
             {byStatus.active.length} active · {byStatus.pending.length} pending
           </p>
         </div>
-        {canManage && eligiblePlayers.length > 0 && (
+        {canManageContractOffers && eligiblePlayers.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">
               {eligiblePlayers.length} player{eligiblePlayers.length !== 1 ? "s" : ""} eligible
@@ -356,9 +368,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
             // Find players with both an ownership AND a player contract active
             const dualPlayerIds = new Set(
               byStatus.active
-                .filter(c => c.contract_type === "ownership")
+                .filter(c => getContractType(c) === "ownership")
                 .map(getContractTargetPlayerId)
-                .filter(uid => byStatus.active.some(c => getContractTargetPlayerId(c) === uid && c.contract_type !== "ownership"))
+                .filter(uid => byStatus.active.some(c => getContractTargetPlayerId(c) === uid && getContractType(c) !== "ownership"))
             );
             // Group: dual-contract players first with a banner, then the rest
             const dualContracts   = byStatus.active.filter(c => dualPlayerIds.has(getContractTargetPlayerId(c)));
@@ -381,7 +393,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                         onReject={rejectContract}
                         onTerminate={terminateContract}
                         onCancel={cancelContractOffer}
-                        onRenew={canManage ? () => setRenewDialog(c) : null}
+                        onRenew={canManageContractOffers ? () => setRenewDialog(c) : null}
                         dualContract={true}
                       />
                     ))}
@@ -398,7 +410,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                     onReject={rejectContract}
                     onTerminate={terminateContract}
                     onCancel={cancelContractOffer}
-                    onRenew={canManage ? () => setRenewDialog(c) : null}
+                    onRenew={canManageContractOffers ? () => setRenewDialog(c) : null}
                   />
                 ))}
               </>
@@ -441,7 +453,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                 onAccept={() => {}}
                 onReject={() => {}}
                 onTerminate={() => {}}
-                onRenew={canManage ? () => setRenewDialog(c) : null}
+                onRenew={canManageContractOffers ? () => setRenewDialog(c) : null}
               />
             ))
           )}
@@ -449,7 +461,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       </Tabs>
 
       {/* Player picker for multiple eligible */}
-      {canManage && eligiblePlayers.length > 1 && (
+      {canManageContractOffers && eligiblePlayers.length > 1 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-3">Offer to specific player</p>
           <div className="flex flex-wrap gap-2">
@@ -476,10 +488,10 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
         open={!!offerDialog}
         onClose={() => setOfferDialog(null)}
         player={offerDialog}
-        playerContracts={offerDialog ? contracts.filter(c => getContractTargetPlayerId(c) === offerDialog.id && LIVE.includes(c.status)) : []}
+        playerContracts={offerDialog ? safeContracts.filter(c => getContractTargetPlayerId(c) === offerDialog.id && LIVE.includes(c.status)) : []}
         existingActiveContract={null}
         onOffer={offerContract}
-        windowOpen={null}
+        windowOpen={windowOpen}
       />
 
       {/* Negotiate / counter-offer dialog */}

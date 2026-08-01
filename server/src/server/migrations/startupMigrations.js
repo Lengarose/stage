@@ -654,6 +654,75 @@ async function runStartupMigrations() {
   `).catch(err => console.error('[migration] ownership_contract_squad_link:', err.message));
 
   await EXECUTESQL(`
+    UPDATE player_contracts pc
+    JOIN players p ON p.id = pc.user_id
+    SET pc.status = 'active',
+        pc.start_date = COALESCE(pc.start_date, CURDATE()),
+        pc.end_date = COALESCE(
+          pc.end_date,
+          DATE_ADD(CURDATE(), INTERVAL IF(IFNULL(pc.max_days, 0) > 0, pc.max_days, 180) DAY)
+        ),
+        pc.updated_date = NOW()
+    WHERE pc.status = 'pending_window'
+      AND (
+        p.club_id IS NULL
+        OR p.club_id = ''
+        OR p.club_id = pc.team_id
+      )
+  `).catch(err => console.error('[migration] pending_window_free_agent_activation:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE players p
+    JOIN player_contracts pc ON pc.user_id = p.id
+    JOIN clubs c ON c.id = pc.team_id
+    SET p.club_id = c.id,
+        p.role = CASE
+          WHEN IFNULL(pc.captaincy_offered, 0) = 1 THEN 'captain'
+          WHEN p.role IS NULL OR p.role = '' OR p.role = 'free_agent' THEN 'member'
+          ELSE p.role
+        END,
+        p.club_roles = CASE
+          WHEN IFNULL(pc.captaincy_offered, 0) = 1 THEN JSON_ARRAY('captain')
+          WHEN p.club_roles IS NULL THEN JSON_ARRAY('member')
+          ELSE p.club_roles
+        END,
+        p.status = 'active',
+        p.updated_date = NOW()
+    WHERE pc.status = 'active'
+      AND IFNULL(pc.contract_type, '') <> 'ownership'
+      AND (
+        p.club_id IS NULL
+        OR p.club_id = ''
+        OR p.club_id <> c.id
+        OR p.status = 'free_agent'
+      )
+  `).catch(err => console.error('[migration] active_contract_player_link:', err.message));
+
+  await EXECUTESQL(`
+    INSERT IGNORE INTO club_memberships
+      (id, club_id, player_id, user_id, status, primary_role, source, created_date, updated_date)
+    SELECT UUID(), pc.team_id, p.id, p.user_id, 'active',
+           CASE
+             WHEN IFNULL(pc.captaincy_offered, 0) = 1 THEN 'captain'
+             ELSE COALESCE(NULLIF(p.role, ''), 'member')
+           END,
+           'active_contract_membership_backfill',
+           COALESCE(pc.start_date, pc.created_date, NOW()),
+           NOW()
+      FROM player_contracts pc
+      JOIN players p ON p.id = pc.user_id
+     WHERE pc.status = 'active'
+       AND IFNULL(pc.contract_type, '') <> 'ownership'
+       AND NOT EXISTS (
+         SELECT 1
+           FROM club_memberships cm
+          WHERE cm.club_id = pc.team_id
+            AND cm.player_id = p.id
+            AND cm.status = 'active'
+       )
+  `).catch(err => console.error('[migration] active_contract_membership_backfill:', err.message));
+
+  await EXECUTESQL(`
     UPDATE players p
     JOIN player_contracts pc ON pc.user_id = p.id AND pc.team_id = p.club_id
     LEFT JOIN player_contracts active_pc

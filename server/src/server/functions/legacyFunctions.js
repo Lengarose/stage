@@ -174,6 +174,7 @@ const {
   broadcastInbox,
   broadcastMatchPlayerStat,
   broadcastTournamentDeleted,
+  broadcastTransferWindow,
 } = require('../utils/socketBroadcast');
 const {
   resolveUserIdentity,
@@ -187,70 +188,14 @@ const {
   closeAcceptedContractConflicts,
   markContractInboxStatus,
 } = require('../services/contractRulesService');
+const {
+  getCurrentTransferWindow,
+  getLatestTransferWindow,
+} = require('../services/transferWindowService');
 
 async function getMe(_auth_user_id) {
   const identity = await resolveUserIdentity(_auth_user_id);
   return { user: identity.user, player: identity.player, club: identity.club };
-}
-
-function isTransferWindowEndPassed(endDate) {
-  if (!endDate) return false;
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return false;
-  // Date-only / midnight end_date means "open through that calendar day".
-  if (end.getUTCHours() === 0 && end.getUTCMinutes() === 0 && end.getUTCSeconds() === 0) {
-    end.setUTCHours(23, 59, 59, 999);
-  }
-  return end.getTime() < Date.now();
-}
-
-/** Returns the currently open window, or null. Auto-closes past end_date. */
-async function getCurrentTransferWindow() {
-  try {
-    await EXECUTESQL(`
-      CREATE TABLE IF NOT EXISTS transfer_windows (
-        id VARCHAR(36) PRIMARY KEY,
-        label VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'open',
-        start_date DATETIME,
-        end_date DATETIME,
-        notes TEXT,
-        transfers_executed INT DEFAULT 0,
-        created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-  } catch (err) {
-    // Table may already exist, or host may lack CREATE — continue to SELECT.
-    console.warn('[transfer_windows] ensure table:', err?.message || err);
-  }
-  const rows = await EXECUTESQL(
-    "SELECT * FROM transfer_windows WHERE status = 'open' ORDER BY created_date DESC LIMIT 1",
-    []
-  ).catch((err) => {
-    console.warn('[transfer_windows] select open:', err?.message || err);
-    return [];
-  });
-  const win = rows[0] || null;
-  if (!win) return null;
-  if (isTransferWindowEndPassed(win.end_date)) {
-    await EXECUTESQL(
-      "UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ? AND status = 'open'",
-      [win.id]
-    ).catch(() => null);
-    return null;
-  }
-  return win;
-}
-
-async function getLatestTransferWindow() {
-  const open = await getCurrentTransferWindow();
-  if (open) return open;
-  const rows = await EXECUTESQL(
-    "SELECT * FROM transfer_windows ORDER BY COALESCE(updated_date, created_date) DESC LIMIT 1",
-    []
-  ).catch(() => []);
-  return rows[0] || null;
 }
 
 function parseMaybeJson(value, fallback = {}) {
@@ -5141,6 +5086,21 @@ const HANDLERS = {
     // ── mark_pending_window ─────────────────────────────────────────────────
     if (action === 'mark_pending_window') {
       if (!contract_id) throw new Error('contract_id required');
+      const contractRows = await EXECUTESQL(
+        `SELECT pc.*, p.club_id AS player_club_id
+           FROM player_contracts pc
+           LEFT JOIN players p ON p.id = pc.user_id
+          WHERE pc.id = ?
+          LIMIT 1`,
+        [contract_id]
+      );
+      if (!contractRows.length) throw new Error('Contract not found');
+      const contract = contractRows[0];
+      const playerClubId = contract.player_club_id ? String(contract.player_club_id) : '';
+      const contractClubId = contract.team_id ? String(contract.team_id) : '';
+      if (!playerClubId || playerClubId === contractClubId) {
+        return HANDLERS.contractManagement({ action: 'accept', contract_id });
+      }
       await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
       await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
@@ -5470,6 +5430,7 @@ const HANDLERS = {
         [id, label || 'Transfer Window', toMysqlDateTime(start_date) || toMysqlDateTime(new Date()), toMysqlDateTime(end_date), notes || '']
       );
       const created = await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [id]);
+      broadcastTransferWindow(created[0] || null, 'opened');
       return { success: true, data: { window: created[0] || null } };
     }
 
@@ -5477,7 +5438,9 @@ const HANDLERS = {
       const id = window_id || current?.id;
       if (!id) throw new Error('No open transfer window');
       await EXECUTESQL("UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ?", [id]);
-      return { success: true, data: { closed: true } };
+      const closed = await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [id]).catch(() => []);
+      broadcastTransferWindow(closed[0] || null, 'closed');
+      return { success: true, data: { closed: true, window: closed[0] || null } };
     }
 
     if (action === 'execute_pending') {
@@ -5503,6 +5466,10 @@ const HANDLERS = {
           [executed, current.id]
         );
       }
+      const latestWindow = current?.id
+        ? (await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [current.id]).catch(() => []))[0] || current
+        : await getCurrentTransferWindow();
+      broadcastTransferWindow(latestWindow || null, 'executed_pending');
       return { success: true, data: { transfers_executed: executed, errors } };
     }
 

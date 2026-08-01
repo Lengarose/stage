@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
+import { getContractType, normalizePlayerContract } from "@/lib/playerContractFields";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { X, CheckCircle, Clock, Gamepad2, RefreshCw, AlertTriangle, MessageSquare, Coins, Target, Building2 } from "lucide-react";
@@ -19,11 +20,13 @@ function isEnabled(value) {
   return value === true || value === 1 || value === "1";
 }
 
-export default function ContractCard({ contract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onCancel, onRenew, onNegotiate, dualContract = false }) {
-  const meta = CONTRACT_TYPES[contract.contract_type];
+export default function ContractCard({ contract: rawContract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onCancel, onRenew, onNegotiate, dualContract = false }) {
+  const contract = normalizePlayerContract(rawContract);
+  if (!contract) return null;
+  const contractType = getContractType(contract);
+  const meta = CONTRACT_TYPES[contractType] || CONTRACT_TYPES.squad;
   const progress = getContractProgress(contract);
-  if (!meta) return null;
-  const isOwnershipContract = contract.contract_type === "ownership";
+  const isOwnershipContract = contractType === "ownership";
 
   const isPendingWindow = contract.status === "pending_window";
   const isNegotiating = contract.status === "negotiating";

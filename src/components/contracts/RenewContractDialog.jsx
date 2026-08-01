@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CONTRACT_TYPE_OPTIONS } from "@/lib/contractTypes";
+import { getContractType } from "@/lib/playerContractFields";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 
@@ -36,7 +37,7 @@ export default function RenewContractDialog({ open, onClose, contract, player, o
 
         {contract && (
           <p className="text-xs text-muted-foreground -mt-2">
-            Current contract: <span className="font-semibold text-foreground capitalize">{contract.contract_type}</span> · status: <span className="font-semibold">{contract.status}</span>
+            Current contract: <span className="font-semibold text-foreground capitalize">{getContractType(contract)}</span> · status: <span className="font-semibold">{contract.status || "pending"}</span>
           </p>
         )}
 

@@ -17,7 +17,9 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 
 const PERMISSIONS = [
   "edit_club_profile",
@@ -63,6 +65,7 @@ function fixtureLabel(fixture, clubId, t) {
 
 export default function ClubOperations({ club, players = [], currentUser, myPlayer, upcomingFixtures = [], defaultFormation, onStaffRolesChanged }) {
   const { t } = useTranslation();
+  const { windowOpen } = useTransferWindowStatus();
   const [activeSection, setActiveSection] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -152,7 +155,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       setAvailability(availRows);
       setLineups(lineupRows);
       setAuditLogs(auditRows);
-      setContracts(contractRows);
+      setContracts(normalizePlayerContracts(contractRows));
       setRecruitmentPosts(postRows);
     } catch (err) {
       setError(err?.message || t("commonPages.coopLoadFailed"));
@@ -192,6 +195,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   async function handleOfferContract(terms) {
     if (!offerApplicant) return;
+    if (!canCreateContractOffer(windowOpen)) return;
     await applicantAction(offerApplicant, "offer-contract", terms);
     setOfferApplicant(null);
   }
@@ -411,7 +415,9 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
                 {applicant.player_id && <Link to={`/players/${applicant.player_id}`}><Button type="button" size="sm" variant="outline" className="text-xs">{t("commonPages.viewProfile")}</Button></Link>}
                 <Button type="button" size="sm" variant="outline" disabled={busy === `review:${applicant.id}`} onClick={() => applicantAction(applicant, "review")} className="text-xs">{t("commonPages.coopMarkReviewed")}</Button>
                 <Button type="button" size="sm" disabled={busy === `offer-trial:${applicant.id}`} onClick={() => applicantAction(applicant, "offer-trial")} className="text-xs">{t("commonPages.coopOfferTrial")}</Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => setOfferApplicant(applicant)} className="text-xs">{t("commonPages.offerContract")}</Button>
+                {canCreateContractOffer(windowOpen) ? (
+                  <Button type="button" size="sm" variant="outline" onClick={() => setOfferApplicant(applicant)} className="text-xs">{t("commonPages.offerContract")}</Button>
+                ) : null}
                 <Button type="button" size="sm" variant="outline" disabled={busy === `decline:${applicant.id}`} onClick={() => applicantAction(applicant, "decline")} className="text-xs border-destructive/30 text-destructive">{t("commonPages.profDecline")}</Button>
               </div>
             </div>
@@ -568,9 +574,9 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
           overall_rating: offerApplicant.player_overall_rating || 70,
         } : null}
         existingActiveContract={false}
-        playerContracts={contracts.filter((contract) => getContractTargetPlayerId(contract) === offerApplicant?.player_id)}
+        playerContracts={normalizePlayerContracts(contracts).filter((contract) => getContractTargetPlayerId(contract) === offerApplicant?.player_id)}
         onOffer={handleOfferContract}
-        windowOpen={null}
+        windowOpen={windowOpen}
         club={club}
       />
     </div>

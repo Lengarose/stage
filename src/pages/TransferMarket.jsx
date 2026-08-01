@@ -8,17 +8,19 @@ import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
-import { isTransferWindowOpen } from "@/lib/transferWindow";
+import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferMarket() {
   const { t } = useTranslation();
+  const { currentWindow, windowOpen } = useTransferWindowStatus();
   const [loading, setLoading] = useState(true);
   const [freeAgents, setFreeAgents] = useState([]);
   const [expiringPlayers, setExpiringPlayers] = useState([]);
-  const [currentWindow, setCurrentWindow] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [myContracts, setMyContracts] = useState([]);
@@ -45,12 +47,11 @@ export default function TransferMarket() {
       setMyPlayer(player);
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
-      setCurrentWindow(marketRes?.data?.current_window || null);
 
       if (club) {
         const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
         setMyClub(club);
-        setMyContracts(contractArr);
+        setMyContracts(normalizePlayerContracts(contractArr));
         const isOwner = club?.owner_email === user.email;
         const isManagement = player?.club_roles?.includes("president") || player?.club_roles?.includes("captain");
         setCanManage(isOwner || isManagement || user.role === "admin");
@@ -69,11 +70,12 @@ export default function TransferMarket() {
 
   function canOfferPlayer(player, entryContract = null) {
     const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return canManage && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
+    return canManage && canCreateContractOffer(windowOpen) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     if (!offerTarget || !myClub) return;
+    if (!canCreateContractOffer(windowOpen)) return;
     const targetPlayer = offerTarget.player || offerTarget;
     const result = await stageClient.functions.invoke("contractActions", {
       action: "offer",
@@ -106,7 +108,7 @@ export default function TransferMarket() {
       }).catch((err) => console.warn("[TransferMarket] inbox fallback failed:", err?.message || err));
     }
     const updated = await stageClient.entities.PlayerContract.filter({ team_id: myClub.id });
-    setMyContracts(updated);
+    setMyContracts(normalizePlayerContracts(updated));
     setOfferTarget(null);
   }
 
@@ -126,8 +128,6 @@ export default function TransferMarket() {
       return true;
     });
   }, [allEntries, search, positionFilter, statusFilter, platformFilter]);
-
-  const windowOpen = isTransferWindowOpen(currentWindow);
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">

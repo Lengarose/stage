@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
 import { Users } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
+import { asObject } from "@/lib/safeData";
 
-export default function ClubCard({ club }) {
+export default function ClubCard({ club: rawClub }) {
   const { t } = useTranslation();
+  const club = asObject(rawClub);
+  if (!club?.id) return null;
+
   return (
     <Link to={`/clubs/${club.id}`} className="block group">
       <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>

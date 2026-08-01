@@ -9,6 +9,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const identityServicePath = path.resolve(__dirname, '../../services/identityService.js');
   const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesServicePath = path.resolve(__dirname, '../../services/contractRulesService.js');
+  const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
@@ -18,6 +19,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[identityServicePath];
   delete require.cache[messageDeliveryServicePath];
   delete require.cache[contractRulesServicePath];
+  delete require.cache[transferWindowServicePath];
   delete require.cache[servicePath];
   delete require.cache[matchModelPath];
   delete require.cache[socketPath];
@@ -47,6 +49,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
       broadcastNotification() {},
       broadcastInbox() {},
       broadcastMatchPlayerStat() {},
+      broadcastTransferWindow() {},
     },
   };
   if (options.messageDeliveryServiceMock) {
@@ -696,7 +699,7 @@ test('contractActions offer stores duration metadata for market offers', async (
       return [{ id: 'club-1', owner_email: 'owner@example.test' }];
     }
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
-    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [];
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql) && /team_id = \?/.test(sql)) return [];
     if (/INSERT INTO player_contracts/.test(sql)) {
       createdContractId = params[0];
@@ -789,6 +792,55 @@ test('contractActions offer stores duration metadata for market offers', async (
   assert.equal(notificationInserts.length, 0);
 });
 
+test('contractActions offer rejects new contract offers while the transfer window is closed', async () => {
+  let insertCalled = false;
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'owner-user', email: 'owner@example.test', player_id: 'owner-player', owner_id: 'club-1' }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'owner@example.test', club_id: 'club-1' }];
+    }
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'club-1', owner_email: 'owner@example.test' }];
+    }
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [];
+    if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
+    if (/INSERT INTO player_contracts/.test(sql)) {
+      insertCalled = true;
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractActions' },
+      body: {
+        action: 'offer',
+        team_id: 'club-1',
+        user_id: 'target-player',
+        contract_type: 'star',
+      },
+      user: { id: 'owner-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'transfer_window_closed');
+  assert.equal(insertCalled, false);
+});
+
 test('contractManagement accept writes active club membership', async () => {
   const queries = [];
   const contract = {
@@ -865,6 +917,91 @@ test('contractManagement accept writes active club membership', async () => {
   assert.deepEqual(insert.params.slice(1), ['club-1', 'player-1', 'user-player', 'member', 'contract_acceptance']);
 });
 
+test('contractManagement mark_pending_window activates free-agent accepted contracts immediately', async () => {
+  const queries = [];
+  const contract = {
+    id: 'contract-free-agent',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'pending',
+    contract_type: 'star',
+    weekly_salary_stc: 0,
+    max_days: 90,
+    captaincy_offered: 0,
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-player',
+    email: 'player@example.test',
+    club_id: null,
+    role: 'member',
+    club_roles: null,
+  };
+  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql) && /status IN/.test(sql)) return [[], []];
+      if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE notifications/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/UPDATE players SET club_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/DELETE FROM club_memberships/.test(sql)) return [{ affectedRows: 0 }, []];
+      if (/UPDATE club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/SELECT \* FROM club_memberships/.test(sql)) return [[], []];
+      if (/INSERT INTO club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    queries.push({ sql, params });
+    if (/SELECT pc\.\*, p\.club_id AS player_club_id/.test(sql)) {
+      return [{ ...contract, player_club_id: null }];
+    }
+    if (/UPDATE player_contracts SET status = 'pending_window'/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE notifications/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ ...contract, status: 'pending_window' }];
+    }
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'mark_pending_window', contract_id: 'contract-free-agent' },
+      user: { id: 'user-player' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'active');
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = 'pending_window'/.test(call.sql)), false);
+  assert.equal(queries.some((call) => /UPDATE players SET club_id = \?/.test(call.sql)), true);
+});
+
 test('contractManagement offer rejects another live player contract from the same club', async () => {
   const contractInserts = [];
   const executesql = async (sql, params = []) => {
@@ -882,6 +1019,8 @@ test('contractManagement offer rejects another live player contract from the sam
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
       return [{ id: 'active-contract', team_id: 'club-1', user_id: 'target-player', contract_type: 'squad', status: 'active' }];
     }
+    if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], team_id: 'club-1', user_id: 'target-player', contract_type: 'star', status: 'pending' }];
     }
@@ -1063,6 +1202,9 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
     if (/UPDATE transfer_windows SET transfers_executed/.test(sql)) {
       queries.push({ sql, params });
       return { affectedRows: 1 };
+    }
+    if (/SELECT \* FROM transfer_windows WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], status: 'open', transfers_executed: 1 }];
     }
     throw new Error(`Unexpected SQL outside transaction: ${sql}`);
   };

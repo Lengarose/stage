@@ -13,7 +13,9 @@ import {
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canCreateContractOffer } from "@/lib/transferWindowAccess";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
@@ -34,6 +36,7 @@ function normalizeList(value) {
 
 export default function Recruitment() {
   const { t } = useTranslation();
+  const { windowOpen } = useTransferWindowStatus();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -106,7 +109,8 @@ export default function Recruitment() {
       setMyClub(club || null);
       setPosts(postRows);
       if (club?.id) {
-        setMyContracts(await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []));
+        const contractRows = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
+        setMyContracts(normalizePlayerContracts(contractRows));
         const roles = normalizeList(player?.club_roles);
         setCanManageClub(club.owner_email === u.email || roles.includes("president") || roles.includes("captain") || u.role === "admin");
       } else {
@@ -219,6 +223,7 @@ export default function Recruitment() {
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     if (!offerTarget?.author_player_id || !myClub) return;
+    if (!canCreateContractOffer(windowOpen)) return;
     const result = await stageClient.functions.invoke("contractActions", {
       action: "offer",
       team_id: myClub.id,
@@ -344,6 +349,7 @@ export default function Recruitment() {
                 user={user}
                 myClub={myClub}
                 canManageClub={canManageClub}
+                windowOpen={windowOpen}
                 myContracts={myContracts}
                 onInterest={() => setInterestTarget(post)}
                 onOffer={() => setOfferTarget(post)}
@@ -421,20 +427,20 @@ export default function Recruitment() {
         existingActiveContract={null}
         playerContracts={myContracts.filter(c => getContractTargetPlayerId(c) === offerTarget?.author_player_id)}
         onOffer={handleOffer}
-        windowOpen={null}
+        windowOpen={windowOpen}
         club={myClub}
       />
     </div>
   );
 }
 
-function RecruitmentCard({ post, user, myClub, canManageClub, myContracts, onInterest, onOffer, onClosePost }) {
+function RecruitmentCard({ post, user, myClub, canManageClub, windowOpen, myContracts, onInterest, onOffer, onClosePost }) {
   const { t } = useTranslation();
   const meta = TYPE_META[post.post_type] || TYPE_META.player_lfg;
   const Icon = meta.icon;
   const positions = post.post_type === "club_recruiting" ? normalizeList(post.positions_needed) : normalizeList(post.preferred_positions);
   const isMine = post.author_user_id === user?.id || post.author_club_id === myClub?.id;
-  const canOffer = canManageClub && post.author_player_id && post.author_club_id !== myClub?.id;
+  const canOffer = canManageClub && canCreateContractOffer(windowOpen) && post.author_player_id && post.author_club_id !== myClub?.id;
   const hasContractConflict = myContracts.some(c => getContractTargetPlayerId(c) === post.author_player_id && ['active', 'pending', 'pending_window', 'negotiating'].includes(c.status));
   const targetLink = post.author_club_id ? `/clubs/${post.author_club_id}` : `/players/${post.author_player_id}`;
 

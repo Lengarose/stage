@@ -29,15 +29,16 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
 
   useEffect(() => {
     let reloadTimer = null;
-    setSocketListeners(CHANNELS.MATCH, () => {
+    const onMatchUpdate = () => {
       if (reloadTimer) window.clearTimeout(reloadTimer);
       reloadTimer = window.setTimeout(() => {
         load();
       }, 120);
-    });
+    };
+    setSocketListeners(CHANNELS.MATCH, onMatchUpdate);
     return () => {
       if (reloadTimer) window.clearTimeout(reloadTimer);
-      offSocketListeners(CHANNELS.MATCH);
+      offSocketListeners(CHANNELS.MATCH, onMatchUpdate);
     };
   }, []);
 

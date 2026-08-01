@@ -30,6 +30,7 @@ import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
+import { asObject, asObjectArray } from "@/lib/safeData";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -143,18 +144,21 @@ export default function Profile({
       try {
         const isAuthed = await stageClient.auth.isAuthenticated();
         if (!isAuthed) return;
-        const { user: u, player: resolvedPlayer, club: resolvedClub_ } = await resolveMyPlayerAndClub();
+        const { user: rawUser, player: rawPlayer, club: rawClub } = await resolveMyPlayerAndClub().catch(() => ({}));
+        const u = asObject(rawUser);
+        const resolvedPlayer = asObject(rawPlayer);
+        const resolvedClub_ = asObject(rawClub);
         if (!u || !alive) return;
         setUser(u);
         const cl = await stageClient.entities.Club.list("-rating", 200).catch(() => []);
         if (!alive) return;
-        setClubs(cl);
+        setClubs(asObjectArray(cl));
         if (resolvedPlayer) {
           const p = resolvedPlayer;
           setPlayer(p);
           stageClient.identityClaims
             .list({ player_id: p.id }, "-created_date", 20)
-            .then(rows => { if (alive) setIdentityClaims(rows); })
+            .then(rows => { if (alive) setIdentityClaims(asObjectArray(rows)); })
             .catch(() => { if (alive) setIdentityClaims([]); });
           setPlayerForm({
             gamertag: p.gamertag || "",
@@ -173,19 +177,19 @@ export default function Profile({
             stageClient.entities.Match.filter({ away_player_id: p.id, status: "completed" }, "-updated_date", 30).catch(() => []),
           ]).then(([pvpHome, pvpAway]) => {
             if (!alive) return;
-            const allPvp = [...pvpHome, ...pvpAway].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
+            const allPvp = [...asObjectArray(pvpHome), ...asObjectArray(pvpAway)].filter(m => m.mode === "solo" || (!m.mode && m.home_player_id));
             const pvpMap = new Map();
-            allPvp.forEach(m => pvpMap.set(m.id, m));
-            setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)));
+            allPvp.forEach(m => { if (m.id) pvpMap.set(m.id, m); });
+            setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0)));
           });
 
           Promise.all([
-            loadFutMatches(p, 20),
-            p.eafc_club_id ? loadEafcSummary(p) : Promise.resolve(null),
+            loadFutMatches(p, 20).catch(() => []),
+            p.eafc_club_id ? loadEafcSummary(p).catch(() => null) : Promise.resolve(null),
           ]).then(([futRows, eafcData]) => {
             if (!alive) return;
-            setFutMatches(futRows);
-            setEafcSummary(eafcData);
+            setFutMatches(asObjectArray(futRows));
+            setEafcSummary(asObject(eafcData));
           });
 
           // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
@@ -212,8 +216,8 @@ export default function Profile({
             : Promise.resolve([]),
         ]);
         if (alive) {
-          setNotifications(notifs);
-          setJoinRequests(joinReqs);
+          setNotifications(asObjectArray(notifs));
+          setJoinRequests(asObjectArray(joinReqs));
         }
       } catch (err) {
         console.error("[Profile] Failed to load profile", err);
@@ -236,7 +240,7 @@ export default function Profile({
     };
     if (player) {
       const saved = await stageClient.entities.Player.update(player.id, formToSave);
-      setPlayer(saved || ((prev) => ({ ...prev, ...formToSave })));
+      setPlayer(asObject(saved) || ((prev) => ({ ...prev, ...formToSave })));
       setPlayerForm(f => ({
         ...f,
         secondary_position: (saved?.secondary_position || formToSave.secondary_position) || "none",
@@ -249,7 +253,7 @@ export default function Profile({
         stc: 50_000,
         subscription: "free",
       });
-      setPlayer(created);
+      setPlayer(asObject(created));
       setPlayerForm(f => ({
         ...f,
         secondary_position: created?.secondary_position || "none",
@@ -272,7 +276,7 @@ export default function Profile({
         proof_url: claimForm.proof_url.trim() || null,
         notes: claimForm.notes.trim() || null,
       });
-      setIdentityClaims(prev => [created, ...prev]);
+      setIdentityClaims(prev => asObject(created) ? [created, ...asObjectArray(prev)] : asObjectArray(prev));
       setClaimForm(f => ({ ...f, proof_url: "", notes: "" }));
     } finally {
       setSubmittingClaim(false);
@@ -290,7 +294,7 @@ export default function Profile({
       description: clubForm.description,
       country_code: clubForm.country_code,
     });
-    setMyClub(prev => ({ ...prev, ...clubForm }));
+    setMyClub(prev => ({ ...asObject(prev), ...clubForm }));
     setSavingClub(false);
     setView("club");
   }
@@ -308,7 +312,7 @@ export default function Profile({
   async function _saveAvatar(url, position, zoom) {
     if (!player) return;
     await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-    setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
+    setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
     setPendingAvatar(null);
   }
 
@@ -337,8 +341,8 @@ export default function Profile({
       ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
       : null;
     const refreshed = refreshedPl ? [refreshedPl] : [];
-    if (refreshed[0]) setPlayer(refreshed[0]);
-    setMyClub(club);
+    if (asObject(refreshed[0])) setPlayer(refreshed[0]);
+    setMyClub(asObject(club));
     setClubForm({
       name: club.name || "",
       tag: club.tag || "",
@@ -354,7 +358,7 @@ export default function Profile({
   async function leaveClub() {
     if (!player) return;
     await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
-    setPlayer(prev => ({ ...prev, club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
+    setPlayer(prev => ({ ...asObject(prev), club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
     setMyClub(null);
     setView("profile");
   }
@@ -363,9 +367,14 @@ export default function Profile({
     return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const latestIdentityClaim = identityClaims[0] || null;
-  const pendingIdentityClaim = identityClaims.find(c => c.status === "pending");
+  const safeNotifications = asObjectArray(notifications);
+  const safeJoinRequests = asObjectArray(joinRequests);
+  const safeIdentityClaims = asObjectArray(identityClaims);
+  const safePvpMatches = asObjectArray(pvpMatches);
+  const safeFutMatches = asObjectArray(futMatches);
+  const unreadCount = safeNotifications.filter(n => !n.read).length;
+  const latestIdentityClaim = safeIdentityClaims[0] || null;
+  const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
   const profileRoleBadges = getProfileRoleBadges(player, myClub, user);
 
   const OUTCOME_STYLE = {
@@ -418,10 +427,10 @@ export default function Profile({
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] flex items-center justify-center font-bold">{unreadCount}</span>
                 </button>
               ) : null}
-              {joinRequests.length > 0 ? (
+              {safeJoinRequests.length > 0 ? (
                 <button type="button" onClick={() => setView("requests")} className="relative p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
                   <UserCheck className="w-4 h-4 text-white" />
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-[9px] flex items-center justify-center font-bold">{safeJoinRequests.length}</span>
                 </button>
               ) : null}
               <button type="button" onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider">
@@ -519,13 +528,13 @@ export default function Profile({
               {profileTab === "career" ? (
                 <div className="pt-2 space-y-4">
                   <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} onPlayerUpdate={setPlayer} />
-                  <FutMatchLogPanel playerId={player.id} initialMatches={futMatches} />
+                  <FutMatchLogPanel playerId={player.id} initialMatches={safeFutMatches} />
                 </div>
               ) : null}
 
               {profileTab === "matches" ? (
                 <div className="pt-2 space-y-2">
-                  {pvpMatches.length === 0 ? (
+                  {safePvpMatches.length === 0 ? (
                     <GamerSectionCard>
                       <div className="py-8 text-center">
                         <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
@@ -533,7 +542,7 @@ export default function Profile({
                       </div>
                     </GamerSectionCard>
                   ) : (
-                    pvpMatches.slice(0, 30).map(m => {
+                    safePvpMatches.slice(0, 30).map(m => {
                       const isHome = m.home_player_id === player.id;
                       const opponent = isHome ? m.away_player_name : m.home_player_name;
                       const myScore = isHome ? m.home_score : m.away_score;
@@ -634,11 +643,11 @@ export default function Profile({
           player={player}
           onComplete={async (club) => {
             setProfileModalOpen(false);
-            if (club) setMyClub(club);
+            if (asObject(club)) setMyClub(club);
             const refreshedPl = user?.player_id
               ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
               : null;
-            if (refreshedPl) setPlayer(refreshedPl);
+            if (asObject(refreshedPl)) setPlayer(refreshedPl);
           }}
         />
 
@@ -648,12 +657,12 @@ export default function Profile({
           onComplete={async (club) => {
             setClubOnboardingOpen(false);
             if (club) {
-              setMyClub(club);
+              setMyClub(asObject(club));
               const refreshedPl = user.player_id
       ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
       : null;
     const refreshed = refreshedPl ? [refreshedPl] : [];
-              if (refreshed[0]) setPlayer(refreshed[0]);
+              if (asObject(refreshed[0])) setPlayer(refreshed[0]);
             }
           }}
         />
@@ -669,7 +678,7 @@ export default function Profile({
           previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-            setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
+            setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setAvatarEditorOpen(false);
           }}
         />
@@ -837,7 +846,7 @@ export default function Profile({
             if (position) update.banner_position = position;
             if (zoom) update.banner_zoom = zoom;
             setBannerDialogOpen(false);
-            setPlayer(prev => ({ ...prev, ...update }));
+            setPlayer(prev => ({ ...asObject(prev), ...update }));
             if (player) {
               try {
                 await stageClient.entities.Player.update(player.id, update);
@@ -859,7 +868,7 @@ export default function Profile({
           previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-            setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
+            setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setPendingAvatar(null);
           }}
         />
@@ -875,7 +884,7 @@ export default function Profile({
           previewPlayer={player}
           onConfirm={async (url, position, zoom) => {
             await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-            setPlayer(prev => ({ ...prev, avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
+            setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
             setAvatarEditorOpen(false);
           }}
         />
@@ -947,12 +956,12 @@ export default function Profile({
               onComplete={async (club) => {
                 setClubOnboardingOpen(false);
                 if (club) {
-                  setMyClub(club);
+                  setMyClub(asObject(club));
                   const refreshedPl = user.player_id
       ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
       : null;
     const refreshed = refreshedPl ? [refreshedPl] : [];
-                  if (refreshed[0]) setPlayer(refreshed[0]);
+                  if (asObject(refreshed[0])) setPlayer(refreshed[0]);
                   setView("club");
                 }
               }}
@@ -1041,12 +1050,12 @@ export default function Profile({
           <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.notifTitle")}</h1>
         </div>
         <div className="space-y-2">
-          {notifications.length === 0 ? (
+          {safeNotifications.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-8 text-center">
               <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-muted-foreground text-sm">{t("commonPages.notifEmpty")}</p>
             </div>
-          ) : notifications.map(n => (
+          ) : safeNotifications.map(n => (
             <div key={n.id} className={cn("bg-card border rounded-xl px-4 py-3 flex items-start gap-3 transition-all", n.read ? "border-border opacity-70" : "border-primary/30 bg-primary/5")}>
               <div className={cn("w-2 h-2 rounded-full mt-2 shrink-0", n.read ? "bg-muted-foreground/30" : "bg-primary")} />
               <div className="flex-1 min-w-0">
@@ -1059,7 +1068,7 @@ export default function Profile({
                 {!n.read && (
                   <button onClick={async () => {
                     await stageClient.entities.Notification.update(n.id, { read: true });
-                    setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                    setNotifications(prev => asObjectArray(prev).map(x => x.id === n.id ? { ...x, read: true } : x));
                   }} className="p-1.5 rounded-lg hover:bg-success/10 text-success transition-colors">
                     <Check className="w-3.5 h-3.5" />
                   </button>
@@ -1081,10 +1090,10 @@ export default function Profile({
             <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
           <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profJoinRequests")}</h1>
-          <span className="w-5 h-5 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{joinRequests.length}</span>
+          <span className="w-5 h-5 rounded-full bg-warning text-background text-[9px] flex items-center justify-center font-bold">{safeJoinRequests.length}</span>
         </div>
         <div className="space-y-2">
-          {joinRequests.map(req => (
+          {safeJoinRequests.map(req => (
             <div key={req.id} className="bg-card border border-warning/20 rounded-xl px-4 py-3 flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0 font-bold text-sm text-primary">
                 {req.player_gamertag?.[0]?.toUpperCase()}
@@ -1103,7 +1112,7 @@ export default function Profile({
                 <Button size="sm" onClick={async () => {
                   await stageClient.entities.JoinRequest.update(req.id, { status: "rejected" });
                   await stageClient.entities.Notification.create({ recipient_email: req.player_email, type: "join_rejected", title: `Request to ${req.club_name} declined`, body: "Your join request was not accepted.", read: false });
-                  setJoinRequests(prev => prev.filter(r => r.id !== req.id));
+                  setJoinRequests(prev => asObjectArray(prev).filter(r => r.id !== req.id));
                 }} className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 text-xs h-7">
                   <X className="w-3 h-3 mr-1" /> {t("commonPages.profDecline")}
                 </Button>

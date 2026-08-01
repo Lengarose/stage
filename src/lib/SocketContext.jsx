@@ -20,6 +20,7 @@ export const CHANNELS = {
   CHAT_MESSAGE:  'STAGE_CHAT_MESSAGE',
   TOURNAMENT:    'STAGE_TOURNAMENT',
   POST_FEED:     'STAGE_POST_FEED',
+  TRANSFER_WINDOW: 'STAGE_TRANSFER_WINDOW',
 };
 
 /** Build a targeted channel e.g. makeChannel(clubId, CHANNELS.CLUB) → "STAGE_CLUB_abc123" */
@@ -59,7 +60,7 @@ function connectWithStoredToken() {
   SOCKET_CLIENT.connect();
 }
 
-// Internal listener registry: Map<channel, callback>
+// Internal listener registry: Map<channel, Set<callback>>
 const _listeners = new Map();
 const _joinedChannels = new Set();
 
@@ -82,7 +83,9 @@ function leaveChannel(channel) {
 SOCKET_CLIENT.on('update', (data) => {
   const { _channel, ...payload } = data || {};
   if (!_channel) return;
-  _listeners.get(_channel)?.(payload);
+  const callbacks = _listeners.get(_channel);
+  if (!callbacks) return;
+  for (const callback of callbacks) callback(payload);
 });
 
 SOCKET_CLIENT.on('connect', () => {
@@ -100,14 +103,27 @@ SOCKET_CLIENT.on('connect', () => {
  *   return () => offSocketListeners(makeChannel(matchId, CHANNELS.MATCH));
  */
 export const setSocketListeners = (channel, callback) => {
-  _listeners.set(channel, callback);
-  joinChannel(channel);
+  if (!channel || typeof callback !== 'function') return () => {};
+  let callbacks = _listeners.get(channel);
+  const firstListener = !callbacks;
+  if (!callbacks) {
+    callbacks = new Set();
+    _listeners.set(channel, callbacks);
+  }
+  callbacks.add(callback);
+  if (firstListener) joinChannel(channel);
+  return () => offSocketListeners(channel, callback);
 };
 
 /**
  * Leave a room and remove its callback.
  */
-export const offSocketListeners = (channel) => {
+export const offSocketListeners = (channel, callback = null) => {
+  const callbacks = _listeners.get(channel);
+  if (callbacks && callback) {
+    callbacks.delete(callback);
+    if (callbacks.size > 0) return;
+  }
   leaveChannel(channel);
   _listeners.delete(channel);
 };

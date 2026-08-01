@@ -163,6 +163,13 @@ function broadcastMatchPlayerStat(record) {
   }
 }
 
+function broadcastTransferWindow(record = null, action = 'updated') {
+  socketEmit(SOCKET_CHANNELS.TRANSFER_WINDOW, {
+    action,
+    window: record || null,
+  });
+}
+
 module.exports = {
   broadcastMatch,
   broadcastMatchDeleted,
@@ -184,4 +191,5 @@ module.exports = {
   broadcastTournament,
   broadcastTournamentDeleted,
   broadcastMatchPlayerStat,
+  broadcastTransferWindow,
 };

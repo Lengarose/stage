@@ -1,4 +1,5 @@
 const { EXECUTESQL } = require('../db/database');
+const { assertTransferWindowOpenForContractOffer } = require('./transferWindowService');
 
 const LIVE_CONTRACT_STATUSES = ['active', 'pending', 'pending_window', 'negotiating'];
 const ACTIONABLE_CONTRACT_STATUSES = ['pending', 'pending_window', 'negotiating'];
@@ -37,6 +38,7 @@ async function assertCanCreateContractOffer({
   query = null,
 }) {
   if (!playerId || !teamId) return;
+  await assertTransferWindowOpenForContractOffer();
   const group = contractGroup(contractType);
   const params = [playerId, teamId, ...LIVE_CONTRACT_STATUSES];
   let allowedClause = '';

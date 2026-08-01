@@ -3,6 +3,7 @@ import { getClubDashboard } from "@/lib/eafcClient";
 import { loadActiveTournamentsWithProgress } from "@/lib/tournamentProgress";
 
 import { getContractProgress, CONTRACT_TYPES } from "@/lib/contractTypes";
+import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 
 const ACTIVE_MATCH_STATUSES = new Set(["scheduled", "live", "pending"]);
 const COMPLETED_MATCH_STATUSES = new Set(["completed", "finished", "final"]);
@@ -195,7 +196,7 @@ export async function loadActiveContract(player, club) {
   if (!player?.id) return null;
 
   const contracts = await stageClient.entities.PlayerContract.filter({ user_id: player.id }, "-created_date", 30).catch(() => []);
-  const active = contracts.find((c) => c.status === "active");
+  const active = normalizePlayerContracts(contracts).find((c) => c.status === "active");
   if (!active) return null;
 
   const atCurrentClub = !club?.id || active.team_id === club.id;
@@ -205,7 +206,7 @@ export async function loadActiveContract(player, club) {
 export function buildTenureSummary({ user, player, club, activeContract }) {
   const memberSince = player?.created_date || user?.created_date || null;
   const contractProgress = activeContract ? getContractProgress(activeContract) : null;
-  const contractMeta = activeContract ? CONTRACT_TYPES[activeContract.contract_type] : null;
+  const contractMeta = activeContract ? CONTRACT_TYPES[getContractType(activeContract)] : null;
   const clubSince = activeContract?.start_date || (player?.club_id && club ? player.updated_date : null);
 
   return {

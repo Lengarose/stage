@@ -36,6 +36,11 @@ import {
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
 import { isProfileFullBleedRoute } from "@/lib/profileRouteLayout";
+import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
+import {
+  filterTransferWindowNavGroups,
+  getTransferWindowIndicatorLabel,
+} from "@/lib/transferWindowAccess";
 
 /** Paths that only match exactly (never as a prefix for child routes). */
 const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
@@ -1041,9 +1046,12 @@ function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, _tourna
   return MOBILE_MORE_GROUPS_PLAYER;
 }
 
-function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId, participantType }) {
+function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
   const { t } = useTranslation();
-  const groups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType);
+  const groups = filterTransferWindowNavGroups(
+    getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType),
+    transferWindowOpen
+  );
   return (
     <>
       {/* backdrop */}
@@ -1245,7 +1253,7 @@ function MobileWalkthrough({ pathname }) {
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType }) {
+function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
@@ -1258,7 +1266,10 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, 
 
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const primaryTabs = getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId);
-  const moreGroups = getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType);
+  const moreGroups = filterTransferWindowNavGroups(
+    getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, tournamentId, participantType),
+    transferWindowOpen
+  );
   const primaryActive = primaryTabs.find((t) => isNavItemActive(t.path, pathname));
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
@@ -1274,6 +1285,7 @@ function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, 
         isTournamentLimited={isTournamentLimited}
         tournamentId={tournamentId}
         participantType={participantType}
+        transferWindowOpen={transferWindowOpen}
       />
 
       <nav
@@ -1986,6 +1998,7 @@ export default function Layout() {
   const navigate  = useNavigate();
   const { t } = useTranslation();
   const { user: authContextUser } = useAuth();
+  const { windowOpen: transferWindowOpen } = useTransferWindowStatus();
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [authUser,         setAuthUser]         = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
@@ -2135,9 +2148,10 @@ export default function Layout() {
   }, [isTournamentLimited, limitedTournamentId]);
 
   const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
-  const playerGroups = getPlayerGroups(t, clubPath);
-  const ownerGroups = getOwnerGroups(t, clubPath);
+  const playerGroups = filterTransferWindowNavGroups(getPlayerGroups(t, clubPath), transferWindowOpen);
+  const ownerGroups = filterTransferWindowNavGroups(getOwnerGroups(t, clubPath), transferWindowOpen);
   const adminGroups = getAdminGroups(t);
+  const transferWindowIndicator = getTransferWindowIndicatorLabel(transferWindowOpen);
   const headerNavGroups = showAdminHeader
     ? adminGroups
     : isTournamentLimited
@@ -2333,10 +2347,28 @@ export default function Layout() {
               />
             )}
 
-            <div className="hidden sm:flex shrink-0 items-center px-3 self-stretch">
+            <div className="hidden sm:flex shrink-0 items-center gap-2 px-3 self-stretch">
               <span style={{ ...headingFont, fontWeight: 500, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
                 STAGE v2.0
               </span>
+              {!showAdminHeader && transferWindowIndicator ? (
+                <span
+                  className="inline-flex items-center whitespace-nowrap rounded-sm border px-2 py-1"
+                  style={{
+                    ...headingFont,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "#052e16",
+                    borderColor: "rgba(34,197,94,0.72)",
+                    background: "linear-gradient(90deg, rgba(34,197,94,0.95), rgba(20,184,166,0.95))",
+                    boxShadow: "0 0 18px rgba(34,197,94,0.35)",
+                  }}
+                >
+                  {transferWindowIndicator}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -2460,6 +2492,7 @@ export default function Layout() {
           isTournamentLimited={isTournamentLimited}
           tournamentId={effectiveUser?.limited_tournament_id}
           participantType={tournamentParticipantType}
+          transferWindowOpen={transferWindowOpen}
         />
       )}
     </div>

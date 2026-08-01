@@ -44,7 +44,7 @@ export function useRealtimeData(entityName, filters = {}, orderBy = null, channe
   useEffect(() => {
     if (!channel) return;
 
-    setSocketListeners(channel, (update) => {
+    const onUpdate = (update) => {
       if (update.deleted) {
         setData(prev => prev.filter(item => item.id !== update.id));
       } else {
@@ -58,9 +58,11 @@ export function useRealtimeData(entityName, filters = {}, orderBy = null, channe
           return [update, ...prev];
         });
       }
-    });
+    };
 
-    return () => offSocketListeners(channel);
+    setSocketListeners(channel, onUpdate);
+
+    return () => offSocketListeners(channel, onUpdate);
   }, [channel]);
 
   return { data, setData, refresh: load, isLoading };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { stageClient } from "@/api/stageClient";
 import { formatSTC, calculatePlayerValue } from "@/lib/playerValue";
+import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { cn } from "@/lib/utils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -225,7 +226,8 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         stageClient.entities.Player.filter({ club_id: club.id }, null, 100),
       ]);
 
-      const weeklyWages  = (contracts || []).reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
+      const safeContracts = normalizePlayerContracts(contracts);
+      const weeklyWages  = safeContracts.reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
       const thirtyAgo    = Date.now() - 30 * 24 * 60 * 60 * 1000;
       const recent       = (allTx || []).filter(tx => new Date(tx.created_date).getTime() >= thirtyAgo);
       const income_30d   = recent.filter(tx => tx.amount > 0).reduce((s, tx) => s + Number(tx.amount), 0);
@@ -237,7 +239,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         transfer_budget:  Number(club.transfer_budget_stc || 0),
         wage_budget:      Number(club.wage_budget_stc || 0),
         weekly_wages:     weeklyWages,
-        contracts:        contracts || [],
+        contracts:        safeContracts,
         allTransactions:  allTx || [],
         squadPlayers:     squadPlayers || [],
         squad_value:      squadValue,
@@ -346,7 +348,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
           <div className="pt-1 space-y-1.5 border-t border-border mt-3">
             {contracts.map(c => (
               <div key={c.id} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{t("commonPages.cfinContractLabel", { name: c.player_gamertag || c.contract_type })}</span>
+                <span className="text-muted-foreground">{t("commonPages.cfinContractLabel", { name: c.player_gamertag || getContractType(c) })}</span>
                 <span className="font-medium text-foreground">{formatSTC(c.weekly_salary_stc || 0)}/wk</span>
               </div>
             ))}

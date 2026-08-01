@@ -4,6 +4,7 @@ import { Shield, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ClubCard from "../components/ClubCard";
 import { useTranslation } from "@/hooks/useTranslation";
+import { asObjectArray, parseJsonArray } from "@/lib/safeData";
 
 const PAGE_SIZE = 15;
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
@@ -25,20 +26,17 @@ export default function Clubs({ tournamentId } = {}) {
         if (tournamentId) {
           const tournament = await stageClient.entities.Tournament.get(tournamentId).catch(() => null);
           const registeredIds = tournament?.registered_clubs || [];
-          let parsed = registeredIds;
-          if (typeof registeredIds === "string") {
-            try { parsed = JSON.parse(registeredIds); } catch { parsed = []; }
-          }
+          const parsed = parseJsonArray(registeredIds);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const all = await stageClient.entities.Club.list(null, 500);
-            data = all.filter(c => parsed.includes(c.id));
+            const all = asObjectArray(await stageClient.entities.Club.list(null, 500).catch(() => []));
+            data = all.filter(c => c?.id && parsed.includes(c.id));
           } else {
             data = [];
           }
         } else {
-          data = await stageClient.entities.Club.list(null, 500);
+          data = await stageClient.entities.Club.list(null, 500).catch(() => []);
         }
-        setClubs(data);
+        setClubs(asObjectArray(data).filter((c) => c.id));
       } catch {
         setClubs([]);
       } finally {
@@ -48,7 +46,7 @@ export default function Clubs({ tournamentId } = {}) {
     load();
   }, [tournamentId]);
 
-  const filtered = clubs.filter(c => {
+  const filtered = asObjectArray(clubs).filter(c => {
     const name = (c.name || "").toLowerCase();
     const tag  = (c.tag  || "").toLowerCase();
     const matchSearch   = !search   || name.includes(search.toLowerCase()) || tag.includes(search.toLowerCase());

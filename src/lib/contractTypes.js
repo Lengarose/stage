@@ -77,8 +77,8 @@ export const CONTRACT_TYPE_OPTIONS = Object.entries(CONTRACT_TYPES).map(([value,
  * Returns true if a contract should be expired based on games or days.
  */
 export function isContractExpired(contract) {
-  if (!contract.start_date) return false;
-  const meta = CONTRACT_TYPES[contract.contract_type];
+  if (!contract?.start_date) return false;
+  const meta = CONTRACT_TYPES[contract?.contract_type];
   if (!meta) return false;
 
   const daysSinceStart = Math.floor(
@@ -93,8 +93,9 @@ export function isContractExpired(contract) {
  * Returns a human-readable progress string.
  */
 export function getContractProgress(contract) {
-  const meta = CONTRACT_TYPES[contract.contract_type];
-  if (!meta || !contract.start_date) return null;
+  if (!contract?.start_date) return null;
+  const meta = CONTRACT_TYPES[contract?.contract_type];
+  if (!meta) return null;
 
   const daysSinceStart = Math.floor(
     (Date.now() - new Date(contract.start_date).getTime()) / (1000 * 60 * 60 * 24)
