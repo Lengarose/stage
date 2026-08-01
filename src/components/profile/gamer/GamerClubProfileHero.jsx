@@ -11,6 +11,7 @@ export default function GamerClubProfileHero({
   draws = 0,
   losses = 0,
   winRate = 0,
+  topLeftActions,
   topActions,
   sideActions,
   followers,
@@ -30,12 +31,12 @@ export default function GamerClubProfileHero({
         type="button"
         onClick={onBannerClick}
         className="relative block w-full h-44 sm:h-56 md:h-64 overflow-hidden text-left"
-        style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}
       >
         <div className="absolute inset-0" style={bannerStyle} />
         <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-cyan-500/10" />
       </button>
+      {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
       {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
 
       <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">

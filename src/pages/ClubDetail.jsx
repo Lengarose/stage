@@ -629,22 +629,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Back */}
-      <div className="max-w-6xl mx-auto px-4 pt-4 flex items-center gap-3">
-        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-        </button>
-        {isAdminTakeover ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 ml-auto">
-            <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
-            <span className="text-xs text-warning font-medium">{t("commonPages.cdAdminTakeover")}</span>
-            <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); localStorage.setItem('stage_admin_effective_role_id', '0'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning ml-1 flex items-center gap-1">
-              <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
-            </button>
-          </div>
-        ) : null}
-      </div>
-
       <GamerClubProfileHero
         club={club}
         wins={wins}
@@ -658,6 +642,22 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         }}
         logoUploadHtmlFor={canEdit ? logoInputId : undefined}
         logoUploading={uploadingLogo}
+        topLeftActions={(
+          <>
+            <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
+              <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
+            </button>
+            {isAdminTakeover ? (
+              <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-2">
+                <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
+                <span className="hidden sm:inline text-xs text-warning font-medium">{t("commonPages.cdAdminTakeover")}</span>
+                <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); localStorage.setItem('stage_admin_effective_role_id', '0'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning flex items-center gap-1">
+                  <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
         topActions={canEdit ? (
           <button
             type="button"

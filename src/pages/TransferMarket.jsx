@@ -8,8 +8,9 @@ import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { isTransferWindowOpen } from "@/lib/transferWindow";
+import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
+import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferMarket() {
@@ -39,10 +40,11 @@ export default function TransferMarket() {
       const { user, player, club } = await resolveMyPlayerAndClub();
 
       const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
+      const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
 
       setMyPlayer(player);
-      setFreeAgents(marketRes?.data?.free_agents || []);
-      setExpiringPlayers(marketRes?.data?.expiring_players || []);
+      setFreeAgents(normalizedMarket.freeAgents);
+      setExpiringPlayers(normalizedMarket.expiringPlayers);
       setCurrentWindow(marketRes?.data?.current_window || null);
 
       if (club) {
@@ -60,8 +62,14 @@ export default function TransferMarket() {
     }
   }
 
-  function hasConflict(playerId) {
-    return myContracts.some(c => getContractTargetPlayerId(c) === playerId && ["active", "pending", "pending_window", "negotiating"].includes(c.status));
+  function getOfferBlockReason(player, entryContract = null) {
+    const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
+    return getContractOfferBlockReason({ player, playerContracts: contracts });
+  }
+
+  function canOfferPlayer(player, entryContract = null) {
+    const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
+    return canManage && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
@@ -104,14 +112,7 @@ export default function TransferMarket() {
 
   // Build unified flat list
   const allEntries = useMemo(() => {
-    const free = freeAgents.map(p => ({ player: p, badgeType: "free_agent", contract: null, days_left: null }));
-    const expiring = expiringPlayers.map(({ player, contract, days_left }) => ({
-      player,
-      badgeType: days_left <= 3 ? "expiring_soon" : "expiring",
-      contract,
-      days_left,
-    }));
-    return [...free, ...expiring];
+    return buildTransferMarketEntries(freeAgents, expiringPlayers);
   }, [freeAgents, expiringPlayers]);
 
   // Filtered list
@@ -177,7 +178,8 @@ export default function TransferMarket() {
                   selectedId={selected?.player?.id}
                   onSelect={setSelected}
                   canManage={canManage}
-                  hasConflict={hasConflict}
+                  canOffer={canOfferPlayer}
+                  getOfferBlockReason={getOfferBlockReason}
                   onOffer={setOfferTarget}
                 />
               </div>
@@ -187,7 +189,8 @@ export default function TransferMarket() {
                 <TransferDetailPanel
                   entry={selected}
                   canManage={canManage}
-                  hasConflict={hasConflict}
+                  canOffer={canOfferPlayer}
+                  getOfferBlockReason={getOfferBlockReason}
                   onOffer={setOfferTarget}
                   windowOpen={windowOpen}
                 />
@@ -214,7 +217,8 @@ export default function TransferMarket() {
                 selectedId={selected?.player?.id}
                 onSelect={setSelected}
                 canManage={canManage}
-                hasConflict={hasConflict}
+                canOffer={canOfferPlayer}
+                getOfferBlockReason={getOfferBlockReason}
                 onOffer={setOfferTarget}
               />
             </div>
@@ -242,7 +246,8 @@ export default function TransferMarket() {
                     <TransferDetailPanel
                       entry={selected}
                       canManage={canManage}
-                      hasConflict={hasConflict}
+                      canOffer={canOfferPlayer}
+                      getOfferBlockReason={getOfferBlockReason}
                       onOffer={e => { setOfferTarget(e); setSelected(null); }}
                       windowOpen={windowOpen}
                     />

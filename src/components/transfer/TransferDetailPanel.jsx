@@ -14,7 +14,7 @@ const CONTRACT_TYPE_LABELS = {
   star:      { label: "Star",   desc: "Top team player" },
 };
 
-export default function TransferDetailPanel({ entry, canManage, hasConflict, onOffer, windowOpen }) {
+export default function TransferDetailPanel({ entry, canManage, canOffer, getOfferBlockReason, onOffer, windowOpen }) {
   const { t } = useTranslation();
   if (!entry) {
     return (
@@ -27,7 +27,8 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
   }
 
   const { player, badgeType, contract, days_left } = entry;
-  const conflict = hasConflict(player.id);
+  const blockReason = getOfferBlockReason?.(player, contract) || null;
+  const canOfferPlayer = canManage && !blockReason && (canOffer ? canOffer(player, contract) : true);
   const marketValue = calculatePlayerValue(player);
   const valueTier = getValueTier(marketValue);
 
@@ -90,7 +91,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
         </div>
 
         {/* Club / contract info */}
-        {player.club_id ? (
+        {blockReason === "signed" ? (
           <div className="bg-secondary rounded-xl p-3 mb-4 flex items-center gap-3">
             <Shield className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
@@ -149,7 +150,7 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
 
         {/* CTA buttons */}
         <div className="flex flex-col gap-2">
-          {!conflict && canManage && (
+          {canOfferPlayer && (
             <Button
               onClick={() => onOffer({ player, badgeType })}
               className="w-full bg-primary text-primary-foreground gap-2"
@@ -158,9 +159,9 @@ export default function TransferDetailPanel({ entry, canManage, hasConflict, onO
               {t("commonPages.sendContractOffer")}
             </Button>
           )}
-          {conflict && (
+          {blockReason && (
             <div className="w-full text-center py-2.5 rounded-xl bg-muted border border-border text-sm text-muted-foreground font-medium">
-              {t("commonPages.offerAlreadySent")}
+              {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.offerAlreadySent")}
             </div>
           )}
           <Link to={`/players/${player.id}`} className="w-full">

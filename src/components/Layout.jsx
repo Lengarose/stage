@@ -35,6 +35,7 @@ import {
   getLiveDarkFx,
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
+import { isProfileFullBleedRoute } from "@/lib/profileRouteLayout";
 
 /** Paths that only match exactly (never as a prefix for child routes). */
 const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
@@ -1997,6 +1998,7 @@ export default function Layout() {
   const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
+  const fullBleedProfileRoute = isProfileFullBleedRoute(location.pathname);
 
   const switchMode = useCallback((mode) => {
     localStorage.setItem("stage-account-mode", mode);
@@ -2425,6 +2427,10 @@ export default function Layout() {
           {/* Home is full-bleed (hero/footer); other pages keep max-width + bottom pad for mobile tabs */}
           {location.pathname === "/" ? (
             <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-0">
+              <Outlet />
+            </div>
+          ) : fullBleedProfileRoute ? (
+            <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-8">
               <Outlet />
             </div>
           ) : (

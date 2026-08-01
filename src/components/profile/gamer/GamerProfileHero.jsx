@@ -14,6 +14,7 @@ export default function GamerProfileHero({
   club,
   roleBadges = [],
   formatPositions,
+  topLeftActions,
   topActions,
   sideActions,
   followers,
@@ -28,10 +29,11 @@ export default function GamerProfileHero({
 
   return (
     <div className="relative">
-      <div className="relative h-44 sm:h-56 md:h-64 overflow-hidden" style={{ marginLeft: "calc(-50vw + 50%)", width: "100vw" }}>
+      <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden">
         <div className="absolute inset-0" style={bannerStyle} />
         <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-amber-500/10" />
+        {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
         {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
       </div>
 

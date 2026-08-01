@@ -30,6 +30,7 @@ import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { isTransferWindowOpen } from "@/lib/transferWindow";
+import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -142,21 +143,22 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       if (players.length > 0 && players[0].id && players[0].email) {
         const p = players[0];
         setPlayer(p);
-        if (p.club_id) {
+        const contractArr = await stageClient.entities.PlayerContract.filter({ user_id: p.id });
+        const LIVE = ["active", "pending", "pending_window", "negotiating"];
+        const liveContracts = contractArr.filter(c => LIVE.includes(c.status));
+        const signedClubId = getSignedClubIdForPlayer(p, contractArr);
+        setPlayerContracts(liveContracts);
+        setActiveContract(contractArr.find(c => c.status === "active") || null);
+
+        if (signedClubId) {
           const [clubs, tmHome, tmAway] = await Promise.all([
-            stageClient.entities.Club.get(p.club_id).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: p.club_id })),
-            stageClient.profileMatches.list({ home_club_id: p.club_id, status: "scheduled" }, "round", 20),
-            stageClient.profileMatches.list({ away_club_id: p.club_id, status: "scheduled" }, "round", 20),
+            stageClient.entities.Club.get(signedClubId).then((clubRecord) => clubRecord ? [clubRecord] : []).catch(() => stageClient.entities.Club.filter({ id: signedClubId })),
+            stageClient.profileMatches.list({ home_club_id: signedClubId, status: "scheduled" }, "round", 20),
+            stageClient.profileMatches.list({ away_club_id: signedClubId, status: "scheduled" }, "round", 20),
           ]);
           if (clubs.length > 0) setClub(clubs[0]);
           setUpcomingMatches([...tmHome, ...tmAway]);
         }
-
-        // Load player's contracts for display + conflict check
-      const contractArr = await stageClient.entities.PlayerContract.filter({ user_id: p.id });
-      const LIVE = ["active", "pending", "pending_window", "negotiating"];
-      setPlayerContracts(contractArr.filter(c => LIVE.includes(c.status)));
-      setActiveContract(contractArr.find(c => c.status === "active") || null);
 
       // Load viewer's club if in club mode
       const acctMode = localStorage.getItem("stage-account-mode") || "player";
@@ -314,6 +316,13 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const marketValue = calculatePlayerValue(player);
   const valueTier = getValueTier(marketValue);
   const roleBadges = visibleClubRole ? [visibleClubRole] : [];
+  const signedClubIdForProfile = getSignedClubIdForPlayer(player, playerContracts);
+  const canOfferProfileContract = canShowContractOfferButton({
+    player,
+    viewerClub,
+    playerContracts,
+    limitedTournamentId,
+  });
 
   let recentForm = [];
   try { recentForm = JSON.parse(player.form_last10 || "[]"); } catch { /* ignore */ }
@@ -324,12 +333,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
   return (
     <GamerProfileShell>
-      <div className="px-4 pt-4 max-w-6xl mx-auto">
-        <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-        </button>
-      </div>
-
       <GamerProfileHero
         player={player}
         user={null}
@@ -337,6 +340,11 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         roleBadges={roleBadges}
         formatPositions={formatPositions}
         onAvatarClick={player.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
+        topLeftActions={(
+          <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
+          </button>
+        )}
         verifiedHandle={
           Number(player.is_verified) === 1 && player.verified_platform_handle
             ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
@@ -363,16 +371,18 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                 </Button>
                 {viewerClub && !limitedTournamentId ? (
                   <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setOfferDialogOpen(true)}
-                      className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
-                    </Button>
-                    {player.club_id && player.club_id !== viewerClub.id && club ? (
+                    {canOfferProfileContract ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setOfferDialogOpen(true)}
+                        className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
+                      </Button>
+                    ) : null}
+                    {signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
                       <Button
                         type="button"
                         size="sm"

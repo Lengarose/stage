@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import TransferBadge from "./TransferBadge";
 import { useTranslation } from "@/hooks/useTranslation";
 
-export default function TransferPlayerList({ players, selectedId, onSelect, canManage, hasConflict, onOffer }) {
+export default function TransferPlayerList({ players, selectedId, onSelect, canManage, canOffer, getOfferBlockReason, onOffer }) {
   const { t } = useTranslation();
   if (players.length === 0) {
     return (
@@ -20,7 +20,8 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
     <div className="space-y-2">
       {players.map(({ player, badge, badgeType, contract, days_left }) => {
         const isSelected = selectedId === player.id;
-        const conflict = hasConflict(player.id);
+        const blockReason = getOfferBlockReason?.(player, contract) || null;
+        const canOfferPlayer = canManage && !blockReason && (canOffer ? canOffer(player, contract) : true);
 
         return (
           <button
@@ -67,11 +68,11 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
 
             {/* Action */}
             <div className="shrink-0" onClick={e => e.stopPropagation()}>
-              {conflict ? (
+              {blockReason ? (
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-1 rounded-lg">
-                  <FileText className="w-3 h-3" /> {t("commonPages.sent")}
+                  <FileText className="w-3 h-3" /> {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.sent")}
                 </span>
-              ) : canManage ? (
+              ) : canOfferPlayer ? (
                 <Button
                   size="sm"
                   onClick={() => onOffer({ player, badgeType })}
