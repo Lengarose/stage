@@ -4,6 +4,7 @@
  *   - games_played >= max_games
  *   - days since start_date >= max_days
  */
+import { getContractTypeLabel } from "./contractTypeLabels.js";
 
 export const CONTRACT_TYPES = {
   trial: {
@@ -57,14 +58,14 @@ export const CONTRACT_TYPES = {
     description: "400 games or 180 days",
   },
   ownership: {
-    label: "🏢 Club Ownership",
+    label: `🏢 ${getContractTypeLabel("ownership")}`,
     max_games: 999,
     max_days: 3650,
     color: "text-primary",
     bg: "bg-primary/10",
     border: "border-primary/20",
     badge: "bg-primary/20 text-primary",
-    description: "Club ownership contract (10 years)",
+    description: "Club president contract (10 years)",
   },
 };
 

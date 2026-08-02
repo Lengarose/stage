@@ -209,7 +209,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
           </div>
         )}
 
-        {/* Trial request — club owner response UI */}
+        {/* Trial request — club president response UI */}
         {message.message_type === "trial_request" && effectiveActionType === "trial_response" && (
           <InboxTrialRequest
             message={message}

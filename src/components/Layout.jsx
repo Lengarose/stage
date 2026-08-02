@@ -166,12 +166,9 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
     : [{ path: "/tournaments/clubs",   icon: Shield,     label: t("nav.clubs") }];
   communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: t("nav.trophy") });
 
-  const profileItems = [
-    { path: "/tournaments/profile-player", icon: User, label: t("nav.myProfile") },
-  ];
-  if (!isPlayerType) {
-    profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: t("nav.myClub") });
-  }
+  const profileItems = isPlayerType
+    ? [{ path: "/tournaments/profile-player", icon: User, label: t("nav.myProfile") }]
+    : [{ path: "/tournaments/profile-club", icon: Shield, label: t("nav.myClub") }];
   profileItems.push({ path: "/tournaments/settings", icon: Settings, label: t("nav.settings") });
 
   return [
@@ -189,7 +186,7 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
   ];
 }
 
-function getOwnerGroups(t, clubPath) {
+function getPresidentGroups(t, clubPath) {
   const homeItems = [
     { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/",            icon: Home,            label: t("nav.welcome") },
@@ -329,7 +326,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournament clubs",
     steps: [
       "Review registered clubs and tournament teams here.",
-      "Open club profiles to inspect squad, owner and tournament context.",
+      "Open club profiles to inspect squad, president and tournament context.",
       "Use this page before matches to understand opponents and participants.",
     ],
   },
@@ -359,7 +356,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Club hub",
     steps: [
       "Find clubs, open your club profile, or inspect another team before a match.",
-      "Club owners manage identity, squad, finance and operations from the club detail page.",
+      "Club presidents manage identity, squad, finance and operations from the club detail page.",
       "Players can use club pages to understand rosters, activity and recruitment fit.",
     ],
   },
@@ -389,7 +386,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournaments",
     steps: [
       "Browse available tournaments and open one to inspect rules, teams and schedule.",
-      "Admins and eligible club owners can create or manage tournaments from tournament controls.",
+      "Admins and eligible club presidents can create or manage tournaments from tournament controls.",
       "Players should check registration status and deadlines before match day starts.",
     ],
   },
@@ -429,7 +426,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Players",
     steps: [
       "Search the player pool and open profiles to inspect stats, role and activity.",
-      "Club owners can use this page as a scouting starting point.",
+      "Club presidents can use this page as a scouting starting point.",
       "Players can compare themselves and discover potential teammates or rivals.",
     ],
   },
@@ -448,7 +445,7 @@ const MOBILE_WALKTHROUGHS = [
     label: "Recruitment",
     title: "Recruitment",
     steps: [
-      "Club owners manage scouting and recruitment conversations from here.",
+      "Club presidents manage scouting and recruitment conversations from here.",
       "Review player fit, availability and current status before making an offer.",
       "Use Inbox to continue conversations and contract flows after contact starts.",
     ],
@@ -768,7 +765,7 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
   );
 }
 
-/* Header: identity (player gamertag or club name) opens menu with Player/Owner + settings + logout */
+/* Header: identity (player gamertag or club name) opens menu with Player/President + settings + logout */
 function HeaderIdentityMenu({
   myPlayer,
   myClub,
@@ -779,7 +776,7 @@ function HeaderIdentityMenu({
   isWhiteTheme = false,
 }) {
   const canUseClubIdentity = Boolean(myClubId && myClub);
-  const showAsOwner = accountMode === "club" && canUseClubIdentity;
+  const showAsPresident = accountMode === "club" && canUseClubIdentity;
   const canSwitchRole = Boolean(myPlayer && myClubId);
 
   if (!myPlayer && !canUseClubIdentity) return null;
@@ -798,7 +795,7 @@ function HeaderIdentityMenu({
     `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
 
   const primaryLine =
-    showAsOwner && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
+    showAsPresident && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
 
   const subLabelStyle = { ...headingFont, fontWeight: 600, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL };
 
@@ -806,7 +803,7 @@ function HeaderIdentityMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className="flex shrink-0 items-center gap-2.5 text-left outline-none transition-opacity hover:opacity-95" style={{ maxWidth: 280 }}>
-          {showAsOwner && myClub ? (
+          {showAsPresident && myClub ? (
             <div className="shrink-0 overflow-hidden rounded-full bg-white/10" style={avatarRing}>
               <img
                 src={myClub.logo_url || clubLogoFallback}
@@ -836,8 +833,8 @@ function HeaderIdentityMenu({
               {primaryLine}
             </p>
             <div className="mt-0.5 flex items-center gap-1">
-              {showAsOwner && myClub ? (
-                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "Owner"}</span>
+              {showAsPresident && myClub ? (
+                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "President"}</span>
               ) : (
                 <>
                   {BADGE_IMAGES[subscriptionTier] && myPlayer && (
@@ -870,7 +867,7 @@ function HeaderIdentityMenu({
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
-                <Shield className="h-4 w-4 shrink-0 text-amber-400" /> Owner
+                <Shield className="h-4 w-4 shrink-0 text-amber-400" /> President
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
@@ -975,7 +972,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
   },
 ];
 
-function getMobileMoreGroupsOwner(clubPath) {
+function getMobileMoreGroupsPresident(clubPath) {
   return [
     {
       label: "Matchs",
@@ -1029,12 +1026,9 @@ function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, _tourna
       : [{ path: "/tournaments/clubs",   icon: Shield,     label: "Clubs" }];
     communityItems.push({ path: "/tournaments/trophy", icon: Trophy, label: "Trophy" });
 
-    const profileItems = [
-      { path: "/tournaments/profile-player", icon: User, label: "My Profile" },
-    ];
-    if (!isPlayerType) {
-      profileItems.push({ path: "/tournaments/profile-club", icon: Shield, label: "My Club" });
-    }
+    const profileItems = isPlayerType
+      ? [{ path: "/tournaments/profile-player", icon: User, label: "My Profile" }]
+      : [{ path: "/tournaments/profile-club", icon: Shield, label: "My Club" }];
     profileItems.push({ path: "/tournaments/settings", icon: Settings, label: "Settings" });
 
     return [
@@ -1042,7 +1036,7 @@ function getMobileMoreGroups(accountMode, clubPath, isTournamentLimited, _tourna
       { label: "Profile", items: profileItems },
     ];
   }
-  if (accountMode === "club") return getMobileMoreGroupsOwner(clubPath);
+  if (accountMode === "club") return getMobileMoreGroupsPresident(clubPath);
   return MOBILE_MORE_GROUPS_PLAYER;
 }
 
@@ -1745,17 +1739,17 @@ function MobileThemeButton({ theme, setTheme }) {
 
 function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
   const canSwitchRole = Boolean(myPlayer && myClub?.id);
-  const showAsOwner = accountMode === "club" && Boolean(myClub?.id);
+  const showAsPresident = accountMode === "club" && Boolean(myClub?.id);
   const clubLogoFallback =
     myClub &&
     `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
 
   const displayName =
-    showAsOwner && myClub
+    showAsPresident && myClub
       ? myClub.name
       : myPlayer?.gamertag || myClub?.name || "Player";
 
-  const showPlayerAvatarBg = !showAsOwner && Boolean(myPlayer?.avatar_url);
+  const showPlayerAvatarBg = !showAsPresident && Boolean(myPlayer?.avatar_url);
 
   const identityButton = (
     <div className="flex items-center gap-2.5 min-w-0 text-left">
@@ -1772,7 +1766,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
           }),
         }}
       >
-        {showAsOwner && myClub ? (
+        {showAsPresident && myClub ? (
           <img
             src={myClub.logo_url || clubLogoFallback}
             alt=""
@@ -1790,7 +1784,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
         >
           {displayName}
         </p>
-        {showAsOwner && myClub?.tag ? (
+        {showAsPresident && myClub?.tag ? (
           <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider truncate">[{myClub.tag}]</p>
         ) : null}
       </div>
@@ -1837,7 +1831,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
             className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
             style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
-            <Shield className="h-4 w-4 shrink-0 text-amber-400" /> Owner
+            <Shield className="h-4 w-4 shrink-0 text-amber-400" /> President
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
@@ -2095,7 +2089,7 @@ export default function Layout() {
         setShowProfileModal(true);
       } else {
         localStorage.setItem("profile-completed", "true");
-        // Keep prompting until the player actually has a club (owner OR member).
+        // Keep prompting until the player actually has a club (president OR member).
         // No permanent "skip": the popup returns on each app load until club
         // onboarding is done — and can also be resumed from the profile page.
         if (!c?.id)
@@ -2149,14 +2143,14 @@ export default function Layout() {
 
   const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
   const playerGroups = filterTransferWindowNavGroups(getPlayerGroups(t, clubPath), transferWindowOpen);
-  const ownerGroups = filterTransferWindowNavGroups(getOwnerGroups(t, clubPath), transferWindowOpen);
+  const presidentGroups = filterTransferWindowNavGroups(getPresidentGroups(t, clubPath), transferWindowOpen);
   const adminGroups = getAdminGroups(t);
   const transferWindowIndicator = getTransferWindowIndicatorLabel(transferWindowOpen);
   const headerNavGroups = showAdminHeader
     ? adminGroups
     : isTournamentLimited
       ? tournamentLimitedGroups
-      : (accountMode === "club" ? ownerGroups : playerGroups);
+      : (accountMode === "club" ? presidentGroups : playerGroups);
   const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
@@ -2311,7 +2305,7 @@ export default function Layout() {
               <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
                 {myClubId && !myPlayer && (
                   <>
-                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>Owner</span>
+                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>President</span>
                     <Link to="/profile" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Player profile</Link>
                   </>
                 )}

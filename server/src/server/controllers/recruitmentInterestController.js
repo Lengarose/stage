@@ -3,6 +3,7 @@ const router = express.Router();
 const RecruitmentInterest = require('../models/recruitmentInterestModel');
 const { EXECUTESQL } = require('../db/database');
 const { sendActionMessage } = require('../services/messageDeliveryService');
+const { resolveClubPresidentContact } = require('../services/clubContactService');
 
 const STATUSES = new Set(['pending', 'accepted', 'declined', 'withdrawn']);
 
@@ -26,8 +27,8 @@ async function notifyRecipient(post, interest, senderName, senderEmail = null) {
     email = players[0]?.email || null;
   }
   if (!email && post.author_club_id) {
-    const clubs = await EXECUTESQL('SELECT owner_email FROM clubs WHERE id = ? LIMIT 1', [post.author_club_id]);
-    email = clubs[0]?.owner_email || null;
+    const contact = await resolveClubPresidentContact({ clubId: post.author_club_id });
+    email = contact.email;
   }
   if (!email) return;
   const recipient = String(email).trim().toLowerCase();

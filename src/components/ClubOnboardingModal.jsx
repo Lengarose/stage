@@ -9,7 +9,7 @@ import { Shield, Search, Plus, ArrowRight, Loader2, Check, Crown, Sparkles } fro
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
-import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -24,7 +24,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
   const [clubs, setClubs] = useState([]);
   const [search, setSearch] = useState("");
   const [loadingClubs, setLoadingClubs] = useState(false);
-  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
+  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
 
   const [form, setForm] = useState({
     name: "", tag: "", platform: player?.platform || "PlayStation",
@@ -99,7 +99,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         creator_player_id: player?.id,
       });
       if (!club?.id) throw new Error("Server returned no club ID");
-      setOwnerContractPrompt({ club, player, contractId: club.owner_contract_id });
+      setPresidentContractPrompt({ club, player, contractId: club.owner_contract_id });
     } catch (err) {
       console.error("Club creation failed:", err);
       await swalAlert("Failed to create club: " + (err?.message || err));
@@ -124,7 +124,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         message: t("commonPages.comJoinMessage"),
         status: "pending",
       });
-      // Notify club owner
+      // Notify club president
       if (club.owner_email) {
         await stageClient.entities.Notification.create({
           recipient_email: club.owner_email,
@@ -329,17 +329,17 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         )}
       </DialogContent>
     </Dialog>
-    <OwnerContractDialog
-      open={!!ownerContractPrompt}
-      club={ownerContractPrompt?.club}
-      player={ownerContractPrompt?.player}
-      contractId={ownerContractPrompt?.contractId}
+    <PresidentContractDialog
+      open={!!presidentContractPrompt}
+      club={presidentContractPrompt?.club}
+      player={presidentContractPrompt?.player}
+      contractId={presidentContractPrompt?.contractId}
       onSigned={() => {
-        const club = ownerContractPrompt?.club;
-        setOwnerContractPrompt(null);
+        const club = presidentContractPrompt?.club;
+        setPresidentContractPrompt(null);
         onComplete?.(club);
       }}
-      onClose={() => setOwnerContractPrompt(null)}
+      onClose={() => setPresidentContractPrompt(null)}
     />
     </>
   );

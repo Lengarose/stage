@@ -58,7 +58,7 @@ function enFromKey(key) {
     migrateSuccess: "Migrated {{count}} clubs successfully.",
     migrating: "Migrating…",
     noClubsFound: "No clubs found.",
-    owner: "Owner",
+    owner: "President",
     resetting: "Resetting…",
     approveForfeit: "Approve forfeit",
     cannotApproveStale: "Cannot approve — match already resolved",

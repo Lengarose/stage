@@ -26,7 +26,10 @@ async function canManagePost(user, post) {
   if (isAdmin(user)) return true;
   if (post.author_user_id === user?.id) return true;
   if (post.author_club_id) {
-    const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE id = ? AND user_id = ? LIMIT 1', [post.author_club_id, user?.id]);
+    const clubs = await EXECUTESQL(
+      'SELECT id FROM clubs WHERE id = ? AND (president_user_id = ? OR user_id = ? OR owner_email = ?) LIMIT 1',
+      [post.author_club_id, user?.id, user?.id, user?.email]
+    );
     if (clubs.length) return true;
   }
   return false;
@@ -91,7 +94,10 @@ router.post('/', async (req, res) => {
 
     if (body.post_type === 'club_recruiting') {
       if (!body.author_club_id) return res.status(400).json({ error: 'author_club_id required for club posts' });
-      const clubRows = await EXECUTESQL('SELECT id FROM clubs WHERE id = ? AND (user_id = ? OR owner_email = ?) LIMIT 1', [body.author_club_id, user.id, user.email]);
+      const clubRows = await EXECUTESQL(
+        'SELECT id FROM clubs WHERE id = ? AND (president_user_id = ? OR user_id = ? OR owner_email = ?) LIMIT 1',
+        [body.author_club_id, user.id, user.id, user.email]
+      );
       if (!clubRows.length && !isAdmin(user)) return res.status(403).json({ error: 'You can only post for your own club' });
       body.author_player_id = null;
     } else {

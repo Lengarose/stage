@@ -63,10 +63,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       const result = await stageClient.functions.invoke("contractManagement", {
         action: "offer",
         team_id: club.id,
-        user_id: player.id,
+        target_player_id: player.id,
         contract_type,
         offer_note: offer_note || "",
-        offered_by: myPlayer?.id || "",
         max_games: typeMeta.max_games,
         max_days: typeMeta.max_days,
         weekly_salary_stc:  weekly_salary_stc  || 0,
@@ -231,7 +230,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       contract_id: contract.id,
       contract_type,
       offer_note:          offer_note || "",
-      offered_by:          myPlayer?.id || "",
       max_games:           typeMeta.max_games,
       max_days:            typeMeta.max_days,
       weekly_salary_stc:   contract.weekly_salary_stc  || 0,
@@ -260,7 +258,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
     history: safeContracts.filter(c => HISTORY_STATUSES.includes(c.status)),
   };
 
-  // Owners can hold BOTH an ownership contract AND a player contract simultaneously.
+  // Presidents can hold BOTH a president contract AND a player contract simultaneously.
   // A player is eligible for an offer if they're missing at least one contract group.
   const LIVE = ["active", "pending", "pending_window", "negotiating"];
   const eligiblePlayers = players.filter(p => {
@@ -380,7 +378,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
                 {dualContracts.length > 0 && (
                   <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
-                      <FileText className="w-3 h-3" /> Dual Contracts — Owner + Player role
+                      <FileText className="w-3 h-3" /> Dual Contracts — President + Player role
                     </p>
                     {dualContracts.map(c => (
                       <ContractCard

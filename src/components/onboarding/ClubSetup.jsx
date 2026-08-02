@@ -5,7 +5,7 @@ import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
-import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
+  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
   const logoInputRef = useRef();
   const logoInputId = useId();
   const previewClub = {
@@ -116,7 +116,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       if (!club?.id) throw new Error("Server returned no club ID");
 
       setSaving(false);
-      setOwnerContractPrompt({ club, player, contractId: club.owner_contract_id });
+      setPresidentContractPrompt({ club, player, contractId: club.owner_contract_id });
     } catch (err) {
       console.error("Failed to create club:", err);
       setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
@@ -175,17 +175,17 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
 
   return (
     <div className="space-y-4">
-      <OwnerContractDialog
-        open={!!ownerContractPrompt}
-        club={ownerContractPrompt?.club}
-        player={ownerContractPrompt?.player}
-        contractId={ownerContractPrompt?.contractId}
+      <PresidentContractDialog
+        open={!!presidentContractPrompt}
+        club={presidentContractPrompt?.club}
+        player={presidentContractPrompt?.player}
+        contractId={presidentContractPrompt?.contractId}
         onSigned={() => {
-          const club = ownerContractPrompt?.club;
-          setOwnerContractPrompt(null);
+          const club = presidentContractPrompt?.club;
+          setPresidentContractPrompt(null);
           onComplete(club);
         }}
-        onClose={() => setOwnerContractPrompt(null)}
+        onClose={() => setPresidentContractPrompt(null)}
       />
       <button
         type="button"

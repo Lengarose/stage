@@ -5,6 +5,7 @@
  */
 const { EXECUTESQL } = require('../db/database');
 const { notifyTournamentAssigned, notifyTournamentUnassigned } = require('./notifications');
+const { resolveClubPresidentContact } = require('./clubContactService');
 
 async function resolveRecipientAndTournament(row) {
   let email = null;
@@ -15,9 +16,9 @@ async function resolveRecipientAndTournament(row) {
     name = p[0]?.gamertag || null;
   }
   if (!email && row.club_id) {
-    const c = await EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [row.club_id]);
-    email = c[0]?.owner_email || null;
-    name = name || c[0]?.name || null;
+    const contact = await resolveClubPresidentContact({ clubId: row.club_id });
+    email = contact.email;
+    name = name || contact.club?.name || null;
   }
   if (!email && row.user_id) {
     const u = await EXECUTESQL('SELECT email FROM users WHERE id = ? LIMIT 1', [row.user_id]);

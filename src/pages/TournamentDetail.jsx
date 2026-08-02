@@ -48,6 +48,7 @@ export default function TournamentDetail() {
   const [allClubs, setAllClubs] = useState([]);
   const [matches, setMatches] = useState([]);
   const [myPlayer, setMyPlayer] = useState(null);
+  const [myClub, setMyClub] = useState(null);
   const [user, setUser] = useState(null);
   const [_isBasic, setIsBasic] = useState(false);
   const [_tournamentEntryCost, setTournamentEntryCost] = useState(50);
@@ -210,9 +211,10 @@ export default function TournamentDetail() {
         // the rest of the page from rendering — the spinner used to stick
         // forever when (for example) the tournament id was stale and the
         // backend returned a non-2xx the SDK didn't recover from.
-        const { player: myPl } = isAuthed
+        const { player: myPl, club: myResolvedClub } = isAuthed
           ? await resolveMyPlayerAndClub().catch(() => ({ player: null, club: null }))
           : { player: null, club: null };
+        setMyClub(myResolvedClub || null);
         const [tData, clubData, matchData] = await Promise.all([
           fetchTournamentPublic(id).then(t => t ? [t] : []).catch(() => []),
           stageClient.entities.Club.list("-rating", 200).catch(() => []),
@@ -231,6 +233,10 @@ export default function TournamentDetail() {
             const clubPlayers = await stageClient.entities.Player.filter({ club_id: myPl.club_id }).catch(() => []);
             setMyClubPlayers(clubPlayers);
           }
+        }
+        if (!myPl?.club_id && myResolvedClub?.id) {
+          const clubPlayers = await stageClient.entities.Player.filter({ club_id: myResolvedClub.id }).catch(() => []);
+          setMyClubPlayers(clubPlayers);
         }
 
         setIsBasic(u?.role === "admin");
@@ -358,7 +364,7 @@ export default function TournamentDetail() {
   }, [autoAdvancingRound, isAdmin, isCreator, loading, matches, tournament, user?.email]);
 
   async function registerClub() {
-    const effectiveId = takeoverClub ? takeoverClub.id : myPlayer?.club_id;
+    const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
     if (!effectiveId || !tournament) return;
     if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
       await swalAlert(t("tournamentDetail.registrationClosedPast"));
@@ -772,7 +778,7 @@ async function savePlayerStats() {
       return stageClient.entities.MatchPlayerStat.create({
         tournament_id: id,
         match_id: activeMatch.id,
-        club_id: myPlayer.club_id,
+        club_id: myClub?.id || myPlayer?.club_id || null,
         player_email: email,
         player_gamertag: player?.gamertag || email,
         goals: stat.goals || 0,
@@ -800,13 +806,14 @@ function resetUI() {
 }
 
   async function claimForfeit(match, proofUrl) {
-    if (!myPlayer?.club_id) return;
+    const claimClubId = myClub?.id || myPlayer?.club_id;
+    if (!claimClubId) return;
     await stageClient.entities.Match.update(match.id, {
-      forfeit_claimed_by: myPlayer.club_id,
+      forfeit_claimed_by: claimClubId,
       forfeit_proof_url: proofUrl || null,
       forfeit_status: "pending",
       status: "disputed",
-      admin_notes: `Forfeit claimed by ${myPlayer.club_id === match.home_club_id ? match.home_club_name : match.away_club_name}`,
+      admin_notes: `Forfeit claimed by ${claimClubId === match.home_club_id ? match.home_club_name : match.away_club_name}`,
     });
     const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
@@ -911,7 +918,8 @@ function resetUI() {
 
   const isPlayerTournament = tournament.participant_type === "player";
   const registeredClubs = allClubs.filter(c => tournament.registered_clubs?.includes(c.id));
-  const effectiveClubId = takeoverClub ? takeoverClub.id : myPlayer?.club_id;
+  const effectiveClub = takeoverClub || myClub || allClubs.find(c => c.id === myPlayer?.club_id) || null;
+  const effectiveClubId = effectiveClub?.id || null;
   const myClubRegistered = tournament.registered_clubs?.includes(effectiveClubId);
   const myPlayerRegistered = tournament.registered_players?.includes(myPlayer?.id);
   const registeredCount = isPlayerTournament
@@ -1088,8 +1096,8 @@ function resetUI() {
             </div>
 
             <div className="shrink-0 flex flex-col gap-2 items-stretch sm:items-end">
-              {!isPlayerTournament && tournament.status === "registration" && (myPlayer?.club_id || takeoverClub) && !myClubRegistered && !isFull && (() => {
-                const clubData = takeoverClub || allClubs.find(c => c.id === myPlayer?.club_id);
+              {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !isFull && (() => {
+                const clubData = effectiveClub;
                 const entryCost = tournament.entry_credits ?? 50;
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const canAfford = (clubData?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
@@ -1147,7 +1155,7 @@ function resetUI() {
       </div>
 
       {/* ── INFO STRIP ────────────────────────────────── */}
-      {(tournament.entry_fee_stc > 0 || (!isPlayerTournament && myPlayer?.club_id)) && (
+      {(tournament.entry_fee_stc > 0 || (!isPlayerTournament && effectiveClubId)) && (
         <div className="border-b border-border bg-card/60">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center gap-5">
             {tournament.entry_fee_stc > 0 && (
@@ -1167,8 +1175,8 @@ function resetUI() {
                 )}
               </span>
             )}
-            {!isPlayerTournament && myPlayer?.club_id && (() => {
-              const myClubData = allClubs.find(c => c.id === myPlayer.club_id);
+            {!isPlayerTournament && effectiveClubId && (() => {
+              const myClubData = effectiveClub || allClubs.find(c => c.id === effectiveClubId);
               if (!myClubData) return null;
               return (
                 <>

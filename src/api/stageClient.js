@@ -2,7 +2,7 @@
 // so zero changes are needed in any component file.
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { toMysqlDateTime, asWallClockDateTimeString } from "@/lib/momentDate";
-import { getOwnedClubId } from "@/lib/userIdentityFields";
+import { getOwnedClubId, getPresidentClubId } from "@/lib/userIdentityFields";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 // Default is a RELATIVE path so:
@@ -17,6 +17,7 @@ const REFRESH_KEY = 'stage_refresh_token';
 const USER_KEY    = 'stage_user_id';
 const PLAYER_KEY  = 'stage_player_id';
 const OWNER_KEY   = 'stage_owner_id';
+const PRESIDENT_CLUB_KEY = 'stage_president_club_id';
 const AUTH_CHANGED_EVENT = 'stage-auth-changed';
 const OAUTH_RETURN_KEY = 'stage_oauth_return';
 const OAUTH_ENTRANCE_MODE_KEY = 'stage_oauth_entrance_mode';
@@ -107,17 +108,18 @@ function notifyAuthChanged() {
 }
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
-export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId } = /** @type {any} */({})) => {
+export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId } = /** @type {any} */({})) => {
   if (accessToken)  localStorage.setItem(ACCESS_KEY,  accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
   if (userId)       localStorage.setItem(USER_KEY,    String(userId));
   if (playerId)     localStorage.setItem(PLAYER_KEY,  String(playerId));
-  if (ownedClubId || ownerId) localStorage.setItem(OWNER_KEY, String(ownedClubId || ownerId));
+  if (presidentClubId) localStorage.setItem(PRESIDENT_CLUB_KEY, String(presidentClubId));
+  if (ownedClubId || ownerId || presidentClubId) localStorage.setItem(OWNER_KEY, String(ownedClubId || ownerId || presidentClubId));
   notifyAuthChanged();
 };
 
 export const clearTokens = () => {
-  [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY].forEach(k => localStorage.removeItem(k));
+  [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY, PRESIDENT_CLUB_KEY].forEach(k => localStorage.removeItem(k));
   notifyAuthChanged();
 };
 
@@ -127,6 +129,9 @@ function syncSessionFromMe(me) {
   if (me.id) localStorage.setItem(USER_KEY, String(me.id));
   if (me.player_id) localStorage.setItem(PLAYER_KEY, String(me.player_id));
   else localStorage.removeItem(PLAYER_KEY);
+  const presidentClubId = getPresidentClubId(me);
+  if (presidentClubId) localStorage.setItem(PRESIDENT_CLUB_KEY, String(presidentClubId));
+  else localStorage.removeItem(PRESIDENT_CLUB_KEY);
   const ownedClubId = getOwnedClubId(me);
   if (ownedClubId) localStorage.setItem(OWNER_KEY, String(ownedClubId));
   else localStorage.removeItem(OWNER_KEY);
@@ -553,9 +558,10 @@ const auth = {
     const playerId     = params.get('playerId');
     const ownerId      = params.get('ownerId');
     const ownedClubId  = params.get('ownedClubId');
+    const presidentClubId = params.get('presidentClubId');
     const isNewUser    = params.get('isNewUser') === '1';
     if (accessToken && (userId || playerId)) {
-      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId });
+      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId });
       if (isNewUser && userId) markNeedsOnboarding(userId);
       let returnTo = '/';
       try {
@@ -754,16 +760,18 @@ const competitionEngine = {
 // ── Canonical user→player→club resolver ───────────────────────────────────────
 // The correct lookup chain is:
 //   users table (auth.me()) → player_id → players table → club_id → clubs table
-//   Fallbacks: players.email/users.email, users.owned_club_id/owner_id, clubs.owner_email.
+//   Fallbacks: players.email/users.email, users.president_club_id,
+//   users.owned_club_id/owner_id, clubs.owner_email.
 //
 // Usage:
-//   const { user, player, club } = await resolveMyPlayerAndClub();
+//   const { user, player, club, presidentClub, activeRoles } = await resolveMyPlayerAndClub();
 export async function resolveMyPlayerAndClub() {
   const u = await auth.me().catch(() => null);
-  if (!u) return { user: null, player: null, club: null };
+  if (!u) return { user: null, player: null, club: null, presidentClub: null, activeRoles: [] };
 
   let player = null;
   let club = null;
+  let presidentClub = null;
 
   // 1) Use user.player_id from users table to get player directly.
   //    Use .get(id) for one-row identity lookups.
@@ -784,25 +792,39 @@ export async function resolveMyPlayerAndClub() {
     club = await entities.Club.get(player.club_id).catch(() => null);
   }
 
-  // 4) Club-only accounts may have no player profile. Use the owned club id.
+  // 4) President accounts may have no player profile. Prefer explicit president club id.
+  const presidentClubId = getPresidentClubId(u);
+  if (presidentClubId) {
+    presidentClub = await entities.Club.get(presidentClubId).catch(() => null);
+    if (!club && presidentClub) club = presidentClub;
+  }
+
+  // 5) Club-only legacy accounts may have no player profile. Use the owned club id.
   const ownedClubId = getOwnedClubId(u);
   if (!club && ownedClubId) {
     club = await entities.Club.get(ownedClubId).catch(() => null);
+    if (!presidentClub && club && String(club.id) === String(ownedClubId)) presidentClub = club;
   }
 
-  // 5) Final fallback: find club by owner_email
+  // 6) Final fallback: find club by owner_email
   if (!club && u.email) {
     const rows = await entities.Club.filter({ owner_email: u.email }, null, 1).catch(() => []);
     club = rows[0] || null;
+    if (!presidentClub && club) presidentClub = club;
   }
 
-  // 6) If the player record is missing club_id but this user owns a club, keep
+  // 7) If the player record is missing club_id but this user owns a club, keep
   // frontend callers working immediately. The backend /auth/me repairs the DB.
   if (player && club && !player.club_id) {
     player = { ...player, club_id: club.id, club_name: club.name };
   }
 
-  return { user: u, player, club };
+  const activeRoles = [
+    ...(player ? ['player'] : []),
+    ...(presidentClub ? ['president'] : []),
+  ];
+
+  return { user: u, player, club, presidentClub, activeRoles };
 }
 
 // ── Chat read markers ──────────────────────────────────────────────────────────

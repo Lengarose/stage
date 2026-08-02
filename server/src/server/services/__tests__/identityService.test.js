@@ -17,7 +17,7 @@ function loadIdentityServiceWithDbMock(executesql) {
   return require(servicePath);
 }
 
-test('resolveUserIdentity links owner user to player, member club, owned club, and roles', async () => {
+test('resolveUserIdentity presents legacy owned club users as presidents', async () => {
   const calls = [];
   const user = {
     id: 'user-1',
@@ -58,11 +58,11 @@ test('resolveUserIdentity links owner user to player, member club, owned club, a
   assert.equal(identity.ownedClub.id, 'club-owned');
   assert.equal(identity.user.owned_club_id, 'club-owned');
   assert.equal(identity.club.id, 'club-member');
-  assert.deepEqual(identity.roles, ['owner', 'captain', 'recruiter']);
+  assert.deepEqual(identity.roles, ['president', 'captain', 'recruiter']);
   assert.equal(calls.some((call) => /FROM clubs WHERE user_id = \?/.test(call.sql)), false);
 });
 
-test('resolveUserIdentity falls back to email links for legacy accounts', async () => {
+test('resolveUserIdentity presents owner email fallback accounts as presidents', async () => {
   const user = {
     id: 'user-legacy',
     email: 'legacy@example.test',
@@ -95,7 +95,42 @@ test('resolveUserIdentity falls back to email links for legacy accounts', async 
   assert.equal(identity.player.id, 'player-legacy');
   assert.equal(identity.ownedClub.id, 'club-legacy');
   assert.equal(identity.club.id, 'club-legacy');
-  assert.deepEqual(identity.roles, ['owner']);
+  assert.deepEqual(identity.roles, ['president']);
+});
+
+test('resolveUserIdentity resolves president-only user without player profile', async () => {
+  const user = {
+    id: 'president-user',
+    email: 'president@example.test',
+    player_id: null,
+    owner_id: null,
+    role_id: 1,
+    role: 'user',
+  };
+  const presidentClub = {
+    id: 'club-president',
+    user_id: null,
+    president_user_id: 'president-user',
+    owner_email: 'legacy-owner@example.test',
+  };
+
+  const executesql = async (sql) => {
+    if (/FROM users WHERE id = \?/.test(sql)) return [user];
+    if (/FROM players\s+WHERE user_id = \?/.test(sql)) return [];
+    if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [presidentClub];
+    if (/FROM club_staff_roles/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const { resolveUserIdentity } = loadIdentityServiceWithDbMock(executesql);
+  const identity = await resolveUserIdentity('president-user');
+
+  assert.equal(identity.player, null);
+  assert.equal(identity.presidentClub.id, 'club-president');
+  assert.equal(identity.presidentClubId, 'club-president');
+  assert.equal(identity.ownedClub.id, 'club-president');
+  assert.equal(identity.club.id, 'club-president');
+  assert.deepEqual(identity.roles, ['president']);
 });
 
 test('resolveUserIdentity prefers active club membership over legacy player club_id', async () => {

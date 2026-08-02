@@ -41,6 +41,10 @@ export const internationalTournamentsApi = {
     return stageClient.http.get(`${base}/${segment(id)}/elections/${segment(electionId)}/owner-candidates`);
   },
 
+  presidentCandidates(id, electionId) {
+    return this.ownerCandidates(id, electionId);
+  },
+
   vote(electionId, candidateOwnerClubId) {
     return stageClient.http.post(`${base}/elections/${segment(electionId)}/vote`, {
       candidate_owner_club_id: candidateOwnerClubId,

@@ -28,9 +28,10 @@ import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/p
 import { loadEafcSummary, loadFutMatches } from "@/lib/dashboardData";
 import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
-import OwnerContractDialog from "@/components/contracts/OwnerContractDialog";
+import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObject, asObjectArray } from "@/lib/safeData";
+import { isClubPresidentForUser } from "@/lib/clubPresidentAccess";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -59,7 +60,7 @@ function getProfileRoleBadges(player, club, user) {
       rawRoles.includes("president") ||
       player.role === "owner" ||
       player.role === "president" ||
-      (player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
+      isClubPresidentForUser({ user: { id: player.user_id || user?.id, email: player.email }, club }) ||
       (player.user_id && club.user_id && player.user_id === club.user_id) ||
       (user?.id && club.user_id && user.id === club.user_id)
     )
@@ -106,7 +107,7 @@ export default function Profile({
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const [pvpMatches, setPvpMatches] = useState([]);
   const [profileTab, setProfileTab] = useState("posts");
-  const [ownerContractPrompt, setOwnerContractPrompt] = useState(null);
+  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
   const avatarInputRef = useRef();
   const avatarInputId = useId();
 
@@ -192,7 +193,7 @@ export default function Profile({
             setEafcSummary(asObject(eafcData));
           });
 
-          // Use the club already resolved via the canonical chain (user→player→club / owner_email fallback)
+          // Use the club already resolved via the canonical chain (user -> player -> club / president fallback).
           const resolvedClub = resolvedClub_;
           if (resolvedClub) {
             setMyClub(resolvedClub);
@@ -352,7 +353,7 @@ export default function Profile({
       country_code: club.country_code || "",
     });
     setClubDialogOpen(false);
-    setOwnerContractPrompt({ club, player: refreshed[0] || player, contractId: club.owner_contract_id });
+    setPresidentContractPrompt({ club, player: refreshed[0] || player, contractId: club.owner_contract_id });
   }
 
   async function leaveClub() {
@@ -395,16 +396,16 @@ export default function Profile({
 
     return (
       <GamerProfileShell>
-        <OwnerContractDialog
-          open={!!ownerContractPrompt}
-          club={ownerContractPrompt?.club}
-          player={ownerContractPrompt?.player}
-          contractId={ownerContractPrompt?.contractId}
+        <PresidentContractDialog
+          open={!!presidentContractPrompt}
+          club={presidentContractPrompt?.club}
+          player={presidentContractPrompt?.player}
+          contractId={presidentContractPrompt?.contractId}
           onSigned={() => {
-            setOwnerContractPrompt(null);
+            setPresidentContractPrompt(null);
             setView("club");
           }}
-          onClose={() => setOwnerContractPrompt(null)}
+          onClose={() => setPresidentContractPrompt(null)}
         />
 
         <GamerProfileHero

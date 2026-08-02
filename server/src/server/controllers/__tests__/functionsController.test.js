@@ -7,6 +7,8 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const legacyFunctionsPath = path.resolve(__dirname, '../../functions/legacyFunctions.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const identityServicePath = path.resolve(__dirname, '../../services/identityService.js');
+  const clubOperationsServicePath = path.resolve(__dirname, '../../services/clubOperationsService.js');
+  const clubContactServicePath = path.resolve(__dirname, '../../services/clubContactService.js');
   const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesServicePath = path.resolve(__dirname, '../../services/contractRulesService.js');
   const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
@@ -17,6 +19,8 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[controllerPath];
   delete require.cache[legacyFunctionsPath];
   delete require.cache[identityServicePath];
+  delete require.cache[clubOperationsServicePath];
+  delete require.cache[clubContactServicePath];
   delete require.cache[messageDeliveryServicePath];
   delete require.cache[contractRulesServicePath];
   delete require.cache[transferWindowServicePath];
@@ -69,6 +73,20 @@ function postFunctionHandler(router) {
   return layer.route.stack[0].handle;
 }
 
+function makeJsonResponse() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+}
+
 test('playerWallet get_balance resolves player linked by users.player_id', async () => {
   const player = { id: 'player-1', email: 'player@example.test', stc: 1234 };
   const contractLookups = [];
@@ -110,6 +128,68 @@ test('playerWallet get_balance resolves player linked by users.player_id', async
   assert.equal(response.body.data.balance, 1234);
   assert.equal(contractLookups[0].params[0], 'player-1');
   assert.match(contractLookups[0].sql, /target_player_id/);
+});
+
+test('resolveClubContact prefers canonical president user over legacy owner email', async () => {
+  const queries = [];
+  const conn = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) {
+        return [[{
+          id: 'club-1',
+          name: 'President FC',
+          user_id: 'legacy-owner',
+          president_user_id: 'president-user',
+          owner_email: 'legacy-owner@example.test',
+        }]];
+      }
+      if (/SELECT id, email, player_id FROM users WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'president-user') {
+        return [[{ id: 'president-user', email: 'President@Example.TEST', player_id: 'president-player' }]];
+      }
+      if (/SELECT id, email, player_id FROM users WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'legacy-owner') {
+        return [[{ id: 'legacy-owner', email: 'legacy-owner@example.test', player_id: 'legacy-player' }]];
+      }
+      if (/UPDATE users SET owner_id/.test(sql)) return [{ affectedRows: 1 }];
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql) && params[0] === 'president-player') {
+        return [[{ id: 'president-player', email: 'President@Example.TEST', gamertag: 'Prez' }]];
+      }
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql) && params[0] === 'legacy-player') {
+        return [[{ id: 'legacy-player', email: 'legacy-owner@example.test', gamertag: 'Legacy' }]];
+      }
+      if (/UPDATE players SET/.test(sql)) return [{ affectedRows: 1 }];
+      if (/UPDATE users SET player_id/.test(sql)) return [{ affectedRows: 1 }];
+      if (/SELECT id, email, gamertag, role\s+FROM players/.test(sql)) return [[]];
+      if (/SELECT id, email, gamertag\s+FROM players/.test(sql)) return [[]];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return conn;
+        },
+      };
+    },
+  };
+  const router = loadFunctionsRouterWithDbMock(async () => [], { pool });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'resolveClubContact' }, body: { club_id: 'club-1' }, user: { id: 'viewer-user' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.recipient_email, 'President@Example.TEST');
+  assert.equal(response.body.data.owner_user_id, 'president-user');
+  assert.equal(queries.some(({ params }) => params[0] === 'president-user'), true);
 });
 
 test('regionalLeagueFixtureResult processes fixture and standings on the server', async () => {
@@ -696,8 +776,13 @@ test('contractActions offer stores duration metadata for market offers', async (
       return [{ id: 'owner-player', email: 'owner@example.test', club_id: 'club-1' }];
     }
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', owner_email: 'owner@example.test' }];
+      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
     }
+    if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+    }
+    if (/FROM club_memberships/.test(sql)) return [];
+    if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
     if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql) && /team_id = \?/.test(sql)) return [];
@@ -718,6 +803,16 @@ test('contractActions offer stores duration metadata for market offers', async (
         club_name: 'Club One',
         club_owner_email: 'owner@example.test',
         player_email: 'target@example.test',
+      }];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        id: 'club-1',
+        name: 'Club One',
+        user_id: 'owner-user',
+        president_user_id: 'owner-user',
+        owner_email: 'owner@example.test',
+        president_user_email: 'owner@example.test',
       }];
     }
     if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
@@ -778,9 +873,10 @@ test('contractActions offer stores duration metadata for market offers', async (
   assert.match(contractInserts[0].sql, /max_games/);
   assert.match(contractInserts[0].sql, /max_days/);
   assert.equal(contractInserts[0].params[4], 'pending');
-  assert.equal(contractInserts[0].params[6], 400);
-  assert.equal(contractInserts[0].params[7], 180);
-  assert.equal(notificationLookups.length, 1);
+  assert.equal(contractInserts[0].params[6], 'owner-user');
+  assert.equal(contractInserts[0].params[7], 'club-1');
+  assert.equal(contractInserts[0].params[8], 400);
+  assert.equal(contractInserts[0].params[9], 180);
   assert.equal(
     inboxUpdates.some(params => params.includes(`contract_offer:player_contract:${createdContractId}:target@example.test`)),
     true
@@ -802,8 +898,13 @@ test('contractActions offer rejects new contract offers while the transfer windo
       return [{ id: params[0], email: 'owner@example.test', club_id: 'club-1' }];
     }
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', owner_email: 'owner@example.test' }];
+      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
     }
+    if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+    }
+    if (/FROM club_memberships/.test(sql)) return [];
+    if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
     if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
@@ -1013,9 +1114,12 @@ test('contractManagement offer rejects another live player contract from the sam
     }
     if (/FROM club_memberships/.test(sql)) return [];
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: params[0], user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [{ id: params[0], user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
     }
-    if (/FROM club_staff_roles/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+    }
+    if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
       return [{ id: 'active-contract', team_id: 'club-1', user_id: 'target-player', contract_type: 'squad', status: 'active' }];
     }
@@ -1739,6 +1843,85 @@ test('tournamentRegistration stores club registration proof photo', async () => 
   assert.equal(proofs.club['club-1'].proof_type, 'pro_club');
 });
 
+test('tournamentRegistration allows canonical president user to register their club', async () => {
+  const updates = [];
+  const tournament = {
+    id: 'tournament-1',
+    name: 'President Cup',
+    status: 'registration',
+    participant_type: 'club',
+    max_teams: 8,
+    entry_fee_stc: 0,
+    entry_credits: 0,
+    registered_clubs: JSON.stringify([]),
+    registered_players: JSON.stringify([]),
+    registration_proofs: JSON.stringify({}),
+  };
+  const club = {
+    id: 'club-1',
+    president_user_id: 'president-user',
+    owner_email: 'legacy-owner@example.test',
+    user_id: 'legacy-owner-user',
+    credits: 10,
+    stc: 5000,
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/UPDATE tournaments SET registered_clubs = \?, registration_proofs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM store_settings/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'tournamentRegistration' },
+      body: {
+        tournament_id: 'tournament-1',
+        club_id: 'club-1',
+        registration_proof_url: '/uploads/pro-club.png',
+      },
+      user: { id: 'president-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(updates.length, 1);
+});
+
 test('tournamentRegistration stores player Ultimate Team registration proof photo', async () => {
   const updates = [];
   const tournament = {
@@ -1818,4 +2001,80 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
   const proofs = JSON.parse(updates[0].params[1]);
   assert.equal(proofs.player['player-1'].proof_url, '/uploads/ultimate-team.png');
   assert.equal(proofs.player['player-1'].proof_type, 'ultimate_team');
+});
+
+test('tournamentWithdrawal allows canonical president user to withdraw their club', async () => {
+  const updates = [];
+  const tournament = {
+    id: 'tournament-1',
+    status: 'registration',
+    registered_clubs: JSON.stringify(['club-1']),
+    entry_credits: 50,
+    entry_fee_stc: 0,
+  };
+  const club = {
+    id: 'club-1',
+    president_user_id: 'president-user',
+    owner_email: 'legacy-owner@example.test',
+    user_id: 'legacy-owner-user',
+    credits: 10,
+    stc: 5000,
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/UPDATE tournaments SET registered_clubs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              if (/UPDATE clubs SET credits = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'tournamentWithdrawal' },
+      body: {
+        tournament_id: 'tournament-1',
+        club_id: 'club-1',
+      },
+      user: { id: 'president-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(JSON.parse(updates.find((call) => /UPDATE tournaments/.test(call.sql)).params[0]).length, 0);
 });

@@ -154,7 +154,7 @@ function RegionElectionsSection({
                           {election.country_name || countryCode}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          National owner: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
+                          National president: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Squad: {squadPlayers.length}/{tournament.max_squad_size || 26} · {squad?.status || 'not submitted'}

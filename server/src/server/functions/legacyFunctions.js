@@ -16,6 +16,10 @@ const {
 } = require('../services/messageDeliveryService');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
+const {
+  createTemporaryClubPresident,
+  linkTemporaryClubPresident,
+} = require('./legacy/economyTestHelpers');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -188,6 +192,7 @@ const {
   closeAcceptedContractConflicts,
   markContractInboxStatus,
 } = require('../services/contractRulesService');
+const { getClubAccess } = require('../services/clubOperationsService');
 const {
   getCurrentTransferWindow,
   getLatestTransferWindow,
@@ -196,6 +201,31 @@ const {
 async function getMe(_auth_user_id) {
   const identity = await resolveUserIdentity(_auth_user_id);
   return { user: identity.user, player: identity.player, club: identity.club };
+}
+
+async function requireContractOfferAccess(user, clubId) {
+  const access = await getClubAccess(user, clubId);
+  if (!access.admin && !access.permissions.includes('offer_contracts')) {
+    const err = new Error('Only the club president or authorised staff can create contracts');
+    err.status = 403;
+    throw err;
+  }
+  return access;
+}
+
+async function requireClubFunctionAccess(user, clubId, permission, message = 'Only the club president can do this') {
+  const access = await getClubAccess(user, clubId);
+  if (!access.admin && permission && !access.permissions.includes(permission)) {
+    const err = new Error(message);
+    err.status = 403;
+    throw err;
+  }
+  if (!access.allowed && !access.admin) {
+    const err = new Error(message);
+    err.status = 403;
+    throw err;
+  }
+  return access;
 }
 
 function parseMaybeJson(value, fallback = {}) {
@@ -2163,8 +2193,9 @@ async function resolveClubContactForInvite(clubId) {
     const ownerEmail = String(club.owner_email || '').trim();
 
     let ownerUser = null;
-    if (club.user_id) {
-      const userRows = await query('SELECT id, email, player_id FROM users WHERE id = ? LIMIT 1', [club.user_id]);
+    const primaryPresidentUserId = club.president_user_id || club.user_id || null;
+    if (primaryPresidentUserId) {
+      const userRows = await query('SELECT id, email, player_id FROM users WHERE id = ? LIMIT 1', [primaryPresidentUserId]);
       ownerUser = userRows[0] || null;
     }
     if (!ownerUser && ownerEmail) {
@@ -2951,9 +2982,10 @@ const HANDLERS = {
       const club = clubRows[0];
       const isAdmin = Number(user.role_id) === 0;
       const ownerOk = isAdmin
+        || String(club.president_user_id || '') === String(_auth_user_id)
         || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
         || String(club.user_id || '') === String(_auth_user_id);
-      if (!ownerOk) throw new Error('Only the club owner can withdraw this club');
+      if (!ownerOk) throw new Error('Only the club president can withdraw this club');
 
       const registered = normalizeIdList(tournament.registered_clubs);
       if (!registered.includes(String(club_id))) throw new Error('Club is not registered for this tournament');
@@ -3158,13 +3190,13 @@ const HANDLERS = {
 
       await EXECUTESQL(
         `INSERT INTO clubs
-          (id, user_id, owner_email, name, tag, platform, region, country_code, description,
+          (id, user_id, president_user_id, owner_email, name, tag, platform, region, country_code, description,
            wins, losses, draws, goals_scored, goals_conceded, rating, peak_rating, matches_ranked,
            is_provisional, credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
            stadium_capacity, tier, form, status, formation, created_date, updated_date)
-         VALUES (?, ?, ?, ?, ?, 'PlayStation', 'Europe', ?, ?, 0, 0, 0, 0, 0, 70, 70, 0,
+         VALUES (?, ?, ?, ?, ?, ?, 'PlayStation', 'Europe', ?, ?, 0, 0, 0, 0, 0, 70, 70, 0,
            1, 500, 1000000, 250000, 250000, 0, 5000, 'TEST', '[]', 'active', '4-2-3-1', NOW(), NOW())`,
-        [clubId, ownerUserId, ownerEmail, clubDef.name, clubDef.tag, clubDef.country_code, `${TEST_PACK_TAG} Disposable test club for tournament/game simulation.`]
+        [clubId, ownerUserId, ownerUserId, ownerEmail, clubDef.name, clubDef.tag, clubDef.country_code, `${TEST_PACK_TAG} Disposable test club for tournament/game simulation.`]
       );
       createdClubs.push({ id: clubId, name: clubDef.name, tag: clubDef.tag });
 
@@ -4938,35 +4970,38 @@ const HANDLERS = {
   },
 
   async contractActions({
-    action, _auth_user_id, team_id, user_id, contract_type, offer_note,
+    action, _auth_user_id, team_id, user_id, target_player_id, contract_type, offer_note,
     weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered,
   }) {
     if (action !== 'offer') throw new Error(`Unsupported contract action: ${action}`);
-    const { user, player } = await getMe(_auth_user_id);
-    if (!player) throw new Error('Player profile not found');
-    if (!team_id || !user_id) throw new Error('team_id and user_id required');
+    const { user } = await getMe(_auth_user_id);
+    const targetPlayerId = target_player_id || user_id;
+    if (!team_id || !targetPlayerId) throw new Error('team_id and target_player_id required');
+    await requireContractOfferAccess(user, team_id);
 
     const status = 'pending';
     const duration = CONTRACT_TYPE_DURATION[contract_type] || CONTRACT_TYPE_DURATION.squad;
     await assertCanCreateContractOffer({
-      playerId: user_id,
+      playerId: targetPlayerId,
       teamId: team_id,
       contractType: contract_type || 'squad',
     });
     const id = uuidv4();
     await EXECUTESQL(
       `INSERT INTO player_contracts (
-        id, team_id, user_id, contract_type, status, offered_by, max_games, max_days,
+        id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, max_games, max_days,
         weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
         captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
       [
         id,
         team_id,
-        user_id,
+        targetPlayerId,
         contract_type || 'squad',
         status,
         user.email,
+        user.id,
+        team_id,
         duration.max_games,
         duration.max_days,
         Number(weekly_salary_stc || 0),
@@ -4984,7 +5019,7 @@ const HANDLERS = {
 
   async contractManagement({
     action, _auth_user_id,
-    team_id, user_id, offered_by,
+    team_id, user_id, target_player_id, offered_by,
     contract_id, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
     contract_type, start_date, end_date, max_days, max_games,
     status, offer_note, performance_targets, note, amount, captaincy_offered,
@@ -4993,8 +5028,7 @@ const HANDLERS = {
     // ── offer / renewal_offer ───────────────────────────────────────────────
     if (action === 'offer' || action === 'renewal_offer') {
       if (!_auth_user_id) throw new Error('not authenticated');
-      const { user, player } = await getMe(_auth_user_id);
-      if (!player && Number(user?.role_id ?? 1) !== 0) throw new Error('Player profile not found');
+      const { user } = await getMe(_auth_user_id);
 
       let sourceContract = null;
       if (action === 'renewal_offer') {
@@ -5005,8 +5039,9 @@ const HANDLERS = {
       }
 
       const targetTeamId = team_id || sourceContract?.team_id;
-      const targetUserId = user_id || sourceContract?.user_id;
-      if (!targetTeamId || !targetUserId) throw new Error('team_id and user_id required');
+      const targetUserId = target_player_id || user_id || sourceContract?.user_id;
+      if (!targetTeamId || !targetUserId) throw new Error('team_id and target_player_id required');
+      await requireContractOfferAccess(user, targetTeamId);
       const targetContractType = contract_type || sourceContract?.contract_type || 'squad';
       await assertCanCreateContractOffer({
         playerId: targetUserId,
@@ -5018,17 +5053,19 @@ const HANDLERS = {
       const id = uuidv4();
       await EXECUTESQL(
         `INSERT INTO player_contracts (
-          id, team_id, user_id, contract_type, status, offered_by, max_games, max_days,
+          id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, max_games, max_days,
           weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
           captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
         [
           id,
           targetTeamId,
           targetUserId,
           targetContractType,
           'pending',
-          offered_by || player?.id || user?.email || '',
+          offered_by || user?.email || '',
+          user?.id || null,
+          targetTeamId,
           Number(max_games ?? sourceContract?.max_games ?? 0),
           Number(max_days ?? sourceContract?.max_days ?? 0),
           Number(weekly_salary_stc ?? sourceContract?.weekly_salary_stc ?? 0),
@@ -7256,9 +7293,8 @@ const HANDLERS = {
       const { user } = await getMe(_auth_user_id);
       const targetClubId = params.target_club_id || club_id;
       if (!targetClubId) throw new Error('club_id required');
-      const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? AND owner_email = ? LIMIT 1', [targetClubId, user.email]);
-      if (!clubs.length) throw new Error('Club not found or not owner');
-      const club = clubs[0];
+      const access = await requireClubFunctionAccess(user, targetClubId, 'manage_finances', 'Only the club president or finance staff can adjust budgets');
+      const club = access.club;
 
       const newTransfer = Number(params.transfer_budget);
       const newWage     = Number(params.wage_budget);
@@ -7452,10 +7488,7 @@ const HANDLERS = {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!club_id) throw new Error('club_id required');
     const { user } = await getMe(_auth_user_id);
-    const clubs = await EXECUTESQL('SELECT id, owner_email FROM clubs WHERE id = ? LIMIT 1', [club_id]);
-    if (!clubs.length) throw new Error('Club not found');
-    const club = clubs[0];
-    if (club.owner_email !== user.email) throw new Error('Only owner can delete this club');
+    await requireClubFunctionAccess(user, club_id, 'manage_staff', 'Only the club president can delete this club');
     await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club_id]);
     await EXECUTESQL('DELETE FROM club_memberships WHERE club_id = ?', [club_id]).catch(() => {});
     await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club_id]);
@@ -8034,9 +8067,11 @@ const HANDLERS = {
 
       club_default_finances: () => runTest('club_default_finances', 'New club has positive STC and non-negative budgets', async (add) => {
         const cid = uuidv4();
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,5000000,0,0,NOW())`,
-          [cid, `__TEST__cf_${cid.slice(0,6)}`, 'TCC']);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'cf' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,5000000,0,0,NOW())`,
+          [cid, `__TEST__cf_${cid.slice(0,6)}`, 'TCC', president.presidentUserId, president.presidentUserId, president.presidentEmail]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id = ?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
         const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc, wage_budget_stc FROM clubs WHERE id = ?', [cid]);
         assert(Number(c.stc) > 0, `stc must be > 0, got ${c.stc}`);
         assert(Number(c.transfer_budget_stc) >= 0, `transfer_budget must be >= 0`);
@@ -8049,12 +8084,14 @@ const HANDLERS = {
         const SALARY = 5000, P_START = 100000, C_START = 10000000;
         await EXECUTESQL(`INSERT INTO players (id,gamertag,email,user_id,stc,created_date) VALUES (?,?,?,?,?,NOW())`,
           [pid, `__TEST__sal_${pid.slice(0,6)}`, `__test__sal_${pid.slice(0,6)}@s.t`, uid1, P_START]);
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
-          [cid, `__TEST__salc_${cid.slice(0,6)}`, 'TSL', C_START]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'salc' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__salc_${cid.slice(0,6)}`, 'TSL', president.presidentUserId, president.presidentUserId, president.presidentEmail, C_START]);
         add(() => EXECUTESQL('DELETE FROM players WHERE id=?', [pid]));
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM player_stc_transactions WHERE player_id=?', [pid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
 
         await createPlayerTx({ playerId: pid, playerEmail: null, amount: SALARY, category: 'wage_payment', source: cid, description: 'Test weekly salary' });
         await createClubTx({ clubId: cid, amount: -SALARY, type: 'expense', category: 'wage_payment', description: 'Test weekly salary', referenceId: pid });
@@ -8193,13 +8230,15 @@ const HANDLERS = {
       ticket_revenue: () => runTest('ticket_revenue', 'Home match revenue: correct attendance calc, club credited, 15% to transfer budget, idempotency guard, match fields updated', async (add) => {
         const cid = uuidv4(), mid = uuidv4();
         const WINS = 5, LOSSES = 1, STREAK = 3, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,wins,losses,win_streak,created_date) VALUES (?,?,?,NULL,?,0,0,?,?,?,NOW())`,
-          [cid, `__TEST__tr_${cid.slice(0,6)}`, 'TTR', START, WINS, LOSSES, STREAK]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'tr' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,wins,losses,win_streak,created_date) VALUES (?,?,?,?,?,?,?,0,0,?,?,?,NOW())`,
+          [cid, `__TEST__tr_${cid.slice(0,6)}`, 'TTR', president.presidentUserId, president.presidentUserId, president.presidentEmail, START, WINS, LOSSES, STREAK]);
         await EXECUTESQL(`INSERT INTO matches (id,home_club_id,status,stats_processed,home_ticket_revenue,created_date) VALUES (?,?,'completed',0,0,NOW())`,
           [mid, cid]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM matches WHERE id=?', [mid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
 
         const cfg = await getStadiumConfig();
         const lvl = cfg[0] || { capacity: 5000, ticket_price_stc: 15 };
@@ -8237,10 +8276,12 @@ const HANDLERS = {
       shirt_sales_revenue: () => runTest('shirt_sales_revenue', 'Shirt sales: club receives revenue, shirt_revenue tx recorded', async (add) => {
         const cid = uuidv4();
         const REV = 3750, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
-          [cid, `__TEST__ss_${cid.slice(0,6)}`, 'TSS', START]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'ss' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__ss_${cid.slice(0,6)}`, 'TSS', president.presidentUserId, president.presidentUserId, president.presidentEmail, START]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
         await createClubTx({ clubId: cid, amount: REV, type: 'income', category: 'shirt_revenue', description: 'Test shirt sales' });
         const [c] = await EXECUTESQL('SELECT stc FROM clubs WHERE id=?', [cid]);
         assert(Number(c.stc) === START + REV, `Expected ${START+REV}, got ${c.stc}`);
@@ -8252,10 +8293,12 @@ const HANDLERS = {
       competition_reward: () => runTest('competition_reward', 'Competition reward: correct STC credited, competition_reward tx created', async (add) => {
         const cid = uuidv4();
         const PRIZE = 1000000, START = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,0,0,NOW())`,
-          [cid, `__TEST__cr_${cid.slice(0,6)}`, 'TCP', START]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'cr' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,?,0,0,NOW())`,
+          [cid, `__TEST__cr_${cid.slice(0,6)}`, 'TCP', president.presidentUserId, president.presidentUserId, president.presidentEmail, START]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
         await createClubTx({ clubId: cid, amount: PRIZE, type: 'income', category: 'competition_reward', description: 'Test 1st place prize' });
         const [c] = await EXECUTESQL('SELECT stc FROM clubs WHERE id=?', [cid]);
         assert(Number(c.stc) === START + PRIZE, `Expected ${START+PRIZE}, got ${c.stc}`);
@@ -8267,10 +8310,12 @@ const HANDLERS = {
       transfer_budget_change: () => runTest('transfer_budget_change', 'Transfer fee deducted from both STC balance and transfer budget atomically', async (add) => {
         const cid = uuidv4();
         const FEE = 2000000, START = 10000000, BUDGET = 5000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,?,?,0,NOW())`,
-          [cid, `__TEST__tb_${cid.slice(0,6)}`, 'TTB', START, BUDGET]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'tb' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,?,?,0,NOW())`,
+          [cid, `__TEST__tb_${cid.slice(0,6)}`, 'TTB', president.presidentUserId, president.presidentUserId, president.presidentEmail, START, BUDGET]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         add(() => EXECUTESQL('DELETE FROM stc_transactions WHERE club_id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
         await createClubTx({ clubId: cid, amount: -FEE, type: 'expense', category: 'transfer_fee', description: 'Test transfer fee' });
         await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = transfer_budget_stc - ? WHERE id=?', [FEE, cid]);
         const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc FROM clubs WHERE id=?', [cid]);
@@ -8284,9 +8329,11 @@ const HANDLERS = {
       wage_budget_change: () => runTest('wage_budget_change', 'Wage budget tracks contracted salaries: increases on sign, decreases on expiry', async (add) => {
         const cid = uuidv4();
         const SALARY = 25000, BUDGET = 1000000;
-        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,NULL,10000000,0,?,NOW())`,
-          [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', BUDGET]);
+        const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'wb' });
+        await EXECUTESQL(`INSERT INTO clubs (id,name,tag,user_id,president_user_id,owner_email,stc,transfer_budget_stc,wage_budget_stc,created_date) VALUES (?,?,?,?,?,?,10000000,0,?,NOW())`,
+          [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', president.presidentUserId, president.presidentUserId, president.presidentEmail, BUDGET]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
+        await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
         await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc + ? WHERE id=?', [SALARY, cid]);
         const [after] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);
         assert(Number(after.wage_budget_stc) === BUDGET + SALARY, `After contract: expected ${BUDGET+SALARY}, got ${after.wage_budget_stc}`);
@@ -8480,10 +8527,11 @@ const HANDLERS = {
         const club = clubs[0];
 
         const ownerOk = isAdmin
+          || String(club.president_user_id || '') === String(_auth_user_id)
           || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
           || String(club.user_id || '') === String(_auth_user_id);
 
-        if (!ownerOk) return fail('Only the club owner can register this club');
+        if (!ownerOk) return fail('Only the club president can register this club');
 
         if (tournament.country_code && club.country_code !== tournament.country_code) {
           return fail('This tournament is restricted to clubs from another country');
@@ -8676,13 +8724,7 @@ const HANDLERS = {
     const users = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
     if (!users.length) throw new Error('User not found');
     const user = users[0];
-    const clubs = await EXECUTESQL('SELECT id, owner_email, user_id FROM clubs WHERE id = ? LIMIT 1', [club_id]);
-    if (!clubs.length) throw new Error('Club not found');
-    const club = clubs[0];
-    const ownerOk = Number(user.role_id) === 2
-      || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
-      || String(club.user_id || '') === String(_auth_user_id);
-    if (!ownerOk) throw new Error('Only the club owner can notify players for this registration');
+    await requireClubFunctionAccess(user, club_id, 'manage_recruitment', 'Only the club president can notify players for this registration');
 
     const clubPlayerEmails = await listActiveClubPlayerEmails(club_id);
 

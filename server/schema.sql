@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS clubs (
   id                  VARCHAR(36)  PRIMARY KEY,
   user_id             VARCHAR(36),
+  president_user_id   VARCHAR(36) NOT NULL,
   owner_email         VARCHAR(255) NOT NULL,
   name                VARCHAR(150) NOT NULL,
   tag                 VARCHAR(20),
@@ -440,6 +441,8 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   contract_type         VARCHAR(50),
   status                VARCHAR(50)  DEFAULT 'pending',
   offered_by            VARCHAR(255),
+  offered_by_user_id    VARCHAR(36) NULL,
+  offered_by_club_id    VARCHAR(36) NULL,
   max_games             INT,
   max_days              INT,
   weekly_salary_stc     DECIMAL(12,2) DEFAULT 0,
@@ -1137,6 +1140,7 @@ CREATE INDEX idx_players_email       ON players(email);
 CREATE INDEX idx_players_user        ON players(user_id);
 CREATE INDEX idx_clubs_owner         ON clubs(owner_email);
 CREATE INDEX idx_clubs_user          ON clubs(user_id);
+CREATE INDEX idx_clubs_president_user ON clubs(president_user_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
@@ -1153,6 +1157,8 @@ CREATE INDEX idx_inbox_type_related  ON inbox_messages(message_type, related_ent
 CREATE INDEX idx_inbox_idempotency   ON inbox_messages(idempotency_key);
 CREATE INDEX idx_contracts_team      ON player_contracts(team_id);
 CREATE INDEX idx_contracts_user      ON player_contracts(user_id);
+CREATE INDEX idx_contracts_offered_by_user ON player_contracts(offered_by_user_id);
+CREATE INDEX idx_contracts_offered_by_club ON player_contracts(offered_by_club_id);
 CREATE INDEX idx_pic_player          ON player_identity_claims(player_id);
 CREATE INDEX idx_pic_user            ON player_identity_claims(user_id);
 CREATE INDEX idx_pic_status          ON player_identity_claims(status);

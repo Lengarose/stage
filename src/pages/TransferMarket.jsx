@@ -11,6 +11,7 @@ import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
+import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -39,7 +40,7 @@ export default function TransferMarket() {
   async function load() {
     setLoading(true);
     try {
-      const { user, player, club } = await resolveMyPlayerAndClub();
+      const { user, player, club, activeRoles = [] } = await resolveMyPlayerAndClub();
 
       const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
       const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
@@ -52,9 +53,8 @@ export default function TransferMarket() {
         const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
         setMyClub(club);
         setMyContracts(normalizePlayerContracts(contractArr));
-        const isOwner = club?.owner_email === user.email;
         const isManagement = player?.club_roles?.includes("president") || player?.club_roles?.includes("captain");
-        setCanManage(isOwner || isManagement || user.role === "admin");
+        setCanManage(canManageClubIdentity({ user, club, activeRoles }) || isManagement);
       }
     } catch (err) {
       console.error("[TransferMarket] load failed:", err);
@@ -80,7 +80,7 @@ export default function TransferMarket() {
     const result = await stageClient.functions.invoke("contractActions", {
       action: "offer",
       team_id: myClub.id,
-      user_id: targetPlayer.id,
+      target_player_id: targetPlayer.id,
       contract_type,
       offer_note,
       weekly_salary_stc,
@@ -104,7 +104,7 @@ export default function TransferMarket() {
         weeklySalary: weekly_salary_stc,
         signingBonus: signing_bonus_stc,
         offerNote: offer_note,
-        senderEmail: myPlayer?.email,
+        senderEmail: myClub?.owner_email,
       }).catch((err) => console.warn("[TransferMarket] inbox fallback failed:", err?.message || err));
     }
     const updated = await stageClient.entities.PlayerContract.filter({ team_id: myClub.id });

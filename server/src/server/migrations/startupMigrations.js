@@ -73,6 +73,12 @@ async function runStartupMigrations() {
   await addCol('users', 'limited_tournament_id', 'VARCHAR(36) NULL');
   await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
   await addCol('users', 'role', "VARCHAR(50) NULL DEFAULT 'user'");
+  await addCol('clubs', 'president_user_id', 'VARCHAR(36) NULL');
+  await addIndex('clubs', 'idx_clubs_president_user', '(president_user_id)');
+  await addCol('player_contracts', 'offered_by_user_id', 'VARCHAR(36) NULL');
+  await addCol('player_contracts', 'offered_by_club_id', 'VARCHAR(36) NULL');
+  await addIndex('player_contracts', 'idx_contracts_offered_by_user', '(offered_by_user_id)');
+  await addIndex('player_contracts', 'idx_contracts_offered_by_club', '(offered_by_club_id)');
 
   await addCol('tournaments', 'winner_player_id', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'winner_player_name', 'VARCHAR(150) NULL');
@@ -598,6 +604,7 @@ async function runStartupMigrations() {
     UPDATE clubs c
     JOIN users u ON LOWER(TRIM(u.email)) = LOWER(TRIM(c.owner_email))
     SET c.user_id = COALESCE(c.user_id, u.id),
+        c.president_user_id = COALESCE(c.president_user_id, c.user_id, u.id),
         u.owner_id = c.id,
         u.role_id = 1,
         c.updated_date = NOW(),
@@ -605,6 +612,15 @@ async function runStartupMigrations() {
     WHERE c.owner_email IS NOT NULL
       AND c.owner_email <> ''
   `).catch(err => console.error('[migration] club_owner_user_link:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE clubs c
+    JOIN users u ON u.owner_id = c.id
+    SET c.president_user_id = COALESCE(c.president_user_id, c.user_id, u.id),
+        c.user_id = COALESCE(c.user_id, u.id),
+        c.updated_date = NOW()
+    WHERE c.president_user_id IS NULL
+  `).catch(err => console.error('[migration] club_president_user_link:', err.message));
 
   await EXECUTESQL(`
     UPDATE players p

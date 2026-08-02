@@ -4,12 +4,14 @@ const test = require('node:test');
 
 function loadMessageDeliveryServiceWithDbMock(executesql) {
   const servicePath = path.resolve(__dirname, '../messageDeliveryService.js');
+  const clubContactPath = path.resolve(__dirname, '../clubContactService.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
   const broadcasts = [];
   const inboxBroadcasts = [];
 
   delete require.cache[servicePath];
+  delete require.cache[clubContactPath];
   delete require.cache[dbPath];
   delete require.cache[socketPath];
 
@@ -90,6 +92,14 @@ test('deliverContractOfferMessage reuses existing inbox message and notification
         user_email: 'player@example.test',
       }];
     }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        id: 'club-1',
+        name: 'Longue Vie FC',
+        owner_email: 'owner@example.test',
+        president_user_email: null,
+      }];
+    }
     if (/FROM inbox_messages WHERE related_entity_id = \? AND message_type = 'contract_offer'/.test(sql)) {
       return [{ id: 'inbox-1', recipient_email: 'player@example.test' }];
     }
@@ -148,6 +158,14 @@ test('deliverContractOfferMessage creates one inbox message and one related noti
         user_email: 'player@example.test',
       }];
     }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        id: 'club-1',
+        name: 'Longue Vie FC',
+        owner_email: 'owner@example.test',
+        president_user_email: null,
+      }];
+    }
     if (/FROM inbox_messages WHERE related_entity_id = \? AND message_type = 'contract_offer'/.test(sql)) {
       return [];
     }
@@ -187,6 +205,58 @@ test('deliverContractOfferMessage creates one inbox message and one related noti
   assert.equal(notificationInserts[0].params.at(-1), 'notification:contract_offer:player_contract:contract-1:player@example.test');
   assert.equal(broadcasts.length, 1);
   assert.equal(broadcasts[0].link, `/inbox?id=${broadcasts[0].related_id}`);
+});
+
+test('deliverContractOfferMessage uses president contact and president wording for ownership contracts', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM player_contracts pc/.test(sql)) {
+      return [{
+        id: 'contract-president',
+        team_id: 'club-1',
+        user_id: 'player-1',
+        contract_type: 'ownership',
+        max_games: 999,
+        max_days: 3650,
+        weekly_salary_stc: 0,
+        signing_bonus_stc: 0,
+        club_name: 'President FC',
+        club_logo_url: '/uploads/logo.png',
+        club_owner_email: 'legacy-owner@example.test',
+        player_email: 'player@example.test',
+        user_email: 'player@example.test',
+      }];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        id: 'club-1',
+        name: 'President FC',
+        president_user_id: 'president-user',
+        owner_email: 'legacy-owner@example.test',
+        president_user_email: 'president@example.test',
+      }];
+    }
+    if (/FROM inbox_messages WHERE related_entity_id = \? AND message_type = 'contract_offer'/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [{ id: params[0], recipient_email: 'player@example.test' }];
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.deliverContractOfferMessage('contract-president');
+
+  const inboxInsert = queries.find(({ sql }) => /INSERT INTO inbox_messages/.test(sql));
+  const notificationInsert = queries.find(({ sql }) => /INSERT INTO notifications/.test(sql));
+
+  assert.equal(inboxInsert.params[2], 'president@example.test');
+  assert.match(inboxInsert.params[7], /president contract offer/);
+  assert.match(notificationInsert.params[4], /president contract offer/);
 });
 
 test('sendActionMessage creates an actionable inbox and links notification to that inbox', async () => {

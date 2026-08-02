@@ -9,10 +9,10 @@ import { useTranslation } from '@/hooks/useTranslation';
 export default function InternationalTournaments() {
   const { t } = useTranslation();
   const [myPlayer, setMyPlayer] = useState(null);
-  const [myOwnerClub, setMyOwnerClub] = useState(null);
+  const [myPresidentClub, setMyPresidentClub] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [electionsByTournament, setElectionsByTournament] = useState({});
-  const [ownerCandidatesByElection, setOwnerCandidatesByElection] = useState({});
+  const [presidentCandidatesByElection, setPresidentCandidatesByElection] = useState({});
   const [playersByTournament, setPlayersByTournament] = useState({});
   const [squadsByTournament, setSquadsByTournament] = useState({});
   const [loading, setLoading] = useState(true);
@@ -24,46 +24,47 @@ export default function InternationalTournaments() {
     setLoading(true);
     setLoadError('');
     try {
-      const { player, club: ownerClub } = await resolveMyPlayerAndClub();
+      const { player, presidentClub = null, club = null } = await resolveMyPlayerAndClub();
+      const activePresidentClub = presidentClub || club;
       const rows = await internationalTournamentsApi.list(100);
 
       let electionMap = {};
-      let ownerCandidateMap = {};
+      let presidentCandidateMap = {};
       let playerMap = {};
       let squadMap = {};
-      const ownerCountryCode = ownerClub?.country_code || player?.country_code;
-      if (ownerCountryCode) {
+      const presidentCountryCode = activePresidentClub?.country_code || player?.country_code;
+      if (presidentCountryCode) {
         const electionPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
           await internationalTournamentsApi.elections(tournament.id),
         ]));
         electionMap = Object.fromEntries(electionPairs);
-        const ownerCandidatePairs = await Promise.all(electionPairs.flatMap(([tournamentId, elections]) => (
+        const presidentCandidatePairs = await Promise.all(electionPairs.flatMap(([tournamentId, elections]) => (
           elections.map(async (election) => [
             election.id,
-            await internationalTournamentsApi.ownerCandidates(tournamentId, election.id),
+            await internationalTournamentsApi.presidentCandidates(tournamentId, election.id),
           ])
         )));
-        ownerCandidateMap = Object.fromEntries(ownerCandidatePairs);
+        presidentCandidateMap = Object.fromEntries(presidentCandidatePairs);
 
         const playerPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
-          await internationalTournamentsApi.eligiblePlayers(tournament.id, ownerCountryCode),
+          await internationalTournamentsApi.eligiblePlayers(tournament.id, presidentCountryCode),
         ]));
         playerMap = Object.fromEntries(playerPairs);
 
         const squadPairs = await Promise.all(rows.map(async (tournament) => [
           tournament.id,
-          await internationalTournamentsApi.squad(tournament.id, ownerCountryCode),
+          await internationalTournamentsApi.squad(tournament.id, presidentCountryCode),
         ]));
         squadMap = Object.fromEntries(squadPairs);
       }
 
       setMyPlayer(player);
-      setMyOwnerClub(ownerClub);
+      setMyPresidentClub(activePresidentClub);
       setTournaments(rows);
       setElectionsByTournament(electionMap);
-      setOwnerCandidatesByElection(ownerCandidateMap);
+      setPresidentCandidatesByElection(presidentCandidateMap);
       setPlayersByTournament(playerMap);
       setSquadsByTournament(squadMap);
     } catch (err) {
@@ -77,7 +78,7 @@ export default function InternationalTournaments() {
     load();
   }, []);
 
-  const myCountryCode = String(myOwnerClub?.country_code || myPlayer?.country_code || '').toUpperCase();
+  const myCountryCode = String(myPresidentClub?.country_code || myPlayer?.country_code || '').toUpperCase();
 
   async function vote(electionId, candidateOwnerClubId) {
     setBusyAction(`vote:${electionId}`);
@@ -132,15 +133,15 @@ export default function InternationalTournaments() {
         const election = elections.find((row) => String(row.country_code).toUpperCase() === myCountryCode);
         const eligiblePlayers = playersByTournament[tournament.id] || [];
         const squadState = squadsByTournament[tournament.id] || { squad: null, players: [] };
-        const isRepresentative = election?.winner_owner_club_id && election.winner_owner_club_id === myOwnerClub?.id;
+        const isRepresentative = election?.winner_owner_club_id && election.winner_owner_club_id === myPresidentClub?.id;
 
         return (
           <InternationalTournamentCard key={tournament.id} tournament={tournament}>
             {tournament.status === 'voting_open' && (
               <CountryElectionPanel
                 election={election}
-                ownerCandidates={ownerCandidatesByElection[election?.id] || []}
-                isOwner={Boolean(myOwnerClub)}
+                presidentCandidates={presidentCandidatesByElection[election?.id] || []}
+                isPresident={Boolean(myPresidentClub)}
                 onVote={vote}
                 disabled={busyAction === `vote:${election?.id}`}
               />

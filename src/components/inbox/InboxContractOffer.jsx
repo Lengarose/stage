@@ -1,6 +1,6 @@
 /**
  * InboxContractOffer — renders inside InboxMessageDetail when message_type === "contract_offer".
- * Allows the player (or club owner) to Accept, Decline, or Counter the contract directly from Inbox.
+ * Allows the player (or club president) to Accept, Decline, or Counter the contract directly from Inbox.
  */
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -19,6 +19,8 @@ import { withTranslationFallback } from "@/lib/translationFallback";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContract } from "@/lib/playerContractFields";
 import { getContractAcceptanceFlow } from "@/lib/contractAcceptanceFlow";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
+import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
+import { getContractTypeLabel } from "@/lib/contractTypeLabels";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
@@ -39,7 +41,7 @@ export default function InboxContractOffer({ message, onActioned }) {
   const [counterTargets, setCounterTargets] = useState([]);
   const [showTargets, setShowTargets] = useState(false);
   const [error, setError] = useState(null);
-  const [clubOwnerEmail, setClubOwnerEmail] = useState(null);
+  const [clubPresidentEmail, setClubPresidentEmail] = useState(null);
   const [clubName, setClubName] = useState(null);
   const [clubLogoUrl, setClubLogoUrl] = useState(null);
   const [myEmail, setMyEmail] = useState(null);
@@ -63,12 +65,12 @@ export default function InboxContractOffer({ message, onActioned }) {
         if (player?.club_id && player.club_id === c.team_id) setMyClub(club);
         setClubName(club?.name || message?.metadata?.club_name || null);
         setClubLogoUrl(club?.logo_url || null);
-        let ownerEmail = club?.owner_email || null;
-        if (!ownerEmail) {
+        let presidentEmail = getClubPresidentContactEmail({ club });
+        if (!presidentEmail) {
           const contact = await stageClient.functions.invoke("resolveClubContact", { club_id: c.team_id }).catch(() => null);
-          ownerEmail = contact?.data?.recipient_email || null;
+          presidentEmail = contact?.data?.recipient_email || null;
         }
-        setClubOwnerEmail(ownerEmail);
+        setClubPresidentEmail(presidentEmail);
       }
 
       if (c) {
@@ -113,23 +115,23 @@ export default function InboxContractOffer({ message, onActioned }) {
     myPlayer.id === getContractTargetPlayerId(contract) ||
     (myEmail && myEmail === message?.recipient_email)
   );
-  const isClubOwner = myClub?.id === contract.team_id;
+  const isClubPresident = myClub?.id === contract.team_id;
   const isActionable = ["pending", "negotiating"].includes(contract.status);
   // Player can act when: pending (always), or negotiating where last move was by club
   const playerCanAct = isPlayer && isActionable && (
     contract.status === "pending" || contract.last_negotiated_by !== myPlayer?.id
   );
-  // Club owner/manager can act when contract is actionable and last move was NOT by club
-  // (allows owner to counter their own initial offer, or respond to player counter)
-  const clubCanAct = isClubOwner && isActionable &&
+  // Club president/manager can act when contract is actionable and last move was NOT by club
+  // (allows the club to counter its own initial offer, or respond to player counter)
+  const clubCanAct = isClubPresident && isActionable &&
     contract.last_negotiated_by !== myClub?.id;
 
   const canAct = playerCanAct || clubCanAct;
   const acceptanceFlow = getContractAcceptanceFlow({ contract, player: myPlayer, windowOpen });
   const contractType = getContractType(contract);
   const contractTypeLabel = contractType === "ownership"
-    ? tx("commonPages.icoClubOwnership", "Club Ownership")
-    : contractType.replace("_", " ");
+    ? tx("commonPages.icoClubOwnership", "Club President")
+    : getContractTypeLabel(contractType);
 
   async function doAction(action) {
     setActionLoading(action);
@@ -158,7 +160,7 @@ export default function InboxContractOffer({ message, onActioned }) {
         const { start_date, end_date } = result?.data || {};
         setContract(prev => normalizePlayerContract({ ...(prev || {}), status: "active", start_date, end_date }));
 
-        notify(clubOwnerEmail, "contract_accepted",
+        notify(clubPresidentEmail, "contract_accepted",
           `✅ Contract Accepted`,
           `${myPlayer?.gamertag || "A player"} has accepted the ${contractType} contract offer.`,
           `/clubs/${contract.team_id}`
@@ -176,7 +178,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           contract_id: contractId,
         });
         setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || {}), status: "rejected" }));
-        notify(clubOwnerEmail, "contract_rejected",
+        notify(clubPresidentEmail, "contract_rejected",
           `❌ Contract Declined`,
           `${myPlayer?.gamertag || "A player"} has declined your ${contractType} contract offer.`,
           `/clubs/${contract.team_id}`
@@ -227,7 +229,7 @@ export default function InboxContractOffer({ message, onActioned }) {
       setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || updatedFields) }));
       setShowCounter(false);
       setCounterNote("");
-      notify(clubOwnerEmail, "contract_offer",
+      notify(clubPresidentEmail, "contract_offer",
         `🔄 Counter-Offer from ${myPlayer?.gamertag || "Player"}`,
         `${myPlayer?.gamertag || "A player"} has sent a counter-offer on your contract. Round ${updatedFields.negotiation_round}.`,
         `/clubs/${contract.team_id}`

@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -101,7 +102,7 @@ export default function Recruitment() {
   async function load() {
     setLoading(true);
     try {
-      const { user: u, player, club } = await resolveMyPlayerAndClub();
+      const { user: u, player, club, activeRoles = [] } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
       setUser(u);
       const postRows = await stageClient.entities.RecruitmentPost.filter({}, "-created_date", 200).catch(() => []);
@@ -112,7 +113,11 @@ export default function Recruitment() {
         const contractRows = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
         setMyContracts(normalizePlayerContracts(contractRows));
         const roles = normalizeList(player?.club_roles);
-        setCanManageClub(club.owner_email === u.email || roles.includes("president") || roles.includes("captain") || u.role === "admin");
+        setCanManageClub(
+          canManageClubIdentity({ user: u, club, activeRoles }) ||
+          roles.includes("president") ||
+          roles.includes("captain")
+        );
       } else {
         setCanManageClub(false);
       }

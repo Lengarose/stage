@@ -23,6 +23,27 @@ test('club memberships table is present in schema and startup migrations', () =>
   assert.match(stageClient, /'ClubMembership'/);
 });
 
+test('fresh club schema and startup migrations preserve the required president link', () => {
+  const root = path.resolve(__dirname, '../../../../..');
+  const schema = fs.readFileSync(path.join(root, 'server/schema.sql'), 'utf8');
+  const startupMigrations = fs.readFileSync(path.join(root, 'server/src/server/migrations/startupMigrations.js'), 'utf8');
+
+  assert.match(schema, /president_user_id\s+VARCHAR\(36\)\s+NOT NULL/);
+  assert.match(startupMigrations, /club_president_user_link/);
+  assert.match(startupMigrations, /WHERE c\.president_user_id IS NULL/);
+});
+
+test('legacy direct club inserts include the required president link', () => {
+  const root = path.resolve(__dirname, '../../../../..');
+  const legacyFunctions = fs.readFileSync(path.join(root, 'server/src/server/functions/legacyFunctions.js'), 'utf8');
+  const directClubInserts = [...legacyFunctions.matchAll(/INSERT INTO clubs\s*\(([\s\S]*?)\)\s*VALUES/g)];
+
+  assert.ok(directClubInserts.length > 0, 'Expected legacyFunctions.js to contain direct club inserts');
+  for (const insert of directClubInserts) {
+    assert.match(insert[1], /president_user_id/, `Missing president_user_id near character ${insert.index}`);
+  }
+});
+
 test('club membership controller accepts operational staff roles', () => {
   const root = path.resolve(__dirname, '../../../../..');
   const controller = fs.readFileSync(path.join(root, 'server/src/server/controllers/clubMembershipController.js'), 'utf8');

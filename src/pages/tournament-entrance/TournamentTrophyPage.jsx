@@ -1,7 +1,7 @@
-import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
+import PlayerTrophyCabinet, { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState } from "react";
-import { stageClient } from "@/api/stageClient";
+import { resolveMyPlayerAndClub } from "@/api/stageClient";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -11,11 +11,24 @@ export default function TournamentTrophyPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [player, setPlayer] = useState(null);
+  const [club, setClub] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const playerId = localStorage.getItem("stage_player_id");
-    if (!playerId) return;
-    stageClient.entities.Player.get(playerId).then(setPlayer).catch(() => {});
+    let cancelled = false;
+    resolveMyPlayerAndClub()
+      .then(({ player: resolvedPlayer, club: resolvedClub, presidentClub }) => {
+        if (cancelled) return;
+        setPlayer(resolvedPlayer || null);
+        setClub(presidentClub || resolvedClub || null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -29,13 +42,22 @@ export default function TournamentTrophyPage() {
         {t("commonPages.profBack")}
       </button>
       <h1 className="text-xl font-bold mb-4">{t("commonPages.teTrophyCabinet")}</h1>
-      {player ? (
+      {loading ? (
+        <p className="text-muted-foreground text-sm">{t("commonPages.loading")}</p>
+      ) : club && !player ? (
+        <ClubTrophyCabinetDisplay
+          clubId={club.id}
+          club={club}
+          currentUserEmail={user?.email}
+          canEditOverride
+        />
+      ) : player ? (
         <PlayerTrophyCabinet
-          playerId={player.id}
+          player={player}
           currentUserEmail={user?.email}
         />
       ) : (
-        <p className="text-muted-foreground text-sm">{t("commonPages.loading")}</p>
+        <p className="text-muted-foreground text-sm">{t("commonPages.profNotClub")}</p>
       )}
     </div>
   );

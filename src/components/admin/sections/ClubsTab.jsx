@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Search, Shield, Building2, LogIn, Coins, Trash2 } from "lucide-react";
+import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 
 export default function ClubsTab({
   migrateClubBalances,
@@ -56,23 +57,26 @@ export default function ClubsTab({
         <EmptyState icon={Building2} text={t("admin.clubs.noClubsFound")} />
       ) : (
         <div className="space-y-2">
-          {clubs.filter(c => c.name?.toLowerCase().includes(clubSearch.toLowerCase())).map(c => (
-            <div key={c.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
-              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-primary" />}
+          {clubs.filter(c => c.name?.toLowerCase().includes(clubSearch.toLowerCase())).map(c => {
+            const presidentContactEmail = getClubPresidentContactEmail({ club: c }) || "-";
+            return (
+              <div key={c.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
+                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                  {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-primary" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{c.name} <span className="text-muted-foreground text-xs">[{c.tag}]</span></p>
+                  <p className="text-xs text-muted-foreground truncate">{c.platform} · {c.region} · {t("admin.clubs.owner")}: {presidentContactEmail}</p>
+                </div>
+                <div className="flex gap-2 shrink-0 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={() => takeControl(c)} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><LogIn className="w-3.5 h-3.5" /> {t("admin.clubs.takeControl")}</Button>
+                  <Button size="sm" variant="outline" onClick={() => { setClubStcDialog(c); setClubStcAmount(""); setClubWageBudget(c.wage_budget_stc || ""); setClubTransferBudget(c.transfer_budget_stc || ""); }} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> {t("admin.clubs.finance")}</Button>
+                  <Link to={`/clubs/${c.id}`}><Button size="sm" variant="outline" className="border-border text-xs">{t("admin.actions.view")}</Button></Link>
+                  <Button size="sm" variant="outline" onClick={() => deleteClub(c.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> {t("admin.actions.delete")}</Button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{c.name} <span className="text-muted-foreground text-xs">[{c.tag}]</span></p>
-                <p className="text-xs text-muted-foreground truncate">{c.platform} · {c.region} · {t("admin.clubs.owner")}: {c.owner_email}</p>
-              </div>
-              <div className="flex gap-2 shrink-0 flex-wrap">
-                <Button size="sm" variant="outline" onClick={() => takeControl(c)} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><LogIn className="w-3.5 h-3.5" /> {t("admin.clubs.takeControl")}</Button>
-                <Button size="sm" variant="outline" onClick={() => { setClubStcDialog(c); setClubStcAmount(""); setClubWageBudget(c.wage_budget_stc || ""); setClubTransferBudget(c.transfer_budget_stc || ""); }} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> {t("admin.clubs.finance")}</Button>
-                <Link to={`/clubs/${c.id}`}><Button size="sm" variant="outline" className="border-border text-xs">{t("admin.actions.view")}</Button></Link>
-                <Button size="sm" variant="outline" onClick={() => deleteClub(c.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> {t("admin.actions.delete")}</Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

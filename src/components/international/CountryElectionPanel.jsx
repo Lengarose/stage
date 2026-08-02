@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Vote } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 
-export default function CountryElectionPanel({ election, ownerCandidates, isOwner, onVote, disabled }) {
+export default function CountryElectionPanel({ election, presidentCandidates, isPresident, onVote, disabled }) {
   const { t } = useTranslation();
   const [candidateId, setCandidateId] = useState('');
 
@@ -11,7 +11,7 @@ export default function CountryElectionPanel({ election, ownerCandidates, isOwne
     return <p className="text-sm text-muted-foreground">{t('commonPages.noElectionOpen')}</p>;
   }
 
-  if (!isOwner) {
+  if (!isPresident) {
     return <p className="text-sm text-muted-foreground">{t('commonPages.ownersOnlyVote')}</p>;
   }
 
@@ -23,9 +23,9 @@ export default function CountryElectionPanel({ election, ownerCandidates, isOwne
       </div>
       <select className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm" value={candidateId} onChange={(event) => setCandidateId(event.target.value)}>
         <option value="">{t('commonPages.selectOwnerCandidate')}</option>
-        {ownerCandidates.map((owner) => (
-          <option key={owner.owner_club_id} value={owner.owner_club_id}>
-            {owner.club_name} · {owner.owner_email} · {owner.club_ranking_points || 0} pts
+        {presidentCandidates.map((president) => (
+          <option key={president.owner_club_id} value={president.owner_club_id}>
+            {president.club_name} · {president.owner_user_email || president.owner_email} · {president.club_ranking_points || 0} pts
           </option>
         ))}
       </select>

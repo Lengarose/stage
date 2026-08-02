@@ -80,7 +80,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
               {player?.gamertag || "Unknown Player"}
             </Link>
             <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", meta.badge)}>
-              {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> Owner</span> : meta.label}
+              {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> President</span> : meta.label}
             </span>
             <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", STATUS_STYLES[contract.status] || STATUS_STYLES.pending)}>
               {contract.status}

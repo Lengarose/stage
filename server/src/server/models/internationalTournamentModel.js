@@ -208,18 +208,20 @@ class InternationalTournamentModel {
               c.id AS club_id,
               c.name AS club_name,
               c.owner_email,
-              c.user_id AS owner_user_id,
+              COALESCE(c.president_user_id, c.user_id, u.id) AS owner_user_id,
               u.id AS user_id,
               u.email AS user_email,
               UPPER(c.country_code) AS country_code,
               c.ranking_points AS club_ranking_points,
               c.rating AS squad_avg_rating
        FROM clubs c
-       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
-       WHERE c.user_id = ? OR LOWER(c.owner_email) = LOWER(?)
-       ORDER BY c.ranking_points DESC, c.rating DESC, c.name ASC
+       LEFT JOIN users u ON u.id = c.president_user_id
+          OR (c.president_user_id IS NULL AND u.id = c.user_id)
+          OR (c.president_user_id IS NULL AND c.user_id IS NULL AND LOWER(u.email) = LOWER(c.owner_email))
+       WHERE c.president_user_id = ? OR c.user_id = ? OR LOWER(c.owner_email) = LOWER(?)
+       ORDER BY c.president_user_id = ? DESC, c.user_id = ? DESC, c.ranking_points DESC, c.rating DESC, c.name ASC
        LIMIT 1`,
-      [user?.id || '', user?.email || '']
+      [user?.id || '', user?.id || '', user?.email || '', user?.id || '', user?.id || '']
     );
   }
 
@@ -275,20 +277,20 @@ class InternationalTournamentModel {
               c.id AS club_id,
               c.name AS club_name,
               c.owner_email,
-              COALESCE(c.user_id, u.id) AS owner_user_id,
+              COALESCE(c.president_user_id, c.user_id, u.id) AS owner_user_id,
               u.email AS owner_user_email,
               UPPER(c.country_code) AS country_code,
               COALESCE(c.ranking_points, 0) AS club_ranking_points,
               COALESCE(c.rating, 0) AS squad_avg_rating,
               COUNT(p.id) AS player_count
        FROM clubs c
-       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
+       LEFT JOIN users u ON u.id = c.president_user_id
+          OR (c.president_user_id IS NULL AND u.id = c.user_id)
+          OR (c.president_user_id IS NULL AND c.user_id IS NULL AND LOWER(u.email) = LOWER(c.owner_email))
        LEFT JOIN players p ON p.club_id = c.id
        WHERE UPPER(c.country_code) = UPPER(?)
-         AND c.owner_email IS NOT NULL
-         AND c.owner_email <> ''
-         AND COALESCE(c.user_id, u.id) IS NOT NULL
-       GROUP BY c.id, c.name, c.owner_email, c.user_id, u.id, u.email, c.country_code, c.ranking_points, c.rating
+         AND COALESCE(c.president_user_id, c.user_id, u.id) IS NOT NULL
+       GROUP BY c.id, c.name, c.owner_email, c.president_user_id, c.user_id, u.id, u.email, c.country_code, c.ranking_points, c.rating
        ORDER BY club_ranking_points DESC, squad_avg_rating DESC, c.name ASC`,
       [countryCode]
     );
@@ -300,15 +302,17 @@ class InternationalTournamentModel {
               c.id AS club_id,
               c.name AS club_name,
               c.owner_email,
-              COALESCE(c.user_id, u.id) AS owner_user_id,
+              COALESCE(c.president_user_id, c.user_id, u.id) AS owner_user_id,
               u.email AS owner_user_email,
               UPPER(c.country_code) AS country_code,
               COALESCE(c.ranking_points, 0) AS club_ranking_points,
               COALESCE(c.rating, 0) AS squad_avg_rating
        FROM clubs c
-       LEFT JOIN users u ON u.id = c.user_id OR LOWER(u.email) = LOWER(c.owner_email)
+       LEFT JOIN users u ON u.id = c.president_user_id
+          OR (c.president_user_id IS NULL AND u.id = c.user_id)
+          OR (c.president_user_id IS NULL AND c.user_id IS NULL AND LOWER(u.email) = LOWER(c.owner_email))
        WHERE c.id = ? AND UPPER(c.country_code) = UPPER(?)
-         AND COALESCE(c.user_id, u.id) IS NOT NULL
+         AND COALESCE(c.president_user_id, c.user_id, u.id) IS NOT NULL
        LIMIT 1`,
       [ownerClubId, countryCode]
     );

@@ -1,7 +1,8 @@
 import { stageClient } from "@/api/stageClient";
+import { formatContractTypeForSentence } from "@/lib/contractTypeLabels";
 
 function formatContractType(type) {
-  return String(type || "squad").replace(/_/g, " ");
+  return formatContractTypeForSentence(type);
 }
 
 export function buildContractOfferInboxBody({ clubName, contractType, maxGames, maxDays, weeklySalary, signingBonus, offerNote }) {

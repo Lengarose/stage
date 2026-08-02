@@ -5,6 +5,7 @@ class Club {
   constructor(body = {}) {
     this.id                  = body.id;
     this.user_id             = body.user_id;
+    this.president_user_id   = body.president_user_id;
     this.owner_email         = body.owner_email;
     this.name                = body.name;
     this.tag                 = body.tag;
@@ -67,16 +68,20 @@ class Club {
 
   create() {
     this.id = this.id || uuidv4();
+    this.president_user_id = this.president_user_id || this.user_id || null;
+    if (!this.president_user_id) {
+      throw new Error('Club president_user_id is required');
+    }
     const sql = `INSERT INTO clubs
-      (id, user_id, owner_email, name, tag, platform, region, country_code, logo_url,
+      (id, user_id, president_user_id, owner_email, name, tag, platform, region, country_code, logo_url,
        logo_position, logo_zoom, description, wins, losses, draws, goals_scored,
        goals_conceded, rating, peak_rating, matches_ranked, is_provisional,
        credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
        stadium_capacity, tier, form, win_streak, loss_streak, status,
        formation, lineup, trophies, banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.user_id, this.owner_email, this.name, this.tag, this.platform,
+      this.id, this.user_id, this.president_user_id, this.owner_email, this.name, this.tag, this.platform,
       this.region, this.country_code, this.logo_url, this.logo_position, this.logo_zoom,
       this.description, this.wins, this.losses, this.draws, this.goals_scored,
       this.goals_conceded, this.rating, this.peak_rating, this.matches_ranked,
@@ -91,7 +96,7 @@ class Club {
 
   update(id) {
     const sql = `UPDATE clubs SET
-      user_id=?, owner_email=?, name=?, tag=?, platform=?, region=?, country_code=?,
+      user_id=?, president_user_id=?, owner_email=?, name=?, tag=?, platform=?, region=?, country_code=?,
       logo_url=?, logo_position=?, logo_zoom=?, description=?, wins=?, losses=?, draws=?,
       goals_scored=?, goals_conceded=?, rating=?, peak_rating=?,
       matches_ranked=?, is_provisional=?, credits=?, stc=?, wage_budget_stc=?,
@@ -100,7 +105,7 @@ class Club {
       lineup=?, trophies=?, banner_url=?, banner_position=?, banner_zoom=?
       WHERE id=?`;
     const values = [
-      this.user_id, this.owner_email, this.name, this.tag, this.platform, this.region,
+      this.user_id, this.president_user_id, this.owner_email, this.name, this.tag, this.platform, this.region,
       this.country_code, this.logo_url, this.logo_position, this.logo_zoom, this.description,
       this.wins, this.losses, this.draws, this.goals_scored, this.goals_conceded,
       this.rating, this.peak_rating, this.matches_ranked, this.is_provisional,

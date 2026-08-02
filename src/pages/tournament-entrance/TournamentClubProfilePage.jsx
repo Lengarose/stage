@@ -1,7 +1,7 @@
 import ClubDetail from "@/pages/ClubDetail";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState } from "react";
-import { stageClient } from "@/api/stageClient";
+import { resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
 
 /**
@@ -15,14 +15,10 @@ export default function TournamentClubProfilePage() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    const playerId = localStorage.getItem("stage_player_id");
-    if (!playerId) {
-      setLoadFailed(true);
-      return;
-    }
-    stageClient.entities.Player.get(playerId)
-      .then((p) => {
-        if (p?.club_id) setClubId(p.club_id);
+    resolveMyPlayerAndClub()
+      .then(({ player, club }) => {
+        const resolvedClubId = club?.id || player?.club_id;
+        if (resolvedClubId) setClubId(resolvedClubId);
         else setLoadFailed(true);
       })
       .catch(() => setLoadFailed(true));

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import TrophyCabinetSystem from "@/components/trophy/TrophyCabinetSystem";
+import { isClubPresidentForUser } from "@/lib/clubPresidentAccess";
 
 // Player trophies from solo tournament wins
 export default function PlayerTrophyCabinet({ player, currentUserEmail }) {
@@ -81,7 +82,7 @@ export function ClubTrophyCabinetDisplay({ clubId, currentUserEmail, club, canEd
 
   const canEdit = canEditOverride !== undefined
     ? canEditOverride
-    : (currentUserEmail && club && currentUserEmail === club.owner_email);
+    : isClubPresidentForUser({ user: { email: currentUserEmail }, club });
 
   return (
     <TrophyCabinetSystem

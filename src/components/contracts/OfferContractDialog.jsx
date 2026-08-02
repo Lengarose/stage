@@ -79,15 +79,15 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="w-5 h-5 text-primary" />
             {isNegotiation ? t("commonPages.ocdCounterOffer") : t("commonPages.offerContract")}
-            {player && <span className="text-muted-foreground font-normal text-base">{t("commonPages.ocdTo", { name: player.gamertag })}</span>}
+            {player && <span className="text-muted-foreground font-normal text-base">{t("commonPages.ocdTo", { name: player?.gamertag })}</span>}
           </DialogTitle>
         </DialogHeader>
 
         {/* Type-aware conflict warning: only warn when the selected type group is already occupied */}
         {!isNegotiation && (() => {
           const conflict = blockingConflict;
-          const conflictType = typeof conflict === "object" ? conflict.contract_type : selectedType;
-          const conflictStatus = typeof conflict === "object" ? conflict.status : "live";
+          const conflictType = typeof conflict === "object" ? conflict?.contract_type : selectedType;
+          const conflictStatus = typeof conflict === "object" ? conflict?.status : "live";
           return conflict ? (
             <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
               {t("commonPages.ocdActiveContract", { type: conflictType, status: conflictStatus })}

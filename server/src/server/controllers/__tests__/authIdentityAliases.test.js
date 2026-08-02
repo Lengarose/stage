@@ -8,6 +8,9 @@ const oauthController = fs.readFileSync(path.resolve(__dirname, '../oauthControl
 
 test('auth responses expose owned club id alias alongside legacy owner id', () => {
   assert.match(authController, /ownedClubId/);
+  assert.match(authController, /presidentClubId/);
+  assert.match(authController, /AS president_club_id/);
+  assert.match(authController, /president_club_id:/);
   assert.match(authController, /AS owned_club_id/);
   assert.match(authController, /owned_club_id:/);
   assert.match(oauthController, /ownedClubId/);

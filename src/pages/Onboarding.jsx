@@ -23,6 +23,11 @@ const OwnerIcon = () => (
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
   </svg>
 );
+const PlayerPresidentIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <circle cx="8" cy="8" r="3"/><path d="M3 20c0-3.2 2.2-5.5 5-5.5s5 2.3 5 5.5"/><path d="M17 21s4-2.2 4-5.8v-4.1L17 9.5l-4 1.6v4.1c0 3.6 4 5.8 4 5.8z"/>
+  </svg>
+);
 const ChevronRight = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0 mt-1 text-white/25 group-hover:text-white/60 transition-colors">
     <polyline points="9 18 15 12 9 6"/>
@@ -44,6 +49,7 @@ export default function Onboarding({ onComplete }) {
   const [user,         setUser]         = useState(null);
   const [player,       setPlayer]       = useState(null);
   const [step,         setStep]         = useState("choose");
+  const [intent,       setIntent]       = useState("player");
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
@@ -185,7 +191,11 @@ export default function Onboarding({ onComplete }) {
                       <div className="space-y-3">
                         {/* Player */}
                         <button
-                          onClick={() => setStep("player")}
+                          onClick={() => {
+                            setIntent("player");
+                            localStorage.setItem("stage-account-mode", "player");
+                            setStep("player");
+                          }}
                           className="w-full group text-left bg-white/5 border border-white/15 hover:border-blue-500/60 hover:bg-blue-500/8 rounded-2xl p-5 transition-all duration-200"
                         >
                           <div className="flex items-start gap-4">
@@ -200,9 +210,10 @@ export default function Onboarding({ onComplete }) {
                           </div>
                         </button>
 
-                        {/* Owner */}
+                        {/* President */}
                         <button
                           onClick={() => {
+                            setIntent("president");
                             localStorage.setItem("stage-account-mode", "club");
                             setStep("owner_club");
                           }}
@@ -213,8 +224,29 @@ export default function Onboarding({ onComplete }) {
                               <OwnerIcon />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">{t("commonPages.obClubOwner")}</p>
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">President</p>
                               <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obClubOwnerDesc")}</p>
+                            </div>
+                            <ChevronRight />
+                          </div>
+                        </button>
+
+                        {/* Player + President */}
+                        <button
+                          onClick={() => {
+                            setIntent("both");
+                            localStorage.setItem("stage-account-mode", "player");
+                            setStep("player");
+                          }}
+                          className="w-full group text-left bg-white/5 border border-white/15 hover:border-emerald-400/60 hover:bg-emerald-500/8 rounded-2xl p-5 transition-all duration-200"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 shrink-0">
+                              <PlayerPresidentIcon />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">Player + President</p>
+                              <p className="text-white/40 text-xs leading-relaxed">Create your player profile, then found and manage your club.</p>
                             </div>
                             <ChevronRight />
                           </div>
@@ -253,7 +285,7 @@ export default function Onboarding({ onComplete }) {
                   {step === "identity" && player && (
                     <IdentityClaimSetup
                       player={player}
-                      onComplete={() => setStep("club")}
+                      onComplete={() => setStep(intent === "both" ? "owner_club" : "club")}
                     />
                   )}
 
@@ -267,10 +299,11 @@ export default function Onboarding({ onComplete }) {
                     />
                   )}
 
-                  {/* ── REQUIRED CLUB (owner path) ──────────── */}
+                  {/* ── REQUIRED CLUB (president path) ──────────── */}
                   {step === "owner_club" && (
                     <ClubSetup
                       onComplete={finishOnboarding}
+                      player={player}
                       user={user}
                       required
                     />

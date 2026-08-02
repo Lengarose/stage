@@ -19,7 +19,7 @@ function loadClubOperationsServiceWithDbMock(executesql) {
   return require(servicePath);
 }
 
-test('getClubAccess grants owner permissions through legacy users.owner_id link', async () => {
+test('getClubAccess presents legacy users.owner_id club access as president permissions', async () => {
   const user = { id: 'user-1', email: 'changed@example.test', role_id: 1, role: 'user' };
   const club = { id: 'club-1', user_id: null, owner_email: 'old@example.test' };
   const executesql = async (sql, params = []) => {
@@ -36,8 +36,36 @@ test('getClubAccess grants owner permissions through legacy users.owner_id link'
   const access = await getClubAccess(user, 'club-1');
 
   assert.equal(access.allowed, true);
-  assert.deepEqual(access.roles, ['owner']);
+  assert.deepEqual(access.roles, ['president']);
   assert.equal(access.permissions.includes('manage_staff'), true);
+});
+
+test('getClubAccess grants president permissions through canonical club president_user_id', async () => {
+  const user = { id: 'president-user', email: 'president@example.test', role_id: 1, role: 'user' };
+  const club = {
+    id: 'club-1',
+    user_id: null,
+    president_user_id: 'president-user',
+    owner_email: 'legacy@example.test',
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'club-1') return [club];
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ ...user, player_id: null, owner_id: null }];
+    }
+    if (/FROM players\s+WHERE user_id = \?/.test(sql)) return [];
+    if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [club];
+    if (/SELECT \* FROM club_staff_roles/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const { getClubAccess } = loadClubOperationsServiceWithDbMock(executesql);
+  const access = await getClubAccess(user, 'club-1');
+
+  assert.equal(access.allowed, true);
+  assert.deepEqual(access.roles, ['president']);
+  assert.equal(access.permissions.includes('manage_finances'), true);
+  assert.equal(access.permissions.includes('offer_contracts'), true);
 });
 
 test('getClubAccess grants permissions from active club membership primary role', async () => {

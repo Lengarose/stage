@@ -78,6 +78,7 @@ router.post('/', async (req, res) => {
 
     const body = { ...req.body };
     body.user_id = await resolveClubUserId(req, body);
+    body.president_user_id = body.president_user_id || body.user_id || req.user?.id || null;
     if (!body.owner_email && req.user?.email) body.owner_email = req.user.email;
     if (body.stc               == null) body.stc                = 30_000_000;
     if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
@@ -164,6 +165,7 @@ router.patch('/:id', async (req, res) => {
       }
     }
     const merged = { ...existing[0], ...req.body };
+    merged.president_user_id = merged.president_user_id || merged.user_id || null;
     if (merged.user_id) {
       const rows = await EXECUTESQL('SELECT id FROM users WHERE id = ? LIMIT 1', [merged.user_id]);
       if (!rows.length) {

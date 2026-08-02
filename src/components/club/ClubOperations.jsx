@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canManageClubIdentity, isClubPresidentForUser, isAdminUser } from "@/lib/clubPresidentAccess";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
@@ -33,7 +34,7 @@ const PERMISSIONS = [
   "manage_staff",
 ];
 
-const STAFF_ROLES = ["president", "captain", "vice_captain", "recruiter", "finance_manager", "match_coordinator"];
+const STAFF_ROLES = ["president", "captain", "vice_captain"];
 const AVAILABILITY = ["available", "maybe", "unavailable"];
 const AVAILABILITY_LABEL_KEYS = {
   available: "commonPages.coopStatusAvailable",
@@ -91,14 +92,25 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   });
 
   const myClubRoles = normalizeList(myPlayer?.club_roles);
-  const isAdmin = Number(currentUser?.role_id) === 0 || currentUser?.role === "admin";
-  const isOwner = isAdmin || currentUser?.email?.toLowerCase?.() === club?.owner_email?.toLowerCase?.();
+  const isAdmin = isAdminUser(currentUser);
+  const isOwner = isAdmin || isClubPresidentForUser({ user: currentUser, club });
   const isClubMember = !!myPlayer?.id && myPlayer?.club_id === club?.id;
   const isCaptain = myPlayer?.role === "captain" || myPlayer?.role === "vice-captain" || myClubRoles.includes("captain") || myClubRoles.includes("vice-captain");
-  const isPresident = myPlayer?.role === "president" || myClubRoles.includes("president");
+  const isPresident =
+    isOwner ||
+    myPlayer?.role === "president" ||
+    myClubRoles.includes("president");
   const myStaffRoles = staffRoles.filter((role) => role.user_id === currentUser?.id || role.player_id === myPlayer?.id);
   const staffPermissions = new Set(myStaffRoles.flatMap((role) => normalizeList(role.permissions)));
-  const hasOperationalPower = isOwner || isPresident || isCaptain || myStaffRoles.length > 0 || staffPermissions.size > 0;
+  const hasOperationalPower =
+    canManageClubIdentity({
+      user: currentUser,
+      club,
+      staffPermissions: [...staffPermissions],
+    }) ||
+    isPresident ||
+    isCaptain ||
+    myStaffRoles.length > 0;
 
   useEffect(() => {
     load();

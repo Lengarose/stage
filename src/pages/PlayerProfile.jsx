@@ -31,6 +31,7 @@ import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog"
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { getClubPresidentContactEmail, isClubPresidentForUser } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -67,7 +68,7 @@ function getVisibleClubRole(player, club, contracts = []) {
       player.role === "president" ||
       player.role === "owner" ||
       hasOwnershipContract ||
-      (club && player.email && club.owner_email && player.email.toLowerCase() === club.owner_email.toLowerCase()) ||
+      isClubPresidentForUser({ user: { id: player.user_id, email: player.email }, club }) ||
       (club && player.user_id && club.user_id && player.user_id === club.user_id)
     )
   );
@@ -290,10 +291,11 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
     if (!recipientEmail) {
       try { const f = await stageClient.entities.Player.get(player.id); recipientEmail = f?.email || null; } catch { }
     }
-    const newContract = await stageClient.entities.PlayerContract.create({
-      team_id: viewerClub.id, user_id: player.id,
+    const result = await stageClient.functions.invoke("contractManagement", {
+      action: "offer",
+      team_id: viewerClub.id,
+      target_player_id: player.id,
       contract_type: terms.contract_type, offer_note: terms.offer_note || "",
-      offered_by: myPlayer?.id || "",
       max_games: typeMeta.max_games, max_days: typeMeta.max_days,
       weekly_salary_stc:   terms.weekly_salary_stc   || 0,
       signing_bonus_stc:   terms.signing_bonus_stc   || 0,
@@ -302,20 +304,22 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       captaincy_offered:   terms.captaincy_offered   || false,
       status: "pending",
     });
-    // This legacy profile path creates contracts directly, unlike Transfer Market.
-    // Do not add more delivery calls here; move offer creation to the server path.
-    await ensureContractOfferInbox({
-      contractId: newContract.id,
-      player: { ...player, email: recipientEmail || player.email },
-      club: viewerClub,
-      contractType: terms.contract_type,
-      maxGames: typeMeta.max_games,
-      maxDays: typeMeta.max_days,
-      weeklySalary: terms.weekly_salary_stc,
-      signingBonus: terms.signing_bonus_stc,
-      offerNote: terms.offer_note,
-      senderEmail: myPlayer?.email,
-    }).catch((err) => console.warn("[PlayerProfile] inbox fallback failed:", err?.message || err));
+    const newContract = result?.data?.contract || result?.contract || null;
+    const contractId = newContract?.id || result?.data?.contract_id || result?.contract_id;
+    if (contractId) {
+      await ensureContractOfferInbox({
+        contractId,
+        player: { ...player, email: recipientEmail || player.email },
+        club: viewerClub,
+        contractType: terms.contract_type,
+        maxGames: typeMeta.max_games,
+        maxDays: typeMeta.max_days,
+        weeklySalary: terms.weekly_salary_stc,
+        signingBonus: terms.signing_bonus_stc,
+        offerNote: terms.offer_note,
+        senderEmail: getClubPresidentContactEmail({ club: viewerClub }),
+      }).catch((err) => console.warn("[PlayerProfile] inbox fallback failed:", err?.message || err));
+    }
     postContractNews({
       title: `📄 ${viewerClub.name} offered a contract to ${player.gamertag}`,
       body: `${viewerClub.name} sent a ${terms.contract_type} contract offer to ${player.gamertag}.`,
@@ -324,7 +328,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       link: `/players/${player.id}`,
     });
     setOfferDialogOpen(false);
-    setPlayerContracts(prev => normalizePlayerContracts([...prev, newContract]));
+    if (newContract) {
+      setPlayerContracts(prev => normalizePlayerContracts([...prev, newContract]));
+    } else {
+      const refreshed = await stageClient.entities.PlayerContract.filter({ user_id: player.id }).catch(() => []);
+      setPlayerContracts(normalizePlayerContracts(refreshed));
+    }
   }
 
   if (loading || !id) {

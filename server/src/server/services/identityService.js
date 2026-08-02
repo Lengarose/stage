@@ -72,19 +72,26 @@ async function resolveUserIdentity(userId) {
     : [];
   const legacyMemberClub = legacyMemberClubRows[0] || null;
 
+  const presidentClubByUser = await safeQuery('SELECT * FROM clubs WHERE president_user_id = ? LIMIT 1', [user.id]);
+
   // `users.owner_id` is legacy naming: it stores the owned club id.
   const ownerClubByUserField = user.owner_id
     ? await safeQuery('SELECT * FROM clubs WHERE id = ? LIMIT 1', [user.owner_id])
     : [];
-  const ownerClubByClubUser = !ownerClubByUserField.length
+  const ownerClubByClubUser = !presidentClubByUser.length && !ownerClubByUserField.length
     ? await safeQuery('SELECT * FROM clubs WHERE user_id = ? LIMIT 1', [user.id])
     : [];
-  const ownerClubByEmail = !ownerClubByUserField.length && !ownerClubByClubUser.length && user.email
+  const ownerClubByEmail = !presidentClubByUser.length && !ownerClubByUserField.length && !ownerClubByClubUser.length && user.email
     ? await safeQuery('SELECT * FROM clubs WHERE LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) LIMIT 1', [user.email])
     : [];
-  const ownedClub = ownerClubByUserField[0] || ownerClubByClubUser[0] || ownerClubByEmail[0] || null;
+  const presidentClub = presidentClubByUser[0] || null;
+  const ownedClub = presidentClub || ownerClubByUserField[0] || ownerClubByClubUser[0] || ownerClubByEmail[0] || null;
   const ownedClubId = ownedClub?.id || user.owner_id || null;
+  const presidentClubId = presidentClub?.id || (
+    ownedClub && sameId(ownedClub.president_user_id, user.id) ? ownedClub.id : null
+  );
   user.owned_club_id = ownedClubId;
+  user.president_club_id = presidentClubId;
 
   const club = memberClub || legacyMemberClub || ownedClub || null;
   const staffRoles = club
@@ -97,8 +104,11 @@ async function resolveUserIdentity(userId) {
     : [];
 
   const roles = [];
-  if (ownedClub && (sameId(ownedClub.user_id, user.id) || sameEmail(ownedClub.owner_email, user.email) || sameId(ownedClubId, ownedClub.id))) {
-    roles.push('owner');
+  if (
+    (presidentClub && sameId(presidentClub.president_user_id, user.id))
+    || (ownedClub && (sameId(ownedClub.user_id, user.id) || sameEmail(ownedClub.owner_email, user.email) || sameId(ownedClubId, ownedClub.id)))
+  ) {
+    roles.push('president');
   }
   parseJson(player?.club_roles, []).forEach((role) => roles.push(role));
   if (player?.role && player.role !== 'member') roles.push(player.role);
@@ -110,6 +120,8 @@ async function resolveUserIdentity(userId) {
     player,
     membership,
     memberClub,
+    presidentClub,
+    presidentClubId,
     ownedClub,
     club,
     staffRoles,

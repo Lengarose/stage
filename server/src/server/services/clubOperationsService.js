@@ -74,11 +74,18 @@ async function getClubAccess(user, clubId) {
   const roles = [];
   const permissions = new Set();
   if (
+    String(club.president_user_id || '') === String(user.id)
+    || String(identity.presidentClub?.id || '') === String(clubId)
+  ) {
+    roles.push('president');
+    ROLE_PERMISSIONS.president.forEach((p) => permissions.add(p));
+  }
+  if (
     club.user_id === user.id
     || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
     || String(identity.ownedClub?.id || '') === String(clubId)
   ) {
-    roles.push('owner');
+    if (!roles.includes('president')) roles.push('president');
     ROLE_PERMISSIONS.owner.forEach((p) => permissions.add(p));
   }
 

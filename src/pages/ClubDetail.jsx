@@ -31,6 +31,7 @@ import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
+import { getClubPresidentContactEmail, isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
@@ -55,9 +56,6 @@ const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
   captain: "commonPages.cdCaptain",
   vice_captain: "commonPages.cdViceCaptain",
-  recruiter: "commonPages.coopRoleRecruiter",
-  finance_manager: "commonPages.coopRoleFinanceManager",
-  match_coordinator: "commonPages.coopRoleMatchCoordinator",
   member: "commonPages.cdMember",
 };
 
@@ -65,9 +63,6 @@ const CLUB_ROLE_FALLBACK_LABELS = {
   president: "President",
   captain: "Captain",
   vice_captain: "Vice-Captain",
-  recruiter: "Recruiter",
-  finance_manager: "Finance Manager",
-  match_coordinator: "Match Coordinator",
   member: "Member",
 };
 
@@ -135,10 +130,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
   const isMember = !!myPlayer?.club_id && myPlayer.club_id === id;
   const isCaptain = isMember && (myPlayer?.role === "captain" || myPlayer?.role === "vice-captain");
-  const isAdminUser = currentUser?.role === "admin" || Number(currentUser?.role_id) === 0;
+  const isAdminUser = isClubAccessAdmin(currentUser);
   const isAdminTakeover = isAdminUser && localStorage.getItem("admin_takeover_club_id") === id;
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
-  const isOwner = (club?.owner_email === currentUser?.email && accountMode === "club") || isAdminTakeover;
+  const isOwner = isClubPresidentForUser({
+    user: currentUser,
+    club,
+    includeLegacyOwnerEmail: accountMode === "club",
+  }) || isAdminTakeover;
   const isPresident = isMember && myPlayer?.club_roles?.includes("president");
   const isViceCaptain = isMember && (myPlayer?.role === "vice-captain" || myPlayer?.club_roles?.includes("vice-captain"));
   const canEdit = isOwner || isCaptain;
@@ -159,7 +158,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         setCurrentUser(user);
         const userEmail = user?.email || "";
 
-        const { player: resolvedPlayer = null } = await resolveMyPlayerAndClub().catch(() => ({}));
+        const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
         const [clubRecordRaw, initialPlayerRows, staffRoleRows, activeContractRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
@@ -303,12 +302,16 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           setOperationStaffRoles([]);
         }
 
-        if (myPl.length > 0 && (
+        const isCanonicalPresidentForThisClub = isClubPresidentForUser({
+          user,
+          club: c,
+          presidentClub,
+        });
+        if ((myPl.length > 0 && (
           myPl[0].role === "captain" ||
           myPl[0].role === "vice-captain" ||
-          myPl[0].club_roles?.includes("president") ||
-          c?.owner_email === userEmail
-        )) {
+          myPl[0].club_roles?.includes("president")
+        )) || isCanonicalPresidentForThisClub) {
           const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" }).catch(() => []);
           setJoinRequests(asObjectArray(reqs));
         } else {
@@ -381,13 +384,13 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   async function sendTrialRequest() {
     if (!myPlayer || !club) return;
     const gamerTag = myPlayer.gamertag || "Unknown";
-    let recipientEmail = String(club.owner_email || "").trim().toLowerCase();
+    let recipientEmail = String(getClubPresidentContactEmail({ club })).trim().toLowerCase();
     if (!recipientEmail) {
       const contact = await stageClient.functions.invoke("resolveClubContact", { club_id: id }).catch(() => null);
       recipientEmail = String(contact?.data?.recipient_email || "").trim().toLowerCase();
     }
     if (!recipientEmail) {
-      console.error("Trial request aborted: club owner_email is missing", club);
+      console.error("Trial request aborted: club president contact email is missing", club);
       return;
     }
     const preferredPosition = trialPosition || myPlayer.position || "N/A";
@@ -1135,14 +1138,14 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             )}
           </TabsContent>
 
-          {/* Contracts — owner only */}
+          {/* Contracts — president only */}
           {isOwner && (
             <TabsContent value="contracts" className="px-4 pt-4">
               <ContractsTab club={club} players={safePlayers} myPlayer={myPlayer} canManage={true} />
             </TabsContent>
           )}
 
-          {/* Stadium — owner only */}
+          {/* Stadium — president only */}
           {isOwner && (
             <TabsContent value="stadium" className="px-4 pt-4">
               <StadiumUpgrade
@@ -1153,7 +1156,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             </TabsContent>
           )}
 
-          {/* Finance + Shirts — owner only */}
+          {/* Finance + Shirts — president only */}
           {isOwner && (
             <>
               <TabsContent value="finance" className="px-4 pt-4">

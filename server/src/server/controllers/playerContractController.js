@@ -138,13 +138,18 @@ router.post('/', async (req, res) => {
   try {
     const safeBody = {
       ...req.body,
+      user_id: req.body?.target_player_id || req.body?.user_id,
       status: 'pending',
       start_date: null,
       end_date: null,
       games_played: Number(req.body?.games_played || 0),
     };
+    const { user } = await requireClubPermission(req, safeBody.team_id, 'offer_contracts');
+    safeBody.offered_by = user.email || safeBody.offered_by || '';
+    safeBody.offered_by_user_id = user.id;
+    safeBody.offered_by_club_id = safeBody.team_id;
     await assertCanCreateContractOffer({
-      playerId: safeBody.user_id || safeBody.target_player_id,
+      playerId: safeBody.user_id,
       teamId: safeBody.team_id,
       contractType: safeBody.contract_type,
     });

@@ -1,11 +1,17 @@
 const { v4: uuidv4 } = require('uuid');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastInbox, broadcastNotification } = require('../utils/socketBroadcast');
+const { resolveClubPresidentContact } = require('./clubContactService');
 
 function parseMaybeJson(value, fallback = {}) {
   if (value == null) return fallback;
   if (typeof value === 'object') return value;
   try { return JSON.parse(String(value)); } catch { return fallback; }
+}
+
+function formatContractTypeForSentence(type) {
+  if (type === 'ownership') return 'president';
+  return String(type || 'squad').replace(/_/g, ' ');
 }
 
 function getNotificationSettingKey(type) {
@@ -299,7 +305,8 @@ async function deliverContractOfferMessage(contractId) {
     "SELECT id, recipient_email FROM inbox_messages WHERE related_entity_id = ? AND message_type = 'contract_offer' LIMIT 1",
     [contractId]
   );
-  const typeLabel = String(contract.contract_type || 'squad').replace(/_/g, ' ');
+  const typeLabel = formatContractTypeForSentence(contract.contract_type);
+  const clubContact = await resolveClubPresidentContact({ clubId: contract.team_id });
   const body = [
     `${contract.club_name || 'A club'} has sent you a ${typeLabel} contract offer.`,
     '',
@@ -312,7 +319,7 @@ async function deliverContractOfferMessage(contractId) {
   ].filter(Boolean).join('\n');
   const idempotencyKey = `contract_offer:player_contract:${contractId}:${recipientEmail}`;
   const subject = `Contract Offer from ${contract.club_name || 'Club'}`;
-  const notificationBody = `${contract.club_name || 'A club'} has sent you a ${contract.contract_type || 'squad'} contract offer.`;
+  const notificationBody = `${contract.club_name || 'A club'} has sent you a ${typeLabel} contract offer.`;
 
   if (existingInbox.length) {
     const currentRecipient = String(existingInbox[0].recipient_email || '').trim().toLowerCase();
@@ -340,7 +347,7 @@ async function deliverContractOfferMessage(contractId) {
 
   const delivery = await sendActionMessage({
     recipientEmail,
-    senderEmail: contract.club_owner_email || 'system@stage.com',
+    senderEmail: clubContact.email || contract.club_owner_email || 'system@stage.com',
     senderGamertag: contract.club_name || 'Club Management',
     senderAvatarUrl: contract.club_logo_url || '',
     senderClubName: contract.club_name || '',

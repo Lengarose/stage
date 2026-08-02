@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const { t } = useTranslation();
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
-  const isOwnerMode = accountMode === "club";
-  const forcedSearchType = isOwnerMode ? "club" : "player";
+  const isPresidentMode = accountMode === "club";
+  const forcedSearchType = isPresidentMode ? "club" : "player";
   const [step, setStep] = useState("search");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState(forcedSearchType); // "club" | "player"
@@ -37,7 +38,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
-  const matchType = isOwnerMode ? "club" : searchType;
+  const matchType = isPresidentMode ? "club" : searchType;
   const activeSearchType = matchType;
   const availableWagerBalance = activeSearchType === "club"
     ? Number(myClub?.stc || 0)
@@ -72,7 +73,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
-      if ((isOwnerMode ? "club" : searchType) === "club") {
+      if ((isPresidentMode ? "club" : searchType) === "club") {
         const all = await stageClient.entities.Club.list("-rating", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(c =>
@@ -108,8 +109,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   }
 
   async function resolveClubRecipientEmail(club) {
-    const localOwnerEmail = isReachableEmail(club?.owner_email);
-    if (localOwnerEmail) return localOwnerEmail;
+    const localPresidentEmail = isReachableEmail(getClubPresidentContactEmail({ club }));
+    if (localPresidentEmail) return localPresidentEmail;
 
     try {
       const contact = await stageClient.functions.invoke("resolveClubContact", {
@@ -282,7 +283,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ) : step === "search" ? (
           <div className="space-y-4">
             {/* Type toggle — only when user can truly switch context */}
-            {!isOwnerMode && myClub && (
+            {!isPresidentMode && myClub && (
               <div className="flex rounded-lg border border-border overflow-hidden">
                 <button
                   type="button"
@@ -305,7 +306,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             {/* Context hint */}
             <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
-              {(isOwnerMode ? "club" : searchType) === "player"
+              {(isPresidentMode ? "club" : searchType) === "player"
                 ? <><span className="text-primary font-semibold">{t("commonPages.agdPlayerMatch")}</span> — {t("commonPages.agdPlayerMatchHint", { gamertag: myPlayer?.gamertag })}</>
                 : <><span className="text-primary font-semibold">{t("commonPages.agdClubMatch")}</span> — {t("commonPages.agdClubMatchHint", { clubName: myClub?.name })}</>
               }
@@ -318,7 +319,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
-                  placeholder={(isOwnerMode ? "club" : searchType) === "club" ? t("commonPages.agdSearchClubs") : t("commonPages.agdSearchPlayers")}
+                  placeholder={(isPresidentMode ? "club" : searchType) === "club" ? t("commonPages.agdSearchClubs") : t("commonPages.agdSearchPlayers")}
                   className="pl-9 bg-secondary border-border text-sm"
                 />
               </div>
@@ -339,7 +340,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                     <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {r.logo_url || r.avatar_url
                         ? <img src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
-                        : (isOwnerMode ? "club" : searchType) === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
+                        : (isPresidentMode ? "club" : searchType) === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">

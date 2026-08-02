@@ -23,10 +23,12 @@ async function repairUserProfileLinks(userId, email) {
 
   await EXECUTESQL(
     `UPDATE clubs
-     SET user_id = ?, updated_date = NOW()
+     SET user_id = ?,
+         president_user_id = COALESCE(president_user_id, ?),
+         updated_date = NOW()
      WHERE (user_id IS NULL OR user_id = '')
        AND LOWER(TRIM(owner_email)) = ?`,
-    [userId, normalizedEmail]
+    [userId, userId, normalizedEmail]
   ).catch(() => {});
 
   const [players, clubs] = await Promise.all([
@@ -39,12 +41,12 @@ async function repairUserProfileLinks(userId, email) {
       [userId, normalizedEmail, userId]
     ).catch(() => []),
     EXECUTESQL(
-      `SELECT id
+      `SELECT id, president_user_id
        FROM clubs
-       WHERE user_id = ? OR LOWER(TRIM(owner_email)) = ?
-       ORDER BY user_id = ? DESC, updated_date DESC
+       WHERE president_user_id = ? OR user_id = ? OR LOWER(TRIM(owner_email)) = ?
+       ORDER BY president_user_id = ? DESC, user_id = ? DESC, updated_date DESC
        LIMIT 1`,
-      [userId, normalizedEmail, userId]
+      [userId, userId, normalizedEmail, userId, userId]
     ).catch(() => []),
   ]);
 
@@ -59,6 +61,12 @@ async function repairUserProfileLinks(userId, email) {
 
   const player = players[0];
   const club = clubs[0];
+  if (club?.id && !club.president_user_id) {
+    await EXECUTESQL(
+      'UPDATE clubs SET president_user_id = COALESCE(president_user_id, ?), updated_date = NOW() WHERE id = ?',
+      [userId, club.id]
+    ).catch(() => {});
+  }
   if (player?.id && club?.id && (!player.club_id || player.club_id !== club.id)) {
     await EXECUTESQL(
       `UPDATE players
@@ -115,7 +123,7 @@ router.post('/login', validate({
     const rows = await EXECUTESQL(
       `SELECT u.* FROM users u
        LEFT JOIN players p ON p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
-       LEFT JOIN clubs c ON c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
+       LEFT JOIN clubs c ON c.president_user_id = u.id OR c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
        WHERE LOWER(u.email) = LOWER(?)
           OR LOWER(p.gamertag) = LOWER(?)
           OR LOWER(c.name) = LOWER(?)
@@ -144,9 +152,10 @@ router.post('/login', validate({
       [user.id, user.email]
     );
     const clubs = await EXECUTESQL(
-      'SELECT id FROM clubs WHERE user_id = ? OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) LIMIT 1',
-      [user.id, user.email]
+      'SELECT id, president_user_id FROM clubs WHERE president_user_id = ? OR user_id = ? OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) ORDER BY president_user_id = ? DESC, user_id = ? DESC LIMIT 1',
+      [user.id, user.id, user.email, user.id, user.id]
     );
+    const presidentClubId = clubs[0]?.president_user_id === user.id ? clubs[0]?.id : clubs[0]?.id || null;
     // Fire-and-forget sign-in notification (skips the OAuth placeholder addrs).
     notifyLogin({
       to: user.email,
@@ -163,6 +172,7 @@ router.post('/login', validate({
       playerId: players[0]?.id || null,
       ownerId: clubs[0]?.id || null,
       ownedClubId: clubs[0]?.id || null,
+      presidentClubId,
       roleId: Number(user.role_id ?? 1),
     });
   } catch (err) {
@@ -234,13 +244,14 @@ router.get('/me', async (req, res) => {
          p.club_id,
          c.id AS owner_id,
          c.id AS owned_club_id,
+         c.id AS president_club_id,
          c.name AS club_name
        FROM users u
        LEFT JOIN roles r   ON r.id = u.role_id
        LEFT JOIN players p ON p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
-       LEFT JOIN clubs c   ON c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
+       LEFT JOIN clubs c   ON c.president_user_id = u.id OR c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
        WHERE u.id = ?
-       ORDER BY p.user_id = u.id DESC, c.user_id = u.id DESC, p.updated_date DESC, c.updated_date DESC
+       ORDER BY p.user_id = u.id DESC, c.president_user_id = u.id DESC, c.user_id = u.id DESC, p.updated_date DESC, c.updated_date DESC
        LIMIT 1`,
       [decoded.id]
     );
@@ -258,6 +269,8 @@ router.get('/me', async (req, res) => {
       player_id: me.player_id || null,
       owner_id: me.owner_id || null,
       owned_club_id: me.owned_club_id || me.owner_id || null,
+      president_club_id: me.president_club_id || null,
+      president_club_name: me.president_club_id ? me.club_name || null : null,
       role_id: roleId,
       role_name: roleName,
       role: appRole,

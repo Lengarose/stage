@@ -13,6 +13,8 @@ class PlayerContract {
     this.contract_type       = body.contract_type;
     this.status              = body.status;
     this.offered_by          = body.offered_by;
+    this.offered_by_user_id  = body.offered_by_user_id;
+    this.offered_by_club_id  = body.offered_by_club_id;
     this.max_games           = body.max_games;
     this.max_days            = body.max_days;
     this.games_played        = body.games_played;
@@ -70,15 +72,15 @@ class PlayerContract {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO player_contracts
-      (id, team_id, user_id, contract_type, status, offered_by,
+      (id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id,
        max_games, max_days, games_played,
        weekly_salary_stc, salary_per_game_stc, signing_bonus_stc, transfer_fee_stc,
        offer_note, transfer_window_id, is_loan, loan_return_date, last_salary_paid_at,
        captaincy_offered, last_negotiated_by, negotiation_round,
        start_date, end_date, performance_targets)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
-      this.id, this.team_id, this.user_id, this.contract_type, this.status, this.offered_by,
+      this.id, this.team_id, this.user_id, this.contract_type, this.status, this.offered_by, this.offered_by_user_id, this.offered_by_club_id,
       this.max_games, this.max_days, this.games_played,
       this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
       this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,
@@ -90,7 +92,7 @@ class PlayerContract {
 
   update(id) {
     const sql = `UPDATE player_contracts SET
-      team_id=?, user_id=?, contract_type=?, status=?, offered_by=?,
+      team_id=?, user_id=?, contract_type=?, status=?, offered_by=?, offered_by_user_id=?, offered_by_club_id=?,
       max_games=?, max_days=?, games_played=?,
       weekly_salary_stc=?, salary_per_game_stc=?, signing_bonus_stc=?, transfer_fee_stc=?,
       offer_note=?, transfer_window_id=?, is_loan=?, loan_return_date=?, last_salary_paid_at=?,
@@ -98,7 +100,7 @@ class PlayerContract {
       start_date=?, end_date=?, performance_targets=?
       WHERE id=?`;
     const values = [
-      this.team_id, this.user_id, this.contract_type, this.status, this.offered_by,
+      this.team_id, this.user_id, this.contract_type, this.status, this.offered_by, this.offered_by_user_id, this.offered_by_club_id,
       this.max_games, this.max_days, this.games_played,
       this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
       this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,

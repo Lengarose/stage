@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getOwnedClubId } from "../userIdentityFields.js";
+import { getOwnedClubId, getPresidentClubId } from "../userIdentityFields.js";
+
+test("getPresidentClubId supports snake_case and camelCase auth payloads", () => {
+  assert.equal(getPresidentClubId({ president_club_id: "club-president-1" }), "club-president-1");
+  assert.equal(getPresidentClubId({ presidentClubId: "club-president-2" }), "club-president-2");
+});
 
 test("getOwnedClubId prefers explicit owned_club_id", () => {
-  assert.equal(getOwnedClubId({ owned_club_id: "club-1", owner_id: "legacy-club" }), "club-1");
+  assert.equal(getOwnedClubId({ president_club_id: "club-president", owned_club_id: "club-1", owner_id: "legacy-club" }), "club-president");
 });
 
 test("getOwnedClubId supports camelCase auth payload and legacy owner ids", () => {

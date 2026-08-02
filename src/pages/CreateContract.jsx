@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { resolveMyPlayerAndClub, stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,6 +17,7 @@ import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerfo
 import { cn } from "@/lib/utils";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -60,9 +61,10 @@ export default function CreateContract() {
 
   async function loadData() {
     setLoading(true);
-    const [user, clubArr] = await Promise.all([
+    const [user, clubArr, identity] = await Promise.all([
       stageClient.auth.me(),
       stageClient.entities.Club.filter({ id: clubId }),
+      resolveMyPlayerAndClub(),
     ]);
     const clubData = clubArr[0];
     if (!clubData) { setLoading(false); return; }
@@ -75,10 +77,14 @@ export default function CreateContract() {
     setPlayers(playerArr);
     setContracts(normalizePlayerContracts(contractArr));
 
-    const me = playerArr.find(p => p.email === user.email);
+    const me = identity.player || playerArr.find(p => p.email === user.email);
     setMyPlayer(me);
-    const pres = clubData.owner_email === user.email ||
-      (me && me.club_roles?.includes("president"));
+    const pres = canManageClubIdentity({
+      user,
+      club: clubData,
+      presidentClub: identity.presidentClub,
+      activeRoles: identity.activeRoles || [],
+    }) || (me && me.club_roles?.includes("president"));
     setIsPresident(pres);
     setLoading(false);
   }
@@ -114,12 +120,12 @@ export default function CreateContract() {
       const salary  = weeklySalary  ? parseInt(weeklySalary)  : 0;
       const bonus   = signingBonus  ? parseInt(signingBonus)  : 0;
 
-      const newContract = await stageClient.entities.PlayerContract.create({
+      const result = await stageClient.functions.invoke("contractManagement", {
+        action: "offer",
         team_id: clubId,
-        user_id: selectedPlayer.id,
+        target_player_id: selectedPlayer.id,
         contract_type: selectedType,
         offer_note: note || "",
-        offered_by: myPlayer?.id || "",
         max_games: typeMeta.max_games,
         max_days: typeMeta.max_days,
         weekly_salary_stc:   salary,
@@ -127,21 +133,23 @@ export default function CreateContract() {
         transfer_fee_stc:    0,
         performance_targets: targets,
         captaincy_offered:   captaincy,
-        status: "pending",
       });
+      const newContract = result?.data?.contract;
 
-      await ensureContractOfferInbox({
-        contractId: newContract.id,
-        player: { ...selectedPlayer, email: recipientEmail || selectedPlayer.email },
-        club,
-        contractType: selectedType,
-        maxGames: typeMeta.max_games,
-        maxDays: typeMeta.max_days,
-        weeklySalary: salary,
-        signingBonus: bonus,
-        offerNote: note,
-        senderEmail: myPlayer?.email,
-      }).catch((err) => console.warn("[CreateContract] inbox fallback failed:", err?.message || err));
+      if (newContract?.id) {
+        await ensureContractOfferInbox({
+          contractId: newContract.id,
+          player: { ...selectedPlayer, email: recipientEmail || selectedPlayer.email },
+          club,
+          contractType: selectedType,
+          maxGames: typeMeta.max_games,
+          maxDays: typeMeta.max_days,
+          weeklySalary: salary,
+          signingBonus: bonus,
+          offerNote: note,
+          senderEmail: club?.owner_email,
+        }).catch((err) => console.warn("[CreateContract] inbox fallback failed:", err?.message || err));
+      }
 
       postContractNews({
         title: `📄 ${club.name} offered a contract to ${selectedPlayer.gamertag}`,
