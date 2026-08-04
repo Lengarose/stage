@@ -35,6 +35,7 @@ server/src/constants/env.local.js
 .env
 .vite
 .superpowers/
+.worktrees/
 
 # Installed agent skills (regenerable from skills-lock.json)
 .agents/
