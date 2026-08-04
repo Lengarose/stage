@@ -24,8 +24,8 @@ export default function InternationalTournaments() {
     setLoading(true);
     setLoadError('');
     try {
-      const { player, presidentClub = null, club = null } = await resolveMyPlayerAndClub();
-      const activePresidentClub = presidentClub || club;
+      const { player, presidentClub = null } = await resolveMyPlayerAndClub();
+      const activePresidentClub = presidentClub || null;
       const rows = await internationalTournamentsApi.list(100);
 
       let electionMap = {};

@@ -41,6 +41,19 @@ async function runStartupMigrations() {
   await addCol('inbox_messages', 'is_system', 'TINYINT(1) NULL DEFAULT 0');
   await addCol('inbox_messages', 'metadata', 'JSON NULL');
   await addCol('inbox_messages', 'idempotency_key', 'VARCHAR(190) NULL');
+  await addCol('inbox_messages', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await EXECUTESQL(`
+    UPDATE inbox_messages
+    SET status = 'accepted',
+        is_read = 1,
+        updated_date = NOW()
+    WHERE message_type = 'match_invite'
+      AND related_entity_type = 'match'
+      AND related_entity_id IS NOT NULL
+      AND (status IS NULL OR status IN ('pending', 'unread'))
+      AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.created_match_id')) = related_entity_id
+      AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.reschedule_request')), 'false') NOT IN ('true', '1')
+  `).catch(err => console.error('[migration] match_invite_status_backfill:', err.message));
   await addIndex('notifications', 'idx_notifications_type_related', '(type, related_id)');
   await addIndex('notifications', 'idx_notifications_idempotency', '(idempotency_key)');
   await addIndex('inbox_messages', 'idx_inbox_type_related', '(message_type, related_entity_id)');
@@ -621,6 +634,58 @@ async function runStartupMigrations() {
         c.updated_date = NOW()
     WHERE c.president_user_id IS NULL
   `).catch(err => console.error('[migration] club_president_user_link:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE clubs
+    SET president_user_id = user_id,
+        updated_date = NOW()
+    WHERE president_user_id IS NULL
+      AND user_id IS NOT NULL
+  `).catch(err => console.error('[migration] club_president_user_id_from_user:', err.message));
+
+  await EXECUTESQL(`
+    INSERT IGNORE INTO users (id, email, password_hash, role_id, role, owner_id, created_date, updated_date)
+    SELECT UUID(),
+           COALESCE(NULLIF(TRIM(c.owner_email), ''), CONCAT('club-', c.id, '@stage.local')),
+           NULL,
+           1,
+           'user',
+           c.id,
+           NOW(),
+           NOW()
+    FROM clubs c
+    LEFT JOIN users u
+      ON LOWER(TRIM(u.email)) = LOWER(TRIM(COALESCE(NULLIF(c.owner_email, ''), CONCAT('club-', c.id, '@stage.local'))))
+    WHERE c.president_user_id IS NULL
+      AND c.user_id IS NULL
+      AND u.id IS NULL
+  `).catch(err => console.error('[migration] club_president_placeholder_users:', err.message));
+
+  await EXECUTESQL(`
+    UPDATE clubs c
+    JOIN users u
+      ON LOWER(TRIM(u.email)) = LOWER(TRIM(COALESCE(NULLIF(c.owner_email, ''), CONCAT('club-', c.id, '@stage.local'))))
+    SET c.user_id = COALESCE(c.user_id, u.id),
+        c.president_user_id = COALESCE(c.president_user_id, u.id),
+        u.owner_id = COALESCE(u.owner_id, c.id),
+        c.owner_email = COALESCE(NULLIF(TRIM(c.owner_email), ''), u.email),
+        c.updated_date = NOW(),
+        u.updated_date = NOW()
+    WHERE c.president_user_id IS NULL
+  `).catch(err => console.error('[migration] club_president_placeholder_link:', err.message));
+
+  const clubPresidentOrphans = await EXECUTESQL(
+    'SELECT id, name FROM clubs WHERE president_user_id IS NULL LIMIT 10'
+  ).catch(err => {
+    console.error('[migration] club_president_orphans:', err.message);
+    return [{ id: 'lookup_failed', name: err.message }];
+  });
+  if (clubPresidentOrphans.length) {
+    throw new Error(`clubs.president_user_id migration left ${clubPresidentOrphans.length} orphan club(s)`);
+  }
+
+  await EXECUTESQL('ALTER TABLE clubs MODIFY COLUMN president_user_id VARCHAR(36) NOT NULL')
+    .catch(err => console.error('[migration] clubs.president_user_id not null:', err.message));
 
   await EXECUTESQL(`
     UPDATE players p

@@ -387,7 +387,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
 }
 
 function deriveCompetition(match, tournament, t) {
-  // Arranged games (no real tournament) — tournament_id is "ranked" sentinel
+  // Arranged games have no real tournament. Keep "ranked" support for legacy rows.
   if (!tournament || match.tournament_id === "ranked") {
     return t("matchFlow.rankedMatch");
   }

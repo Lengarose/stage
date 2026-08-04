@@ -14,7 +14,7 @@ const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW",
 const inputCls = "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 
-export default function PlayerSetup({ onComplete, user, initialPlayer = null }) {
+export default function PlayerSetup({ onComplete, user, initialPlayer = null, intent = "player" }) {
   const { t } = useTranslation();
   const [gamertag, setGamertag] = useState(initialPlayer?.gamertag || "");
   const [position, setPosition] = useState(initialPlayer?.position || "ST");
@@ -131,6 +131,9 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
     overall_rating: initialPlayer?.overall_rating ?? 0,
     shirt_number: initialPlayer?.shirt_number ?? 6,
   };
+  const continueLabel = intent === "both"
+    ? t("commonPages.obContinueClub")
+    : t("commonPages.agdContinue");
 
   return (
     <div className="space-y-5">
@@ -242,7 +245,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null }) 
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> {t("commonPages.obSaving")}
           </span>
-        ) : t("commonPages.obContinueClub")}
+        ) : continueLabel}
       </button>
 
       <ImagePositionEditor

@@ -47,6 +47,48 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     if (fresh && fresh !== selectedGame) setSelectedGame(fresh);
   }, [games, selectedGame]);
 
+  useEffect(() => {
+    if (!selectedGame?.id) return;
+    let stopped = false;
+
+    const applyFreshMatch = (fresh) => {
+      if (stopped || !fresh?.id || fresh.id !== selectedGame.id) return;
+      if (scopedTournamentId && fresh.tournament_id !== scopedTournamentId) return;
+
+      setSelectedGame(fresh);
+      setGames(prev => {
+        if (fresh.status === "forfeit") return prev.filter(g => g.id !== fresh.id);
+        if (prev.some(g => g.id === fresh.id)) {
+          return prev.map(g => g.id === fresh.id ? fresh : g);
+        }
+        return [fresh, ...prev];
+      });
+    };
+
+    const unsubSelectedMatch = stageClient.entities.Match.subscribe((event) => {
+      if (event?.type === "delete" && event.id === selectedGame.id) {
+        setSelectedGame(null);
+        setGames(prev => prev.filter(g => g.id !== selectedGame.id));
+        return;
+      }
+      applyFreshMatch(event?.data);
+    }, { id: selectedGame.id });
+
+    async function refreshSelectedMatch() {
+      const fresh = await stageClient.entities.Match.get(selectedGame.id).catch(() => null);
+      applyFreshMatch(fresh);
+    }
+
+    refreshSelectedMatch();
+    const intervalId = window.setInterval(refreshSelectedMatch, 10000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+      unsubSelectedMatch?.();
+    };
+  }, [selectedGame?.id, scopedTournamentId]);
+
   // Build the [{key, label, count}] list of league/competition groups used to
   // populate the filter dropdown. Sorted by descending count so the most
   // active league surfaces first.

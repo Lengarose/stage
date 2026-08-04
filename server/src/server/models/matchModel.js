@@ -2,10 +2,16 @@ const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { toMysqlDateTime } = require('../utils/datetime');
 
+function normalizeTournamentId(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (String(value).toLowerCase() === 'ranked') return null;
+  return value;
+}
+
 class Match {
   constructor(body = {}) {
     this.id                    = body.id;
-    this.tournament_id         = body.tournament_id;
+    this.tournament_id         = normalizeTournamentId(body.tournament_id);
     this.home_club_id          = body.home_club_id;
     this.away_club_id          = body.away_club_id;
     this.home_club_name        = body.home_club_name;

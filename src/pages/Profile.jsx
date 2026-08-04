@@ -32,6 +32,7 @@ import PresidentContractDialog from "@/components/contracts/PresidentContractDia
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { isClubPresidentForUser } from "@/lib/clubPresidentAccess";
+import { isPresidentAccountIntent, readAccountIntent } from "@/lib/accountIntent";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -87,6 +88,7 @@ export default function Profile({
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
+  const [accountIntent, setAccountIntent] = useState("player");
   const homePath = tournamentMode && tournamentId ? `/tournaments/${tournamentId}` : "/dashboard";
   const homeLabel = tournamentMode ? t("nav.tournament") : t("nav.dashboard");
   const myClubHref = myClub?.id
@@ -134,6 +136,8 @@ export default function Profile({
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [futMatches, setFutMatches] = useState([]);
   const [eafcSummary, setEafcSummary] = useState(null);
+  const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
+  const canUsePlayerProfile = accountIntent !== "president";
 
   useEffect(() => {
     setView(initialView);
@@ -145,12 +149,17 @@ export default function Profile({
       try {
         const isAuthed = await stageClient.auth.isAuthenticated();
         if (!isAuthed) return;
-        const { user: rawUser, player: rawPlayer, club: rawClub } = await resolveMyPlayerAndClub().catch(() => ({}));
+        const { user: rawUser, player: rawPlayer, presidentClub: rawPresidentClub } = await resolveMyPlayerAndClub().catch(() => ({}));
         const u = asObject(rawUser);
         const resolvedPlayer = asObject(rawPlayer);
-        const resolvedClub_ = asObject(rawClub);
+        const resolvedPresidentClub = asObject(rawPresidentClub);
         if (!u || !alive) return;
         setUser(u);
+        const storedIntent = readAccountIntent(u.id);
+        const effectiveIntent = resolvedPresidentClub && !resolvedPlayer && storedIntent === "player"
+          ? "president"
+          : storedIntent;
+        setAccountIntent(effectiveIntent);
         const cl = await stageClient.entities.Club.list("-rating", 200).catch(() => []);
         if (!alive) return;
         setClubs(asObjectArray(cl));
@@ -193,27 +202,29 @@ export default function Profile({
             setEafcSummary(asObject(eafcData));
           });
 
-          // Use the club already resolved via the canonical chain (user -> player -> club / president fallback).
-          const resolvedClub = resolvedClub_;
-          if (resolvedClub) {
-            setMyClub(resolvedClub);
+          if (resolvedPresidentClub) {
+            setMyClub(resolvedPresidentClub);
             setClubForm({
-              name: resolvedClub.name || "",
-              tag: resolvedClub.tag || "",
-              platform: resolvedClub.platform || "PlayStation",
-              region: resolvedClub.region || "Europe",
-              description: resolvedClub.description || "",
-              country_code: resolvedClub.country_code || "",
+              name: resolvedPresidentClub.name || "",
+              tag: resolvedPresidentClub.tag || "",
+              platform: resolvedPresidentClub.platform || "PlayStation",
+              region: resolvedPresidentClub.region || "Europe",
+              description: resolvedPresidentClub.description || "",
+              country_code: resolvedPresidentClub.country_code || "",
             });
+          } else {
+            setMyClub(null);
           }
-        } else {
-          // No player yet — go to edit to create one
+        } else if (resolvedPresidentClub) {
+          setMyClub(resolvedPresidentClub);
+          setView("club");
+        } else if (effectiveIntent !== "president") {
           setView("edit_player");
         }
         const [notifs, joinReqs] = await Promise.all([
           stageClient.entities.Notification.filter({ recipient_email: u.email }, "-created_date", 30).catch(() => []),
-          resolvedPlayer?.club_id
-            ? stageClient.entities.JoinRequest.filter({ club_id: resolvedPlayer.club_id, status: "pending" }, "-created_date", 30).catch(() => [])
+          resolvedPresidentClub?.id
+            ? stageClient.entities.JoinRequest.filter({ club_id: resolvedPresidentClub.id, status: "pending" }, "-created_date", 30).catch(() => [])
             : Promise.resolve([]),
         ]);
         if (alive) {
@@ -434,9 +445,11 @@ export default function Profile({
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-[9px] flex items-center justify-center font-bold">{safeJoinRequests.length}</span>
                 </button>
               ) : null}
-              <button type="button" onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider">
-                <Settings className="w-4 h-4" /> {t("commonPages.profEditProfile")}
-              </button>
+              {canUsePlayerProfile ? (
+                <button type="button" onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider">
+                  <Settings className="w-4 h-4" /> {t("commonPages.profEditProfile")}
+                </button>
+              ) : null}
               <button type="button" onClick={() => stageClient.auth.logout()} className="p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
                 <LogOut className="w-4 h-4 text-white/70" />
               </button>
@@ -595,7 +608,7 @@ export default function Profile({
           </Dialog>
         )}
 
-        {!player && (
+        {!player && canUsePlayerProfile && (
           <div className="max-w-2xl mx-auto px-4 mt-6">
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 text-center">
               <h2 className="font-bold text-white text-lg mb-2">{t("commonPages.profWelcome")}</h2>
@@ -622,7 +635,7 @@ export default function Profile({
           </div>
         )}
 
-        {player && player.gamertag && player.position && player.platform && !myClub && (
+        {player && player.gamertag && player.position && player.platform && !myClub && canPromptForClubOnboarding && (
           <div className="max-w-2xl mx-auto px-4 mt-4">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
@@ -642,6 +655,7 @@ export default function Profile({
         <ProfileCompletionModal
           open={profileModalOpen}
           player={player}
+          allowClubOnboarding={canPromptForClubOnboarding}
           onComplete={async (club) => {
             setProfileModalOpen(false);
             if (asObject(club)) setMyClub(club);
@@ -653,7 +667,7 @@ export default function Profile({
         />
 
         <ClubOnboardingModal
-          open={clubOnboardingOpen}
+          open={clubOnboardingOpen && canPromptForClubOnboarding}
           player={player}
           onComplete={async (club) => {
             setClubOnboardingOpen(false);
@@ -942,7 +956,7 @@ export default function Profile({
               </div>
             </div>
           </div>
-        ) : (
+        ) : canPromptForClubOnboarding ? (
           <div className="space-y-5">
             <div className="bg-card border border-border rounded-2xl p-8 text-center">
               <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -952,7 +966,7 @@ export default function Profile({
               </Button>
             </div>
             <ClubOnboardingModal
-              open={clubOnboardingOpen}
+              open={clubOnboardingOpen && canPromptForClubOnboarding}
               player={player}
               onComplete={async (club) => {
                 setClubOnboardingOpen(false);
@@ -967,6 +981,11 @@ export default function Profile({
                 }
               }}
             />
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-2xl p-8 text-center">
+            <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-0">{t("commonPages.profNotClub")}</p>
           </div>
         )}
       </div>

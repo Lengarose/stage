@@ -31,6 +31,9 @@ test('fresh club schema and startup migrations preserve the required president l
   assert.match(schema, /president_user_id\s+VARCHAR\(36\)\s+NOT NULL/);
   assert.match(startupMigrations, /club_president_user_link/);
   assert.match(startupMigrations, /WHERE c\.president_user_id IS NULL/);
+  assert.match(startupMigrations, /club_president_placeholder_users/);
+  assert.match(startupMigrations, /club_president_orphans/);
+  assert.match(startupMigrations, /ALTER TABLE clubs MODIFY COLUMN president_user_id VARCHAR\(36\) NOT NULL/);
 });
 
 test('legacy direct club inserts include the required president link', () => {
@@ -74,6 +77,7 @@ test('message delivery tables include idempotency fields in schema and startup m
   assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*is_system\s+TINYINT\(1\)/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*metadata\s+JSON/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*idempotency_key\s+VARCHAR\(190\)/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*updated_date\s+DATETIME\s+DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP/);
   assert.match(schema, /CREATE INDEX idx_notifications_type_related\s+ON notifications\(type, related_id\)/);
   assert.match(schema, /CREATE INDEX idx_notifications_idempotency\s+ON notifications\(idempotency_key\)/);
   assert.match(schema, /CREATE INDEX idx_inbox_type_related\s+ON inbox_messages\(message_type, related_entity_id\)/);
@@ -87,6 +91,9 @@ test('message delivery tables include idempotency fields in schema and startup m
   assert.match(startupMigrations, /addCol\('inbox_messages', 'is_system', 'TINYINT\(1\) NULL DEFAULT 0'\)/);
   assert.match(startupMigrations, /addCol\('inbox_messages', 'metadata', 'JSON NULL'\)/);
   assert.match(startupMigrations, /addCol\('inbox_messages', 'idempotency_key', 'VARCHAR\(190\) NULL'\)/);
+  assert.match(startupMigrations, /addCol\('inbox_messages', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'\)/);
+  assert.match(startupMigrations, /match_invite_status_backfill/);
+  assert.match(startupMigrations, /JSON_EXTRACT\(metadata, '\$\.created_match_id'\)\) = related_entity_id/);
   assert.match(startupMigrations, /addIndex\('notifications', 'idx_notifications_idempotency', '\(idempotency_key\)'\)/);
   assert.match(startupMigrations, /addIndex\('inbox_messages', 'idx_inbox_idempotency', '\(idempotency_key\)'\)/);
 });

@@ -9,6 +9,7 @@ import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { writeAccountIntent } from "@/lib/accountIntent";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
@@ -52,6 +53,12 @@ export default function Onboarding({ onComplete }) {
   const [intent,       setIntent]       = useState("player");
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  const setOnboardingIntent = (nextIntent, accountMode) => {
+    setIntent(nextIntent);
+    writeAccountIntent(nextIntent, user?.id);
+    localStorage.setItem("stage-account-mode", accountMode);
+  };
 
   useEffect(() => {
     (async () => {
@@ -97,10 +104,20 @@ export default function Onboarding({ onComplete }) {
     if (isDiscordConfigured()) setStep("discord");
     else setTutorialOpen(true);
   };
+  function handleIdentityComplete() {
+    if (intent === "player") {
+      finishOnboarding();
+      return;
+    }
+    setStep("owner_club");
+  }
+
   const finishDiscordStep = () => setTutorialOpen(true);
   const handleTutorialClose = () => { setTutorialOpen(false); onComplete?.(); };
 
-  const meta = STEPS[step] || STEPS.choose;
+  const meta = intent === "player" && (step === "player" || step === "identity")
+    ? { ...(STEPS[step] || STEPS.choose), total: 3 }
+    : STEPS[step] || STEPS.choose;
   const progress = ((meta.index) / (meta.total - 1)) * 100;
   const isWideStep = step === "identity" || step === "discord";
 
@@ -192,8 +209,7 @@ export default function Onboarding({ onComplete }) {
                         {/* Player */}
                         <button
                           onClick={() => {
-                            setIntent("player");
-                            localStorage.setItem("stage-account-mode", "player");
+                            setOnboardingIntent("player", "player");
                             setStep("player");
                           }}
                           className="w-full group text-left bg-white/5 border border-white/15 hover:border-blue-500/60 hover:bg-blue-500/8 rounded-2xl p-5 transition-all duration-200"
@@ -213,8 +229,7 @@ export default function Onboarding({ onComplete }) {
                         {/* President */}
                         <button
                           onClick={() => {
-                            setIntent("president");
-                            localStorage.setItem("stage-account-mode", "club");
+                            setOnboardingIntent("president", "club");
                             setStep("owner_club");
                           }}
                           className="w-full group text-left bg-white/5 border border-white/15 hover:border-amber-500/60 hover:bg-amber-500/8 rounded-2xl p-5 transition-all duration-200"
@@ -224,7 +239,7 @@ export default function Onboarding({ onComplete }) {
                               <OwnerIcon />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">President</p>
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">{t("commonPages.obClubOwner")}</p>
                               <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obClubOwnerDesc")}</p>
                             </div>
                             <ChevronRight />
@@ -234,8 +249,7 @@ export default function Onboarding({ onComplete }) {
                         {/* Player + President */}
                         <button
                           onClick={() => {
-                            setIntent("both");
-                            localStorage.setItem("stage-account-mode", "player");
+                            setOnboardingIntent("both", "player");
                             setStep("player");
                           }}
                           className="w-full group text-left bg-white/5 border border-white/15 hover:border-emerald-400/60 hover:bg-emerald-500/8 rounded-2xl p-5 transition-all duration-200"
@@ -245,8 +259,12 @@ export default function Onboarding({ onComplete }) {
                               <PlayerPresidentIcon />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">Player + President</p>
-                              <p className="text-white/40 text-xs leading-relaxed">Create your player profile, then found and manage your club.</p>
+                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">
+                                {t("commonPages.storePlayer")} + {t("commonPages.obClubOwner")}
+                              </p>
+                              <p className="text-white/40 text-xs leading-relaxed">
+                                {t("commonPages.obPlayerDesc")} {t("commonPages.obClubOwnerDesc")}
+                              </p>
                             </div>
                             <ChevronRight />
                           </div>
@@ -261,6 +279,7 @@ export default function Onboarding({ onComplete }) {
                       onComplete={handlePlayerComplete}
                       user={user}
                       initialPlayer={player}
+                      intent={intent}
                     />
                   )}
                   {step === "player" && player?.country && (
@@ -285,12 +304,12 @@ export default function Onboarding({ onComplete }) {
                   {step === "identity" && player && (
                     <IdentityClaimSetup
                       player={player}
-                      onComplete={() => setStep(intent === "both" ? "owner_club" : "club")}
+                      onComplete={handleIdentityComplete}
                     />
                   )}
 
                   {/* ── OPTIONAL CLUB (player path) ─────────── */}
-                  {step === "club" && (
+                  {step === "club" && intent !== "player" && (
                     <ClubSetup
                       onSkip={finishOnboarding}
                       onComplete={finishOnboarding}

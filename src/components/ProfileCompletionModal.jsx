@@ -15,7 +15,7 @@ import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subs
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["PlayStation", "Xbox", "PC"];
 
-export default function ProfileCompletionModal({ open, player, onComplete }) {
+export default function ProfileCompletionModal({ open, player, onComplete, allowClubOnboarding = false }) {
   const { t } = useTranslation();
   const [gamertag, setGamertag] = useState(player?.gamertag || "");
   const [position, setPosition] = useState(player?.position || "");
@@ -58,11 +58,10 @@ export default function ProfileCompletionModal({ open, player, onComplete }) {
     setSavedPlayer(updatedPlayer);
     setLoading(false);
 
-    // Show club onboarding only if player has no club yet
-    if (!player.club_id) {
+    if (allowClubOnboarding && !player.club_id) {
       setShowClubOnboarding(true);
     } else {
-      onComplete?.();
+      onComplete?.(null);
     }
   }
 

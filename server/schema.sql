@@ -501,7 +501,8 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
   related_entity_id   VARCHAR(36),
   related_entity_type VARCHAR(100),
   idempotency_key     VARCHAR(190),
-  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP
+  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ── predictions ───────────────────────────────────────────────

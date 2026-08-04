@@ -27,7 +27,18 @@ async function issueAndRedirect(res, player) {
     [uuidv4(), player.email || '', refreshToken]
   );
 
-  const clubs = await EXECUTESQL('SELECT id FROM clubs WHERE user_id = ? LIMIT 1', [userId]);
+  const clubs = await EXECUTESQL(
+    `SELECT id, president_user_id, user_id
+       FROM clubs
+      WHERE president_user_id = ?
+         OR user_id = ?
+         OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?))
+      ORDER BY (president_user_id = ?) DESC, (user_id = ?) DESC
+      LIMIT 1`,
+    [userId, userId, player.email || '', userId, userId]
+  );
+  const matchedClubId = clubs[0]?.id || '';
+  const presidentClubId = String(clubs[0]?.president_user_id || '') === String(userId) ? matchedClubId : '';
 
   // Sign-in notification (mailer skips @stage.local placeholder addresses).
   notifyLogin({
@@ -42,8 +53,9 @@ async function issueAndRedirect(res, player) {
     refreshToken,
     userId,
     playerId: player.id,
-    ownerId:  clubs[0]?.id || '',
-    ownedClubId: clubs[0]?.id || '',
+    ownerId: matchedClubId,
+    ownedClubId: matchedClubId,
+    presidentClubId,
   });
   // New OAuth accounts still need the full onboarding flow (profile, club, tutorial).
   if (player.__isNewUser) params.set('isNewUser', '1');

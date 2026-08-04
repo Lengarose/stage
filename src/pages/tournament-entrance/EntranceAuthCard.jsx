@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { stageClient } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { ensureAdminPanelMode, isAppAdminUser } from "@/lib/adminAuth";
+import { shouldApplyTournamentEntranceAccess } from "@/lib/tournamentEntranceAccess";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import BannerImg from "@/assets/Banner.jpg";
@@ -107,7 +108,7 @@ export default function EntranceAuthCard({ mode }) {
     const me = await stageClient.auth.me().catch(() => null);
     if (!me) throw new Error(t("commonPages.teUnableAccount"));
     if (isAppAdminUser(me)) ensureAdminPanelMode();
-    if (isSignup && tournamentId) {
+    if (tournamentId && shouldApplyTournamentEntranceAccess(me)) {
       await stageClient.functions
         .invoke("applyTournamentEntranceAccessMode", { tournament_id: tournamentId })
         .catch(() => {});

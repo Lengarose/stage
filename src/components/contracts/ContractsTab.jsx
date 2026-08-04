@@ -15,7 +15,7 @@ import { Link } from "react-router-dom";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 
-export default function ContractsTab({ club, players, myPlayer, canManage }) {
+export default function ContractsTab({ club, players, myPlayer, canManage, onPlayerReleased }) {
   const { windowOpen } = useTransferWindowStatus();
   const [contracts, setContracts] = useState([]);
   const [playerMap, setPlayerMap] = useState({});
@@ -203,7 +203,8 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
   async function terminateContract(contract) {
     if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
-    const player = playerMap[getContractTargetPlayerId(contract)];
+    const playerId = getContractTargetPlayerId(contract);
+    const player = playerMap[playerId];
     const contractType = getContractType(contract);
     notify(player?.email, "contract_terminated",
       `🚫 Contract Terminated`,
@@ -218,6 +219,14 @@ export default function ContractsTab({ club, players, myPlayer, canManage }) {
       link: `/clubs/${club.id}`,
     });
     setContracts(prev => normalizePlayerContracts(prev.map(c => c.id === contract.id ? { ...c, status: "terminated" } : c)));
+    if (playerId) {
+      const releasedPlayer = await stageClient.entities.Player.get(playerId).catch(() => null);
+      if (String(releasedPlayer?.club_id || "") !== String(club.id || "")) {
+        onPlayerReleased?.(playerId, releasedPlayer);
+      } else if (releasedPlayer?.id) {
+        setPlayerMap(prev => ({ ...prev, [releasedPlayer.id]: releasedPlayer }));
+      }
+    }
   }
 
   async function renewContract({ contract_type, offer_note }) {

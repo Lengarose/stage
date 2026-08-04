@@ -41,6 +41,7 @@ import {
   filterTransferWindowNavGroups,
   getTransferWindowIndicatorLabel,
 } from "@/lib/transferWindowAccess";
+import { isPresidentAccountIntent, readAccountIntent, writeAccountIntent } from "@/lib/accountIntent";
 
 /** Paths that only match exactly (never as a prefix for child routes). */
 const NAV_ROOT_PATHS = new Set(["/", "/admin"]);
@@ -109,8 +110,8 @@ const THEMES = [
 
 function getPlayerGroups(t, _clubPath) {
   const homeItems = [
-    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/",            icon: Home,            label: t("nav.welcome") },
+    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/profile",     icon: User,            label: t("nav.myProfile") },
     { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
@@ -129,18 +130,10 @@ function getPlayerGroups(t, _clubPath) {
       ],
     },
     {
-      label: t("nav.community"),
+      label: t("nav.market"),
       items: [
         { path: "/clubs",        icon: Shield,     label: t("nav.clubs") },
         { path: "/players-list", icon: UsersRound, label: t("nav.players") },
-        { path: "/social",       icon: Rss,        label: t("nav.feed") },
-        { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
-        { path: "/follow-back",  icon: Heart,      label: t("nav.followBack") },
-      ],
-    },
-    {
-      label: t("nav.market"),
-      items: [
         { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
         { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
@@ -150,6 +143,9 @@ function getPlayerGroups(t, _clubPath) {
     {
       label: t("nav.discover"),
       items: [
+        { path: "/follow-back",  icon: Heart,      label: t("nav.followBack") },
+        { path: "/social",       icon: Rss,        label: t("nav.feed") },
+        { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
         { path: "/news",  icon: Newspaper,   label: t("nav.news") },
         { path: "/store", icon: ShoppingBag, label: t("nav.store") },
       ],
@@ -188,8 +184,8 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
 
 function getPresidentGroups(t, clubPath) {
   const homeItems = [
-    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/",            icon: Home,            label: t("nav.welcome") },
+    { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
   ];
@@ -197,24 +193,18 @@ function getPresidentGroups(t, clubPath) {
   return [
     { label: t("nav.home"), items: homeItems },
     {
-      label: t("nav.squad"),
-      items: [
-        { path: "/players-list",    icon: UsersRound,     label: t("nav.players") },
-        { path: "/game-day",        icon: Zap,            label: t("nav.gameDay") },
-      ],
-    },
-    {
       label: t("nav.market"),
       items: [
+        { path: "/clubs",        icon: Shield,     label: t("nav.clubs") },
+        { path: "/players-list",    icon: UsersRound,     label: t("nav.players") },
         { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
-        { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
-        { path: "/wallet",          icon: Zap,            label: t("nav.wallet") },
       ],
     },
     {
       label: t("nav.competitions"),
       items: [
+        { path: "/game-day",        icon: Zap,       label: t("nav.gameDay") },
         { path: "/competitions",    icon: Star,      label: t("nav.competitions") },
         { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
         { path: "/international",   icon: Globe2,    label: t("nav.international") },
@@ -770,6 +760,7 @@ function HeaderIdentityMenu({
   myPlayer,
   myClub,
   myClubId,
+  accountIntent,
   accountMode,
   switchMode,
   subscriptionTier,
@@ -777,7 +768,7 @@ function HeaderIdentityMenu({
 }) {
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
-  const canSwitchRole = Boolean(myPlayer && myClubId);
+  const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
@@ -1624,7 +1615,7 @@ function AdminMobileBottomBar({ pathname }) {
   );
 }
 
-function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
+function MobileTopBar({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
@@ -1641,6 +1632,8 @@ function MobileTopBar({ myPlayer, myClub, accountMode, switchMode, theme, setThe
       <MobileHeaderIdentity
         myPlayer={myPlayer}
         myClub={myClub}
+        presidentClub={presidentClub}
+        accountIntent={accountIntent}
         accountMode={accountMode}
         switchMode={switchMode}
       />
@@ -1737,16 +1730,17 @@ function MobileThemeButton({ theme, setTheme }) {
   );
 }
 
-function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
-  const canSwitchRole = Boolean(myPlayer && myClub?.id);
-  const showAsPresident = accountMode === "club" && Boolean(myClub?.id);
+function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode }) {
+  const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && presidentClub?.id);
+  const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
+  const displayClub = showAsPresident ? presidentClub : myClub;
   const clubLogoFallback =
-    myClub &&
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
+    displayClub &&
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayClub.tag || displayClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
 
   const displayName =
-    showAsPresident && myClub
-      ? myClub.name
+    showAsPresident && presidentClub
+      ? presidentClub.name
       : myPlayer?.gamertag || myClub?.name || "Player";
 
   const showPlayerAvatarBg = !showAsPresident && Boolean(myPlayer?.avatar_url);
@@ -1766,12 +1760,12 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
           }),
         }}
       >
-        {showAsPresident && myClub ? (
+        {showAsPresident && presidentClub ? (
           <img
-            src={myClub.logo_url || clubLogoFallback}
+            src={presidentClub.logo_url || clubLogoFallback}
             alt=""
             className="h-full w-full object-cover"
-            style={{ objectPosition: myClub.logo_position || "50% 50%" }}
+            style={{ objectPosition: presidentClub.logo_position || "50% 50%" }}
           />
         ) : (
           !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
@@ -1784,16 +1778,17 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
         >
           {displayName}
         </p>
-        {showAsPresident && myClub?.tag ? (
-          <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider truncate">[{myClub.tag}]</p>
+        {showAsPresident && presidentClub?.tag ? (
+          <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider truncate">[{presidentClub.tag}]</p>
         ) : null}
       </div>
     </div>
   );
 
   if (!canSwitchRole) {
+    const identityHref = showAsPresident && presidentClub?.id ? `/clubs/${presidentClub.id}` : "/profile";
     return (
-      <Link to="/profile" className="min-w-0 flex-1 outline-none">
+      <Link to={identityHref} className="min-w-0 flex-1 outline-none">
         {identityButton}
       </Link>
     );
@@ -1835,16 +1830,18 @@ function MobileHeaderIdentity({ myPlayer, myClub, accountMode, switchMode }) {
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-          <Link
-            to="/profile"
-            className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-            Profile
-          </Link>
-        </DropdownMenuItem>
+        {myPlayer ? (
+          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+              Profile
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
           <Link
             to="/settings"
@@ -1995,17 +1992,22 @@ export default function Layout() {
   const { windowOpen: transferWindowOpen } = useTransferWindowStatus();
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [authUser,         setAuthUser]         = useState(null);
+  const [currentUserId,    setCurrentUserId]    = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
   const [myClubId,         setMyClubId]         = useState(null);
   const [tournamentParticipantType, setTournamentParticipantType] = useState(null);
   const [myClub,           setMyClub]           = useState(null);
+  const [myPlayerClub,     setMyPlayerClub]     = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
   const [subscriptionTier, setSubscriptionTier] = useState("free");
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
+  const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
   const fullBleedProfileRoute = isProfileFullBleedRoute(location.pathname);
+  const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
+  const myPresidentClubId = myClubId;
 
   const switchMode = useCallback((mode) => {
     localStorage.setItem("stage-account-mode", mode);
@@ -2064,19 +2066,27 @@ export default function Layout() {
   useEffect(() => {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
-      const { user: u, player: p, club: c } = await resolveMyPlayerAndClub();
+      const { user: u, player: p, club: c, presidentClub } = await resolveMyPlayerAndClub();
       if (!u) return;
+      setCurrentUserId(u.id || null);
+      const storedIntent = readAccountIntent(u.id);
+      setAccountIntent(storedIntent);
+      const activePresidentClub = presidentClub || null;
 
-      // Club
-      if (c?.id) {
-        setMyClubId(c.id);
-        setMyClub(c);
-        try { localStorage.setItem("stage_club_id", c.id); } catch { /* ignore */ }
+      // President club identity. Player club membership is tracked separately.
+      if (activePresidentClub?.id) {
+        setMyClubId(activePresidentClub.id);
+        setMyClub(activePresidentClub);
+        try { localStorage.setItem("stage_club_id", activePresidentClub.id); } catch { /* ignore */ }
       } else {
         setMyClubId(null);
         setMyClub(null);
-        try { localStorage.removeItem("stage_club_id"); } catch { /* ignore */ }
+        try {
+          if (c?.id) localStorage.setItem("stage_club_id", c.id);
+          else localStorage.removeItem("stage_club_id");
+        } catch { /* ignore */ }
       }
+      setMyPlayerClub(c || null);
 
       // Player
       if (!p) return;
@@ -2089,20 +2099,19 @@ export default function Layout() {
         setShowProfileModal(true);
       } else {
         localStorage.setItem("profile-completed", "true");
-        // Keep prompting until the player actually has a club (president OR member).
-        // No permanent "skip": the popup returns on each app load until club
-        // onboarding is done — and can also be resumed from the profile page.
-        if (!c?.id)
+        // Only President / Player+President onboarding may ask the user to create or join a club.
+        if (!activePresidentClub?.id && isPresidentAccountIntent(storedIntent)) {
           setShowClubModal(true);
+        }
       }
     })();
   }, []);
 
   useEffect(() => {
-    if (myPlayer && myClubId) return;
-    if (myClubId && !myPlayer && accountMode !== "club") switchMode("club");
-    if (myPlayer && !myClubId && accountMode !== "player") switchMode("player");
-  }, [myPlayer, myClubId, accountMode, switchMode]);
+    if (myPlayer && myPresidentClubId) return;
+    if (myPresidentClubId && !myPlayer && accountMode !== "club") switchMode("club");
+    if (myPlayer && !myPresidentClubId && accountMode !== "player") switchMode("player");
+  }, [myPlayer, myPresidentClubId, accountMode, switchMode]);
 
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
@@ -2129,7 +2138,10 @@ export default function Layout() {
     typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverChip =
     isAdmin && adminTakeoverClubId && !showAdminHeader;
-  const clubPath = myClubId ? `/clubs/${myClubId}` : null;
+  const presidentClubPath = myPresidentClubId ? `/clubs/${myPresidentClubId}` : null;
+  const playerClubPath = myPlayerClub?.id ? `/clubs/${myPlayerClub.id}` : null;
+  const clubPath = accountMode === "club" ? presidentClubPath : playerClubPath;
+  const mobileClubIdentity = accountMode === "club" ? myClub : (myPlayerClub || myClub);
   const effectiveUser = authContextUser || authUser;
   const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
   const limitedTournamentId = effectiveUser?.limited_tournament_id;
@@ -2175,26 +2187,32 @@ export default function Layout() {
       <ProfileCompletionModal
         open={showProfileModal}
         player={myPlayer}
+        allowClubOnboarding={canPromptForClubOnboarding}
         onComplete={(club) => {
           setShowProfileModal(false);
           if (club) {
             setMyClubId(club.id);
             setMyClub(club);
+            setMyPlayerClub(club);
             try { localStorage.setItem("stage_club_id", club.id); } catch { /* ignore */ }
           }
         }}
       />
       <ClubOnboardingModal
-        open={showClubModal && !showProfileModal}
+        open={showClubModal && !showProfileModal && canPromptForClubOnboarding}
         player={myPlayer}
         onComplete={(club) => {
-          // "Skip for now" just closes it — it returns on the next app load
-          // until the player has joined or created a club.
           setShowClubModal(false);
           if (club) {
             setMyClubId(club.id);
             setMyClub(club);
-            try { localStorage.setItem("stage_club_id", club.id); } catch { /* ignore */ }
+            setMyPlayerClub(club);
+            const nextIntent = myPlayer ? "both" : "president";
+            setAccountIntent(nextIntent);
+            try {
+              localStorage.setItem("stage_club_id", club.id);
+              writeAccountIntent(nextIntent, currentUserId);
+            } catch { /* ignore */ }
           }
         }}
       />
@@ -2256,7 +2274,9 @@ export default function Layout() {
       ) : (
         <MobileTopBar
           myPlayer={myPlayer}
-          myClub={myClub}
+          myClub={mobileClubIdentity}
+          presidentClub={myClub}
+          accountIntent={accountIntent}
           accountMode={accountMode}
           switchMode={switchMode}
           theme={theme}
@@ -2293,28 +2313,12 @@ export default function Layout() {
                   myPlayer={myPlayer}
                   myClub={myClub}
                   myClubId={myClubId}
+                  accountIntent={accountIntent}
                   accountMode={accountMode}
                   switchMode={switchMode}
                   subscriptionTier={subscriptionTier}
                   isWhiteTheme={isWhiteTheme}
                 />
-              </div>
-            )}
-
-            {!showAdminHeader && !(myPlayer && myClubId) && (myClubId || myPlayer) && (
-              <div className="flex shrink-0 flex-col justify-center gap-0.5 px-3 sm:px-4">
-                {myClubId && !myPlayer && (
-                  <>
-                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#fbbf24" }}>President</span>
-                    <Link to="/profile" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Player profile</Link>
-                  </>
-                )}
-                {myPlayer && !myClubId && (
-                  <>
-                    <span style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#60a5fa" }}>Player</span>
-                    <Link to="/clubs" style={{ ...headingFont, fontWeight: 600, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.65)" : "rgba(255,255,255,0.35)" }} className="hover:text-[#00E5BD] transition-colors">+ Create club</Link>
-                  </>
-                )}
               </div>
             )}
 
@@ -2342,9 +2346,9 @@ export default function Layout() {
             )}
 
             <div className="hidden sm:flex shrink-0 items-center gap-2 px-3 self-stretch">
-              <span style={{ ...headingFont, fontWeight: 500, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
+              {/* <span style={{ ...headingFont, fontWeight: 500, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.35)" : "rgba(0,229,189,0.22)" }}>
                 STAGE v2.0
-              </span>
+              </span> */}
               {!showAdminHeader && transferWindowIndicator ? (
                 <span
                   className="inline-flex items-center whitespace-nowrap rounded-sm border px-2 py-1"
@@ -2480,7 +2484,7 @@ export default function Layout() {
         <MobileBottomBar
           pathname={location.pathname}
           myPlayer={myPlayer}
-          myClub={myClub}
+          myClub={mobileClubIdentity}
           accountMode={accountMode}
           notifCount={notifCount}
           isTournamentLimited={isTournamentLimited}

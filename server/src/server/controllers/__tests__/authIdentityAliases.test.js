@@ -14,4 +14,8 @@ test('auth responses expose owned club id alias alongside legacy owner id', () =
   assert.match(authController, /AS owned_club_id/);
   assert.match(authController, /owned_club_id:/);
   assert.match(oauthController, /ownedClubId/);
+  assert.match(oauthController, /presidentClubId/);
+  assert.match(oauthController, /president_user_id = \?/);
+  assert.match(oauthController, /LOWER\(TRIM\(owner_email\)\) = LOWER\(TRIM\(\?\)\)/);
+  assert.match(oauthController, /String\(clubs\[0\]\?\.president_user_id \|\| ''\) === String\(userId\)/);
 });

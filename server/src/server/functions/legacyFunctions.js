@@ -1119,7 +1119,7 @@ async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenge
   const awayPrefix = homeSide === 'opponent' ? 'challenger' : 'opponent';
   const payload = await enrichMatchParticipantSnapshots({
     id: uuidv4(),
-    tournament_id: 'ranked',
+    tournament_id: null,
     status: 'scheduled',
     mode: isClubMatch ? 'club' : 'solo',
     type: 'ranked',
@@ -1183,6 +1183,24 @@ async function createMatchInviteResponseMessage({ originalMessage, meta, senderE
     metadata: { ...meta, response_to_message_id: originalMessage.id, created_match_id: matchId || meta.created_match_id || null },
   });
   return result.message.id;
+}
+
+async function markInboxMessageResponded(messageId, status) {
+  try {
+    await EXECUTESQL(
+      'UPDATE inbox_messages SET status = ?, is_read = 1, updated_date = NOW() WHERE id = ?',
+      [status, messageId]
+    );
+    return;
+  } catch (err) {
+    const message = String(err?.message || err?.code || '');
+    if (!/updated_date|unknown column|ER_BAD_FIELD_ERROR/i.test(message)) throw err;
+  }
+
+  await EXECUTESQL(
+    'UPDATE inbox_messages SET status = ?, is_read = 1 WHERE id = ?',
+    [status, messageId]
+  );
 }
 
 const CREDIT_PACKS = {
@@ -4648,7 +4666,7 @@ const HANDLERS = {
     const message = rows[0];
     if (!message) throw new Error('Message not found');
     if (String(message.recipient_email || '').toLowerCase() !== String(user.email || '').toLowerCase()) throw new Error('Forbidden');
-    await EXECUTESQL('UPDATE inbox_messages SET status = ?, is_read = 1, updated_date = NOW() WHERE id = ?', [action, message_id]).catch(() => {});
+    await markInboxMessageResponded(message_id, action);
 
     const meta = parseMaybeJson(message.metadata, {});
     const isMatchInvite = message.message_type === 'match_invite';
@@ -5174,6 +5192,11 @@ const HANDLERS = {
         if (!clubs.length) throw new Error('Club not found');
         const player = players[0];
         const club = clubs[0];
+        if (contract.contract_type === 'ownership' && !player.user_id) {
+          const err = new Error('Ownership contracts require a linked user account');
+          err.status = 400;
+          throw err;
+        }
 
         const salary = Number(contract.weekly_salary_stc || 0);
         if (salary > 0) {
@@ -5223,6 +5246,16 @@ const HANDLERS = {
           source: 'contract_acceptance',
           query,
         });
+        if (contract.contract_type === 'ownership' && player.user_id) {
+          await query(
+            "UPDATE clubs SET president_user_id = ?, user_id = ?, owner_email = ?, updated_date = NOW() WHERE id = ?",
+            [player.user_id, player.user_id, player.email || club.owner_email || '', contract.team_id]
+          );
+          await query(
+            "UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?",
+            [contract.team_id, player.user_id]
+          );
+        }
 
         const bonus = Number(contract.signing_bonus_stc || 0);
         if (bonus > 0) {

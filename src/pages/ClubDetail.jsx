@@ -533,6 +533,11 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     ));
   }
 
+  function handlePlayerReleasedFromContract(playerId) {
+    if (!playerId) return;
+    setPlayers((prev) => asObjectArray(prev).filter((player) => player.id !== playerId));
+  }
+
   async function declineJoinRequest(reqId) {
     const req = asObjectArray(joinRequests).find(r => r.id === reqId);
     if (!req) return;
@@ -1141,7 +1146,13 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
           {/* Contracts — president only */}
           {isOwner && (
             <TabsContent value="contracts" className="px-4 pt-4">
-              <ContractsTab club={club} players={safePlayers} myPlayer={myPlayer} canManage={true} />
+              <ContractsTab
+                club={club}
+                players={safePlayers}
+                myPlayer={myPlayer}
+                canManage={true}
+                onPlayerReleased={handlePlayerReleasedFromContract}
+              />
             </TabsContent>
           )}
 

@@ -8,9 +8,10 @@ import { ChatNotificationsProvider } from '@/lib/ChatNotificationsContext';
 import { TranslationProvider } from '@/lib/TranslationContext';
 import { queryClientInstance } from '@/lib/query-client';
 import { Toaster } from '@/components/ui/toaster';
-import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, peekOAuthEntranceMode, userNeedsOnboarding } from '@/api/stageClient';
+import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, userNeedsOnboarding } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import { getOwnedClubId } from '@/lib/userIdentityFields';
+import { shouldApplyTournamentEntranceAccess } from '@/lib/tournamentEntranceAccess';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import TournamentEntranceRouteGuard from '@/components/TournamentEntranceRouteGuard';
@@ -130,14 +131,13 @@ const OAuthCallback = () => {
         return;
       }
 
-      // Tournament entrance invites: apply limited mode for signup / new OAuth users
+      // Tournament entrance invites: apply limited mode for eligible free users
       // before onboarding mounts (Onboarding replaces the entrance route).
       const returnTo = result.returnTo || '/';
-      const entranceMode = peekOAuthEntranceMode();
       const entranceMatch = String(returnTo).match(/\/tournaments\/entrance\/([^/]+)\/(signin|signup)/);
       const shouldLimit =
         Boolean(entranceMatch) &&
-        (entranceMode === 'signup' || result.isNewUser || entranceMatch[2] === 'signup');
+        shouldApplyTournamentEntranceAccess(u);
 
       if (shouldLimit) {
         try {

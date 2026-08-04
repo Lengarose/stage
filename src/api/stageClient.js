@@ -3,6 +3,7 @@
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { toMysqlDateTime, asWallClockDateTimeString } from "@/lib/momentDate";
 import { getOwnedClubId, getPresidentClubId } from "@/lib/userIdentityFields";
+import { clearAccountIntent } from "@/lib/accountIntent";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
 // Default is a RELATIVE path so:
@@ -119,7 +120,9 @@ export const storeTokens = ({ accessToken, refreshToken, userId, playerId, owner
 };
 
 export const clearTokens = () => {
+  const userId = localStorage.getItem(USER_KEY);
   [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY, PRESIDENT_CLUB_KEY].forEach(k => localStorage.removeItem(k));
+  clearAccountIntent(userId);
   notifyAuthChanged();
 };
 

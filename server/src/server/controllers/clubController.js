@@ -14,6 +14,94 @@ const {
 const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { v4: uuidv4 } = require('uuid');
 
+const PROFILE_UPDATE_FIELDS = new Set([
+  'name',
+  'tag',
+  'platform',
+  'region',
+  'country_code',
+  'logo_url',
+  'logo_position',
+  'logo_zoom',
+  'description',
+  'banner_url',
+  'banner_position',
+  'banner_zoom',
+]);
+
+const FORMATION_UPDATE_FIELDS = new Set(['formation', 'lineup']);
+
+const CLUB_MODEL_UPDATE_FIELDS = new Set([
+  'user_id',
+  'president_user_id',
+  'owner_email',
+  'name',
+  'tag',
+  'platform',
+  'region',
+  'country_code',
+  'logo_url',
+  'logo_position',
+  'logo_zoom',
+  'description',
+  'wins',
+  'losses',
+  'draws',
+  'goals_scored',
+  'goals_conceded',
+  'rating',
+  'peak_rating',
+  'matches_ranked',
+  'is_provisional',
+  'credits',
+  'stc',
+  'wage_budget_stc',
+  'transfer_budget_stc',
+  'stadium_level',
+  'stadium_capacity',
+  'tier',
+  'form',
+  'win_streak',
+  'loss_streak',
+  'status',
+  'formation',
+  'lineup',
+  'trophies',
+  'banner_url',
+  'banner_position',
+  'banner_zoom',
+]);
+
+const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'owner_email']);
+
+function hasClubPermission(access, permission) {
+  return Boolean(access?.admin || access?.permissions?.includes(permission));
+}
+
+function assertClubPatchAllowed(access, fields) {
+  if (access?.admin) return;
+  const restricted = fields.filter((field) => (
+    !PROFILE_UPDATE_FIELDS.has(field) && !FORMATION_UPDATE_FIELDS.has(field)
+  ));
+  if (restricted.length) {
+    const err = new Error(`Forbidden club update fields: ${restricted.join(', ')}`);
+    err.status = 403;
+    throw err;
+  }
+  const needsProfile = fields.some((field) => PROFILE_UPDATE_FIELDS.has(field));
+  if (needsProfile && !hasClubPermission(access, 'edit_club_profile')) {
+    const err = new Error('Forbidden');
+    err.status = 403;
+    throw err;
+  }
+  const needsFormation = fields.some((field) => FORMATION_UPDATE_FIELDS.has(field));
+  if (needsFormation && !hasClubPermission(access, 'manage_formation') && !hasClubPermission(access, 'manage_lineup')) {
+    const err = new Error('Forbidden');
+    err.status = 403;
+    throw err;
+  }
+}
+
 async function resolveClubUserId(req, body = {}) {
   const candidate = req.user?.id || body.user_id || null;
   if (!candidate) return null;
@@ -153,18 +241,27 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { access } = await requireClubPermission(req, id, null);
     const existing = await new Club().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    if (req.body?.name) {
+    const safeBody = {};
+    for (const [field, value] of Object.entries(req.body || {})) {
+      if (PROTECTED_IDENTITY_FIELDS.has(field)) continue;
+      if (!CLUB_MODEL_UPDATE_FIELDS.has(field)) continue;
+      safeBody[field] = value;
+    }
+    const submittedFields = Object.keys(safeBody);
+    assertClubPatchAllowed(access, submittedFields);
+    if (safeBody.name) {
       const existingByName = await EXECUTESQL(
         'SELECT id FROM clubs WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1',
-        [req.body.name, id]
+        [safeBody.name, id]
       );
       if (existingByName.length) {
         return res.status(409).json({ error: 'A club with this name already exists' });
       }
     }
-    const merged = { ...existing[0], ...req.body };
+    const merged = { ...existing[0], ...safeBody };
     merged.president_user_id = merged.president_user_id || merged.user_id || null;
     if (merged.user_id) {
       const rows = await EXECUTESQL('SELECT id FROM users WHERE id = ? LIMIT 1', [merged.user_id]);
@@ -186,7 +283,7 @@ router.patch('/:id', async (req, res) => {
     res.json(record);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -194,6 +291,8 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { access } = await requireClubPermission(req, id, 'manage_staff');
+    if (!access?.admin) return res.status(403).json({ error: 'Forbidden' });
     const existing = await new Club().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new Club().delete(id);
@@ -201,7 +300,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

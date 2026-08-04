@@ -32,7 +32,10 @@ function getMatchesHandler(router) {
 }
 
 function getRouteHandler(router, path, method = 'get') {
-  const layer = router.stack.find((entry) => entry.route?.path === path);
+  const layer = router.stack.find((entry) =>
+    entry.route?.path === path &&
+    entry.route.stack.some((routeEntry) => routeEntry.method === method)
+  );
   return layer.route.stack.find((entry) => entry.method === method).handle;
 }
 
@@ -191,4 +194,77 @@ test('GET /:id still forbids non-profile match reads outside participant scope',
   );
 
   assert.equal(response.statusCode, 403);
+});
+
+test('POST / normalizes ranked tournament sentinel before inserting match', async () => {
+  let insertParams = null;
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: params[0], email: 'home@example.test', role_id: 1 }];
+    }
+    if (/FROM players/.test(sql) && /WHERE user_id = \?/.test(sql)) {
+      return [{ id: 'home-player', club_id: null }];
+    }
+    if (/FROM clubs\s+WHERE user_id/.test(sql)) {
+      return [];
+    }
+    if (/SELECT id, gamertag, email FROM players WHERE id IN/.test(sql)) {
+      return [
+        { id: 'home-player', gamertag: 'Home Player', email: 'home@example.test' },
+        { id: 'away-player', gamertag: 'Away Player', email: 'away@example.test' },
+      ];
+    }
+    if (/INSERT INTO matches/.test(sql)) {
+      insertParams = params;
+      return { affectedRows: 1 };
+    }
+    if (/SELECT \* FROM matches WHERE id = \?/.test(sql)) {
+      return [{
+        id: params[0],
+        tournament_id: insertParams[1],
+        home_player_id: 'home-player',
+        away_player_id: 'away-player',
+        status: 'scheduled',
+        mode: 'solo',
+        type: 'ranked',
+      }];
+    }
+    if (/SELECT gamertag, email FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadMatchRouterWithDbMock(executesql);
+  const handle = getRouteHandler(router, '/', 'post');
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+
+  await handle(
+    {
+      body: {
+        tournament_id: 'ranked',
+        home_player_id: 'home-player',
+        away_player_id: 'away-player',
+        status: 'scheduled',
+        mode: 'solo',
+        type: 'ranked',
+      },
+      user: { id: 'home-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(insertParams[1], null);
+  assert.equal(response.body.tournament_id, null);
 });

@@ -12,6 +12,7 @@ import LanguageFlagPicker from "@/components/settings/LanguageFlagPicker";
 import { DISPLAY_LANGUAGES } from "@/lib/languages";
 import SoundIconPicker from "@/components/settings/SoundIconPicker";
 import GamerSettingsSection from "@/components/settings/GamerSettingsSection";
+import AccountRoleUpgradeSection from "@/components/settings/AccountRoleUpgradeSection";
 import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import {
   NOTIFICATION_SOUND_STORAGE_KEY,
@@ -512,6 +513,8 @@ export default function Settings() {
           <h1 className="font-heading text-3xl sm:text-4xl font-black uppercase text-white tracking-tight">{t("settingsPage.title")}</h1>
           <p className="text-sm text-white/45">{t("settingsPage.subtitle")}</p>
         </header>
+
+        <AccountRoleUpgradeSection />
 
         <GamerSettingsSection
           title={t("settingsPage.languageTitle")}

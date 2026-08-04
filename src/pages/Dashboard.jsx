@@ -9,7 +9,6 @@ import {
   Target,
   TrendingUp,
   Trophy,
-  User,
   Zap,
   BadgeCheck,
 } from "lucide-react";
@@ -127,26 +126,9 @@ export default function Dashboard() {
                     <BarChart3 className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewRankings")}
                   </Button>
                 </Link>
-                {player?.id ? (
-                  <Link to="/profile">
-                    <Button type="button" size="sm" className="gap-2 font-heading uppercase text-xs bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black">
-                      <User className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewProfile")}
-                    </Button>
-                  </Link>
-                ) : null}
               </div>
             </div>
           </header>
-
-        {!player?.id ? (
-          <section className="rounded-2xl border border-primary/25 bg-primary/5 p-6">
-            <h2 className="font-heading font-black uppercase text-xl text-foreground mb-2">{t("commonPages.dashboardSetupTitle")}</h2>
-            <p className="text-sm text-muted-foreground mb-4">{t("commonPages.dashboardSetupDesc")}</p>
-            <Link to="/profile">
-              <Button type="button" className="font-heading uppercase">{t("commonPages.dashboardSetupCta")}</Button>
-            </Link>
-          </section>
-        ) : null}
 
         {player?.id ? (
           <DashboardWidgetGrid
