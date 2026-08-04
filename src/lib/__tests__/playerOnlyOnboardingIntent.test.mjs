@@ -20,9 +20,26 @@ test("player-only onboarding completes after player identity instead of showing 
   const source = readText("src/pages/Onboarding.jsx");
 
   assert.match(source, /writeAccountIntent/);
-  assert.match(source, /function handleIdentityComplete/);
+  assert.match(source, /function continueAfterPlayerProfile/);
   assert.match(source, /if\s*\(\s*intent\s*===\s*"player"\s*\)[\s\S]{0,80}finishOnboarding\(\)/);
+  assert.doesNotMatch(source, /setStep\("identity"\)/);
   assert.doesNotMatch(source, /setStep\(intent\s*===\s*"both"\s*\?\s*"owner_club"\s*:\s*"club"\)/);
+});
+
+test("onboarding role flows use the requested 1, 2, and 3 step counters", () => {
+  const onboarding = readText("src/pages/Onboarding.jsx");
+  const clubSetup = readText("src/components/onboarding/ClubSetup.jsx");
+
+  assert.match(onboarding, /clubSetupPhase/);
+  assert.match(onboarding, /getStepMeta\(intent,\s*step,\s*clubSetupPhase\)/);
+  assert.match(onboarding, /intent === "both" \? 4 : 2/);
+  assert.match(onboarding, /intent === "both" \? 4 : 3/);
+  assert.match(onboarding, /phase === "club"/);
+  assert.match(onboarding, /label: "President Profile"/);
+  assert.match(onboarding, /label: "Club Profile"/);
+  assert.match(clubSetup, /onPhaseChange/);
+  assert.match(clubSetup, /required \? "president" : "choice"/);
+  assert.match(clubSetup, /setStep\("club_profile"\)/);
 });
 
 test("onboarding stores whether the user chose player, president, or both", () => {

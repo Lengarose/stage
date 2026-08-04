@@ -35,6 +35,21 @@ test("club creation onboarding submits the president profile fields", () => {
   }
 });
 
+test("club creation separates president profile and club profile into different steps", () => {
+  const clubSetup = readRepoFile("src/components/onboarding/ClubSetup.jsx");
+  const modal = readRepoFile("src/components/ClubOnboardingModal.jsx");
+
+  assert.match(clubSetup, /required \? "president" : "choice"/);
+  assert.match(clubSetup, /step === "president"/);
+  assert.match(clubSetup, /setStep\("club_profile"\)/);
+  assert.doesNotMatch(clubSetup, /!required && renderPresidentProfileForm\(\)/);
+
+  assert.match(modal, /president \| club_profile/);
+  assert.match(modal, /step === "president"/);
+  assert.match(modal, /step === "club_profile"/);
+  assert.doesNotMatch(modal, /step === "create"[\s\S]{0,5000}President name[\s\S]{0,5000}commonPages\.comClubName/);
+});
+
 test("club detail renders a public president profile section", () => {
   const detail = readRepoFile("src/pages/ClubDetail.jsx");
 

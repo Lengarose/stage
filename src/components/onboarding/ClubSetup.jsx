@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from "react";
+import { useState, useRef, useId, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
@@ -57,9 +57,9 @@ function presidentPayload(profile) {
   };
 }
 
-export default function ClubSetup({ onSkip, onComplete, player, user, required = false }) {
+export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, required = false }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState("choice");
+  const [step, setStep] = useState(required ? "president" : "choice");
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [platform, setPlatform] = useState(player?.platform || "PlayStation");
@@ -86,8 +86,79 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     win_rate: 50,
   };
 
+  useEffect(() => {
+    if (!required) return;
+    onPhaseChange?.(step === "club_profile" ? "club" : "president");
+  }, [onPhaseChange, required, step]);
+
   function updatePresidentProfile(field, value) {
     setPresidentProfile(prev => ({ ...prev, [field]: value }));
+  }
+
+  function renderPresidentProfileForm() {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>President name</label>
+            <input value={presidentProfile.president_name} onChange={e => updatePresidentProfile("president_name", e.target.value)} placeholder="Florentino Perez" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>President role</label>
+            <input value={presidentProfile.president_role_title} onChange={e => updatePresidentProfile("president_role_title", e.target.value)} placeholder="Club President" className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>President picture URL</label>
+            <input value={presidentProfile.president_avatar_url} onChange={e => updatePresidentProfile("president_avatar_url", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>President banner URL</label>
+            <input value={presidentProfile.president_banner_url} onChange={e => updatePresidentProfile("president_banner_url", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className={labelCls}>Success level</label>
+            <Select value={presidentProfile.president_success_level} onValueChange={value => updatePresidentProfile("president_success_level", value)}>
+              <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PRESIDENT_SUCCESS_LEVELS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className={labelCls}>Country code</label>
+            <input value={presidentProfile.president_country_code} onChange={e => updatePresidentProfile("president_country_code", e.target.value.toUpperCase())} placeholder="BE" maxLength={10} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Started</label>
+            <input type="date" value={presidentProfile.president_started_at} onChange={e => updatePresidentProfile("president_started_at", e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Management style</label>
+            <input value={presidentProfile.president_management_style} onChange={e => updatePresidentProfile("president_management_style", e.target.value)} placeholder="Visionary builder" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Social link</label>
+            <input value={presidentProfile.president_social_links} onChange={e => updatePresidentProfile("president_social_links", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>President quote</label>
+          <input value={presidentProfile.president_quote} onChange={e => updatePresidentProfile("president_quote", e.target.value)} placeholder="We build to win." className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>President bio</label>
+          <textarea value={presidentProfile.president_bio} onChange={e => updatePresidentProfile("president_bio", e.target.value)} rows={3} placeholder="Short president profile..." className={`${inputCls} resize-none`} />
+        </div>
+        <input type="hidden" value={presidentProfile.president_banner_position} readOnly />
+        <input type="hidden" value={presidentProfile.president_banner_zoom} readOnly />
+      </div>
+    );
   }
 
   async function uploadLogo(e) {
@@ -186,7 +257,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         <div className={required ? "" : "grid grid-cols-2 gap-3"}>
           <button
             type="button"
-            onClick={() => setStep("create")}
+            onClick={() => setStep("president")}
             className="w-full bg-white/10 border border-white/20 hover:border-blue-400/60 hover:bg-blue-500/10 rounded-xl p-5 text-left transition-all group"
           >
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 mb-3 flex items-center justify-center">
@@ -220,6 +291,28 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     );
   }
 
+  if (step === "president") {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Create President Profile</h2>
+          <p className="text-white/40 text-xs">Fill the president credentials before creating the club.</p>
+        </div>
+
+        {renderPresidentProfileForm()}
+
+        <button
+          type="button"
+          onClick={() => setStep("club_profile")}
+          disabled={!presidentProfile.president_name || !presidentProfile.president_role_title}
+          className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-gray-100 disabled:opacity-40 transition-all shadow-lg"
+        >
+          Continue to Club Profile
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <PresidentContractDialog
@@ -236,77 +329,15 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       />
       <button
         type="button"
-        onClick={() => setStep("choice")}
+        onClick={() => setStep("president")}
         className="flex items-center gap-1 text-white/40 hover:text-white text-xs uppercase tracking-widest transition-colors mb-1"
       >
         <ChevronLeft className="w-3.5 h-3.5" /> {t("commonPages.obBack")}
       </button>
 
       <div>
-        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateYourClub")}</h2>
+        <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Create Club Profile</h2>
         <p className="text-white/40 text-xs">{t("commonPages.obBuildEmpire")}</p>
-      </div>
-
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>President name</label>
-            <input value={presidentProfile.president_name} onChange={e => updatePresidentProfile("president_name", e.target.value)} placeholder="Florentino Perez" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>President role</label>
-            <input value={presidentProfile.president_role_title} onChange={e => updatePresidentProfile("president_role_title", e.target.value)} placeholder="Club President" className={inputCls} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>President picture URL</label>
-            <input value={presidentProfile.president_avatar_url} onChange={e => updatePresidentProfile("president_avatar_url", e.target.value)} placeholder="https://..." className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>President banner URL</label>
-            <input value={presidentProfile.president_banner_url} onChange={e => updatePresidentProfile("president_banner_url", e.target.value)} placeholder="https://..." className={inputCls} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className={labelCls}>Success level</label>
-            <Select value={presidentProfile.president_success_level} onValueChange={value => updatePresidentProfile("president_success_level", value)}>
-              <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PRESIDENT_SUCCESS_LEVELS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className={labelCls}>Country code</label>
-            <input value={presidentProfile.president_country_code} onChange={e => updatePresidentProfile("president_country_code", e.target.value.toUpperCase())} placeholder="BE" maxLength={10} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Started</label>
-            <input type="date" value={presidentProfile.president_started_at} onChange={e => updatePresidentProfile("president_started_at", e.target.value)} className={inputCls} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Management style</label>
-            <input value={presidentProfile.president_management_style} onChange={e => updatePresidentProfile("president_management_style", e.target.value)} placeholder="Visionary builder" className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Social link</label>
-            <input value={presidentProfile.president_social_links} onChange={e => updatePresidentProfile("president_social_links", e.target.value)} placeholder="https://..." className={inputCls} />
-          </div>
-        </div>
-        <div>
-          <label className={labelCls}>President quote</label>
-          <input value={presidentProfile.president_quote} onChange={e => updatePresidentProfile("president_quote", e.target.value)} placeholder="We build to win." className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>President bio</label>
-          <textarea value={presidentProfile.president_bio} onChange={e => updatePresidentProfile("president_bio", e.target.value)} rows={3} placeholder="Short president profile..." className={`${inputCls} resize-none`} />
-        </div>
-        <input type="hidden" value={presidentProfile.president_banner_position} readOnly />
-        <input type="hidden" value={presidentProfile.president_banner_zoom} readOnly />
       </div>
 
       {/* Club card (same rectangle as club profile) */}

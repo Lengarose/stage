@@ -58,7 +58,7 @@ function presidentPayload(profile) {
 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState("choose"); // choose | create | join
+  const [step, setStep] = useState("choose"); // choose | president | club_profile | join
   const [creating, setCreating] = useState(false);
   const [requestingIds, setRequestingIds] = useState(new Set());
   const [requested, setRequested] = useState(new Set());
@@ -209,7 +209,8 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Shield className="w-5 h-5 text-primary" />
             {step === "choose" && t("commonPages.comJoinOrCreate")}
-            {step === "create" && t("commonPages.comCreateYourClub")}
+            {step === "president" && "Create President Profile"}
+            {step === "club_profile" && "Create Club Profile"}
             {step === "join" && t("commonPages.comFindClub")}
           </DialogTitle>
         </DialogHeader>
@@ -221,7 +222,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setStep("create")}
+                onClick={() => setStep("president")}
                 className="bg-primary/10 border border-primary/30 hover:border-primary/60 rounded-2xl p-5 text-left transition-all group"
               >
                 <Plus className="w-8 h-8 text-primary mb-3" />
@@ -260,8 +261,8 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </div>
         )}
 
-        {/* CREATE */}
-        {step === "create" && (
+        {/* PRESIDENT PROFILE */}
+        {step === "president" && (
           <div className="space-y-4 mt-2">
             <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               {t("commonPages.comBack")}
@@ -327,6 +328,23 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
               <input type="hidden" value={presidentProfile.president_banner_position} readOnly />
               <input type="hidden" value={presidentProfile.president_banner_zoom} readOnly />
             </div>
+            <Button
+              type="button"
+              onClick={() => setStep("club_profile")}
+              disabled={!presidentProfile.president_name || !presidentProfile.president_role_title}
+              className="w-full bg-primary text-primary-foreground"
+            >
+              Continue to Club Profile
+            </Button>
+          </div>
+        )}
+
+        {/* CLUB PROFILE */}
+        {step === "club_profile" && (
+          <div className="space-y-4 mt-2">
+            <button type="button" onClick={() => setStep("president")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              {t("commonPages.comBack")}
+            </button>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comClubName")}</label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="FC Example" className="bg-secondary border-border" />

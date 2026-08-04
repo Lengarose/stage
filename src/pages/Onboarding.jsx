@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
-import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
@@ -36,13 +35,21 @@ const ChevronRight = () => (
 );
 
 /* ── step meta ─────────────────────────────────────────────── */
-const STEPS = {
-  choose:     { labelKey: "obStepChooseRole",     index: 0, total: 2 },
-  player:     { labelKey: "obStepPlayerProfile",  index: 1, total: 4 },
-  identity:   { labelKey: "obStepVerifyIdentity", index: 2, total: 4 },
-  club:       { labelKey: "obStepClubSetup",      index: 3, total: 4 },
-  owner_club: { labelKey: "obStepClubSetup",      index: 1, total: 2 },
-};
+function getStepMeta(intent, step, phase) {
+  if (step === "player") {
+    return { label: "Player Profile", labelKey: "obStepPlayerProfile", index: 1, total: intent === "both" ? 4 : 2 };
+  }
+
+  if (step === "owner_club") {
+    const total = intent === "both" ? 4 : 3;
+    if (phase === "club") {
+      return { label: "Club Profile", labelKey: "obStepClubSetup", index: intent === "both" ? 3 : 2, total };
+    }
+    return { label: "President Profile", labelKey: "obStepClubSetup", index: intent === "both" ? 2 : 1, total };
+  }
+
+  return { labelKey: "obStepChooseRole", index: 0, total: 2 };
+}
 
 /* ── component ─────────────────────────────────────────────── */
 export default function Onboarding({ onComplete }) {
@@ -51,6 +58,7 @@ export default function Onboarding({ onComplete }) {
   const [player,       setPlayer]       = useState(null);
   const [step,         setStep]         = useState("choose");
   const [intent,       setIntent]       = useState("player");
+  const [clubSetupPhase, setClubSetupPhase] = useState("president");
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
@@ -90,12 +98,12 @@ export default function Onboarding({ onComplete }) {
       } else if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
       }
-      setStep("identity");
+      continueAfterPlayerProfile();
     } catch (err) {
       console.error(err);
       if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
-        setStep("identity");
+        continueAfterPlayerProfile();
       }
     }
   };
@@ -104,22 +112,22 @@ export default function Onboarding({ onComplete }) {
     if (isDiscordConfigured()) setStep("discord");
     else setTutorialOpen(true);
   };
-  function handleIdentityComplete() {
+
+  function continueAfterPlayerProfile() {
     if (intent === "player") {
       finishOnboarding();
       return;
     }
+    setClubSetupPhase("president");
     setStep("owner_club");
   }
 
   const finishDiscordStep = () => setTutorialOpen(true);
   const handleTutorialClose = () => { setTutorialOpen(false); onComplete?.(); };
 
-  const meta = intent === "player" && (step === "player" || step === "identity")
-    ? { ...(STEPS[step] || STEPS.choose), total: 3 }
-    : STEPS[step] || STEPS.choose;
+  const meta = getStepMeta(intent, step, clubSetupPhase);
   const progress = ((meta.index) / (meta.total - 1)) * 100;
-  const isWideStep = step === "identity" || step === "discord";
+  const isWideStep = step === "discord";
 
   return (
     <motion.div className={cn(
@@ -168,7 +176,7 @@ export default function Onboarding({ onComplete }) {
                     {t("commonPages.obStepOf", {
                       current: meta.index,
                       total: meta.total - 1,
-                      label: t(`commonPages.${meta.labelKey}`),
+                      label: meta.label || t(`commonPages.${meta.labelKey}`),
                     })}
                   </p>
                   <div className="h-0.5 rounded-full bg-white/10 overflow-hidden">
@@ -230,6 +238,7 @@ export default function Onboarding({ onComplete }) {
                         <button
                           onClick={() => {
                             setOnboardingIntent("president", "club");
+                            setClubSetupPhase("president");
                             setStep("owner_club");
                           }}
                           className="w-full group text-left bg-white/5 border border-white/15 hover:border-amber-500/60 hover:bg-amber-500/8 rounded-2xl p-5 transition-all duration-200"
@@ -292,20 +301,12 @@ export default function Onboarding({ onComplete }) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setStep("identity")}
+                        onClick={continueAfterPlayerProfile}
                         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
                       >
-                        {t("commonPages.obContinueVerification")}
+                        {intent === "player" ? t("commonPages.agdContinue") : t("commonPages.obContinueClub")}
                       </button>
                     </div>
-                  )}
-
-                  {/* ── IDENTITY CLAIM ─────────────────────── */}
-                  {step === "identity" && player && (
-                    <IdentityClaimSetup
-                      player={player}
-                      onComplete={handleIdentityComplete}
-                    />
                   )}
 
                   {/* ── OPTIONAL CLUB (player path) ─────────── */}
@@ -322,6 +323,7 @@ export default function Onboarding({ onComplete }) {
                   {step === "owner_club" && (
                     <ClubSetup
                       onComplete={finishOnboarding}
+                      onPhaseChange={setClubSetupPhase}
                       player={player}
                       user={user}
                       required
