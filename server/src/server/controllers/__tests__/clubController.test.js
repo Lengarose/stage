@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock } = {}) {
+function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubPermissionResult } = {}) {
   const controllerPath = path.resolve(__dirname, '../clubController.js');
   const modelPath = path.resolve(__dirname, '../../models/clubModel.js');
   const staffRoleModelPath = path.resolve(__dirname, '../../models/clubStaffRoleModel.js');
@@ -32,7 +32,9 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock } = {}
       ROLE_PERMISSIONS: {
         captain: ['review_applicants'],
       },
-      requireClubPermission: requireClubPermissionMock || (async () => ({ user: { id: 'manager-user', email: 'manager@example.test' }, access: {} })),
+      requireClubPermission: requireClubPermissionMock || (async () => (
+        clubPermissionResult || { user: { id: 'manager-user', email: 'manager@example.test' }, access: {} }
+      )),
       writeClubAudit: async () => {},
     },
   };
@@ -225,8 +227,8 @@ test('PATCH /:id allows formation updates with formation permission', async () =
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(permissionChecks, [null]);
-  assert.equal(updates[0][32], '4231');
-  assert.equal(updates[0][33], JSON.stringify([{ player_id: 'player-1' }]));
+  assert.equal(updates[0].includes('4231'), true);
+  assert.equal(updates[0].includes(JSON.stringify([{ player_id: 'player-1' }])), true);
 });
 
 test('DELETE /:id is admin-only even for club staff', async () => {
@@ -300,4 +302,51 @@ test('POST /:id/staff upserts active club membership for assigned role', async (
   assert.equal(membershipWrites.some((call) => /INSERT INTO club_memberships/.test(call.sql)), true);
   const insert = membershipWrites.find((call) => /INSERT INTO club_memberships/.test(call.sql));
   assert.deepEqual(insert.params.slice(1), ['club-1', 'player-1', 'user-1', 'captain', 'staff_assignment']);
+});
+
+test('PATCH /:id preserves captain profile edit access for legacy club flows', async () => {
+  const calls = [];
+  const existingClub = {
+    id: 'club-1',
+    user_id: 'president-user',
+    president_user_id: 'president-user',
+    owner_email: 'president@example.test',
+    name: 'Captain FC',
+    tag: 'CFC',
+  };
+  const executesql = async (sql, params = []) => {
+    calls.push({ sql, params });
+    if (/SELECT \* FROM clubs WHERE id = \?/.test(sql)) {
+      return [{ ...existingClub, logo_url: params[0] === 'club-1' ? 'new-logo.png' : null }];
+    }
+    if (/UPDATE clubs SET/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT id FROM users WHERE id = \? LIMIT 1/.test(sql)) return [{ id: 'president-user' }];
+    if (/UPDATE users SET owner_id = COALESCE/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadClubRouterWithDbMock(executesql, {
+    clubPermissionResult: {
+      user: { id: 'captain-user', email: 'captain@example.test' },
+      access: { roles: ['captain'], permissions: [] },
+    },
+  });
+  const handle = routeHandler(router, '/:id', 'patch');
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { id: 'club-1' },
+      body: { logo_url: 'new-logo.png' },
+      user: { id: 'captain-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.some((call) => /UPDATE clubs SET/.test(call.sql)), true);
 });

@@ -1,51 +1,73 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+const CLUB_COLUMNS = [
+  'id',
+  'user_id',
+  'president_user_id',
+  'owner_email',
+  'name',
+  'tag',
+  'platform',
+  'region',
+  'country_code',
+  'logo_url',
+  'logo_position',
+  'logo_zoom',
+  'description',
+  'president_name',
+  'president_role_title',
+  'president_avatar_url',
+  'president_banner_url',
+  'president_banner_position',
+  'president_banner_zoom',
+  'president_bio',
+  'president_success_level',
+  'president_country_code',
+  'president_quote',
+  'president_management_style',
+  'president_started_at',
+  'president_social_links',
+  'wins',
+  'losses',
+  'draws',
+  'goals_scored',
+  'goals_conceded',
+  'rating',
+  'peak_rating',
+  'matches_ranked',
+  'is_provisional',
+  'credits',
+  'stc',
+  'wage_budget_stc',
+  'transfer_budget_stc',
+  'stadium_level',
+  'stadium_capacity',
+  'tier',
+  'form',
+  'win_streak',
+  'loss_streak',
+  'status',
+  'formation',
+  'lineup',
+  'trophies',
+  'banner_url',
+  'banner_position',
+  'banner_zoom',
+];
+
+const JSON_FIELDS = new Set(['lineup', 'trophies', 'president_social_links']);
+
+function normalizeFieldValue(field, value) {
+  if (!JSON_FIELDS.has(field)) return value;
+  return value ? (typeof value === 'string' ? value : JSON.stringify(value)) : null;
+}
+
 class Club {
   constructor(body = {}) {
-    this.id                  = body.id;
-    this.user_id             = body.user_id;
-    this.president_user_id   = body.president_user_id;
-    this.owner_email         = body.owner_email;
-    this.name                = body.name;
-    this.tag                 = body.tag;
-    this.platform            = body.platform;
-    this.region              = body.region;
-    this.country_code        = body.country_code;
-    this.logo_url            = body.logo_url;
-    this.logo_position       = body.logo_position;
-    this.logo_zoom           = body.logo_zoom;
-    this.description         = body.description;
-    this.wins                = body.wins;
-    this.losses              = body.losses;
-    this.draws               = body.draws;
-    this.goals_scored        = body.goals_scored;
-    this.goals_conceded      = body.goals_conceded;
-    this.rating              = body.rating;
-    this.peak_rating         = body.peak_rating;
-    this.matches_ranked      = body.matches_ranked;
-    this.is_provisional      = body.is_provisional;
-    this.credits             = body.credits;
-    this.stc                 = body.stc;
-    this.wage_budget_stc     = body.wage_budget_stc;
-    this.transfer_budget_stc = body.transfer_budget_stc;
-    this.stadium_level       = body.stadium_level;
-    this.stadium_capacity    = body.stadium_capacity;
-    this.tier                = body.tier;
-    this.form                = body.form;
-    this.win_streak          = body.win_streak;
-    this.loss_streak         = body.loss_streak;
-    this.status              = body.status;
-    this.formation           = body.formation;
-    this.lineup              = body.lineup
-      ? (typeof body.lineup === 'string' ? body.lineup : JSON.stringify(body.lineup))
-      : null;
-    this.trophies            = body.trophies
-      ? (typeof body.trophies === 'string' ? body.trophies : JSON.stringify(body.trophies))
-      : null;
-    this.banner_url          = body.banner_url;
-    this.banner_position     = body.banner_position;
-    this.banner_zoom         = body.banner_zoom;
+    for (const field of CLUB_COLUMNS) {
+      this[field] = normalizeFieldValue(field, body[field]);
+    }
   }
 
   selectAll(page = 1) {
@@ -72,50 +94,17 @@ class Club {
     if (!this.president_user_id) {
       throw new Error('Club president_user_id is required');
     }
-    const sql = `INSERT INTO clubs
-      (id, user_id, president_user_id, owner_email, name, tag, platform, region, country_code, logo_url,
-       logo_position, logo_zoom, description, wins, losses, draws, goals_scored,
-       goals_conceded, rating, peak_rating, matches_ranked, is_provisional,
-       credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
-       stadium_capacity, tier, form, win_streak, loss_streak, status,
-       formation, lineup, trophies, banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-    const values = [
-      this.id, this.user_id, this.president_user_id, this.owner_email, this.name, this.tag, this.platform,
-      this.region, this.country_code, this.logo_url, this.logo_position, this.logo_zoom,
-      this.description, this.wins, this.losses, this.draws, this.goals_scored,
-      this.goals_conceded, this.rating, this.peak_rating, this.matches_ranked,
-      this.is_provisional, this.credits, this.stc, this.wage_budget_stc,
-      this.transfer_budget_stc, this.stadium_level, this.stadium_capacity,
-      this.tier, this.form, this.win_streak, this.loss_streak, this.status,
-      this.formation, this.lineup, this.trophies,
-      this.banner_url, this.banner_position, this.banner_zoom,
-    ];
+    const sql = `INSERT INTO clubs (${CLUB_COLUMNS.join(', ')})
+      VALUES (${CLUB_COLUMNS.map(() => '?').join(',')})`;
+    const values = CLUB_COLUMNS.map((field) => this[field]);
     return EXECUTESQL(sql, values);
   }
 
   update(id) {
-    const sql = `UPDATE clubs SET
-      user_id=?, president_user_id=?, owner_email=?, name=?, tag=?, platform=?, region=?, country_code=?,
-      logo_url=?, logo_position=?, logo_zoom=?, description=?, wins=?, losses=?, draws=?,
-      goals_scored=?, goals_conceded=?, rating=?, peak_rating=?,
-      matches_ranked=?, is_provisional=?, credits=?, stc=?, wage_budget_stc=?,
-      transfer_budget_stc=?, stadium_level=?, stadium_capacity=?, tier=?,
-      form=?, win_streak=?, loss_streak=?, status=?, formation=?,
-      lineup=?, trophies=?, banner_url=?, banner_position=?, banner_zoom=?
+    const fields = CLUB_COLUMNS.filter((field) => field !== 'id');
+    const sql = `UPDATE clubs SET ${fields.map((field) => `${field}=?`).join(', ')}
       WHERE id=?`;
-    const values = [
-      this.user_id, this.president_user_id, this.owner_email, this.name, this.tag, this.platform, this.region,
-      this.country_code, this.logo_url, this.logo_position, this.logo_zoom, this.description,
-      this.wins, this.losses, this.draws, this.goals_scored, this.goals_conceded,
-      this.rating, this.peak_rating, this.matches_ranked, this.is_provisional,
-      this.credits, this.stc, this.wage_budget_stc, this.transfer_budget_stc,
-      this.stadium_level, this.stadium_capacity, this.tier, this.form,
-      this.win_streak, this.loss_streak, this.status, this.formation,
-      this.lineup, this.trophies,
-      this.banner_url, this.banner_position, this.banner_zoom,
-      id,
-    ];
+    const values = [...fields.map((field) => this[field]), id];
     return EXECUTESQL(sql, values);
   }
 

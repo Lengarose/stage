@@ -14,7 +14,23 @@ const {
 const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { v4: uuidv4 } = require('uuid');
 
-const PROFILE_UPDATE_FIELDS = new Set([
+const PRESIDENT_PROFILE_FIELDS = [
+  'president_name',
+  'president_role_title',
+  'president_avatar_url',
+  'president_banner_url',
+  'president_banner_position',
+  'president_banner_zoom',
+  'president_bio',
+  'president_success_level',
+  'president_country_code',
+  'president_quote',
+  'president_management_style',
+  'president_started_at',
+  'president_social_links',
+];
+
+const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
   'tag',
   'platform',
@@ -27,9 +43,12 @@ const PROFILE_UPDATE_FIELDS = new Set([
   'banner_url',
   'banner_position',
   'banner_zoom',
-]);
+];
 
-const FORMATION_UPDATE_FIELDS = new Set(['formation', 'lineup']);
+const PROFILE_UPDATE_FIELDS = new Set([
+  ...CLUB_PROFILE_UPDATE_FIELDS,
+  ...PRESIDENT_PROFILE_FIELDS,
+]);
 
 const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'user_id',
@@ -44,6 +63,7 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'logo_position',
   'logo_zoom',
   'description',
+  ...PRESIDENT_PROFILE_FIELDS,
   'wins',
   'losses',
   'draws',
@@ -72,10 +92,15 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'banner_zoom',
 ]);
 
+const FORMATION_UPDATE_FIELDS = new Set(['formation', 'lineup']);
 const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'owner_email']);
 
 function hasClubPermission(access, permission) {
   return Boolean(access?.admin || access?.permissions?.includes(permission));
+}
+
+function hasLegacyCaptainProfileAccess(access) {
+  return Boolean(access?.roles?.some((role) => ['captain', 'vice_captain', 'vice-captain'].includes(role)));
 }
 
 function assertClubPatchAllowed(access, fields) {
@@ -89,7 +114,8 @@ function assertClubPatchAllowed(access, fields) {
     throw err;
   }
   const needsProfile = fields.some((field) => PROFILE_UPDATE_FIELDS.has(field));
-  if (needsProfile && !hasClubPermission(access, 'edit_club_profile')) {
+  const onlyLegacyClubProfile = fields.every((field) => CLUB_PROFILE_UPDATE_FIELDS.includes(field));
+  if (needsProfile && !hasClubPermission(access, 'edit_club_profile') && !(onlyLegacyClubProfile && hasLegacyCaptainProfileAccess(access))) {
     const err = new Error('Forbidden');
     err.status = 403;
     throw err;

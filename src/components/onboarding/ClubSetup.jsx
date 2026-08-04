@@ -15,6 +15,47 @@ const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", 
 const inputCls = "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 const selectCls = "bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40";
+const PRESIDENT_SUCCESS_LEVELS = [
+  ["less_successful", "Less successful"],
+  ["successful", "Successful"],
+  ["more_successful", "More successful"],
+  ["most_successful", "Most successful"],
+  ["boss", "The boss"],
+];
+
+const initialPresidentProfile = (player) => ({
+  president_name: player?.gamertag || "",
+  president_role_title: "President",
+  president_avatar_url: player?.avatar_url || "",
+  president_banner_url: "",
+  president_banner_position: "50% 50%",
+  president_banner_zoom: 150,
+  president_bio: "",
+  president_success_level: "successful",
+  president_country_code: player?.country_code || "",
+  president_quote: "",
+  president_management_style: "",
+  president_started_at: "",
+  president_social_links: "",
+});
+
+function presidentPayload(profile) {
+  const payload = Object.fromEntries(
+    Object.entries(profile).map(([field, value]) => [
+      field,
+      typeof value === "string" && value.trim() === "" ? null : value,
+    ])
+  );
+  if (payload.president_started_at) {
+    payload.president_started_at = `${payload.president_started_at}T00:00:00Z`;
+  }
+  return {
+    ...payload,
+    president_social_links: profile.president_social_links?.trim()
+      ? { primary: profile.president_social_links.trim() }
+      : null,
+  };
+}
 
 export default function ClubSetup({ onSkip, onComplete, player, user, required = false }) {
   const { t } = useTranslation();
@@ -28,6 +69,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
   const [pendingLogo, setPendingLogo] = useState(null);
   const [logoPosition, setLogoPosition] = useState("50% 50%");
   const [logoZoom, setLogoZoom] = useState(150);
+  const [presidentProfile, setPresidentProfile] = useState(() => initialPresidentProfile(player));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -43,6 +85,10 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
     logo_zoom: logoZoom,
     win_rate: 50,
   };
+
+  function updatePresidentProfile(field, value) {
+    setPresidentProfile(prev => ({ ...prev, [field]: value }));
+  }
 
   async function uploadLogo(e) {
     const file = e.target.files[0];
@@ -111,6 +157,7 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
         loss_streak: 0,
         status: "active",
         creator_player_id: player?.id,
+        ...presidentPayload(presidentProfile),
       });
 
       if (!club?.id) throw new Error("Server returned no club ID");
@@ -198,6 +245,68 @@ export default function ClubSetup({ onSkip, onComplete, player, user, required =
       <div>
         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateYourClub")}</h2>
         <p className="text-white/40 text-xs">{t("commonPages.obBuildEmpire")}</p>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>President name</label>
+            <input value={presidentProfile.president_name} onChange={e => updatePresidentProfile("president_name", e.target.value)} placeholder="Florentino Perez" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>President role</label>
+            <input value={presidentProfile.president_role_title} onChange={e => updatePresidentProfile("president_role_title", e.target.value)} placeholder="Club President" className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>President picture URL</label>
+            <input value={presidentProfile.president_avatar_url} onChange={e => updatePresidentProfile("president_avatar_url", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>President banner URL</label>
+            <input value={presidentProfile.president_banner_url} onChange={e => updatePresidentProfile("president_banner_url", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className={labelCls}>Success level</label>
+            <Select value={presidentProfile.president_success_level} onValueChange={value => updatePresidentProfile("president_success_level", value)}>
+              <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PRESIDENT_SUCCESS_LEVELS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className={labelCls}>Country code</label>
+            <input value={presidentProfile.president_country_code} onChange={e => updatePresidentProfile("president_country_code", e.target.value.toUpperCase())} placeholder="BE" maxLength={10} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Started</label>
+            <input type="date" value={presidentProfile.president_started_at} onChange={e => updatePresidentProfile("president_started_at", e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Management style</label>
+            <input value={presidentProfile.president_management_style} onChange={e => updatePresidentProfile("president_management_style", e.target.value)} placeholder="Visionary builder" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Social link</label>
+            <input value={presidentProfile.president_social_links} onChange={e => updatePresidentProfile("president_social_links", e.target.value)} placeholder="https://..." className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>President quote</label>
+          <input value={presidentProfile.president_quote} onChange={e => updatePresidentProfile("president_quote", e.target.value)} placeholder="We build to win." className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>President bio</label>
+          <textarea value={presidentProfile.president_bio} onChange={e => updatePresidentProfile("president_bio", e.target.value)} rows={3} placeholder="Short president profile..." className={`${inputCls} resize-none`} />
+        </div>
+        <input type="hidden" value={presidentProfile.president_banner_position} readOnly />
+        <input type="hidden" value={presidentProfile.president_banner_zoom} readOnly />
       </div>
 
       {/* Club card (same rectangle as club profile) */}

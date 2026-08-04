@@ -76,6 +76,68 @@
       "type": "string",
       "title": "Description"
     },
+    "president_name": {
+      "type": "string",
+      "title": "President Name"
+    },
+    "president_role_title": {
+      "type": "string",
+      "title": "President Role Title"
+    },
+    "president_avatar_url": {
+      "type": "string",
+      "title": "President Avatar URL"
+    },
+    "president_banner_url": {
+      "type": "string",
+      "title": "President Banner URL"
+    },
+    "president_banner_position": {
+      "type": "string",
+      "title": "President Banner Position",
+      "default": "50% 50%"
+    },
+    "president_banner_zoom": {
+      "type": "number",
+      "title": "President Banner Zoom (%)",
+      "default": 150
+    },
+    "president_bio": {
+      "type": "string",
+      "title": "President Bio"
+    },
+    "president_success_level": {
+      "type": "string",
+      "title": "President Success Level",
+      "enum": [
+        "less_successful",
+        "successful",
+        "more_successful",
+        "most_successful",
+        "boss"
+      ],
+      "default": "successful"
+    },
+    "president_country_code": {
+      "type": "string",
+      "title": "President Country Code"
+    },
+    "president_quote": {
+      "type": "string",
+      "title": "President Quote"
+    },
+    "president_management_style": {
+      "type": "string",
+      "title": "President Management Style"
+    },
+    "president_started_at": {
+      "type": "string",
+      "title": "President Started At"
+    },
+    "president_social_links": {
+      "type": "object",
+      "title": "President Social Links"
+    },
     "platform": {
       "type": "string",
       "title": "Platform",

@@ -73,6 +73,121 @@ function clubRoleLabel(t, role) {
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
 }
 
+const PRESIDENT_SUCCESS_LABELS = {
+  less_successful: "Less successful",
+  successful: "Successful",
+  more_successful: "More successful",
+  most_successful: "Most successful",
+  boss: "The boss",
+};
+
+function isSafePresidentUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url, globalThis.location?.origin || "https://stageleagues.com");
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function parsePresidentSocialLinks(value) {
+  if (!value) return [];
+  if (typeof value === "string") {
+    try {
+      return parsePresidentSocialLinks(JSON.parse(value));
+    } catch {
+      return isSafePresidentUrl(value) ? [{ label: "Link", url: value }] : [];
+    }
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item, index) => typeof item === "string" ? { label: `Link ${index + 1}`, url: item } : item)
+      .filter((item) => isSafePresidentUrl(item?.url));
+  }
+  return Object.entries(value)
+    .filter(([, url]) => isSafePresidentUrl(url))
+    .map(([label, url]) => ({ label, url }));
+}
+
+function PresidentProfileCard({ club }) {
+  const hasPresidentProfile = Boolean(
+    club?.president_name ||
+    club?.president_role_title ||
+    club?.president_avatar_url ||
+    club?.president_banner_url ||
+    club?.president_bio ||
+    club?.president_success_level ||
+    club?.president_management_style ||
+    club?.president_quote ||
+    club?.president_country_code ||
+    club?.president_started_at ||
+    club?.president_social_links
+  );
+  if (!hasPresidentProfile) return null;
+
+  const socialLinks = parsePresidentSocialLinks(club.president_social_links);
+  const successLabel = PRESIDENT_SUCCESS_LABELS[club.president_success_level] || club.president_success_level;
+  const bannerStyle = club.president_banner_url
+    ? {
+        backgroundImage: `url(${club.president_banner_url})`,
+        backgroundSize: `${club.president_banner_zoom || 150}%`,
+        backgroundPosition: club.president_banner_position || "50% 50%",
+      }
+    : {};
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+      <div className="relative h-28 bg-gradient-to-r from-amber-500/20 via-cyan-500/10 to-white/5" style={bannerStyle}>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-[#060912]/85" />
+      </div>
+      <div className="relative px-4 sm:px-5 pb-5 -mt-10">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+          <div className="w-20 h-20 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl shrink-0">
+            {club.president_avatar_url ? (
+              <img src={club.president_avatar_url} alt={club.president_name || "Club president"} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Shield className="w-8 h-8 text-amber-300/80" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">President profile</p>
+            <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase leading-none text-white mt-1">
+              {club.president_name || "Club President"}
+            </h2>
+            <div className="flex flex-wrap gap-2 mt-2 text-xs">
+              {club.president_role_title ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/75">{club.president_role_title}</span> : null}
+              {successLabel ? <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-amber-200">{successLabel}</span> : null}
+              {club.president_management_style ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">{club.president_management_style}</span> : null}
+              {club.president_country_code ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/65">{club.president_country_code}</span> : null}
+            </div>
+          </div>
+        </div>
+        {club.president_quote ? (
+          <p className="mt-4 text-sm font-semibold text-white/85">"{club.president_quote}"</p>
+        ) : null}
+        {club.president_bio ? (
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60">{club.president_bio}</p>
+        ) : null}
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
+          {club.president_started_at ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1">
+              <Trophy className="w-3 h-3 text-amber-300" /> Since {String(club.president_started_at).slice(0, 10)}
+            </span>
+          ) : null}
+          {socialLinks.map((link) => (
+            <a key={`${link.label}-${link.url}`} href={isSafePresidentUrl(link.url) ? link.url : "#"} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-lg border border-white/10 px-2.5 py-1 hover:text-white hover:border-white/25">
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function ClubDetail({ overrideClubId, tournamentId = null } = {}) {
   const { t } = useTranslation();
   const { user: authUser } = useAuth();
@@ -766,6 +881,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       </GamerClubProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
+        <PresidentProfileCard club={club} />
+
         {/* Trial request — visible to signed-in players who are not members */}
         {!isMember && !isOwner && myPlayer ? (
           <div>
