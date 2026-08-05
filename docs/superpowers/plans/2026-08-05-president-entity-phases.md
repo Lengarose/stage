@@ -85,6 +85,7 @@ Acceptance:
 - [x] `club_id: null` detaches; presidents without a club remain valid
 - [x] Raw `PATCH` no longer changes `club_id` (must use transfer)
 - [x] Frontend helper: `stageClient.presidents.transfer(id, { club_id, reason })`
+- [x] Admin Clubs tab: President transfer dialog (move / assign / detach)
 - Auth/`/auth/me` still resolves `president_club_id` from `president_user_id`
 
 ## Phase 6 — Contracts copy & docs cleanup

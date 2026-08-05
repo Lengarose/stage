@@ -101,3 +101,18 @@ test("president profile supports owner/admin edit via PresidentSetup", () => {
   assert.match(layout, /presProfileMenu/);
   assert.match(layout, /\/presidents\/\$\{/);
 });
+
+test("admin clubs tab exposes president transfer dialog wired to stageClient.presidents.transfer", () => {
+  const clubsTab = readRepoFile("src/components/admin/sections/ClubsTab.jsx");
+  const dialog = readRepoFile("src/components/admin/PresidentTransferDialog.jsx");
+  const client = readRepoFile("src/api/stageClient.js");
+
+  assert.match(clubsTab, /PresidentTransferDialog/);
+  assert.match(clubsTab, /setPresidentTransferClub/);
+  assert.match(dialog, /stageClient\.presidents\.transfer/);
+  assert.match(dialog, /club_id:\s*null/);
+  assert.match(dialog, /MODE_MOVE/);
+  assert.match(client, /const presidents = \{/);
+  assert.match(client, /transfer\(presidentId/);
+  assert.match(client, /\/presidents\/\$\{encodeURIComponent\(presidentId\)\}\/transfer/);
+});

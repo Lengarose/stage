@@ -1545,6 +1545,7 @@ export default function Admin(props) {
               setClubWageBudget={setClubWageBudget}
               setClubTransferBudget={setClubTransferBudget}
               deleteClub={deleteClub}
+              onClubsChanged={loadAll}
             />
           )}
 

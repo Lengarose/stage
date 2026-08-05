@@ -1,10 +1,12 @@
+import { useState } from "react";
 import AdminStadiumPanel from "@/components/admin/economy/AdminStadiumPanel";
+import PresidentTransferDialog from "@/components/admin/PresidentTransferDialog";
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Search, Shield, Building2, LogIn, Coins, Trash2 } from "lucide-react";
+import { Search, Shield, Building2, LogIn, Coins, Trash2, ArrowRightLeft } from "lucide-react";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 
 export default function ClubsTab({
@@ -22,8 +24,10 @@ export default function ClubsTab({
   setClubWageBudget,
   setClubTransferBudget,
   deleteClub,
+  onClubsChanged,
 }) {
   const { t } = useTranslation();
+  const [presidentTransferClub, setPresidentTransferClub] = useState(null);
 
   return (
     <>
@@ -70,6 +74,7 @@ export default function ClubsTab({
                 </div>
                 <div className="flex gap-2 shrink-0 flex-wrap">
                   <Button size="sm" variant="outline" onClick={() => takeControl(c)} className="border-warning/30 text-warning hover:bg-warning/10 gap-1 text-xs"><LogIn className="w-3.5 h-3.5" /> {t("admin.clubs.takeControl")}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setPresidentTransferClub(c)} className="border-amber-400/30 text-amber-300 hover:bg-amber-500/10 gap-1 text-xs"><ArrowRightLeft className="w-3.5 h-3.5" /> {t("admin.clubs.president")}</Button>
                   <Button size="sm" variant="outline" onClick={() => { setClubStcDialog(c); setClubStcAmount(""); setClubWageBudget(c.wage_budget_stc || ""); setClubTransferBudget(c.transfer_budget_stc || ""); }} className="border-success/30 text-success hover:bg-success/10 gap-1 text-xs"><Coins className="w-3.5 h-3.5" /> {t("admin.clubs.finance")}</Button>
                   <Link to={`/clubs/${c.id}`}><Button size="sm" variant="outline" className="border-border text-xs">{t("admin.actions.view")}</Button></Link>
                   <Button size="sm" variant="outline" onClick={() => deleteClub(c.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 text-xs"><Trash2 className="w-3.5 h-3.5" /> {t("admin.actions.delete")}</Button>
@@ -79,6 +84,17 @@ export default function ClubsTab({
           })}
         </div>
       )}
+
+      <PresidentTransferDialog
+        open={!!presidentTransferClub}
+        club={presidentTransferClub}
+        clubs={clubs}
+        onOpenChange={(next) => { if (!next) setPresidentTransferClub(null); }}
+        onDone={() => {
+          setPresidentTransferClub(null);
+          onClubsChanged?.();
+        }}
+      />
     </>
   );
 }

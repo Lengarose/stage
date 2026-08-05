@@ -832,6 +832,14 @@ test('contractActions offer stores duration metadata for market offers', async (
   const inboxUpdates = [];
   const notificationUpdates = [];
   let createdContractId = null;
+  const clubRow = {
+    id: 'club-1',
+    user_id: 'owner-user',
+    president_user_id: 'owner-user',
+    president_id: 'pres-1',
+    owner_email: 'owner@example.test',
+  };
+  const presidentRow = { id: 'pres-1', user_id: 'owner-user', club_id: 'club-1', email: 'owner@example.test' };
   const executesql = async (sql, params = []) => {
     if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: 'owner-user', email: 'owner@example.test', player_id: 'owner-player', owner_id: 'club-1' }];
@@ -840,11 +848,13 @@ test('contractActions offer stores duration metadata for market offers', async (
       return [{ id: 'owner-player', email: 'owner@example.test', club_id: 'club-1' }];
     }
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [clubRow];
     }
     if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [clubRow];
     }
+    if (/SELECT \* FROM presidents WHERE id = \?/.test(sql)) return [presidentRow];
+    if (/SELECT \* FROM presidents WHERE user_id = \?/.test(sql)) return [presidentRow];
     if (/FROM club_memberships/.test(sql)) return [];
     if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
@@ -871,15 +881,15 @@ test('contractActions offer stores duration metadata for market offers', async (
     }
     if (/FROM clubs c/.test(sql)) {
       return [{
-        id: 'club-1',
+        ...clubRow,
         name: 'Club One',
-        user_id: 'owner-user',
-        president_user_id: 'owner-user',
-        owner_email: 'owner@example.test',
         president_user_email: 'owner@example.test',
       }];
     }
     if (/SELECT id, recipient_email FROM inbox_messages/.test(sql) && /related_entity_id = \?/.test(sql)) {
+      return [{ id: 'message-existing', recipient_email: 'target@example.test' }];
+    }
+    if (/SELECT \* FROM inbox_messages WHERE id = \?/.test(sql)) {
       return [{ id: 'message-existing', recipient_email: 'target@example.test' }];
     }
     if (/UPDATE inbox_messages/.test(sql)) {
@@ -936,11 +946,13 @@ test('contractActions offer stores duration metadata for market offers', async (
   assert.equal(contractInserts.length, 1);
   assert.match(contractInserts[0].sql, /max_games/);
   assert.match(contractInserts[0].sql, /max_days/);
+  assert.match(contractInserts[0].sql, /offered_by_president_id/);
   assert.equal(contractInserts[0].params[4], 'pending');
   assert.equal(contractInserts[0].params[6], 'owner-user');
   assert.equal(contractInserts[0].params[7], 'club-1');
-  assert.equal(contractInserts[0].params[8], 400);
-  assert.equal(contractInserts[0].params[9], 180);
+  assert.equal(contractInserts[0].params[8], 'pres-1');
+  assert.equal(contractInserts[0].params[9], 400);
+  assert.equal(contractInserts[0].params[10], 180);
   assert.equal(
     inboxUpdates.some(params => params.includes(`contract_offer:player_contract:${createdContractId}:target@example.test`)),
     true
@@ -954,6 +966,13 @@ test('contractActions offer stores duration metadata for market offers', async (
 
 test('contractActions offer rejects new contract offers while the transfer window is closed', async () => {
   let insertCalled = false;
+  const clubRow = {
+    id: 'club-1',
+    user_id: 'owner-user',
+    president_user_id: 'owner-user',
+    president_id: 'pres-1',
+    owner_email: 'owner@example.test',
+  };
   const executesql = async (sql, params = []) => {
     if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: 'owner-user', email: 'owner@example.test', player_id: 'owner-player', owner_id: 'club-1' }];
@@ -962,10 +981,13 @@ test('contractActions offer rejects new contract offers while the transfer windo
       return [{ id: params[0], email: 'owner@example.test', club_id: 'club-1' }];
     }
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [clubRow];
     }
     if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [clubRow];
+    }
+    if (/SELECT \* FROM presidents WHERE/.test(sql)) {
+      return [{ id: 'pres-1', user_id: 'owner-user', club_id: 'club-1' }];
     }
     if (/FROM club_memberships/.test(sql)) return [];
     if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
@@ -1328,6 +1350,13 @@ test('contractManagement mark_pending_window activates free-agent accepted contr
 
 test('contractManagement offer rejects another live player contract from the same club', async () => {
   const contractInserts = [];
+  const clubRow = {
+    id: 'club-1',
+    user_id: 'owner-user',
+    president_user_id: 'owner-user',
+    president_id: 'pres-1',
+    owner_email: 'owner@example.test',
+  };
   const executesql = async (sql, params = []) => {
     if (/SELECT id, email, player_id, owner_id, role_id, role FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: 'owner-user', email: 'owner@example.test', player_id: 'owner-player', owner_id: 'club-1', role_id: 1 }];
@@ -1337,10 +1366,13 @@ test('contractManagement offer rejects another live player contract from the sam
     }
     if (/FROM club_memberships/.test(sql)) return [];
     if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: params[0], user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [{ ...clubRow, id: params[0] }];
     }
     if (/SELECT \* FROM clubs WHERE president_user_id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'club-1', user_id: 'owner-user', president_user_id: 'owner-user', owner_email: 'owner@example.test' }];
+      return [clubRow];
+    }
+    if (/SELECT \* FROM presidents WHERE/.test(sql)) {
+      return [{ id: 'pres-1', user_id: 'owner-user', club_id: 'club-1' }];
     }
     if (/FROM club_staff_roles/.test(sql)) return [{ id: 'staff-1', club_id: 'club-1', user_id: 'owner-user', player_id: 'owner-player', role: 'recruiter', permissions: JSON.stringify(['offer_contracts']) }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) {
