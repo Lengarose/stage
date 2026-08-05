@@ -1833,9 +1833,9 @@ CREATE TABLE IF NOT EXISTS faq_items (
 CREATE TABLE IF NOT EXISTS store_configs (
   id                         VARCHAR(36)   NOT NULL PRIMARY KEY,
   name                       VARCHAR(100)  NULL,
-  stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 5.99,
-  stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 59.99,
-  monthly_credits            INT           NOT NULL DEFAULT 300,
+  stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 4.99,
+  stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 49.99,
+  monthly_credits            INT           NOT NULL DEFAULT 150,
   starter_credits            INT           NOT NULL DEFAULT 50,
   tournament_entry_credits   INT           NOT NULL DEFAULT 50,
   community_tournament_limit INT           NOT NULL DEFAULT 5,

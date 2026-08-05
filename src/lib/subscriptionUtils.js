@@ -6,11 +6,11 @@ export const SUBSCRIPTION_TIERS = {
 };
 
 export const STAGE_PLUS_PRICE = {
-  monthly: 5.99,
-  yearly: 59.99,
+  monthly: 4.99,
+  yearly: 49.99,
 };
 
-export const STAGE_PLUS_MONTHLY_CREDITS = 300;
+export const STAGE_PLUS_MONTHLY_CREDITS = 150;
 export const TOURNAMENT_ENTRY_CREDITS = 50;
 export const COMMUNITY_TOURNAMENT_LIMIT = 5;
 

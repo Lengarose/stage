@@ -1524,9 +1524,9 @@ async function runStartupMigrations() {
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS store_configs (
     id                         VARCHAR(36)   NOT NULL PRIMARY KEY,
     name                       VARCHAR(100)  NULL,
-    stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 5.99,
-    stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 59.99,
-    monthly_credits            INT           NOT NULL DEFAULT 300,
+    stage_plus_monthly_price   DECIMAL(10,2) NOT NULL DEFAULT 4.99,
+    stage_plus_yearly_price    DECIMAL(10,2) NOT NULL DEFAULT 49.99,
+    monthly_credits            INT           NOT NULL DEFAULT 150,
     starter_credits            INT           NOT NULL DEFAULT 50,
     tournament_entry_credits   INT           NOT NULL DEFAULT 50,
     community_tournament_limit INT           NOT NULL DEFAULT 5,
@@ -1542,6 +1542,27 @@ async function runStartupMigrations() {
   await addCol('store_configs', 'badge_image_url', 'VARCHAR(500) NULL');
   await EXECUTESQL("UPDATE store_configs SET badge_image_url = '/uploads/stage-plus-badge.png' WHERE badge_image_url IS NULL OR badge_image_url = ''")
     .catch(err => console.error('[migration] store_configs badge_image_url:', err.message));
+  await EXECUTESQL(
+    `UPDATE store_configs
+        SET stage_plus_monthly_price = 4.99,
+            stage_plus_yearly_price = 49.99,
+            monthly_credits = 150,
+            starter_credits = 50,
+            tournament_entry_credits = 50,
+            headline = 'One membership for serious competitors',
+            description = 'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
+            perks = JSON_ARRAY(
+              '150 credits refreshed every month',
+              'Enter official STAGE competitions and regional leagues',
+              'Create community tournaments',
+              'Ranked player and club tournament access',
+              'Full rankings and position rankings',
+              'Full player and club stats',
+              'Advanced recruitment and search filters'
+            )
+      WHERE id = 'store-stage-plus-default'
+         OR is_active = 1`
+  ).catch(err => console.error('[migration] store_configs stage_plus_policy:', err.message));
 
   const storeConfigCount = await EXECUTESQL('SELECT COUNT(*) AS n FROM store_configs', []).catch(() => [{ n: 1 }]);
   if (Number(storeConfigCount[0]?.n || 0) === 0) {
@@ -1551,11 +1572,11 @@ async function runStartupMigrations() {
           starter_credits, tournament_entry_credits, community_tournament_limit, headline,
           description, badge_image_url, perks, is_active, created_date, updated_date)
        VALUES
-         ('store-stage-plus-default', 'STAGE Plus', 5.99, 59.99, 300, 50, 50, 5,
+         ('store-stage-plus-default', 'STAGE Plus', 4.99, 49.99, 150, 50, 50, 5,
           'One membership for serious competitors',
-          'STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.',
+          'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
           '/uploads/stage-plus-badge.png',
-          JSON_ARRAY('Enter official STAGE competitions and regional leagues','Create community tournaments','300 credits refreshed every month','Ranked player and club competition access','Advanced player and club discovery'),
+          JSON_ARRAY('150 credits refreshed every month','Enter official STAGE competitions and regional leagues','Create community tournaments','Ranked player and club tournament access','Full rankings and position rankings','Full player and club stats','Advanced recruitment and search filters'),
           1, NOW(), NOW())`,
       []
     ).catch(err => console.error('[migration] store_configs seed:', err.message));

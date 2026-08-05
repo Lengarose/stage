@@ -35,7 +35,7 @@ function scopeLabel(scope, selected, t) {
   return t("competitionFlow.global");
 }
 
-function ClubRow({ club, rank }) {
+function ClubRow({ club, rank, limited = false }) {
   const { t } = useTranslation();
   const winRate = club.matches_ranked ? Math.round((club.wins / club.matches_ranked) * 100) : 0;
   return (
@@ -68,20 +68,22 @@ function ClubRow({ club, rank }) {
           </div>
           <div className="hidden items-center gap-6 sm:flex">
             <Metric label={t("competitionFlow.record")} value={`${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`} />
-            <Metric label="WR" value={`${winRate}%`} tone={winRate >= 60 ? "good" : winRate >= 40 ? "warn" : "muted"} />
-            <Metric label={t("competitionFlow.titles")} value={club.competition_wins || 0} />
+            {!limited ? <Metric label="WR" value={`${winRate}%`} tone={winRate >= 60 ? "good" : winRate >= 40 ? "warn" : "muted"} /> : null}
+            {!limited ? <Metric label={t("competitionFlow.titles")} value={club.competition_wins || 0} /> : null}
           </div>
-          <div className="min-w-[64px] text-right">
-            <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(club.ranking_points)}</div>
-            <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
-          </div>
+          {!limited ? (
+            <div className="min-w-[64px] text-right">
+              <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(club.ranking_points)}</div>
+              <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
+            </div>
+          ) : null}
         </div>
       </div>
     </Link>
   );
 }
 
-function PlayerRow({ player, rank }) {
+function PlayerRow({ player, rank, limited = false }) {
   const { t } = useTranslation();
   return (
     <Link to={`/players/${player.id}`} className="block group">
@@ -99,18 +101,20 @@ function PlayerRow({ player, rank }) {
             <p className="text-xs text-white/45">{player.position}{player.club_name ? ` · ${player.club_name}` : ""}</p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className={cn("grid gap-2", limited ? "grid-cols-4" : "grid-cols-3 sm:grid-cols-6")}>
           <Metric label="GP" value={player.ranking_matches || 0} />
-          <Metric label="WR" value={`${formatNumber(player.ranking_win_rate)}%`} />
+          {limited ? <Metric label="W" value={player.ranking_wins || 0} /> : <Metric label="WR" value={`${formatNumber(player.ranking_win_rate)}%`} />}
           <Metric label="G" value={player.ranking_goals || 0} />
           <Metric label="A" value={player.ranking_assists || 0} />
-          <Metric label="CS" value={player.ranking_clean_sheets || 0} />
-          <Metric label="AVG" value={formatNumber(player.ranking_avg_rating)} />
+          {!limited ? <Metric label="CS" value={player.ranking_clean_sheets || 0} /> : null}
+          {!limited ? <Metric label="AVG" value={formatNumber(player.ranking_avg_rating)} /> : null}
         </div>
-        <div className="text-left md:text-right">
-          <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(player.ranking_points)}</div>
-          <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
-        </div>
+        {!limited ? (
+          <div className="text-left md:text-right">
+            <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(player.ranking_points)}</div>
+            <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
+          </div>
+        ) : null}
       </div>
     </Link>
   );
@@ -158,6 +162,13 @@ export default function Rankings() {
   const players = summary?.players || [];
   const regions = useMemo(() => [...new Set([...clubs, ...players].map((r) => r.region).filter(Boolean))].sort(), [clubs, players]);
   const countries = useMemo(() => [...new Set([...clubs, ...players].map((r) => r.country_code).filter(Boolean))].sort(), [clubs, players]);
+  const hasFullRankings = summary?.meta?.full_access !== false;
+
+  useEffect(() => {
+    if (hasFullRankings) return;
+    if (view === "positions") setView("players");
+    if (scope !== "global") setScope("global");
+  }, [hasFullRankings, scope, view]);
 
   const filteredClubs = useMemo(() => clubs.filter((club) => {
     if (scope === "regional" && region && club.region !== region) return false;
@@ -190,24 +201,32 @@ export default function Rankings() {
           <Stat icon={Activity} label={t("competitionFlow.scope")} value={scopeLabel(scope, { region, country }, t)} />
         </div>
 
+        {!hasFullRankings ? (
+          <div className="mb-6 rounded-xl border border-yellow-300/25 bg-yellow-300/10 px-4 py-3 text-sm text-yellow-100">
+            Free accounts see the top rankings and basic stats. STAGE Plus unlocks full scopes, position rankings, ranking points, ratings, and advanced form stats.
+          </div>
+        ) : null}
+
         <div className="mb-6 flex flex-wrap items-end gap-3 border-b border-white/10 pb-4">
           <Segment value={view} onChange={setView} items={[
             { value: "clubs", label: t("competitionFlow.clubs"), icon: Shield },
             { value: "players", label: t("competitionFlow.players"), icon: Users },
-            { value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair },
+            ...(hasFullRankings ? [{ value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair }] : []),
           ]} />
-          <Segment value={scope} onChange={setScope} items={[
-            { value: "global", label: t("competitionFlow.global"), icon: Globe },
-            { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
-            { value: "country", label: t("competitionFlow.country"), icon: Medal },
-          ]} />
-          {scope === "regional" ? (
+          {hasFullRankings ? (
+            <Segment value={scope} onChange={setScope} items={[
+              { value: "global", label: t("competitionFlow.global"), icon: Globe },
+              { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
+              { value: "country", label: t("competitionFlow.country"), icon: Medal },
+            ]} />
+          ) : null}
+          {hasFullRankings && scope === "regional" ? (
             <Select value={region} onChange={setRegion} options={regions} placeholder={t("competitionFlow.allRegions")} />
           ) : null}
-          {scope === "country" ? (
+          {hasFullRankings && scope === "country" ? (
             <Select value={country} onChange={setCountry} options={countries} placeholder={t("competitionFlow.allCountries")} />
           ) : null}
-          {view === "positions" ? (
+          {hasFullRankings && view === "positions" ? (
             <Select value={position} onChange={setPosition} options={POSITIONS} placeholder="Position" />
           ) : null}
         </div>
@@ -219,13 +238,13 @@ export default function Rankings() {
         ) : view === "clubs" ? (
           filteredClubs.length ? (
             <div className="space-y-3">
-              {filteredClubs.map((club, index) => <ClubRow key={club.id} club={club} rank={index + 1} />)}
+              {filteredClubs.map((club, index) => <ClubRow key={club.id} club={club} rank={index + 1} limited={!hasFullRankings} />)}
             </div>
           ) : <EmptyState label={t("competitionFlow.noRankedClubs")} />
         ) : (
           filteredPlayers.length ? (
             <div className="space-y-3">
-              {filteredPlayers.map((player, index) => <PlayerRow key={player.id} player={player} rank={index + 1} />)}
+              {filteredPlayers.map((player, index) => <PlayerRow key={player.id} player={player} rank={index + 1} limited={!hasFullRankings} />)}
             </div>
           ) : <EmptyState label={t("competitionFlow.noRankedPlayers")} />
         )}

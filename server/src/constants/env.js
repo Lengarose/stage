@@ -57,17 +57,12 @@ const ENV = {
 
   // ── Stripe ────────────────────────────────────────────────────
   // Secret keys (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) live in env.local.js.
-  // Price IDs are NOT secret and are safe to keep here. These are the Stripe
-  // TEST-mode price IDs for the STAGE Plus subscription. Swap to live price IDs
-  // when going to production.
+  // Subscription checkout uses the active StoreConfig price as Stripe price_data,
+  // so visible Store/Admin pricing and Stripe billing stay aligned.
   STRIPE_SECRET_KEY: '',
   // checkout.session.completed / invoice.paid / customer.subscription.deleted
   // webhook signing secret (whsec_...). Set in env.local.js.
   STRIPE_WEBHOOK_SECRET: '',
-  // STAGE Plus subscription price IDs (recurring) — Stripe TEST mode.
-  // Product: STAGE Plus (prod_UwE2z1pk1tkCNG). Monthly 5,99 € / Yearly 59,99 €.
-  STRIPE_STAGE_PLUS_MONTHLY_PRICE_ID: 'price_1TwLao2fnaWmNMFQ9zWOxAlJ',
-  STRIPE_STAGE_PLUS_YEARLY_PRICE_ID: 'price_1TwLcj2fnaWmNMFQ4547P0uE',
 
   // ── Email (SMTP) ──────────────────────────────────────────────
   // Transactional emails (sign-in, updates, match day, tournament, results).

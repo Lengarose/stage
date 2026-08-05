@@ -1228,25 +1228,10 @@ const CREDIT_PACKS = {
 const STAGE_PLUS_MONTHLY_CREDITS = DEFAULT_STORE_SETTINGS.monthly_credits;
 const TOURNAMENT_ENTRY_CREDITS = DEFAULT_STORE_SETTINGS.tournament_entry_credits;
 
-const SUBSCRIPTION_PRICE_ENV = {
-  stage_plus: {
-    monthly: ['STRIPE_STAGE_PLUS_MONTHLY_PRICE_ID', 'STRIPE_ELITE_MONTHLY_PRICE_ID'],
-    yearly: ['STRIPE_STAGE_PLUS_YEARLY_PRICE_ID', 'STRIPE_ELITE_YEARLY_PRICE_ID'],
-  },
-};
-
 function normalizeSubscriptionTier(tier) {
   const normalized = String(tier || '').toLowerCase();
   if (['stage_plus', 'plus', 'pro', 'elite'].includes(normalized)) return 'stage_plus';
   return 'free';
-}
-
-function getFirstConfiguredEnv(keys = []) {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (value) return value;
-  }
-  return '';
 }
 
 async function createStripeCheckoutSession(fields) {
@@ -2690,18 +2675,26 @@ const HANDLERS = {
     const normalizedBilling = String(billing || 'monthly').toLowerCase();
     if (normalizedTier !== 'stage_plus') throw new Error('STAGE Plus is the only available subscription');
     const storeSettings = await getActiveStoreSettings();
-    const envKeys = SUBSCRIPTION_PRICE_ENV.stage_plus?.[normalizedBilling] || [];
-    const priceId = getFirstConfiguredEnv(envKeys);
-    if (!priceId) throw new Error(`Stripe price is not configured for ${normalizedTier || 'unknown'} ${normalizedBilling}`);
+    const amount = normalizedBilling === 'yearly'
+      ? Number(storeSettings.stage_plus_yearly_price || 49.99)
+      : Number(storeSettings.stage_plus_monthly_price || 4.99);
+    const unitAmount = Math.round(amount * 100);
+    if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+      throw new Error(`Invalid STAGE Plus ${normalizedBilling} price`);
+    }
     const session = await createStripeCheckoutSession({
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      'line_items[0][price]': priceId,
+      'line_items[0][price_data][currency]': 'eur',
+      'line_items[0][price_data][unit_amount]': unitAmount,
+      'line_items[0][price_data][recurring][interval]': normalizedBilling === 'yearly' ? 'year' : 'month',
+      'line_items[0][price_data][product_data][name]': storeSettings.name || 'STAGE Plus',
       'line_items[0][quantity]': 1,
       'metadata[user_id]': _auth_user_id,
       'metadata[tier]': normalizedTier,
       'metadata[billing]': normalizedBilling,
+      'metadata[display_price_eur]': amount.toFixed(2),
       'metadata[monthly_credit_allowance]': storeSettings.monthly_credits,
       'metadata[credit_policy]': 'refresh_not_stack',
     });
@@ -8548,6 +8541,7 @@ const HANDLERS = {
     if (!users.length) return fail('User not found');
     const user = users[0];
     const isAdmin = [0, 2].includes(Number(user.role_id));
+    const userEmail = String(user.email || '').toLowerCase();
 
     const parseIds = (raw) => {
       if (raw == null) return [];
@@ -8592,6 +8586,62 @@ const HANDLERS = {
 
       const storeSettings = await getActiveStoreSettings();
       const requiredCredits = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      const playerAccessRows = await query(
+        `SELECT id, subscription
+           FROM players
+          WHERE user_id = ?
+             OR LOWER(TRIM(email)) = LOWER(TRIM(?))
+          ORDER BY user_id = ? DESC, updated_date DESC`,
+        [_auth_user_id, user.email || '', _auth_user_id],
+      );
+      const hasPlus = playerAccessRows.some((row) => normalizeSubscriptionTier(row.subscription) === 'stage_plus');
+      const creatorEmails = [tournament.creator_email, tournament.organizer_email]
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean);
+      let isOfficialTournament = false;
+      if (creatorEmails.length) {
+        const creatorRows = await query(
+          `SELECT role_id
+             FROM users
+            WHERE LOWER(TRIM(email)) IN (${placeholders(creatorEmails)})`,
+          creatorEmails,
+        );
+        isOfficialTournament = creatorRows.some((row) => [0, 2].includes(Number(row.role_id)));
+      } else {
+        isOfficialTournament = true;
+      }
+      if (!isAdmin && isOfficialTournament && !hasPlus) {
+        return fail('STAGE Plus is required to enter official STAGE tournaments and competitions.');
+      }
+      if (!isAdmin && !hasPlus && !isOfficialTournament) {
+        const ownedClubRows = await query(
+          `SELECT id
+             FROM clubs
+            WHERE president_user_id = ?
+               OR user_id = ?
+               OR LOWER(TRIM(owner_email)) = ?`,
+          [_auth_user_id, _auth_user_id, userEmail],
+        );
+        const ownedClubIds = new Set(ownedClubRows.map((row) => String(row.id)));
+        const playerIds = new Set(playerAccessRows.map((row) => String(row.id)));
+        const priorRows = await query(
+          `SELECT id, participant_type, registered_clubs, registered_players
+             FROM tournaments
+            WHERE id <> ?
+              AND COALESCE(status, '') <> 'cancelled'`,
+          [tournament_id],
+        );
+        const usedFreeTournament = priorRows.some((row) => {
+          const participant = String(row.participant_type || 'club').toLowerCase();
+          if (participant === 'player') {
+            return parseIds(row.registered_players).some((id) => playerIds.has(String(id)));
+          }
+          return parseIds(row.registered_clubs).some((id) => ownedClubIds.has(String(id)));
+        });
+        if (usedFreeTournament) {
+          return fail('Free accounts can enter one community tournament. STAGE Plus is required for more tournament entries.');
+        }
+      }
 
       const participantType = String(tournament.participant_type || 'club').toLowerCase();
       const isClubTourney = participantType !== 'player';

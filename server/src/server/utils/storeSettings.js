@@ -1,21 +1,23 @@
 const { EXECUTESQL } = require('../db/database');
 
 const DEFAULT_STORE_SETTINGS = {
-  stage_plus_monthly_price: 5.99,
-  stage_plus_yearly_price: 59.99,
-  monthly_credits: 300,
+  stage_plus_monthly_price: 4.99,
+  stage_plus_yearly_price: 49.99,
+  monthly_credits: 150,
   starter_credits: 50,
   tournament_entry_credits: 50,
   community_tournament_limit: 5,
   headline: 'One membership for serious competitors',
-  description: 'STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.',
+  description: 'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
   badge_image_url: '/uploads/stage-plus-badge.png',
   perks: [
+    '150 credits refreshed every month',
     'Enter official STAGE competitions and regional leagues',
     'Create community tournaments',
-    '300 credits refreshed every month',
-    'Ranked player and club competition access',
-    'Advanced player and club discovery',
+    'Ranked player and club tournament access',
+    'Full rankings and position rankings',
+    'Full player and club stats',
+    'Advanced recruitment and search filters',
   ],
 };
 

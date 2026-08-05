@@ -31,6 +31,10 @@ function normalizeStatus(value) {
   return text(value).toLowerCase();
 }
 
+function hasStagePlus(subscription) {
+  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
+}
+
 function safeRankSort(a, b) {
   return (b.ranking_points || 0) - (a.ranking_points || 0) ||
     (b.wins || b.ranking_wins || 0) - (a.wins || a.ranking_wins || 0) ||
@@ -670,14 +674,92 @@ async function requireAdmin(req, res) {
   return user;
 }
 
-router.get('/summary', async (_req, res) => {
-  try {
-    const summary = await buildRankings();
-    res.json({
+async function hasFullRankingAccess(req) {
+  const userId = req.user?.id;
+  const email = req.user?.email || '';
+  if (!userId && !email) return false;
+  const userRows = userId
+    ? await query('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId])
+    : [];
+  if ([0, 2].includes(Number(userRows[0]?.role_id))) return true;
+  const playerRows = await query(
+    `SELECT subscription
+       FROM players
+      WHERE user_id = ?
+         OR LOWER(TRIM(email)) = LOWER(TRIM(?))
+      ORDER BY user_id = ? DESC, updated_date DESC
+      LIMIT 1`,
+    [userId || '', email, userId || '']
+  );
+  return hasStagePlus(playerRows[0]?.subscription);
+}
+
+function publicClubRanking(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    tag: row.tag,
+    logo_url: row.logo_url,
+    banner_url: row.banner_url,
+    banner_position: row.banner_position,
+    banner_zoom: row.banner_zoom,
+    platform: row.platform,
+    region: row.region,
+    country_code: row.country_code,
+    global_rank: row.global_rank,
+    matches_ranked: row.matches_ranked,
+    wins: row.wins,
+    draws: row.draws,
+    losses: row.losses,
+  };
+}
+
+function publicPlayerRanking(row) {
+  return {
+    id: row.id,
+    gamertag: row.gamertag,
+    avatar_url: row.avatar_url,
+    position: row.position,
+    secondary_position: row.secondary_position,
+    platform: row.platform,
+    country: row.country,
+    country_code: row.country_code,
+    club_id: row.club_id,
+    club_name: row.club_name,
+    club_tag: row.club_tag,
+    global_rank: row.global_rank,
+    ranking_matches: row.ranking_matches,
+    ranking_wins: row.ranking_wins,
+    ranking_draws: row.ranking_draws,
+    ranking_losses: row.ranking_losses,
+    ranking_goals: row.ranking_goals,
+    ranking_assists: row.ranking_assists,
+    is_verified: row.is_verified,
+  };
+}
+
+function applyRankingAccess(summary, fullAccess) {
+  if (fullAccess) {
+    return {
       ...summary,
       clubs: summary.clubs.slice(0, 100),
       players: summary.players.slice(0, 100),
-    });
+      meta: { ...summary.meta, access: 'full', full_access: true },
+    };
+  }
+  return {
+    ...summary,
+    clubs: summary.clubs.slice(0, 10).map(publicClubRanking),
+    players: summary.players.slice(0, 10).map(publicPlayerRanking),
+    positions: [],
+    meta: { ...summary.meta, access: 'limited', full_access: false },
+  };
+}
+
+router.get('/summary', async (req, res) => {
+  try {
+    const summary = await buildRankings();
+    res.json(applyRankingAccess(summary, await hasFullRankingAccess(req)));
   } catch (err) {
     console.error('[rankings] summary failed:', err);
     res.status(500).json({ error: err.message });
@@ -687,7 +769,10 @@ router.get('/summary', async (_req, res) => {
 router.get('/clubs', async (req, res) => {
   try {
     const summary = await buildRankings();
-    res.json(filterScope(summary.clubs, req.query));
+    const fullAccess = await hasFullRankingAccess(req);
+    const queryParams = fullAccess ? req.query : { limit: 10 };
+    const rows = filterScope(summary.clubs, queryParams).map((row) => fullAccess ? row : publicClubRanking(row));
+    res.json(rows);
   } catch (err) {
     console.error('[rankings] clubs failed:', err);
     res.status(500).json({ error: err.message });
@@ -697,7 +782,10 @@ router.get('/clubs', async (req, res) => {
 router.get('/players', async (req, res) => {
   try {
     const summary = await buildRankings();
-    res.json(filterScope(summary.players, req.query, true));
+    const fullAccess = await hasFullRankingAccess(req);
+    const queryParams = fullAccess ? req.query : { limit: 10 };
+    const rows = filterScope(summary.players, queryParams, fullAccess).map((row) => fullAccess ? row : publicPlayerRanking(row));
+    res.json(rows);
   } catch (err) {
     console.error('[rankings] players failed:', err);
     res.status(500).json({ error: err.message });

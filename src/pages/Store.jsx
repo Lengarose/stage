@@ -30,7 +30,7 @@ const DEFAULT_STORE_CONFIG = {
   tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
   community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
   headline: "One membership for serious competitors",
-  description: "STAGE Plus unlocks official competitions, tournament creation, ranked play, and a monthly credit refresh.",
+  description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.",
   badge_image_url: "/uploads/stage-plus-badge.png",
   perks: [],
 };
@@ -204,7 +204,6 @@ export default function Store() {
   const monthlyCredits = Number(storeConfig.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
   const starterCredits = Number(storeConfig.starter_credits || TOURNAMENT_ENTRY_CREDITS);
   const entryCredits = Number(storeConfig.tournament_entry_credits || TOURNAMENT_ENTRY_CREDITS);
-  const tournamentLimit = Number(storeConfig.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
 
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8">
@@ -313,7 +312,7 @@ export default function Store() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-foreground mb-1">{t("commonPages.storePlusHeadline")}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{t("commonPages.storePlusDesc", { credits: starterCredits })}</p>
-                  <div className="grid sm:grid-cols-3 gap-3 mb-4">
+                  <div className="grid sm:grid-cols-2 gap-3 mb-4">
                     <div className="bg-primary/10 border border-primary/20 rounded-xl p-3">
                       <p className="font-bold text-primary text-sm">{t("commonPages.storeCreditsAmount", { amount: monthlyCredits })}</p>
                       <p className="text-xs text-muted-foreground">{t("commonPages.storeMonthlyRefresh")}</p>
@@ -321,10 +320,6 @@ export default function Store() {
                     <div className="bg-warning/10 border border-warning/20 rounded-xl p-3">
                       <p className="font-bold text-warning text-sm">{t("commonPages.storeCreditsAmount", { amount: entryCredits })}</p>
                       <p className="text-xs text-muted-foreground">{t("commonPages.storeEntryCost")}</p>
-                    </div>
-                    <div className="bg-success/10 border border-success/20 rounded-xl p-3">
-                      <p className="font-bold text-success text-sm">{t("commonPages.storeTournamentsAmount", { amount: tournamentLimit })}</p>
-                      <p className="text-xs text-muted-foreground">{t("commonPages.storeActiveSlots")}</p>
                     </div>
                   </div>
                   <Button onClick={() => setActiveTab("subscription")} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 gap-2">
@@ -443,7 +438,6 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
   const monthlyEquiv = prices && billing === 'yearly' ? (prices.yearly / 12).toFixed(2) : null;
   const monthlyCredits = Number(storeConfig.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
   const entryCredits = Number(storeConfig.tournament_entry_credits || TOURNAMENT_ENTRY_CREDITS);
-  const tournamentLimit = Number(storeConfig.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
   const perks = Array.isArray(storeConfig.perks) && storeConfig.perks.length ? storeConfig.perks : item.perks;
 
   return (
@@ -465,7 +459,7 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
           <p className="text-xs text-muted-foreground">{storeConfig.description || item.description}</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-background/60 border border-border p-3">
           <p className="font-black text-warning">{monthlyCredits}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeMonthlyCredits")}</p>
@@ -473,10 +467,6 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
         <div className="rounded-xl bg-background/60 border border-border p-3">
           <p className="font-black text-primary">{entryCredits}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeEntryCostShort")}</p>
-        </div>
-        <div className="rounded-xl bg-background/60 border border-border p-3">
-          <p className="font-black text-success">{tournamentLimit}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("commonPages.storeActiveEvents")}</p>
         </div>
       </div>
       <ul className="space-y-1.5">

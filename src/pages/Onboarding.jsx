@@ -279,6 +279,19 @@ export default function Onboarding({ onComplete }) {
                           </div>
                         </button>
                       </div>
+
+                      <div className="rounded-2xl border border-cyan-300/25 bg-cyan-300/8 p-4">
+                        <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">STAGE Plus</p>
+                        <p className="mt-1 text-xs leading-relaxed text-white/55">
+                          Start free with 50 credits for one community tournament. Plus is €4.99/month or €49.99/year and unlocks official competitions, tournament creation, full rankings, full stats, and 150 refreshed credits every month.
+                        </p>
+                        <a
+                          href="/store"
+                          className="mt-3 inline-flex text-xs font-black uppercase tracking-widest text-cyan-200 hover:text-white"
+                        >
+                          View Plus
+                        </a>
+                      </div>
                     </div>
                   )}
 
