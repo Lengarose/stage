@@ -110,31 +110,19 @@ function parsePresidentSocialLinks(value) {
     .map(([label, url]) => ({ label, url }));
 }
 
-function PresidentProfileCard({ club }) {
-  const hasPresidentProfile = Boolean(
-    club?.president_name ||
-    club?.president_role_title ||
-    club?.president_avatar_url ||
-    club?.president_banner_url ||
-    club?.president_bio ||
-    club?.president_success_level ||
-    club?.president_management_style ||
-    club?.president_quote ||
-    club?.president_country_code ||
-    club?.president_started_at ||
-    club?.president_social_links
-  );
-  if (!hasPresidentProfile) return null;
+function PresidentProfileCard({ club, president }) {
+  if (!president?.id && !club?.president_id) return null;
 
-  const socialLinks = parsePresidentSocialLinks(club.president_social_links);
-  const successLabel = PRESIDENT_SUCCESS_LABELS[club.president_success_level] || club.president_success_level;
-  const bannerStyle = club.president_banner_url
+  const socialLinks = parsePresidentSocialLinks(president?.social_links);
+  const successLabel = PRESIDENT_SUCCESS_LABELS[president?.success_level] || president?.success_level;
+  const bannerStyle = president?.banner_url
     ? {
-        backgroundImage: `url(${club.president_banner_url})`,
-        backgroundSize: `${club.president_banner_zoom || 150}%`,
-        backgroundPosition: club.president_banner_position || "50% 50%",
+        backgroundImage: `url(${president.banner_url})`,
+        backgroundSize: `${president.banner_zoom || 150}%`,
+        backgroundPosition: president.banner_position || "50% 50%",
       }
     : {};
+  const presidentPath = `/presidents/${president?.id || club.president_id}`;
 
   return (
     <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
@@ -143,38 +131,73 @@ function PresidentProfileCard({ club }) {
       </div>
       <div className="relative px-4 sm:px-5 pb-5 -mt-10">
         <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-          <div className="w-20 h-20 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl shrink-0">
-            {club.president_avatar_url ? (
-              <img src={club.president_avatar_url} alt={club.president_name || "Club president"} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Shield className="w-8 h-8 text-amber-300/80" />
-              </div>
-            )}
+          <div className="flex items-end gap-3 shrink-0">
+            <div className="w-16 h-16 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl">
+              {club?.logo_url ? (
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${club.logo_url})`,
+                    backgroundSize: `${club.logo_zoom || 150}%`,
+                    backgroundPosition: club.logo_position || "50% 50%",
+                    backgroundRepeat: "no-repeat",
+                  }}
+                  aria-label={club.name || "Club emblem"}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Shield className="w-7 h-7 text-amber-300/80" />
+                </div>
+              )}
+            </div>
+            <div className="w-20 h-20 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl">
+              {president?.avatar_url ? (
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${president.avatar_url})`,
+                    backgroundSize: `${president.avatar_zoom || 150}%`,
+                    backgroundPosition: president.avatar_position || "50% 50%",
+                    backgroundRepeat: "no-repeat",
+                  }}
+                  aria-label={president.display_name || "Club president"}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Shield className="w-8 h-8 text-amber-300/80" />
+                </div>
+              )}
+            </div>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">President profile</p>
             <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase leading-none text-white mt-1">
-              {club.president_name || "Club President"}
+              {president?.display_name || "Club President"}
             </h2>
             <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              {club.president_role_title ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/75">{club.president_role_title}</span> : null}
+              {president?.role_title ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/75">{president.role_title}</span> : null}
               {successLabel ? <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-amber-200">{successLabel}</span> : null}
-              {club.president_management_style ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">{club.president_management_style}</span> : null}
-              {club.president_country_code ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/65">{club.president_country_code}</span> : null}
+              {president?.management_style ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">{president.management_style}</span> : null}
+              {president?.country_code ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/65">{president.country_code}</span> : null}
             </div>
           </div>
+          <Link
+            to={presidentPath}
+            className="inline-flex items-center justify-center rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-amber-100 hover:bg-amber-300/20 transition-colors shrink-0"
+          >
+            View president profile
+          </Link>
         </div>
-        {club.president_quote ? (
-          <p className="mt-4 text-sm font-semibold text-white/85">"{club.president_quote}"</p>
+        {president?.quote ? (
+          <p className="mt-4 text-sm font-semibold text-white/85">"{president.quote}"</p>
         ) : null}
-        {club.president_bio ? (
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60">{club.president_bio}</p>
+        {president?.bio ? (
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60">{president.bio}</p>
         ) : null}
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
-          {club.president_started_at ? (
+          {president?.started_at ? (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1">
-              <Trophy className="w-3 h-3 text-amber-300" /> Since {String(club.president_started_at).slice(0, 10)}
+              <Trophy className="w-3 h-3 text-amber-300" /> Since {String(president.started_at).slice(0, 10)}
             </span>
           ) : null}
           {socialLinks.map((link) => (
@@ -199,6 +222,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     null;
   const clubsListPath = limitedTournamentId ? "/tournaments/clubs" : "/clubs";
   const [club, setClub] = useState(null);
+  const [president, setPresident] = useState(null);
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
@@ -283,6 +307,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         ]);
 
         const c = asObject(clubRecordRaw);
+        let presidentRecord = null;
+        if (c?.president_id) {
+          presidentRecord = asObject(await stageClient.entities.President.get(c.president_id).catch(() => null));
+        } else if (c?.id) {
+          const byClub = await stageClient.entities.President.filter({ club_id: c.id }, null, 1).catch(() => []);
+          presidentRecord = asObject(asObjectArray(byClub)[0]);
+        }
+        setPresident(presidentRecord);
         const staffRows = asObjectArray(staffRoleRows);
         const myPl = myPlResolved ? [myPlResolved] : [];
         let playerData = asObjectArray(initialPlayerRows).filter((player) => player.id);
@@ -881,7 +913,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       </GamerClubProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
-        <PresidentProfileCard club={club} />
+        <PresidentProfileCard club={club} president={president} />
 
         {/* Trial request — visible to signed-in players who are not members */}
         {!isMember && !isOwner && myPlayer ? (

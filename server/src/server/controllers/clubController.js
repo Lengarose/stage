@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const Club    = require('../models/clubModel');
+const President = require('../models/presidentModel');
 const ClubStaffRole = require('../models/clubStaffRoleModel');
 const ClubFixtureLineup = require('../models/clubFixtureLineupModel');
 const { EXECUTESQL } = require('../db/database');
@@ -12,23 +13,8 @@ const {
   writeClubAudit,
 } = require('../services/clubOperationsService');
 const { upsertActiveMembership } = require('../services/clubMembershipService');
+const { extractPresidentProfileFromClubBody } = require('./presidentController');
 const { v4: uuidv4 } = require('uuid');
-
-const PRESIDENT_PROFILE_FIELDS = [
-  'president_name',
-  'president_role_title',
-  'president_avatar_url',
-  'president_banner_url',
-  'president_banner_position',
-  'president_banner_zoom',
-  'president_bio',
-  'president_success_level',
-  'president_country_code',
-  'president_quote',
-  'president_management_style',
-  'president_started_at',
-  'president_social_links',
-];
 
 const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
@@ -45,14 +31,12 @@ const CLUB_PROFILE_UPDATE_FIELDS = [
   'banner_zoom',
 ];
 
-const PROFILE_UPDATE_FIELDS = new Set([
-  ...CLUB_PROFILE_UPDATE_FIELDS,
-  ...PRESIDENT_PROFILE_FIELDS,
-]);
+const PROFILE_UPDATE_FIELDS = new Set(CLUB_PROFILE_UPDATE_FIELDS);
 
 const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'user_id',
   'president_user_id',
+  'president_id',
   'owner_email',
   'name',
   'tag',
@@ -63,7 +47,6 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'logo_position',
   'logo_zoom',
   'description',
-  ...PRESIDENT_PROFILE_FIELDS,
   'wins',
   'losses',
   'draws',
@@ -93,7 +76,7 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
 ]);
 
 const FORMATION_UPDATE_FIELDS = new Set(['formation', 'lineup']);
-const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'owner_email']);
+const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'president_id', 'owner_email']);
 
 function hasClubPermission(access, permission) {
   return Boolean(access?.admin || access?.permissions?.includes(permission));
@@ -191,6 +174,7 @@ router.post('/', async (req, res) => {
     }
 
     const body = { ...req.body };
+    const presidentProfile = extractPresidentProfileFromClubBody(body);
     body.user_id = await resolveClubUserId(req, body);
     body.president_user_id = body.president_user_id || body.user_id || req.user?.id || null;
     if (!body.owner_email && req.user?.email) body.owner_email = req.user.email;
@@ -198,10 +182,100 @@ router.post('/', async (req, res) => {
     if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
     if (body.wage_budget_stc     == null) body.wage_budget_stc     = 1_500_000;
 
+    // Ensure a President entity exists for the club president.
+    // Accepts nested `president` (current) or legacy flat president_* keys.
+    let presidentId = body.president_id || null;
+    if (!presidentId && body.president_user_id) {
+      const existingPresident = await EXECUTESQL(
+        'SELECT id FROM presidents WHERE user_id = ? LIMIT 1',
+        [body.president_user_id]
+      ).catch(() => []);
+      if (existingPresident[0]?.id) {
+        presidentId = existingPresident[0].id;
+        // Refresh profile fields captured during onboarding onto the existing entity.
+        const hasProfile = Object.values(presidentProfile).some((value) => value != null && value !== '');
+        if (hasProfile) {
+          await EXECUTESQL(
+            `UPDATE presidents SET
+              email = COALESCE(?, email),
+              display_name = COALESCE(?, display_name),
+              role_title = COALESCE(?, role_title),
+              avatar_url = COALESCE(?, avatar_url),
+              avatar_position = COALESCE(?, avatar_position),
+              avatar_zoom = COALESCE(?, avatar_zoom),
+              banner_url = COALESCE(?, banner_url),
+              banner_position = COALESCE(?, banner_position),
+              banner_zoom = COALESCE(?, banner_zoom),
+              bio = COALESCE(?, bio),
+              success_level = COALESCE(?, success_level),
+              country_code = COALESCE(?, country_code),
+              quote = COALESCE(?, quote),
+              management_style = COALESCE(?, management_style),
+              started_at = COALESCE(?, started_at),
+              social_links = COALESCE(?, social_links)
+             WHERE id = ?`,
+            [
+              body.owner_email || req.user?.email || null,
+              presidentProfile.display_name || null,
+              presidentProfile.role_title || null,
+              presidentProfile.avatar_url || null,
+              presidentProfile.avatar_position || null,
+              presidentProfile.avatar_zoom ?? null,
+              presidentProfile.banner_url || null,
+              presidentProfile.banner_position || null,
+              presidentProfile.banner_zoom ?? null,
+              presidentProfile.bio || null,
+              presidentProfile.success_level || null,
+              presidentProfile.country_code || null,
+              presidentProfile.quote || null,
+              presidentProfile.management_style || null,
+              presidentProfile.started_at || null,
+              presidentProfile.social_links
+                ? (typeof presidentProfile.social_links === 'string'
+                  ? presidentProfile.social_links
+                  : JSON.stringify(presidentProfile.social_links))
+                : null,
+              presidentId,
+            ]
+          ).catch(() => {});
+        }
+      } else {
+        const president = new President({
+          user_id: body.president_user_id,
+          email: body.owner_email || req.user?.email || null,
+          display_name: presidentProfile.display_name || null,
+          role_title: presidentProfile.role_title || null,
+          avatar_url: presidentProfile.avatar_url || null,
+          avatar_position: presidentProfile.avatar_position || '50% 50%',
+          avatar_zoom: presidentProfile.avatar_zoom ?? 150,
+          banner_url: presidentProfile.banner_url || null,
+          banner_position: presidentProfile.banner_position || null,
+          banner_zoom: presidentProfile.banner_zoom ?? null,
+          bio: presidentProfile.bio || null,
+          success_level: presidentProfile.success_level || null,
+          country_code: presidentProfile.country_code || null,
+          quote: presidentProfile.quote || null,
+          management_style: presidentProfile.management_style || null,
+          started_at: presidentProfile.started_at || null,
+          social_links: presidentProfile.social_links || null,
+          status: 'active',
+        });
+        await president.create();
+        presidentId = president.id;
+      }
+    }
+    body.president_id = presidentId || null;
+
     const club = new Club(body);
     await club.create();
     const created = await club.selectOne(club.id);
     const record  = created[0];
+    if (record?.president_id) {
+      await EXECUTESQL(
+        'UPDATE presidents SET club_id = ? WHERE id = ?',
+        [record.id, record.president_id]
+      ).catch(() => {});
+    }
     let ownerContractId = null;
     if (record?.user_id) {
       await EXECUTESQL(

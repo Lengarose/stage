@@ -108,9 +108,10 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
     return null;
   }
 
-  async function resolveClubRecipientEmail(club) {
+  async function resolveClubContact(club) {
     const localPresidentEmail = isReachableEmail(getClubPresidentContactEmail({ club }));
-    if (localPresidentEmail) return localPresidentEmail;
+    let presidentId = club?.president_id || null;
+    let recipientEmail = localPresidentEmail;
 
     try {
       const contact = await stageClient.functions.invoke("resolveClubContact", {
@@ -120,21 +121,31 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         contact?.data?.recipient_email,
         contact?.recipient_email
       );
-      if (fromApi) return fromApi;
+      if (fromApi) recipientEmail = fromApi;
+      presidentId = contact?.data?.president_id || presidentId;
     } catch (err) {
       if (!String(err?.message || "").includes("Function 'resolveClubContact' not found")) {
         console.warn("[ArrangeGame] club contact resolver failed, falling back:", err);
       }
     }
 
-    const clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
-    const president = clubPlayers.find((p) =>
-      p.club_roles?.includes("president") ||
-      p.role === "president" ||
-      p.club_roles?.includes("captain") ||
-      p.role === "captain"
-    ) || clubPlayers[0];
-    return pickRecipientEmail(president?.email);
+    if (!recipientEmail) {
+      const clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
+      const president = clubPlayers.find((p) =>
+        p.club_roles?.includes("president") ||
+        p.role === "president" ||
+        p.club_roles?.includes("captain") ||
+        p.role === "captain"
+      ) || clubPlayers[0];
+      recipientEmail = pickRecipientEmail(president?.email);
+    }
+
+    if (!presidentId) {
+      const rows = await stageClient.entities.President.filter({ club_id: club.id }, null, 1).catch(() => []);
+      presidentId = rows?.[0]?.id || null;
+    }
+
+    return { recipientEmail, presidentId };
   }
 
   function selectOpponent(opponent, kind) {
@@ -198,10 +209,22 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         return;
       }
 
-      // Club rows: owner_email (+ API / staff). Player rows: email (+ users link via API).
-      let recipientEmail = recipientIsClub
-        ? await resolveClubRecipientEmail(selected)
-        : await resolvePlayerRecipientEmail(selected);
+      // Club rows: president contact (+ API). Player rows: email (+ users link via API).
+      // Pairing always uses club_id; president_id is additive attribution.
+      let recipientEmail = null;
+      let opponentPresidentId = null;
+      let challengerPresidentId = myClub?.president_id || null;
+      if (recipientIsClub) {
+        const clubContact = await resolveClubContact(selected);
+        recipientEmail = clubContact.recipientEmail;
+        opponentPresidentId = clubContact.presidentId;
+      } else {
+        recipientEmail = await resolvePlayerRecipientEmail(selected);
+      }
+      if (senderIsClub && !challengerPresidentId && myClub?.id) {
+        const mine = await stageClient.entities.President.filter({ club_id: myClub.id }, null, 1).catch(() => []);
+        challengerPresidentId = mine?.[0]?.id || null;
+      }
 
       if (!recipientEmail) {
         setSendError(
@@ -245,8 +268,10 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           opponent_name:        opponentName,
           challenger_club_id:   senderClubId,
           challenger_player_id: myPlayer?.id || null,
+          challenger_president_id: senderIsClub ? challengerPresidentId : null,
           opponent_club_id:     recipientIsClub ? selected.id : null,
           opponent_player_id:   !recipientIsClub ? selected.id : null,
+          opponent_president_id: recipientIsClub ? opponentPresidentId : null,
           wager_stc:            wagerAmount,
         },
         send_notification:    true,

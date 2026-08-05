@@ -5,6 +5,7 @@ const { EXECUTESQL } = require('../db/database');
 const { requireClubPermission, writeClubAudit } = require('../services/clubOperationsService');
 const { deliverContractOfferMessage } = require('../services/messageDeliveryService');
 const { assertCanCreateContractOffer } = require('../services/contractRulesService');
+const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
 
 async function cancelContractOffer(contractId, req, reason = null) {
   const existing = await new PlayerContract().selectOne(contractId);
@@ -148,6 +149,12 @@ router.post('/', async (req, res) => {
     safeBody.offered_by = user.email || safeBody.offered_by || '';
     safeBody.offered_by_user_id = user.id;
     safeBody.offered_by_club_id = safeBody.team_id;
+    if (!safeBody.offered_by_president_id) {
+      safeBody.offered_by_president_id = await resolveOfferedByPresidentId({
+        userId: user.id,
+        clubId: safeBody.team_id,
+      });
+    }
     await assertCanCreateContractOffer({
       playerId: safeBody.user_id,
       teamId: safeBody.team_id,

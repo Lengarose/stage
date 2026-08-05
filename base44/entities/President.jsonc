@@ -1,0 +1,116 @@
+{
+  "name": "President",
+  "type": "object",
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": {
+      "$or": [
+        {
+          "user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "User ID"
+    },
+    "club_id": {
+      "type": "string",
+      "title": "Current Club ID"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "display_name": {
+      "type": "string",
+      "title": "Display Name"
+    },
+    "role_title": {
+      "type": "string",
+      "title": "Role Title"
+    },
+    "avatar_url": {
+      "type": "string",
+      "title": "Avatar URL"
+    },
+    "avatar_position": {
+      "type": "string",
+      "title": "Avatar Position",
+      "default": "50% 50%"
+    },
+    "avatar_zoom": {
+      "type": "number",
+      "title": "Avatar Zoom (%)",
+      "default": 150
+    },
+    "banner_url": {
+      "type": "string",
+      "title": "Banner URL"
+    },
+    "banner_position": {
+      "type": "string",
+      "title": "Banner Position",
+      "default": "50% 50%"
+    },
+    "banner_zoom": {
+      "type": "number",
+      "title": "Banner Zoom (%)",
+      "default": 150
+    },
+    "bio": {
+      "type": "string",
+      "title": "Bio"
+    },
+    "success_level": {
+      "type": "string",
+      "title": "Success Level",
+      "enum": [
+        "less_successful",
+        "successful",
+        "more_successful",
+        "most_successful",
+        "boss"
+      ],
+      "default": "successful"
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country Code"
+    },
+    "quote": {
+      "type": "string",
+      "title": "Quote"
+    },
+    "management_style": {
+      "type": "string",
+      "title": "Management Style"
+    },
+    "started_at": {
+      "type": "string",
+      "title": "Started At"
+    },
+    "social_links": {
+      "type": "object",
+      "title": "Social Links"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "default": "active"
+    }
+  }
+}

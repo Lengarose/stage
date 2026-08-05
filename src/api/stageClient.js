@@ -2,7 +2,7 @@
 // so zero changes are needed in any component file.
 import { CHANNELS, makeChannel, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { toMysqlDateTime, asWallClockDateTimeString } from "@/lib/momentDate";
-import { getOwnedClubId, getPresidentClubId } from "@/lib/userIdentityFields";
+import { getOwnedClubId, getPresidentClubId, getPresidentId } from "@/lib/userIdentityFields";
 import { clearAccountIntent } from "@/lib/accountIntent";
 
 const viteEnv = /** @type {any} */ (import.meta).env;
@@ -19,6 +19,7 @@ const USER_KEY    = 'stage_user_id';
 const PLAYER_KEY  = 'stage_player_id';
 const OWNER_KEY   = 'stage_owner_id';
 const PRESIDENT_CLUB_KEY = 'stage_president_club_id';
+const PRESIDENT_ID_KEY = 'stage_president_id';
 const AUTH_CHANGED_EVENT = 'stage-auth-changed';
 const OAUTH_RETURN_KEY = 'stage_oauth_return';
 const OAUTH_ENTRANCE_MODE_KEY = 'stage_oauth_entrance_mode';
@@ -109,19 +110,20 @@ function notifyAuthChanged() {
 }
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
-export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId } = /** @type {any} */({})) => {
+export const storeTokens = ({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId, presidentId } = /** @type {any} */({})) => {
   if (accessToken)  localStorage.setItem(ACCESS_KEY,  accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
   if (userId)       localStorage.setItem(USER_KEY,    String(userId));
   if (playerId)     localStorage.setItem(PLAYER_KEY,  String(playerId));
   if (presidentClubId) localStorage.setItem(PRESIDENT_CLUB_KEY, String(presidentClubId));
+  if (presidentId) localStorage.setItem(PRESIDENT_ID_KEY, String(presidentId));
   if (ownedClubId || ownerId || presidentClubId) localStorage.setItem(OWNER_KEY, String(ownedClubId || ownerId || presidentClubId));
   notifyAuthChanged();
 };
 
 export const clearTokens = () => {
   const userId = localStorage.getItem(USER_KEY);
-  [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY, PRESIDENT_CLUB_KEY].forEach(k => localStorage.removeItem(k));
+  [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY, PRESIDENT_CLUB_KEY, PRESIDENT_ID_KEY].forEach(k => localStorage.removeItem(k));
   clearAccountIntent(userId);
   notifyAuthChanged();
 };
@@ -135,6 +137,9 @@ function syncSessionFromMe(me) {
   const presidentClubId = getPresidentClubId(me);
   if (presidentClubId) localStorage.setItem(PRESIDENT_CLUB_KEY, String(presidentClubId));
   else localStorage.removeItem(PRESIDENT_CLUB_KEY);
+  const presidentId = getPresidentId(me);
+  if (presidentId) localStorage.setItem(PRESIDENT_ID_KEY, String(presidentId));
+  else localStorage.removeItem(PRESIDENT_ID_KEY);
   const ownedClubId = getOwnedClubId(me);
   if (ownedClubId) localStorage.setItem(OWNER_KEY, String(ownedClubId));
   else localStorage.removeItem(OWNER_KEY);
@@ -392,7 +397,7 @@ function makeEntity(name) {
 
 // ── Entity registry ────────────────────────────────────────────────────────────
 const ENTITY_NAMES = [
-  'Player', 'Club', 'Match', 'Tournament', 'Post', 'Comment',
+  'Player', 'President', 'Club', 'Match', 'Tournament', 'Post', 'Comment',
   'MatchPlayerStat', 'Notification', 'PlayerContract', 'InboxMessage',
   'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
@@ -564,7 +569,7 @@ const auth = {
     const presidentClubId = params.get('presidentClubId');
     const isNewUser    = params.get('isNewUser') === '1';
     if (accessToken && (userId || playerId)) {
-      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId });
+      storeTokens({ accessToken, refreshToken, userId, playerId, ownerId, ownedClubId, presidentClubId, presidentId: params.get('presidentId') });
       if (isNewUser && userId) markNeedsOnboarding(userId);
       let returnTo = '/';
       try {
@@ -767,14 +772,15 @@ const competitionEngine = {
 //   users.owned_club_id/owner_id, clubs.owner_email.
 //
 // Usage:
-//   const { user, player, club, presidentClub, activeRoles } = await resolveMyPlayerAndClub();
+//   const { user, player, club, presidentClub, president, activeRoles } = await resolveMyPlayerAndClub();
 export async function resolveMyPlayerAndClub() {
   const u = await auth.me().catch(() => null);
-  if (!u) return { user: null, player: null, club: null, presidentClub: null, activeRoles: [] };
+  if (!u) return { user: null, player: null, club: null, presidentClub: null, president: null, activeRoles: [] };
 
   let player = null;
   let club = null;
   let presidentClub = null;
+  let president = null;
 
   // 1) Use user.player_id from users table to get player directly.
   //    Use .get(id) for one-row identity lookups.
@@ -822,12 +828,26 @@ export async function resolveMyPlayerAndClub() {
     player = { ...player, club_id: club.id, club_name: club.name };
   }
 
+  // 8) Resolve first-class President entity (profile), separate from club auth.
+  const presidentId = getPresidentId(u) || presidentClub?.president_id || null;
+  if (presidentId) {
+    president = await entities.President.get(presidentId).catch(() => null);
+  }
+  if (!president && presidentClub?.id) {
+    const rows = await entities.President.filter({ club_id: presidentClub.id }, null, 1).catch(() => []);
+    president = rows[0] || null;
+  }
+  if (!president && u?.id) {
+    const rows = await entities.President.filter({ user_id: u.id }, null, 1).catch(() => []);
+    president = rows[0] || null;
+  }
+
   const activeRoles = [
     ...(player ? ['player'] : []),
     ...(presidentClub ? ['president'] : []),
   ];
 
-  return { user: u, player, club, presidentClub, activeRoles };
+  return { user: u, player, club, presidentClub, president, activeRoles };
 }
 
 // ── Chat read markers ──────────────────────────────────────────────────────────
@@ -857,6 +877,19 @@ const chatReads = {
   },
 };
 
-export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, profileMatches, chatReads };
+// ── President club assignment (admin) ─────────────────────────────────────────
+// Club pairing / matchmaking stays on club_id. This only reassigns which
+// president entity is linked to a club (audited server-side).
+const presidents = {
+  transfer(presidentId, { club_id, reason } = {}) {
+    if (!presidentId) return Promise.reject(new Error('presidentId is required'));
+    return http.post(`/presidents/${encodeURIComponent(presidentId)}/transfer`, {
+      club_id: club_id === undefined ? null : club_id,
+      ...(reason ? { reason } : {}),
+    });
+  },
+};
+
+export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, profileMatches, chatReads, presidents };
 // Backward-compat alias during migration
 export const base44 = stageClient;

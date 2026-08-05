@@ -760,15 +760,20 @@ function HeaderIdentityMenu({
   myPlayer,
   myClub,
   myClubId,
+  myPresidentId,
   accountIntent,
   accountMode,
   switchMode,
   subscriptionTier,
   isWhiteTheme = false,
 }) {
+  const { t } = useTranslation();
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
+  const presidentProfilePath = myPresidentId
+    ? `/presidents/${myPresidentId}`
+    : (myClub?.president_id ? `/presidents/${myClub.president_id}` : null);
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
@@ -864,6 +869,42 @@ function HeaderIdentityMenu({
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
           </>
         )}
+        {myPlayer ? (
+          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
+            <Link
+              to="/profile"
+              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+              Profile
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {presidentProfilePath ? (
+          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
+            <Link
+              to={presidentProfilePath}
+              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              {t("commonPages.presProfileMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {myClubId ? (
+          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
+            <Link
+              to={`/clubs/${myClubId}`}
+              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+              {t("commonPages.presMyClubMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
           <Link
             to="/settings"
@@ -1615,7 +1656,7 @@ function AdminMobileBottomBar({ pathname }) {
   );
 }
 
-function MobileTopBar({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
+function MobileTopBar({ myPlayer, myClub, presidentClub, myPresidentId, accountIntent, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
@@ -1633,6 +1674,7 @@ function MobileTopBar({ myPlayer, myClub, presidentClub, accountIntent, accountM
         myPlayer={myPlayer}
         myClub={myClub}
         presidentClub={presidentClub}
+        myPresidentId={myPresidentId}
         accountIntent={accountIntent}
         accountMode={accountMode}
         switchMode={switchMode}
@@ -1730,10 +1772,14 @@ function MobileThemeButton({ theme, setTheme }) {
   );
 }
 
-function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode }) {
+function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, accountIntent, accountMode, switchMode }) {
+  const { t } = useTranslation();
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && presidentClub?.id);
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
   const displayClub = showAsPresident ? presidentClub : myClub;
+  const presidentProfilePath = myPresidentId
+    ? `/presidents/${myPresidentId}`
+    : (presidentClub?.president_id ? `/presidents/${presidentClub.president_id}` : null);
   const clubLogoFallback =
     displayClub &&
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayClub.tag || displayClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
@@ -1786,7 +1832,9 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, 
   );
 
   if (!canSwitchRole) {
-    const identityHref = showAsPresident && presidentClub?.id ? `/clubs/${presidentClub.id}` : "/profile";
+    const identityHref = showAsPresident
+      ? (presidentProfilePath || (presidentClub?.id ? `/clubs/${presidentClub.id}` : "/profile"))
+      : "/profile";
     return (
       <Link to={identityHref} className="min-w-0 flex-1 outline-none">
         {identityButton}
@@ -1839,6 +1887,30 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, 
             >
               <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
               Profile
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {presidentProfilePath ? (
+          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+            <Link
+              to={presidentProfilePath}
+              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              {t("commonPages.presProfileMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {presidentClub?.id ? (
+          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+            <Link
+              to={`/clubs/${presidentClub.id}`}
+              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-[#00E5BD]" />
+              {t("commonPages.presMyClubMenu")}
             </Link>
           </DropdownMenuItem>
         ) : null}
@@ -1999,6 +2071,7 @@ export default function Layout() {
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayerClub,     setMyPlayerClub]     = useState(null);
   const [myPlayer,         setMyPlayer]         = useState(null);
+  const [myPresidentId,    setMyPresidentId]    = useState(null);
   const [subscriptionTier, setSubscriptionTier] = useState("free");
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
@@ -2066,12 +2139,14 @@ export default function Layout() {
   useEffect(() => {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
-      const { user: u, player: p, club: c, presidentClub } = await resolveMyPlayerAndClub();
+      const { user: u, player: p, club: c, presidentClub, president } = await resolveMyPlayerAndClub();
       if (!u) return;
       setCurrentUserId(u.id || null);
       const storedIntent = readAccountIntent(u.id);
       setAccountIntent(storedIntent);
       const activePresidentClub = presidentClub || null;
+      const resolvedPresidentId = president?.id || activePresidentClub?.president_id || null;
+      setMyPresidentId(resolvedPresidentId);
 
       // President club identity. Player club membership is tracked separately.
       if (activePresidentClub?.id) {
@@ -2194,6 +2269,7 @@ export default function Layout() {
             setMyClubId(club.id);
             setMyClub(club);
             setMyPlayerClub(club);
+            if (club.president_id) setMyPresidentId(club.president_id);
             try { localStorage.setItem("stage_club_id", club.id); } catch { /* ignore */ }
           }
         }}
@@ -2207,6 +2283,7 @@ export default function Layout() {
             setMyClubId(club.id);
             setMyClub(club);
             setMyPlayerClub(club);
+            if (club.president_id) setMyPresidentId(club.president_id);
             const nextIntent = myPlayer ? "both" : "president";
             setAccountIntent(nextIntent);
             try {
@@ -2276,6 +2353,7 @@ export default function Layout() {
           myPlayer={myPlayer}
           myClub={mobileClubIdentity}
           presidentClub={myClub}
+          myPresidentId={myPresidentId}
           accountIntent={accountIntent}
           accountMode={accountMode}
           switchMode={switchMode}
@@ -2313,6 +2391,7 @@ export default function Layout() {
                   myPlayer={myPlayer}
                   myClub={myClub}
                   myClubId={myClubId}
+                  myPresidentId={myPresidentId}
                   accountIntent={accountIntent}
                   accountMode={accountMode}
                   switchMode={switchMode}

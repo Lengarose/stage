@@ -5,3 +5,7 @@ export function getOwnedClubId(userLike) {
 export function getPresidentClubId(userLike) {
   return userLike?.president_club_id || userLike?.presidentClubId || null;
 }
+
+export function getPresidentId(userLike) {
+  return userLike?.president_id || userLike?.presidentId || null;
+}

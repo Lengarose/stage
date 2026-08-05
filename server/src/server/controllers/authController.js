@@ -245,13 +245,17 @@ router.get('/me', async (req, res) => {
          c.id AS owner_id,
          c.id AS owned_club_id,
          c.id AS president_club_id,
-         c.name AS club_name
+         c.president_id AS club_president_id,
+         c.name AS club_name,
+         pr.id AS president_id,
+         pr.display_name AS president_display_name
        FROM users u
        LEFT JOIN roles r   ON r.id = u.role_id
        LEFT JOIN players p ON p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
        LEFT JOIN clubs c   ON c.president_user_id = u.id OR c.user_id = u.id OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
+       LEFT JOIN presidents pr ON pr.user_id = u.id OR pr.id = c.president_id
        WHERE u.id = ?
-       ORDER BY p.user_id = u.id DESC, c.president_user_id = u.id DESC, c.user_id = u.id DESC, p.updated_date DESC, c.updated_date DESC
+       ORDER BY p.user_id = u.id DESC, c.president_user_id = u.id DESC, c.user_id = u.id DESC, (pr.user_id = u.id) DESC, p.updated_date DESC, c.updated_date DESC
        LIMIT 1`,
       [decoded.id]
     );
@@ -260,6 +264,19 @@ router.get('/me', async (req, res) => {
     const roleId = me.role_id ?? 1;
     const roleName = me.db_role_name || (Number(roleId) === 0 ? 'admin' : 'player_club');
     const appRole = Number(roleId) === 0 ? 'admin' : (me.player_role || 'player');
+    let presidentId = me.president_id || me.club_president_id || null;
+    if (!presidentId && me.president_club_id) {
+      try {
+        const { ensurePresidentForClub } = require('../services/presidentResolutionService');
+        const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [me.president_club_id]);
+        if (clubs[0]) {
+          const president = await ensurePresidentForClub(clubs[0]);
+          presidentId = president?.id || null;
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
 
     res.json({
       id: me.id,
@@ -269,6 +286,8 @@ router.get('/me', async (req, res) => {
       player_id: me.player_id || null,
       owner_id: me.owner_id || null,
       owned_club_id: me.owned_club_id || me.owner_id || null,
+      president_id: presidentId,
+      president_display_name: me.president_display_name || null,
       president_club_id: me.president_club_id || null,
       president_club_name: me.president_club_id ? me.club_name || null : null,
       role_id: roleId,

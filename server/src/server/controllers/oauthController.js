@@ -28,7 +28,7 @@ async function issueAndRedirect(res, player) {
   );
 
   const clubs = await EXECUTESQL(
-    `SELECT id, president_user_id, user_id
+    `SELECT id, president_user_id, president_id, user_id
        FROM clubs
       WHERE president_user_id = ?
          OR user_id = ?
@@ -39,6 +39,16 @@ async function issueAndRedirect(res, player) {
   );
   const matchedClubId = clubs[0]?.id || '';
   const presidentClubId = String(clubs[0]?.president_user_id || '') === String(userId) ? matchedClubId : '';
+  let presidentId = clubs[0]?.president_id || '';
+  if (presidentClubId && !presidentId && clubs[0]) {
+    try {
+      const { ensurePresidentForClub } = require('../services/presidentResolutionService');
+      const president = await ensurePresidentForClub(clubs[0]);
+      presidentId = president?.id || '';
+    } catch {
+      /* non-fatal */
+    }
+  }
 
   // Sign-in notification (mailer skips @stage.local placeholder addresses).
   notifyLogin({
@@ -56,6 +66,7 @@ async function issueAndRedirect(res, player) {
     ownerId: matchedClubId,
     ownedClubId: matchedClubId,
     presidentClubId,
+    presidentId,
   });
   // New OAuth accounts still need the full onboarding flow (profile, club, tutorial).
   if (player.__isNewUser) params.set('isNewUser', '1');

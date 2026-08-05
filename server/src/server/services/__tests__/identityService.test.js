@@ -4,9 +4,11 @@ const test = require('node:test');
 
 function loadIdentityServiceWithDbMock(executesql) {
   const servicePath = path.resolve(__dirname, '../identityService.js');
+  const resolutionPath = path.resolve(__dirname, '../presidentResolutionService.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
 
   delete require.cache[servicePath];
+  delete require.cache[resolutionPath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
@@ -15,6 +17,38 @@ function loadIdentityServiceWithDbMock(executesql) {
   };
 
   return require(servicePath);
+}
+
+function withPresidentEnsureSupport(executesql, { presidents = [] } = {}) {
+  const store = { presidents: [...presidents] };
+  return async (sql, params = []) => {
+    if (/SELECT \* FROM presidents WHERE user_id = \?/.test(sql)) {
+      return store.presidents.filter((p) => p.user_id === params[0]);
+    }
+    if (/SELECT \* FROM presidents WHERE id = \?/.test(sql)) {
+      return store.presidents.filter((p) => p.id === params[0]);
+    }
+    if (/INSERT INTO presidents/.test(sql)) {
+      const row = {
+        id: params[0],
+        user_id: params[1],
+        club_id: params[2],
+        email: params[3],
+        display_name: params[4] ?? null,
+      };
+      store.presidents.push(row);
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE presidents SET club_id/.test(sql)) {
+      const row = store.presidents.find((p) => p.id === params[1]);
+      if (row) row.club_id = params[0];
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE clubs SET president_id/.test(sql)) {
+      return { affectedRows: 1 };
+    }
+    return executesql(sql, params);
+  };
 }
 
 test('resolveUserIdentity presents legacy owned club users as presidents', async () => {
@@ -39,15 +73,17 @@ test('resolveUserIdentity presents legacy owned club users as presidents', async
   const ownedClub = { id: 'club-owned', user_id: 'user-1', owner_email: 'owner@example.test' };
   const staffRole = { id: 'staff-1', club_id: 'club-member', player_id: 'player-1', user_id: 'user-1', role: 'recruiter' };
 
-  const executesql = async (sql, params) => {
+  const executesql = withPresidentEnsureSupport(async (sql, params) => {
     calls.push({ sql, params });
     if (/FROM users WHERE id = \?/.test(sql)) return [user];
     if (/FROM players WHERE id = \?/.test(sql)) return [player];
     if (/FROM clubs WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'club-member') return [memberClub];
     if (/FROM clubs WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'club-owned') return [ownedClub];
+    if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [];
+    if (/FROM club_memberships/.test(sql)) return [];
     if (/FROM club_staff_roles/.test(sql)) return [staffRole];
     throw new Error(`Unexpected SQL: ${sql}`);
-  };
+  });
 
   const { resolveUserIdentity } = loadIdentityServiceWithDbMock(executesql);
   const identity = await resolveUserIdentity('user-1');
@@ -81,13 +117,16 @@ test('resolveUserIdentity presents owner email fallback accounts as presidents',
   };
   const ownedClub = { id: 'club-legacy', user_id: null, owner_email: 'legacy@example.test' };
 
-  const executesql = async (sql) => {
+  const executesql = withPresidentEnsureSupport(async (sql) => {
     if (/FROM users WHERE id = \?/.test(sql)) return [user];
     if (/FROM players\s+WHERE user_id = \?/.test(sql)) return [player];
+    if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [];
+    if (/FROM clubs WHERE user_id = \?/.test(sql)) return [];
     if (/FROM clubs WHERE LOWER\(TRIM\(owner_email\)\)/.test(sql)) return [ownedClub];
+    if (/FROM club_memberships/.test(sql)) return [];
     if (/FROM club_staff_roles/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
-  };
+  });
 
   const { resolveUserIdentity } = loadIdentityServiceWithDbMock(executesql);
   const identity = await resolveUserIdentity('user-legacy');
@@ -114,13 +153,14 @@ test('resolveUserIdentity resolves president-only user without player profile', 
     owner_email: 'legacy-owner@example.test',
   };
 
-  const executesql = async (sql) => {
+  const executesql = withPresidentEnsureSupport(async (sql) => {
     if (/FROM users WHERE id = \?/.test(sql)) return [user];
     if (/FROM players\s+WHERE user_id = \?/.test(sql)) return [];
     if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [presidentClub];
+    if (/FROM club_memberships/.test(sql)) return [];
     if (/FROM club_staff_roles/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
-  };
+  });
 
   const { resolveUserIdentity } = loadIdentityServiceWithDbMock(executesql);
   const identity = await resolveUserIdentity('president-user');
@@ -130,6 +170,7 @@ test('resolveUserIdentity resolves president-only user without player profile', 
   assert.equal(identity.presidentClubId, 'club-president');
   assert.equal(identity.ownedClub.id, 'club-president');
   assert.equal(identity.club.id, 'club-president');
+  assert.ok(identity.presidentId);
   assert.deepEqual(identity.roles, ['president']);
 });
 
@@ -160,14 +201,15 @@ test('resolveUserIdentity prefers active club membership over legacy player club
   };
   const membershipClub = { id: 'membership-club', user_id: 'owner-user', owner_email: 'owner@example.test' };
 
-  const executesql = async (sql, params = []) => {
+  const executesql = withPresidentEnsureSupport(async (sql, params = []) => {
     if (/FROM users WHERE id = \?/.test(sql)) return [user];
     if (/FROM players WHERE id = \?/.test(sql)) return [player];
     if (/FROM club_memberships/.test(sql)) return [membership];
+    if (/FROM clubs WHERE president_user_id = \?/.test(sql)) return [];
     if (/FROM clubs WHERE id = \? LIMIT 1/.test(sql) && params[0] === 'membership-club') return [membershipClub];
     if (/FROM club_staff_roles/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
-  };
+  });
 
   const { resolveUserIdentity } = loadIdentityServiceWithDbMock(executesql);
   const identity = await resolveUserIdentity('user-member');

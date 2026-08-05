@@ -1,4 +1,8 @@
 const { EXECUTESQL } = require('../db/database');
+const {
+  ensurePresidentForClub,
+  resolvePresidentForUserId,
+} = require('./presidentResolutionService');
 
 function sameId(left, right) {
   return String(left || '') === String(right || '');
@@ -90,8 +94,19 @@ async function resolveUserIdentity(userId) {
   const presidentClubId = presidentClub?.id || (
     ownedClub && sameId(ownedClub.president_user_id, user.id) ? ownedClub.id : null
   );
+
+  // Ensure a first-class President entity exists for this president account.
+  let president = await resolvePresidentForUserId(user.id, { ensure: false });
+  const clubForPresident = presidentClub || (presidentClubId && ownedClub && sameId(ownedClub.id, presidentClubId) ? ownedClub : null);
+  if (!president && clubForPresident) {
+    president = await ensurePresidentForClub(clubForPresident);
+  } else if (president && clubForPresident && !sameId(president.club_id, clubForPresident.id)) {
+    president = await ensurePresidentForClub(clubForPresident);
+  }
+
   user.owned_club_id = ownedClubId;
   user.president_club_id = presidentClubId;
+  user.president_id = president?.id || clubForPresident?.president_id || null;
 
   const club = memberClub || legacyMemberClub || ownedClub || null;
   const staffRoles = club
@@ -120,6 +135,8 @@ async function resolveUserIdentity(userId) {
     player,
     membership,
     memberClub,
+    president,
+    presidentId: president?.id || null,
     presidentClub,
     presidentClubId,
     ownedClub,

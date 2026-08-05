@@ -102,11 +102,44 @@ CREATE TABLE IF NOT EXISTS players (
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- ── presidents ────────────────────────────────────────────────
+-- First-class president profile (like players). A club points at its
+-- current president via clubs.president_id; the president points back
+-- via presidents.club_id. Auth still uses clubs.president_user_id.
+CREATE TABLE IF NOT EXISTS presidents (
+  id                  VARCHAR(36)  PRIMARY KEY,
+  user_id             VARCHAR(36)  NOT NULL,
+  club_id             VARCHAR(36),
+  email               VARCHAR(255),
+  display_name        VARCHAR(150),
+  role_title          VARCHAR(100),
+  avatar_url          TEXT,
+  avatar_position     VARCHAR(50)  DEFAULT '50% 50%',
+  avatar_zoom         INT          DEFAULT 150,
+  banner_url          VARCHAR(500),
+  banner_position     VARCHAR(50),
+  banner_zoom         INT,
+  bio                 TEXT,
+  success_level       VARCHAR(50),
+  country_code        VARCHAR(10),
+  quote               VARCHAR(255),
+  management_style    VARCHAR(100),
+  started_at          DATETIME,
+  social_links        JSON,
+  status              VARCHAR(50)  DEFAULT 'active',
+  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_presidents_user (user_id),
+  INDEX idx_presidents_club (club_id),
+  INDEX idx_presidents_email (email)
+);
+
 -- ── clubs ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS clubs (
   id                  VARCHAR(36)  PRIMARY KEY,
   user_id             VARCHAR(36),
   president_user_id   VARCHAR(36) NOT NULL,
+  president_id        VARCHAR(36),
   owner_email         VARCHAR(255) NOT NULL,
   name                VARCHAR(150) NOT NULL,
   tag                 VARCHAR(20),
@@ -117,19 +150,6 @@ CREATE TABLE IF NOT EXISTS clubs (
   logo_position       VARCHAR(50),
   logo_zoom           INT,
   description         TEXT,
-  president_name      VARCHAR(150),
-  president_role_title VARCHAR(100),
-  president_avatar_url TEXT,
-  president_banner_url VARCHAR(500),
-  president_banner_position VARCHAR(50),
-  president_banner_zoom INT,
-  president_bio       TEXT,
-  president_success_level VARCHAR(50),
-  president_country_code VARCHAR(10),
-  president_quote     VARCHAR(255),
-  president_management_style VARCHAR(100),
-  president_started_at DATETIME,
-  president_social_links JSON,
   wins                INT          DEFAULT 0,
   losses              INT          DEFAULT 0,
   draws               INT          DEFAULT 0,
@@ -456,6 +476,7 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   offered_by            VARCHAR(255),
   offered_by_user_id    VARCHAR(36) NULL,
   offered_by_club_id    VARCHAR(36) NULL,
+  offered_by_president_id VARCHAR(36) NULL,
   max_games             INT,
   max_days              INT,
   weekly_salary_stc     DECIMAL(12,2) DEFAULT 0,
@@ -1155,6 +1176,7 @@ CREATE INDEX idx_players_user        ON players(user_id);
 CREATE INDEX idx_clubs_owner         ON clubs(owner_email);
 CREATE INDEX idx_clubs_user          ON clubs(user_id);
 CREATE INDEX idx_clubs_president_user ON clubs(president_user_id);
+CREATE INDEX idx_clubs_president_id  ON clubs(president_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
@@ -1173,6 +1195,7 @@ CREATE INDEX idx_contracts_team      ON player_contracts(team_id);
 CREATE INDEX idx_contracts_user      ON player_contracts(user_id);
 CREATE INDEX idx_contracts_offered_by_user ON player_contracts(offered_by_user_id);
 CREATE INDEX idx_contracts_offered_by_club ON player_contracts(offered_by_club_id);
+CREATE INDEX idx_contracts_offered_by_president ON player_contracts(offered_by_president_id);
 CREATE INDEX idx_pic_player          ON player_identity_claims(player_id);
 CREATE INDEX idx_pic_user            ON player_identity_claims(user_id);
 CREATE INDEX idx_pic_status          ON player_identity_claims(status);
@@ -2102,6 +2125,35 @@ SET @sql = IF(
   (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='players' AND constraint_name='fk_players_club_id') = 0
   AND (SELECT COUNT(*) FROM players p LEFT JOIN clubs c ON c.id = p.club_id WHERE p.club_id IS NOT NULL AND c.id IS NULL) = 0,
   'ALTER TABLE players ADD CONSTRAINT fk_players_club_id FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE SET NULL',
+  'SELECT 1'
+); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- President ↔ club: same link pattern as players.club_id.
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='presidents' AND constraint_name='fk_presidents_club_id') = 0
+  AND (SELECT COUNT(*) FROM presidents p LEFT JOIN clubs c ON c.id = p.club_id WHERE p.club_id IS NOT NULL AND c.id IS NULL) = 0,
+  'ALTER TABLE presidents ADD CONSTRAINT fk_presidents_club_id FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE SET NULL',
+  'SELECT 1'
+); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='presidents' AND constraint_name='fk_presidents_user_id') = 0
+  AND (SELECT COUNT(*) FROM presidents p LEFT JOIN users u ON u.id = p.user_id WHERE p.user_id IS NOT NULL AND u.id IS NULL) = 0,
+  'ALTER TABLE presidents ADD CONSTRAINT fk_presidents_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+  'SELECT 1'
+); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='clubs' AND constraint_name='fk_clubs_president_id') = 0
+  AND (SELECT COUNT(*) FROM clubs c LEFT JOIN presidents p ON p.id = c.president_id WHERE c.president_id IS NOT NULL AND p.id IS NULL) = 0,
+  'ALTER TABLE clubs ADD CONSTRAINT fk_clubs_president_id FOREIGN KEY (president_id) REFERENCES presidents(id) ON DELETE SET NULL',
+  'SELECT 1'
+); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='player_contracts' AND constraint_name='fk_contracts_offered_by_president') = 0
+  AND (SELECT COUNT(*) FROM player_contracts pc LEFT JOIN presidents p ON p.id = pc.offered_by_president_id WHERE pc.offered_by_president_id IS NOT NULL AND p.id IS NULL) = 0,
+  'ALTER TABLE player_contracts ADD CONSTRAINT fk_contracts_offered_by_president FOREIGN KEY (offered_by_president_id) REFERENCES presidents(id) ON DELETE SET NULL',
   'SELECT 1'
 ); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

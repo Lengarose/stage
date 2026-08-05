@@ -501,6 +501,21 @@ function parseSubmission(raw) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+function parseAdminMatchScore(value, fieldName) {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) {
+    const err = new Error(`${fieldName} must be a non-negative integer`);
+    err.status = 400;
+    throw err;
+  }
+  const score = Number(value);
+  if (!Number.isFinite(score) || !Number.isInteger(score) || score < 0) {
+    const err = new Error(`${fieldName} must be a non-negative integer`);
+    err.status = 400;
+    throw err;
+  }
+  return score;
+}
+
 async function getStadiumConfig() {
   const rows = await EXECUTESQL('SELECT * FROM stadium_config ORDER BY level ASC', []).catch(() => []);
   if (rows.length) return rows;
@@ -2327,15 +2342,25 @@ async function resolveClubContactForInvite(clubId) {
       throw new Error('Club has no reachable owner or president email');
     }
 
+    let presidentEntityId = club.president_id || null;
+    try {
+      const { ensurePresidentForClub } = require('../services/presidentResolutionService');
+      const presidentEntity = await ensurePresidentForClub(club, { query });
+      presidentEntityId = presidentEntity?.id || presidentEntityId;
+    } catch (ensureErr) {
+      console.warn('[resolveClubContact] ensure president entity skipped:', ensureErr.message);
+    }
+
     return {
       data: {
         club_id: club.id,
         club_name: club.name,
         recipient_email: recipientEmail,
         owner_user_id: ownerUser?.id || club.user_id || null,
+        president_id: presidentEntityId,
         president_player_id: visiblePresident?.id || anyMember?.id || null,
         president_gamertag: visiblePresident?.gamertag || anyMember?.gamertag || null,
-        linked_president: Boolean(president?.id),
+        linked_president: Boolean(president?.id || presidentEntityId),
       },
     };
   });
@@ -5004,13 +5029,18 @@ const HANDLERS = {
       teamId: team_id,
       contractType: contract_type || 'squad',
     });
+    const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
+    const offeredByPresidentId = await resolveOfferedByPresidentId({
+      userId: user.id,
+      clubId: team_id,
+    });
     const id = uuidv4();
     await EXECUTESQL(
       `INSERT INTO player_contracts (
-        id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, max_games, max_days,
+        id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, offered_by_president_id, max_games, max_days,
         weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
         captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
       [
         id,
         team_id,
@@ -5020,6 +5050,7 @@ const HANDLERS = {
         user.email,
         user.id,
         team_id,
+        offeredByPresidentId,
         duration.max_games,
         duration.max_days,
         Number(weekly_salary_stc || 0),
@@ -5068,13 +5099,18 @@ const HANDLERS = {
         allowedActiveContractId: action === 'renewal_offer' ? sourceContract?.id : null,
       });
 
+      const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
+      const offeredByPresidentId = await resolveOfferedByPresidentId({
+        userId: user?.id || null,
+        clubId: targetTeamId,
+      });
       const id = uuidv4();
       await EXECUTESQL(
         `INSERT INTO player_contracts (
-          id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, max_games, max_days,
+          id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, offered_by_president_id, max_games, max_days,
           weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
           captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
         [
           id,
           targetTeamId,
@@ -5084,6 +5120,7 @@ const HANDLERS = {
           offered_by || user?.email || '',
           user?.id || null,
           targetTeamId,
+          offeredByPresidentId,
           Number(max_games ?? sourceContract?.max_games ?? 0),
           Number(max_days ?? sourceContract?.max_days ?? 0),
           Number(weekly_salary_stc ?? sourceContract?.weekly_salary_stc ?? 0),
@@ -5852,7 +5889,7 @@ const HANDLERS = {
   async matchKickoff({
     action, match_id, is_home_team, home_score, away_score,
     player_stats, goal_events, proof_url, admin_resolve_winner,
-    admin_home_score, admin_away_score,
+    admin_home_score, admin_away_score, _auth_user_id,
   }) {
     if (!match_id) throw new Error('match_id required');
 
@@ -6023,6 +6060,12 @@ const HANDLERS = {
     }
 
     if (action === 'admin_resolve') {
+      await requireAdminUser(_auth_user_id);
+      if (!['home', 'away'].includes(admin_resolve_winner)) {
+        const err = new Error('admin_resolve_winner must be home or away');
+        err.status = 400;
+        throw err;
+      }
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!rows.length) throw new Error('Match not found');
       const m = rows[0];
@@ -6031,8 +6074,10 @@ const HANDLERS = {
       const awaySub = parseSubmission(m.away_submission) || { home_score: 0, away_score: 0, player_stats: [], goal_events: [] };
       const accepted = admin_resolve_winner === 'home' ? { ...homeSub } : { ...awaySub };
 
-      if (admin_home_score != null) accepted.home_score = Number(admin_home_score);
-      if (admin_away_score != null) accepted.away_score = Number(admin_away_score);
+      if (admin_home_score != null) accepted.home_score = admin_home_score;
+      if (admin_away_score != null) accepted.away_score = admin_away_score;
+      accepted.home_score = parseAdminMatchScore(accepted.home_score, 'admin_home_score');
+      accepted.away_score = parseAdminMatchScore(accepted.away_score, 'admin_away_score');
 
       return processMatchCompletion(m, accepted, accepted);
     }

@@ -10,51 +10,14 @@ import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
+import PresidentSetup, {
+  buildInitialPresidentProfile,
+  toPresidentApiPayload,
+} from "@/components/onboarding/PresidentSetup";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
-const PRESIDENT_SUCCESS_LEVELS = [
-  ["less_successful", "Less successful"],
-  ["successful", "Successful"],
-  ["more_successful", "More successful"],
-  ["most_successful", "Most successful"],
-  ["boss", "The boss"],
-];
-
-const initialPresidentProfile = (player) => ({
-  president_name: player?.gamertag || "",
-  president_role_title: "President",
-  president_avatar_url: player?.avatar_url || "",
-  president_banner_url: "",
-  president_banner_position: "50% 50%",
-  president_banner_zoom: 150,
-  president_bio: "",
-  president_success_level: "successful",
-  president_country_code: player?.country_code || "",
-  president_quote: "",
-  president_management_style: "",
-  president_started_at: "",
-  president_social_links: "",
-});
-
-function presidentPayload(profile) {
-  const payload = Object.fromEntries(
-    Object.entries(profile).map(([field, value]) => [
-      field,
-      typeof value === "string" && value.trim() === "" ? null : value,
-    ])
-  );
-  if (payload.president_started_at) {
-    payload.president_started_at = `${payload.president_started_at}T00:00:00Z`;
-  }
-  return {
-    ...payload,
-    president_social_links: profile.president_social_links?.trim()
-      ? { primary: profile.president_social_links.trim() }
-      : null,
-  };
-}
 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
   const { t } = useTranslation();
@@ -66,12 +29,12 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
   const [search, setSearch] = useState("");
   const [loadingClubs, setLoadingClubs] = useState(false);
   const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
+  const [presidentProfile, setPresidentProfile] = useState(() => buildInitialPresidentProfile(player));
 
   const [form, setForm] = useState({
     name: "", tag: "", platform: player?.platform || "PlayStation",
     region: "Europe", country_code: "", description: "",
   });
-  const [presidentProfile, setPresidentProfile] = useState(() => initialPresidentProfile(player));
 
   useEffect(() => {
     if (step === "join") loadClubs();
@@ -98,7 +61,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
       ? all.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.tag?.toLowerCase().includes(q.toLowerCase()))
       : all;
 
-    // De-duplicate visual duplicates by club signature (name+tag+platform+region).
     const dedupedBySignature = new Map();
     for (const club of filtered.filter(c => c.status !== "disbanded")) {
       const signature = [
@@ -139,7 +101,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         stadium_level: 0, stadium_capacity: 5000,
         tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
         creator_player_id: player?.id,
-        ...presidentPayload(presidentProfile),
+        president: toPresidentApiPayload(presidentProfile),
       });
       if (!club?.id) throw new Error("Server returned no club ID");
       setPresidentContractPrompt({ club, player, contractId: club.owner_contract_id });
@@ -167,7 +129,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         message: t("commonPages.comJoinMessage"),
         status: "pending",
       });
-      // Notify club president
       if (club.owner_email) {
         await stageClient.entities.Notification.create({
           recipient_email: club.owner_email,
@@ -192,10 +153,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     ? clubs.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()) || c.tag?.toLowerCase().includes(search.toLowerCase()))
     : clubs;
 
-  function updatePresidentProfile(field, value) {
-    setPresidentProfile(prev => ({ ...prev, [field]: value }));
-  }
-
   return (
     <>
     <Dialog
@@ -215,7 +172,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </DialogTitle>
         </DialogHeader>
 
-        {/* CHOOSE */}
         {step === "choose" && (
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">{t("commonPages.comWelcome", { name: player?.gamertag })}</p>
@@ -261,85 +217,24 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </div>
         )}
 
-        {/* PRESIDENT PROFILE */}
         {step === "president" && (
-          <div className="space-y-4 mt-2">
+          <div className="space-y-3 mt-2">
             <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               {t("commonPages.comBack")}
             </button>
-            <div className="rounded-xl border border-border bg-secondary/40 p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President name</label>
-                  <Input value={presidentProfile.president_name} onChange={e => updatePresidentProfile("president_name", e.target.value)} placeholder="Florentino Perez" className="bg-secondary border-border" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President role</label>
-                  <Input value={presidentProfile.president_role_title} onChange={e => updatePresidentProfile("president_role_title", e.target.value)} placeholder="Club President" className="bg-secondary border-border" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President picture URL</label>
-                  <Input value={presidentProfile.president_avatar_url} onChange={e => updatePresidentProfile("president_avatar_url", e.target.value)} placeholder="https://..." className="bg-secondary border-border" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President banner URL</label>
-                  <Input value={presidentProfile.president_banner_url} onChange={e => updatePresidentProfile("president_banner_url", e.target.value)} placeholder="https://..." className="bg-secondary border-border" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Success level</label>
-                  <Select value={presidentProfile.president_success_level} onValueChange={value => updatePresidentProfile("president_success_level", value)}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PRESIDENT_SUCCESS_LEVELS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Country code</label>
-                  <Input value={presidentProfile.president_country_code} onChange={e => updatePresidentProfile("president_country_code", e.target.value.toUpperCase())} placeholder="BE" maxLength={10} className="bg-secondary border-border" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Started</label>
-                  <Input type="date" value={presidentProfile.president_started_at} onChange={e => updatePresidentProfile("president_started_at", e.target.value)} className="bg-secondary border-border" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Management style</label>
-                  <Input value={presidentProfile.president_management_style} onChange={e => updatePresidentProfile("president_management_style", e.target.value)} placeholder="Visionary builder" className="bg-secondary border-border" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Social link</label>
-                  <Input value={presidentProfile.president_social_links} onChange={e => updatePresidentProfile("president_social_links", e.target.value)} placeholder="https://..." className="bg-secondary border-border" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President quote</label>
-                <Input value={presidentProfile.president_quote} onChange={e => updatePresidentProfile("president_quote", e.target.value)} placeholder="We build to win." className="bg-secondary border-border" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">President bio</label>
-                <Textarea value={presidentProfile.president_bio} onChange={e => updatePresidentProfile("president_bio", e.target.value)} placeholder="Short president profile..." className="bg-secondary border-border resize-none h-20" />
-              </div>
-              <input type="hidden" value={presidentProfile.president_banner_position} readOnly />
-              <input type="hidden" value={presidentProfile.president_banner_zoom} readOnly />
+            <div className="rounded-xl border border-border bg-[#0d2461]/95 p-3">
+              <PresidentSetup
+                initialProfile={presidentProfile}
+                player={player}
+                onContinue={(profile) => {
+                  setPresidentProfile(profile);
+                  setStep("club_profile");
+                }}
+              />
             </div>
-            <Button
-              type="button"
-              onClick={() => setStep("club_profile")}
-              disabled={!presidentProfile.president_name || !presidentProfile.president_role_title}
-              className="w-full bg-primary text-primary-foreground"
-            >
-              Continue to Club Profile
-            </Button>
           </div>
         )}
 
-        {/* CLUB PROFILE */}
         {step === "club_profile" && (
           <div className="space-y-4 mt-2">
             <button type="button" onClick={() => setStep("president")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
@@ -400,7 +295,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </div>
         )}
 
-        {/* JOIN */}
         {step === "join" && (
           <div className="space-y-4 mt-2">
             <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">

@@ -8,6 +8,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/functions', verifyToken, require('../controllers/functionsController'));
 
   app.use('/api/stage/players', verifyToken, require('../controllers/playerController'));
+  app.use('/api/stage/presidents', verifyToken, require('../controllers/presidentController'));
   app.use('/api/stage/clubs', verifyToken, require('../controllers/clubController'));
   app.use('/api/stage/matches', verifyToken, require('../controllers/matchController'));
   app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentController'));

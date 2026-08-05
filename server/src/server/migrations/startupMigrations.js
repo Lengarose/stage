@@ -1,5 +1,6 @@
 // ── Startup migrations ────────────────────────────────────────────────────────
 const { EXECUTESQL } = require('../db/database');
+const { v4: uuidv4 } = require('uuid');
 
 async function runStartupMigrations() {
   const addCol = async (table, column, definition) => {
@@ -14,6 +15,21 @@ async function runStartupMigrations() {
       }
     } catch (err) {
       console.error(`[migration] Failed to add ${table}.${column}:`, err.message);
+    }
+  };
+
+  const dropCol = async (table, column) => {
+    try {
+      const rows = await EXECUTESQL(
+        'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1',
+        [table, column]
+      );
+      if (rows.length) {
+        await EXECUTESQL(`ALTER TABLE \`${table}\` DROP COLUMN \`${column}\``);
+        console.log(`[migration] Dropped ${table}.${column}`);
+      }
+    } catch (err) {
+      console.error(`[migration] Failed to drop ${table}.${column}:`, err.message);
     }
   };
 
@@ -88,23 +104,197 @@ async function runStartupMigrations() {
   await addCol('users', 'role', "VARCHAR(50) NULL DEFAULT 'user'");
   await addCol('clubs', 'president_user_id', 'VARCHAR(36) NULL');
   await addIndex('clubs', 'idx_clubs_president_user', '(president_user_id)');
-  await addCol('clubs', 'president_name', 'VARCHAR(150) NULL');
-  await addCol('clubs', 'president_role_title', 'VARCHAR(100) NULL');
-  await addCol('clubs', 'president_avatar_url', 'TEXT NULL');
-  await addCol('clubs', 'president_banner_url', 'VARCHAR(500) NULL');
-  await addCol('clubs', 'president_banner_position', 'VARCHAR(50) NULL');
-  await addCol('clubs', 'president_banner_zoom', 'INT NULL');
-  await addCol('clubs', 'president_bio', 'TEXT NULL');
-  await addCol('clubs', 'president_success_level', 'VARCHAR(50) NULL');
-  await addCol('clubs', 'president_country_code', 'VARCHAR(10) NULL');
-  await addCol('clubs', 'president_quote', 'VARCHAR(255) NULL');
-  await addCol('clubs', 'president_management_style', 'VARCHAR(100) NULL');
-  await addCol('clubs', 'president_started_at', 'DATETIME NULL');
-  await addCol('clubs', 'president_social_links', 'JSON NULL');
+  await addCol('clubs', 'president_id', 'VARCHAR(36) NULL');
+  await addIndex('clubs', 'idx_clubs_president_id', '(president_id)');
+
+  // Presidents are a first-class entity (like players). Legacy club-embedded
+  // president_* profile columns are backfilled then dropped below.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS presidents (
+    id                  VARCHAR(36)  PRIMARY KEY,
+    user_id             VARCHAR(36)  NOT NULL,
+    club_id             VARCHAR(36),
+    email               VARCHAR(255),
+    display_name        VARCHAR(150),
+    role_title          VARCHAR(100),
+    avatar_url          TEXT,
+    avatar_position     VARCHAR(50)  DEFAULT '50% 50%',
+    avatar_zoom         INT          DEFAULT 150,
+    banner_url          VARCHAR(500),
+    banner_position     VARCHAR(50),
+    banner_zoom         INT,
+    bio                 TEXT,
+    success_level       VARCHAR(50),
+    country_code        VARCHAR(10),
+    quote               VARCHAR(255),
+    management_style    VARCHAR(100),
+    started_at          DATETIME,
+    social_links        JSON,
+    status              VARCHAR(50)  DEFAULT 'active',
+    created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_presidents_user (user_id),
+    INDEX idx_presidents_club (club_id),
+    INDEX idx_presidents_email (email)
+  )`).catch(err => console.error('[migration] presidents:', err.message));
+  await addCol('presidents', 'avatar_position', "VARCHAR(50) NULL DEFAULT '50% 50%'");
+  await addCol('presidents', 'avatar_zoom', 'INT NULL DEFAULT 150');
+
+  const legacyPresidentProfileCols = await EXECUTESQL(
+    `SELECT COLUMN_NAME FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = 'clubs'
+       AND column_name = 'president_name'
+     LIMIT 1`
+  ).catch(() => []);
+
+  if (legacyPresidentProfileCols.length) {
+    try {
+      const clubsNeedingPresident = await EXECUTESQL(`
+        SELECT c.id, c.president_user_id, c.owner_email, c.president_id,
+               c.president_name, c.president_role_title, c.president_avatar_url,
+               c.president_banner_url, c.president_banner_position, c.president_banner_zoom,
+               c.president_bio, c.president_success_level, c.president_country_code,
+               c.president_quote, c.president_management_style, c.president_started_at,
+               c.president_social_links
+        FROM clubs c
+        WHERE c.president_user_id IS NOT NULL
+          AND c.president_user_id <> ''
+      `);
+      for (const club of clubsNeedingPresident) {
+        const existing = await EXECUTESQL(
+          'SELECT id, club_id FROM presidents WHERE user_id = ? LIMIT 1',
+          [club.president_user_id]
+        );
+        let presidentId = existing[0]?.id || null;
+        if (!presidentId) {
+          presidentId = uuidv4();
+          const socialLinks = club.president_social_links == null
+            ? null
+            : (typeof club.president_social_links === 'string'
+              ? club.president_social_links
+              : JSON.stringify(club.president_social_links));
+          await EXECUTESQL(
+            `INSERT INTO presidents (
+              id, user_id, club_id, email, display_name, role_title,
+              avatar_url, banner_url, banner_position, banner_zoom, bio,
+              success_level, country_code, quote, management_style, started_at,
+              social_links, status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'active')`,
+            [
+              presidentId,
+              club.president_user_id,
+              club.id,
+              club.owner_email || null,
+              club.president_name || null,
+              club.president_role_title || null,
+              club.president_avatar_url || null,
+              club.president_banner_url || null,
+              club.president_banner_position || null,
+              club.president_banner_zoom ?? null,
+              club.president_bio || null,
+              club.president_success_level || null,
+              club.president_country_code || null,
+              club.president_quote || null,
+              club.president_management_style || null,
+              club.president_started_at || null,
+              socialLinks,
+            ]
+          );
+        } else if (!existing[0].club_id) {
+          await EXECUTESQL('UPDATE presidents SET club_id = ? WHERE id = ?', [club.id, presidentId]);
+        }
+        if (!club.president_id || club.president_id !== presidentId) {
+          await EXECUTESQL('UPDATE clubs SET president_id = ? WHERE id = ?', [presidentId, club.id]);
+        }
+      }
+      console.log(`[migration] Backfilled ${clubsNeedingPresident.length} club president profile(s) into presidents`);
+    } catch (err) {
+      console.error('[migration] presidents backfill from clubs:', err.message);
+    }
+
+    const legacyClubPresidentFields = [
+      'president_name',
+      'president_role_title',
+      'president_avatar_url',
+      'president_banner_url',
+      'president_banner_position',
+      'president_banner_zoom',
+      'president_bio',
+      'president_success_level',
+      'president_country_code',
+      'president_quote',
+      'president_management_style',
+      'president_started_at',
+      'president_social_links',
+    ];
+    for (const column of legacyClubPresidentFields) {
+      await dropCol('clubs', column);
+    }
+  }
+
+  // Universal ensure: every club with a president_user_id gets a presidents row
+  // even when legacy club.president_* columns were never present.
+  try {
+    const clubsMissingPresidentLink = await EXECUTESQL(`
+      SELECT c.id, c.president_user_id, c.owner_email, c.president_id
+      FROM clubs c
+      WHERE c.president_user_id IS NOT NULL
+        AND c.president_user_id <> ''
+        AND (
+          c.president_id IS NULL
+          OR c.president_id = ''
+          OR NOT EXISTS (SELECT 1 FROM presidents p WHERE p.id = c.president_id)
+        )
+    `);
+    for (const club of clubsMissingPresidentLink) {
+      const existing = await EXECUTESQL(
+        'SELECT id, club_id FROM presidents WHERE user_id = ? LIMIT 1',
+        [club.president_user_id]
+      );
+      let presidentId = existing[0]?.id || null;
+      if (!presidentId) {
+        presidentId = uuidv4();
+        await EXECUTESQL(
+          `INSERT INTO presidents (
+            id, user_id, club_id, email, role_title, status, avatar_position, avatar_zoom
+          ) VALUES (?, ?, ?, ?, 'President', 'active', '50% 50%', 150)`,
+          [presidentId, club.president_user_id, club.id, club.owner_email || null]
+        );
+      } else if (!existing[0].club_id) {
+        await EXECUTESQL('UPDATE presidents SET club_id = ? WHERE id = ?', [club.id, presidentId]);
+      }
+      await EXECUTESQL('UPDATE clubs SET president_id = ? WHERE id = ?', [presidentId, club.id]);
+    }
+    if (clubsMissingPresidentLink.length) {
+      console.log(`[migration] Ensured presidents row for ${clubsMissingPresidentLink.length} club(s)`);
+    }
+  } catch (err) {
+    console.error('[migration] presidents ensure-for-all-clubs:', err.message);
+  }
+
+  // Keep presidents.club_id aligned with clubs.president_id.
+  await EXECUTESQL(`
+    UPDATE presidents p
+    JOIN clubs c ON c.president_id = p.id
+    SET p.club_id = c.id
+    WHERE p.club_id IS NULL OR p.club_id <> c.id
+  `).catch(err => console.error('[migration] presidents.club_id sync:', err.message));
+
   await addCol('player_contracts', 'offered_by_user_id', 'VARCHAR(36) NULL');
   await addCol('player_contracts', 'offered_by_club_id', 'VARCHAR(36) NULL');
+  await addCol('player_contracts', 'offered_by_president_id', 'VARCHAR(36) NULL');
   await addIndex('player_contracts', 'idx_contracts_offered_by_user', '(offered_by_user_id)');
   await addIndex('player_contracts', 'idx_contracts_offered_by_club', '(offered_by_club_id)');
+  await addIndex('player_contracts', 'idx_contracts_offered_by_president', '(offered_by_president_id)');
+
+  // Backfill contract actor president ids from the offering club.
+  await EXECUTESQL(`
+    UPDATE player_contracts pc
+    JOIN clubs c ON c.id = pc.offered_by_club_id OR c.id = pc.team_id
+    SET pc.offered_by_president_id = c.president_id
+    WHERE pc.offered_by_president_id IS NULL
+      AND c.president_id IS NOT NULL
+  `).catch(err => console.error('[migration] contracts offered_by_president_id backfill:', err.message));
 
   await addCol('tournaments', 'winner_player_id', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'winner_player_name', 'VARCHAR(150) NULL');

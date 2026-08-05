@@ -14,8 +14,10 @@ import { FileText, Plus, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ContractsTab({ club, players, myPlayer, canManage, onPlayerReleased }) {
+  const { t } = useTranslation();
   const { windowOpen } = useTransferWindowStatus();
   const [contracts, setContracts] = useState([]);
   const [playerMap, setPlayerMap] = useState({});
@@ -316,7 +318,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
             </span>
             <Link to={`/contracts/create?club=${club.id}`}>
               <Button size="sm" className="bg-primary text-primary-foreground gap-2">
-                <Plus className="w-3.5 h-3.5" /> Create Contract
+                <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccTitle")}
               </Button>
             </Link>
           </div>

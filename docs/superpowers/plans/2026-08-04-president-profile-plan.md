@@ -1,35 +1,14 @@
 # President Profile Plan
 
-## Goal
-Add a public club president profile stored directly on the `clubs` row, with onboarding capture and club profile display.
+> **SUPERSEDED (2026-08-05)** — do not implement this plan.
+>
+> Replaced by:
+> - [`2026-08-05-president-entity-phases.md`](./2026-08-05-president-entity-phases.md)
+> - [`2026-08-05-president-full-alignment.md`](./2026-08-05-president-full-alignment.md)
+>
+> Profile fields live on the first-class `presidents` entity (`clubs.president_id` + `clubs.president_user_id` for auth). They must **not** be stored as `president_*` columns on `clubs`.
 
-## Requirements
-- Add president profile fields to the `clubs` table, startup migrations, Club model, and legacy entity metadata.
-- Allow existing club profile editors to update president profile fields under the existing `edit_club_profile` permission.
-- Capture president profile details during club creation onboarding before the club is created.
-- Display a president profile section on the public club detail page.
-- Keep this as club-owned data, not a separate President entity.
+## Historical goal (obsolete)
+Add a public club president profile stored directly on the `clubs` row.
 
-## President Fields
-- `president_name`
-- `president_role_title`
-- `president_avatar_url`
-- `president_banner_url`
-- `president_banner_position`
-- `president_banner_zoom`
-- `president_bio`
-- `president_success_level`
-- `president_country_code`
-- `president_quote`
-- `president_management_style`
-- `president_started_at`
-- `president_social_links`
-
-## Tasks
-1. Add tests that fail until the schema/model/controller support president fields.
-2. Add tests that fail until onboarding submits president fields and Club Detail renders them.
-3. Implement database schema and startup migrations.
-4. Implement backend Club model/controller support.
-5. Implement onboarding capture.
-6. Implement public Club Detail president display.
-7. Run targeted tests, lint, typecheck, backend syntax check, build, graphify update, and code review.
+This approach was shipped briefly and then replaced because a club can change president — profile must not be glued to the club row.

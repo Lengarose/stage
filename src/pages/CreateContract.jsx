@@ -242,7 +242,10 @@ export default function CreateContract() {
           <h1 className="font-heading text-2xl sm:text-3xl uppercase tracking-wide text-foreground">
             {t("commonPages.cccTitle")}
           </h1>
-          <p className="text-sm text-muted-foreground truncate">{club.name}</p>
+          <p className="text-sm text-muted-foreground truncate">
+            {club.name}
+            <span className="text-muted-foreground/80"> · {t("commonPages.cccSubtitle")}</span>
+          </p>
         </div>
         <FileText className="w-6 h-6 text-primary shrink-0" />
       </div>

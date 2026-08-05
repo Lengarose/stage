@@ -5,6 +5,7 @@ const CLUB_COLUMNS = [
   'id',
   'user_id',
   'president_user_id',
+  'president_id',
   'owner_email',
   'name',
   'tag',
@@ -15,19 +16,6 @@ const CLUB_COLUMNS = [
   'logo_position',
   'logo_zoom',
   'description',
-  'president_name',
-  'president_role_title',
-  'president_avatar_url',
-  'president_banner_url',
-  'president_banner_position',
-  'president_banner_zoom',
-  'president_bio',
-  'president_success_level',
-  'president_country_code',
-  'president_quote',
-  'president_management_style',
-  'president_started_at',
-  'president_social_links',
   'wins',
   'losses',
   'draws',
@@ -56,7 +44,7 @@ const CLUB_COLUMNS = [
   'banner_zoom',
 ];
 
-const JSON_FIELDS = new Set(['lineup', 'trophies', 'president_social_links']);
+const JSON_FIELDS = new Set(['lineup', 'trophies']);
 
 function normalizeFieldValue(field, value) {
   if (!JSON_FIELDS.has(field)) return value;
