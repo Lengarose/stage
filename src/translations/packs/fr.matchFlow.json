@@ -108,6 +108,7 @@
   "takeSeatBoth": "Prends place dans ton vestiaire. {home} doit aussi avoir au moins un joueur assis.",
   "takeSeatYourClub": "Prends place dans ton vestiaire - le coup d'envoi est bloqué tant qu'aucun joueur de ton club n'est assis.",
   "waitingHomeSeat": "En attente qu'un joueur de {home} s'assoie.",
+  "waitingHomeFullTime": "En attente que l'équipe à domicile termine le match et envoie son résultat.",
   "submitFullTime": "Fin du match - Envoyer le résultat",
   "submitMyResult": "Envoyer mon résultat",
   "resultWaitingAway": "Résultat envoyé - attente de l'équipe extérieure.",

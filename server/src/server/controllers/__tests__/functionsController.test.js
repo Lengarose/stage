@@ -1985,6 +1985,145 @@ test('matchKickoff keeps matching scores in review when uploaded proofs do not v
   assert.match(match.away_submission, /away-proof\.png/);
 });
 
+test('matchKickoff admin_resolve requires admin and validates manual scores', async () => {
+  const match = {
+    id: 'match-dispute-1',
+    status: 'disputed',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    home_submission: JSON.stringify({
+      home_score: 2,
+      away_score: 1,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/home-proof.png',
+    }),
+    away_submission: JSON.stringify({
+      home_score: 1,
+      away_score: 2,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/away-proof.png',
+    }),
+    stats_processed: 0,
+  };
+
+  const updates = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      if (params[0] === 'admin-1') return [{ id: 'admin-1', email: 'admin@example.test', role_id: 0 }];
+      return [{ id: params[0], email: 'player@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: params[0] === 'club-home' ? 'Home FC' : 'Away FC', stadium_level: 0 }];
+    }
+    if (/SELECT \* FROM stadium_config ORDER BY level ASC/.test(sql)) return [];
+    if (/SELECT id FROM stc_transactions WHERE club_id = \? AND category = 'ticket_revenue'/.test(sql)) {
+      return [{ id: 'existing-ticket-revenue' }];
+    }
+    if (/UPDATE matches SET status='completed'/.test(sql)) {
+      updates.push({ sql, params });
+      match.status = 'completed';
+      match.home_score = params[0];
+      match.away_score = params[1];
+      match.stats_processed = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET home_ticket_revenue=/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE matches SET stats_processed = 1/.test(sql)) {
+      match.stats_processed = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET wager_status = 'settling'/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM match_player_stats WHERE match_id = \?/.test(sql)) return [];
+    if (/FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/sync/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+
+  const nonAdminResponse = makeJsonResponse();
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'admin_resolve',
+        match_id: 'match-dispute-1',
+        admin_resolve_winner: 'home',
+        admin_home_score: 2,
+        admin_away_score: 1,
+      },
+      user: { id: 'player-user' },
+    },
+    nonAdminResponse,
+  );
+  assert.notEqual(nonAdminResponse.statusCode, 200);
+  assert.equal(nonAdminResponse.body.error, 'Admin only');
+
+  const invalidScoreResponse = makeJsonResponse();
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'admin_resolve',
+        match_id: 'match-dispute-1',
+        admin_resolve_winner: 'home',
+        admin_home_score: 'NaN',
+        admin_away_score: 1,
+      },
+      user: { id: 'admin-1' },
+    },
+    invalidScoreResponse,
+  );
+  assert.notEqual(invalidScoreResponse.statusCode, 200);
+  assert.equal(invalidScoreResponse.body.error, 'admin_home_score must be a non-negative integer');
+
+  const emptyScoreResponse = makeJsonResponse();
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'admin_resolve',
+        match_id: 'match-dispute-1',
+        admin_resolve_winner: 'home',
+        admin_home_score: '',
+        admin_away_score: ' ',
+      },
+      user: { id: 'admin-1' },
+    },
+    emptyScoreResponse,
+  );
+  assert.notEqual(emptyScoreResponse.statusCode, 200);
+  assert.equal(emptyScoreResponse.body.error, 'admin_home_score must be a non-negative integer');
+
+  const validResponse = makeJsonResponse();
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'admin_resolve',
+        match_id: 'match-dispute-1',
+        admin_resolve_winner: 'home',
+        admin_home_score: '3',
+        admin_away_score: 2,
+      },
+      user: { id: 'admin-1' },
+    },
+    validResponse,
+  );
+
+  assert.equal(validResponse.statusCode, 200);
+  assert.equal(validResponse.body.data.status, 'completed');
+  assert.equal(match.home_score, 3);
+  assert.equal(match.away_score, 2);
+  assert.equal(updates.length, 1);
+});
+
 test('tournamentRegistration stores club registration proof photo', async () => {
   const updates = [];
   const tournament = {

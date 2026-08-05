@@ -41,6 +41,7 @@ import { COUNTRIES } from "../lib/countries";
 import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
+import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
   TOURNAMENT_CREDIT_COST,
@@ -82,10 +83,15 @@ export default function Admin(props) {
   const [loading, setLoading] = useState(true);
   const [resolveDialog, setResolveDialog] = useState(null);
   const [selectedWinner, setSelectedWinner] = useState("");
+  const [resolutionScore, setResolutionScore] = useState({ home_score: "", away_score: "" });
   const [creditsDialog, setCreditsDialog] = useState(null);
   const [creditsAmount, setCreditsAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setResolutionScore({ home_score: "", away_score: "" });
+  }, [resolveDialog?.match?.id]);
 
   function takeControl(club) {
     localStorage.setItem('admin_takeover_club_id', club.id);
@@ -533,17 +539,19 @@ export default function Admin(props) {
   }
 
   async function resolveDispute() {
-    if (!resolveDialog || !selectedWinner) return;
+    if (!resolveDialog || !canResolveDisputeWithScore(selectedWinner, resolutionScore)) return;
     setSaving(true);
     const m = resolveDialog.match;
     try {
-      const isHome = selectedWinner === m.home_club_id;
+      const isHome = selectedWinner === (m.home_club_id || m.home_player_id || "home");
       await stageClient.functions.invoke("matchKickoff", {
         match_id: m.id,
         action: "admin_resolve",
         admin_resolve_winner: isHome ? "home" : "away",
+        admin_home_score: Number(resolutionScore.home_score),
+        admin_away_score: Number(resolutionScore.away_score),
       });
-      setResolveDialog(null); setSelectedWinner("");
+      setResolveDialog(null); setSelectedWinner(""); setResolutionScore({ home_score: "", away_score: "" });
       await loadAll();
     } catch (err) {
       await swalAlert(t("admin.alerts.resolveDisputeFailed", { message: err?.message || t("admin.alerts.unknownError") }));
@@ -2046,7 +2054,7 @@ export default function Admin(props) {
       </Dialog>
 
       {/* Resolve Dispute Dialog */}
-      <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); }}>
+      <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); setResolutionScore({ home_score: "", away_score: "" }); }}>
         <DialogContent className="bg-card border-border">
             <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> {t("admin.dialogs.resolveDispute")}</DialogTitle></DialogHeader>
           {resolveDialog && (() => {
@@ -2058,6 +2066,16 @@ export default function Admin(props) {
             const awayScore = awaySub ? `${awaySub.home_score} – ${awaySub.away_score}` : t("admin.actions.notSubmitted");
             const homeProof = homeSub?.proof_url;
             const awayProof = awaySub?.proof_url;
+            const homeChoiceValue = m.home_club_id || m.home_player_id || "home";
+            const awayChoiceValue = m.away_club_id || m.away_player_id || "away";
+            const chooseSubmittedScore = (choice) => {
+              const submission = choice === homeChoiceValue ? homeSub : awaySub;
+              setSelectedWinner(choice);
+              setResolutionScore({
+                home_score: submission?.home_score != null ? String(submission.home_score) : "",
+                away_score: submission?.away_score != null ? String(submission.away_score) : "",
+              });
+            };
             return (
               <div className="space-y-4 mt-2">
                 <p className="text-sm text-muted-foreground"><strong className="text-foreground">{m.home_club_name || m.home_player_name}</strong> vs <strong className="text-foreground">{m.away_club_name || m.away_player_name}</strong></p>
@@ -2075,15 +2093,43 @@ export default function Admin(props) {
                 </div>
                 <div>
                   <label className="label-xs">{t("admin.dialogs.acceptSubmissionFrom")}</label>
-                  <Select value={selectedWinner} onValueChange={setSelectedWinner}>
+                  <Select value={selectedWinner} onValueChange={chooseSubmittedScore}>
                     <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("admin.dialogs.selectResultPlaceholder")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={m.home_club_id || "home"}>{m.home_club_name || m.home_player_name} ({t("admin.actions.home")}) — {homeScore}</SelectItem>
-                      <SelectItem value={m.away_club_id || "away"}>{m.away_club_name || m.away_player_name} ({t("admin.actions.away")}) — {awayScore}</SelectItem>
+                      <SelectItem value={homeChoiceValue}>{m.home_club_name || m.home_player_name} ({t("admin.actions.home")}) — {homeScore}</SelectItem>
+                      <SelectItem value={awayChoiceValue}>{m.away_club_name || m.away_player_name} ({t("admin.actions.away")}) — {awayScore}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={resolveDispute} disabled={!selectedWinner || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
+                <div className="space-y-2">
+                  <label className="label-xs">{t("admin.dialogs.finalScore")}</label>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1 truncate">{m.home_club_name || m.home_player_name || t("admin.actions.home")}</p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={resolutionScore.home_score}
+                        onChange={e => setResolutionScore(score => ({ ...score, home_score: e.target.value }))}
+                        className="w-full bg-secondary border border-border rounded px-3 py-2 text-center text-lg font-bold text-foreground outline-none focus:border-primary/50"
+                        placeholder="0"
+                      />
+                    </div>
+                    <span className="pb-2 text-lg font-bold text-muted-foreground">–</span>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1 truncate">{m.away_club_name || m.away_player_name || t("admin.actions.away")}</p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={resolutionScore.away_score}
+                        onChange={e => setResolutionScore(score => ({ ...score, away_score: e.target.value }))}
+                        className="w-full bg-secondary border border-border rounded px-3 py-2 text-center text-lg font-bold text-foreground outline-none focus:border-primary/50"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button onClick={resolveDispute} disabled={!canResolveDisputeWithScore(selectedWinner, resolutionScore) || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
                   <Gavel className="w-4 h-4" /> {saving ? t("admin.actions.savingDots") : t("admin.dialogs.confirmResolution")}
                 </Button>
               </div>

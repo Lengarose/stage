@@ -108,6 +108,7 @@
   "takeSeatBoth": "Take a seat in your dressing room. {home} also needs at least one player seated.",
   "takeSeatYourClub": "Take a seat in your dressing room - kickoff is blocked until at least one player from your club is seated.",
   "waitingHomeSeat": "Waiting for {home} to seat a player.",
+  "waitingHomeFullTime": "Waiting for the home team to finish the match and submit their result.",
   "submitFullTime": "Full Time - Submit Result",
   "submitMyResult": "Submit My Result",
   "resultWaitingAway": "Result submitted - waiting for away team.",

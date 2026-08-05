@@ -15,6 +15,7 @@ import WagerPanel from "./WagerPanel";
 import { cn } from "@/lib/utils";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
+import { getResultSubmissionControls } from "@/lib/gameDayResultFlow";
 
 function parseDate(d) {
   if (!d) return null;
@@ -181,6 +182,7 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
   const amIHomeTeam = isClubMatch
     ? myClub && game.home_club_id === myClub.id
     : myPlayer && game.home_player_id === myPlayer.id;
+  const resultControls = getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam });
 
   const home = isClubMatch ? game.home_club_name : game.home_player_name;
   const away = isClubMatch ? game.away_club_name : game.away_player_name;
@@ -442,8 +444,8 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             </div>
           )}
 
-          {/* Full Time — both teams submit independently once match is live */}
-          {isLive && !showResultForm && amIHomeTeam && !game.result_home_submitted && (
+          {/* Full Time — home submits first; the away side unlocks after the match update arrives. */}
+          {resultControls.showHomeSubmit && (
             <Button
               onClick={() => setShowResultForm(true)}
               className="w-full bg-destructive gap-2 text-white font-bold"
@@ -451,7 +453,13 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               <Flag className="w-4 h-4" /> {t("matchFlow.submitFullTime")}
             </Button>
           )}
-          {isLive && !showResultForm && !amIHomeTeam && !game.result_away_submitted && (
+          {resultControls.showAwayWaitingForHome && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2 border border-border">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              {t("matchFlow.waitingHomeFullTime")}
+            </div>
+          )}
+          {resultControls.showAwaySubmit && (
             <Button
               onClick={() => setShowResultForm(true)}
               variant="outline"
@@ -460,13 +468,13 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               <Flag className="w-4 h-4" /> {t("matchFlow.submitMyResult")}
             </Button>
           )}
-          {isLive && !showResultForm && amIHomeTeam && game.result_home_submitted && (
+          {resultControls.showHomeWaitingForAway && (
             <div className="flex items-center gap-2 text-xs text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
               {t("matchFlow.resultWaitingAway")}
             </div>
           )}
-          {isLive && !showResultForm && !amIHomeTeam && game.result_away_submitted && (
+          {resultControls.showAwaySubmittedWaitingForHome && (
             <div className="flex items-center gap-2 text-xs text-success bg-success/10 rounded-lg px-3 py-2 border border-success/30">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
               {t("matchFlow.resultWaitingHome")}
