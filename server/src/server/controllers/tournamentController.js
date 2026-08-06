@@ -3,10 +3,7 @@ const router     = express.Router();
 const Tournament = require('../models/tournamentModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
-const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
 const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
-
-const COMMUNITY_TOURNAMENT_LIMIT = DEFAULT_STORE_SETTINGS.community_tournament_limit;
 
 function hasStagePlus(subscription) {
   return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
@@ -88,7 +85,6 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
-    const storeSettings = await getActiveStoreSettings();
     const userId = req.user?.id;
     const users = userId
       ? await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId])
@@ -106,17 +102,6 @@ router.post('/', async (req, res) => {
       creatorPlayerId = player?.id || null;
       if (!hasStagePlus(player?.subscription)) {
         return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
-      }
-      const activeRows = await EXECUTESQL(
-        `SELECT COUNT(*) AS count
-         FROM tournaments
-         WHERE organizer_email = ?
-           AND status IN ('registration', 'in_progress')`,
-        [user?.email || req.body.organizer_email || '']
-      );
-      const tournamentLimit = Number(storeSettings.community_tournament_limit || COMMUNITY_TOURNAMENT_LIMIT);
-      if (Number(activeRows[0]?.count || 0) >= tournamentLimit) {
-        return res.status(403).json({ error: `STAGE Plus allows ${tournamentLimit} active community tournaments.` });
       }
       if (Number(player?.credits || 0) < TOURNAMENT_CREDIT_COST) {
         return res.status(402).json({ error: `Creating a tournament costs ${TOURNAMENT_CREDIT_COST} credits.` });

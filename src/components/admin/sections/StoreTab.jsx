@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ShoppingBag, Crown, Coins, RefreshCw, Save, ShieldCheck } from "lucide-react";
 import {
-  COMMUNITY_TOURNAMENT_LIMIT,
   STAGE_PLUS_MONTHLY_CREDITS,
   STAGE_PLUS_PRICE,
   TOURNAMENT_ENTRY_CREDITS,
@@ -22,7 +21,7 @@ const DEFAULT_FORM = {
   monthly_credits: STAGE_PLUS_MONTHLY_CREDITS,
   starter_credits: TOURNAMENT_ENTRY_CREDITS,
   tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
-  community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
+  community_tournament_limit: 0,
   headline: "One membership for serious competitors",
   description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.",
   badge_image_url: "/uploads/stage-plus-badge.png",
@@ -37,6 +36,27 @@ const DEFAULT_FORM = {
   ],
   is_active: 1,
 };
+
+function normalizeAdminStoreForm(row = {}) {
+  const rawDescription = String(row.description || "").trim();
+  const legacyDescription = !rawDescription
+    || /ranked play/i.test(rawDescription)
+    || (/monthly credit refresh/i.test(rawDescription) && !/full rankings/i.test(rawDescription));
+  const rawPerks = Array.isArray(row.perks) ? row.perks : [];
+  const hasLegacyPerks = rawPerks.some((perk) => /300 credits|advanced player and club discovery|active events|premium/i.test(String(perk)));
+  return {
+    ...DEFAULT_FORM,
+    ...row,
+    stage_plus_monthly_price: STAGE_PLUS_PRICE.monthly,
+    stage_plus_yearly_price: STAGE_PLUS_PRICE.yearly,
+    monthly_credits: STAGE_PLUS_MONTHLY_CREDITS,
+    starter_credits: TOURNAMENT_ENTRY_CREDITS,
+    tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
+    community_tournament_limit: 0,
+    description: legacyDescription ? DEFAULT_FORM.description : rawDescription,
+    perks: rawPerks.length && !hasLegacyPerks ? rawPerks : DEFAULT_FORM.perks,
+  };
+}
 
 export default function StoreTab() {
   const { t } = useTranslation();
@@ -55,7 +75,7 @@ export default function StoreTab() {
     setLoading(true);
     try {
       const rows = await stageClient.entities.StoreConfig.filter({ is_active: 1, with_defaults: 1 }, "-updated_date", 1).catch(() => []);
-      setForm({ ...DEFAULT_FORM, ...(rows?.[0] || {}) });
+      setForm(normalizeAdminStoreForm(rows?.[0]));
     } finally {
       setLoading(false);
     }
@@ -73,7 +93,7 @@ export default function StoreTab() {
       monthly_credits: Number(form.monthly_credits) || STAGE_PLUS_MONTHLY_CREDITS,
       starter_credits: Number(form.starter_credits) || TOURNAMENT_ENTRY_CREDITS,
       tournament_entry_credits: Number(form.tournament_entry_credits) || TOURNAMENT_ENTRY_CREDITS,
-      community_tournament_limit: Number(form.community_tournament_limit) || COMMUNITY_TOURNAMENT_LIMIT,
+      community_tournament_limit: 0,
       headline: form.headline || DEFAULT_FORM.headline,
       description: form.description || DEFAULT_FORM.description,
       badge_image_url: form.badge_image_url || DEFAULT_FORM.badge_image_url,
@@ -90,7 +110,7 @@ export default function StoreTab() {
       const saved = form.id
         ? await stageClient.entities.StoreConfig.update(form.id, payload)
         : await stageClient.entities.StoreConfig.create(payload);
-      setForm({ ...DEFAULT_FORM, ...saved });
+      setForm(normalizeAdminStoreForm(saved));
       toast({ title: t("admin.store.storeUpdated"), description: t("admin.store.settingsLive") });
     } catch (err) {
       toast({ title: t("admin.store.saveFailed"), description: err?.message || t("admin.store.couldNotUpdate"), variant: "destructive" });
@@ -160,10 +180,6 @@ export default function StoreTab() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.tournamentLimit")}</label>
-            <Input type="number" value={form.community_tournament_limit} onChange={(e) => setField("community_tournament_limit", e.target.value)} className="bg-secondary border-border" />
-          </div>
-          <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.headline")}</label>
             <Input value={form.headline || ""} onChange={(e) => setField("headline", e.target.value)} className="bg-secondary border-border" />
           </div>
@@ -200,7 +216,7 @@ export default function StoreTab() {
             <p className="text-xs text-muted-foreground">{t("admin.store.perYear", { price: Number(form.stage_plus_yearly_price || 0).toFixed(2) })}</p>
           </div>
           <p className="text-sm text-muted-foreground">{form.description}</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="rounded border border-border bg-secondary/70 p-3">
               <Coins className="w-4 h-4 text-warning mb-2" />
               <p className="font-black text-warning">{form.monthly_credits}</p>
@@ -210,11 +226,6 @@ export default function StoreTab() {
               <ShieldCheck className="w-4 h-4 text-success mb-2" />
               <p className="font-black text-success">{form.starter_credits}</p>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.store.starter")}</p>
-            </div>
-            <div className="rounded border border-border bg-secondary/70 p-3">
-              <Crown className="w-4 h-4 text-primary mb-2" />
-              <p className="font-black text-primary">{form.community_tournament_limit}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("admin.store.events")}</p>
             </div>
           </div>
           <ul className="space-y-2">

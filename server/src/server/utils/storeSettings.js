@@ -6,7 +6,7 @@ const DEFAULT_STORE_SETTINGS = {
   monthly_credits: 150,
   starter_credits: 50,
   tournament_entry_credits: 50,
-  community_tournament_limit: 5,
+  community_tournament_limit: 0,
   headline: 'One membership for serious competitors',
   description: 'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
   badge_image_url: '/uploads/stage-plus-badge.png',
@@ -31,18 +31,35 @@ function parsePerks(value) {
   return DEFAULT_STORE_SETTINGS.perks;
 }
 
+function normalizeStoreCopy(row = {}) {
+  const rawDescription = String(row.description || '').trim();
+  const legacyDescription = !rawDescription
+    || /ranked play/i.test(rawDescription)
+    || /monthly credit refresh/i.test(rawDescription) && !/full rankings/i.test(rawDescription);
+  const perks = parsePerks(row.perks);
+  const hasLegacyPerks = perks.some((perk) => /300 credits|advanced player and club discovery|active events|premium/i.test(String(perk)));
+  return {
+    description: legacyDescription ? DEFAULT_STORE_SETTINGS.description : rawDescription,
+    perks: hasLegacyPerks ? DEFAULT_STORE_SETTINGS.perks : perks,
+  };
+}
+
 function normalizeStoreSettings(row = {}) {
+  const normalizedCopy = normalizeStoreCopy(row);
   return {
     ...DEFAULT_STORE_SETTINGS,
     ...row,
-    stage_plus_monthly_price: Number(row.stage_plus_monthly_price ?? DEFAULT_STORE_SETTINGS.stage_plus_monthly_price),
-    stage_plus_yearly_price: Number(row.stage_plus_yearly_price ?? DEFAULT_STORE_SETTINGS.stage_plus_yearly_price),
-    monthly_credits: Number(row.monthly_credits ?? DEFAULT_STORE_SETTINGS.monthly_credits),
-    starter_credits: Number(row.starter_credits ?? DEFAULT_STORE_SETTINGS.starter_credits),
-    tournament_entry_credits: Number(row.tournament_entry_credits ?? DEFAULT_STORE_SETTINGS.tournament_entry_credits),
-    community_tournament_limit: Number(row.community_tournament_limit ?? DEFAULT_STORE_SETTINGS.community_tournament_limit),
+    // These values are policy, not presentation. Keep them fixed so old DB rows
+    // cannot make the frontend or Stripe charge/show legacy prices.
+    stage_plus_monthly_price: DEFAULT_STORE_SETTINGS.stage_plus_monthly_price,
+    stage_plus_yearly_price: DEFAULT_STORE_SETTINGS.stage_plus_yearly_price,
+    monthly_credits: DEFAULT_STORE_SETTINGS.monthly_credits,
+    starter_credits: DEFAULT_STORE_SETTINGS.starter_credits,
+    tournament_entry_credits: DEFAULT_STORE_SETTINGS.tournament_entry_credits,
+    community_tournament_limit: DEFAULT_STORE_SETTINGS.community_tournament_limit,
+    description: normalizedCopy.description,
     badge_image_url: row.badge_image_url || DEFAULT_STORE_SETTINGS.badge_image_url,
-    perks: parsePerks(row.perks),
+    perks: normalizedCopy.perks.length ? normalizedCopy.perks : DEFAULT_STORE_SETTINGS.perks,
   };
 }
 

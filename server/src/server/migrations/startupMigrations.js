@@ -1529,7 +1529,7 @@ async function runStartupMigrations() {
     monthly_credits            INT           NOT NULL DEFAULT 150,
     starter_credits            INT           NOT NULL DEFAULT 50,
     tournament_entry_credits   INT           NOT NULL DEFAULT 50,
-    community_tournament_limit INT           NOT NULL DEFAULT 5,
+    community_tournament_limit INT           NOT NULL DEFAULT 0,
     headline                   VARCHAR(255)  NULL,
     description                TEXT          NULL,
     badge_image_url            VARCHAR(500)  NULL,
@@ -1549,6 +1549,7 @@ async function runStartupMigrations() {
             monthly_credits = 150,
             starter_credits = 50,
             tournament_entry_credits = 50,
+            community_tournament_limit = 0,
             headline = 'One membership for serious competitors',
             description = 'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
             perks = JSON_ARRAY(
@@ -1572,7 +1573,7 @@ async function runStartupMigrations() {
           starter_credits, tournament_entry_credits, community_tournament_limit, headline,
           description, badge_image_url, perks, is_active, created_date, updated_date)
        VALUES
-         ('store-stage-plus-default', 'STAGE Plus', 4.99, 49.99, 150, 50, 50, 5,
+         ('store-stage-plus-default', 'STAGE Plus', 4.99, 49.99, 150, 50, 50, 0,
           'One membership for serious competitors',
           'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.',
           '/uploads/stage-plus-badge.png',

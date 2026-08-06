@@ -12,7 +12,7 @@ import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
-import { COMMUNITY_TOURNAMENT_LIMIT, hasStagePlus } from "@/lib/subscriptionUtils";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 import {
   TOURNAMENT_CREDIT_COST,
   applyTournamentFormat,
@@ -48,8 +48,6 @@ export default function Tournaments() {
   const [rulesType, setRulesType] = useState("knockout");
   const [canCreate, setCanCreate] = useState(false);
   const [myPlayer, setMyPlayer] = useState(null);
-  const [tournamentLimit, setTournamentLimit] = useState(0);
-  const [myActiveCount, setMyActiveCount] = useState(0);
 
   const [form, setForm] = useState({
     name: "", description: "", type: "knockout", platform: "PlayStation",
@@ -93,14 +91,7 @@ export default function Tournaments() {
       } else {
         const { player } = await resolveMyPlayerAndClub();
         setMyPlayer(player);
-        const allowed = hasStagePlus(player?.subscription);
-        const limit = allowed ? COMMUNITY_TOURNAMENT_LIMIT : 0;
-        const active = data.filter(t =>
-          t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)
-        ).length;
-        setTournamentLimit(limit);
-        setMyActiveCount(active);
-        setCanCreate(allowed && active < limit);
+        setCanCreate(hasStagePlus(player?.subscription));
       }
     } catch (err) {
       console.error("[Tournaments] load error:", err);
@@ -130,9 +121,6 @@ export default function Tournaments() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
       if (!hasStagePlus(myPlayer?.subscription)) { await swalAlert(t("competitionFlow.stagePlusRequired")); return; }
-      const limit = COMMUNITY_TOURNAMENT_LIMIT;
-      const active = tournaments.filter(t => t.organizer_email === user.email && ["registration", "in_progress"].includes(t.status)).length;
-      if (active >= limit) { await swalAlert(`Limit of ${limit} active tournaments reached.`); return; }
     }
     setCreating(true);
     try {
@@ -225,19 +213,12 @@ export default function Tournaments() {
               <BookOpen className="w-3.5 h-3.5" /> {t("competitionFlow.rules")}
             </Button>
             {canCreate ? (
-              <>
-                {tournamentLimit > 0 && (
-                  <span className="text-xs text-muted-foreground px-2 py-1 border border-border bg-card rounded">
-                    {myActiveCount}/{tournamentLimit}
-                  </span>
-                )}
-                <Button onClick={() => setDialogOpen(true)} className="bg-primary text-primary-foreground h-9 gap-2 rounded text-xs">
-                  <Plus className="w-3.5 h-3.5" /> {t("competitionFlow.createTournament")}
-                </Button>
-              </>
+              <Button onClick={() => setDialogOpen(true)} className="bg-primary text-primary-foreground h-9 gap-2 rounded text-xs">
+                <Plus className="w-3.5 h-3.5" /> {t("competitionFlow.createTournament")}
+              </Button>
             ) : (
               <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
-                {tournamentLimit > 0 ? `${myActiveCount}/${tournamentLimit} - ${t("competitionFlow.waitForSlot")}` : t("competitionFlow.stagePlusRequired")}
+                {t("competitionFlow.stagePlusRequired")}
               </div>
             )}
           </div>

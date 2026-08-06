@@ -1838,7 +1838,7 @@ CREATE TABLE IF NOT EXISTS store_configs (
   monthly_credits            INT           NOT NULL DEFAULT 150,
   starter_credits            INT           NOT NULL DEFAULT 50,
   tournament_entry_credits   INT           NOT NULL DEFAULT 50,
-  community_tournament_limit INT           NOT NULL DEFAULT 5,
+  community_tournament_limit INT           NOT NULL DEFAULT 0,
   headline                   VARCHAR(255)  NULL,
   description                TEXT          NULL,
   badge_image_url            VARCHAR(500)  NULL,

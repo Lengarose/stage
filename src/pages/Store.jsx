@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
 import {
-  COMMUNITY_TOURNAMENT_LIMIT,
   STAGE_PLUS_MONTHLY_CREDITS,
   STAGE_PLUS_PRICE,
   TIER_COLORS,
@@ -28,12 +27,33 @@ const DEFAULT_STORE_CONFIG = {
   monthly_credits: STAGE_PLUS_MONTHLY_CREDITS,
   starter_credits: TOURNAMENT_ENTRY_CREDITS,
   tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
-  community_tournament_limit: COMMUNITY_TOURNAMENT_LIMIT,
+  community_tournament_limit: 0,
   headline: "One membership for serious competitors",
   description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.",
   badge_image_url: "/uploads/stage-plus-badge.png",
   perks: [],
 };
+
+function normalizeStoreConfig(row = {}) {
+  const rawDescription = String(row.description || "").trim();
+  const legacyDescription = !rawDescription
+    || /ranked play/i.test(rawDescription)
+    || (/monthly credit refresh/i.test(rawDescription) && !/full rankings/i.test(rawDescription));
+  const rawPerks = Array.isArray(row.perks) ? row.perks : [];
+  const hasLegacyPerks = rawPerks.some((perk) => /300 credits|advanced player and club discovery|active events|premium/i.test(String(perk)));
+  return {
+    ...DEFAULT_STORE_CONFIG,
+    ...row,
+    stage_plus_monthly_price: STAGE_PLUS_PRICE.monthly,
+    stage_plus_yearly_price: STAGE_PLUS_PRICE.yearly,
+    monthly_credits: STAGE_PLUS_MONTHLY_CREDITS,
+    starter_credits: TOURNAMENT_ENTRY_CREDITS,
+    tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
+    community_tournament_limit: 0,
+    description: legacyDescription ? DEFAULT_STORE_CONFIG.description : rawDescription,
+    perks: rawPerks.length && !hasLegacyPerks ? rawPerks : DEFAULT_STORE_CONFIG.perks,
+  };
+}
 
 const CREDIT_PACKS = [
   { id: "credits_100",  credits: 100,  price_eur: 0.99, stripe_price_id: "price_1TOayT2fnaWmNMFQby00tHqR", label: null },
@@ -62,7 +82,7 @@ export default function Store() {
   useEffect(() => {
     async function load() {
       const cfgRows = await stageClient.entities.StoreConfig.filter({ is_active: 1, with_defaults: 1 }, "-updated_date", 1).catch(() => []);
-      const cfg = { ...DEFAULT_STORE_CONFIG, ...(cfgRows?.[0] || {}) };
+      const cfg = normalizeStoreConfig(cfgRows?.[0]);
       setStoreConfig(cfg);
       const { user: u, player: pl, club } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
