@@ -1435,5 +1435,16 @@
   "obAddPhoto": "Foto toevoegen",
   "obChangePhoto": "Foto wijzigen",
   "obAddLogo": "Logo toevoegen",
-  "obChangeLogo": "Logo wijzigen"
+  "obChangeLogo": "Logo wijzigen",
+  "presTabHistory": "Geschiedenis",
+  "presTabContracts": "Contracten",
+  "presOfferSent": "Verzonden aanbiedingen",
+  "presOfferAccepted": "Geaccepteerde aanbiedingen",
+  "presOfferDeclined": "Afgewezen aanbiedingen",
+  "presOfferNegotiable": "Onderhandelbare aanbiedingen",
+  "presNoHistory": "Nog geen clubgeschiedenis.",
+  "presNoContracts": "Geen contracten in deze categorie.",
+  "presClubHistory": "Clubgeschiedenis",
+  "presHistoryPresent": "Heden",
+  "presHistoryCurrent": "Huidig"
 }

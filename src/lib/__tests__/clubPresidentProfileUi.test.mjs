@@ -72,17 +72,18 @@ test("president onboarding uses the same ImagePositionEditor photo UX as players
 
 test("club detail loads President entity and links to president profile", () => {
   const detail = readRepoFile("src/pages/ClubDetail.jsx");
+  const hero = readRepoFile("src/components/profile/gamer/GamerClubProfileHero.jsx");
   const app = readRepoFile("src/App.jsx");
   const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
 
-  assert.match(detail, /PresidentProfileCard/, "ClubDetail should render a dedicated president profile card");
+  assert.match(detail, /ClubPresidentChip/, "ClubDetail should render a compact president chip in the hero");
+  assert.match(detail, /infoAside=\{/);
   assert.match(detail, /entities\.President/, "ClubDetail should load the President entity");
-  assert.match(detail, /View president profile/);
   assert.match(detail, /\/presidents\//);
-  assert.match(detail, /isSafePresidentUrl/, "ClubDetail should validate public president links");
-  assert.doesNotMatch(detail, /href=\{link\.url\}/, "ClubDetail should not render raw public president social URLs");
+  assert.doesNotMatch(detail, /PresidentProfileCard/);
+  assert.doesNotMatch(detail, /View president profile/);
+  assert.match(hero, /infoAside/);
   assert.match(detail, /president\?\.avatar_url|president\.avatar_url/);
-  assert.match(detail, /president\?\.success_level|president\.success_level/);
   assert.match(app, /path="\/presidents\/:id"/);
   assert.match(presidentPage, /entities\.President\.get/);
 });
@@ -120,6 +121,7 @@ test("presidents list page is routed and linked in market nav", () => {
 
 test("president profile loads and renders club history", () => {
   const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
+  const contractsPanel = readRepoFile("src/components/presidents/PresidentContractsPanel.jsx");
   const client = readRepoFile("src/api/stageClient.js");
   const controller = readRepoFile("server/src/server/controllers/presidentController.js");
   const schema = readRepoFile("server/schema.sql");
@@ -132,6 +134,15 @@ test("president profile loads and renders club history", () => {
   assert.match(presidentPage, /presidents\.history/);
   assert.match(presidentPage, /presClubHistory/);
   assert.match(presidentPage, /clubHistory/);
+  assert.match(presidentPage, /BannerSelector/);
+  assert.match(presidentPage, /profChangeBanner/);
+  assert.match(presidentPage, /presTabHistory/);
+  assert.match(presidentPage, /presTabContracts/);
+  assert.match(presidentPage, /PresidentContractsPanel/);
+  assert.match(contractsPanel, /presOfferSent/);
+  assert.match(contractsPanel, /presOfferAccepted/);
+  assert.match(contractsPanel, /presOfferDeclined/);
+  assert.match(contractsPanel, /presOfferNegotiable/);
 });
 
 test("admin clubs tab exposes president transfer dialog wired to stageClient.presidents.transfer", () => {

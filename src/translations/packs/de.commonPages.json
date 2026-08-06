@@ -1435,5 +1435,16 @@
   "obAddPhoto": "Foto hinzufügen",
   "obChangePhoto": "Foto ändern",
   "obAddLogo": "Logo hinzufügen",
-  "obChangeLogo": "Logo ändern"
+  "obChangeLogo": "Logo ändern",
+  "presTabHistory": "Historie",
+  "presTabContracts": "Verträge",
+  "presOfferSent": "Gesendete Angebote",
+  "presOfferAccepted": "Angenommene Angebote",
+  "presOfferDeclined": "Abgelehnte Angebote",
+  "presOfferNegotiable": "Verhandelbare Angebote",
+  "presNoHistory": "Noch keine Club-Historie.",
+  "presNoContracts": "Keine Verträge in dieser Kategorie.",
+  "presClubHistory": "Club-Historie",
+  "presHistoryPresent": "Heute",
+  "presHistoryCurrent": "Aktuell"
 }

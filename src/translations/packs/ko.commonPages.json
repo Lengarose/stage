@@ -1435,5 +1435,16 @@
   "obAddPhoto": "사진 추가",
   "obChangePhoto": "사진 변경",
   "obAddLogo": "로고 추가",
-  "obChangeLogo": "로고 변경"
+  "obChangeLogo": "로고 변경",
+  "presTabHistory": "기록",
+  "presTabContracts": "계약",
+  "presOfferSent": "보낸 제안",
+  "presOfferAccepted": "수락된 제안",
+  "presOfferDeclined": "거절된 제안",
+  "presOfferNegotiable": "협상 중인 제안",
+  "presNoHistory": "클럽 이력이 아직 없습니다.",
+  "presNoContracts": "이 카테고리에 계약이 없습니다.",
+  "presClubHistory": "클럽 이력",
+  "presHistoryPresent": "현재",
+  "presHistoryCurrent": "현직"
 }

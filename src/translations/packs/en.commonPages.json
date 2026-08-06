@@ -1438,5 +1438,16 @@
   "obAddPhoto": "Add photo",
   "obChangePhoto": "Change photo",
   "obAddLogo": "Add logo",
-  "obChangeLogo": "Change logo"
+  "obChangeLogo": "Change logo",
+  "presTabHistory": "History",
+  "presTabContracts": "Contracts",
+  "presOfferSent": "Offer Sent",
+  "presOfferAccepted": "Offer Accepted",
+  "presOfferDeclined": "Offer Declined",
+  "presOfferNegotiable": "Offer Negotiable",
+  "presNoHistory": "No club history yet.",
+  "presNoContracts": "No contracts in this category.",
+  "presClubHistory": "Club history",
+  "presHistoryPresent": "Present",
+  "presHistoryCurrent": "Current"
 }

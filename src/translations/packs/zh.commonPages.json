@@ -1435,5 +1435,16 @@
   "obAddPhoto": "添加照片",
   "obChangePhoto": "更换照片",
   "obAddLogo": "添加队徽",
-  "obChangeLogo": "更换队徽"
+  "obChangeLogo": "更换队徽",
+  "presTabHistory": "历史",
+  "presTabContracts": "合同",
+  "presOfferSent": "已发送报价",
+  "presOfferAccepted": "已接受报价",
+  "presOfferDeclined": "已拒绝报价",
+  "presOfferNegotiable": "协商中报价",
+  "presNoHistory": "暂无俱乐部历史。",
+  "presNoContracts": "此分类下没有合同。",
+  "presClubHistory": "俱乐部历史",
+  "presHistoryPresent": "至今",
+  "presHistoryCurrent": "现任"
 }

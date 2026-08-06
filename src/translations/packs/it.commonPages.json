@@ -1435,5 +1435,16 @@
   "obAddPhoto": "Aggiungi foto",
   "obChangePhoto": "Cambia foto",
   "obAddLogo": "Aggiungi logo",
-  "obChangeLogo": "Cambia logo"
+  "obChangeLogo": "Cambia logo",
+  "presTabHistory": "Cronologia",
+  "presTabContracts": "Contratti",
+  "presOfferSent": "Offerte inviate",
+  "presOfferAccepted": "Offerte accettate",
+  "presOfferDeclined": "Offerte rifiutate",
+  "presOfferNegotiable": "Offerte in negoziazione",
+  "presNoHistory": "Nessuna cronologia club ancora.",
+  "presNoContracts": "Nessun contratto in questa categoria.",
+  "presClubHistory": "Cronologia club",
+  "presHistoryPresent": "Presente",
+  "presHistoryCurrent": "Attuale"
 }

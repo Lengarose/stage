@@ -1435,5 +1435,16 @@
   "obAddPhoto": "Добавить фото",
   "obChangePhoto": "Сменить фото",
   "obAddLogo": "Добавить лого",
-  "obChangeLogo": "Сменить лого"
+  "obChangeLogo": "Сменить лого",
+  "presTabHistory": "История",
+  "presTabContracts": "Контракты",
+  "presOfferSent": "Отправленные предложения",
+  "presOfferAccepted": "Принятые предложения",
+  "presOfferDeclined": "Отклонённые предложения",
+  "presOfferNegotiable": "Предложения в переговорах",
+  "presNoHistory": "Истории клубов пока нет.",
+  "presNoContracts": "В этой категории нет контрактов.",
+  "presClubHistory": "История клубов",
+  "presHistoryPresent": "Настоящее",
+  "presHistoryCurrent": "Текущий"
 }

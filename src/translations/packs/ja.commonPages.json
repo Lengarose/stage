@@ -1435,5 +1435,16 @@
   "obAddPhoto": "写真を追加",
   "obChangePhoto": "写真を変更",
   "obAddLogo": "ロゴを追加",
-  "obChangeLogo": "ロゴを変更"
+  "obChangeLogo": "ロゴを変更",
+  "presTabHistory": "履歴",
+  "presTabContracts": "契約",
+  "presOfferSent": "送信済みオファー",
+  "presOfferAccepted": "承諾済みオファー",
+  "presOfferDeclined": "拒否されたオファー",
+  "presOfferNegotiable": "交渉中のオファー",
+  "presNoHistory": "クラブ履歴はまだありません。",
+  "presNoContracts": "このカテゴリに契約はありません。",
+  "presClubHistory": "クラブ履歴",
+  "presHistoryPresent": "現在",
+  "presHistoryCurrent": "現役"
 }

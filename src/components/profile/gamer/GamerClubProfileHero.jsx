@@ -14,6 +14,7 @@ export default function GamerClubProfileHero({
   topLeftActions,
   topActions,
   sideActions,
+  infoAside,
   followers,
   memberCount,
   onBannerClick,
@@ -91,7 +92,12 @@ export default function GamerClubProfileHero({
                   <GamerMetaPill><Users className="w-3 h-3 text-teal-400" />{memberCount ?? "—"}</GamerMetaPill>
                 </div>
               </div>
-              {sideActions ? <div className="flex flex-wrap gap-2 shrink-0">{sideActions}</div> : null}
+              {(infoAside || sideActions) ? (
+                <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+                  {infoAside}
+                  {sideActions ? <div className="flex flex-wrap gap-2 justify-end">{sideActions}</div> : null}
+                </div>
+              ) : null}
             </div>
 
             <GamerRecordStrip wins={wins} draws={draws} losses={losses} />

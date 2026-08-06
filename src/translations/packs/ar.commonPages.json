@@ -1435,5 +1435,16 @@
   "obAddPhoto": "إضافة صورة",
   "obChangePhoto": "تغيير الصورة",
   "obAddLogo": "إضافة شعار",
-  "obChangeLogo": "تغيير الشعار"
+  "obChangeLogo": "تغيير الشعار",
+  "presTabHistory": "السجل",
+  "presTabContracts": "العقود",
+  "presOfferSent": "عروض مرسلة",
+  "presOfferAccepted": "عروض مقبولة",
+  "presOfferDeclined": "عروض مرفوضة",
+  "presOfferNegotiable": "عروض قيد التفاوض",
+  "presNoHistory": "لا يوجد سجل أندية بعد.",
+  "presNoContracts": "لا توجد عقود في هذه الفئة.",
+  "presClubHistory": "سجل الأندية",
+  "presHistoryPresent": "الحاضر",
+  "presHistoryCurrent": "الحالي"
 }

@@ -73,141 +73,33 @@ function clubRoleLabel(t, role) {
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
 }
 
-const PRESIDENT_SUCCESS_LABELS = {
-  less_successful: "Less successful",
-  successful: "Successful",
-  more_successful: "More successful",
-  most_successful: "Most successful",
-  boss: "The boss",
-};
-
-function isSafePresidentUrl(url) {
-  if (!url || typeof url !== "string") return false;
-  try {
-    const parsed = new URL(url, globalThis.location?.origin || "https://stageleagues.com");
-    return ["http:", "https:"].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
-function parsePresidentSocialLinks(value) {
-  if (!value) return [];
-  if (typeof value === "string") {
-    try {
-      return parsePresidentSocialLinks(JSON.parse(value));
-    } catch {
-      return isSafePresidentUrl(value) ? [{ label: "Link", url: value }] : [];
-    }
-  }
-  if (Array.isArray(value)) {
-    return value
-      .map((item, index) => typeof item === "string" ? { label: `Link ${index + 1}`, url: item } : item)
-      .filter((item) => isSafePresidentUrl(item?.url));
-  }
-  return Object.entries(value)
-    .filter(([, url]) => isSafePresidentUrl(url))
-    .map(([label, url]) => ({ label, url }));
-}
-
-function PresidentProfileCard({ club, president }) {
-  if (!president?.id && !club?.president_id) return null;
-
-  const socialLinks = parsePresidentSocialLinks(president?.social_links);
-  const successLabel = PRESIDENT_SUCCESS_LABELS[president?.success_level] || president?.success_level;
-  const bannerStyle = president?.banner_url
-    ? {
-        backgroundImage: `url(${president.banner_url})`,
-        backgroundSize: `${president.banner_zoom || 150}%`,
-        backgroundPosition: president.banner_position || "50% 50%",
-      }
-    : {};
-  const presidentPath = `/presidents/${president?.id || club.president_id}`;
-
+function ClubPresidentChip({ club, president }) {
+  const { t } = useTranslation();
+  const presidentId = president?.id || club?.president_id;
+  if (!presidentId) return null;
+  const name = president?.display_name || t("commonPages.cdPresident");
   return (
-    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
-      <div className="relative h-28 bg-gradient-to-r from-amber-500/20 via-cyan-500/10 to-white/5" style={bannerStyle}>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-[#060912]/85" />
-      </div>
-      <div className="relative px-4 sm:px-5 pb-5 -mt-10">
-        <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-          <div className="flex items-end gap-3 shrink-0">
-            <div className="w-16 h-16 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl">
-              {club?.logo_url ? (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${club.logo_url})`,
-                    backgroundSize: `${club.logo_zoom || 150}%`,
-                    backgroundPosition: club.logo_position || "50% 50%",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                  aria-label={club.name || "Club emblem"}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Shield className="w-7 h-7 text-amber-300/80" />
-                </div>
-              )}
-            </div>
-            <div className="w-20 h-20 rounded-2xl border border-white/15 bg-[#101827] overflow-hidden shadow-xl">
-              {president?.avatar_url ? (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${president.avatar_url})`,
-                    backgroundSize: `${president.avatar_zoom || 150}%`,
-                    backgroundPosition: president.avatar_position || "50% 50%",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                  aria-label={president.display_name || "Club president"}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-amber-300/80" />
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">President profile</p>
-            <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase leading-none text-white mt-1">
-              {president?.display_name || "Club President"}
-            </h2>
-            <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              {president?.role_title ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/75">{president.role_title}</span> : null}
-              {successLabel ? <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-amber-200">{successLabel}</span> : null}
-              {president?.management_style ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">{president.management_style}</span> : null}
-              {president?.country_code ? <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-white/65">{president.country_code}</span> : null}
-            </div>
-          </div>
-          <Link
-            to={presidentPath}
-            className="inline-flex items-center justify-center rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-amber-100 hover:bg-amber-300/20 transition-colors shrink-0"
-          >
-            View president profile
-          </Link>
-        </div>
-        {president?.quote ? (
-          <p className="mt-4 text-sm font-semibold text-white/85">"{president.quote}"</p>
-        ) : null}
-        {president?.bio ? (
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60">{president.bio}</p>
-        ) : null}
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
-          {president?.started_at ? (
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1">
-              <Trophy className="w-3 h-3 text-amber-300" /> Since {String(president.started_at).slice(0, 10)}
-            </span>
-          ) : null}
-          {socialLinks.map((link) => (
-            <a key={`${link.label}-${link.url}`} href={isSafePresidentUrl(link.url) ? link.url : "#"} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-lg border border-white/10 px-2.5 py-1 hover:text-white hover:border-white/25">
-              {link.label}
-            </a>
-          ))}
-        </div>
-      </div>
-    </section>
+    <Link
+      to={`/presidents/${presidentId}`}
+      className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/45 backdrop-blur-md px-2.5 py-1.5 hover:bg-black/60 hover:border-amber-300/30 transition-colors max-w-[220px]"
+      title={t("commonPages.presProfileMenu")}
+    >
+      <span
+        className="w-8 h-8 rounded-full border border-white/20 bg-[#101827] overflow-hidden shrink-0 flex items-center justify-center"
+        style={president?.avatar_url ? {
+          backgroundImage: `url(${president.avatar_url})`,
+          backgroundSize: `${president.avatar_zoom || 150}%`,
+          backgroundPosition: president.avatar_position || "50% 50%",
+          backgroundRepeat: "no-repeat",
+        } : undefined}
+        aria-hidden
+      >
+        {!president?.avatar_url ? <Shield className="w-3.5 h-3.5 text-amber-300/80" /> : null}
+      </span>
+      <span className="font-heading text-sm font-black uppercase tracking-wide text-white truncate">
+        {name}
+      </span>
+    </Link>
   );
 }
 
@@ -888,6 +780,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
           </button>
         ) : null}
+        infoAside={<ClubPresidentChip club={club} president={president} />}
         sideActions={!isMember ? (
           <Button
             type="button"
@@ -913,8 +806,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       </GamerClubProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
-        <PresidentProfileCard club={club} president={president} />
-
         {/* Trial request — visible to signed-in players who are not members */}
         {!isMember && !isOwner && myPlayer ? (
           <div>

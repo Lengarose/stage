@@ -1435,5 +1435,16 @@
   "obAddPhoto": "Fotoğraf ekle",
   "obChangePhoto": "Fotoğrafı değiştir",
   "obAddLogo": "Logo ekle",
-  "obChangeLogo": "Logoyu değiştir"
+  "obChangeLogo": "Logoyu değiştir",
+  "presTabHistory": "Geçmiş",
+  "presTabContracts": "Sözleşmeler",
+  "presOfferSent": "Gönderilen teklifler",
+  "presOfferAccepted": "Kabul edilen teklifler",
+  "presOfferDeclined": "Reddedilen teklifler",
+  "presOfferNegotiable": "Müzakere edilen teklifler",
+  "presNoHistory": "Henüz kulüp geçmişi yok.",
+  "presNoContracts": "Bu kategoride sözleşme yok.",
+  "presClubHistory": "Kulüp geçmişi",
+  "presHistoryPresent": "Şimdi",
+  "presHistoryCurrent": "Güncel"
 }
