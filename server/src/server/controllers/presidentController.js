@@ -3,6 +3,7 @@ const router = express.Router();
 const President = require('../models/presidentModel');
 const { EXECUTESQL } = require('../db/database');
 const { transferPresidentToClub } = require('../services/presidentTransferService');
+const { listHistoryForPresident, openTenure } = require('../services/presidentClubHistoryService');
 
 const PROFILE_FIELDS = [
   'display_name',
@@ -90,8 +91,26 @@ router.get('/', async (req, res) => {
     else if (user_id) result = await president.selectByUserId(user_id);
     else if (club_id) result = await president.selectByClub(club_id);
     else if (email) result = await president.selectByEmail(email);
-    else result = await president.selectAll(Number(page) || 1);
+    else {
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 25, 500));
+      result = await president.selectAll(Number(page) || 1, limit);
+    }
     res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /:id/history — club tenure timeline for the president profile
+router.get('/:id/history', async (req, res) => {
+  try {
+    const existing = await new President().selectOne(req.params.id);
+    if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    const history = await listHistoryForPresident(req.params.id, {
+      limit: Number(req.query.limit) || 50,
+    });
+    res.json(history);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -139,6 +158,11 @@ router.post('/', async (req, res) => {
         'UPDATE clubs SET president_id = ?, president_user_id = COALESCE(president_user_id, ?) WHERE id = ?',
         [president.id, president.user_id, president.club_id]
       ).catch(() => {});
+      await openTenure({
+        presidentId: president.id,
+        clubId: president.club_id,
+        reason: 'President created',
+      }).catch((err) => console.error('[president_club_history] create:', err.message));
     }
     const created = await president.selectOne(president.id);
     res.status(201).json(created[0]);

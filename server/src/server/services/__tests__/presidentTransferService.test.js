@@ -71,6 +71,24 @@ function makeQuery(store) {
       });
       return { affectedRows: 1 };
     }
+    if (/UPDATE president_club_history/.test(sql)) {
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO president_club_history/.test(sql)) {
+      store.history = store.history || [];
+      store.history.push({
+        id: params[0],
+        president_id: params[1],
+        club_id: params[2],
+        club_name: params[3],
+        reason: params[5],
+      });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT name FROM clubs WHERE id = \?/.test(sql)) {
+      const club = store.clubs.find((c) => c.id === params[0]);
+      return club ? [{ name: club.name }] : [];
+    }
     throw new Error(`Unexpected SQL in test: ${sql}`);
   };
 }

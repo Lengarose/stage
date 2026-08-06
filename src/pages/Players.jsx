@@ -5,6 +5,7 @@ import { Shield, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray, parseJsonArray } from "@/lib/safeData";
+import { filterPublicPlayerProfiles } from "@/lib/playerDirectory";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
@@ -40,7 +41,8 @@ export default function Players({ tournamentId } = {}) {
           data = await stageClient.entities.Player.list(null, 500).catch(() => []);
         }
         const clubData = asObjectArray(await clubsPromise);
-        setPlayers(asObjectArray(data).filter((p) => p.id));
+        // Hide president-only OAuth stubs; only show users who finished PlayerSetup.
+        setPlayers(filterPublicPlayerProfiles(asObjectArray(data)));
         const m = {};
         clubData.forEach(c => { if (c?.id) m[c.id] = c; });
         setClubs(m);
@@ -120,7 +122,7 @@ export default function Players({ tournamentId } = {}) {
           </div>
 
           <div className="space-y-2">
-            {paginated.map((player, i) => {
+            {paginated.map((player) => {
               const club    = player.club_id ? clubs[player.club_id] : null;
 
               return (

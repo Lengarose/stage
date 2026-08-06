@@ -275,6 +275,13 @@ router.post('/', async (req, res) => {
         'UPDATE presidents SET club_id = ? WHERE id = ?',
         [record.id, record.president_id]
       ).catch(() => {});
+      const { openTenure } = require('../services/presidentClubHistoryService');
+      await openTenure({
+        presidentId: record.president_id,
+        clubId: record.id,
+        clubName: record.name || null,
+        reason: 'Club created',
+      }).catch((err) => console.error('[president_club_history] club create:', err.message));
     }
     let ownerContractId = null;
     if (record?.user_id) {

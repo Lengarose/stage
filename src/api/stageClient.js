@@ -888,6 +888,11 @@ const presidents = {
       ...(reason ? { reason } : {}),
     });
   },
+  history(presidentId, { limit } = {}) {
+    if (!presidentId) return Promise.reject(new Error('presidentId is required'));
+    const qs = limit ? `?limit=${encodeURIComponent(String(limit))}` : '';
+    return http.get(`/presidents/${encodeURIComponent(presidentId)}/history${qs}`);
+  },
 };
 
 export const stageClient = { entities, auth, integrations, functions, http, identityClaims, competitionEngine, profileMatches, chatReads, presidents };

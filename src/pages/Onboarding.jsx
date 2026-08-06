@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
+import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
@@ -36,16 +37,31 @@ const ChevronRight = () => (
 
 /* ── step meta ─────────────────────────────────────────────── */
 function getStepMeta(intent, step, phase) {
+  // Player: choose → player → identity
+  // Player+President: choose → player → identity → president → club profile
+  const dual = intent === "both";
+
   if (step === "player") {
-    return { label: "Player Profile", labelKey: "obStepPlayerProfile", index: 1, total: intent === "both" ? 4 : 2 };
+    return { labelKey: "obStepPlayerProfile", index: 1, total: dual ? 5 : 3 };
   }
 
-  if (step === "owner_club") {
-    const total = intent === "both" ? 4 : 3;
+  if (step === "identity") {
+    return { labelKey: "obStepVerifyIdentity", index: 2, total: dual ? 5 : 3 };
+  }
+
+  if (step === "club" && dual) {
     if (phase === "club") {
-      return { label: "Club Profile", labelKey: "obStepClubSetup", index: intent === "both" ? 3 : 2, total };
+      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 4, total: 5 };
     }
-    return { label: "President Profile", labelKey: "obStepClubSetup", index: intent === "both" ? 2 : 1, total };
+    return { label: "President Profile", labelKey: "obStepClubSetup", index: 3, total: 5 };
+  }
+
+  // President-only: choose → president → club profile
+  if (step === "owner_club") {
+    if (phase === "club") {
+      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 2, total: 3 };
+    }
+    return { label: "President Profile", labelKey: "obStepClubSetup", index: 1, total: 3 };
   }
 
   return { labelKey: "obStepChooseRole", index: 0, total: 2 };
@@ -98,12 +114,12 @@ export default function Onboarding({ onComplete }) {
       } else if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
       }
-      continueAfterPlayerProfile();
+      setStep("identity");
     } catch (err) {
       console.error(err);
       if (optimisticPlayer) {
         setPlayer(optimisticPlayer);
-        continueAfterPlayerProfile();
+        setStep("identity");
       }
     }
   };
@@ -113,21 +129,12 @@ export default function Onboarding({ onComplete }) {
     else setTutorialOpen(true);
   };
 
-  function continueAfterPlayerProfile() {
-    if (intent === "player") {
-      finishOnboarding();
-      return;
-    }
-    setClubSetupPhase("president");
-    setStep("owner_club");
-  }
-
   const finishDiscordStep = () => setTutorialOpen(true);
   const handleTutorialClose = () => { setTutorialOpen(false); onComplete?.(); };
 
   const meta = getStepMeta(intent, step, clubSetupPhase);
-  const progress = ((meta.index) / (meta.total - 1)) * 100;
-  const isWideStep = step === "discord";
+  const progress = ((meta.index) / (Math.max(meta.total - 1, 1))) * 100;
+  const isWideStep = step === "identity" || step === "discord";
 
   return (
     <motion.div className={cn(
@@ -314,25 +321,38 @@ export default function Onboarding({ onComplete }) {
                       </div>
                       <button
                         type="button"
-                        onClick={continueAfterPlayerProfile}
+                        onClick={() => setStep("identity")}
                         className="w-full bg-white text-[#0d2461] font-black uppercase tracking-widest py-3 rounded-xl text-sm hover:bg-gray-100 transition-all shadow-lg"
                       >
-                        {intent === "player" ? t("commonPages.agdContinue") : t("commonPages.obContinueClub")}
+                        {t("commonPages.obContinueVerification")}
                       </button>
                     </div>
                   )}
 
-                  {/* ── OPTIONAL CLUB (player path) ─────────── */}
-                  {step === "club" && intent !== "player" && (
-                    <ClubSetup
-                      onSkip={finishOnboarding}
-                      onComplete={finishOnboarding}
+                  {/* ── IDENTITY CLAIM ─────────────────────── */}
+                  {step === "identity" && player && (
+                    <IdentityClaimSetup
                       player={player}
-                      user={user}
+                      onComplete={() => {
+                        if (intent === "both") setStep("club");
+                        else finishOnboarding();
+                      }}
                     />
                   )}
 
-                  {/* ── REQUIRED CLUB (president path) ──────────── */}
+                  {/* ── CLUB (Player + President only) ───────── */}
+                  {step === "club" && intent === "both" && (
+                    <ClubSetup
+                      onSkip={finishOnboarding}
+                      onComplete={finishOnboarding}
+                      onPhaseChange={setClubSetupPhase}
+                      player={player}
+                      user={user}
+                      required
+                    />
+                  )}
+
+                  {/* ── REQUIRED CLUB (president-only path) ──── */}
                   {step === "owner_club" && (
                     <ClubSetup
                       onComplete={finishOnboarding}
@@ -355,11 +375,11 @@ export default function Onboarding({ onComplete }) {
               </AnimatePresence>
               </div>
 
-              {/* Back to choose */}
+              {/* Back */}
               {step !== "choose" && step !== "club" && step !== "owner_club" && step !== "discord" && (
                 <button
                   type="button"
-                  onClick={() => setStep("choose")}
+                  onClick={() => setStep(step === "identity" ? "player" : "choose")}
                   className="mt-5 shrink-0 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1"
                 >
                   ← Back
@@ -370,7 +390,7 @@ export default function Onboarding({ onComplete }) {
         )}
       </div>
 
-      <TutorialPopup open={tutorialOpen} onClose={handleTutorialClose} />
+      <TutorialPopup open={tutorialOpen} onClose={handleTutorialClose} intent={intent} />
     </motion.div>
   );
 }

@@ -56,9 +56,9 @@ class President {
     return normalizeRow(row);
   }
 
-  selectAll(page = 1) {
-    const pageSize = 25;
-    const offset = (page - 1) * pageSize;
+  selectAll(page = 1, limit = 25) {
+    const pageSize = Math.max(1, Math.min(Number(limit) || 25, 500));
+    const offset = (Math.max(1, Number(page) || 1) - 1) * pageSize;
     return EXECUTESQL('SELECT * FROM presidents LIMIT ? OFFSET ?', [pageSize, offset])
       .then((rows) => rows.map(normalizeRow));
   }

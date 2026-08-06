@@ -280,6 +280,49 @@ async function runStartupMigrations() {
     WHERE p.club_id IS NULL OR p.club_id <> c.id
   `).catch(err => console.error('[migration] presidents.club_id sync:', err.message));
 
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS president_club_history (
+    id                  VARCHAR(36)  PRIMARY KEY,
+    president_id        VARCHAR(36)  NOT NULL,
+    club_id             VARCHAR(36)  NOT NULL,
+    club_name           VARCHAR(150),
+    started_at          DATETIME     NOT NULL,
+    ended_at            DATETIME     NULL,
+    reason              VARCHAR(255) NULL,
+    created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pch_president (president_id),
+    INDEX idx_pch_club (club_id),
+    INDEX idx_pch_open (president_id, ended_at)
+  )`).catch(err => console.error('[migration] president_club_history:', err.message));
+
+  // Seed open tenure rows for presidents currently linked to a club.
+  try {
+    const { v4: uuidv4 } = require('uuid');
+    const current = await EXECUTESQL(`
+      SELECT p.id AS president_id, p.club_id, c.name AS club_name,
+             COALESCE(p.started_at, p.created_date, NOW()) AS started_at
+      FROM presidents p
+      JOIN clubs c ON c.id = p.club_id
+      WHERE p.club_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM president_club_history h
+          WHERE h.president_id = p.id AND h.ended_at IS NULL
+        )
+    `).catch(() => []);
+    for (const row of current) {
+      await EXECUTESQL(
+        `INSERT INTO president_club_history
+           (id, president_id, club_id, club_name, started_at, ended_at, reason, created_date)
+         VALUES (?, ?, ?, ?, ?, NULL, 'backfill', NOW())`,
+        [uuidv4(), row.president_id, row.club_id, row.club_name || null, row.started_at]
+      ).catch(() => {});
+    }
+    if (current.length) {
+      console.log(`[migration] Seeded ${current.length} open president_club_history tenure(s)`);
+    }
+  } catch (err) {
+    console.error('[migration] president_club_history backfill:', err.message);
+  }
+
   await addCol('player_contracts', 'offered_by_user_id', 'VARCHAR(36) NULL');
   await addCol('player_contracts', 'offered_by_club_id', 'VARCHAR(36) NULL');
   await addCol('player_contracts', 'offered_by_president_id', 'VARCHAR(36) NULL');

@@ -14,12 +14,29 @@ export default function IdentityClaimSetup({ player, onComplete }) {
   const [platform, setPlatform] = useState(player?.platform || "PlayStation");
   const [platformHandle, setPlatformHandle] = useState(player?.gamertag || "");
   const [eaId, setEaId] = useState("");
+  const [overallRating, setOverallRating] = useState(
+    Number(player?.overall_rating) > 0 ? Number(player.overall_rating) : 70
+  );
   const [discordHandle, setDiscordHandle] = useState("");
   const [proofUrl, setProofUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  function clampOvr(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 70;
+    return Math.min(99, Math.max(1, Math.round(n)));
+  }
+
+  async function persistPlayerDetails() {
+    if (!player?.id) return;
+    await stageClient.entities.Player.update(player.id, {
+      platform,
+      overall_rating: clampOvr(overallRating),
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     let disposed = false;
@@ -45,6 +62,7 @@ export default function IdentityClaimSetup({ player, onComplete }) {
     setSaving(true);
     setError(null);
     try {
+      await persistPlayerDetails();
       const created = await stageClient.identityClaims.submit({
         player_id: player.id,
         platform,
@@ -58,6 +76,19 @@ export default function IdentityClaimSetup({ player, onComplete }) {
       onComplete?.(created);
     } catch (err) {
       setError(err?.data?.error || err?.message || t("commonPages.obErrClaim"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function skipForNow() {
+    setSaving(true);
+    setError(null);
+    try {
+      await persistPlayerDetails();
+      onComplete?.(null);
+    } catch (err) {
+      setError(err?.data?.error || err?.message || t("commonPages.obErrSave"));
     } finally {
       setSaving(false);
     }
@@ -142,6 +173,20 @@ export default function IdentityClaimSetup({ player, onComplete }) {
           <input value={eaId} onChange={e => setEaId(e.target.value)} className={inputCls} placeholder={t("commonPages.obOptional")} />
         </div>
         <div>
+          <label className={labelCls}>{t("commonPages.obOvr")} *</label>
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={overallRating}
+            onChange={(e) => setOverallRating(e.target.value)}
+            onBlur={() => setOverallRating(clampOvr(overallRating))}
+            className={inputCls}
+            placeholder="70"
+          />
+          <p className="text-white/30 text-[10px] mt-1">{t("commonPages.obOvrHint")}</p>
+        </div>
+        <div>
           <label className={labelCls}>{t("commonPages.obDiscord")}</label>
           <input value={discordHandle} onChange={e => setDiscordHandle(e.target.value)} className={inputCls} placeholder={t("commonPages.obOptional")} />
         </div>
@@ -193,8 +238,9 @@ export default function IdentityClaimSetup({ player, onComplete }) {
         </button>
         <button
           type="button"
-          onClick={() => onComplete?.(null)}
-          className="w-full text-white/35 hover:text-white/65 text-[10px] uppercase tracking-widest transition-colors"
+          onClick={skipForNow}
+          disabled={saving}
+          className="w-full text-white/35 hover:text-white/65 text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40"
         >
           {t("commonPages.obSkipForNow")}
         </button>

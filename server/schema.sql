@@ -134,6 +134,21 @@ CREATE TABLE IF NOT EXISTS presidents (
   INDEX idx_presidents_email (email)
 );
 
+-- Tenure history for presidents across clubs (shown on president profile).
+CREATE TABLE IF NOT EXISTS president_club_history (
+  id                  VARCHAR(36)  PRIMARY KEY,
+  president_id        VARCHAR(36)  NOT NULL,
+  club_id             VARCHAR(36)  NOT NULL,
+  club_name           VARCHAR(150),
+  started_at          DATETIME     NOT NULL,
+  ended_at            DATETIME     NULL,
+  reason              VARCHAR(255) NULL,
+  created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pch_president (president_id),
+  INDEX idx_pch_club (club_id),
+  INDEX idx_pch_open (president_id, ended_at)
+);
+
 -- ── clubs ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS clubs (
   id                  VARCHAR(36)  PRIMARY KEY,

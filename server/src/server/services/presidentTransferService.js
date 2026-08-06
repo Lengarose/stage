@@ -1,5 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { recordPresidentClubChange } = require('./presidentClubHistoryService');
 
 function sameId(left, right) {
   return String(left || '') === String(right || '');
@@ -100,6 +101,12 @@ async function transferPresidentToClub({
     if (displacedPresident) {
       await query('UPDATE presidents SET club_id = ? WHERE id = ?', [null, displacedPresident.id]);
       displacedPresident.club_id = null;
+      await recordPresidentClubChange({
+        presidentId: displacedPresident.id,
+        clubId: null,
+        reason: reason || 'Displaced by president transfer',
+        query,
+      }).catch((err) => console.error('[president_club_history] displace:', err.message));
     }
     await clearClubPresidentLink(toClub.id, toClub.president_id, { query });
     toClub.president_id = null;
@@ -125,6 +132,14 @@ async function transferPresidentToClub({
       toClub.president_user_id = president.user_id || null;
     }
   }
+
+  await recordPresidentClubChange({
+    presidentId: president.id,
+    clubId,
+    clubName: toClub?.name || null,
+    reason,
+    query,
+  }).catch((err) => console.error('[president_club_history] transfer:', err.message));
 
   const after = {
     club_id: clubId,

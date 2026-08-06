@@ -3,13 +3,19 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Pencil, Shield, Trophy, X } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
-import { asObject } from "@/lib/safeData";
+import { asObject, asObjectArray } from "@/lib/safeData";
 import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import PresidentSetup, {
   buildProfileFromPresident,
   toPresidentApiPayload,
 } from "@/components/onboarding/PresidentSetup";
 import { useTranslation } from "@/hooks/useTranslation";
+
+function formatTenureDate(value) {
+  if (!value) return null;
+  const raw = String(value);
+  return raw.length >= 10 ? raw.slice(0, 10) : raw;
+}
 
 const SUCCESS_LABEL_KEYS = {
   less_successful: "presSuccessLess",
@@ -58,6 +64,7 @@ export default function PresidentProfile() {
   const { t } = useTranslation();
   const [president, setPresident] = useState(null);
   const [club, setClub] = useState(null);
+  const [clubHistory, setClubHistory] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -69,14 +76,16 @@ export default function PresidentProfile() {
     async function load() {
       setLoading(true);
       try {
-        const [row, me] = await Promise.all([
+        const [row, me, historyRows] = await Promise.all([
           stageClient.entities.President.get(id).catch(() => null),
           stageClient.auth.me().catch(() => null),
+          stageClient.presidents.history(id).catch(() => []),
         ]);
         if (cancelled) return;
         const presidentRow = asObject(row);
         setPresident(presidentRow);
         setCurrentUser(asObject(me));
+        setClubHistory(asObjectArray(historyRows));
         if (presidentRow?.club_id) {
           const clubRow = asObject(await stageClient.entities.Club.get(presidentRow.club_id).catch(() => null));
           if (!cancelled) setClub(clubRow);
@@ -257,7 +266,7 @@ export default function PresidentProfile() {
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/50">
               {president.started_at ? (
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1">
-                  <Trophy className="w-3 h-3 text-amber-300" /> {t("commonPages.presSince")} {String(president.started_at).slice(0, 10)}
+                  <Trophy className="w-3 h-3 text-amber-300" /> {t("commonPages.presSince")} {formatTenureDate(president.started_at)}
                 </span>
               ) : null}
               {socialLinks.map((link) => (
@@ -274,6 +283,63 @@ export default function PresidentProfile() {
             </div>
           </div>
         </section>
+
+        {clubHistory.length > 0 ? (
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+            <h2 className="font-heading text-sm font-black uppercase tracking-widest text-white/80">
+              {t("commonPages.presClubHistory")}
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {clubHistory.map((tenure) => {
+                const start = formatTenureDate(tenure.started_at);
+                const end = tenure.ended_at ? formatTenureDate(tenure.ended_at) : null;
+                const isCurrent = !tenure.ended_at;
+                const name = tenure.club_name || tenure.club_tag || t("commonPages.obCreateClub");
+                return (
+                  <li
+                    key={tenure.id}
+                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3"
+                  >
+                    {tenure.club_logo_url ? (
+                      <span
+                        className="w-10 h-10 rounded-lg border border-white/15 shrink-0"
+                        style={{
+                          backgroundImage: `url(${tenure.club_logo_url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }}
+                      />
+                    ) : (
+                      <span className="w-10 h-10 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center shrink-0">
+                        <Shield className="w-4 h-4 text-white/40" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {tenure.club_id ? (
+                        <Link
+                          to={`/clubs/${tenure.club_id}`}
+                          className="text-sm font-bold text-white hover:text-amber-200 truncate block"
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-bold text-white truncate">{name}</p>
+                      )}
+                      <p className="text-xs text-white/45 mt-0.5">
+                        {start || "—"}
+                        {" → "}
+                        {isCurrent ? t("commonPages.presHistoryPresent") : (end || "—")}
+                        {isCurrent ? (
+                          <span className="ml-2 text-amber-300/90">{t("commonPages.presHistoryCurrent")}</span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
       </div>
     </GamerProfileShell>
   );

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/hooks/useTranslation";
+import { isPublicPlayerProfile } from "@/lib/playerDirectory";
 
 const POSITIONS = ["All", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
 const PLATFORMS = ["All", "PlayStation", "Xbox", "PC"];
@@ -31,8 +32,10 @@ export default function FreeAgents() {
         stageClient.entities.Club.list(null, 500),
       ]);
       const ownerEmails = new Set(allClubs.map(c => c.owner_email).filter(Boolean));
-      // Only show players with no club AND who don't own a club
-      const trueAgents = allPlayers.filter(p => !p.club_id && !ownerEmails.has(p.email));
+      // Only show completed player profiles with no club AND who don't own a club
+      const trueAgents = allPlayers.filter(p =>
+        isPublicPlayerProfile(p) && !p.club_id && !ownerEmails.has(p.email)
+      );
       setPlayers(trueAgents);
       if (club) setMyClub(club);
       setLoading(false);

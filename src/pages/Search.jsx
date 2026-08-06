@@ -2,17 +2,20 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { searchClub } from "@/lib/eafcClient";
-import { Search as SearchIcon, User, Shield, Swords, UserPlus, Trophy, Users, ExternalLink } from "lucide-react";
+import { Search as SearchIcon, User, Shield, Swords, UserPlus, Trophy, Users, ExternalLink, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
+import { isPublicPlayerProfile } from "@/lib/playerDirectory";
+import { isPublicPresidentProfile } from "@/lib/presidentDirectory";
 
 export default function Search() {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [players, setPlayers] = useState([]);
+  const [presidents, setPresidents] = useState([]);
   const [clubs, setClubs] = useState([]);
   const [eafcClubs, setEafcClubs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,13 +39,19 @@ export default function Search() {
     setSearched(true);
     const q = query.toLowerCase();
 
-    const [allPlayers, allClubs, eafcRes] = await Promise.all([
+    const [allPlayers, allPresidents, allClubs, eafcRes] = await Promise.all([
       stageClient.entities.Player.list("-overall_rating", 200),
+      stageClient.entities.President.list("-created_date", 200).catch(() => []),
       stageClient.entities.Club.list("-wins", 200),
       searchClub(query.trim(), platform).catch(() => null),
     ]);
 
-    setPlayers(allPlayers.filter(p => p.gamertag?.toLowerCase().includes(q)));
+    setPlayers(allPlayers.filter(p =>
+      isPublicPlayerProfile(p) && p.gamertag?.toLowerCase().includes(q)
+    ));
+    setPresidents(allPresidents.filter(p =>
+      isPublicPresidentProfile(p) && (p.display_name || "").toLowerCase().includes(q)
+    ));
     setClubs(allClubs.filter(c => c.name?.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q)));
     setEafcClubs(Array.isArray(eafcRes) ? eafcRes : []);
     setLoading(false);
@@ -171,6 +180,9 @@ export default function Search() {
             <TabsTrigger value="players" className="leading-relaxed">
               <User className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.playersTab")} ({players.length})
             </TabsTrigger>
+            <TabsTrigger value="presidents" className="leading-relaxed">
+              <Crown className="w-3.5 h-3.5 mr-1.5" /> {t("nav.presidents")} ({presidents.length})
+            </TabsTrigger>
             <TabsTrigger value="clubs" className="leading-relaxed">
               <Shield className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.myClubsTab")} ({clubs.length})
             </TabsTrigger>
@@ -219,6 +231,40 @@ export default function Search() {
                           )}
                         </>
                       )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Presidents */}
+          <TabsContent value="presidents">
+            {presidents.length === 0 ? (
+              <div className="bg-card border border-border rounded-xl p-8 text-center">
+                <Crown className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">{t("commonPages.noPresidentsFound")}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {presidents.map((p) => (
+                  <Link
+                    key={p.id}
+                    to={`/presidents/${p.id}`}
+                    className="block bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-amber-400/30 transition-all"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center overflow-hidden shrink-0">
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} alt={p.display_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Crown className="w-5 h-5 text-amber-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="leading-relaxed font-bold text-foreground">{p.display_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[p.role_title, p.country_code, p.management_style].filter(Boolean).join(" · ") || t("commonPages.cdPresident")}
+                      </p>
                     </div>
                   </Link>
                 ))}

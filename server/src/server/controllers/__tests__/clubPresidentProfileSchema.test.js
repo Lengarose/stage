@@ -56,8 +56,10 @@ test('president profile lives on presidents entity, not clubs', () => {
   const presidentEntityMeta = readRepoFile('base44/entities/President.jsonc');
 
   assert.match(schema, /CREATE TABLE IF NOT EXISTS presidents\s*\(/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS president_club_history/);
   assert.match(schema, /president_id\s+VARCHAR\(36\)/);
   assert.match(migrations, /CREATE TABLE IF NOT EXISTS presidents/);
+  assert.match(migrations, /CREATE TABLE IF NOT EXISTS president_club_history/);
   assert.match(migrations, /addCol\('clubs', 'president_id'/);
   assert.match(migrations, /dropCol\('clubs', 'president_name'\)|Dropped clubs\.president_name|dropCol\('clubs', column\)/);
   assert.match(routes, /\/api\/stage\/presidents/);

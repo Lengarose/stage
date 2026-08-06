@@ -99,7 +99,39 @@ test("president profile supports owner/admin edit via PresidentSetup", () => {
   assert.match(presidentSetup, /buildProfileFromPresident/);
   assert.match(presidentSetup, /mode === "edit"/);
   assert.match(layout, /presProfileMenu/);
+  assert.match(layout, /playerProfileMenu/);
+  assert.match(layout, /accountProfilesLabel/);
   assert.match(layout, /\/presidents\/\$\{/);
+});
+
+test("presidents list page is routed and linked in market nav", () => {
+  const app = readRepoFile("src/App.jsx");
+  const layout = readRepoFile("src/components/Layout.jsx");
+  const page = readRepoFile("src/pages/Presidents.jsx");
+
+  assert.match(app, /path="\/presidents-list"/);
+  assert.match(app, /import\('\.\/pages\/Presidents'\)/);
+  assert.match(layout, /\/presidents-list/);
+  assert.match(layout, /nav\.presidents/);
+  assert.match(page, /entities\.President\.list/);
+  assert.match(page, /filterPublicPresidentProfiles/);
+  assert.match(page, /\/presidents\/\$\{president\.id\}/);
+});
+
+test("president profile loads and renders club history", () => {
+  const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
+  const client = readRepoFile("src/api/stageClient.js");
+  const controller = readRepoFile("server/src/server/controllers/presidentController.js");
+  const schema = readRepoFile("server/schema.sql");
+
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS president_club_history/);
+  assert.match(controller, /\/:id\/history/);
+  assert.match(controller, /listHistoryForPresident/);
+  assert.match(client, /history\(presidentId/);
+  assert.match(client, /\/presidents\/\$\{encodeURIComponent\(presidentId\)\}\/history/);
+  assert.match(presidentPage, /presidents\.history/);
+  assert.match(presidentPage, /presClubHistory/);
+  assert.match(presidentPage, /clubHistory/);
 });
 
 test("admin clubs tab exposes president transfer dialog wired to stageClient.presidents.transfer", () => {

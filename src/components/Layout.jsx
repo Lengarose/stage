@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
+  Search, Rss, ShoppingBag, Video, UsersRound, Handshake, Crown,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
@@ -132,8 +132,9 @@ function getPlayerGroups(t, _clubPath) {
     {
       label: t("nav.market"),
       items: [
-        { path: "/clubs",        icon: Shield,     label: t("nav.clubs") },
-        { path: "/players-list", icon: UsersRound, label: t("nav.players") },
+        { path: "/clubs",            icon: Shield,     label: t("nav.clubs") },
+        { path: "/players-list",     icon: UsersRound, label: t("nav.players") },
+        { path: "/presidents-list",  icon: Crown,      label: t("nav.presidents") },
         { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
         { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
@@ -182,21 +183,23 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
   ];
 }
 
-function getPresidentGroups(t, clubPath) {
+function getPresidentGroups(t, clubPath, presidentPath) {
   const homeItems = [
     { path: "/",            icon: Home,            label: t("nav.welcome") },
     { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
   ];
-  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: t("nav.myClub") });
+  if (presidentPath) homeItems.push({ path: presidentPath, icon: Crown, label: t("commonPages.presProfileMenu") });
+  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: t("commonPages.presMyClubMenu") });
   return [
     { label: t("nav.home"), items: homeItems },
     {
       label: t("nav.market"),
       items: [
-        { path: "/clubs",        icon: Shield,     label: t("nav.clubs") },
-        { path: "/players-list",    icon: UsersRound,     label: t("nav.players") },
+        { path: "/clubs",           icon: Shield,     label: t("nav.clubs") },
+        { path: "/players-list",    icon: UsersRound, label: t("nav.players") },
+        { path: "/presidents-list", icon: Crown,      label: t("nav.presidents") },
         { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
       ],
@@ -421,6 +424,16 @@ const MOBILE_WALKTHROUGHS = [
     ],
   },
   {
+    path: "/presidents-list",
+    label: "Presidents",
+    title: "Presidents",
+    steps: [
+      "Browse club presidents and open their public profiles.",
+      "Check success level, management style and the club they run.",
+      "Use this directory to discover presidents separately from the player list.",
+    ],
+  },
+  {
     path: "/free-agents",
     label: "Free Agents",
     title: "Free agents",
@@ -558,6 +571,7 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/register-league": "register",
   "/rankings": "rankings",
   "/players-list": "players",
+  "/presidents-list": "presidents",
   "/free-agents": "freeAgents",
   "/recruitment": "recruitment",
   "/transfer-market": "transfers",
@@ -594,6 +608,7 @@ const NAV_LABEL_KEYS = {
   "Register": "register",
   "Rankings": "rankings",
   "Players": "players",
+  "Presidents": "presidents",
   "Free Agents": "freeAgents",
   "Recruitment": "recruitment",
   "Transfers": "transfers",
@@ -844,7 +859,7 @@ function HeaderIdentityMenu({
           <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isWhiteTheme ? "text-slate-900/55" : "text-white/40")} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className={cn("z-[80] w-52 p-1", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
+      <DropdownMenuContent align="start" sideOffset={6} className={cn("z-[80] w-56 p-1", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
         {canSwitchRole && (
           <>
             <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
@@ -863,12 +878,17 @@ function HeaderIdentityMenu({
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
-                <Shield className="h-4 w-4 shrink-0 text-amber-400" /> President
+                <Crown className="h-4 w-4 shrink-0 text-amber-400" /> President
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
           </>
         )}
+        {(myPlayer || presidentProfilePath || myClubId) ? (
+          <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
+            {t("commonPages.accountProfilesLabel")}
+          </DropdownMenuLabel>
+        ) : null}
         {myPlayer ? (
           <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
             <Link
@@ -876,8 +896,8 @@ function HeaderIdentityMenu({
               className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
               style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
-              <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-              Profile
+              <User className="h-4 w-4 shrink-0 text-blue-400" />
+              {t("commonPages.playerProfileMenu")}
             </Link>
           </DropdownMenuItem>
         ) : null}
@@ -888,7 +908,7 @@ function HeaderIdentityMenu({
               className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
               style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
-              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              <Crown className="h-4 w-4 shrink-0 text-amber-400" />
               {t("commonPages.presProfileMenu")}
             </Link>
           </DropdownMenuItem>
@@ -905,6 +925,7 @@ function HeaderIdentityMenu({
             </Link>
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
         <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
           <Link
             to="/settings"
@@ -977,6 +998,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     label: "Club",
     items: [
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
+      { path: "/presidents-list", icon: Crown,         label: "Presidents"    },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
       { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
@@ -1019,6 +1041,7 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         ...(clubPath ? [{ path: clubPath, icon: Shield, label: "My Club" }] : []),
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
+        { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
         { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
@@ -1279,7 +1302,7 @@ function MobileWalkthrough({ pathname }) {
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
+function MobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
@@ -1874,10 +1897,16 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
             className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
             style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
-            <Shield className="h-4 w-4 shrink-0 text-amber-400" /> President
+            <Crown className="h-4 w-4 shrink-0 text-amber-400" /> President
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
+        <DropdownMenuLabel
+          className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
+          style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
+        >
+          {t("commonPages.accountProfilesLabel")}
+        </DropdownMenuLabel>
         {myPlayer ? (
           <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
             <Link
@@ -1885,8 +1914,8 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
               className="flex items-center gap-2 px-2 py-2.5 text-white/80"
               style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
-              <User className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-              Profile
+              <User className="h-4 w-4 shrink-0 text-blue-400" />
+              {t("commonPages.playerProfileMenu")}
             </Link>
           </DropdownMenuItem>
         ) : null}
@@ -1897,7 +1926,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
               className="flex items-center gap-2 px-2 py-2.5 text-white/80"
               style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
-              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              <Crown className="h-4 w-4 shrink-0 text-amber-400" />
               {t("commonPages.presProfileMenu")}
             </Link>
           </DropdownMenuItem>
@@ -1914,6 +1943,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
             </Link>
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
         <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
           <Link
             to="/settings"
@@ -2216,6 +2246,9 @@ export default function Layout() {
   const presidentClubPath = myPresidentClubId ? `/clubs/${myPresidentClubId}` : null;
   const playerClubPath = myPlayerClub?.id ? `/clubs/${myPlayerClub.id}` : null;
   const clubPath = accountMode === "club" ? presidentClubPath : playerClubPath;
+  const presidentProfilePath = myPresidentId
+    ? `/presidents/${myPresidentId}`
+    : (myClub?.president_id ? `/presidents/${myClub.president_id}` : null);
   const mobileClubIdentity = accountMode === "club" ? myClub : (myPlayerClub || myClub);
   const effectiveUser = authContextUser || authUser;
   const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
@@ -2230,7 +2263,10 @@ export default function Layout() {
 
   const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
   const playerGroups = filterTransferWindowNavGroups(getPlayerGroups(t, clubPath), transferWindowOpen);
-  const presidentGroups = filterTransferWindowNavGroups(getPresidentGroups(t, clubPath), transferWindowOpen);
+  const presidentGroups = filterTransferWindowNavGroups(
+    getPresidentGroups(t, clubPath, presidentProfilePath),
+    transferWindowOpen
+  );
   const adminGroups = getAdminGroups(t);
   const transferWindowIndicator = getTransferWindowIndicatorLabel(transferWindowOpen);
   const headerNavGroups = showAdminHeader

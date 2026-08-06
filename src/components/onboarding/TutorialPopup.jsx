@@ -1,59 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTutorialSteps } from "@/lib/tutorialSteps";
 import NameLogo from "@/assets/Name logo.png";
 
-export default function TutorialPopup({ open, onClose }) {
+export default function TutorialPopup({ open, onClose, intent = "player" }) {
   const [step, setStep] = useState(0);
+  const steps = getTutorialSteps(intent);
 
-  const steps = [
-    {
-      title: "Join Clubs",
-      icon: "🎮",
-      description: "Team up with players from around the world. Join existing clubs or create your own to compete in tournaments and leagues.",
-      tips: [
-        "Find clubs by region and platform",
-        "Apply directly or wait for invitations",
-        "Negotiate contract terms and salary"
-      ]
-    },
-    {
-      title: "Compete in Tournaments",
-      icon: "🏆",
-      description: "Enter competitive tournaments including the Supreme League. Climb rankings and earn STC prizes for your victories.",
-      tips: [
-        "Choose ranked, or tournament matches",
-        "Compete in leagues and cup tournaments",
-        "Track your club's performance on the leaderboard"
-      ]
-    },
-    {
-      title: "Build Your Reputation",
-      icon: "📊",
-      description: "Improve your player rating and reputation through matches. Negotiate better contracts as you prove yourself.",
-      tips: [
-        "Earn a higher rating through wins and performance",
-        "Build your personal stats and match history",
-        "Attract bigger clubs with your achievements"
-      ]
-    },
-    {
-      title: "Earn STC & Grow Your Wealth",
-      icon: "💰",
-      description: "Earn STC through match wins, tournament prizes, and weekly salaries. Invest in lifestyle assets and build passive income.",
-      tips: [
-        "Earn weekly salary from your club contract",
-        "Win matches and tournaments for prize money",
-        "Purchase real estate and vehicles for passive income"
-      ]
-    }
-  ];
+  useEffect(() => {
+    if (open) setStep(0);
+  }, [open, intent]);
 
-  const current = steps[step];
-  const isFirst = step === 0;
-  const isLast = step === steps.length - 1;
+  const safeStep = Math.min(step, Math.max(steps.length - 1, 0));
+  const current = steps[safeStep];
+  const isFirst = safeStep === 0;
+  const isLast = safeStep === steps.length - 1;
+
+  if (!current) return null;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
@@ -67,6 +33,7 @@ export default function TutorialPopup({ open, onClose }) {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/50" />
           <button
+            type="button"
             onClick={onClose}
             className="absolute top-4 right-4 p-1.5 rounded-lg bg-black/30 hover:bg-black/50 transition-colors z-10"
           >
@@ -80,19 +47,19 @@ export default function TutorialPopup({ open, onClose }) {
           <div className="space-y-3">
             {/* Step indicator */}
             <div className="flex items-center gap-1.5">
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-1">
                 {steps.map((_, i) => (
                   <div
                     key={i}
                     className={cn(
                       "h-1.5 flex-1 rounded-full transition-colors",
-                      i === step ? "bg-primary" : "bg-border"
+                      i === safeStep ? "bg-primary" : "bg-border"
                     )}
                   />
                 ))}
               </div>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {step + 1} of {steps.length}
+              <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                {safeStep + 1} of {steps.length}
               </span>
             </div>
 
@@ -130,11 +97,12 @@ export default function TutorialPopup({ open, onClose }) {
           {/* Navigation buttons */}
           <div className="flex gap-3 pt-2">
             <Button
+              type="button"
               onClick={() => {
                 if (isFirst) {
                   onClose();
                 } else {
-                  setStep(step - 1);
+                  setStep(safeStep - 1);
                 }
               }}
               variant="outline"
@@ -145,11 +113,12 @@ export default function TutorialPopup({ open, onClose }) {
               </>}
             </Button>
             <Button
+              type="button"
               onClick={() => {
                 if (isLast) {
                   onClose?.();
                 } else {
-                  setStep(step + 1);
+                  setStep(safeStep + 1);
                 }
               }}
               className="flex-1 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"

@@ -1,5 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { ensureOpenTenureForClub } = require('./presidentClubHistoryService');
 
 function sameId(left, right) {
   return String(left || '') === String(right || '');
@@ -20,6 +21,13 @@ async function ensurePresidentForClub(club, { query = EXECUTESQL } = {}) {
         await query('UPDATE presidents SET club_id = ? WHERE id = ?', [club.id, existing[0].id]).catch(() => {});
         existing[0].club_id = club.id;
       }
+      await ensureOpenTenureForClub({
+        presidentId: existing[0].id,
+        clubId: club.id,
+        clubName: club.name || null,
+        reason: 'President ensured',
+        query,
+      }).catch((err) => console.error('[president_club_history] ensure existing:', err.message));
       return existing[0];
     }
   }
@@ -48,6 +56,16 @@ async function ensurePresidentForClub(club, { query = EXECUTESQL } = {}) {
   if (president?.id && !sameId(club.president_id, president.id)) {
     await query('UPDATE clubs SET president_id = ? WHERE id = ?', [president.id, club.id]).catch(() => {});
     club.president_id = president.id;
+  }
+
+  if (president?.id) {
+    await ensureOpenTenureForClub({
+      presidentId: president.id,
+      clubId: club.id,
+      clubName: club.name || null,
+      reason: 'President ensured',
+      query,
+    }).catch((err) => console.error('[president_club_history] ensure:', err.message));
   }
 
   return president;
