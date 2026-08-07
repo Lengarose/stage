@@ -5258,10 +5258,15 @@ const HANDLERS = {
         const isSameClub = player.club_id && player.club_id === contract.team_id;
         const nextRoles = isSameClub && Array.isArray(roles) ? roles.filter(Boolean) : [];
         let nextRole = player.role || 'member';
-        if (contract.contract_type === 'ownership') {
-          if (!nextRoles.includes('president')) nextRoles.unshift('president');
-          nextRole = 'president';
-        } else if (Number(contract.captaincy_offered || 0) === 1 && !nextRoles.includes('president')) {
+        // NOTE: accepting an 'ownership' contract no longer grants club president/owner
+        // status here. President identity lives exclusively in the `presidents` table and
+        // is assigned via club creation (see clubController.js) — never through accepting a
+        // player_contracts row. This used to promote the accepting player to
+        // role='president' and rewrite clubs.user_id / clubs.president_user_id, which
+        // silently merged the player and president identities into one profile.
+        // See repairPlayerPresidentIdentityLinks() for cleanup of accounts affected before
+        // this fix, and CreateContract.jsx, which no longer offers 'ownership' as a type.
+        if (Number(contract.captaincy_offered || 0) === 1 && !nextRoles.includes('president')) {
           if (!nextRoles.includes('captain')) nextRoles.push('captain');
           nextRole = 'captain';
         } else if (!nextRoles.length || nextRoles.includes('free_agent')) {
@@ -5281,16 +5286,6 @@ const HANDLERS = {
           source: 'contract_acceptance',
           query,
         });
-        if (contract.contract_type === 'ownership' && player.user_id) {
-          await query(
-            "UPDATE clubs SET president_user_id = ?, user_id = ?, owner_email = ?, updated_date = NOW() WHERE id = ?",
-            [player.user_id, player.user_id, player.email || club.owner_email || '', contract.team_id]
-          );
-          await query(
-            "UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?",
-            [contract.team_id, player.user_id]
-          );
-        }
 
         const bonus = Number(contract.signing_bonus_stc || 0);
         if (bonus > 0) {
@@ -9445,6 +9440,7 @@ const HANDLERS = {
     email,
     club_id,
     dry_run = false,
+    scan_all = false,
   }) {
     const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
     const admin = adminRows[0] || null;
@@ -9464,7 +9460,10 @@ const HANDLERS = {
       where.push('c.id = ?');
       params.push(club_id);
     }
-    if (!where.length) throw new Error('user_id, email or club_id is required');
+    // scan_all runs the query platform-wide with no identity filter — used for the
+    // admin "scan everyone" sweep. Still requires admin role (checked above).
+    if (!where.length && scan_all) where.push('1=1');
+    if (!where.length) throw new Error('user_id, email, club_id, or scan_all is required');
 
     const candidates = await EXECUTESQL(
       `SELECT

@@ -20,6 +20,7 @@ import LandingTab from "@/components/admin/sections/LandingTab";
 import HomeTab from "@/components/admin/sections/HomeTab";
 import AnalyticsTab from "@/components/admin/sections/AnalyticsTab";
 import StoreTab from "@/components/admin/sections/StoreTab";
+import IdentityRepairTab from "@/components/admin/sections/IdentityRepairTab";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AdminGamerLayout from "@/components/admin/AdminGamerUI";
 import "@/styles/admin-gamer-theme.css";
@@ -1753,6 +1754,10 @@ export default function Admin(props) {
 
           {adminTab === "store" && (
             <StoreTab />
+          )}
+
+          {adminTab === "identity-repair" && (
+            <IdentityRepairTab />
           )}
     </>
   );
