@@ -303,8 +303,8 @@ export default function Profile({
       logo_url: null,
       wins: 0, losses: 0, draws: 0, goals_scored: 0, goals_conceded: 0,
       rating: 1500, peak_rating: 1500, matches_ranked: 0, is_provisional: 1,
-      trophies: 0, credits: 0, stc: 30000000,
-      wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
+      stc: 2500000,
+      wage_budget_stc: 250000, transfer_budget_stc: 1000000,
       stadium_level: 0, stadium_capacity: 5000,
       tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
     });

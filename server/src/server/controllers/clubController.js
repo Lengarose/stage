@@ -1,5 +1,6 @@
 const express = require('express');
 const router  = express.Router();
+const { v4: uuidv4 } = require('uuid');
 const Club    = require('../models/clubModel');
 const President = require('../models/presidentModel');
 const ClubStaffRole = require('../models/clubStaffRoleModel');
@@ -14,6 +15,10 @@ const {
 } = require('../services/clubOperationsService');
 const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { extractPresidentProfileFromClubBody } = require('./presidentController');
+const {
+  STARTER_CLUB_FINANCE,
+  assertClubFinanceWithinTier,
+} = require('../services/clubFinanceService');
 
 const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
@@ -177,9 +182,11 @@ router.post('/', async (req, res) => {
     body.user_id = await resolveClubUserId(req, body);
     body.president_user_id = body.president_user_id || body.user_id || req.user?.id || null;
     if (!body.owner_email && req.user?.email) body.owner_email = req.user.email;
-    if (body.stc               == null) body.stc                = 30_000_000;
-    if (body.transfer_budget_stc == null) body.transfer_budget_stc = 5_000_000;
-    if (body.wage_budget_stc     == null) body.wage_budget_stc     = 1_500_000;
+    if (body.stc == null) body.stc = STARTER_CLUB_FINANCE.balance_stc;
+    if (body.transfer_budget_stc == null) body.transfer_budget_stc = STARTER_CLUB_FINANCE.transfer_budget_stc;
+    if (body.wage_budget_stc == null) body.wage_budget_stc = STARTER_CLUB_FINANCE.wage_budget_stc;
+    if (body.stadium_level == null) body.stadium_level = STARTER_CLUB_FINANCE.stadium_level;
+    if (body.stadium_capacity == null) body.stadium_capacity = STARTER_CLUB_FINANCE.stadium_capacity;
 
     // Ensure a President entity exists for the club president.
     // Accepts nested `president` (current) or legacy flat president_* keys.
@@ -269,6 +276,24 @@ router.post('/', async (req, res) => {
     await club.create();
     const created = await club.selectOne(club.id);
     const record  = created[0];
+    if (record?.id) {
+      await EXECUTESQL(
+        `INSERT INTO stc_transactions
+          (id, club_id, amount, balance_after, type, category, description,
+           related_entity_type, related_entity_id, reference_id, created_date)
+         VALUES (?, ?, ?, ?, 'income', 'starting_balance', ?,
+          'club', ?, ?, NOW())`,
+        [
+          uuidv4(),
+          record.id,
+          Number(record.stc || STARTER_CLUB_FINANCE.balance_stc),
+          Number(record.stc || STARTER_CLUB_FINANCE.balance_stc),
+          'Starting club finance grant',
+          record.id,
+          record.id,
+        ]
+      ).catch((err) => console.error('[club_create starting_balance_tx]', err.message));
+    }
     if (record?.president_id) {
       await EXECUTESQL(
         'UPDATE presidents SET club_id = ? WHERE id = ?',
@@ -323,6 +348,16 @@ router.patch('/:id', async (req, res) => {
     }
     const submittedFields = Object.keys(safeBody);
     assertClubPatchAllowed(access, submittedFields);
+    const financeFields = submittedFields.filter((field) => (
+      field === 'stc'
+      || field === 'wage_budget_stc'
+      || field === 'transfer_budget_stc'
+      || field === 'stadium_level'
+      || field === 'stadium_capacity'
+    ));
+    if (financeFields.length && !access?.admin) {
+      return res.status(403).json({ error: `Forbidden club finance update fields: ${financeFields.join(', ')}` });
+    }
     if (safeBody.name) {
       const existingByName = await EXECUTESQL(
         'SELECT id FROM clubs WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1',
@@ -333,6 +368,15 @@ router.patch('/:id', async (req, res) => {
       }
     }
     const merged = { ...existing[0], ...safeBody };
+    if (access?.admin && financeFields.length) {
+      const overrideReason = req.body?.override_reason || req.body?.reason || '';
+      await assertClubFinanceWithinTier({
+        stadiumLevel: merged.stadium_level,
+        wageBudget: merged.wage_budget_stc,
+        transferBudget: merged.transfer_budget_stc,
+        allowOverride: Boolean(overrideReason),
+      });
+    }
     merged.president_user_id = merged.president_user_id || merged.user_id || null;
     if (merged.user_id) {
       const rows = await EXECUTESQL('SELECT id FROM users WHERE id = ? LIMIT 1', [merged.user_id]);

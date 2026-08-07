@@ -183,8 +183,15 @@ export default function CreateContract() {
   const groupedStats = groupStatOptions(statOptions);
   const salarySuggestion = selectedPlayer ? suggestSalaryRange(selectedType, selectedPlayer.overall_rating, selectedPlayer.market_value_stc || 0) : null;
   const salaryNum = parseInt(weeklySalary) || 0;
-  const wagePct = club?.wage_budget_stc > 0 && salaryNum > 0 ? Math.round((salaryNum / club.wage_budget_stc) * 100) : 0;
-  const overBudget = club?.wage_budget_stc > 0 && salaryNum > club.wage_budget_stc;
+  const committedWeeklyWages = contracts.reduce((sum, contract) => {
+    const status = String(contract.status || "").toLowerCase();
+    const type = getContractType(contract);
+    if (!LIVE_STATUSES.includes(status) || type === "ownership") return sum;
+    return sum + Number(contract.weekly_salary_stc || 0);
+  }, 0);
+  const projectedWeeklyWages = committedWeeklyWages + (isOwnershipOffer ? 0 : salaryNum);
+  const wagePct = club?.wage_budget_stc > 0 && projectedWeeklyWages > 0 ? Math.round((projectedWeeklyWages / club.wage_budget_stc) * 100) : 0;
+  const overBudget = club?.wage_budget_stc > 0 && projectedWeeklyWages > club.wage_budget_stc;
 
   const canProceed = canCreateContractOffer(windowOpen) && selectedPlayer && !playerHasConflict && selectedType;
 
@@ -316,11 +323,12 @@ export default function CreateContract() {
               <Coins className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", overBudget ? "text-destructive" : wagePct > 70 ? "text-warning" : "text-success")} />
               <div>
                 <p className={cn("text-[10px] font-bold uppercase tracking-wider", overBudget ? "text-destructive" : wagePct > 70 ? "text-warning" : "text-success")}>
-                  {overBudget ? t("commonPages.cccExceedsWage") : t("commonPages.cccWageUsage", { pct: wagePct })}
+                  {overBudget ? "Wage cap exceeded" : t("commonPages.cccWageUsage", { pct: wagePct })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {t("commonPages.cccClubWageBudget", { amount: (club.wage_budget_stc / 1_000_000).toFixed(1) })}
-                  {overBudget && t("commonPages.cccReduceSalary")}
+                  Current wages: {formatSTC(committedWeeklyWages)} / {formatSTC(club.wage_budget_stc)} per week.
+                  {" "}This offer raises it to {formatSTC(projectedWeeklyWages)}.
+                  {overBudget && " Upgrade stadium or reduce wages."}
                 </p>
               </div>
             </div>
@@ -500,7 +508,7 @@ export default function CreateContract() {
           <Button
             className="flex-1 sm:flex-none bg-primary text-primary-foreground gap-2"
             onClick={handleSend}
-            disabled={sending}
+            disabled={sending || overBudget}
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sending ? t("commonPages.cdSending") : t("commonPages.sendContractOffer")}

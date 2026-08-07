@@ -1,9 +1,9 @@
 /**
  * Stadium system — 4 levels with ticket revenue model.
- * Level 0 = Local Ground    (starter — 5 000 cap, 20 STC/ticket)
- * Level 1 = Pro Stadium     (20 000 cap, 40 STC/ticket)
- * Level 2 = Elite Ground    (45 000 cap, 55 STC/ticket)
- * Level 3 = Iconic Arena    (80 000 cap, 75 STC/ticket)
+ * Level 0 = Local Ground    (5 000 cap, 250K wage cap, 1M transfer cap)
+ * Level 1 = Pro Stadium     (20 000 cap, 800K wage cap, 5M transfer cap)
+ * Level 2 = Elite Ground    (45 000 cap, 1.8M wage cap, 12M transfer cap)
+ * Level 3 = Iconic Arena    (80 000 cap, 4M wage cap, 30M transfer cap)
  *
  * Revenue = Capacity × Ticket Price per Home Game
  */
@@ -15,6 +15,9 @@ export const STADIUM_LEVELS = [
     capacity: 5_000,
     ticket_price_stc: 15,
     upgrade_cost_stc: 0,
+    max_wage_budget_stc: 250_000,
+    max_transfer_budget_stc: 1_000_000,
+    monthly_maintenance_stc: 50_000,
     description: "A humble but passionate home ground. Every great club starts somewhere.",
     emoji: "⚽",
     color: "text-slate-400",
@@ -26,6 +29,9 @@ export const STADIUM_LEVELS = [
     capacity: 20_000,
     ticket_price_stc: 50,
     upgrade_cost_stc: 50_000_000,
+    max_wage_budget_stc: 800_000,
+    max_transfer_budget_stc: 5_000_000,
+    monthly_maintenance_stc: 200_000,
     description: "Professional-grade facilities. The home ground for serious clubs.",
     emoji: "🏟️",
     color: "text-primary",
@@ -37,6 +43,9 @@ export const STADIUM_LEVELS = [
     capacity: 45_000,
     ticket_price_stc: 130,
     upgrade_cost_stc: 120_000_000,
+    max_wage_budget_stc: 1_800_000,
+    max_transfer_budget_stc: 12_000_000,
+    monthly_maintenance_stc: 600_000,
     description: "State-of-the-art stadium. Champions League ready.",
     emoji: "🏆",
     color: "text-purple-400",
@@ -48,6 +57,9 @@ export const STADIUM_LEVELS = [
     capacity: 80_000,
     ticket_price_stc: 180,
     upgrade_cost_stc: 250_000_000,
+    max_wage_budget_stc: 4_000_000,
+    max_transfer_budget_stc: 30_000_000,
+    monthly_maintenance_stc: 1_500_000,
     description: "A legendary venue. The world's eyes are on you.",
     emoji: "👑",
     color: "text-yellow-400",

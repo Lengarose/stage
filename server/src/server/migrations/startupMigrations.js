@@ -126,6 +126,20 @@ async function runStartupMigrations() {
   await addIndex('clubs', 'idx_clubs_president_user', '(president_user_id)');
   await addCol('clubs', 'president_id', 'VARCHAR(36) NULL');
   await addIndex('clubs', 'idx_clubs_president_id', '(president_id)');
+    await addCol('clubs', 'transfer_locked_stc', 'DECIMAL(12,2) DEFAULT 0');
+    await addCol('clubs', 'finance_warning', 'VARCHAR(100) NULL');
+    await addCol('stc_transactions', 'related_entity_type', 'VARCHAR(100) NULL');
+    await addCol('stc_transactions', 'related_entity_id', 'VARCHAR(36) NULL');
+  await EXECUTESQL('ALTER TABLE clubs ALTER COLUMN stc SET DEFAULT 2500000')
+    .catch((err) => console.error('[migration] clubs.stc default:', err.message));
+  await EXECUTESQL('ALTER TABLE clubs ALTER COLUMN wage_budget_stc SET DEFAULT 250000')
+    .catch((err) => console.error('[migration] clubs.wage_budget_stc default:', err.message));
+  await EXECUTESQL('ALTER TABLE clubs ALTER COLUMN transfer_budget_stc SET DEFAULT 1000000')
+    .catch((err) => console.error('[migration] clubs.transfer_budget_stc default:', err.message));
+  await EXECUTESQL('ALTER TABLE clubs ALTER COLUMN stadium_level SET DEFAULT 0')
+    .catch((err) => console.error('[migration] clubs.stadium_level default:', err.message));
+  await EXECUTESQL('ALTER TABLE clubs ALTER COLUMN stadium_capacity SET DEFAULT 5000')
+    .catch((err) => console.error('[migration] clubs.stadium_capacity default:', err.message));
 
   // Presidents are a first-class entity (like players). Legacy club-embedded
   // president_* profile columns are backfilled then dropped below.
@@ -1415,25 +1429,54 @@ async function runStartupMigrations() {
     capacity         INT DEFAULT 5000,
     ticket_price_stc DECIMAL(8,2) DEFAULT 15,
     upgrade_cost_stc BIGINT DEFAULT 0,
+    max_wage_budget_stc DECIMAL(12,2) DEFAULT 250000,
+    max_transfer_budget_stc DECIMAL(12,2) DEFAULT 1000000,
+    monthly_maintenance_stc DECIMAL(12,2) DEFAULT 50000,
     description      TEXT,
     updated_date     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] stadium_config:', err.message));
+  await addCol('stadium_config', 'max_wage_budget_stc', 'DECIMAL(12,2) DEFAULT 250000');
+  await addCol('stadium_config', 'max_transfer_budget_stc', 'DECIMAL(12,2) DEFAULT 1000000');
+  await addCol('stadium_config', 'monthly_maintenance_stc', 'DECIMAL(12,2) DEFAULT 50000');
 
   const stadiumCfgCount = await EXECUTESQL('SELECT COUNT(*) as n FROM stadium_config', []).catch(() => [{ n: 1 }]);
   if (Number(stadiumCfgCount[0]?.n || 0) === 0) {
     const defaults = [
-      [0, 'Local Ground',  5000,  15,  0,           'A humble but passionate home ground. Every great club starts somewhere.'],
-      [1, 'Pro Stadium',   20000, 50,  50000000,    'Professional-grade facilities. The home ground for serious clubs.'],
-      [2, 'Elite Ground',  45000, 130, 120000000,   'State-of-the-art stadium. Champions League ready.'],
-      [3, 'Iconic Arena',  80000, 180, 250000000,   'A legendary venue. The world\'s eyes are on you.'],
+      [0, 'Local Ground',  5000,  15,  0,         250000,  1000000,  50000,   'A humble but passionate home ground. Every great club starts somewhere.'],
+      [1, 'Pro Stadium',   20000, 50,  50000000,  800000,  5000000,  200000,  'Professional-grade facilities. The home ground for serious clubs.'],
+      [2, 'Elite Ground',  45000, 130, 120000000, 1800000, 12000000, 600000,  'State-of-the-art stadium. Champions League ready.'],
+      [3, 'Iconic Arena',  80000, 180, 250000000, 4000000, 30000000, 1500000, 'A legendary venue. The world\'s eyes are on you.'],
     ];
-    for (const [level, name, capacity, price, cost, desc] of defaults) {
+    for (const [level, name, capacity, price, cost, maxWage, maxTransfer, maintenance, desc] of defaults) {
       await EXECUTESQL(
-        'INSERT IGNORE INTO stadium_config (level, name, capacity, ticket_price_stc, upgrade_cost_stc, description) VALUES (?, ?, ?, ?, ?, ?)',
-        [level, name, capacity, price, cost, desc]
+        `INSERT IGNORE INTO stadium_config
+         (level, name, capacity, ticket_price_stc, upgrade_cost_stc, max_wage_budget_stc, max_transfer_budget_stc, monthly_maintenance_stc, description)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [level, name, capacity, price, cost, maxWage, maxTransfer, maintenance, desc]
       ).catch(() => {});
     }
   }
+  await EXECUTESQL(`
+    UPDATE stadium_config
+    SET
+      max_wage_budget_stc = CASE level
+        WHEN 0 THEN 250000 WHEN 1 THEN 800000 WHEN 2 THEN 1800000 WHEN 3 THEN 4000000
+        ELSE max_wage_budget_stc
+      END,
+      max_transfer_budget_stc = CASE level
+        WHEN 0 THEN 1000000 WHEN 1 THEN 5000000 WHEN 2 THEN 12000000 WHEN 3 THEN 30000000
+        ELSE max_transfer_budget_stc
+      END,
+      monthly_maintenance_stc = CASE level
+        WHEN 0 THEN 50000 WHEN 1 THEN 200000 WHEN 2 THEN 600000 WHEN 3 THEN 1500000
+        ELSE monthly_maintenance_stc
+      END,
+      capacity = CASE level
+        WHEN 0 THEN 5000 WHEN 1 THEN 20000 WHEN 2 THEN 45000 WHEN 3 THEN 80000
+        ELSE capacity
+      END
+    WHERE level IN (0,1,2,3)
+  `).catch(err => console.error('[migration] stadium finance defaults:', err.message));
 
   // Competition & league entity store (single flexible table for all league/comp entities)
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS league_entities (

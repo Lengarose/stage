@@ -181,11 +181,13 @@ CREATE TABLE IF NOT EXISTS clubs (
   matches_ranked      INT          DEFAULT 0,
   is_provisional      TINYINT(1)   DEFAULT 1,
   credits             INT          DEFAULT 0,
-  stc                 DECIMAL(12,2) DEFAULT 0,
-  wage_budget_stc     DECIMAL(12,2) DEFAULT 0,
-  transfer_budget_stc DECIMAL(12,2) DEFAULT 0,
-  stadium_level       INT          DEFAULT 1,
-  stadium_capacity    INT          DEFAULT 10000,
+  stc                 DECIMAL(12,2) DEFAULT 2500000,
+  wage_budget_stc     DECIMAL(12,2) DEFAULT 250000,
+  transfer_budget_stc DECIMAL(12,2) DEFAULT 1000000,
+  transfer_locked_stc DECIMAL(12,2) DEFAULT 0,
+  finance_warning     VARCHAR(100)  NULL,
+  stadium_level       INT          DEFAULT 0,
+  stadium_capacity    INT          DEFAULT 5000,
   tier                VARCHAR(50)  DEFAULT 'bronze',
   form                VARCHAR(20),
   win_streak          INT          DEFAULT 0,
@@ -621,6 +623,8 @@ CREATE TABLE IF NOT EXISTS stc_transactions (
   type          VARCHAR(100),
   category      VARCHAR(100)  NULL,
   description   TEXT,
+  related_entity_type VARCHAR(100) NULL,
+  related_entity_id VARCHAR(36) NULL,
   reference_id  VARCHAR(36),
   created_date  DATETIME      DEFAULT CURRENT_TIMESTAMP
 );
@@ -1992,6 +1996,9 @@ CREATE TABLE IF NOT EXISTS stadium_config (
   capacity         INT          DEFAULT 5000,
   ticket_price_stc DECIMAL(8,2) DEFAULT 15,
   upgrade_cost_stc BIGINT       DEFAULT 0,
+  max_wage_budget_stc DECIMAL(12,2) DEFAULT 250000,
+  max_transfer_budget_stc DECIMAL(12,2) DEFAULT 1000000,
+  monthly_maintenance_stc DECIMAL(12,2) DEFAULT 50000,
   description      TEXT,
   updated_date     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
