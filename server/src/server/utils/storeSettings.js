@@ -1,5 +1,21 @@
 const { EXECUTESQL } = require('../db/database');
 
+// Credit packs are top-up purchases, framed as extra tournament entries for
+// casual/occasional use. STAGE Plus (below) is the better-value option for
+// active users — these packs intentionally do not try to compete with it.
+// Tournament entry/creation costs 50 credits (DEFAULT_STORE_SETTINGS.tournament_entry_credits),
+// so `purpose` here is derived from credits / 50.
+const CREDIT_PACKS = [
+  { id: 'credits_entry', credits: 50, price_eur: 1.99, label: 'Entry Pack', purpose: '1 tournament entry' },
+  { id: 'credits_starter', credits: 100, price_eur: 2.99, label: 'Starter Pack', purpose: '2 tournament entries' },
+  { id: 'credits_competitor', credits: 250, price_eur: 5.99, label: 'Competitor Pack', purpose: '5 tournament entries' },
+  { id: 'credits_club', credits: 600, price_eur: 10.99, label: 'Club Pack', purpose: '12 tournament entries' },
+];
+
+function getCreditPack(packId) {
+  return CREDIT_PACKS.find((p) => p.id === packId) || null;
+}
+
 const DEFAULT_STORE_SETTINGS = {
   stage_plus_monthly_price: 4.99,
   stage_plus_yearly_price: 49.99,
@@ -77,6 +93,8 @@ async function getActiveStoreSettings() {
 
 module.exports = {
   DEFAULT_STORE_SETTINGS,
+  CREDIT_PACKS,
+  getCreditPack,
   getActiveStoreSettings,
   normalizeStoreSettings,
 };

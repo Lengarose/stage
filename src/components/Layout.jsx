@@ -780,6 +780,7 @@ function HeaderIdentityMenu({
   accountMode,
   switchMode,
   subscriptionTier,
+  userCredits = null,
   isWhiteTheme = false,
 }) {
   const { t } = useTranslation();
@@ -843,7 +844,7 @@ function HeaderIdentityMenu({
             <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
             </p>
-            <div className="mt-0.5 flex items-center gap-1">
+            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
               {showAsPresident && myClub ? (
                 <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "President"}</span>
               ) : (
@@ -854,6 +855,11 @@ function HeaderIdentityMenu({
                   <span style={subLabelStyle}>{myPlayer ? (SUBSCRIPTION_LABELS[subscriptionTier] || subscriptionTier) : "Club"}</span>
                 </>
               )}
+              {userCredits != null ? (
+                <span style={{ ...subLabelStyle, color: "rgba(255,184,0,0.95)" }}>
+                  {Number(userCredits).toLocaleString()} ✧
+                </span>
+              ) : null}
             </div>
           </div>
           <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isWhiteTheme ? "text-slate-900/55" : "text-white/40")} />
@@ -2432,6 +2438,7 @@ export default function Layout() {
                   accountMode={accountMode}
                   switchMode={switchMode}
                   subscriptionTier={subscriptionTier}
+                  userCredits={authUser?.credits ?? authContextUser?.credits ?? null}
                   isWhiteTheme={isWhiteTheme}
                 />
               </div>

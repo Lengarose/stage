@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { STORE_ITEMS, RARITY_STYLES } from "@/lib/storeItems";
 import {
+  CREDIT_PACKS,
   STAGE_PLUS_MONTHLY_CREDITS,
   STAGE_PLUS_PRICE,
   TIER_COLORS,
@@ -54,13 +55,6 @@ function normalizeStoreConfig(row = {}) {
     perks: rawPerks.length && !hasLegacyPerks ? rawPerks : DEFAULT_STORE_CONFIG.perks,
   };
 }
-
-const CREDIT_PACKS = [
-  { id: "credits_100",  credits: 100,  price_eur: 0.99, stripe_price_id: "price_1TOayT2fnaWmNMFQby00tHqR", label: null },
-  { id: "credits_300",  credits: 300,  price_eur: 2.49, stripe_price_id: "price_1TOb0I2fnaWmNMFQyryD4Rpc", label: "Most Popular", highlight: "primary" },
-  { id: "credits_700",  credits: 700,  price_eur: 4.99, stripe_price_id: "price_1TOb1N2fnaWmNMFQIcd2HIuy", label: "Best Value", highlight: "success" },
-  { id: "credits_1500", credits: 1500, price_eur: 9.99, stripe_price_id: "price_1TOb2Y2fnaWmNMFQArERKaS1", label: null },
-];
 
 const BADGE_IMAGES = {};
 
@@ -319,6 +313,10 @@ export default function Store() {
                 <button onClick={() => setCreditConfirm(null)} className="text-muted-foreground hover:text-foreground text-xl shrink-0">×</button>
               </div>
             )}
+            <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("commonPages.storeCreditPacksSubtitle")}</span>
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
               {CREDIT_PACKS.map(pack => (
                 <CreditPackCard key={pack.id} pack={pack} purchasing={purchasing === pack.id} onBuy={() => handleCreditPurchase(pack)} />
@@ -408,19 +406,24 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
   const { t } = useTranslation();
   const isPopular = pack.highlight === "primary";
   const isBest = pack.highlight === "success";
+  // Entry Pack is framed as a single extra tournament entry rather than a
+  // generic "1 tournament entry" line — it's the smallest top-up, meant for
+  // someone who just needs one more shot without touching their subscription.
+  const purposeLabel = pack.id === "credits_entry" ? t("commonPages.storeExtraEntry") : pack.purpose;
   return (
     <div className={cn("relative bg-card border rounded-2xl p-4 sm:p-5 flex flex-col gap-3 transition-all",
       isPopular && "border-primary/50 shadow-lg shadow-primary/10",
       isBest && "border-success/50 shadow-lg shadow-success/10",
       !isPopular && !isBest && "border-border"
     )}>
-      {pack.label && (
+      {pack.badge && (
         <div className={cn("absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap",
           isPopular && "bg-primary text-primary-foreground border-primary",
           isBest && "bg-success text-black border-success"
-        )}>{pack.label}</div>
+        )}>{pack.badge}</div>
       )}
       <div className="text-center pt-2">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5 truncate">{pack.label}</p>
         <div className="flex items-center justify-center gap-1.5 mb-0.5">
           <Coins className={cn("w-4 h-4 sm:w-5 sm:h-5", isPopular ? "text-primary" : isBest ? "text-success" : "text-warning")} />
           <span className={cn("text-2xl sm:text-3xl font-black", isPopular ? "text-primary" : isBest ? "text-success" : "text-foreground")}>{pack.credits.toLocaleString()}</span>
@@ -429,6 +432,7 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
       </div>
       <div className="text-center">
         <p className="text-xl sm:text-2xl font-bold text-foreground">€{pack.price_eur.toFixed(2)}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">{purposeLabel}</p>
       </div>
       <Button onClick={onBuy} disabled={purchasing} className={cn("w-full font-bold",
         isPopular && "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -464,6 +468,11 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
     <div className={cn("bg-card border rounded-2xl p-5 sm:p-6 space-y-5 relative overflow-hidden transition-all", rarity.bg)}>
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-cyan-300 to-success" />
       <div className="absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl opacity-20 bg-primary" />
+      {tier === "stage_plus" && (
+        <div className="relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-success/20 text-success border border-success/30">
+          <Sparkles className="w-3 h-3" /> {t("commonPages.storeBestValue")}
+        </div>
+      )}
       <div className="relative flex items-center gap-3">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-primary/15 border border-primary/30">
           {badgeImg ? <img src={badgeImg} alt={item.name} className="w-full h-full object-cover" /> : <Crown className={cn("w-6 h-6", rarity.color)} />}

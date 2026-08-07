@@ -419,7 +419,6 @@
   "storeMonthlyRefresh": "每月津贴刷新，不叠加",
   "storePlusDesc": "免费帐户以 {credits} 积分开头。之后，Plus 解锁锦标赛创建、官方比赛访问、排名比赛和每月信用刷新。",
   "storeEntryCost": "标准锦标赛入场费",
-  "storeActiveSlots": "活跃的社区锦标赛老虎机",
   "storeTournamentsAmount": "{amount} 锦标赛",
   "storeCreditsAmount": "{amount} 学分",
   "storeViewPlus": "查看 STAGE Plus",
@@ -434,7 +433,6 @@
   "storeYear": "年",
   "storeBuy": "买",
   "storeMonth": "月",
-  "storeActiveEvents": "活跃活动",
   "storeAvailableAfter": "{date} 之后可用",
   "storeMonthlyCredits": "每月积分",
   "storeEntryCostShort": "入场费用",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "此分类下没有合同。",
   "presClubHistory": "俱乐部历史",
   "presHistoryPresent": "至今",
-  "presHistoryCurrent": "现任"
+  "presHistoryCurrent": "现任",
+  "profClubInfo": "俱乐部信息",
+  "presInfoTitle": "主席信息",
+  "presTabPlayersSigned": "已签约球员",
+  "presNoSignedPlayers": "暂无已签约球员。"
 }

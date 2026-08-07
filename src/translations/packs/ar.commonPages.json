@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} بطولات",
   "storeMonthlyRefresh": "تجديد شهري، غير تراكمي",
   "storeEntryCost": "تكلفة دخول البطولة القياسية",
-  "storeActiveSlots": "فتحات بطولات المجتمع النشطة",
   "storeViewPlus": "عرض STAGE Plus",
   "storeMonthly": "شهري",
   "storeYearly": "سنوي",
@@ -437,7 +436,6 @@
   "storeMonth": "شهر",
   "storeMonthlyCredits": "اعتمادات شهرية",
   "storeEntryCostShort": "تكلفة الدخول",
-  "storeActiveEvents": "أحداث نشطة",
   "storeAvailableAfter": "متاح بعد {date}",
   "storeSubscribe": "اشترك",
   "storeYrShort": "سنة",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "لا توجد عقود في هذه الفئة.",
   "presClubHistory": "سجل الأندية",
   "presHistoryPresent": "الحاضر",
-  "presHistoryCurrent": "الحالي"
+  "presHistoryCurrent": "الحالي",
+  "profClubInfo": "معلومات النادي",
+  "presInfoTitle": "معلومات الرئيس",
+  "presTabPlayersSigned": "اللاعبون الموقعون",
+  "presNoSignedPlayers": "لا يوجد لاعبون موقعون بعد."
 }

@@ -1213,8 +1213,6 @@
   "stadUpgradeSuccess": "스테이지가 {name}로 개선되었습니다!",
   "stadUpgradeTo": "{name}로 업그레이드 — {cost}",
   "status": "상태",
-  "storeActiveEvents": "활성 이벤트",
-  "storeActiveSlots": "활성 커뮤니티 토너먼트 장소",
   "storeAvailableAfter": "{date} 이후 사용 가능",
   "storeBuy": "구입하다",
   "storeBuyCreditsSeparately": "크레딧을 별도로 구매하세요",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "이 카테고리에 계약이 없습니다.",
   "presClubHistory": "클럽 이력",
   "presHistoryPresent": "현재",
-  "presHistoryCurrent": "현직"
+  "presHistoryCurrent": "현직",
+  "profClubInfo": "클럽 정보",
+  "presInfoTitle": "프레지던트 정보",
+  "presTabPlayersSigned": "영입된 선수",
+  "presNoSignedPlayers": "아직 영입된 선수가 없습니다."
 }

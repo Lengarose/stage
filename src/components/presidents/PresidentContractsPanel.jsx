@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, User } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
 import ContractCard from "@/components/contracts/ContractCard";
-import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { CONTRACT_TYPES } from "@/lib/contractTypes";
+import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { asObjectArray } from "@/lib/safeData";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +17,52 @@ const OFFER_TABS = [
   { id: "negotiable", key: "presOfferNegotiable", statuses: ["negotiating"] },
 ];
 
-export default function PresidentContractsPanel({ clubId }) {
+const SIGNED_STATUSES = ["active"];
+
+function SignedPlayerRow({ contract, player }) {
+  const contractType = getContractType(contract);
+  const meta = CONTRACT_TYPES[contractType] || CONTRACT_TYPES.squad;
+  const name = player?.gamertag || "—";
+
+  return (
+    <Link
+      to={player?.id ? `/players/${player.id}` : "#"}
+      className={cn(
+        "flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors",
+        meta.bg,
+        meta.border,
+        "hover:border-amber-300/35"
+      )}
+    >
+      <span className="w-10 h-10 rounded-full border border-white/15 bg-white/5 overflow-hidden shrink-0 flex items-center justify-center">
+        {player?.avatar_url ? (
+          <span
+            className="w-full h-full block"
+            style={{
+              backgroundImage: `url(${player.avatar_url})`,
+              backgroundSize: "cover",
+              backgroundPosition: player.avatar_position || "50% 50%",
+            }}
+            aria-hidden
+          />
+        ) : (
+          <User className="w-4 h-4 text-white/40" />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-white truncate">{name}</p>
+        <p className="text-xs text-white/45 mt-0.5 truncate">
+          {[player?.position, player?.platform].filter(Boolean).join(" · ") || meta.label}
+        </p>
+      </div>
+      <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider shrink-0", meta.badge)}>
+        {meta.label}
+      </span>
+    </Link>
+  );
+}
+
+export default function PresidentContractsPanel({ clubId, showOfferStatuses = false }) {
   const { t } = useTranslation();
   const [contracts, setContracts] = useState([]);
   const [playerMap, setPlayerMap] = useState({});
@@ -57,7 +104,9 @@ export default function PresidentContractsPanel({ clubId }) {
 
   if (!clubId) {
     return (
-      <p className="text-sm text-white/45 py-6 text-center">{t("commonPages.presNoContracts")}</p>
+      <p className="text-sm text-white/45 py-6 text-center">
+        {showOfferStatuses ? t("commonPages.presNoContracts") : t("commonPages.presNoSignedPlayers")}
+      </p>
     );
   }
 
@@ -65,6 +114,26 @@ export default function PresidentContractsPanel({ clubId }) {
     return (
       <div className="flex items-center justify-center py-10">
         <Loader2 className="w-5 h-5 animate-spin text-white/40" />
+      </div>
+    );
+  }
+
+  if (!showOfferStatuses) {
+    const signed = contracts.filter((c) => SIGNED_STATUSES.includes(c.status));
+    if (signed.length === 0) {
+      return (
+        <p className="text-sm text-white/45 py-6 text-center">{t("commonPages.presNoSignedPlayers")}</p>
+      );
+    }
+    return (
+      <div className="space-y-2">
+        {signed.map((contract) => (
+          <SignedPlayerRow
+            key={contract.id}
+            contract={contract}
+            player={playerMap[getContractTargetPlayerId(contract)]}
+          />
+        ))}
       </div>
     );
   }

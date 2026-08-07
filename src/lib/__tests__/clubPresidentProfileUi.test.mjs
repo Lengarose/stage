@@ -88,17 +88,23 @@ test("club detail loads President entity and links to president profile", () => 
   assert.match(presidentPage, /entities\.President\.get/);
 });
 
-test("president profile supports owner/admin edit via PresidentSetup", () => {
+test("president profile supports owner/admin edit via shared ProfileEditShell", () => {
   const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
-  const presidentSetup = readRepoFile("src/components/onboarding/PresidentSetup.jsx");
+  const presidentEdit = readRepoFile("src/components/presidents/PresidentProfileEdit.jsx");
+  const shell = readRepoFile("src/components/profile/ProfileEditShell.jsx");
+  const clubEdit = readRepoFile("src/components/club/ClubProfileEdit.jsx");
   const layout = readRepoFile("src/components/Layout.jsx");
 
-  assert.match(presidentPage, /mode="edit"/);
-  assert.match(presidentPage, /entities\.President\.update/);
-  assert.match(presidentPage, /buildProfileFromPresident/);
+  assert.match(presidentPage, /PresidentProfileEdit/);
   assert.match(presidentPage, /canEdit/);
-  assert.match(presidentSetup, /buildProfileFromPresident/);
-  assert.match(presidentSetup, /mode === "edit"/);
+  assert.match(presidentEdit, /ProfileEditShell/);
+  assert.match(presidentEdit, /entities\.President\.update/);
+  assert.match(presidentEdit, /profChangeBanner|onBannerChange/);
+  assert.match(shell, /profPhotoBanner/);
+  assert.match(shell, /profRepositionPhoto/);
+  assert.match(shell, /profChangeBanner/);
+  assert.match(clubEdit, /ProfileEditShell/);
+  assert.match(clubEdit, /entities\.Club\.update/);
   assert.match(layout, /presProfileMenu/);
   assert.match(layout, /playerProfileMenu/);
   assert.match(layout, /accountProfilesLabel/);
@@ -135,10 +141,15 @@ test("president profile loads and renders club history", () => {
   assert.match(presidentPage, /presClubHistory/);
   assert.match(presidentPage, /clubHistory/);
   assert.match(presidentPage, /BannerSelector/);
-  assert.match(presidentPage, /profChangeBanner/);
+  assert.match(presidentPage, /GamerPresidentProfileHero/);
   assert.match(presidentPage, /presTabHistory/);
   assert.match(presidentPage, /presTabContracts/);
+  assert.match(presidentPage, /presTabPlayersSigned/);
+  assert.match(presidentPage, /showOfferStatuses=\{canEdit\}/);
   assert.match(presidentPage, /PresidentContractsPanel/);
+  assert.match(contractsPanel, /showOfferStatuses/);
+  assert.match(contractsPanel, /presNoSignedPlayers/);
+  assert.match(contractsPanel, /SIGNED_STATUSES|statuses:\s*\["active"\]/);
   assert.match(contractsPanel, /presOfferSent/);
   assert.match(contractsPanel, /presOfferAccepted/);
   assert.match(contractsPanel, /presOfferDeclined/);

@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS users (
   access_mode           VARCHAR(32)  DEFAULT 'standard',
   limited_tournament_id VARCHAR(36),
   limited_mode_expires_at DATETIME,
+  credits               INT          DEFAULT 0,
+  credits_refreshed_at  DATETIME     NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

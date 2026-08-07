@@ -15,7 +15,13 @@ const {
   sendActionMessage,
 } = require('../services/messageDeliveryService');
 const Match = require('../models/matchModel');
-const { DEFAULT_STORE_SETTINGS, getActiveStoreSettings } = require('../utils/storeSettings');
+const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
+const {
+  addUserCredits,
+  getUserCredits,
+  refreshUserCreditsTo,
+  spendUserCredits,
+} = require('../services/userCreditsService');
 const {
   createTemporaryClubPresident,
   linkTemporaryClubPresident,
@@ -1218,13 +1224,6 @@ async function markInboxMessageResponded(messageId, status) {
   );
 }
 
-const CREDIT_PACKS = {
-  credits_100:  { priceId: 'price_1TOayT2fnaWmNMFQby00tHqR', credits: 100 },
-  credits_300:  { priceId: 'price_1TOb0I2fnaWmNMFQyryD4Rpc', credits: 300 },
-  credits_700:  { priceId: 'price_1TOb1N2fnaWmNMFQIcd2HIuy', credits: 700 },
-  credits_1500: { priceId: 'price_1TOb2Y2fnaWmNMFQArERKaS1', credits: 1500 },
-};
-
 const STAGE_PLUS_MONTHLY_CREDITS = DEFAULT_STORE_SETTINGS.monthly_credits;
 const TOURNAMENT_ENTRY_CREDITS = DEFAULT_STORE_SETTINGS.tournament_entry_credits;
 
@@ -1293,28 +1292,22 @@ async function claimStripeSession(sessionId, kind) {
   }
 }
 
-// Add `credits` to a player or club wallet. Idempotency is enforced by the
-// caller via claimStripeSession(); this just performs the additive update.
+// Add credits to the USER wallet (shared pot for player + club tournaments).
+// Idempotency is enforced by the caller via claimStripeSession().
+// `target` is accepted for API compatibility but ignored — credits are user-scoped.
 async function grantCreditsToTarget({ userId, credits, target }) {
   const amount = Number(credits || 0);
   if (!userId) throw new Error('grantCreditsToTarget: userId required');
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('grantCreditsToTarget: invalid credit amount');
-
-  if (target === 'club') {
-    const club = await resolveClubForUserId(userId);
-    if (!club) throw new Error('Club wallet not found for this user');
-    const before = Number(club.credits || 0);
-    const after = before + amount;
-    await EXECUTESQL('UPDATE clubs SET credits = ?, updated_date = NOW() WHERE id = ?', [after, club.id]);
-    return { target: 'club', id: club.id, credits_before: before, credits_after: after, credits_added: amount };
-  }
-
-  const player = await resolvePlayerForUserId(userId);
-  if (!player) throw new Error('Player wallet not found for this user');
-  const before = Number(player.credits || 0);
-  const after = before + amount;
-  await EXECUTESQL('UPDATE players SET credits = ?, updated_date = NOW() WHERE id = ?', [after, player.id]);
-  return { target: 'player', id: player.id, credits_before: before, credits_after: after, credits_added: amount };
+  const result = await addUserCredits(userId, amount);
+  return {
+    target: 'user',
+    requested_target: target || 'user',
+    id: userId,
+    credits_before: result.credits_before,
+    credits_after: result.credits_after,
+    credits_added: result.credits_added,
+  };
 }
 
 // Activate (or renew) STAGE Plus for a user based on a completed checkout session.
@@ -1329,7 +1322,7 @@ async function activateStagePlusForSession({ userId, billing, session }) {
   if (!player) throw new Error('Player profile not found');
 
   const monthlyAllowance = Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS);
-  const nextCredits = Math.max(Number(player.credits || 0), monthlyAllowance);
+  const creditResult = await refreshUserCreditsTo(userId, monthlyAllowance);
   await EXECUTESQL(
     `UPDATE players
         SET subscription = 'stage_plus',
@@ -1337,19 +1330,19 @@ async function activateStagePlusForSession({ userId, billing, session }) {
             subscription_expires_at = ${expiresAtExpr},
             stripe_subscription_id = COALESCE(?, stripe_subscription_id),
             stripe_customer_id = COALESCE(?, stripe_customer_id),
-            credits = ?,
             updated_date = NOW()
       WHERE id = ?`,
-    [normalizedBilling, session?.subscription || null, session?.customer || null, nextCredits, player.id]
+    [normalizedBilling, session?.subscription || null, session?.customer || null, player.id]
   );
 
   return {
     tier: 'stage_plus',
     billing: normalizedBilling,
     player_id: player.id,
-    credits_before: Number(player.credits || 0),
-    credits_after: nextCredits,
-    credits_added: Math.max(0, nextCredits - Number(player.credits || 0)),
+    user_id: userId,
+    credits_before: creditResult.credits_before,
+    credits_after: creditResult.credits_after,
+    credits_added: creditResult.credits_added,
     monthly_credit_allowance: monthlyAllowance,
     credit_policy: 'refresh_not_stack',
   };
@@ -2651,14 +2644,24 @@ const HANDLERS = {
 
   async stripeCheckout({ _auth_user_id, packId, creditTarget = 'player', successUrl, cancelUrl }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    const pack = CREDIT_PACKS[packId];
+    const pack = getCreditPack(packId);
     if (!pack) throw new Error('Unknown credit pack');
     if (!successUrl || !cancelUrl) throw new Error('successUrl and cancelUrl required');
+    const unitAmount = Math.round(Number(pack.price_eur) * 100);
+    if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+      throw new Error(`Invalid price for credit pack ${packId}`);
+    }
+    // Dynamic price_data (not a stored Stripe Price ID) so pack prices/credits
+    // always match the values defined in CREDIT_PACKS on the server — no stale
+    // hardcoded Stripe price IDs to keep in sync when pricing changes.
     const session = await createStripeCheckoutSession({
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      'line_items[0][price]': pack.priceId,
+      'line_items[0][price_data][currency]': 'eur',
+      'line_items[0][price_data][unit_amount]': unitAmount,
+      'line_items[0][price_data][product_data][name]': `STAGE ${pack.label}`,
+      'line_items[0][price_data][product_data][description]': `${pack.credits} credits — ${pack.purpose}`,
       'line_items[0][quantity]': 1,
       'metadata[user_id]': _auth_user_id,
       'metadata[pack_id]': packId,
@@ -2859,17 +2862,19 @@ const HANDLERS = {
     const storeSettings = await getActiveStoreSettings();
     const grantMonths = Math.min(Math.max(Number(months) || 1, 1), 24);
     const normalizedBilling = String(billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
-    const nextCredits = Math.max(Number(before.credits || 0), Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
+    const ownerUserId = before.user_id || null;
+    if (ownerUserId) {
+      await refreshUserCreditsTo(ownerUserId, Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
+    }
 
     await EXECUTESQL(
       `UPDATE players
        SET subscription = 'stage_plus',
            subscription_billing = ?,
            subscription_expires_at = DATE_ADD(NOW(), INTERVAL ? MONTH),
-           credits = ?,
            updated_date = NOW()
        WHERE id = ?`,
-      [normalizedBilling, grantMonths, nextCredits, player_id]
+      [normalizedBilling, grantMonths, player_id]
     );
     const after = (await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]))[0];
     await createAuditLog({
@@ -3033,8 +3038,11 @@ const HANDLERS = {
 
       const entryCredits = Number(tournament.entry_credits ?? 50);
       const entryFee = Number(tournament.entry_fee_stc || 0);
-      const nextCredits = Number(club.credits || 0) + entryCredits;
-      await query('UPDATE clubs SET credits = ?, updated_date = NOW() WHERE id = ?', [nextCredits, club_id]);
+      let nextUserCredits = await getUserCredits(_auth_user_id, query);
+      if (entryCredits > 0) {
+        const refunded = await addUserCredits(_auth_user_id, entryCredits, query);
+        nextUserCredits = refunded.credits_after;
+      }
 
       let nextStc = Number(club.stc || 0);
       let transactionId = null;
@@ -3055,7 +3063,7 @@ const HANDLERS = {
         registered_clubs: updatedRegistered,
         club_id,
         club_stc: nextStc,
-        club_credits: nextCredits,
+        user_credits: nextUserCredits,
         refunded_stc: entryFee,
         refunded_credits: entryCredits,
         transaction_id: transactionId,
@@ -8680,11 +8688,6 @@ const HANDLERS = {
           return fail(`Insufficient STC. Need ${entryFee.toLocaleString()}, have ${clubStc.toLocaleString()}`);
         }
 
-        const clubCredits = Number(club.credits ?? 0);
-        if (!isAdmin && requiredCredits > 0 && clubCredits < requiredCredits) {
-          return fail(`Insufficient credits. Need ${requiredCredits}, have ${clubCredits}`);
-        }
-
         let newClubStc = clubStc;
         if (entryFee > 0) {
           newClubStc = clubStc - entryFee;
@@ -8708,11 +8711,18 @@ const HANDLERS = {
         }
 
         let creditsSpent = 0;
-        let newClubCredits = clubCredits;
+        let newUserCredits = await getUserCredits(_auth_user_id, query);
         if (!isAdmin && requiredCredits > 0) {
-          creditsSpent = requiredCredits;
-          newClubCredits = clubCredits - requiredCredits;
-          await query('UPDATE clubs SET credits = ? WHERE id = ?', [newClubCredits, club_id]);
+          try {
+            const spent = await spendUserCredits(_auth_user_id, requiredCredits, query);
+            creditsSpent = spent.credits_spent;
+            newUserCredits = spent.credits_after;
+          } catch (err) {
+            if (err?.code === 'INSUFFICIENT_CREDITS') {
+              return fail(`Insufficient credits. Need ${err.need}, have ${err.have}`);
+            }
+            throw err;
+          }
         }
 
         registered = [...registered, String(club_id)];
@@ -8736,7 +8746,7 @@ const HANDLERS = {
             stc_locked: entryFee,
             new_club_stc: newClubStc,
             credits_spent: creditsSpent,
-            new_club_credits: newClubCredits,
+            new_user_credits: newUserCredits,
           },
         };
       }
@@ -8773,11 +8783,6 @@ const HANDLERS = {
         return fail(`Insufficient STC. Need ${entryFee.toLocaleString()}, have ${playerStc.toLocaleString()}`);
       }
 
-      const playerCredits = Number(player.credits ?? 0);
-      if (!isAdmin && requiredCredits > 0 && playerCredits < requiredCredits) {
-        return fail(`Insufficient credits. Need ${requiredCredits}, have ${playerCredits}`);
-      }
-
       let newPlayerStc = playerStc;
       if (entryFee > 0) {
         newPlayerStc = playerStc - entryFee;
@@ -8801,10 +8806,19 @@ const HANDLERS = {
         );
       }
 
-      let newPlayerCredits = playerCredits;
+      let creditsSpent = 0;
+      let newUserCredits = await getUserCredits(_auth_user_id, query);
       if (!isAdmin && requiredCredits > 0) {
-        newPlayerCredits = playerCredits - requiredCredits;
-        await query('UPDATE players SET credits = ? WHERE id = ?', [newPlayerCredits, player_id]);
+        try {
+          const spent = await spendUserCredits(_auth_user_id, requiredCredits, query);
+          creditsSpent = spent.credits_spent;
+          newUserCredits = spent.credits_after;
+        } catch (err) {
+          if (err?.code === 'INSUFFICIENT_CREDITS') {
+            return fail(`Insufficient credits. Need ${err.need}, have ${err.have}`);
+          }
+          throw err;
+        }
       }
 
       registeredPl = [...registeredPl, String(player_id)];
@@ -8827,7 +8841,8 @@ const HANDLERS = {
           message: 'Player registered successfully',
           stc_locked: entryFee,
           new_player_stc: newPlayerStc,
-          new_player_credits: newPlayerCredits,
+          credits_spent: creditsSpent,
+          new_user_credits: newUserCredits,
         },
       };
     });
@@ -8928,7 +8943,10 @@ const HANDLERS = {
       if (isClubTourney) {
         const registered = parseMaybeJson(tournament.registered_clubs, []);
         for (const clubId of registered) {
-          const clubs = await query('SELECT id, stc, credits FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+          const clubs = await query(
+            'SELECT id, stc, credits, president_user_id, user_id FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE',
+            [clubId]
+          );
           if (!clubs.length) continue;
           const club = clubs[0];
 
@@ -8949,8 +8967,13 @@ const HANDLERS = {
           }
 
           if (entryCost > 0) {
-            const newCredits = Number(club.credits || 0) + entryCost;
-            await query('UPDATE clubs SET credits = ? WHERE id = ?', [newCredits, clubId]);
+            const proofs = parseMaybeJson(tournament.registration_proofs, { club: {}, player: {} });
+            const proofUserId = proofs?.club?.[String(clubId)]?.submitted_by_user_id
+              || club.president_user_id
+              || club.user_id;
+            if (proofUserId) {
+              await addUserCredits(proofUserId, entryCost, query);
+            }
           }
 
           refundedCount++;
@@ -8959,7 +8982,7 @@ const HANDLERS = {
         // ── Refund players ──────────────────────────────────────────────────
         const registered = parseMaybeJson(tournament.registered_players, []);
         for (const playerId of registered) {
-          const players = await query('SELECT id, email, stc, credits FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
+          const players = await query('SELECT id, email, user_id, stc, credits FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [playerId]);
           if (!players.length) continue;
           const player = players[0];
 
@@ -8980,8 +9003,12 @@ const HANDLERS = {
           }
 
           if (entryCost > 0) {
-            const newCredits = Number(player.credits || 0) + entryCost;
-            await query('UPDATE players SET credits = ? WHERE id = ?', [newCredits, playerId]);
+            const proofs = parseMaybeJson(tournament.registration_proofs, { club: {}, player: {} });
+            const proofUserId = proofs?.player?.[String(playerId)]?.submitted_by_user_id
+              || player.user_id;
+            if (proofUserId) {
+              await addUserCredits(proofUserId, entryCost, query);
+            }
           }
 
           refundedCount++;

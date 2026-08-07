@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} tournaments",
   "storeMonthlyRefresh": "Monthly allowance refresh, not stacked",
   "storeEntryCost": "Standard tournament entry cost",
-  "storeActiveSlots": "Competition access",
   "storeViewPlus": "View STAGE Plus",
   "storeMonthly": "Monthly",
   "storeYearly": "Yearly",
@@ -437,7 +436,6 @@
   "storeMonth": "month",
   "storeMonthlyCredits": "Monthly credits",
   "storeEntryCostShort": "Entry cost",
-  "storeActiveEvents": "Competition access",
   "storeAvailableAfter": "Available after {date}",
   "storeSubscribe": "Subscribe",
   "storeYrShort": "yr",
@@ -1449,5 +1447,9 @@
   "presNoContracts": "No contracts in this category.",
   "presClubHistory": "Club history",
   "presHistoryPresent": "Present",
-  "presHistoryCurrent": "Current"
+  "presHistoryCurrent": "Current",
+  "profClubInfo": "Club Info",
+  "presInfoTitle": "President Info",
+  "presTabPlayersSigned": "Players Signed",
+  "presNoSignedPlayers": "No signed players yet."
 }

@@ -12,7 +12,19 @@ export const STAGE_PLUS_PRICE = {
 
 export const STAGE_PLUS_MONTHLY_CREDITS = 150;
 export const TOURNAMENT_ENTRY_CREDITS = 50;
-export const COMMUNITY_TOURNAMENT_LIMIT = 5;
+// 0 = unlimited. STAGE Plus does not cap community tournament creation.
+export const COMMUNITY_TOURNAMENT_LIMIT = 0;
+
+// Credit packs — casual top-ups for extra tournament entries. Framed as
+// extras next to STAGE Plus, which is the best-value option for active
+// users (150 credits/month for €4.99, vs. buying packs one at a time).
+// Keep in sync with server/src/server/utils/storeSettings.js CREDIT_PACKS.
+export const CREDIT_PACKS = [
+  { id: "credits_entry", credits: 50, price_eur: 1.99, label: "Entry Pack", purpose: "1 tournament entry" },
+  { id: "credits_starter", credits: 100, price_eur: 2.99, label: "Starter Pack", purpose: "2 tournament entries", highlight: "primary", badge: "Popular" },
+  { id: "credits_competitor", credits: 250, price_eur: 5.99, label: "Competitor Pack", purpose: "5 tournament entries", highlight: "success", badge: "Best Value" },
+  { id: "credits_club", credits: 600, price_eur: 10.99, label: "Club Pack", purpose: "12 tournament entries" },
+];
 
 export function normalizeSubscriptionTier(tier) {
   const normalized = String(tier || "").toLowerCase();

@@ -102,6 +102,26 @@ async function runStartupMigrations() {
   await addCol('users', 'limited_tournament_id', 'VARCHAR(36) NULL');
   await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
   await addCol('users', 'role', "VARCHAR(50) NULL DEFAULT 'user'");
+  // Tournament credits are user-scoped (one pot for player + club tournaments).
+  await addCol('users', 'credits', 'INT NULL DEFAULT 0');
+  await addCol('users', 'credits_refreshed_at', 'DATETIME NULL');
+  // One-time backfill: seed user credits from the higher of linked player/club wallets.
+  await EXECUTESQL(`
+    UPDATE users u
+    SET credits = GREATEST(
+      COALESCE(u.credits, 0),
+      COALESCE((
+        SELECT MAX(p.credits) FROM players p
+        WHERE p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email))
+      ), 0),
+      COALESCE((
+        SELECT MAX(c.credits) FROM clubs c
+        WHERE c.president_user_id = u.id OR c.user_id = u.id
+           OR LOWER(TRIM(c.owner_email)) = LOWER(TRIM(u.email))
+      ), 0)
+    )
+    WHERE COALESCE(u.credits, 0) = 0
+  `).catch((err) => console.error('[migration] users.credits backfill:', err.message));
   await addCol('clubs', 'president_user_id', 'VARCHAR(36) NULL');
   await addIndex('clubs', 'idx_clubs_president_user', '(president_user_id)');
   await addCol('clubs', 'president_id', 'VARCHAR(36) NULL');

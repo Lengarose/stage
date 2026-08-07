@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} tornei",
   "storeMonthlyRefresh": "Recharge mensualle, non cumulable",
   "storeEntryCost": "Costo di iscrizione standard a un torneo",
-  "storeActiveSlots": "Posti de tornei communautaires actifs",
   "storeViewPlus": "Vedi STAGE Plus",
   "storeMonthly": "Mensuel",
   "storeYearly": "Annuale",
@@ -437,7 +436,6 @@
   "storeMonth": "mese",
   "storeMonthlyCredits": "Créditos mensuals",
   "storeEntryCostShort": "Costo d'entrada",
-  "storeActiveEvents": "Événements actifs",
   "storeAvailableAfter": "Disponible après le {date}",
   "storeSubscribe": "Abbonati",
   "storeYrShort": "anno",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "Nessun contratto in questa categoria.",
   "presClubHistory": "Cronologia club",
   "presHistoryPresent": "Presente",
-  "presHistoryCurrent": "Attuale"
+  "presHistoryCurrent": "Attuale",
+  "profClubInfo": "Info club",
+  "presInfoTitle": "Info presidente",
+  "presTabPlayersSigned": "Giocatori firmati",
+  "presNoSignedPlayers": "Nessun giocatore firmato ancora."
 }

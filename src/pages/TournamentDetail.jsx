@@ -391,9 +391,9 @@ export default function TournamentDetail() {
       }
     }
 
-    // Check credits
-    if (!takeoverClub && (clubData?.credits ?? 0) < entryCost) {
-      await swalAlert(t("tournamentDetail.notEnoughClubCredits", { cost: entryCost }));
+    // Check user-scoped credits (shared pot for player + club tournaments)
+    if (!takeoverClub && (user?.credits ?? 0) < entryCost) {
+      await swalAlert(t("tournamentDetail.notEnoughCredits"));
       return;
     }
 
@@ -412,12 +412,15 @@ export default function TournamentDetail() {
         return;
       }
 
-      const { new_club_stc, new_club_credits } = res.data;
+      const { new_club_stc, new_user_credits } = res.data;
       setAllClubs(prev => prev.map(c =>
         c.id === effectiveId
-          ? { ...c, stc: new_club_stc ?? c.stc, credits: new_club_credits ?? c.credits }
+          ? { ...c, stc: new_club_stc ?? c.stc }
           : c
       ));
+      if (new_user_credits != null) {
+        setUser((prev) => (prev ? { ...prev, credits: new_user_credits } : prev));
+      }
 
       const updated = [...current, effectiveId];
       setTournament(prev => ({ ...prev, registered_clubs: updated }));
@@ -443,7 +446,7 @@ export default function TournamentDetail() {
     }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-    const currentCredits = myPlayer.credits ?? 50;
+    const currentCredits = user?.credits ?? 0;
     if (currentCredits < entryCost) { await swalAlert(t("tournamentDetail.notEnoughCredits")); return; }
     if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
       await swalAlert(t("tournamentDetail.notEnoughStc", { amount: entryFeeSTC.toLocaleString() }));
@@ -462,9 +465,11 @@ export default function TournamentDetail() {
       const updated = [...(tournament.registered_players || []), myPlayer.id];
       setMyPlayer(prev => ({
         ...prev,
-        credits: res.data.new_player_credits ?? prev.credits,
         stc: res.data.new_player_stc ?? prev.stc,
       }));
+      if (res.data.new_user_credits != null) {
+        setUser((prev) => (prev ? { ...prev, credits: res.data.new_user_credits } : prev));
+      }
       setTournament(prev => ({ ...prev, registered_players: updated }));
       setRegistrationProofUrl("");
     } catch (err) {
@@ -1100,7 +1105,7 @@ function resetUI() {
                 const clubData = effectiveClub;
                 const entryCost = tournament.entry_credits ?? 50;
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
-                const canAfford = (clubData?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
+                const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
                   <>
                     {renderRegistrationProofUpload("club")}
@@ -1117,7 +1122,7 @@ function resetUI() {
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <>
                   {renderRegistrationProofUpload("player")}
-                  <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50)}
+                  <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
                   className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
                     <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
@@ -1181,7 +1186,7 @@ function resetUI() {
               return (
                 <>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Shield className="w-3 h-3 text-warning" /> {t("tournamentDetail.credits")}: <strong className="text-warning">{(myClubData.credits ?? 0).toLocaleString()}</strong>
+                    <Shield className="w-3 h-3 text-warning" /> {t("tournamentDetail.credits")}: <strong className="text-warning">{(user?.credits ?? 0).toLocaleString()}</strong>
                   </span>
                   {(tournament.entry_fee_stc ?? 0) > 0 && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1195,7 +1200,7 @@ function resetUI() {
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {renderRegistrationProofUpload("player")}
-                <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={uploadingRegistrationProof || !registrationProofUrl || (myPlayer.credits ?? 50) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>

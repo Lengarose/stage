@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useId } from "react";
+import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   User, Shield, Save, Plus, LogOut,
-  Camera, Loader2, Edit2, Check, X,
+  Loader2, Edit2, Check, X,
   Swords, Bell, UserCheck, ExternalLink,
   ArrowLeft, Settings, Move, Send
 } from "lucide-react";
@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import BannerSelector from "../components/BannerSelector";
 import SubscriptionProgress from "../components/profile/SubscriptionProgress";
 import ClubOnboardingModal from "../components/ClubOnboardingModal";
 import ProfileCompletionModal from "../components/ProfileCompletionModal";
@@ -25,8 +24,9 @@ import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
 import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
 import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import ProfileEditShell from "@/components/profile/ProfileEditShell";
+import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { loadEafcSummary, loadFutMatches } from "@/lib/dashboardData";
-import { Palette } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
 import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -101,17 +101,11 @@ export default function Profile({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submittingClaim, setSubmittingClaim] = useState(false);
-  const [savingClub, setSavingClub] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
-  const [pendingAvatar, setPendingAvatar] = useState(null);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const [pvpMatches, setPvpMatches] = useState([]);
   const [profileTab, setProfileTab] = useState("posts");
   const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
-  const avatarInputRef = useRef();
-  const avatarInputId = useId();
 
   const [playerForm, setPlayerForm] = useState({
     gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
@@ -295,39 +289,6 @@ export default function Profile({
     }
   }
 
-  async function saveClub() {
-    if (!myClub) return;
-    setSavingClub(true);
-    await stageClient.entities.Club.update(myClub.id, {
-      name: clubForm.name,
-      tag: clubForm.tag,
-      platform: clubForm.platform,
-      region: clubForm.region,
-      description: clubForm.description,
-      country_code: clubForm.country_code,
-    });
-    setMyClub(prev => ({ ...asObject(prev), ...clubForm }));
-    setSavingClub(false);
-    setView("club");
-  }
-
-  async function uploadAvatar(e) {
-    const file = e.target.files[0];
-    if (!file || !player) return;
-    setUploadingAvatar(true);
-    const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-    setUploadingAvatar(false);
-    setPendingAvatar(file_url);
-    e.target.value = "";
-  }
-
-  async function _saveAvatar(url, position, zoom) {
-    if (!player) return;
-    await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-    setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
-    setPendingAvatar(null);
-  }
-
   async function _createClub() {
     if (!user || !player) return;
     const club = await stageClient.entities.Club.create({
@@ -385,7 +346,7 @@ export default function Profile({
   const safePvpMatches = asObjectArray(pvpMatches);
   const safeFutMatches = asObjectArray(futMatches);
   const unreadCount = safeNotifications.filter(n => !n.read).length;
-  const latestIdentityClaim = safeIdentityClaims[0] || null;
+  const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
   const profileRoleBadges = getProfileRoleBadges(player, myClub, user);
 
@@ -703,209 +664,136 @@ export default function Profile({
 
   // ─── Edit Player View ───
   if (view === "edit_player") {
-    return (
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          {player && (
-            <button onClick={() => setView("profile")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-          )}
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{player ? t("commonPages.profEditProfile") : t("commonPages.profCreateProfile")}</h1>
-        </div>
-
-        {/* Avatar section */}
-        {player && (
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">{t("commonPages.profPhotoBanner")}</h2>
-            <div className="flex items-start gap-4">
-              <div className="relative group shrink-0">
-                <div className="w-20 h-20 rounded-full bg-secondary border-4 border-card flex items-center justify-center overflow-hidden pointer-events-none">
-                  {player?.avatar_url
-                    ? <div className="w-full h-full" style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }} />
-                    : <User className="w-9 h-9 text-muted-foreground" />
-                  }
-                </div>
-                <label
-                  htmlFor={uploadingAvatar ? undefined : avatarInputId}
-                  className={cn(
-                    "absolute inset-0 z-10 rounded-full bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity",
-                    uploadingAvatar && "pointer-events-none opacity-60",
-                    player?.avatar_url
-                      ? "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                      : "opacity-100"
-                  )}
-                  title={t("commonPages.profUploadPhoto")}
-                >
-                  <span className="p-1.5 rounded-lg bg-white/10">
-                    {uploadingAvatar ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
-                  </span>
-                </label>
-                <input
-                  id={avatarInputId}
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  disabled={uploadingAvatar}
-                  onChange={uploadAvatar}
-                />
-              </div>
-              <div className="space-y-2 pt-1">
-                {player?.avatar_url && (
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setAvatarEditorOpen(true)}>
-                    <Move className="w-3.5 h-3.5" /> {t("commonPages.profRepositionPhoto")}
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBannerDialogOpen(true)}>
-                  <Palette className="w-3.5 h-3.5" /> {t("commonPages.profChangeBanner")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Player info form */}
-        <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-          <h2 className="text-xl font-bold text-foreground">{t("commonPages.profPlayerInfo")}</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profGamertag")}</label>
-              <Input value={playerForm.gamertag} onChange={e => setPlayerForm(f => ({ ...f, gamertag: e.target.value }))} className="bg-secondary border-border" placeholder={t("commonPages.profGamertagPlaceholder")} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profMainPosition")}</label>
-              <Select value={playerForm.position} onValueChange={v => setPlayerForm(f => ({ ...f, position: v, secondary_position: f.secondary_position === v ? "none" : f.secondary_position }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profSecondPosition")}</label>
-              <Select value={playerForm.secondary_position} onValueChange={v => setPlayerForm(f => ({ ...f, secondary_position: v }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("commonPages.profNone")}</SelectItem>
-                  {POSITIONS.filter(p => p !== playerForm.position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.platform")}</label>
-              <Select value={playerForm.platform} onValueChange={v => setPlayerForm(f => ({ ...f, platform: v }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PlayStation">PlayStation</SelectItem>
-                  <SelectItem value="Xbox">Xbox</SelectItem>
-                  <SelectItem value="PC">PC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.country")} <span className="text-destructive">*</span></label>
-              <Select value={playerForm.country} onValueChange={v => {
-                const found = COUNTRIES.find(c => c.name === v);
-                setPlayerForm(f => ({ ...f, country: v, country_code: found?.code || "" }));
-              }}>
-                <SelectTrigger className={`bg-secondary border-border ${!playerForm.country ? "border-destructive/50" : ""}`}>
-                  <SelectValue placeholder={t("commonPages.profSelectCountry")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {!playerForm.country && <p className="text-[11px] text-destructive mt-1">{t("commonPages.profCountryRequired")}</p>}
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profOverallRating")}</label>
-              <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profShirtNumber")}</label>
-              <Input
-                type="number" min={1} max={99}
-                value={playerForm.shirt_number}
-                onChange={e => {
-                  const v = e.target.value === "" ? "" : Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
-                  setPlayerForm(f => ({ ...f, shirt_number: v }));
-                }}
-                placeholder="e.g. 10"
-                className="bg-secondary border-border"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profAccountEmail")}</label>
-              <Input value={user?.email || ""} disabled className="bg-secondary border-border opacity-50" />
-            </div>
+    const playerInfoForm = (
+      <>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profGamertag")}</label>
+            <Input value={playerForm.gamertag} onChange={e => setPlayerForm(f => ({ ...f, gamertag: e.target.value }))} className="bg-secondary border-border" placeholder={t("commonPages.profGamertagPlaceholder")} />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.bio")}</label>
-            <Textarea value={playerForm.bio} onChange={e => setPlayerForm(f => ({ ...f, bio: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profBioPlaceholder")} />
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profMainPosition")}</label>
+            <Select value={playerForm.position} onValueChange={v => setPlayerForm(f => ({ ...f, position: v, secondary_position: f.secondary_position === v ? "none" : f.secondary_position }))}>
+              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {POSITIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : player ? t("commonPages.profSaveChanges") : t("commonPages.profCreateProfile")}
-          </Button>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profSecondPosition")}</label>
+            <Select value={playerForm.secondary_position} onValueChange={v => setPlayerForm(f => ({ ...f, secondary_position: v }))}>
+              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("commonPages.profNone")}</SelectItem>
+                {POSITIONS.filter(p => p !== playerForm.position).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.platform")}</label>
+            <Select value={playerForm.platform} onValueChange={v => setPlayerForm(f => ({ ...f, platform: v }))}>
+              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PlayStation">PlayStation</SelectItem>
+                <SelectItem value="Xbox">Xbox</SelectItem>
+                <SelectItem value="PC">PC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.country")} <span className="text-destructive">*</span></label>
+            <Select value={playerForm.country} onValueChange={v => {
+              const found = COUNTRIES.find(c => c.name === v);
+              setPlayerForm(f => ({ ...f, country: v, country_code: found?.code || "" }));
+            }}>
+              <SelectTrigger className={`bg-secondary border-border ${!playerForm.country ? "border-destructive/50" : ""}`}>
+                <SelectValue placeholder={t("commonPages.profSelectCountry")} />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {!playerForm.country && <p className="text-[11px] text-destructive mt-1">{t("commonPages.profCountryRequired")}</p>}
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profOverallRating")}</label>
+            <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profShirtNumber")}</label>
+            <Input
+              type="number" min={1} max={99}
+              value={playerForm.shirt_number}
+              onChange={e => {
+                const v = e.target.value === "" ? "" : Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
+                setPlayerForm(f => ({ ...f, shirt_number: v }));
+              }}
+              placeholder="e.g. 10"
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profAccountEmail")}</label>
+            <Input value={user?.email || ""} disabled className="bg-secondary border-border opacity-50" />
+          </div>
         </div>
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.bio")}</label>
+          <Textarea value={playerForm.bio} onChange={e => setPlayerForm(f => ({ ...f, bio: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profBioPlaceholder")} />
+        </div>
+      </>
+    );
 
-        <BannerSelector
-          open={bannerDialogOpen}
-          onClose={() => setBannerDialogOpen(false)}
-          currentBannerId={player?.banner_url}
-          currentBannerPosition={player?.banner_position}
-          currentBannerZoom={player?.banner_zoom}
-          previewData={{ name: player?.gamertag || user?.full_name, subtitle: player?.position, avatarUrl: player?.avatar_url, type: "player" }}
-          onSelect={async (bannerId, position, zoom) => {
-            const update = { banner_url: bannerId };
-            if (position) update.banner_position = position;
-            if (zoom) update.banner_zoom = zoom;
-            setBannerDialogOpen(false);
-            setPlayer(prev => ({ ...asObject(prev), ...update }));
-            if (player) {
-              try {
-                await stageClient.entities.Player.update(player.id, update);
-              } catch (err) {
-                console.error("Failed to save banner:", err);
-              }
-            }
-          }}
-        />
+    if (!player) {
+      return (
+        <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profCreateProfile")}</h1>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+            <h2 className="text-xl font-bold text-foreground">{t("commonPages.profPlayerInfo")}</h2>
+            {playerInfoForm}
+            <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
+              <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : t("commonPages.profCreateProfile")}
+            </Button>
+          </div>
+        </div>
+      );
+    }
 
-        {/* Avatar editor for new upload */}
-        <ImagePositionEditor
-          open={!!pendingAvatar}
-          onClose={() => setPendingAvatar(null)}
-          imageUrl={pendingAvatar}
-          aspect="avatar"
-          initialPosition={player?.avatar_position}
-          initialZoom={player?.avatar_zoom}
-          previewPlayer={player}
-          onConfirm={async (url, position, zoom) => {
-            await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-            setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
-            setPendingAvatar(null);
-          }}
-        />
-
-        {/* Avatar re-position editor (existing photo) */}
-        <ImagePositionEditor
-          open={avatarEditorOpen && !pendingAvatar}
-          onClose={() => setAvatarEditorOpen(false)}
-          imageUrl={player?.avatar_url}
-          aspect="avatar"
-          initialPosition={player?.avatar_position}
-          initialZoom={player?.avatar_zoom}
-          previewPlayer={player}
-          onConfirm={async (url, position, zoom) => {
-            await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
-            setPlayer(prev => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
-            setAvatarEditorOpen(false);
-          }}
-        />
-
-
-      </div>
+    return (
+      <ProfileEditShell
+        title={t("commonPages.profEditProfile")}
+        infoTitle={t("commonPages.profPlayerInfo")}
+        onBack={() => setView("profile")}
+        photoUrl={player.avatar_url}
+        photoPosition={player.avatar_position}
+        photoZoom={player.avatar_zoom}
+        bannerUrl={player.banner_url}
+        bannerPosition={player.banner_position}
+        bannerZoom={player.banner_zoom}
+        bannerPreview={{ name: player.gamertag || user?.full_name, subtitle: player.position, avatarUrl: player.avatar_url, type: "player" }}
+        onPhotoChange={async ({ url, position, zoom }) => {
+          await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
+          setPlayer((prev) => ({ ...asObject(prev), avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 }));
+        }}
+        onBannerChange={async (update) => {
+          setPlayer((prev) => ({ ...asObject(prev), ...update }));
+          try {
+            await stageClient.entities.Player.update(player.id, update);
+          } catch (err) {
+            console.error("Failed to save banner:", err);
+          }
+        }}
+        footer={(
+          <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
+            <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : t("commonPages.profSaveChanges")}
+          </Button>
+        )}
+      >
+        {playerInfoForm}
+      </ProfileEditShell>
     );
   }
 
@@ -995,67 +883,22 @@ export default function Profile({
   // ─── Edit Club View ───
   if (view === "edit_club" && myClub) {
     return (
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setView("club")} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-          </button>
-          <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profEditClub")}</h1>
-        </div>
-
-        <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profClubName")}</label>
-              <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profTag")}</label>
-              <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.platform")}</label>
-              <Select value={clubForm.platform} onValueChange={v => setClubForm(f => ({ ...f, platform: v }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PlayStation">PlayStation</SelectItem>
-                  <SelectItem value="Xbox">Xbox</SelectItem>
-                  <SelectItem value="PC">PC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profRegion")}</label>
-              <Select value={clubForm.region} onValueChange={v => setClubForm(f => ({ ...f, region: v }))}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Europe","North America","South America","Asia","Oceania","Middle East"].map(r => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.country")}</label>
-              <Select value={clubForm.country_code || ""} onValueChange={v => setClubForm(f => ({ ...f, country_code: v }))}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder={t("commonPages.profSelectCountryShort")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profClubDesc")}</label>
-            <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profClubDescPlaceholder")} />
-          </div>
-          <Button onClick={saveClub} disabled={savingClub || !clubForm.name || !clubForm.tag} className="bg-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" /> {savingClub ? t("commonPages.profSaving") : t("commonPages.profSaveClub")}
-          </Button>
-        </div>
-      </div>
+      <ClubProfileEdit
+        club={myClub}
+        onBack={() => setView("club")}
+        onSaved={(updated) => {
+          setMyClub((prev) => ({ ...asObject(prev), ...updated }));
+          setClubForm((f) => ({
+            ...f,
+            name: updated.name ?? f.name,
+            tag: updated.tag ?? f.tag,
+            platform: updated.platform ?? f.platform,
+            region: updated.region ?? f.region,
+            country_code: updated.country_code ?? f.country_code,
+            description: updated.description ?? f.description,
+          }));
+        }}
+      />
     );
   }
 

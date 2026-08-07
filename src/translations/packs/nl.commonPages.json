@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} toernooien",
   "storeMonthlyRefresh": "Maandelijkse oplading, niet cumulatief",
   "storeEntryCost": "Standaard inschrijfkosten toernooi",
-  "storeActiveSlots": "Competitietoegang",
   "storeViewPlus": "STAGE Plus bekijken",
   "storeMonthly": "Maandelijks",
   "storeYearly": "Jaarlijks",
@@ -437,7 +436,6 @@
   "storeMonth": "maand",
   "storeMonthlyCredits": "Maandelijkse credits",
   "storeEntryCostShort": "Inschrijfkosten",
-  "storeActiveEvents": "Competitietoegang",
   "storeAvailableAfter": "Beschikbaar na {date}",
   "storeSubscribe": "Abonneren",
   "storeYrShort": "jr",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "Geen contracten in deze categorie.",
   "presClubHistory": "Clubgeschiedenis",
   "presHistoryPresent": "Heden",
-  "presHistoryCurrent": "Huidig"
+  "presHistoryCurrent": "Huidig",
+  "profClubInfo": "Clubinfo",
+  "presInfoTitle": "Presidentinfo",
+  "presTabPlayersSigned": "Getekende spelers",
+  "presNoSignedPlayers": "Nog geen getekende spelers."
 }

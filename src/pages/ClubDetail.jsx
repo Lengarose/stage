@@ -4,12 +4,11 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, Trophy, ArrowLeft,
   Check, X, Send, Loader2, LogOut,
-  Trash2, Swords, Save, Edit2, ClipboardList, Clock, MessageCircle,
+  Trash2, Swords, Edit2, ClipboardList, Clock, MessageCircle,
   Bell, BellOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { COUNTRIES } from "../lib/countries";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -43,6 +42,7 @@ import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHer
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
+import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 
 const POSITION_OPTIONS = [
@@ -148,8 +148,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [historyRows,   setHistoryRows]   = useState([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editClubOpen, setEditClubOpen] = useState(false);
-  const [clubForm, setClubForm] = useState({ name: "", tag: "", platform: "", region: "", description: "", country_code: "" });
-  const [savingClub, setSavingClub] = useState(false);
   const [clubChatMessages, setClubChatMessages] = useState([]);
   const [clubChatInput, setClubChatInput] = useState("");
   const [sendingClubChat, setSendingClubChat] = useState(false);
@@ -297,16 +295,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         }
 
         setClub(c);
-        if (c) {
-          setClubForm({
-            name: c.name || "",
-            tag: c.tag || "",
-            platform: c.platform || "PlayStation",
-            region: c.region || "Europe",
-            description: c.description || "",
-            country_code: c.country_code || "",
-          });
-        }
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
         setPlayerFollowMap(pfMap);
 
@@ -719,6 +707,39 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   function changeClubTab(tab) {
     setActiveTab(tab);
     if (tab === "history") loadHistory();
+  }
+
+  if (editClubOpen && club) {
+    return (
+      <GamerProfileShell>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="bg-[#0d1225] border-white/10">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">{t("commonPages.cdDeleteClub")}</AlertDialogTitle>
+              <AlertDialogDescription className="text-white/50">
+                {t("commonPages.cdDeleteConfirm", { name: club?.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-white/20">{t("commonPages.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteClub} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting ? t("commonPages.cdDeleting") : t("commonPages.cdDeleteClub")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <ClubProfileEdit
+          club={club}
+          onBack={() => setEditClubOpen(false)}
+          onSaved={(updated) => {
+            setClub((prev) => ({ ...prev, ...updated }));
+          }}
+          canDelete={isOwner}
+          onDelete={() => setDeleteDialogOpen(true)}
+        />
+      </GamerProfileShell>
+    );
   }
 
   return (
@@ -1306,88 +1327,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
         </DialogContent>
       </Dialog>
 
-      {/* Edit Club Dialog */}
-      <Dialog open={editClubOpen} onOpenChange={setEditClubOpen}>
-        <DialogContent className="bg-[#0d1225] border-white/10 max-w-lg">
-          <DialogHeader><DialogTitle className="text-xl font-bold">{t("commonPages.profEditClub")}</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profClubName")}</label>
-                <Input value={clubForm.name} onChange={e => setClubForm(f => ({ ...f, name: e.target.value }))} className="bg-white/5 border-white/10" />
-              </div>
-              <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.cdTagMax5")}</label>
-                <Input value={clubForm.tag} maxLength={5} onChange={e => setClubForm(f => ({ ...f, tag: e.target.value.toUpperCase() }))} className="bg-white/5 border-white/10" />
-              </div>
-              <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.platform")}</label>
-                <Select value={clubForm.platform} onValueChange={v => setClubForm(f => ({ ...f, platform: v }))}>
-                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PlayStation">PlayStation</SelectItem>
-                    <SelectItem value="Xbox">Xbox</SelectItem>
-                    <SelectItem value="PC">PC</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profRegion")}</label>
-                <Select value={clubForm.region} onValueChange={v => setClubForm(f => ({ ...f, region: v }))}>
-                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Europe","North America","South America","Asia","Oceania","Middle East"].map(r => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.country")}</label>
-                <Select value={clubForm.country_code || ""} onValueChange={v => setClubForm(f => ({ ...f, country_code: v }))}>
-                  <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder={t("commonPages.profSelectCountryShort")} /></SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-white/40 uppercase tracking-wider mb-1.5 block">{t("commonPages.profClubDesc")}</label>
-              <Textarea value={clubForm.description} onChange={e => setClubForm(f => ({ ...f, description: e.target.value }))} className="bg-white/5 border-white/10 resize-none" rows={3} placeholder={t("commonPages.profClubDescPlaceholder")} />
-            </div>
-            <Button
-              onClick={async () => {
-                setSavingClub(true);
-                await stageClient.entities.Club.update(id, {
-                  name: clubForm.name,
-                  tag: clubForm.tag,
-                  platform: clubForm.platform,
-                  region: clubForm.region,
-                  description: clubForm.description,
-                  country_code: clubForm.country_code,
-                });
-                setClub(prev => ({ ...prev, ...clubForm }));
-                setSavingClub(false);
-                setEditClubOpen(false);
-              }}
-              disabled={savingClub || !clubForm.name || !clubForm.tag}
-              className="w-full bg-primary text-primary-foreground"
-            >
-              <Save className="w-4 h-4 mr-2" /> {savingClub ? t("commonPages.profSaving") : t("commonPages.profSaveChanges")}
-            </Button>
-            {isOwner && (
-              <Button
-                variant="ghost"
-                onClick={() => { setEditClubOpen(false); setDeleteDialogOpen(true); }}
-                className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive border border-destructive/20 mt-1"
-              >
-                <Trash2 className="w-4 h-4 mr-2" /> {t("commonPages.cdDeleteClub")}
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </GamerProfileShell>
   );
 }

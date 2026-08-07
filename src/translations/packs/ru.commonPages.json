@@ -1213,8 +1213,6 @@
   "stadUpgradeSuccess": "Стадион повышен до {name}!",
   "stadUpgradeTo": "Обновите до {name} — {cost}",
   "status": "Статус",
-  "storeActiveEvents": "Активные события",
-  "storeActiveSlots": "Активные турнирные слоты сообщества",
   "storeAvailableAfter": "Доступно после {date}",
   "storeBuy": "Купить",
   "storeBuyCreditsSeparately": "Купить кредиты отдельно",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "В этой категории нет контрактов.",
   "presClubHistory": "История клубов",
   "presHistoryPresent": "Настоящее",
-  "presHistoryCurrent": "Текущий"
+  "presHistoryCurrent": "Текущий",
+  "profClubInfo": "Информация о клубе",
+  "presInfoTitle": "Информация о президенте",
+  "presTabPlayersSigned": "Подписанные игроки",
+  "presNoSignedPlayers": "Пока нет подписанных игроков."
 }

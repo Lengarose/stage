@@ -4,6 +4,7 @@ const Tournament = require('../models/tournamentModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
 const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
+const { getUserCredits, spendUserCredits } = require('../services/userCreditsService');
 
 function hasStagePlus(subscription) {
   return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
@@ -95,7 +96,7 @@ router.post('/', async (req, res) => {
 
     if (!isAdmin) {
       const playerRows = await EXECUTESQL(
-        'SELECT id, subscription, credits FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+        'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
         [userId, user?.email || '', userId]
       );
       const player = playerRows[0] || null;
@@ -103,7 +104,8 @@ router.post('/', async (req, res) => {
       if (!hasStagePlus(player?.subscription)) {
         return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
       }
-      if (Number(player?.credits || 0) < TOURNAMENT_CREDIT_COST) {
+      const userCredits = await getUserCredits(userId);
+      if (userCredits < TOURNAMENT_CREDIT_COST) {
         return res.status(402).json({ error: `Creating a tournament costs ${TOURNAMENT_CREDIT_COST} credits.` });
       }
     }
@@ -111,11 +113,15 @@ router.post('/', async (req, res) => {
     const body = normalizeTournamentEconomics(req.body);
     const tournament = new Tournament(body);
     await tournament.create();
-    if (!isAdmin && creatorPlayerId) {
-      await EXECUTESQL(
-        'UPDATE players SET credits = credits - ? WHERE id = ?',
-        [TOURNAMENT_CREDIT_COST, creatorPlayerId]
-      );
+    if (!isAdmin && userId) {
+      try {
+        await spendUserCredits(userId, TOURNAMENT_CREDIT_COST);
+      } catch (err) {
+        if (err?.code === 'INSUFFICIENT_CREDITS') {
+          return res.status(402).json({ error: `Creating a tournament costs ${TOURNAMENT_CREDIT_COST} credits.` });
+        }
+        throw err;
+      }
     }
     const created = await tournament.selectOne(tournament.id);
     const record  = created[0];

@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} tournois",
   "storeMonthlyRefresh": "Recharge mensuelle, non cumulable",
   "storeEntryCost": "Coût d'inscription standard à un tournoi",
-  "storeActiveSlots": "Accès compétition",
   "storeViewPlus": "Voir STAGE Plus",
   "storeMonthly": "Mensuel",
   "storeYearly": "Annuel",
@@ -437,7 +436,6 @@
   "storeMonth": "mois",
   "storeMonthlyCredits": "Crédits mensuels",
   "storeEntryCostShort": "Coût d'entrée",
-  "storeActiveEvents": "Accès compétition",
   "storeAvailableAfter": "Disponible après le {date}",
   "storeSubscribe": "S'abonner",
   "storeYrShort": "an",
@@ -1449,5 +1447,9 @@
   "presNoContracts": "Aucun contrat dans cette catégorie.",
   "presClubHistory": "Historique des clubs",
   "presHistoryPresent": "Présent",
-  "presHistoryCurrent": "Actuel"
+  "presHistoryCurrent": "Actuel",
+  "profClubInfo": "Infos club",
+  "presInfoTitle": "Infos président",
+  "presTabPlayersSigned": "Joueurs signés",
+  "presNoSignedPlayers": "Aucun joueur signé pour le moment."
 }

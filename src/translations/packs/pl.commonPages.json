@@ -1213,8 +1213,6 @@
   "stadUpgradeSuccess": "Etap poprawiony do {name}!",
   "stadUpgradeTo": "Uaktualnij do {name} — {cost}",
   "status": "Status",
-  "storeActiveEvents": "Aktywne wydarzenia",
-  "storeActiveSlots": "Aktywne miejsca turniejów społecznościowych",
   "storeAvailableAfter": "Dostępne po {date}",
   "storeBuy": "Kupić",
   "storeBuyCreditsSeparately": "Kup kredyty osobno",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "Brak kontraktów w tej kategorii.",
   "presClubHistory": "Historia klubów",
   "presHistoryPresent": "Obecnie",
-  "presHistoryCurrent": "Aktualny"
+  "presHistoryCurrent": "Aktualny",
+  "profClubInfo": "Info klubu",
+  "presInfoTitle": "Info prezesa",
+  "presTabPlayersSigned": "Zawodnicy podpisani",
+  "presNoSignedPlayers": "Brak podpisanych zawodników."
 }

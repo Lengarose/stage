@@ -420,7 +420,6 @@
   "storeTournamentsAmount": "{amount} turnuva",
   "storeMonthlyRefresh": "Aylık ödenek yenilemesi, birikmez",
   "storeEntryCost": "Standart turnuva giriş ücreti",
-  "storeActiveSlots": "Aktif topluluk turnuvası slotları",
   "storeViewPlus": "STAGE Plus'ı Görüntüle",
   "storeMonthly": "Aylık",
   "storeYearly": "Yıllık",
@@ -437,7 +436,6 @@
   "storeMonth": "ay",
   "storeMonthlyCredits": "Aylık krediler",
   "storeEntryCostShort": "Giriş ücreti",
-  "storeActiveEvents": "Aktif etkinlikler",
   "storeAvailableAfter": "{date} tarihinden sonra müsait",
   "storeSubscribe": "Abone Ol",
   "storeYrShort": "yıl",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "Bu kategoride sözleşme yok.",
   "presClubHistory": "Kulüp geçmişi",
   "presHistoryPresent": "Şimdi",
-  "presHistoryCurrent": "Güncel"
+  "presHistoryCurrent": "Güncel",
+  "profClubInfo": "Kulüp Bilgisi",
+  "presInfoTitle": "Başkan Bilgisi",
+  "presTabPlayersSigned": "İmzalanan oyuncular",
+  "presNoSignedPlayers": "Henüz imzalanmış oyuncu yok."
 }

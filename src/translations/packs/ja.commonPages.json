@@ -419,7 +419,6 @@
   "storeCreditsAmount": "{amount} クレジット",
   "storeTournamentsAmount": "{amount} トーナメント",
   "storeViewPlus": "STAGE Plusを見る",
-  "storeActiveSlots": "アクティブなコミュニティ トーナメント スロット",
   "storePlusDesc": "無料アカウントは {credits} クレジットから始まります。その後、Plus により、トーナメントの作成、公式大会へのアクセス、ランク付けされたプレイ、毎月のクレジットの更新が可能になります。",
   "storeMonthlyRefresh": "毎月の手当の更新、累積されない",
   "storeEntryCost": "標準トーナメント参加費",
@@ -434,7 +433,6 @@
   "storeBuy": "買う",
   "storeMonth": "月",
   "storeYear": "年",
-  "storeActiveEvents": "アクティブなイベント",
   "storeBuyCreditsSeparately": "クレジットを個別に購入する",
   "storeEntryCostShort": "入場料",
   "storeAvailableAfter": "{date}以降に利用可能",
@@ -1446,5 +1444,9 @@
   "presNoContracts": "このカテゴリに契約はありません。",
   "presClubHistory": "クラブ履歴",
   "presHistoryPresent": "現在",
-  "presHistoryCurrent": "現役"
+  "presHistoryCurrent": "現役",
+  "profClubInfo": "クラブ情報",
+  "presInfoTitle": "プレジデント情報",
+  "presTabPlayersSigned": "契約選手",
+  "presNoSignedPlayers": "契約選手はまだいません。"
 }

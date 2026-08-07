@@ -4,8 +4,9 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingBag, Crown, Coins, RefreshCw, Save, ShieldCheck } from "lucide-react";
+import { ShoppingBag, Crown, Coins, RefreshCw, Save, ShieldCheck, Package } from "lucide-react";
 import {
+  CREDIT_PACKS,
   STAGE_PLUS_MONTHLY_CREDITS,
   STAGE_PLUS_PRICE,
   TOURNAMENT_ENTRY_CREDITS,
@@ -239,6 +240,24 @@ export default function StoreTab() {
           <p className="text-[11px] text-muted-foreground border-t border-border pt-3">
             {t("admin.store.stripeNote")}
           </p>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Package className="w-4 h-4 text-warning" />
+          <h3 className="font-heading text-sm uppercase tracking-wider text-foreground">{t("admin.store.creditPacks")}</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("admin.store.creditPacksDesc")}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {CREDIT_PACKS.map((pack) => (
+            <div key={pack.id} className="rounded border border-border bg-secondary/60 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{pack.label}</p>
+              <p className="font-black text-warning text-lg">{pack.credits}</p>
+              <p className="text-xs text-foreground font-semibold">€{pack.price_eur.toFixed(2)}</p>
+              <p className="text-[10px] text-muted-foreground">{pack.purpose}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

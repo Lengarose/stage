@@ -2189,6 +2189,13 @@ test('tournamentRegistration stores club registration proof photo', async () => 
             async query(sql, params = []) {
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
+              if (/SELECT id, subscription/.test(sql) && /FROM players/.test(sql)) {
+                return [[{ id: 'player-1', subscription: 'stage_plus' }], []];
+              }
+              if (/SELECT role_id/.test(sql) && /FROM users/.test(sql)) return [[{ role_id: 0 }], []];
+              if (/SELECT id/.test(sql) && /FROM clubs/.test(sql) && /president_user_id/.test(sql)) return [[], []];
+              if (/registered_clubs, registered_players/.test(sql)) return [[], []];
               if (/UPDATE tournaments SET registered_clubs = \?, registration_proofs = \?/.test(sql)) {
                 updates.push({ sql, params });
                 return [{ affectedRows: 1 }, []];
@@ -2204,7 +2211,7 @@ test('tournamentRegistration stores club registration proof photo', async () => 
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'owner@example.test', role_id: 1 }];
     }
-    if (/SELECT \* FROM store_settings/.test(sql)) return [];
+    if (/SELECT \* FROM store_settings/.test(sql) || /FROM store_configs/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
   const router = loadFunctionsRouterWithDbMock(executesql, { pool });
@@ -2229,7 +2236,7 @@ test('tournamentRegistration stores club registration proof photo', async () => 
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error || JSON.stringify(response.body));
   assert.equal(response.body.data.success, true);
   assert.equal(updates.length, 1);
   const proofs = JSON.parse(updates[0].params[1]);
@@ -2271,6 +2278,13 @@ test('tournamentRegistration allows canonical president user to register their c
             async query(sql, params = []) {
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
+              if (/SELECT id, subscription/.test(sql) && /FROM players/.test(sql)) {
+                return [[{ id: 'player-1', subscription: 'stage_plus' }], []];
+              }
+              if (/SELECT role_id/.test(sql) && /FROM users/.test(sql)) return [[{ role_id: 0 }], []];
+              if (/SELECT id/.test(sql) && /FROM clubs/.test(sql) && /president_user_id/.test(sql)) return [[], []];
+              if (/registered_clubs, registered_players/.test(sql)) return [[], []];
               if (/UPDATE tournaments SET registered_clubs = \?, registration_proofs = \?/.test(sql)) {
                 updates.push({ sql, params });
                 return [{ affectedRows: 1 }, []];
@@ -2286,7 +2300,7 @@ test('tournamentRegistration allows canonical president user to register their c
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
     }
-    if (/SELECT \* FROM store_settings/.test(sql)) return [];
+    if (/SELECT \* FROM store_settings/.test(sql) || /FROM store_configs/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
   const router = loadFunctionsRouterWithDbMock(executesql, { pool });
@@ -2311,7 +2325,7 @@ test('tournamentRegistration allows canonical president user to register their c
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error || JSON.stringify(response.body));
   assert.equal(response.body.data.success, true);
   assert.equal(updates.length, 1);
 });
@@ -2349,6 +2363,13 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
             async query(sql, params = []) {
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+              if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
+              if (/SELECT id, subscription/.test(sql) && /FROM players/.test(sql)) {
+                return [[{ id: 'player-1', subscription: 'stage_plus' }], []];
+              }
+              if (/SELECT role_id/.test(sql) && /FROM users/.test(sql)) return [[{ role_id: 0 }], []];
+              if (/SELECT id/.test(sql) && /FROM clubs/.test(sql) && /president_user_id/.test(sql)) return [[], []];
+              if (/registered_clubs, registered_players/.test(sql)) return [[], []];
               if (/UPDATE tournaments SET registered_players = \?, registration_proofs = \?/.test(sql)) {
                 updates.push({ sql, params });
                 return [{ affectedRows: 1 }, []];
@@ -2364,7 +2385,7 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'player@example.test', role_id: 1 }];
     }
-    if (/SELECT \* FROM store_configs/.test(sql)) return [];
+    if (/SELECT \* FROM store_configs/.test(sql) || /FROM store_settings/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
   const router = loadFunctionsRouterWithDbMock(executesql, { pool });
@@ -2389,7 +2410,7 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error || JSON.stringify(response.body));
   assert.equal(response.body.data.success, true);
   assert.equal(updates.length, 1);
   const proofs = JSON.parse(updates[0].params[1]);
@@ -2426,11 +2447,12 @@ test('tournamentWithdrawal allows canonical president user to withdraw their clu
             async query(sql, params = []) {
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
-              if (/UPDATE tournaments SET registered_clubs = \?/.test(sql)) {
+              if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 100 }], []];
+              if (/UPDATE users SET credits = COALESCE\(credits, 0\) \+ \?/.test(sql)) {
                 updates.push({ sql, params });
                 return [{ affectedRows: 1 }, []];
               }
-              if (/UPDATE clubs SET credits = \?/.test(sql)) {
+              if (/UPDATE tournaments SET registered_clubs = \?/.test(sql)) {
                 updates.push({ sql, params });
                 return [{ affectedRows: 1 }, []];
               }
