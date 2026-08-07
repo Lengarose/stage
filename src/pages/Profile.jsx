@@ -346,7 +346,6 @@ export default function Profile({
       wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
       stadium_level: 0, stadium_capacity: 5000,
       tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
-      creator_player_id: player.id,
     });
     if (!club?.id) return;
     const refreshedPl = user.player_id
@@ -364,7 +363,11 @@ export default function Profile({
       country_code: club.country_code || "",
     });
     setClubDialogOpen(false);
-    setPresidentContractPrompt({ club, player: refreshed[0] || player, contractId: club.owner_contract_id });
+    setPresidentContractPrompt({
+      club,
+      president: club.president || { id: club.president_id, display_name: club.president_name || user.email },
+      contractId: club.president_contract_id || club.owner_contract_id || null,
+    });
   }
 
   async function leaveClub() {
@@ -410,7 +413,7 @@ export default function Profile({
         <PresidentContractDialog
           open={!!presidentContractPrompt}
           club={presidentContractPrompt?.club}
-          player={presidentContractPrompt?.player}
+          president={presidentContractPrompt?.president}
           contractId={presidentContractPrompt?.contractId}
           onSigned={() => {
             setPresidentContractPrompt(null);

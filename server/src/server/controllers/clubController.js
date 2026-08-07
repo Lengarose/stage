@@ -14,7 +14,6 @@ const {
 } = require('../services/clubOperationsService');
 const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { extractPresidentProfileFromClubBody } = require('./presidentController');
-const { v4: uuidv4 } = require('uuid');
 
 const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
@@ -283,61 +282,26 @@ router.post('/', async (req, res) => {
         reason: 'Club created',
       }).catch((err) => console.error('[president_club_history] club create:', err.message));
     }
-    let ownerContractId = null;
     if (record?.user_id) {
       await EXECUTESQL(
         'UPDATE users SET owner_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
         [record.id, record.user_id]
       );
     }
-    const creatorRows = await EXECUTESQL(
-      `SELECT * FROM players
-       WHERE id = ? OR user_id = ? OR LOWER(email)=LOWER(?)
-       ORDER BY id = ? DESC
-       LIMIT 1`,
-      [body.creator_player_id || '', record?.user_id || req.user?.id || '', record?.owner_email || req.user?.email || '', body.creator_player_id || '']
-    ).catch(() => []);
-    const creator = creatorRows[0] || null;
-    if (creator?.id) {
-      await EXECUTESQL(
-        `UPDATE players
-         SET club_id = ?, club_roles = ?, role = 'president', status = 'active'
-         WHERE id = ?`,
-        [record.id, JSON.stringify(['president']), creator.id]
-      ).catch(() => {});
-      await upsertActiveMembership({
-        clubId: record.id,
-        playerId: creator.id,
-        userId: creator.user_id || record?.user_id || null,
-        primaryRole: 'president',
-        source: 'club_creation',
-      });
-      const existingOwnerContract = await EXECUTESQL(
-        "SELECT id FROM player_contracts WHERE team_id = ? AND user_id = ? AND contract_type = 'ownership' AND status IN ('pending','pending_window','negotiating','active') LIMIT 1",
-        [record.id, creator.id]
-      ).catch(() => []);
-      if (existingOwnerContract[0]?.id) {
-        ownerContractId = existingOwnerContract[0].id;
-      } else {
-        ownerContractId = uuidv4();
-        await EXECUTESQL(
-          `INSERT INTO player_contracts (
-             id, team_id, user_id, contract_type, status, offered_by,
-             max_games, max_days, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
-             offer_note, captaincy_offered, negotiation_round, created_date, updated_date
-           ) VALUES (?, ?, ?, 'ownership', 'pending', ?, 999, 3650, 0, 0, 0, ?, 0, 0, NOW(), NOW())`,
-          [
-            ownerContractId,
-            record.id,
-            creator.id,
-            record.owner_email || req.user?.email || 'Stage',
-            `Ownership contract for ${record.name}`,
-          ]
-        ).catch(() => { ownerContractId = null; });
-      }
-    }
+    // President identity and player identity are deliberately separate.
+    // Club creation must not place the creator's player in the squad and must
+    // not create a player ownership contract; players join only through the
+    // normal player contract acceptance flow.
+    const presidentRows = record?.president_id
+      ? await new President().selectOne(record.president_id).catch(() => [])
+      : [];
     broadcastClub(record);
-    res.status(201).json({ ...record, owner_contract_id: ownerContractId });
+    res.status(201).json({
+      ...record,
+      president: presidentRows[0] || null,
+      owner_contract_id: null,
+      president_contract_id: null,
+    });
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

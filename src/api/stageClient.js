@@ -822,13 +822,9 @@ export async function resolveMyPlayerAndClub() {
     if (!presidentClub && club) presidentClub = club;
   }
 
-  // 7) If the player record is missing club_id but this user owns a club, keep
-  // frontend callers working immediately. The backend /auth/me repairs the DB.
-  if (player && club && !player.club_id) {
-    player = { ...player, club_id: club.id, club_name: club.name };
-  }
-
-  // 8) Resolve first-class President entity (profile), separate from club auth.
+  // 7) Resolve first-class President entity (profile), separate from club auth.
+  // A user may own/preside over a club while their player remains a free agent.
+  // Never synthesize player.club_id from presidentClub/ownedClub here.
   const presidentId = getPresidentId(u) || presidentClub?.president_id || null;
   if (presidentId) {
     president = await entities.President.get(presidentId).catch(() => null);
