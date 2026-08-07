@@ -46,9 +46,13 @@ export function buildInitialPresidentProfile(player) {
   return {
     display_name: player?.gamertag || "",
     role_title: "President",
-    avatar_url: player?.avatar_url || "",
-    avatar_position: player?.avatar_position || "50% 50%",
-    avatar_zoom: Number(player?.avatar_zoom) || 150,
+    // Deliberately NOT prefilled from player.avatar_url: the president is a distinct
+    // public identity from the player, even for the same real person, and copying the
+    // player's photo by default made the two profiles look merged. The user must
+    // explicitly upload a president photo in this step.
+    avatar_url: "",
+    avatar_position: "50% 50%",
+    avatar_zoom: 150,
     banner_url: "",
     banner_position: "50% 50%",
     banner_zoom: 150,

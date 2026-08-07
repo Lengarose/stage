@@ -69,10 +69,19 @@ export const CONTRACT_TYPES = {
   },
 };
 
-export const CONTRACT_TYPE_OPTIONS = Object.entries(CONTRACT_TYPES).map(([value, meta]) => ({
-  value,
-  ...meta,
-}));
+// 'ownership' is intentionally excluded here: it must never be offerable through a
+// generic player contract dialog (Create Contract, Offer, Renew). President/owner
+// identity is assigned only via club creation (see clubController.js) and lives in the
+// separate `presidents` table — offering it as a normal contract previously let accepting
+// it silently merge the player and president identities on one profile. The `ownership`
+// entry is kept in CONTRACT_TYPES above purely so existing/legacy contracts of that type
+// still render a sensible label and progress bar.
+export const CONTRACT_TYPE_OPTIONS = Object.entries(CONTRACT_TYPES)
+  .filter(([value]) => value !== "ownership")
+  .map(([value, meta]) => ({
+    value,
+    ...meta,
+  }));
 
 /**
  * Returns true if a contract should be expired based on games or days.

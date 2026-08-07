@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  ChevronLeft, ChevronRight, X, LayoutDashboard,
+  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -244,6 +244,7 @@ function getAdminGroups(t) {
         { path: "/admin/international-tournaments", icon: Globe2, label: t("admin.nav.international") },
         { path: "/admin/recruitment", icon: Handshake, label: t("admin.nav.recruitment") },
         { path: "/admin/store", icon: ShoppingBag, label: t("admin.nav.store") },
+        { path: "/admin/identity-repair", icon: UserCog, label: t("admin.nav.identityRepair") },
       ],
     },
     {
