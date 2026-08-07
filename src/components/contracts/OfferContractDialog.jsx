@@ -29,6 +29,19 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   const blockingConflict = !isNegotiation
     ? findBlockingContractConflict({ selectedType, playerContracts, existingActiveContract })
     : null;
+  const weeklySalaryNumber = parseInt(weeklySalary, 10) || 0;
+  const wageCap = Number(club?.wage_budget_stc || 0);
+  const committedWeeklyWages = (playerContracts || []).reduce((sum, contract) => {
+    if (existingContract?.id && contract.id === existingContract.id) return sum;
+    const status = String(contract.status || "").toLowerCase();
+    const type = String(contract.contract_type || "").toLowerCase();
+    const belongsToClub = !club?.id || contract.club_id === club.id || contract.team_id === club.id;
+    if (!belongsToClub || type === "ownership") return sum;
+    if (!["active", "pending", "pending_window", "negotiating"].includes(status)) return sum;
+    return sum + Number(contract.weekly_salary_stc || 0);
+  }, 0);
+  const projectedWeeklyWages = committedWeeklyWages + (selectedType === "ownership" ? 0 : weeklySalaryNumber);
+  const wageCapExceeded = wageCap > 0 && projectedWeeklyWages > wageCap;
 
   const TARGET_TYPES = [
     { value: "min",   label: t("commonPages.cccTargetMin") },
@@ -144,21 +157,19 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               </label>
 
               {/* Wage budget warning */}
-              {club && club.wage_budget_stc > 0 && (() => {
-                const budget = club.wage_budget_stc;
-                const salary = parseInt(weeklySalary) || 0;
-                const pct = salary > 0 ? Math.round((salary / budget) * 100) : 0;
-                const overBudget = salary > budget;
-                return salary > 0 ? (
-                  <div className={`mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl border ${overBudget ? "bg-destructive/10 border-destructive/30" : pct > 70 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/20"}`}>
-                    <Coins className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`} />
+              {club && wageCap > 0 && (() => {
+                const pct = wageCap > 0 ? Math.round((projectedWeeklyWages / wageCap) * 100) : 0;
+                return weeklySalaryNumber > 0 ? (
+                  <div className={`mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl border ${wageCapExceeded ? "bg-destructive/10 border-destructive/30" : pct > 70 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/20"}`}>
+                    <Coins className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${wageCapExceeded ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`} />
                     <div>
-                      <p className={`text-[10px] font-bold uppercase tracking-wider ${overBudget ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`}>
-                        {overBudget ? t("commonPages.cccExceedsWage") : t("commonPages.cccWageUsage", { pct })}
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${wageCapExceeded ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`}>
+                        {wageCapExceeded ? "Wage cap exceeded" : t("commonPages.cccWageUsage", { pct })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {t("commonPages.cccClubWageBudget", { amount: (budget / 1_000_000).toFixed(1) })}
-                        {overBudget && ` ${t("commonPages.cccReduceSalary")}`}
+                        Current wages: {formatSTC(committedWeeklyWages)} / {formatSTC(wageCap)} per week.
+                        {" "}This offer raises it to {formatSTC(projectedWeeklyWages)}.
+                        {wageCapExceeded && " Upgrade stadium or reduce wages."}
                       </p>
                     </div>
                   </div>
@@ -320,7 +331,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
             <Button
               onClick={handleOffer}
-              disabled={offering || offerLockedByWindow}
+              disabled={offering || offerLockedByWindow || wageCapExceeded}
               className="w-full bg-primary text-primary-foreground gap-2"
             >
               <FileText className="w-4 h-4" />

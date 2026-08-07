@@ -198,6 +198,14 @@ const {
   closeAcceptedContractConflicts,
   markContractInboxStatus,
 } = require('../services/contractRulesService');
+const {
+  STARTER_CLUB_FINANCE,
+  STADIUM_FINANCE_TIERS,
+  getStadiumFinanceTier,
+  getClubFinanceUsage,
+  assertClubContractFinance,
+  assertClubFinanceWithinTier,
+} = require('../services/clubFinanceService');
 const { getClubAccess } = require('../services/clubOperationsService');
 const {
   getCurrentTransferWindow,
@@ -524,13 +532,10 @@ function parseAdminMatchScore(value, fieldName) {
 
 async function getStadiumConfig() {
   const rows = await EXECUTESQL('SELECT * FROM stadium_config ORDER BY level ASC', []).catch(() => []);
-  if (rows.length) return rows;
-  return [
-    { level: 0, name: 'Local Ground', capacity: 5000, ticket_price_stc: 15 },
-    { level: 1, name: 'Community Stadium', capacity: 10000, ticket_price_stc: 25 },
-    { level: 2, name: 'Pro Arena', capacity: 25000, ticket_price_stc: 40 },
-    { level: 3, name: 'Elite Stadium', capacity: 50000, ticket_price_stc: 60 },
-  ];
+  if (rows.length) {
+    return rows.map((row) => ({ ...getStadiumFinanceTier(row.level), ...row }));
+  }
+  return STADIUM_FINANCE_TIERS;
 }
 
 async function getShirtWeights() {
@@ -542,18 +547,27 @@ async function getShirtWeights() {
 }
 
 async function recordClubTransaction(query, {
-  clubId, amount, type = 'adjustment', category = type, description = '', referenceId = null,
+  clubId, amount, type = null, category = null, description = '', referenceId = null, relatedEntityType = null, relatedEntityId = null,
 }) {
   const rows = await query('SELECT id, stc FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
   if (!rows.length) throw new Error('Club not found');
-  const newBalance = Number(rows[0].stc || 0) + Number(amount || 0);
+  const numericAmount = Number(amount || 0);
+  const normalizedType = ['income', 'expense', 'locked', 'released', 'adjustment'].includes(String(type || ''))
+    ? String(type)
+    : numericAmount > 0
+      ? 'income'
+      : numericAmount < 0
+        ? 'expense'
+        : 'adjustment';
+  const normalizedCategory = category || type || normalizedType;
+  const newBalance = Number(rows[0].stc || 0) + numericAmount;
   await query('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [newBalance, clubId]);
   const txId = uuidv4();
   await query(
     `INSERT INTO stc_transactions
-     (id, club_id, amount, balance_after, type, category, description, reference_id, created_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-    [txId, clubId, Number(amount || 0), newBalance, type, category, description, referenceId]
+     (id, club_id, amount, balance_after, type, category, description, related_entity_type, related_entity_id, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [txId, clubId, numericAmount, newBalance, normalizedType, normalizedCategory, description, relatedEntityType, relatedEntityId || referenceId, referenceId]
   );
   return { transaction_id: txId, new_balance: newBalance };
 }
@@ -648,6 +662,7 @@ async function generateShirtSalesForMatch(match, stats) {
       category: 'shirt_revenue',
       description: `Shirt sales after ${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`,
       referenceId: match.id,
+      relatedEntityType: 'match',
     });
   }
 
@@ -773,8 +788,6 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
       const attendancePct = Math.max(45, Math.min(100, 70 + (homeResult === 'win' ? 10 : homeResult === 'draw' ? 2 : -8)));
       const attendance = Math.floor(capacity * attendancePct / 100);
       const ticketRevenue = Math.round(attendance * ticketPrice);
-      const transferAdd = Math.floor(ticketRevenue * 0.15);
-      const wageAdd = Math.floor(ticketRevenue * 0.05);
 
       const priorTicket = await EXECUTESQL(
         "SELECT id FROM stc_transactions WHERE club_id = ? AND category = 'ticket_revenue' AND reference_id = ? LIMIT 1",
@@ -788,11 +801,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
           category: 'ticket_revenue',
           description: `Ticket sales (${attendance.toLocaleString()} fans @ ${ticketPrice} STC)`,
           referenceId: matchId,
+          relatedEntityType: 'match',
         });
-        await EXECUTESQL(
-          'UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ?, wage_budget_stc = wage_budget_stc + ? WHERE id = ?',
-          [transferAdd, wageAdd, homeClub.id]
-        );
       }
 
       await EXECUTESQL(
@@ -2925,10 +2935,6 @@ const HANDLERS = {
       const sourceBudget = Number(source.transfer_budget_stc || 0);
       const nextSourceBudget = Math.max(0, sourceBudget - fee);
       await query('UPDATE clubs SET transfer_budget_stc = ?, updated_date = NOW() WHERE id = ?', [nextSourceBudget, source.id]);
-      await query(
-        'UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ?, updated_date = NOW() WHERE id = ?',
-        [fee, target.id]
-      );
 
       const playerRows = player_id
         ? await query('SELECT id, gamertag, avatar_url FROM players WHERE id = ? LIMIT 1', [player_id])
@@ -2991,7 +2997,7 @@ const HANDLERS = {
         source_stc: sourceTx.new_balance,
         target_stc: targetTx.new_balance,
         source_transfer_budget_stc: nextSourceBudget,
-        target_transfer_budget_stc: Number(target.transfer_budget_stc || 0) + fee,
+        target_transfer_budget_stc: Number(target.transfer_budget_stc || 0),
         source_transaction_id: sourceTx.transaction_id,
         target_transaction_id: targetTx.transaction_id,
       };
@@ -3236,7 +3242,7 @@ const HANDLERS = {
            is_provisional, credits, stc, wage_budget_stc, transfer_budget_stc, stadium_level,
            stadium_capacity, tier, form, status, formation, created_date, updated_date)
          VALUES (?, ?, ?, ?, ?, ?, 'PlayStation', 'Europe', ?, ?, 0, 0, 0, 0, 0, 70, 70, 0,
-           1, 500, 1000000, 250000, 250000, 0, 5000, 'TEST', '[]', 'active', '4-2-3-1', NOW(), NOW())`,
+           1, 500, 2500000, 250000, 1000000, 0, 5000, 'TEST', '[]', 'active', '4-2-3-1', NOW(), NOW())`,
         [clubId, ownerUserId, ownerUserId, ownerEmail, clubDef.name, clubDef.tag, clubDef.country_code, `${TEST_PACK_TAG} Disposable test club for tournament/game simulation.`]
       );
       createdClubs.push({ id: clubId, name: clubDef.name, tag: clubDef.tag });
@@ -4416,6 +4422,7 @@ const HANDLERS = {
       category,
       description: description || 'Competition prize',
       referenceId: ref,
+      relatedEntityType: 'competition',
     });
 
     if (Number(position) === 1) {
@@ -4966,6 +4973,7 @@ const HANDLERS = {
         category: 'tournament_prize',
         description: `${payout.label} prize: ${t.name}`,
         referenceId: tournament_id,
+        relatedEntityType: 'tournament',
       });
       paid += 1;
     }
@@ -5027,6 +5035,14 @@ const HANDLERS = {
       teamId: team_id,
       contractType: contract_type || 'squad',
     });
+    if ((contract_type || 'squad') !== 'ownership') {
+      await assertClubContractFinance({
+        clubId: team_id,
+        weeklySalary: weekly_salary_stc,
+        signingBonus: signing_bonus_stc,
+        transferFee: transfer_fee_stc,
+      });
+    }
     const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
     const offeredByPresidentId = await resolveOfferedByPresidentId({
       userId: user.id,
@@ -5061,6 +5077,17 @@ const HANDLERS = {
       ]
     );
     await deliverContractOfferMessage(id).catch(err => console.error('[contract delivery]', err.message));
+    if (Number(transfer_fee_stc || 0) > 0) {
+      await createClubTx({
+        clubId: team_id,
+        amount: 0,
+        type: 'locked',
+        category: 'transfer_locked',
+        description: `Transfer funds locked for contract offer (${Number(transfer_fee_stc || 0).toLocaleString()} STC)`,
+        referenceId: id,
+        relatedEntityType: 'player_contract',
+      }).catch(() => {});
+    }
     return { success: true, data: { contract_id: id, status } };
   },
 
@@ -5096,6 +5123,15 @@ const HANDLERS = {
         contractType: targetContractType,
         allowedActiveContractId: action === 'renewal_offer' ? sourceContract?.id : null,
       });
+      if (targetContractType !== 'ownership') {
+        await assertClubContractFinance({
+          clubId: targetTeamId,
+          weeklySalary: weekly_salary_stc ?? sourceContract?.weekly_salary_stc ?? 0,
+          signingBonus: signing_bonus_stc ?? sourceContract?.signing_bonus_stc ?? 0,
+          transferFee: transfer_fee_stc ?? sourceContract?.transfer_fee_stc ?? 0,
+          excludeContractId: action === 'renewal_offer' ? sourceContract?.id : null,
+        });
+      }
 
       const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
       const offeredByPresidentId = await resolveOfferedByPresidentId({
@@ -5131,6 +5167,18 @@ const HANDLERS = {
         ]
       );
       await deliverContractOfferMessage(id).catch(err => console.error('[contract delivery]', err.message));
+      const transferFee = Number(transfer_fee_stc ?? sourceContract?.transfer_fee_stc ?? 0);
+      if (transferFee > 0) {
+        await createClubTx({
+          clubId: targetTeamId,
+          amount: 0,
+          type: 'locked',
+          category: 'transfer_locked',
+          description: `Transfer funds locked for contract offer (${transferFee.toLocaleString()} STC)`,
+          referenceId: id,
+          relatedEntityType: 'player_contract',
+        }).catch(() => {});
+      }
       const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [id]);
       return { success: true, data: { contract: rows[0], contract_id: id, status: 'pending' } };
     }
@@ -5143,6 +5191,18 @@ const HANDLERS = {
       const contract = rows[0];
       if (!['pending', 'negotiating'].includes(contract.status)) {
         throw new Error(`Cannot counter contract with status: ${contract.status}`);
+      }
+      const nextWeekly = weekly_salary_stc != null ? weekly_salary_stc : contract.weekly_salary_stc;
+      const nextBonus = signing_bonus_stc != null ? signing_bonus_stc : contract.signing_bonus_stc;
+      const nextTransfer = transfer_fee_stc != null ? transfer_fee_stc : contract.transfer_fee_stc;
+      if ((contract.contract_type || 'squad') !== 'ownership') {
+        await assertClubContractFinance({
+          clubId: contract.team_id,
+          weeklySalary: nextWeekly,
+          signingBonus: nextBonus,
+          transferFee: nextTransfer,
+          excludeContractId: contract_id,
+        });
       }
       const updates = {
         status: 'negotiating',
@@ -5167,8 +5227,20 @@ const HANDLERS = {
     // ── reject ──────────────────────────────────────────────────────────────
     if (action === 'reject') {
       if (!contract_id) throw new Error('contract_id required');
+      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       await EXECUTESQL("UPDATE player_contracts SET status = 'rejected', updated_date = NOW() WHERE id = ?", [contract_id]);
       await markContractInboxStatus({ contractIds: [contract_id], status: 'declined' }).catch(() => {});
+      if (Number(rows[0]?.transfer_fee_stc || 0) > 0) {
+        await createClubTx({
+          clubId: rows[0].team_id,
+          amount: 0,
+          type: 'released',
+          category: 'transfer_release',
+          description: `Transfer lock released for declined offer (${Number(rows[0].transfer_fee_stc || 0).toLocaleString()} STC)`,
+          referenceId: contract_id,
+          relatedEntityType: 'player_contract',
+        }).catch(() => {});
+      }
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'rejected' } };
     }
@@ -5200,11 +5272,23 @@ const HANDLERS = {
     // ── cancel_offer ────────────────────────────────────────────────────────
     if (action === 'cancel_offer') {
       if (!contract_id) throw new Error('contract_id required');
+      const rows = await EXECUTESQL('SELECT * FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       await EXECUTESQL(
         "UPDATE player_contracts SET status = 'cancelled', start_date = NULL, end_date = NULL, updated_date = NOW() WHERE id = ?",
         [contract_id]
       );
       await markContractInboxStatus({ contractIds: [contract_id], status: 'cancelled' }).catch(() => {});
+      if (Number(rows[0]?.transfer_fee_stc || 0) > 0) {
+        await createClubTx({
+          clubId: rows[0].team_id,
+          amount: 0,
+          type: 'released',
+          category: 'transfer_release',
+          description: `Transfer lock released for cancelled offer (${Number(rows[0].transfer_fee_stc || 0).toLocaleString()} STC)`,
+          referenceId: contract_id,
+          relatedEntityType: 'player_contract',
+        }).catch(() => {});
+      }
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       return { success: true, data: { contract: updated[0], status: 'cancelled' } };
     }
@@ -5233,17 +5317,15 @@ const HANDLERS = {
           throw err;
         }
 
-        const salary = Number(contract.weekly_salary_stc || 0);
-        if (salary > 0) {
-          const wageBudget = Number(club.wage_budget_stc || 0);
-          const committedRows = await query(
-            "SELECT COALESCE(SUM(weekly_salary_stc),0) as total FROM player_contracts WHERE team_id = ? AND status = 'active' AND id != ?",
-            [contract.team_id, contract_id]
-          );
-          const committed = Number(committedRows[0]?.total || 0);
-          if (committed + salary > wageBudget) {
-            throw new Error(`Insufficient wage budget. Available: ${(wageBudget - committed).toLocaleString()} STC/wk, Required: ${salary.toLocaleString()} STC/wk`);
-          }
+        if (contract.contract_type !== 'ownership') {
+          await assertClubContractFinance({
+            clubId: contract.team_id,
+            weeklySalary: contract.weekly_salary_stc,
+            signingBonus: contract.signing_bonus_stc,
+            transferFee: contract.transfer_fee_stc,
+            excludeContractId: contract_id,
+            query,
+          });
         }
 
         const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
@@ -5253,6 +5335,18 @@ const HANDLERS = {
         );
         await closeAcceptedContractConflicts({ acceptedContract: contract, query });
         await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted', query });
+        const transferFee = Number(contract.transfer_fee_stc || 0);
+        if (transferFee > 0) {
+          await recordClubTransaction(query, {
+            clubId: contract.team_id,
+            amount: -transferFee,
+            type: 'expense',
+            category: 'transfer_spending',
+            description: `Transfer fee paid for ${player.gamertag || 'player'}`,
+            referenceId: contract_id,
+            relatedEntityType: 'player_contract',
+          });
+        }
 
         const roles = parseMaybeJson(player.club_roles, []);
         const isSameClub = player.club_id && player.club_id === contract.team_id;
@@ -5711,11 +5805,8 @@ const HANDLERS = {
       const awayClub = awayRows[0];
       if (homeClub && awayClub) {
         const stadiumLevel = Number(homeClub.stadium_level || 0);
-        const stadiums = [{ capacity: 20000, ticket_price: 40 }, { capacity: 45000, ticket_price: 55 }, { capacity: 80000, ticket_price: 75 }];
-        const st = stadiums[Math.min(Math.max(stadiumLevel, 0), 2)];
-        const ticketRevenue = st.capacity * st.ticket_price;
-        const transferAdd = Math.floor(ticketRevenue * 0.10);
-        const wageAdd = Math.floor(ticketRevenue * 0.05);
+        const st = getStadiumFinanceTier(stadiumLevel);
+        const ticketRevenue = Number(st.capacity || 5000) * Number(st.ticket_price_stc || 15);
 
         const hWins = Number(homeClub.wins || 0) + (homeResult === 'win' ? 1 : 0);
         const hLoss = Number(homeClub.losses || 0) + (homeResult === 'loss' ? 1 : 0);
@@ -5727,7 +5818,7 @@ const HANDLERS = {
         await EXECUTESQL(
           `UPDATE clubs SET
             wins=?, losses=?, draws=?, goals_scored=?, goals_conceded=?, matches_ranked=?,
-            win_streak=?, loss_streak=?, form=?, stc=?, transfer_budget_stc=?, wage_budget_stc=?, updated_date=NOW()
+            win_streak=?, loss_streak=?, form=?, stc=?, updated_date=NOW()
            WHERE id=?`,
           [
             hWins, hLoss, hDraw,
@@ -5737,8 +5828,6 @@ const HANDLERS = {
             homeResult === 'loss' ? Number(homeClub.loss_streak || 0) + 1 : 0,
             JSON.stringify([...(parseMaybeJson(homeClub.form, [])), homeResult[0].toUpperCase()].slice(-5)),
             Number(homeClub.stc || 0) + ticketRevenue,
-            Number(homeClub.transfer_budget_stc || 0) + transferAdd,
-            Number(homeClub.wage_budget_stc || 0) + wageAdd,
             homeClub.id,
           ]
         );
@@ -5758,9 +5847,9 @@ const HANDLERS = {
           ]
         );
         await EXECUTESQL(
-          `INSERT INTO stc_transactions (id, club_id, amount, type, description, reference_id, created_date)
-           VALUES (?, ?, ?, 'ticket_revenue', ?, ?, NOW())`,
-          [uuidv4(), homeClub.id, ticketRevenue, `Ticket sales for match ${matchId}`, matchId]
+          `INSERT INTO stc_transactions (id, club_id, amount, balance_after, type, category, description, related_entity_type, related_entity_id, reference_id, created_date)
+           VALUES (?, ?, ?, ?, 'income', 'ticket_revenue', ?, 'match', ?, ?, NOW())`,
+          [uuidv4(), homeClub.id, ticketRevenue, Number(homeClub.stc || 0) + ticketRevenue, `Ticket sales for match ${matchId}`, matchId, matchId]
         ).catch(() => {});
       }
     }
@@ -6634,7 +6723,11 @@ const HANDLERS = {
     throw new Error(`Unknown wagerManagement action: ${action}`);
   },
 
-  async stadiumManagement({ _auth_user_id, action, level, capacity, ticket_price_stc, upgrade_cost_stc, description, club_id, stadium_level, stadium_name, amount, note }) {
+  async stadiumManagement({
+    _auth_user_id, action, level, capacity, ticket_price_stc, upgrade_cost_stc,
+    max_wage_budget_stc, max_transfer_budget_stc, monthly_maintenance_stc,
+    description, club_id, stadium_level, stadium_name, amount, note,
+  }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const admins = await EXECUTESQL('SELECT id FROM users WHERE id = ? AND role_id = 0 LIMIT 1', [_auth_user_id]);
     if (!admins.length) throw new Error('Admin access required');
@@ -6651,6 +6744,9 @@ const HANDLERS = {
       if (capacity        != null) { updates.push('capacity = ?');         vals.push(Number(capacity)); }
       if (ticket_price_stc!= null) { updates.push('ticket_price_stc = ?'); vals.push(Number(ticket_price_stc)); }
       if (upgrade_cost_stc!= null) { updates.push('upgrade_cost_stc = ?'); vals.push(Number(upgrade_cost_stc)); }
+      if (max_wage_budget_stc != null) { updates.push('max_wage_budget_stc = ?'); vals.push(Number(max_wage_budget_stc)); }
+      if (max_transfer_budget_stc != null) { updates.push('max_transfer_budget_stc = ?'); vals.push(Number(max_transfer_budget_stc)); }
+      if (monthly_maintenance_stc != null) { updates.push('monthly_maintenance_stc = ?'); vals.push(Number(monthly_maintenance_stc)); }
       if (description     != null) { updates.push('description = ?');      vals.push(String(description)); }
       if (!updates.length) throw new Error('Nothing to update');
       vals.push(Number(level));
@@ -6666,6 +6762,13 @@ const HANDLERS = {
       if (stadium_level != null) { sets.push('stadium_level = ?');    vals.push(Number(stadium_level)); }
       if (stadium_name  != null) { sets.push('stadium_name = ?');     vals.push(String(stadium_name)); }
       if (capacity      != null) { sets.push('stadium_capacity = ?'); vals.push(Number(capacity)); }
+      if (stadium_level != null) {
+        const tier = getStadiumFinanceTier(stadium_level);
+        sets.push('wage_budget_stc = ?');
+        vals.push(Number(tier.max_wage_budget_stc));
+        sets.push('transfer_budget_stc = ?');
+        vals.push(Number(tier.max_transfer_budget_stc));
+      }
       if (!sets.length) throw new Error('Nothing to update');
       vals.push(club_id);
       await EXECUTESQL(`UPDATE clubs SET ${sets.join(', ')}, updated_date = NOW() WHERE id = ?`, vals);
@@ -6681,6 +6784,7 @@ const HANDLERS = {
         category: 'ticket_revenue',
         description: note ? `Admin revenue correction: ${note}` : 'Admin ticket revenue correction',
         referenceId: club_id,
+        relatedEntityType: 'club',
       });
       return { success: true };
     }
@@ -6700,10 +6804,17 @@ const HANDLERS = {
         type: 'stadium_upgrade', category: 'stadium_upgrade',
         description: `Stadium upgraded to ${next.name}`,
         referenceId: club_id,
+        relatedEntityType: 'club',
       });
       await EXECUTESQL(
-        'UPDATE clubs SET stadium_level = ?, stadium_capacity = ?, updated_date = NOW() WHERE id = ?',
-        [currentLevel + 1, Number(next.capacity), club_id]
+        'UPDATE clubs SET stadium_level = ?, stadium_capacity = ?, wage_budget_stc = ?, transfer_budget_stc = ?, updated_date = NOW() WHERE id = ?',
+        [
+          currentLevel + 1,
+          Number(next.capacity),
+          Number(next.max_wage_budget_stc || getStadiumFinanceTier(currentLevel + 1).max_wage_budget_stc),
+          Number(next.max_transfer_budget_stc || getStadiumFinanceTier(currentLevel + 1).max_transfer_budget_stc),
+          club_id,
+        ]
       );
       _stadiumConfigCache = null;
       return { success: true, data: { new_level: currentLevel + 1, new_capacity: next.capacity, name: next.name } };
@@ -7335,7 +7446,7 @@ const HANDLERS = {
       const limit = 25;
       const offset = (pageNum - 1) * limit;
 
-      const [contracts, transactions, countRows, summaryRows] = await Promise.all([
+      const [contracts, transactions, countRows, summaryRows, usage] = await Promise.all([
         EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE team_id = ? AND status = 'active' ORDER BY created_date DESC", [cid]),
         EXECUTESQL('SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY created_date DESC LIMIT ? OFFSET ?', [cid, limit, offset]),
         EXECUTESQL('SELECT COUNT(*) as total FROM stc_transactions WHERE club_id = ?', [cid]),
@@ -7346,16 +7457,25 @@ const HANDLERS = {
            FROM stc_transactions WHERE club_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
           [cid]
         ),
+        getClubFinanceUsage(cid),
       ]);
 
-      const weeklyWages = contracts.reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
       return {
         success: true,
         data: {
-          balance:         Number(club.stc || 0),
-          transfer_budget: Number(club.transfer_budget_stc || 0),
-          wage_budget:     Number(club.wage_budget_stc || 0),
-          weekly_wages:    weeklyWages,
+          balance:         usage.balance_stc,
+          transfer_budget: usage.transfer_budget_stc,
+          wage_budget:     usage.wage_budget_stc,
+          weekly_wages:    usage.active_weekly_wages_stc,
+          pending_weekly_wages: usage.pending_weekly_wages_stc,
+          committed_weekly_wages: usage.committed_weekly_wages_stc,
+          wage_room: usage.wage_room_stc,
+          transfer_locked: usage.transfer_locked_stc,
+          transfer_remaining: usage.transfer_budget_remaining_stc,
+          available_balance: usage.available_balance_stc,
+          monthly_operating_cost_estimate: usage.monthly_operating_cost_estimate_stc,
+          stadium_tier: usage.tier,
+          stadium_capacity: Number(club.stadium_capacity || usage.tier.capacity || 5000),
           contracts,
           transactions,
           total_transactions: Number(countRows[0]?.total || 0),
@@ -7366,29 +7486,7 @@ const HANDLERS = {
     }
 
     if (action === 'adjust_budgets') {
-      const { user } = await getMe(_auth_user_id);
-      const targetClubId = params.target_club_id || club_id;
-      if (!targetClubId) throw new Error('club_id required');
-      const access = await requireClubFunctionAccess(user, targetClubId, 'manage_finances', 'Only the club president or finance staff can adjust budgets');
-      const club = access.club;
-
-      const newTransfer = Number(params.transfer_budget);
-      const newWage     = Number(params.wage_budget);
-      const currentTotal = Number(club.transfer_budget_stc || 0) + Number(club.wage_budget_stc || 0);
-
-      if (Math.abs(newTransfer + newWage - currentTotal) > 100) throw new Error('Budget total must not change');
-      if (newTransfer < 0 || newWage < 0) throw new Error('Budgets cannot be negative');
-
-      const weeklyCheck = await EXECUTESQL(
-        "SELECT SUM(weekly_salary_stc) as total FROM player_contracts WHERE team_id = ? AND status = 'active'", [targetClubId]
-      );
-      const committedWages = Number(weeklyCheck[0]?.total || 0);
-      if (newWage < committedWages) throw new Error(`Wage budget cannot fall below committed weekly wages (${committedWages.toLocaleString()} STC/wk)`);
-
-      await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = ?, wage_budget_stc = ?, updated_date = NOW() WHERE id = ?',
-        [newTransfer, newWage, targetClubId]);
-
-      return { success: true, data: { transfer_budget: newTransfer, wage_budget: newWage } };
+      throw new Error('Finance caps are linked to stadium level. Upgrade stadium or ask an admin for an audited override.');
     }
 
     if (action === 'admin_adjust') {
@@ -7412,6 +7510,14 @@ const HANDLERS = {
         }
       }
 
+      const allowOverride = Boolean(note || params.reason || params.override_reason);
+      await assertClubFinanceWithinTier({
+        stadiumLevel: club.stadium_level,
+        wageBudget: set_wage_budget ?? club.wage_budget_stc,
+        transferBudget: set_transfer_budget ?? club.transfer_budget_stc,
+        allowOverride,
+      });
+
       const updates = [];
       const vals = [];
       if (set_transfer_budget != null) { updates.push('transfer_budget_stc = ?'); vals.push(Number(set_transfer_budget)); }
@@ -7422,6 +7528,101 @@ const HANDLERS = {
       }
 
       return { success: true };
+    }
+
+    if (action === 'apply_monthly_operating_costs') {
+      const adminCheck = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      const targetClubId = params.target_club_id || club_id;
+      const clubs = targetClubId
+        ? await EXECUTESQL('SELECT id, name FROM clubs WHERE id = ? LIMIT 1', [targetClubId])
+        : await EXECUTESQL("SELECT id, name FROM clubs WHERE status <> 'deleted'");
+      let applied = 0;
+      for (const target of clubs) {
+        const usage = await getClubFinanceUsage(target.id);
+        const amount = -Math.max(0, Number(usage.monthly_operating_cost_estimate_stc || 0));
+        if (!amount) continue;
+        await createClubTx({
+          clubId: target.id,
+          amount,
+          type: 'expense',
+          category: 'operating_costs',
+          description: `Monthly operating costs: wages + ${usage.tier.name} maintenance`,
+          referenceId: target.id,
+          relatedEntityType: 'club',
+          relatedEntityId: target.id,
+        });
+        if (usage.balance_stc + amount < 0) {
+          await EXECUTESQL("UPDATE clubs SET finance_warning = 'negative_balance', updated_date = NOW() WHERE id = ?", [target.id]).catch(() => {});
+        }
+        applied += 1;
+      }
+      await createAuditLog({
+        adminUserId: _auth_user_id,
+        adminEmail: adminCheck[0].email,
+        action: 'apply_club_monthly_operating_costs',
+        entityType: targetClubId ? 'club' : 'club_bulk',
+        entityId: targetClubId || 'all',
+        oldValue: null,
+        newValue: JSON.stringify({ applied }),
+        reason: params.reason || 'Applied monthly club operating costs',
+      });
+      return { success: true, data: { applied, count: applied } };
+    }
+
+    if (action === 'rebalance_starter_club' || action === 'rebalance_all_starter_clubs') {
+      const adminCheck = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+      if (!adminCheck.length || Number(adminCheck[0].role_id) !== 0) throw new Error('Admin only');
+      const where = action === 'rebalance_starter_club'
+        ? 'WHERE id = ?'
+        : `WHERE COALESCE(wins,0)=0 AND COALESCE(losses,0)=0 AND COALESCE(draws,0)=0
+             AND COALESCE(matches_ranked,0)=0
+             AND COALESCE(stc,0) >= 25000000`;
+      const clubs = await EXECUTESQL(`SELECT * FROM clubs ${where}`, action === 'rebalance_starter_club' ? [club_id || params.target_club_id] : []);
+      let updated = 0;
+      for (const target of clubs) {
+        await EXECUTESQL(
+          `UPDATE clubs
+           SET stc = ?, wage_budget_stc = ?, transfer_budget_stc = ?, transfer_locked_stc = 0,
+               stadium_level = ?, stadium_capacity = ?, finance_warning = NULL, updated_date = NOW()
+           WHERE id = ?`,
+          [
+            STARTER_CLUB_FINANCE.balance_stc,
+            STARTER_CLUB_FINANCE.wage_budget_stc,
+            STARTER_CLUB_FINANCE.transfer_budget_stc,
+            STARTER_CLUB_FINANCE.stadium_level,
+            STARTER_CLUB_FINANCE.stadium_capacity,
+            target.id,
+          ]
+        );
+        await EXECUTESQL(
+          `INSERT INTO stc_transactions
+           (id, club_id, amount, balance_after, type, category, description, related_entity_type, related_entity_id, reference_id, created_date)
+           VALUES (?, ?, ?, ?, 'adjustment', 'starter_rebalance', ?, 'club', ?, ?, NOW())`,
+          [
+            uuidv4(),
+            target.id,
+            STARTER_CLUB_FINANCE.balance_stc - Number(target.stc || 0),
+            STARTER_CLUB_FINANCE.balance_stc,
+            'Admin starter finance rebalance',
+            target.id,
+            target.id,
+          ]
+        ).catch(() => {});
+        await createAuditLog({
+          adminUserId: _auth_user_id,
+          adminEmail: adminCheck[0].email,
+          action: 'rebalance_club_finance',
+          entityType: 'club',
+          entityId: target.id,
+          entityName: target.name,
+          oldValue: JSON.stringify({ stc: target.stc, wage_budget_stc: target.wage_budget_stc, transfer_budget_stc: target.transfer_budget_stc, stadium_level: target.stadium_level }),
+          newValue: JSON.stringify(STARTER_CLUB_FINANCE),
+          reason: params.reason || 'Starter club finance rebalance',
+        });
+        updated += 1;
+      }
+      return { success: true, data: { updated, count: updated } };
     }
 
     if (action === 'delete_transaction') {
@@ -7868,29 +8069,36 @@ const HANDLERS = {
       const clubs = await EXECUTESQL('SELECT * FROM clubs WHERE id = ? LIMIT 1', [club_id]);
       if (!clubs.length) throw new Error('Club not found');
       const c = clubs[0];
-      const [txs, contracts, wagers] = await Promise.all([
+      const [txs, contracts, wagers, usage] = await Promise.all([
         EXECUTESQL(
           'SELECT * FROM stc_transactions WHERE club_id = ? ORDER BY created_date DESC LIMIT 50',
           [club_id]
         ),
         EXECUTESQL(
-          "SELECT pc.*, p.gamertag FROM player_contracts pc LEFT JOIN players p ON p.id = pc.user_id WHERE pc.club_id = ? AND pc.status = 'active' ORDER BY pc.weekly_salary_stc DESC LIMIT 20",
+          "SELECT pc.*, p.gamertag FROM player_contracts pc LEFT JOIN players p ON p.id = COALESCE(pc.user_id, pc.player_id) WHERE COALESCE(pc.club_id, pc.team_id) = ? AND pc.status = 'active' ORDER BY pc.weekly_salary_stc DESC LIMIT 20",
           [club_id]
         ),
         EXECUTESQL(
           "SELECT * FROM matches WHERE (home_club_id = ? OR away_club_id = ?) AND wager_stc > 0 ORDER BY updated_date DESC LIMIT 10",
           [club_id, club_id]
         ),
+        getClubFinanceUsage(club_id),
       ]);
-      return { data: { club: c, transactions: txs, contracts, wagers } };
+      return { data: { club: c, transactions: txs, contracts, wagers, usage } };
     }
 
     // ── set_club_finance ───────────────────────────────────────────────────
     if (action === 'set_club_finance') {
       if (!club_id) throw new Error('club_id required');
-      const rows = await EXECUTESQL('SELECT id, name, stc, transfer_budget_stc, wage_budget_stc FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      const rows = await EXECUTESQL('SELECT id, name, stc, transfer_budget_stc, wage_budget_stc, stadium_level FROM clubs WHERE id = ? LIMIT 1', [club_id]);
       if (!rows.length) throw new Error('Club not found');
       const old = rows[0];
+      await assertClubFinanceWithinTier({
+        stadiumLevel: old.stadium_level,
+        wageBudget: wage_budget ?? old.wage_budget_stc,
+        transferBudget: transfer_budget ?? old.transfer_budget_stc,
+        allowOverride: Boolean(reason),
+      });
       const sets = [];
       const vals = [];
       const changes = {};
@@ -7904,9 +8112,9 @@ const HANDLERS = {
         const diff = Number(balance) - Number(old.stc || 0);
         const txId = uuidv4();
         await EXECUTESQL(
-          `INSERT INTO stc_transactions (id, club_id, amount, balance_after, type, category, description, created_date)
-           VALUES (?, ?, ?, ?, 'admin_correction', 'admin_correction', ?, NOW())`,
-          [txId, club_id, diff, Number(balance), reason || 'Admin balance correction']
+          `INSERT INTO stc_transactions (id, club_id, amount, balance_after, type, category, description, related_entity_type, related_entity_id, created_date)
+           VALUES (?, ?, ?, ?, 'adjustment', 'admin_correction', ?, 'club', ?, NOW())`,
+          [txId, club_id, diff, Number(balance), reason || 'Admin balance correction', club_id]
         );
       }
       await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'set_club_finance', entityType: 'club', entityId: club_id, entityName: old.name, oldValue: JSON.stringify({ stc: old.stc, transfer_budget_stc: old.transfer_budget_stc, wage_budget_stc: old.wage_budget_stc }), newValue: JSON.stringify(changes), reason });
@@ -8061,6 +8269,7 @@ const HANDLERS = {
         type: 'competition_prize', category: 'competition_reward',
         description: description || reason || `Competition reward`,
         referenceId: competition_id || null,
+        relatedEntityType: competition_id ? 'competition' : 'admin',
       });
       await createAuditLog({ adminUserId: _auth_user_id, adminEmail, action: 'distribute_competition_reward', entityType: 'club', entityId: club_id, entityName: rows[0].name, oldValue: Number(rows[0].stc || 0), newValue: result.new_balance, reason: description || reason });
       return { success: true, data: result };
@@ -8303,7 +8512,7 @@ const HANDLERS = {
         return { assertions: [`✓ P1 restored to ${START.toLocaleString()} STC`, `✓ P2 restored to ${START.toLocaleString()} STC`, '✓ wager_refund txs recorded for both'] };
       }),
 
-      ticket_revenue: () => runTest('ticket_revenue', 'Home match revenue: correct attendance calc, club credited, 15% to transfer budget, idempotency guard, match fields updated', async (add) => {
+      ticket_revenue: () => runTest('ticket_revenue', 'Home match revenue: correct attendance calc, club credited, transfer cap unchanged, idempotency guard, match fields updated', async (add) => {
         const cid = uuidv4(), mid = uuidv4();
         const WINS = 5, LOSSES = 1, STREAK = 3, START = 5000000;
         const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'tr' });
@@ -8321,21 +8530,19 @@ const HANDLERS = {
         const pct = calcAttendancePct(WINS, LOSSES, STREAK);
         const attendance = Math.round(lvl.capacity * pct / 100);
         const revenue = attendance * Number(lvl.ticket_price_stc);
-        const cut = Math.round(revenue * 0.15);
 
         // Idempotency guard check (no existing tx)
         const prior = await EXECUTESQL("SELECT id FROM stc_transactions WHERE club_id=? AND category='ticket_revenue' AND reference_id=? LIMIT 1", [cid, mid]);
         assert(prior.length === 0, 'Pre-condition: no prior ticket_revenue tx');
 
         await createClubTx({ clubId: cid, amount: revenue, type: 'income', category: 'ticket_revenue', description: `Test tickets (${attendance} fans @ ${lvl.ticket_price_stc} STC)`, referenceId: mid });
-        await EXECUTESQL('UPDATE clubs SET transfer_budget_stc = transfer_budget_stc + ? WHERE id=?', [cut, cid]);
         await EXECUTESQL('UPDATE matches SET home_ticket_revenue=?,home_ticket_attendance=?,home_ticket_pct=?,home_ticket_capacity=?,home_ticket_price=? WHERE id=?',
           [revenue, attendance, pct, lvl.capacity, lvl.ticket_price_stc, mid]);
 
         const [c] = await EXECUTESQL('SELECT stc, transfer_budget_stc FROM clubs WHERE id=?', [cid]);
         const [m] = await EXECUTESQL('SELECT home_ticket_revenue, home_ticket_attendance, home_ticket_pct FROM matches WHERE id=?', [mid]);
         assert(Number(c.stc) === START + revenue, `Club balance mismatch`);
-        assert(Number(c.transfer_budget_stc) === cut, `Transfer budget cut mismatch`);
+        assert(Number(c.transfer_budget_stc) === 0, `Transfer budget should remain unchanged`);
         assert(Number(m.home_ticket_revenue) === revenue, `Match revenue field mismatch`);
         assert(Number(m.home_ticket_attendance) === attendance, `Match attendance field mismatch`);
 
@@ -8346,7 +8553,7 @@ const HANDLERS = {
         const guard = await EXECUTESQL("SELECT id FROM stc_transactions WHERE club_id=? AND category='ticket_revenue' AND reference_id=? LIMIT 1", [cid, mid]);
         assert(guard.length === 1, 'Idempotency: tx exists → second run would be skipped');
 
-        return { assertions: [`✓ Attendance: ${pct}% of ${lvl.capacity.toLocaleString()} = ${attendance.toLocaleString()} fans`, `✓ Revenue: ${revenue.toLocaleString()} STC`, `✓ Club balance: +${revenue.toLocaleString()} STC`, `✓ Transfer budget: +${cut.toLocaleString()} STC (15%)`, '✓ Match fields updated', '✓ Idempotency guard confirmed'] };
+        return { assertions: [`✓ Attendance: ${pct}% of ${lvl.capacity.toLocaleString()} = ${attendance.toLocaleString()} fans`, `✓ Revenue: ${revenue.toLocaleString()} STC`, `✓ Club balance: +${revenue.toLocaleString()} STC`, '✓ Transfer cap unchanged', '✓ Match fields updated', '✓ Idempotency guard confirmed'] };
       }),
 
       shirt_sales_revenue: () => runTest('shirt_sales_revenue', 'Shirt sales: club receives revenue, shirt_revenue tx recorded', async (add) => {
@@ -8402,7 +8609,7 @@ const HANDLERS = {
         return { assertions: [`✓ Balance: ${START.toLocaleString()} → ${(START-FEE).toLocaleString()} (-${FEE.toLocaleString()})`, `✓ Transfer budget: ${BUDGET.toLocaleString()} → ${(BUDGET-FEE).toLocaleString()}`, '✓ transfer_fee tx recorded'] };
       }),
 
-      wage_budget_change: () => runTest('wage_budget_change', 'Wage budget tracks contracted salaries: increases on sign, decreases on expiry', async (add) => {
+      wage_budget_change: () => runTest('wage_budget_change', 'Wage budget is a weekly cap and does not move when contracts change', async (add) => {
         const cid = uuidv4();
         const SALARY = 25000, BUDGET = 1000000;
         const president = await createTemporaryClubPresident({ EXECUTESQL, addCleanup: add, clubId: cid, emailPrefix: 'wb' });
@@ -8410,13 +8617,11 @@ const HANDLERS = {
           [cid, `__TEST__wb_${cid.slice(0,6)}`, 'TWB', president.presidentUserId, president.presidentUserId, president.presidentEmail, BUDGET]);
         add(() => EXECUTESQL('DELETE FROM clubs WHERE id=?', [cid]));
         await linkTemporaryClubPresident({ EXECUTESQL, presidentUserId: president.presidentUserId, clubId: cid });
-        await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc + ? WHERE id=?', [SALARY, cid]);
         const [after] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);
-        assert(Number(after.wage_budget_stc) === BUDGET + SALARY, `After contract: expected ${BUDGET+SALARY}, got ${after.wage_budget_stc}`);
-        await EXECUTESQL('UPDATE clubs SET wage_budget_stc = wage_budget_stc - ? WHERE id=?', [SALARY, cid]);
+        assert(Number(after.wage_budget_stc) === BUDGET, `After contract: expected cap ${BUDGET}, got ${after.wage_budget_stc}`);
         const [final] = await EXECUTESQL('SELECT wage_budget_stc FROM clubs WHERE id=?', [cid]);
         assert(Number(final.wage_budget_stc) === BUDGET, `After expiry: expected ${BUDGET}, got ${final.wage_budget_stc}`);
-        return { assertions: [`✓ Wage budget +${SALARY.toLocaleString()} on contract sign`, `✓ Wage budget -${SALARY.toLocaleString()} on expiry`, `✓ Restored to: ${BUDGET.toLocaleString()} STC`] };
+        return { assertions: [`✓ Contract salary ${SALARY.toLocaleString()} STC/week does not alter the cap`, `✓ Wage cap remains: ${BUDGET.toLocaleString()} STC/week`] };
       }),
     };
 

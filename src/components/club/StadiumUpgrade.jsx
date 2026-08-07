@@ -88,6 +88,18 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadTicketPrice')}</p>
             <p className="font-light text-success text-lg">{current.ticket_price_stc} STC</p>
           </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Weekly wage cap</p>
+            <p className="font-light text-warning text-lg">{formatSTC(current.max_wage_budget_stc)}/wk</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer cap</p>
+            <p className="font-light text-primary text-lg">{formatSTC(current.max_transfer_budget_stc)}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Monthly maintenance</p>
+            <p className="font-light text-destructive text-lg">{formatSTC(current.monthly_maintenance_stc)}</p>
+          </div>
         </div>
         {/* Ticket Revenue */}
         <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
@@ -116,11 +128,29 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
             <div className="flex-1">
               <p className={cn("font-bold text-base", next.color)}>{next.name}</p>
               <p className="text-xs text-muted-foreground">{next.description}</p>
-              <div className="flex gap-4 mt-1.5">
+              <div className="flex gap-4 mt-1.5 flex-wrap">
                 <span className="text-xs text-muted-foreground">{t('commonPages.stadCapacity')}: <span className="text-foreground font-medium">{next.capacity.toLocaleString()}</span></span>
                 <span className="text-xs text-muted-foreground">{t('commonPages.stadRevenueMatch')}: <span className="text-success font-medium">{formatSTC(next.capacity * next.ticket_price_stc)}</span></span>
+                <span className="text-xs text-muted-foreground">Wage cap: <span className="text-warning font-medium">{formatSTC(next.max_wage_budget_stc)}/wk</span></span>
+                <span className="text-xs text-muted-foreground">Transfer cap: <span className="text-primary font-medium">{formatSTC(next.max_transfer_budget_stc)}</span></span>
+                <span className="text-xs text-muted-foreground">Maintenance: <span className="text-destructive font-medium">{formatSTC(next.monthly_maintenance_stc)}/mo</span></span>
               </div>
             </div>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-2 text-xs">
+            {[
+              { label: 'Capacity', from: current.capacity.toLocaleString(), to: next.capacity.toLocaleString(), color: 'text-foreground' },
+              { label: 'Wage cap', from: `${formatSTC(current.max_wage_budget_stc)}/wk`, to: `${formatSTC(next.max_wage_budget_stc)}/wk`, color: 'text-warning' },
+              { label: 'Transfer cap', from: formatSTC(current.max_transfer_budget_stc), to: formatSTC(next.max_transfer_budget_stc), color: 'text-primary' },
+              { label: 'Maintenance', from: `${formatSTC(current.monthly_maintenance_stc)}/mo`, to: `${formatSTC(next.monthly_maintenance_stc)}/mo`, color: 'text-destructive' },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl bg-secondary/50 border border-border px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                <p className="text-muted-foreground">{item.from}</p>
+                <p className={cn("font-bold", item.color)}>→ {item.to}</p>
+              </div>
+            ))}
           </div>
 
           <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-4 py-3">
@@ -179,7 +209,9 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
               <span className="text-base shrink-0">{lvl.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className={cn("text-xs font-bold", i <= currentLevel ? lvl.color : "text-muted-foreground")}>{lvl.name} <span className="font-normal opacity-60">Lv {i + 1}</span></p>
-                <p className="text-[10px] text-muted-foreground">{lvl.capacity.toLocaleString()} capacity · {formatSTC(lvl.capacity * lvl.ticket_price_stc)}/match ({lvl.ticket_price_stc} STC/ticket)</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {lvl.capacity.toLocaleString()} capacity · {formatSTC(lvl.capacity * lvl.ticket_price_stc)}/match · {formatSTC(lvl.max_wage_budget_stc)}/wk cap · {formatSTC(lvl.monthly_maintenance_stc)}/mo upkeep
+                </p>
               </div>
               <div className="text-right shrink-0">
                 {i === 0 ? (

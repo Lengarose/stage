@@ -194,6 +194,20 @@ export default function AdminEconomyPanel() {
     setBusy(false);
   }
 
+  async function runClubFinanceAction(action, successText) {
+    setBusy(true);
+    try {
+      const res = await stageClient.functions.invoke('clubFinance', {
+        action,
+        ...(cData?.club?.id ? { club_id: cData.club.id } : {}),
+      });
+      const count = res?.data?.count ?? res?.data?.results?.length;
+      flash('success', `${successText}${count != null ? ` (${count})` : ''} ✓`);
+      if (cData?.club?.id) lookupClub();
+    } catch (err) { flash('error', err?.message || 'Failed'); }
+    setBusy(false);
+  }
+
   // ── Transaction Search state ──────────────────────────────────────────────
   const [txMode, setTxMode]     = useState('player'); // player | club
   const [txPId, setTxPId]       = useState('');
@@ -466,11 +480,12 @@ export default function AdminEconomyPanel() {
                           <p className="text-xs text-muted-foreground">{cData.club.platform} · {cData.club.region}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 border-t border-border pt-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border pt-3">
                         {[
                           { label: 'Balance', value: fmtStc(cData.club.stc), color: 'text-success' },
-                          { label: 'Transfer Budget', value: fmtStc(cData.club.transfer_budget_stc), color: 'text-primary' },
-                          { label: 'Wage Budget', value: fmtStc(cData.club.wage_budget_stc), color: 'text-warning' },
+                          { label: 'Transfer Cap', value: fmtStc(cData.club.transfer_budget_stc), color: 'text-primary' },
+                          { label: 'Wage Cap', value: `${fmtStc(cData.club.wage_budget_stc)}/wk`, color: 'text-warning' },
+                          { label: 'Stadium', value: cData.usage?.stadium_tier?.name || 'Local Ground', color: 'text-cyan-300' },
                         ].map(f => (
                           <div key={f.label}>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{f.label}</p>
@@ -483,6 +498,40 @@ export default function AdminEconomyPanel() {
                           {cData.contracts.length} active contract{cData.contracts.length !== 1 ? 's' : ''} · total wages: {fmtStc(cData.contracts.reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0))}/wk
                         </p>
                       )}
+                      {cData.usage && (
+                        <div className="grid md:grid-cols-3 gap-2 border-t border-border pt-3 text-xs">
+                          <div className="rounded-lg bg-card border border-border p-2">
+                            <p className="text-muted-foreground uppercase tracking-wider text-[10px]">Wage usage</p>
+                            <p className="text-warning font-bold">{fmtStc(cData.usage.committed_weekly_wages_stc)} / {fmtStc(cData.usage.wage_budget_stc)} weekly</p>
+                            <p className="text-muted-foreground">Room: {fmtStc(cData.usage.wage_room_stc)}</p>
+                          </div>
+                          <div className="rounded-lg bg-card border border-border p-2">
+                            <p className="text-muted-foreground uppercase tracking-wider text-[10px]">Transfer room</p>
+                            <p className="text-primary font-bold">{fmtStc(cData.usage.transfer_remaining_stc)} remaining</p>
+                            <p className="text-muted-foreground">Locked: {fmtStc(cData.usage.transfer_locked_stc)}</p>
+                          </div>
+                          <div className="rounded-lg bg-card border border-border p-2">
+                            <p className="text-muted-foreground uppercase tracking-wider text-[10px]">Monthly costs</p>
+                            <p className="text-destructive font-bold">{fmtStc(cData.usage.monthly_operating_cost_estimate_stc)}</p>
+                            <p className="text-muted-foreground">{Number(cData.usage.stadium_capacity || 0).toLocaleString()} capacity</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Finance Controls</p>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button size="sm" onClick={() => runClubFinanceAction('rebalance_starter_club', 'Starter club rebalanced')} disabled={busy || !cData?.club?.id} className="text-xs bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30">
+                          Rebalance Starter Club
+                        </Button>
+                        <Button size="sm" onClick={() => runClubFinanceAction('apply_monthly_operating_costs', 'Monthly costs applied')} disabled={busy || !cData?.club?.id} className="text-xs bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20">
+                          Apply Monthly Costs
+                        </Button>
+                        <Button size="sm" onClick={() => runClubFinanceAction('rebalance_all_starter_clubs', 'Starter clubs rebalanced')} disabled={busy} className="text-xs bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">
+                          Rebalance All Starter Clubs
+                        </Button>
+                      </div>
                     </div>
 
                     <div>

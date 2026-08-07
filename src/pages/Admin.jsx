@@ -1464,17 +1464,10 @@ export default function Admin(props) {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      const allClubs = await stageClient.entities.Club.list(null, 500);
-      let updated = 0;
-      for (const club of allClubs) {
-        await stageClient.entities.Club.update(club.id, {
-          stc: (club.stc || 0) + 20_000_000,
-          transfer_budget_stc: (club.transfer_budget_stc || 0) + 5_000_000,
-          wage_budget_stc: (club.wage_budget_stc || 0) + 4_000_000,
-        });
-        updated++;
-      }
-      setMigrateResult({ success: true, count: updated });
+      const res = await stageClient.functions.invoke("clubFinance", {
+        action: "rebalance_all_starter_clubs",
+      });
+      setMigrateResult({ success: true, count: res?.data?.count || 0 });
     } catch (err) {
       setMigrateResult({ success: false, error: err?.message });
     } finally {

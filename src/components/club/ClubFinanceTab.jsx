@@ -11,7 +11,6 @@ import {
   RefreshCw, DollarSign, Gift, ArrowLeftRight, Ticket, Building2,
   ShoppingBag,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 function buildTxCategories(t) {
   return {
@@ -27,6 +26,11 @@ function buildTxCategories(t) {
     tournament_entry:   { label: t("commonPages.cfinCatTournamentEntry"), color: "text-destructive",  bg: "bg-destructive/10",  border: "border-destructive/20",  icon: Trophy },
     tournament_prize:   { label: t("commonPages.cfinCatTournamentPrize"), color: "text-success",      bg: "bg-success/10",      border: "border-success/20",      icon: Trophy },
     tournament_refund:  { label: t("commonPages.cfinCatTournamentRefund"),color: "text-warning",      bg: "bg-warning/10",      border: "border-warning/20",      icon: Trophy },
+    operating_costs:    { label: "Operating costs", color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20", icon: Building2 },
+    transfer_locked:    { label: "Transfer locked", color: "text-warning", bg: "bg-warning/10", border: "border-warning/20", icon: ArrowLeftRight },
+    transfer_release:   { label: "Transfer released", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20", icon: RefreshCw },
+    transfer_spending:  { label: "Transfer spending", color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20", icon: ArrowLeftRight },
+    starting_balance:   { label: "Starting balance", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20", icon: Building2 },
     adjustment:         { label: t("commonPages.cfinCatAdjustment"),       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
     admin_adjustment:   { label: t("commonPages.cfinCatAdminAdj"),       color: "text-muted-foreground", bg: "bg-secondary", border: "border-border",           icon: SlidersHorizontal },
   };
@@ -57,6 +61,9 @@ function buildCategoryFilters(t) {
     { key: "wager_refund",    label: t("commonPages.cfinFilterRefund") },
     { key: "comp_reward",       label: t("commonPages.cfinCatCompetition") },
     { key: "tournament_entry", label: t("commonPages.cfinFilterTournament") },
+    { key: "tournament_prize", label: t("commonPages.cfinCatTournamentPrize") },
+    { key: "transfer_spending", label: "Transfers" },
+    { key: "operating_costs", label: "Operating costs" },
     { key: "adjustment",       label: t("commonPages.cfinCatAdjustment") },
   ];
 }
@@ -71,96 +78,6 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
       </div>
       <p className={cn("font-light text-xl tracking-tight leading-none", color)}>{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-// ── Budget Slider ──────────────────────────────────────────────────────────
-function BudgetSlider({ transferBudget, wageBudget, weeklyWages, onSave, saving }) {
-  const { t } = useTranslation();
-  const total = transferBudget + wageBudget;
-  const [sliderVal, setSliderVal] = useState(transferBudget);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => { setSliderVal(transferBudget); }, [transferBudget]);
-
-  const newTransfer = Math.round(sliderVal / 100_000) * 100_000;
-  const newWage     = total - newTransfer;
-  const wageUsedPct = newWage > 0 ? Math.min(100, (weeklyWages / newWage) * 100) : 0;
-  const canSave = (newTransfer !== transferBudget || newWage !== wageBudget) && newWage >= weeklyWages;
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-card border border-border rounded-xl hover:border-primary/40 transition-colors group"
-      >
-        <span className="text-xs text-muted-foreground flex items-center gap-2">
-          <SlidersHorizontal className="w-3.5 h-3.5 group-hover:text-primary transition-colors" />
-          {t("commonPages.cfinAdjustBudget")}
-        </span>
-        <span className="text-[10px] text-primary font-medium">{t("commonPages.cfinManage")}</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-foreground flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-primary" /> {t("commonPages.cfinBudgetAllocation")}
-        </p>
-        <button type="button" onClick={() => setOpen(false)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">{t("commonPages.close")}</button>
-      </div>
-
-      <p className="text-[10px] text-muted-foreground">
-        {t("commonPages.cfinTotalBudgetHint", { total: formatSTC(total) })}
-      </p>
-
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs">
-          <span className="text-primary font-medium">{t("commonPages.cfinTransferAmount", { amount: formatSTC(newTransfer) })}</span>
-          <span className="text-warning font-medium">{t("commonPages.cfinWagesAmount", { amount: formatSTC(newWage) })}</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={total}
-          step={100_000}
-          value={sliderVal}
-          onChange={e => setSliderVal(Number(e.target.value))}
-          className="w-full accent-primary"
-        />
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{t("commonPages.cfinSliderMin")}</span>
-          <span>{t("commonPages.cfinSliderMax", { total: formatSTC(total) })}</span>
-        </div>
-      </div>
-
-      {newWage < weeklyWages && (
-        <p className="text-xs text-destructive flex items-center gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {t("commonPages.cfinWageBelowCommitted", { amount: formatSTC(weeklyWages) })}
-        </p>
-      )}
-
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className={cn("rounded-lg p-2 text-center border", wageUsedPct > 90 ? "bg-destructive/10 border-destructive/30" : "bg-secondary border-border")}>
-          <p className="text-muted-foreground text-[10px] mb-0.5">{t("commonPages.cfinWageUsage")}</p>
-          <p className={cn("font-bold", wageUsedPct > 90 ? "text-destructive" : wageUsedPct > 70 ? "text-warning" : "text-success")}>
-            {wageUsedPct.toFixed(0)}%
-          </p>
-        </div>
-        <Button
-          size="sm"
-          disabled={!canSave || saving}
-          onClick={() => onSave(newTransfer, newWage).then(() => setOpen(false))}
-          className="h-full text-xs bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40"
-        >
-          {saving ? t("commonPages.profSaving") : t("commonPages.cfinApplyChanges")}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -214,62 +131,49 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
   const [loading, setLoading] = useState(true);
   const [page, setPage]       = useState(1);
   const [catFilter, setCatFilter] = useState("all");
-  const [sliderSaving, setSliderSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!club?.id) return;
     setLoading(true);
     try {
-      const [contracts, allTx, squadPlayers] = await Promise.all([
-        stageClient.entities.PlayerContract.filter({ team_id: club.id, status: "active" }, null, 200),
-        stageClient.entities.STCTransaction.filter({ club_id: club.id }, "-created_date", 500),
+      const [overviewRes, squadPlayers] = await Promise.all([
+        stageClient.functions.invoke("clubFinance", { action: "get_overview", club_id: club.id }),
         stageClient.entities.Player.filter({ club_id: club.id }, null, 100),
       ]);
 
-      const safeContracts = normalizePlayerContracts(contracts);
-      const weeklyWages  = safeContracts.reduce((s, c) => s + Number(c.weekly_salary_stc || 0), 0);
-      const thirtyAgo    = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      const recent       = (allTx || []).filter(tx => new Date(tx.created_date).getTime() >= thirtyAgo);
-      const income_30d   = recent.filter(tx => tx.amount > 0).reduce((s, tx) => s + Number(tx.amount), 0);
-      const expenses_30d = recent.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
+      const overview = overviewRes?.data || {};
+      const safeContracts = normalizePlayerContracts(overview.contracts || []);
       const squadValue   = (squadPlayers || []).reduce((s, p) => s + calculatePlayerValue(p), 0);
 
       setData({
-        balance:          Number(club.stc || 0),
-        transfer_budget:  Number(club.transfer_budget_stc || 0),
-        wage_budget:      Number(club.wage_budget_stc || 0),
-        weekly_wages:     weeklyWages,
+        balance:          Number(overview.balance ?? club.stc ?? 0),
+        transfer_budget:  Number(overview.transfer_budget ?? club.transfer_budget_stc ?? 0),
+        wage_budget:      Number(overview.wage_budget ?? club.wage_budget_stc ?? 0),
+        weekly_wages:     Number(overview.weekly_wages || 0),
+        pending_weekly_wages: Number(overview.pending_weekly_wages || 0),
+        committed_weekly_wages: Number(overview.committed_weekly_wages ?? overview.weekly_wages ?? 0),
+        wage_room: Number(overview.wage_room || 0),
+        transfer_locked: Number(overview.transfer_locked || 0),
+        transfer_remaining: Number(overview.transfer_remaining ?? club.transfer_budget_stc ?? 0),
+        available_balance: Number(overview.available_balance ?? overview.balance ?? club.stc ?? 0),
+        monthly_operating_cost_estimate: Number(overview.monthly_operating_cost_estimate || 0),
+        stadium_tier: overview.stadium_tier,
+        stadium_capacity: Number(overview.stadium_capacity ?? club.stadium_capacity ?? 5000),
         contracts:        safeContracts,
-        allTransactions:  allTx || [],
+        allTransactions:  overview.transactions || [],
         squadPlayers:     squadPlayers || [],
         squad_value:      squadValue,
-        income_30d,
-        expenses_30d,
+        income_30d: Number(overview.income_30d || 0),
+        expenses_30d: Number(overview.expenses_30d || 0),
       });
     } catch (err) {
       console.error("[ClubFinanceTab] load failed:", err);
       setData(null);
     }
     setLoading(false);
-  }, [club?.id, club?.stc, club?.transfer_budget_stc, club?.wage_budget_stc]);
+  }, [club?.id, club?.stc, club?.transfer_budget_stc, club?.wage_budget_stc, club?.stadium_capacity]);
 
   useEffect(() => { load(); }, [load]);
-
-  async function handleAdjustBudgets(transfer, wage) {
-    setSliderSaving(true);
-    try {
-      await stageClient.functions.invoke("clubFinance", {
-        action: "adjust_budgets",
-        club_id: club.id,
-        transfer_budget: transfer,
-        wage_budget: wage,
-      });
-      await load();
-    } catch (err) {
-      await swalAlert(err?.message || t("commonPages.cfinAdjustFailed"));
-    }
-    setSliderSaving(false);
-  }
 
   async function handleDeleteTx(txId) {
     if (!(await swalConfirm(t("commonPages.cfinDeleteConfirm")))) return;
@@ -297,11 +201,15 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
 
   const {
     balance, transfer_budget, wage_budget, weekly_wages,
+    pending_weekly_wages, committed_weekly_wages, wage_room,
+    transfer_locked, transfer_remaining, available_balance,
+    monthly_operating_cost_estimate, stadium_tier, stadium_capacity,
     contracts, allTransactions, squad_value, income_30d, expenses_30d,
   } = data;
 
   const net30 = income_30d - expenses_30d;
-  const wageUsedPct = wage_budget > 0 ? Math.min(100, (weekly_wages / wage_budget) * 100) : 0;
+  const wageUsedPct = wage_budget > 0 ? Math.min(100, (committed_weekly_wages / wage_budget) * 100) : 0;
+  const transferUsedPct = transfer_budget > 0 ? Math.min(100, (transfer_locked / transfer_budget) * 100) : 0;
 
   const filteredTx = catFilter === "all"
     ? allTransactions
@@ -314,11 +222,13 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
     <div className="space-y-5">
 
       {/* Balance + Budget Cards */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <StatCard icon={Wallet}  label={t("commonPages.cfinClubBalance")}     value={formatSTC(balance)}          color="text-success"  sub={t("commonPages.cfinAvailableFunds")} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+        <StatCard icon={Wallet}  label={t("commonPages.cfinClubBalance")}     value={formatSTC(balance)}          color="text-success"  sub={`Available: ${formatSTC(available_balance)}`} />
         <StatCard icon={TrendingUp} label={t("commonPages.cfinSquadValue")}   value={formatSTC(squad_value || 0)} color="text-purple-400" sub={t("commonPages.cfinCombinedPlayerValue")} />
-        <StatCard icon={Users}   label={t("commonPages.cfinWageBudget")}      value={formatSTC(wage_budget)}       color="text-warning"  sub={t("commonPages.cfinWkCommitted", { amount: formatSTC(weekly_wages) })} />
-        <StatCard icon={Coins}   label={t("commonPages.cfinTransferBudget")}  value={formatSTC(transfer_budget)}   color="text-primary"  sub={t("commonPages.cfinSigningFunds")} />
+        <StatCard icon={Users}   label="Weekly wage cap"      value={`${formatSTC(wage_budget)}/wk`}       color="text-warning"  sub={`Room: ${formatSTC(wage_room)}/wk`} />
+        <StatCard icon={Coins}   label="Transfer cap"  value={formatSTC(transfer_budget)}   color="text-primary"  sub={`Remaining: ${formatSTC(transfer_remaining)}`} />
+        <StatCard icon={Building2} label="Stadium tier" value={stadium_tier?.name || "Local Ground"} color="text-cyan-300" sub={`${Number(stadium_capacity || 0).toLocaleString()} capacity`} />
+        <StatCard icon={DollarSign} label="Monthly costs" value={formatSTC(monthly_operating_cost_estimate)} color="text-destructive" sub="Wages + stadium maintenance" />
       </div>
 
       {/* Wage Usage Bar */}
@@ -328,7 +238,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
             <Users className="w-4 h-4 text-muted-foreground" /> {t("commonPages.cfinWeeklyWageBill")}
           </p>
           <p className={cn("text-sm font-light", wageUsedPct > 90 ? "text-destructive" : wageUsedPct > 70 ? "text-warning" : "text-success")}>
-            {formatSTC(weekly_wages)} / {formatSTC(wage_budget)}
+            {formatSTC(committed_weekly_wages)} / {formatSTC(wage_budget)}
           </p>
         </div>
         <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
@@ -349,21 +259,37 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
             {contracts.map(c => (
               <div key={c.id} className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{t("commonPages.cfinContractLabel", { name: c.player_gamertag || getContractType(c) })}</span>
-                <span className="font-medium text-foreground">{formatSTC(c.weekly_salary_stc || 0)}/wk</span>
+                <span className={cn("font-medium", c.status === "active" ? "text-foreground" : "text-warning")}>
+                  {formatSTC(c.weekly_salary_stc || 0)}/wk{c.status !== "active" ? " pending" : ""}
+                </span>
               </div>
             ))}
+            {pending_weekly_wages > 0 && (
+              <p className="text-[10px] text-warning pt-1">Pending offers reserve {formatSTC(pending_weekly_wages)}/wk inside the cap.</p>
+            )}
           </div>
         )}
       </div>
 
-      {/* FM-style Budget Slider */}
-      <BudgetSlider
-        transferBudget={transfer_budget}
-        wageBudget={wage_budget}
-        weeklyWages={weekly_wages}
-        onSave={handleAdjustBudgets}
-        saving={sliderSaving}
-      />
+      {/* Transfer room */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-foreground flex items-center gap-2">
+            <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Transfer Budget
+          </p>
+          <p className="text-sm font-light text-primary">
+            {formatSTC(transfer_remaining)} remaining
+          </p>
+        </div>
+        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all bg-warning" style={{ width: `${transferUsedPct}%` }} />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
+          <span>Cap: <b className="text-foreground">{formatSTC(transfer_budget)}</b></span>
+          <span>Locked: <b className="text-warning">{formatSTC(transfer_locked)}</b></span>
+          <span>Balance: <b className="text-success">{formatSTC(balance)}</b></span>
+        </div>
+      </div>
 
       {/* 30-Day Summary */}
       <div className="grid grid-cols-3 gap-2.5">

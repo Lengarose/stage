@@ -6,6 +6,32 @@ const { requireClubPermission, writeClubAudit } = require('../services/clubOpera
 const { deliverContractOfferMessage } = require('../services/messageDeliveryService');
 const { assertCanCreateContractOffer } = require('../services/contractRulesService');
 const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
+const { assertClubContractFinance } = require('../services/clubFinanceService');
+const { v4: uuidv4 } = require('uuid');
+
+async function insertClubLedgerRow({
+  clubId,
+  amount = 0,
+  type,
+  category,
+  description,
+  relatedEntityType = 'player_contract',
+  relatedEntityId = null,
+  referenceId,
+}) {
+  const rows = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [clubId]).catch(() => []);
+  if (!rows.length) return;
+  const balanceAfter = Number(rows[0].stc || 0) + Number(amount || 0);
+  if (Number(amount || 0) !== 0) {
+    await EXECUTESQL('UPDATE clubs SET stc = ?, updated_date = NOW() WHERE id = ?', [balanceAfter, clubId]);
+  }
+  await EXECUTESQL(
+    `INSERT INTO stc_transactions
+     (id, club_id, amount, balance_after, type, category, description, related_entity_type, related_entity_id, reference_id, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [uuidv4(), clubId, Number(amount || 0), balanceAfter, type, category, description, relatedEntityType, relatedEntityId || referenceId, referenceId]
+  ).catch(() => {});
+}
 
 async function cancelContractOffer(contractId, req, reason = null) {
   const existing = await new PlayerContract().selectOne(contractId);
@@ -39,6 +65,17 @@ async function cancelContractOffer(contractId, req, reason = null) {
         AND message_type = 'contract_offer'`,
     [contractId]
   ).catch(() => {});
+
+  if (Number(contract.transfer_fee_stc || 0) > 0) {
+    await insertClubLedgerRow({
+      clubId: contract.team_id,
+      amount: 0,
+      type: 'released',
+      category: 'transfer_release',
+      description: `Transfer lock released for cancelled offer (${Number(contract.transfer_fee_stc || 0).toLocaleString()} STC)`,
+      referenceId: contractId,
+    });
+  }
 
   await EXECUTESQL(
     `UPDATE notifications
@@ -160,9 +197,27 @@ router.post('/', async (req, res) => {
       teamId: safeBody.team_id,
       contractType: safeBody.contract_type,
     });
+    if ((safeBody.contract_type || 'squad') !== 'ownership') {
+      await assertClubContractFinance({
+        clubId: safeBody.team_id,
+        weeklySalary: safeBody.weekly_salary_stc,
+        signingBonus: safeBody.signing_bonus_stc,
+        transferFee: safeBody.transfer_fee_stc,
+      });
+    }
     const contract = new PlayerContract(safeBody);
     await contract.create();
     const created = await contract.selectOne(contract.id);
+    if (Number(safeBody.transfer_fee_stc || 0) > 0) {
+      await insertClubLedgerRow({
+        clubId: safeBody.team_id,
+        amount: 0,
+        type: 'locked',
+        category: 'transfer_locked',
+        description: `Transfer funds locked for contract offer (${Number(safeBody.transfer_fee_stc || 0).toLocaleString()} STC)`,
+        referenceId: contract.id,
+      });
+    }
     await deliverContractOfferMessage(contract.id).catch(err => console.error('[contract delivery]', err.message));
     res.status(201).json(created[0]);
   } catch (err) {
