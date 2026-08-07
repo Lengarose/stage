@@ -955,50 +955,52 @@ async function runStartupMigrations() {
 
   await EXECUTESQL(`
     UPDATE players p
-    JOIN clubs c ON LOWER(TRIM(p.email)) = LOWER(TRIM(c.owner_email))
-    LEFT JOIN users u ON u.id = c.user_id OR LOWER(TRIM(u.email)) = LOWER(TRIM(c.owner_email))
-    SET p.user_id = COALESCE(p.user_id, u.id),
-        p.club_id = c.id,
-        p.role = 'president',
-        p.club_roles = JSON_ARRAY('president'),
-        p.status = 'active',
-        p.updated_date = NOW()
-    WHERE c.owner_email IS NOT NULL
-      AND c.owner_email <> ''
-  `).catch(err => console.error('[migration] club_owner_president_link:', err.message));
-
-  await EXECUTESQL(`
-    UPDATE players p
     JOIN clubs c ON p.club_id = c.id
-    SET p.role = 'president',
-        p.club_roles = JSON_ARRAY('president')
-    WHERE (LOWER(p.email) = LOWER(c.owner_email) OR (p.user_id IS NOT NULL AND p.user_id = c.user_id))
+    JOIN presidents pr ON pr.id = c.president_id AND pr.user_id = c.president_user_id
+    SET p.club_id = NULL,
+        p.role = CASE WHEN p.role IN ('president', 'owner') THEN 'member' ELSE p.role END,
+        p.club_roles = JSON_ARRAY('free_agent'),
+        p.status = 'free_agent',
+        p.updated_date = NOW()
+    WHERE (p.user_id = c.president_user_id OR LOWER(TRIM(p.email)) = LOWER(TRIM(c.owner_email)))
       AND (
-        p.role IN ('captain', 'owner')
-        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain'))
-        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('owner'))
+        p.role IN ('president', 'owner')
+        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('president'))
+        OR EXISTS (
+          SELECT 1 FROM player_contracts pc
+          WHERE pc.team_id = c.id
+            AND pc.user_id = p.id
+            AND pc.contract_type = 'ownership'
+            AND pc.status IN ('pending','pending_window','negotiating','active')
+        )
       )
-  `).catch(err => console.error('[migration] creator_role_cleanup:', err.message));
+      AND NOT EXISTS (
+        SELECT 1 FROM player_contracts pc2
+        WHERE pc2.team_id = c.id
+          AND pc2.user_id = p.id
+          AND pc2.contract_type <> 'ownership'
+          AND pc2.status = 'active'
+      )
+  `).catch(err => console.error('[migration] separate_player_president_identity:', err.message));
 
   await EXECUTESQL(`
-    UPDATE players p
-    JOIN player_contracts pc ON pc.user_id = p.id
+    UPDATE player_contracts pc
+    JOIN players p ON p.id = pc.user_id
     JOIN clubs c ON c.id = pc.team_id
-    SET p.club_id = c.id,
-        p.role = 'president',
-        p.club_roles = JSON_ARRAY('president'),
-        p.status = 'active'
+    JOIN presidents pr ON pr.id = c.president_id AND pr.user_id = c.president_user_id
+    SET pc.status = 'cancelled',
+        pc.updated_date = NOW()
     WHERE pc.contract_type = 'ownership'
-      AND pc.status = 'active'
-      AND (
-        p.club_id IS NULL
-        OR p.club_id = ''
-        OR p.club_id <> c.id
-        OR p.role IN ('captain', 'owner')
-        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('captain'))
-        OR JSON_CONTAINS(p.club_roles, JSON_QUOTE('owner'))
+      AND pc.status IN ('pending','pending_window','negotiating','active')
+      AND (p.user_id = c.president_user_id OR LOWER(TRIM(p.email)) = LOWER(TRIM(c.owner_email)))
+      AND NOT EXISTS (
+        SELECT 1 FROM player_contracts pc2
+        WHERE pc2.team_id = c.id
+          AND pc2.user_id = p.id
+          AND pc2.contract_type <> 'ownership'
+          AND pc2.status = 'active'
       )
-  `).catch(err => console.error('[migration] ownership_contract_squad_link:', err.message));
+  `).catch(err => console.error('[migration] cancel_player_ownership_contracts:', err.message));
 
   await EXECUTESQL(`
     UPDATE player_contracts pc

@@ -4,11 +4,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { stageClient } from "@/api/stageClient";
 import { Building2, CheckCircle, FileText, Loader2 } from "lucide-react";
 
-export default function PresidentContractDialog({ open, club, player, contractId, onSigned, onClose }) {
+function getPresidentName(president) {
+  return (
+    president?.display_name
+    || president?.full_name
+    || president?.name
+    || null
+  );
+}
+
+export default function PresidentContractDialog({ open, club, president, contractId, onSigned, onClose }) {
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState(null);
+  const presidentName = getPresidentName(president);
 
   async function signContract() {
+    const presidentId = president?.id || club?.president_id || null;
+    if (!presidentId) {
+      setError("President profile is missing. Create or select a president profile before signing.");
+      return;
+    }
     if (!contractId) {
       onSigned?.();
       return;
@@ -19,6 +34,7 @@ export default function PresidentContractDialog({ open, club, player, contractId
       await stageClient.functions.invoke("contractManagement", {
         action: "accept",
         contract_id: contractId,
+        president_id: presidentId,
       });
       onSigned?.();
     } catch (err) {
@@ -40,7 +56,7 @@ export default function PresidentContractDialog({ open, club, player, contractId
         <div className="space-y-4">
           <div className="rounded-xl border border-primary/25 bg-primary/10 p-4">
             <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">President</p>
-            <p className="text-lg font-black">{player?.gamertag || player?.full_name || "Club Creator"}</p>
+            <p className="text-lg font-black">{presidentName || "President profile required"}</p>
             <p className="text-sm text-white/55 mt-1">{club?.name || "Your club"}</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2 text-sm text-white/70">

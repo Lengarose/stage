@@ -120,14 +120,17 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
         win_streak: 0,
         loss_streak: 0,
         status: "active",
-        creator_player_id: player?.id,
         president: toPresidentApiPayload(presidentProfile),
       });
 
       if (!club?.id) throw new Error("Server returned no club ID");
 
       setSaving(false);
-      setPresidentContractPrompt({ club, player, contractId: club.owner_contract_id });
+      setPresidentContractPrompt({
+        club,
+        president: club.president || { ...presidentProfile, id: club.president_id },
+        contractId: club.president_contract_id || club.owner_contract_id || null,
+      });
     } catch (err) {
       console.error("Failed to create club:", err);
       setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
@@ -202,7 +205,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
       <PresidentContractDialog
         open={!!presidentContractPrompt}
         club={presidentContractPrompt?.club}
-        player={presidentContractPrompt?.player}
+        president={presidentContractPrompt?.president}
         contractId={presidentContractPrompt?.contractId}
         onSigned={() => {
           const club = presidentContractPrompt?.club;

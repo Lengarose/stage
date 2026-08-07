@@ -59,7 +59,6 @@ async function repairUserProfileLinks(userId, email) {
     [players[0]?.id || null, clubs[0]?.id || null, userId]
   ).catch(() => {});
 
-  const player = players[0];
   const club = clubs[0];
   if (club?.id && !club.president_user_id) {
     await EXECUTESQL(
@@ -67,15 +66,9 @@ async function repairUserProfileLinks(userId, email) {
       [userId, club.id]
     ).catch(() => {});
   }
-  if (player?.id && club?.id && (!player.club_id || player.club_id !== club.id)) {
-    await EXECUTESQL(
-      `UPDATE players
-       SET club_id = ?, role = 'president', club_roles = JSON_ARRAY('president'), status = 'active', updated_date = NOW()
-       WHERE id = ?
-         AND LOWER(TRIM(email)) = ?`,
-      [club.id, player.id, normalizedEmail]
-    ).catch(() => {});
-  }
+  // A user may own/preside over a club and also have a separate free-agent
+  // player profile. Do not infer player.club_id or player president roles from
+  // owned club links; player squad membership only comes from accepted player contracts.
 }
 
 router.post('/register', validate({

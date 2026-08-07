@@ -2253,17 +2253,14 @@ async function resolveClubContactForInvite(clubId) {
       president = rows[0] || null;
     }
 
-    if (president?.id) {
+    if (president?.id && ownerUser?.id) {
       try {
         await query(
-          "UPDATE players SET user_id = COALESCE(user_id, ?), club_id = ?, club_roles = JSON_ARRAY('president'), role = 'president', status = 'active', updated_date = NOW() WHERE id = ?",
-          [ownerUser?.id || null, club.id, president.id]
+          'UPDATE players SET user_id = COALESCE(user_id, ?), updated_date = NOW() WHERE id = ?',
+          [ownerUser.id, president.id]
         );
-        if (ownerUser?.id && ownerUser.player_id !== president.id) {
-          await query('UPDATE users SET player_id = COALESCE(player_id, ?), updated_date = NOW() WHERE id = ?', [president.id, ownerUser.id]);
-        }
       } catch (linkErr) {
-        console.warn('[resolveClubContact] president link skipped:', linkErr.message);
+        console.warn('[resolveClubContact] player user link skipped:', linkErr.message);
       }
     }
 
@@ -9439,6 +9436,135 @@ const HANDLERS = {
 
     await deleteUserAccount(targetUserId, 'hard', { alsoDeletePlayerId });
     return { success: true, deleted_user_id: targetUserId };
+  },
+
+  // ── Admin: repair legacy bug where a creator player was made president ──────
+  async repairPlayerPresidentIdentityLinks({
+    _auth_user_id,
+    user_id,
+    email,
+    club_id,
+    dry_run = false,
+  }) {
+    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
+    const admin = adminRows[0] || null;
+    if (!admin || Number(admin.role_id) !== 0) throw new Error('Admin access required');
+
+    const where = [];
+    const params = [];
+    if (user_id) {
+      where.push('u.id = ?');
+      params.push(user_id);
+    }
+    if (email) {
+      where.push('LOWER(TRIM(u.email)) = LOWER(TRIM(?))');
+      params.push(email);
+    }
+    if (club_id) {
+      where.push('c.id = ?');
+      params.push(club_id);
+    }
+    if (!where.length) throw new Error('user_id, email or club_id is required');
+
+    const candidates = await EXECUTESQL(
+      `SELECT
+          u.id AS user_id,
+          u.email AS user_email,
+          p.id AS player_id,
+          p.club_id AS player_club_id,
+          p.role AS player_role,
+          p.club_roles,
+          c.id AS club_id,
+          c.name AS club_name,
+          c.president_id,
+          c.president_user_id,
+          pr.display_name AS president_name
+       FROM users u
+       JOIN clubs c
+         ON (c.user_id = u.id OR c.president_user_id = u.id OR c.id = u.owner_id)
+       JOIN presidents pr
+         ON pr.id = c.president_id AND pr.user_id = u.id
+       JOIN players p
+         ON (p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email)))
+       WHERE ${where.join(' AND ')}
+         AND p.club_id = c.id
+         AND (
+           p.role IN ('president','owner')
+           OR p.club_roles LIKE '%president%'
+           OR EXISTS (
+             SELECT 1 FROM player_contracts pc
+             WHERE pc.team_id = c.id
+               AND pc.user_id = p.id
+               AND pc.contract_type = 'ownership'
+               AND pc.status IN ('pending','pending_window','negotiating','active')
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM player_contracts pc2
+           WHERE pc2.team_id = c.id
+             AND pc2.user_id = p.id
+             AND pc2.contract_type <> 'ownership'
+             AND pc2.status = 'active'
+         )`,
+      params
+    );
+
+    if (dry_run) return { success: true, dry_run: true, candidates };
+
+    const repaired = [];
+    for (const row of candidates) {
+      await EXECUTESQL(
+        `UPDATE players
+            SET club_id = NULL,
+                role = CASE WHEN role IN ('president','owner') THEN 'member' ELSE role END,
+                club_roles = ?,
+                status = 'free_agent',
+                updated_date = NOW()
+          WHERE id = ?`,
+        [JSON.stringify(['free_agent']), row.player_id]
+      );
+      await EXECUTESQL(
+        `UPDATE player_contracts
+            SET status = 'cancelled',
+                updated_date = NOW()
+          WHERE team_id = ?
+            AND user_id = ?
+            AND contract_type = 'ownership'
+            AND status IN ('pending','pending_window','negotiating','active')`,
+        [row.club_id, row.player_id]
+      ).catch(() => {});
+      await EXECUTESQL(
+        `DELETE FROM club_memberships
+          WHERE club_id = ?
+            AND player_id = ?
+            AND source IN ('club_creation','contract_acceptance')`,
+        [row.club_id, row.player_id]
+      ).catch(() => {});
+      await EXECUTESQL(
+        `DELETE FROM club_staff_roles
+          WHERE club_id = ?
+            AND player_id = ?
+            AND role IN ('owner','president')`,
+        [row.club_id, row.player_id]
+      ).catch(() => {});
+      await EXECUTESQL(
+        `INSERT INTO admin_audit_log
+           (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason, created_date)
+         VALUES (?, ?, ?, 'repair_player_president_identity_links', 'player', ?, ?, ?, ?, NOW())`,
+        [
+          uuidv4(),
+          admin.id,
+          admin.email || null,
+          row.player_id,
+          JSON.stringify(row),
+          JSON.stringify({ player_id: row.player_id, club_id: null, role: 'member', status: 'free_agent' }),
+          'Separated auto-linked player from president-owned club',
+        ]
+      ).catch(() => {});
+      repaired.push(row);
+    }
+
+    return { success: true, repaired_count: repaired.length, repaired };
   },
 };
 

@@ -100,11 +100,14 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         wage_budget_stc: 5000000, transfer_budget_stc: 10000000,
         stadium_level: 0, stadium_capacity: 5000,
         tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
-        creator_player_id: player?.id,
         president: toPresidentApiPayload(presidentProfile),
       });
       if (!club?.id) throw new Error("Server returned no club ID");
-      setPresidentContractPrompt({ club, player, contractId: club.owner_contract_id });
+      setPresidentContractPrompt({
+        club,
+        president: club.president || { ...presidentProfile, id: club.president_id },
+        contractId: club.president_contract_id || club.owner_contract_id || null,
+      });
     } catch (err) {
       console.error("Club creation failed:", err);
       await swalAlert("Failed to create club: " + (err?.message || err));
@@ -352,7 +355,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     <PresidentContractDialog
       open={!!presidentContractPrompt}
       club={presidentContractPrompt?.club}
-      player={presidentContractPrompt?.player}
+      president={presidentContractPrompt?.president}
       contractId={presidentContractPrompt?.contractId}
       onSigned={() => {
         const club = presidentContractPrompt?.club;
