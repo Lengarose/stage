@@ -31,8 +31,9 @@ import { COUNTRIES } from "../lib/countries";
 import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObject, asObjectArray } from "@/lib/safeData";
-import { isClubPresidentForUser } from "@/lib/clubPresidentAccess";
 import { isPresidentAccountIntent, readAccountIntent } from "@/lib/accountIntent";
+import { getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
+import { normalizePlayerContracts } from "@/lib/playerContractFields";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -53,27 +54,18 @@ function normalizeClubRoles(roles) {
   return [];
 }
 
-function getProfileRoleBadges(player, club, user) {
-  const rawRoles = normalizeClubRoles(player?.club_roles).filter((role) => role && role !== "manager" && role !== "member");
-  const isClubCreator = Boolean(
-    club && player && (
-      rawRoles.includes("owner") ||
-      rawRoles.includes("president") ||
-      player.role === "owner" ||
-      player.role === "president" ||
-      isClubPresidentForUser({ user: { id: player.user_id || user?.id, email: player.email }, club }) ||
-      (player.user_id && club.user_id && player.user_id === club.user_id) ||
-      (user?.id && club.user_id && user.id === club.user_id)
-    )
-  );
-  const roles = isClubCreator
-    ? ["president", ...rawRoles.filter((role) => role !== "owner" && role !== "president" && role !== "captain")]
-    : rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
-  const visibleRoles = roles.includes("president")
-    ? roles.filter((role) => role !== "captain" && role !== "owner")
-    : roles.filter((role) => role !== "owner");
+// Roles never shown on a player profile.
+// `president`/`owner` belong to the President identity, which is deliberately
+// separate from the Player identity: creating a club does not make your player
+// a member of it, and presiding over a club is not a squad role. Keep in sync
+// with getVisibleClubRole() in PlayerProfile.jsx.
+const NON_PLAYER_ROLES = new Set(["president", "owner", "manager", "member"]);
 
-  return Array.from(new Set(visibleRoles.filter((role) => role && role !== "manager" && role !== "member")));
+function getProfileRoleBadges(player) {
+  const rawRoles = normalizeClubRoles(player?.club_roles);
+  const roles = rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
+
+  return Array.from(new Set(roles.filter((role) => role && !NON_PLAYER_ROLES.has(role))));
 }
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
@@ -87,7 +79,12 @@ export default function Profile({
   const [view, setView] = useState(initialView);
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
+  // `myClub` = the club this account presides over (President identity).
+  // `signedClub` = the club this account's player is under contract with
+  // (Player identity). They are independent: a president is a free agent until
+  // some club signs him, and that club need not be his own.
   const [myClub, setMyClub] = useState(null);
+  const [signedClub, setSignedClub] = useState(null);
   const [accountIntent, setAccountIntent] = useState("player");
   const homePath = tournamentMode && tournamentId ? `/tournaments/${tournamentId}` : "/dashboard";
   const homeLabel = tournamentMode ? t("nav.tournament") : t("nav.dashboard");
@@ -160,6 +157,20 @@ export default function Profile({
         if (resolvedPlayer) {
           const p = resolvedPlayer;
           setPlayer(p);
+
+          // Resolve the signed club strictly from the player record and his
+          // contracts. resolveMyPlayerAndClub() falls back to the president
+          // club on its `club` field, which would leak the President identity
+          // onto the player profile.
+          stageClient.entities.PlayerContract.filter({ user_id: p.id })
+            .catch(() => [])
+            .then((contractRows) => {
+              const signedClubId = getSignedClubIdForPlayer(p, normalizePlayerContracts(contractRows));
+              return signedClubId ? stageClient.entities.Club.get(signedClubId).catch(() => null) : null;
+            })
+            .then((clubRecord) => { if (alive) setSignedClub(asObject(clubRecord)); })
+            .catch(() => { if (alive) setSignedClub(null); });
+
           stageClient.identityClaims
             .list({ player_id: p.id }, "-created_date", 20)
             .then(rows => { if (alive) setIdentityClaims(asObjectArray(rows)); })
@@ -335,7 +346,9 @@ export default function Profile({
     if (!player) return;
     await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
     setPlayer(prev => ({ ...asObject(prev), club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
-    setMyClub(null);
+    // Leaving a squad ends the Player-side membership only. The presided club
+    // (`myClub`) is the President identity and is untouched.
+    setSignedClub(null);
     setView("profile");
   }
 
@@ -351,7 +364,7 @@ export default function Profile({
   const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
-  const profileRoleBadges = getProfileRoleBadges(player, myClub, user);
+  const profileRoleBadges = getProfileRoleBadges(player);
 
   const OUTCOME_STYLE = {
     W: "bg-success/15 text-success border-success/30",
@@ -386,7 +399,7 @@ export default function Profile({
         <GamerProfileHero
           player={player}
           user={user}
-          club={myClub}
+          club={signedClub}
           roleBadges={profileRoleBadges}
           formatPositions={formatPositions}
           onAvatarClick={player?.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}

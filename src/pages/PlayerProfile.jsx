@@ -31,7 +31,7 @@ import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog"
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
-import { getClubPresidentContactEmail, isClubPresidentForUser } from "@/lib/clubPresidentAccess";
+import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -55,27 +55,18 @@ function normalizeClubRoles(roles) {
   return [];
 }
 
-function getVisibleClubRole(player, club, contracts = []) {
+// A player profile only ever shows squad roles. `president`/`owner` belong to
+// the President identity, which is separate: presiding over a club does not
+// make your player a member of it, and a president signed by some club is a
+// regular squad member there. Keep in sync with getProfileRoleBadges() in
+// Profile.jsx.
+const NON_PLAYER_ROLES = ["president", "owner", "manager", "member"];
+
+function getVisibleClubRole(player) {
   const roles = normalizeClubRoles(player?.club_roles);
-  const hasOwnershipContract = contracts.some((contract) => (
-    getContractType(contract) === "ownership" &&
-    ["active", "pending", "pending_window", "negotiating"].includes(contract?.status)
-  ));
-  const isClubCreator = Boolean(
-    player && (
-      roles.includes("president") ||
-      roles.includes("owner") ||
-      player.role === "president" ||
-      player.role === "owner" ||
-      hasOwnershipContract ||
-      isClubPresidentForUser({ user: { id: player.user_id, email: player.email }, club }) ||
-      (club && player.user_id && club.user_id && player.user_id === club.user_id)
-    )
-  );
-  if (isClubCreator) return "president";
   if (roles.includes("captain") || player?.role === "captain") return "captain";
   if (roles.includes("vice-captain") || player?.role === "vice-captain") return "vice-captain";
-  return player?.role && !["manager", "member", "owner"].includes(player.role) ? player.role : "";
+  return player?.role && !NON_PLAYER_ROLES.includes(player.role) ? player.role : "";
 }
 
 export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
@@ -117,7 +108,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [futMatches, setFutMatches] = useState([]);
   const [eafcSummary, setEafcSummary] = useState(null);
   const navigate = useNavigate();
-  const visibleClubRole = getVisibleClubRole(player, club, playerContracts);
+  const visibleClubRole = getVisibleClubRole(player);
 
   useEffect(() => {
     async function load() {
