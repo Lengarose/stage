@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useSearchParams } from "react-router-dom";
-import { RefreshCw, Zap, X } from "lucide-react";
+import { Plus, RefreshCw, Zap, X } from "lucide-react";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
+import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 
 // Derive the "league group" a game belongs to for the filter dropdown.
@@ -35,6 +37,8 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [myClub, setMyClub] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [tournamentMap, setTournamentMap] = useState({});
+  const [arrangeOpen, setArrangeOpen] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   // "all" or a group key (see groupKeyForGame). Stable across re-renders.
   const [leagueFilter, setLeagueFilter] = useState("all");
 
@@ -177,7 +181,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     });
 
     return () => unsubMatch();
-  }, [searchParams, scopedTournamentId]);
+  }, [searchParams, scopedTournamentId, refreshTick]);
 
   async function loadGames(playerId, clubId, followData) {
     const followedClubIds = followData
@@ -330,30 +334,42 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           </p>
         </div>
 
-        {/* League filter — only render when the user has games across more than one league/competition. */}
-        {leagueGroups.length > 1 && (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {t("matchFlow.league")}
-            </span>
-            <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-              <SelectTrigger className="h-9 w-full md:w-[280px] text-xs bg-card border-border">
-                <SelectValue placeholder={t("matchFlow.allLeagues")} />
-              </SelectTrigger>
-              <SelectContent className="max-h-[60vh]">
-                <SelectItem value="all" className="text-xs">
-                  {t("matchFlow.all")} <span className="text-muted-foreground ml-1">({games.length})</span>
-                </SelectItem>
-                {leagueGroups.map(group => (
-                  <SelectItem key={group.key} value={group.key} className="text-xs">
-                    {group.label}
-                    <span className="text-muted-foreground ml-1">({group.count})</span>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {!scopedTournamentId && (
+            <Button
+              onClick={() => setArrangeOpen(true)}
+              className="h-9 bg-primary text-primary-foreground gap-2 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              {t("matchFlow.arrangeGame")}
+            </Button>
+          )}
+
+          {/* League filter — only render when the user has games across more than one league/competition. */}
+          {leagueGroups.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                {t("matchFlow.league")}
+              </span>
+              <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+                <SelectTrigger className="h-9 w-full md:w-[280px] text-xs bg-card border-border">
+                  <SelectValue placeholder={t("matchFlow.allLeagues")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[60vh]">
+                  <SelectItem value="all" className="text-xs">
+                    {t("matchFlow.all")} <span className="text-muted-foreground ml-1">({games.length})</span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+                  {leagueGroups.map(group => (
+                    <SelectItem key={group.key} value={group.key} className="text-xs">
+                      {group.label}
+                      <span className="text-muted-foreground ml-1">({group.count})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Desktop layout ── */}
@@ -478,6 +494,16 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           </div>
         </div>
       )}
+      <ArrangeGameDialog
+        open={arrangeOpen}
+        onClose={() => setArrangeOpen(false)}
+        myPlayer={myPlayer}
+        myClub={myClub}
+        onSent={() => {
+          setArrangeOpen(false);
+          setRefreshTick(value => value + 1);
+        }}
+      />
     </div>
   );
 }

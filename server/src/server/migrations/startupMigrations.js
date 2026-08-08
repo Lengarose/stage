@@ -105,6 +105,7 @@ async function runStartupMigrations() {
   // Tournament credits are user-scoped (one pot for player + club tournaments).
   await addCol('users', 'credits', 'INT NULL DEFAULT 0');
   await addCol('users', 'credits_refreshed_at', 'DATETIME NULL');
+  await addCol('users', 'timezone', "VARCHAR(80) NULL DEFAULT 'Europe/Brussels'");
   // One-time backfill: seed user credits from the higher of linked player/club wallets.
   await EXECUTESQL(`
     UPDATE users u
