@@ -15,6 +15,9 @@ const {
 } = require('../services/clubOperationsService');
 
 const STATUSES = new Set(['new', 'reviewed', 'invited', 'trial_offered', 'trial_active', 'contract_offered', 'accepted', 'declined', 'withdrawn']);
+// 'recruitment_interest' is no longer produced — the board that fed it is gone —
+// but applicants ingested from it before the change still carry that source_type,
+// so it stays valid or those rows become unreadable.
 const SOURCE_TYPES = new Set(['join_request', 'recruitment_interest', 'trial_request', 'manual']);
 
 function handleError(res, err) {
@@ -42,21 +45,12 @@ async function syncLegacyApplicants(clubId) {
     ).catch(() => {});
   }
 
-  const interestRows = await EXECUTESQL(
-    `SELECT ri.*, p.user_id, p.position, p.platform
-     FROM recruitment_interests ri
-     LEFT JOIN players p ON p.id = ri.sender_player_id
-     WHERE ri.recipient_club_id = ? AND ri.status = 'pending'`,
-    [clubId]
-  ).catch(() => []);
-  for (const row of interestRows) {
-    await EXECUTESQL(
-      `INSERT IGNORE INTO club_applicants
-        (id, club_id, player_id, user_id, source_type, source_id, status, preferred_position, platform, message, created_date, updated_date)
-       VALUES (?, ?, ?, ?, 'recruitment_interest', ?, 'new', ?, ?, ?, COALESCE(?, NOW()), NOW())`,
-      [uuidv4(), row.recipient_club_id, row.sender_player_id || null, row.user_id || row.sender_user_id || null, row.id, row.position || null, row.platform || null, row.message || null, row.created_date || null]
-    ).catch(() => {});
-  }
+  // Recruitment interests were a third applicant source until the board was
+  // replaced by club scouting. Applicants now arrive through join requests and
+  // trial requests only; scouting runs the other way round (the club approaches
+  // the player), so it produces contract offers, not applicants.
+  // Rows already ingested keep their 'recruitment_interest' source_type — they are
+  // real historical applicants and must not be swept away.
 
   const trialRows = await EXECUTESQL(
     `SELECT im.*

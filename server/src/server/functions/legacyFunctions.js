@@ -2081,8 +2081,9 @@ async function cleanupStageTestPack(admin = null) {
     }
     await EXECUTESQL(`DELETE FROM club_staff_roles WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
     await EXECUTESQL(`DELETE FROM club_applicants WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
-    await EXECUTESQL(`DELETE FROM recruitment_posts WHERE author_club_id IN (${inClubs})`, clubIds).catch(() => {});
-    await EXECUTESQL(`DELETE FROM recruitment_interests WHERE sender_club_id IN (${inClubs}) OR recipient_club_id IN (${inClubs})`, [...clubIds, ...clubIds]).catch(() => {});
+    // recruitment_posts / recruitment_interests are deliberately left alone: the
+    // board that wrote them is gone and the tables are kept as a frozen archive,
+    // so deleting from them here would destroy exactly what we chose to preserve.
     await EXECUTESQL(`DELETE FROM player_contracts WHERE team_id IN (${inClubs})`, clubIds).catch(() => {});
     await EXECUTESQL(`DELETE FROM stc_transactions WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});
     await EXECUTESQL(`DELETE FROM club_fixture_availability WHERE club_id IN (${inClubs})`, clubIds).catch(() => {});

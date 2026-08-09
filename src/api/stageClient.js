@@ -436,8 +436,10 @@ const ENTITY_NAMES = [
   // Player identity claiming and admin verification workflow. Approval marks
   // players.is_verified and stores the verified platform handle.
   'PlayerIdentityClaim',
-  // Lightweight recruitment/LFG board that feeds contract and transfer flows.
-  'RecruitmentPost', 'RecruitmentInterest',
+  // Club-private scouting pipeline: members file video-backed reports on players
+  // they want signed. Always scoped server-side to the caller's own club.
+  // Replaced the old public recruitment/LFG board.
+  'ScoutingReport',
   // Private club operations: applicant pipeline, staff permissions, fixture availability,
   // fixture lineups, and read-only operations audit history.
   'ClubApplicant', 'ClubMembership', 'ClubStaffRole', 'ClubFixtureAvailability', 'ClubFixtureLineup',

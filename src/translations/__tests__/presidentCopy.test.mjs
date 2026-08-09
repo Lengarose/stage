@@ -83,7 +83,7 @@ test("common page packs use president wording for role, contract, and national v
 
 test("core walkthrough and common translations use president wording for club management", () => {
   const languages = ["en", "fr", "nl", "es", "it", "zh", "ja"];
-  const walkthroughKeys = ["tournamentClubs", "club", "tournaments", "players", "recruitment"];
+  const walkthroughKeys = ["tournamentClubs", "club", "tournaments", "players", "scouting"];
   const commonKeys = [
     "internationalSubtitle",
     "noInternationalOpenDesc",

@@ -675,6 +675,9 @@ CREATE TABLE IF NOT EXISTS join_requests (
 );
 
 -- ── recruitment_posts ────────────────────────────────────────
+-- FROZEN. The recruitment board was replaced by club scouting (scouting_reports).
+-- Nothing writes these two tables any more; they are kept only so existing rows
+-- stay readable and recoverable. Deleting them is a separate, deliberate decision.
 CREATE TABLE IF NOT EXISTS recruitment_posts (
   id                  VARCHAR(36) PRIMARY KEY,
   author_user_id      VARCHAR(36),
@@ -709,6 +712,34 @@ CREATE TABLE IF NOT EXISTS recruitment_interests (
   recipient_club_id    VARCHAR(36),
   message              TEXT,
   status               VARCHAR(30) DEFAULT 'pending',
+  created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── scouting_reports ─────────────────────────────────────────
+-- A club member ("scout") flags a player they think the club should sign, with
+-- video links as evidence. Private to the club: only members of `club_id` may
+-- read or write its reports. `target_player_id` may be any player on the
+-- platform, including one already under contract elsewhere — contract rules are
+-- enforced later, when an offer is actually sent, not at scouting time.
+CREATE TABLE IF NOT EXISTS scouting_reports (
+  id                   VARCHAR(36) PRIMARY KEY,
+  club_id              VARCHAR(36) NOT NULL,
+  scouted_by_player_id VARCHAR(36),
+  scouted_by_user_id   VARCHAR(36),
+  target_player_id     VARCHAR(36) NOT NULL,
+  video_links          JSON,
+  notes                TEXT,
+  status               VARCHAR(30) DEFAULT 'open',
+  -- Consultative member vote: {"<player_id>": "for" | "against"}. Keyed by player
+  -- so one member holds exactly one vote and re-voting overwrites rather than
+  -- accumulates. Written with JSON_SET so simultaneous voters can't clobber each
+  -- other. Advisory only — the president's decision is never gated on the tally.
+  votes                JSON,
+  -- The contract offer this report led to, if the president signed off. The
+  -- scouting pipeline stops here: what happens to that offer afterwards is the
+  -- ordinary contract flow's business, not ours.
+  offered_contract_id  VARCHAR(36),
   created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -1233,6 +1264,9 @@ CREATE INDEX idx_ri_post             ON recruitment_interests(recruitment_post_i
 CREATE INDEX idx_ri_sender_user      ON recruitment_interests(sender_user_id);
 CREATE INDEX idx_ri_recipient_user   ON recruitment_interests(recipient_user_id);
 CREATE INDEX idx_ri_status           ON recruitment_interests(status);
+CREATE INDEX idx_sr_club_status      ON scouting_reports(club_id, status);
+CREATE INDEX idx_sr_target           ON scouting_reports(target_player_id);
+CREATE INDEX idx_sr_scout            ON scouting_reports(scouted_by_player_id);
 CREATE INDEX idx_ca_club_status      ON club_applicants(club_id, status);
 CREATE INDEX idx_ca_player           ON club_applicants(player_id);
 CREATE INDEX idx_csr_club            ON club_staff_roles(club_id);

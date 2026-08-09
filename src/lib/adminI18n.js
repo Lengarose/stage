@@ -12,7 +12,6 @@ const SECTION_SLUG_TO_KEY = {
   "press-conferences": "pressConferences",
   lifestyles: "lifestyles",
   transfers: "transfers",
-  recruitment: "recruitment",
   trophies: "trophies",
   rewards: "rewards",
   landing: "landing",

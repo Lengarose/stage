@@ -58,7 +58,7 @@ const InboxPage = React.lazy(() => import('./pages/Inbox'));
 const Schedule = React.lazy(() => import('./pages/Schedule'));
 const GameDay = React.lazy(() => import('./pages/GameDay'));
 const TransferMarket = React.lazy(() => import('./pages/TransferMarket'));
-const Recruitment = React.lazy(() => import('./pages/Recruitment'));
+const Scouting = React.lazy(() => import('./pages/Scouting'));
 const Lifestyle = React.lazy(() => import('./pages/Lifestyle'));
 const Wallet = React.lazy(() => import('./pages/Wallet'));
 const FollowBack = React.lazy(() => import('./pages/FollowBack'));
@@ -387,7 +387,11 @@ const AuthenticatedApp = () => {
             <Route path="/tournaments/profile-club" element={<TournamentClubProfilePage />} />
             <Route path="/tournaments/settings" element={<TournamentSettingsPage />} />
             <Route path="/transfer-market" element={<TransferMarket />} />
-            <Route path="/recruitment" element={<Recruitment />} />
+            {/* The recruitment board was replaced by club scouting. Redirect
+                rather than 404 so old links, bookmarks and shared URLs still land
+                somewhere useful. */}
+            <Route path="/recruitment" element={<Navigate to="/scouting" replace />} />
+            <Route path="/scouting" element={<Scouting />} />
             <Route path="/lifestyle" element={<Lifestyle />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/follow-back" element={<FollowBack />} />

@@ -27,7 +27,6 @@ export const ADMIN_SECTION_ALIASES = {
   rewards: "rewards",
   rankings: "rankings",
   store: "store",
-  recruitment: "recruitment",
   landing: "landing",
   home: "home",
   analytics: "analytics",

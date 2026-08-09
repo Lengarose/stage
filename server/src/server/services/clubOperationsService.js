@@ -4,6 +4,11 @@ const { resolveUserIdentity } = require('./identityService');
 
 const ALL_PERMISSIONS = [
   'edit_club_profile',
+  // Legacy name. Despite it, this does NOT gate the removed recruitment board —
+  // it gates contacting players on the club's behalf (see the tournament
+  // registration notification in legacyFunctions). Kept as-is because renaming it
+  // would mean rewriting the permissions JSON on every existing club_staff_roles
+  // row, and a half-applied migration there silently strips people's access.
   'manage_recruitment',
   'review_applicants',
   'offer_contracts',
@@ -20,6 +25,9 @@ const ROLE_PERMISSIONS = {
   captain: ['manage_recruitment', 'review_applicants', 'offer_contracts', 'manage_formation', 'manage_lineup'],
   vice_captain: ['review_applicants', 'manage_formation', 'manage_lineup'],
   'vice-captain': ['review_applicants', 'manage_formation', 'manage_lineup'],
+  // Still a coherent role after the board's removal: reviewing applicants and
+  // offering contracts are both alive, and scouting gives this role more to do,
+  // not less. Scouting itself needs no permission — any club member may scout.
   recruiter: ['manage_recruitment', 'review_applicants', 'offer_contracts'],
   finance_manager: ['view_finances', 'manage_finances'],
   match_coordinator: ['manage_formation', 'manage_lineup'],

@@ -30,7 +30,7 @@ Every new persisted entity follows this exact six-step recipe. **Do not deviate.
 
 1. **Schema** — Add `CREATE TABLE IF NOT EXISTS <table_name>` to `server/schema.sql`.
    If the table needs to exist on already-running databases without a manual SQL run,
-   *also* add an idempotent migration to the startup block in `server/src/server.js`
+   *also* add an idempotent migration to `server/src/server/migrations/startupMigrations.js`
    (using `EXECUTESQL(...).catch(...)` and `addCol(...)` helpers).
    Keep both copies in sync.
 
@@ -44,7 +44,7 @@ Every new persisted entity follows this exact six-step recipe. **Do not deviate.
    `PATCH /:id`, `DELETE /:id`. `GET /` supports query-string filters used by the
    frontend (`?player_id=`, `?limit=`, `?offset=`, etc.).
 
-4. **Route mount** — Register in `server/src/server.js` under `/api/stage/<kebab-plural>`,
+4. **Route mount** — Register in `server/src/server/routes/registerStageRoutes.js` under `/api/stage/<kebab-plural>`,
    wrapped by `verifyToken` middleware. Use the same pluralization as
    `entityToPath()` in `src/api/stageClient.js`:
    - `PlayerStcTransaction` → `/player-stc-transactions`
@@ -124,7 +124,7 @@ pages/admin/    Thin route wrappers that pass `forcedSection` prop to <Admin />
 ## 5. Authentication
 
 - All `/api/stage/*` routes except `/auth/*` and `/upload` require `verifyToken`
-  middleware (see `server/src/server.js`).
+  middleware (see `server/src/server/routes/registerStageRoutes.js`).
 - Frontend stores tokens in `localStorage` under keys:
   `stage_access_token`, `stage_refresh_token`, `stage_user_id`,
   `stage_player_id`, `stage_owner_id`. Use `storeTokens` / `clearTokens` from
@@ -140,7 +140,7 @@ pages/admin/    Thin route wrappers that pass `forcedSection` prop to <Admin />
 - MySQL 8 on Gandi. Config via `server/src/constants/env.js` (`applyToProcessEnv`).
 - **Two sources of truth, must stay in sync**:
   1. `server/schema.sql` — used for fresh installs.
-  2. Startup migrations in `server/src/server.js` — runs on every boot.
+  2. Startup migrations in `server/src/server/migrations/startupMigrations.js` — runs on every boot.
 - Helpers: `addCol(table, name, definition)` is idempotent and safe to repeat.
 - **Indexes**: add them in BOTH places, named `idx_<short_table>_<columns>`.
 - **Foreign keys**: declared in the bottom block of `schema.sql` using the

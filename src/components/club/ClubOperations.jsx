@@ -76,7 +76,6 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   const [lineups, setLineups] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [contracts, setContracts] = useState([]);
-  const [recruitmentPosts, setRecruitmentPosts] = useState([]);
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
   const [selectedStaffPlayer, setSelectedStaffPlayer] = useState("");
@@ -152,14 +151,13 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
     setLoading(true);
     setError(null);
     try {
-      const [appRows, staffRows, availRows, lineupRows, auditRows, contractRows, postRows] = await Promise.all([
+      const [appRows, staffRows, availRows, lineupRows, auditRows, contractRows] = await Promise.all([
         stageClient.entities.ClubApplicant.filter({ club_id: club.id }, "-created_date", 200).catch(() => []),
         stageClient.entities.ClubStaffRole.filter({ club_id: club.id }, "-created_date", 200).catch(() => []),
         stageClient.entities.ClubFixtureAvailability.filter({ club_id: club.id }, "-updated_date", 300).catch(() => []),
         stageClient.entities.ClubFixtureLineup.filter({ club_id: club.id }, "-updated_date", 100).catch(() => []),
         stageClient.entities.ClubOperationAuditLog.filter({ club_id: club.id }, "-created_date", 100).catch(() => []),
         stageClient.entities.PlayerContract.filter({ team_id: club.id }, "-created_date", 200).catch(() => []),
-        stageClient.entities.RecruitmentPost.filter({ author_club_id: club.id }, "-created_date", 50).catch(() => []),
       ]);
       setApplicants(appRows);
       setStaffRoles(staffRows);
@@ -168,7 +166,6 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       setLineups(lineupRows);
       setAuditLogs(auditRows);
       setContracts(normalizePlayerContracts(contractRows));
-      setRecruitmentPosts(postRows);
     } catch (err) {
       setError(err?.message || t("commonPages.coopLoadFailed"));
     } finally {
@@ -342,7 +339,6 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   const overviewStats = [
     ["coopStatPendingApplicants", pendingApplicants.length],
-    ["coopStatOpenRecruitment", recruitmentPosts.filter((p) => p.status === "open").length],
     ["coopStatUpcomingFixtures", upcomingFixtures.length],
     ["coopStatExpiringContracts", expiringContracts.length],
     ["coopStatPendingContracts", pendingContracts.length],
@@ -398,7 +394,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
             </div>
           ))}
           <div className="md:col-span-3 flex gap-2 flex-wrap">
-            <Link to={`/recruitment?create=club_recruiting&club_id=${club.id}`}><Button type="button" size="sm">{t("commonPages.createRecruitmentPost")}</Button></Link>
+            <Link to="/scouting"><Button type="button" size="sm">{t("commonPages.coopOpenScouting")}</Button></Link>
             <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("applicants")}>{t("commonPages.coopReviewApplicants")}</Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("lineup")}>{t("commonPages.coopEditLineup")}</Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("staff")}>{t("commonPages.coopManageStaff")}</Button>

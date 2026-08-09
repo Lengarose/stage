@@ -653,6 +653,9 @@ async function runStartupMigrations() {
     INDEX idx_pic_created (created_date)
   )`).catch(err => console.error('[migration] player_identity_claims:', err.message));
 
+  // FROZEN. Replaced by club scouting (scouting_reports). Nothing writes these two
+  // tables now; they exist so historical rows stay readable. Kept in sync with
+  // schema.sql per AGENTS.md §6 rather than quietly diverging.
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS recruitment_posts (
     id                  VARCHAR(36) PRIMARY KEY,
     author_user_id      VARCHAR(36) NULL,
@@ -698,6 +701,30 @@ async function runStartupMigrations() {
     INDEX idx_ri_recipient_user (recipient_user_id),
     INDEX idx_ri_status (status)
   )`).catch(err => console.error('[migration] recruitment_interests:', err.message));
+
+  // Club-private scouting pipeline. Only members of `club_id` may read/write its
+  // reports; `target_player_id` may be any player, contract eligibility is checked
+  // later at offer time. Keep in sync with schema.sql.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS scouting_reports (
+    id                   VARCHAR(36) PRIMARY KEY,
+    club_id              VARCHAR(36) NOT NULL,
+    scouted_by_player_id VARCHAR(36) NULL,
+    scouted_by_user_id   VARCHAR(36) NULL,
+    target_player_id     VARCHAR(36) NOT NULL,
+    video_links          JSON NULL,
+    notes                TEXT NULL,
+    status               VARCHAR(30) DEFAULT 'open',
+    votes                JSON NULL,
+    offered_contract_id  VARCHAR(36) NULL,
+    created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sr_club_status (club_id, status),
+    INDEX idx_sr_target (target_player_id),
+    INDEX idx_sr_scout (scouted_by_player_id)
+  )`).catch(err => console.error('[migration] scouting_reports:', err.message));
+  // For databases that already created scouting_reports before these existed.
+  await addCol('scouting_reports', 'votes', 'JSON NULL');
+  await addCol('scouting_reports', 'offered_contract_id', 'VARCHAR(36) NULL');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS club_applicants (
     id                 VARCHAR(36) PRIMARY KEY,

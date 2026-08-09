@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog,
+  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog, Binoculars,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -135,7 +135,7 @@ function getPlayerGroups(t, _clubPath) {
         { path: "/clubs",            icon: Shield,     label: t("nav.clubs") },
         { path: "/players-list",     icon: UsersRound, label: t("nav.players") },
         { path: "/presidents-list",  icon: Crown,      label: t("nav.presidents") },
-        { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
+        { path: "/scouting",        icon: Binoculars,     label: t("nav.scouting") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
         { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
         { path: "/wallet",          icon: Zap,            label: t("nav.wallet") },
@@ -200,7 +200,9 @@ function getPresidentGroups(t, clubPath, presidentPath) {
         { path: "/clubs",           icon: Shield,     label: t("nav.clubs") },
         { path: "/players-list",    icon: UsersRound, label: t("nav.players") },
         { path: "/presidents-list", icon: Crown,      label: t("nav.presidents") },
-        { path: "/recruitment",     icon: Handshake,      label: t("nav.recruitment") },
+        // No Scouting entry here: this is the president nav, and scouting rights
+        // follow a club-attached *player* row. A president without one would only
+        // ever reach the "join a club" screen.
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
       ],
     },
@@ -242,7 +244,6 @@ function getAdminGroups(t) {
         { path: "/admin/leagues", icon: Trophy, label: t("admin.nav.leagues") },
         { path: "/admin/tournaments", icon: Trophy, label: t("admin.nav.tournaments") },
         { path: "/admin/international-tournaments", icon: Globe2, label: t("admin.nav.international") },
-        { path: "/admin/recruitment", icon: Handshake, label: t("admin.nav.recruitment") },
         { path: "/admin/store", icon: ShoppingBag, label: t("admin.nav.store") },
         { path: "/admin/identity-repair", icon: UserCog, label: t("admin.nav.identityRepair") },
       ],
@@ -441,17 +442,17 @@ const MOBILE_WALKTHROUGHS = [
     steps: [
       "Find players who are available for clubs or looking for opportunities.",
       "Open a player profile before contacting or recruiting them.",
-      "Use Recruitment or Inbox when you are ready to move from interest to action.",
+      "Use Scouting or Inbox when you are ready to move from interest to action.",
     ],
   },
   {
-    path: "/recruitment",
-    label: "Recruitment",
-    title: "Recruitment",
+    path: "/scouting",
+    label: "Scouting",
+    title: "Scouting",
     steps: [
-      "Club presidents manage scouting and recruitment conversations from here.",
-      "Review player fit, availability and current status before making an offer.",
-      "Use Inbox to continue conversations and contract flows after contact starts.",
+      "File a report on any player your club should look at, backed by video links.",
+      "The squad can vote on a report once the president opens a vote — it's advisory.",
+      "The president decides: send a contract offer from the report, or shelve it.",
     ],
   },
   {
@@ -574,7 +575,7 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/players-list": "players",
   "/presidents-list": "presidents",
   "/free-agents": "freeAgents",
-  "/recruitment": "recruitment",
+  "/scouting": "scouting",
   "/transfer-market": "transfers",
   "/wallet": "wallet",
   "/social": "feed",
@@ -611,7 +612,7 @@ const NAV_LABEL_KEYS = {
   "Players": "players",
   "Presidents": "presidents",
   "Free Agents": "freeAgents",
-  "Recruitment": "recruitment",
+  "Scouting": "scouting",
   "Transfers": "transfers",
   "Wallet": "wallet",
   "Feed": "feed",
@@ -1007,7 +1008,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
       { path: "/presidents-list", icon: Crown,         label: "Presidents"    },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
-      { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
+      { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
       { path: "/wallet",          icon: Zap,            label: "Wallet"      },
     ],
@@ -1049,7 +1050,7 @@ function getMobileMoreGroupsPresident(clubPath) {
         ...(clubPath ? [{ path: clubPath, icon: Shield, label: "My Club" }] : []),
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
         { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
-        { path: "/recruitment",     icon: Handshake,      label: "Recruitment" },
+        { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle"   },
@@ -1469,7 +1470,6 @@ const ADMIN_MOBILE_MORE_GROUPS = [
       { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
       { path: "/admin/clubs", icon: Shield, label: "Clubs" },
       { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
-      { path: "/admin/recruitment", icon: Handshake, label: "Recruitment" },
     ],
   },
   {

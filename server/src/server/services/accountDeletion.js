@@ -66,6 +66,9 @@ async function gatherEmailsForUser(exec, userId) {
 async function clearAuxiliaryUserReferences(exec, userId) {
   const stmts = [
     ['DELETE FROM player_contracts WHERE user_id = ?', [userId]],
+    // The recruitment board is gone and its tables are a frozen archive, but they
+    // still hold identifiers for real people. Deleting an account has to scrub
+    // those wherever they live, retired feature or not — so these stay.
     ['UPDATE recruitment_posts SET author_user_id = NULL WHERE author_user_id = ?', [userId]],
     ['UPDATE recruitment_interests SET sender_user_id = NULL WHERE sender_user_id = ?', [userId]],
     ['UPDATE recruitment_interests SET recipient_user_id = NULL WHERE recipient_user_id = ?', [userId]],
