@@ -3,9 +3,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import ScheduleList from "../components/schedule/ScheduleList";
 import MatchDetail from "../components/schedule/MatchDetail";
-import ArrangeGameDialog from "../components/schedule/ArrangeGameDialog";
-import { CalendarDays, Plus, X, List } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CalendarDays, X, List } from "lucide-react";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { getContractTargetPlayerId } from "@/lib/playerContractFields";
@@ -19,7 +17,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [arrangeOpen, setArrangeOpen] = useState(false);
   const [view, setView] = useState("fixtures"); // "fixtures" | "calendar"
   const [allPlayers, setAllPlayers] = useState([]);
 
@@ -302,15 +299,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 {t("matchFlow.calendar")}
               </button>
             </div>
-            {!scopedTournamentId && (
-              <Button
-                onClick={() => setArrangeOpen(true)}
-                className="bg-primary text-primary-foreground gap-2 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">{t("matchFlow.arrangeGame")}</span>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -375,13 +363,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         )}
       </div>
 
-      <ArrangeGameDialog
-        open={arrangeOpen}
-        onClose={() => setArrangeOpen(false)}
-        myPlayer={myPlayer}
-        myClub={myClub}
-        onSent={() => { setArrangeOpen(false); load(); }}
-      />
     </div>
   );
 }

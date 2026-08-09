@@ -601,6 +601,11 @@ const auth = {
     return apiFetch(`/players/${playerId}`, { method: 'PATCH', body: JSON.stringify(data) });
   },
 
+  async updateTimezone(timezone) {
+    if (!localStorage.getItem(ACCESS_KEY)) throw { status: 401, message: 'Not authenticated' };
+    return apiFetch('/auth/timezone', { method: 'PATCH', body: JSON.stringify({ timezone }) });
+  },
+
   hasToken() {
     return !!localStorage.getItem(ACCESS_KEY);
   },

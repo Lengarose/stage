@@ -6,7 +6,6 @@ const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
 const {
   recognizeScoreFromImageUrl,
-  verifyScoreProofs,
 } = require('../services/scoreProofService');
 const {
   createNotificationIfEnabled,
@@ -697,6 +696,147 @@ async function settleActiveClubWager(match, winner) {
   return { result: 'settled' };
 }
 
+async function settleActiveSoloWager(match) {
+  const wagerEach = Number(match.wager_stc || 0);
+  if (!wagerEach || match.wager_status !== 'active' || !match.wager_home_locked || !match.wager_away_locked) {
+    return { skipped: true };
+  }
+
+  const claim = await EXECUTESQL(
+    "UPDATE matches SET wager_status = 'settling', updated_date = NOW() WHERE id = ? AND wager_status = 'active'",
+    [match.id]
+  ).catch(() => ({ affectedRows: 0 }));
+  if (!claim.affectedRows) return { skipped: true };
+
+  const homeScore = Number(match.home_score ?? 0);
+  const awayScore = Number(match.away_score ?? 0);
+  const label = `${match.home_player_name || 'Home'} vs ${match.away_player_name || 'Away'}`;
+
+  const notifyInbox = async (email, subj, body) => email && EXECUTESQL(
+    `INSERT INTO inbox_messages
+       (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
+     VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
+    [uuidv4(), email, subj, body, match.id]
+  ).catch(() => {});
+
+  if (homeScore === awayScore) {
+    if (match.home_player_id) {
+      await createPlayerTx({
+        playerId: match.home_player_id,
+        playerEmail: match.home_player_email || null,
+        amount: wagerEach,
+        category: 'wager_refund',
+        source: label,
+        description: `Wager refunded (draw) - ${label}`,
+        referenceId: match.id,
+      }).catch(() => {});
+    }
+    if (match.away_player_id) {
+      await createPlayerTx({
+        playerId: match.away_player_id,
+        playerEmail: match.away_player_email || null,
+        amount: wagerEach,
+        category: 'wager_refund',
+        source: label,
+        description: `Wager refunded (draw) - ${label}`,
+        referenceId: match.id,
+      }).catch(() => {});
+    }
+    await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match.id]);
+    await notifyInbox(match.home_player_email, 'Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+    await notifyInbox(match.away_player_email, 'Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
+    return { result: 'refunded' };
+  }
+
+  const homeWon = homeScore > awayScore;
+  const winnerId = homeWon ? match.home_player_id : match.away_player_id;
+  const loserId = homeWon ? match.away_player_id : match.home_player_id;
+  const winnerEmail = homeWon ? (match.home_player_email || null) : (match.away_player_email || null);
+  const loserEmail = homeWon ? (match.away_player_email || null) : (match.home_player_email || null);
+  const winnerName = homeWon ? (match.home_player_name || 'Home') : (match.away_player_name || 'Away');
+  const loserName = homeWon ? (match.away_player_name || 'Away') : (match.home_player_name || 'Home');
+  const pot = wagerEach * 2;
+
+  if (winnerId) {
+    await createPlayerTx({
+      playerId: winnerId,
+      playerEmail: winnerEmail,
+      amount: pot,
+      category: 'wager_win',
+      source: label,
+      description: `Wager won vs ${loserName} - ${label}`,
+      referenceId: match.id,
+    }).catch(() => {});
+  }
+  if (loserId) {
+    await createPlayerTx({
+      playerId: loserId,
+      playerEmail: loserEmail,
+      amount: 0,
+      type: 'expense',
+      category: 'wager_loss',
+      source: label,
+      description: `Wager lost vs ${winnerName} - ${label}`,
+      referenceId: match.id,
+    }).catch(() => {});
+  }
+
+  await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match.id]);
+  await notifyInbox(winnerEmail, 'Wager Won', `You won ${pot.toLocaleString()} STC in ${label}.`);
+  await notifyInbox(loserEmail, 'Wager Lost', `${winnerName} won the wager in ${label}.`);
+  return { result: 'settled' };
+}
+
+async function settleCompletedMatchWager(match) {
+  if (!match?.id || !match.wager_stc || match.wager_status !== 'active') return { skipped: true };
+  const winner = Number(match.home_score || 0) === Number(match.away_score || 0)
+    ? 'draw'
+    : Number(match.home_score || 0) > Number(match.away_score || 0)
+      ? 'home'
+      : 'away';
+
+  if (match.mode === 'club' && match.home_club_id && match.away_club_id) {
+    return settleActiveClubWager(match, winner);
+  }
+  return settleActiveSoloWager(match);
+}
+
+function matchParticipantEmails(match) {
+  return {
+    home: match.home_owner_email || match.home_player_email || null,
+    away: match.away_owner_email || match.away_player_email || null,
+  };
+}
+
+async function notifyMatchSide(match, side, type, title, body) {
+  const emails = matchParticipantEmails(match);
+  const recipientEmail = emails[side];
+  if (!recipientEmail) return { skipped: true };
+  return createNotificationIfEnabled({
+    recipientEmail,
+    type,
+    title,
+    body,
+    link: `/game-day?match=${match.id}`,
+    relatedId: match.id,
+  }).catch(() => ({ skipped: true }));
+}
+
+async function notifyMatchAdmins(match, title, body) {
+  const admins = await EXECUTESQL('SELECT email FROM users WHERE role_id = 0 AND email IS NOT NULL', [])
+    .catch(() => []);
+  for (const admin of admins) {
+    await createNotificationIfEnabled({
+      recipientEmail: admin.email,
+      type: 'match_dispute_admin',
+      title,
+      body,
+      link: '/admin/disputes',
+      relatedId: match.id,
+    }).catch(() => {});
+  }
+}
+
 async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
@@ -711,6 +851,9 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   const fresh = freshRows[0] || match;
   if (Number(fresh.stats_processed || 0) === 1) {
+    await settleCompletedMatchWager(fresh).catch((err) => {
+      console.error('[matchKickoff wager settlement]', err.message);
+    });
     await competitionEngineService.syncMatchResultToSource(fresh).catch((err) => {
       console.error('[matchKickoff source sync]', err.message);
     });
@@ -815,12 +958,12 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
 
   await EXECUTESQL('UPDATE matches SET stats_processed = 1, updated_date = NOW() WHERE id = ?', [matchId]);
 
+  const [completed] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
+  await settleCompletedMatchWager(completed).catch((err) => {
+    console.error('[matchKickoff wager settlement]', err.message);
+  });
+
   if (isClubMatch) {
-    const [completed] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
-    if (completed?.wager_stc && completed.wager_status === 'active') {
-      const winner = homeScore === awayScore ? 'draw' : (homeScore > awayScore ? 'home' : 'away');
-      await settleActiveClubWager(completed, winner).catch(() => {});
-    }
     const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [matchId]).catch(() => []);
     if (stats.length) {
       const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
@@ -879,6 +1022,9 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   await competitionEngineService.syncMatchResultToSource(completedForSourceSync).catch((err) => {
     console.error('[matchKickoff source sync]', err.message);
   });
+
+  await notifyMatchSide(completedForSourceSync, 'home', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
+  await notifyMatchSide(completedForSourceSync, 'away', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
 
   await broadcastMatchById(matchId);
   return { data: { status: 'completed' } };
@@ -6044,6 +6190,13 @@ const HANDLERS = {
         throw err;
       }
 
+      if (!proof_url) {
+        const err = new Error('Screenshot proof is required before submitting a result.');
+        err.status = 400;
+        err.code = 'PROOF_REQUIRED';
+        throw err;
+      }
+
       const proofOcr = proof_url
         ? await recognizeScoreFromImageUrl(proof_url).catch((err) => ({
             ok: false,
@@ -6080,6 +6233,15 @@ const HANDLERS = {
       const awaySub = parseSubmission(updated.away_submission);
 
       if (!homeSub || !awaySub) {
+        if (is_home_team) {
+          await notifyMatchSide(
+            updated,
+            'away',
+            'match_result_requested',
+            'Result submitted - your turn',
+            `${updated.home_club_name || updated.home_player_name || 'Home'} submitted the result. Upload your screenshot proof and confirm your score.`
+          ).catch(() => {});
+        }
         await broadcastMatchById(match_id);
         return { data: { status: 'waiting' } };
       }
@@ -6101,38 +6263,18 @@ const HANDLERS = {
             match_id,
           ]
         );
+        await notifyMatchAdmins(
+          updated,
+          'Match result disputed',
+          `${updated.home_club_name || updated.home_player_name || 'Home'} vs ${updated.away_club_name || updated.away_player_name || 'Away'} needs review.`
+        );
+        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.').catch(() => {});
+        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.').catch(() => {});
         await broadcastMatchById(match_id);
         return {
           data: {
             status: 'disputed',
             reason: 'submitted_scores_disagree',
-            home_submission: homeSub,
-            away_submission: awaySub,
-          },
-        };
-      }
-
-      const proofVerification = verifyScoreProofs({ homeSubmission: homeSub, awaySubmission: awaySub });
-      if (proofVerification.status !== 'verified') {
-        await EXECUTESQL(
-          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
-          [
-            JSON.stringify({
-              reason: proofVerification.reason,
-              proof_verification: proofVerification,
-              home_score: Number(homeSub.home_score),
-              away_score: Number(homeSub.away_score),
-              home_proof_url: homeSub.proof_url || null,
-              away_proof_url: awaySub.proof_url || null,
-            }),
-            match_id,
-          ]
-        );
-        await broadcastMatchById(match_id);
-        return {
-          data: {
-            status: 'disputed',
-            proof_verification: proofVerification,
             home_submission: homeSub,
             away_submission: awaySub,
           },

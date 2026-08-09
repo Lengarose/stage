@@ -9,6 +9,16 @@ const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/c
 const { validate, rules } = require('../middleware/validate');
 const { notifyLogin } = require('../services/notifications');
 
+function isValidTimeZone(value) {
+  if (!value || typeof value !== 'string' || value.length > 80) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function repairUserProfileLinks(userId, email) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!userId || !normalizedEmail) return;
@@ -229,6 +239,7 @@ router.get('/me', async (req, res) => {
          u.limited_mode_expires_at,
          u.credits,
          u.credits_refreshed_at,
+         u.timezone,
          u.created_date,
          u.updated_date,
          r.name AS db_role_name,
@@ -293,12 +304,29 @@ router.get('/me', async (req, res) => {
       limited_mode_expires_at: me.limited_mode_expires_at || null,
       credits: Math.max(0, Number(me.credits || 0)),
       credits_refreshed_at: me.credits_refreshed_at || null,
+      timezone: me.timezone || 'Europe/Brussels',
       subscription: me.subscription || null,
       gamertag: me.gamertag || null,
       club_id: me.club_id || null,
       club_name: me.club_name || null,
     });
   } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+router.patch('/timezone', async (req, res) => {
+  try {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+    const timezone = String(req.body?.timezone || '').trim();
+    if (!isValidTimeZone(timezone)) {
+      return res.status(400).json({ error: 'Invalid timezone. Use an IANA timezone like Europe/Brussels.' });
+    }
+    await EXECUTESQL('UPDATE users SET timezone = ?, updated_date = NOW() WHERE id = ?', [timezone, decoded.id]);
+    res.json({ success: true, timezone });
+  } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
 });

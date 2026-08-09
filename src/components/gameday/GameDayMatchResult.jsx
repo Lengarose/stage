@@ -24,7 +24,6 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [submitting,  setSubmitting]  = useState(false);
   const [submitted,   setSubmitted]   = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(isClubMatch);
-  const [proofFile,   setProofFile]   = useState(null);
   const [proofUrl,    setProofUrl]    = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const proofInputRef = useRef(null);
@@ -103,13 +102,14 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   async function handleProofChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setProofFile(file);
+    setSubmitError("");
     setUploadingProof(true);
     try {
       const result = await stageClient.integrations.Core.UploadFile({ file });
       setProofUrl(result?.file_url || null);
     } catch {
       setProofUrl(null);
+      setSubmitError("Could not upload screenshot proof. Please try again.");
     } finally {
       setUploadingProof(false);
     }
@@ -142,6 +142,11 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [submitError, setSubmitError] = useState("");
 
   async function submit() {
+    if (!proofUrl) {
+      setSubmitError("Upload screenshot proof before submitting.");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -196,7 +201,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       // Server enforces the same lock with a 409 + code=AWAITING_HOME_SUBMISSION.
       // apiFetch surfaces the server payload as err.data, so look there first.
       const code = err?.data?.code || err?.code;
-      if (code === "AWAITING_HOME_SUBMISSION" || err?.status === 409) {
+      if (code === "PROOF_REQUIRED" || err?.status === 400) {
+        setSubmitError("Upload screenshot proof before submitting.");
+      } else if (code === "AWAITING_HOME_SUBMISSION" || err?.status === 409) {
         setSubmitError("The home team hasn't submitted their result yet. Please wait for them to submit first.");
       } else {
         setSubmitError(err?.message || "Could not submit result. Try again.");
@@ -404,10 +411,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         </div>
       )}
 
-      {/* ── Proof screenshot (optional) ── */}
+      {/* ── Proof screenshot ── */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
-          Proof Screenshot <span className="normal-case font-normal">(optional)</span>
+          Proof Screenshot <span className="normal-case font-normal">(required)</span>
         </p>
         <input id={proofInputId} ref={proofInputRef} type="file" accept="image/*" className="sr-only" disabled={uploadingProof} onChange={handleProofChange} />
         <label
@@ -423,10 +430,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           <Upload className="w-3.5 h-3.5" />
           {uploadingProof ? "Uploading…" : proofUrl ? "Screenshot uploaded ✓" : "Attach screenshot"}
         </label>
+        {!proofUrl && (
+          <p className="mt-1.5 text-[10px] text-warning">Upload screenshot proof before submitting.</p>
+        )}
       </div>
 
       {/* ── Submit ── */}
-      <Button onClick={submit} disabled={submitting || uploadingProof} className="w-full bg-success text-white gap-2">
+      <Button onClick={submit} disabled={submitting || uploadingProof || !proofUrl} className="w-full bg-success text-white gap-2 disabled:opacity-50">
         {submitting
           ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <><CheckCircle2 className="w-4 h-4" /> Submit Result</>

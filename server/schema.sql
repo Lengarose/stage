@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
   limited_mode_expires_at DATETIME,
   credits               INT          DEFAULT 0,
   credits_refreshed_at  DATETIME     NULL,
+  timezone              VARCHAR(80)  DEFAULT 'Europe/Brussels',
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

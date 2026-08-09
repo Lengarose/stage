@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/stageClient";
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
@@ -34,6 +34,28 @@ const ChevronRight = () => (
     <polyline points="9 18 15 12 9 6"/>
   </svg>
 );
+
+const DEFAULT_TIMEZONE = "Europe/Brussels";
+const ONBOARDING_TIMEZONES = [
+  { value: "Europe/Brussels", label: "Brussels, Belgium - Europe/Brussels" },
+  { value: "Europe/London", label: "London, UK - Europe/London" },
+  { value: "Europe/Paris", label: "Paris, France - Europe/Paris" },
+  { value: "Europe/Amsterdam", label: "Amsterdam, Netherlands - Europe/Amsterdam" },
+  { value: "America/New_York", label: "New York, USA - America/New_York" },
+  { value: "America/Los_Angeles", label: "Los Angeles, USA - America/Los_Angeles" },
+  { value: "America/Toronto", label: "Toronto, Canada - America/Toronto" },
+  { value: "Africa/Lagos", label: "Lagos, Nigeria - Africa/Lagos" },
+  { value: "Africa/Johannesburg", label: "Johannesburg, South Africa - Africa/Johannesburg" },
+  { value: "Asia/Dubai", label: "Dubai, UAE - Asia/Dubai" },
+];
+
+function detectBrowserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
 
 /* ── step meta ─────────────────────────────────────────────── */
 function getStepMeta(intent, step, phase) {
@@ -77,6 +99,7 @@ export default function Onboarding({ onComplete }) {
   const [clubSetupPhase, setClubSetupPhase] = useState("president");
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [timezone, setTimezone] = useState(() => detectBrowserTimezone());
 
   const setOnboardingIntent = (nextIntent, accountMode) => {
     setIntent(nextIntent);
@@ -89,6 +112,11 @@ export default function Onboarding({ onComplete }) {
       try {
         const { user: u, player: pl } = await resolveMyPlayerAndClub();
         setUser(u);
+        const nextTimezone = u?.timezone || detectBrowserTimezone();
+        setTimezone(nextTimezone);
+        if (!u?.timezone) {
+          stageClient.auth.updateTimezone(nextTimezone).catch(() => {});
+        }
         if (pl) setPlayer(pl);
 
         const forceOnboarding = Boolean(u?.id && userNeedsOnboarding(u.id));
@@ -125,8 +153,15 @@ export default function Onboarding({ onComplete }) {
   };
 
   const finishOnboarding = () => {
+    stageClient.auth.updateTimezone(timezone).catch(() => {});
     if (isDiscordConfigured()) setStep("discord");
     else setTutorialOpen(true);
+  };
+
+  const handleTimezoneChange = (event) => {
+    const nextTimezone = event.target.value;
+    setTimezone(nextTimezone);
+    stageClient.auth.updateTimezone(nextTimezone).catch(() => {});
   };
 
   const finishDiscordStep = () => setTutorialOpen(true);
@@ -218,6 +253,28 @@ export default function Onboarding({ onComplete }) {
                           {t("commonPages.obHowPlay")}
                         </h2>
                         <p className="text-white/40 text-xs">{t("commonPages.obChooseRole")}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
+                        <label htmlFor="onboarding-timezone" className="block text-[10px] font-black uppercase tracking-[0.22em] text-white/45 mb-2">
+                          Timezone
+                        </label>
+                        <select
+                          id="onboarding-timezone"
+                          value={timezone}
+                          onChange={handleTimezoneChange}
+                          className="w-full rounded-xl border border-white/15 bg-[#09111f] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-cyan-300/70"
+                        >
+                          {!ONBOARDING_TIMEZONES.some((zone) => zone.value === timezone) && (
+                            <option value={timezone}>{timezone}</option>
+                          )}
+                          {ONBOARDING_TIMEZONES.map((zone) => (
+                            <option key={zone.value} value={zone.value}>{zone.label}</option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+                          We use this for match times, Game Day, inbox messages, and schedules. Brussels switches automatically between CET and CEST.
+                        </p>
                       </div>
 
                       <div className="space-y-3">

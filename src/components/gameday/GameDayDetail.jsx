@@ -42,6 +42,7 @@ const STATUS_COLORS = {
   scheduled: "bg-primary/10 text-primary",
   in_progress: "bg-success/10 text-success",
   awaiting_confirmation: "bg-warning/10 text-warning",
+  disputed: "bg-destructive/10 text-destructive",
   completed: "bg-secondary text-muted-foreground",
   forfeit: "bg-destructive/10 text-destructive",
 };
@@ -50,6 +51,7 @@ const STATUS_LABEL_KEYS = {
   scheduled: "scheduled",
   in_progress: "live",
   awaiting_confirmation: "pending",
+  disputed: "disputed",
   completed: "fullTime",
   forfeit: "forfeit",
 };
