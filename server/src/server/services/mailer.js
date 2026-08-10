@@ -98,6 +98,13 @@ async function sendMail({ to, subject, html, text, from }) {
   const cfg = smtpConfig();
   const recipient = String(to || '').trim();
   if (!recipient) return { sent: false, reason: 'no_recipient' };
+  // Some records hold a gamertag where an email is expected. Without this check
+  // the bare name reaches the SMTP server, which rejects it at RCPT with
+  // "need fully-qualified address" — a round trip and a scary log line for
+  // something we can see is not an address.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+    return { sent: false, reason: 'invalid_recipient' };
+  }
   // Never send to the OAuth placeholder addresses we mint for provider accounts
   // that don't expose a real email.
   if (recipient.endsWith('@stage.local')) return { sent: false, reason: 'placeholder_recipient' };

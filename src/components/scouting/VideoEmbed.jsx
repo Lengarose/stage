@@ -26,6 +26,20 @@ export default function VideoEmbed({ url, className }) {
 
   const embed = resolveVideoEmbed(trimmed);
 
+  if (isDirectVideoUrl(trimmed)) {
+    return (
+      <div className={cn("relative w-full overflow-hidden rounded-xl border border-border bg-black aspect-video", className)}>
+        <video
+          src={trimmed}
+          controls
+          playsInline
+          preload="metadata"
+          className="absolute inset-0 w-full h-full"
+        />
+      </div>
+    );
+  }
+
   if (!embed) {
     return (
       <VideoLink
@@ -61,6 +75,11 @@ export default function VideoEmbed({ url, className }) {
       />
     </div>
   );
+}
+
+function isDirectVideoUrl(url) {
+  const clean = url.split("?")[0].split("#")[0].toLowerCase();
+  return /\.(mp4|webm|mov|m4v|ogg|ogv)$/.test(clean) || clean.includes("/uploads/");
 }
 
 function VideoLink({ url, label, className }) {

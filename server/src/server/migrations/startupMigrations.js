@@ -75,6 +75,25 @@ async function runStartupMigrations() {
   await addIndex('inbox_messages', 'idx_inbox_type_related', '(message_type, related_entity_id)');
   await addIndex('inbox_messages', 'idx_inbox_idempotency', '(idempotency_key)');
 
+  await addCol('posts', 'tournament_id', 'VARCHAR(36) NULL');
+  await addCol('posts', 'tags', 'JSON NULL');
+  await addCol('comments', 'author_name', 'VARCHAR(100) NULL');
+  await addCol('comments', 'author_avatar', 'TEXT NULL');
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS post_likes (
+    id           VARCHAR(36)  PRIMARY KEY,
+    post_id      VARCHAR(36)  NOT NULL,
+    user_email   VARCHAR(255) NOT NULL,
+    created_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_post_likes_post_user (post_id, user_email),
+    INDEX idx_post_likes_post (post_id)
+  )`).catch((err) => console.error('[migration] post_likes:', err.message));
+  await EXECUTESQL(`
+    INSERT IGNORE INTO post_likes (id, post_id, user_email)
+    SELECT UUID(), p.id, mention.email
+    FROM posts p
+    JOIN JSON_TABLE(COALESCE(p.likes, JSON_ARRAY()), '$[*]' COLUMNS (email VARCHAR(255) PATH '$')) mention
+  `).catch((err) => console.error('[migration] post_likes backfill:', err.message));
+
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
     .catch((err) => console.error('[migration] players.subscription default:', err.message));
@@ -376,6 +395,12 @@ async function runStartupMigrations() {
 
   await addCol('tournaments', 'winner_player_id', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'winner_player_name', 'VARCHAR(150) NULL');
+  // Read by the club ranking query; its absence broke ranking calculation outright.
+  await addCol('tournaments', 'runner_up_club_id', 'VARCHAR(36) NULL');
+  // Lets the match archive show that a score was corrected by an admin; the
+  // before/after and the reason live in admin_audit_log.
+  await addCol('matches', 'score_corrected_at', 'DATETIME NULL');
+  await addCol('matches', 'score_corrected_by', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'registration_proofs', 'JSON NULL');
 
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
@@ -703,6 +728,56 @@ async function runStartupMigrations() {
     INDEX idx_ri_status (status)
   )`).catch(err => console.error('[migration] recruitment_interests:', err.message));
 
+  // A player's own showcase clips. Owned by the player; scouts only read them.
+  // Keep in sync with schema.sql.
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_showcase_videos (
+    id           VARCHAR(36) PRIMARY KEY,
+    player_id    VARCHAR(36) NOT NULL,
+    url          TEXT NOT NULL,
+    title        VARCHAR(120) NULL,
+    description  VARCHAR(500) NULL,
+    duration_seconds DECIMAL(5,2) NULL,
+    likes_count INT DEFAULT 0,
+    comments_count INT DEFAULT 0,
+    sort_order   INT DEFAULT 0,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_psv_player (player_id, sort_order),
+    INDEX idx_psv_created (created_date)
+  )`).catch(err => console.error('[migration] player_showcase_videos:', err.message));
+  await addCol('player_showcase_videos', 'title', 'VARCHAR(120) NULL');
+  await addCol('player_showcase_videos', 'description', 'VARCHAR(500) NULL');
+  await addCol('player_showcase_videos', 'duration_seconds', 'DECIMAL(5,2) NULL');
+  await addCol('player_showcase_videos', 'likes_count', 'INT DEFAULT 0');
+  await addCol('player_showcase_videos', 'comments_count', 'INT DEFAULT 0');
+  await addCol('player_showcase_videos', 'sort_order', 'INT DEFAULT 0');
+  await addCol('player_showcase_videos', 'created_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+  await addCol('player_showcase_videos', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await addIndex('player_showcase_videos', 'idx_psv_player', '(player_id, sort_order)');
+  await addIndex('player_showcase_videos', 'idx_psv_created', '(created_date)');
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_showcase_video_likes (
+    id         VARCHAR(36) PRIMARY KEY,
+    video_id   VARCHAR(36) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_psv_likes_video_user (video_id, user_email),
+    INDEX idx_psv_likes_video (video_id)
+  )`).catch(err => console.error('[migration] player_showcase_video_likes:', err.message));
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_showcase_video_comments (
+    id                VARCHAR(36) PRIMARY KEY,
+    video_id          VARCHAR(36) NOT NULL,
+    author_email      VARCHAR(255) NOT NULL,
+    author_player_id  VARCHAR(36) NULL,
+    author_name       VARCHAR(150) NULL,
+    author_avatar_url TEXT NULL,
+    content           TEXT NOT NULL,
+    created_date      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_psv_comments_video (video_id)
+  )`).catch(err => console.error('[migration] player_showcase_video_comments:', err.message));
+  // The position a player wants to be scouted for, which may differ from the one
+  // they currently play at their club.
+  await addCol('players', 'showcase_position', 'VARCHAR(40) NULL');
+
   // Club-private scouting pipeline. Only members of `club_id` may read/write its
   // reports; `target_player_id` may be any player, contract eligibility is checked
   // later at offer time. Keep in sync with schema.sql.
@@ -1025,23 +1100,27 @@ async function runStartupMigrations() {
       )
   `).catch(err => console.error('[migration] separate_player_president_identity:', err.message));
 
+  // MySQL refuses a subquery on the very table being updated (error 1093), which
+  // is why the "does this player also have a real squad contract" check is a
+  // derived table joined once rather than a NOT EXISTS. It is also cheaper: the
+  // squad set is computed a single time instead of per candidate row.
   await EXECUTESQL(`
     UPDATE player_contracts pc
     JOIN players p ON p.id = pc.user_id
     JOIN clubs c ON c.id = pc.team_id
     JOIN presidents pr ON pr.id = c.president_id AND pr.user_id = c.president_user_id
+    LEFT JOIN (
+      SELECT DISTINCT team_id, user_id
+        FROM player_contracts
+       WHERE contract_type <> 'ownership'
+         AND status = 'active'
+    ) squad ON squad.team_id = c.id AND squad.user_id = p.id
     SET pc.status = 'cancelled',
         pc.updated_date = NOW()
     WHERE pc.contract_type = 'ownership'
       AND pc.status IN ('pending','pending_window','negotiating','active')
       AND (p.user_id = c.president_user_id OR LOWER(TRIM(p.email)) = LOWER(TRIM(c.owner_email)))
-      AND NOT EXISTS (
-        SELECT 1 FROM player_contracts pc2
-        WHERE pc2.team_id = c.id
-          AND pc2.user_id = p.id
-          AND pc2.contract_type <> 'ownership'
-          AND pc2.status = 'active'
-      )
+      AND squad.user_id IS NULL
   `).catch(err => console.error('[migration] cancel_player_ownership_contracts:', err.message));
 
   await EXECUTESQL(`
@@ -1835,6 +1914,11 @@ async function runStartupMigrations() {
     INDEX idx_tp_owner (owner_id, owner_type),
     INDEX idx_tp_item  (trophy_item_id)
   )`).catch(err => console.error('[migration] trophy_placements:', err.message));
+  // Databases created from the original schema.sql predate these two columns, and
+  // CREATE TABLE IF NOT EXISTS above is a no-op there — so queries ordering by
+  // created_date failed on exactly those installs.
+  await addCol('trophy_placements', 'created_date', 'DATETIME NULL DEFAULT CURRENT_TIMESTAMP');
+  await addCol('trophy_placements', 'updated_date', 'DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
   await addCol('trophy_placements', 'trophy_image_url', 'TEXT NULL');
   await addCol('trophy_placements', 'trophy_name', 'VARCHAR(255) NULL');
   await addCol('trophy_placements', 'x_percent', 'DECIMAL(6,2) NULL DEFAULT 50');

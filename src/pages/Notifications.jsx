@@ -33,6 +33,14 @@ const TYPE_ICONS = {
   announcement:        "📢",
 };
 
+function emitNotificationsRead(ids) {
+  const readIds = ids.filter(Boolean);
+  if (!readIds.length) return;
+  window.dispatchEvent(new CustomEvent("stage:notifications-read", {
+    detail: { ids: readIds, count: readIds.length },
+  }));
+}
+
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,14 +102,26 @@ export default function Notifications() {
 
   async function markAsRead(notif) {
     if (notif.read) return;
-    await stageClient.entities.Notification.update(notif.id, { read: true });
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+    const updated = await stageClient.http.post(`/notifications/${notif.id}/read`, {}).catch(() => null);
+    if (updated) {
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, ...updated, read: true } : n));
+      emitNotificationsRead([notif.id]);
+    }
   }
 
   async function markAllAsRead() {
     const unread = notifications.filter(n => !n.read);
-    await Promise.all(unread.map(n => stageClient.entities.Notification.update(n.id, { read: true })));
+    if (unread.length === 0) return;
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const updatedRows = await Promise.all(
+      unread.map(n => stageClient.http.post(`/notifications/${n.id}/read`, {}).catch(() => null))
+    );
+    const byId = new Map(updatedRows.filter(Boolean).map(row => [row.id, row]));
+    if (byId.size > 0) {
+      setNotifications(prev => prev.map(n => byId.has(n.id) ? { ...n, ...byId.get(n.id), read: true } : n));
+      emitNotificationsRead([...byId.keys()]);
+    }
   }
 
   async function deleteNotif(id, e) {
@@ -110,8 +130,8 @@ export default function Notifications() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }
 
-  function handleClick(notif) {
-    markAsRead(notif);
+  async function openNotification(notif) {
+    await markAsRead(notif);
     if (notif.link) {
       // Fix legacy "/messages" links → "/inbox"
       const link = notif.link.replace(/^\/messages/, "/inbox");
@@ -199,7 +219,7 @@ export default function Notifications() {
         {notifications.map((notif) => (
           <div
             key={notif.id}
-            onClick={() => handleClick(notif)}
+            onClick={() => openNotification(notif)}
             className={`
               relative flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer group
               ${notif.read

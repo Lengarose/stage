@@ -137,8 +137,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         if (player) setMyPlayer(player);
         if (club) setMyClub(club);
 
-        const followData = await stageClient.entities.Follow.filter({ follower_email: u.email }).catch(() => []);
-        await loadGames(player?.id, club?.id || player?.club_id, followData);
+        await loadGames(player?.id, club?.id || player?.club_id);
       } finally {
         setLoading(false);
       }
@@ -183,14 +182,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     return () => unsubMatch();
   }, [searchParams, scopedTournamentId, refreshTick]);
 
-  async function loadGames(playerId, clubId, followData) {
-    const followedClubIds = followData
-      .filter(f => f.target_type === "club")
-      .map(f => f.target_id);
-    const followedPlayerIds = followData
-      .filter(f => f.target_type === "player")
-      .map(f => f.target_id);
-
+  async function loadGames(playerId, clubId) {
     // Fetch all scheduled/in_progress matches then filter in JS
     // Fetch from multiple angles to cover both club and player matches
     const fetchPromises = [];
@@ -209,24 +201,6 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       fetchPromises.push(
         stageClient.entities.Match.filter({ home_player_id: playerId }, "-scheduled_date", 50),
         stageClient.entities.Match.filter({ away_player_id: playerId }, "-scheduled_date", 50),
-      );
-    }
-
-    // Followed clubs/players — only scheduled + live (fewer queries)
-    for (const fcId of followedClubIds.slice(0, 3)) {
-      fetchPromises.push(
-        stageClient.entities.Match.filter({ home_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ away_club_id: fcId, status: "scheduled" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ home_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ away_club_id: fcId, status: "in_progress" }, "-scheduled_date", 5),
-      );
-    }
-    for (const fpId of followedPlayerIds.slice(0, 3)) {
-      fetchPromises.push(
-        stageClient.entities.Match.filter({ home_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ away_player_id: fpId, status: "scheduled" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ home_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
-        stageClient.entities.Match.filter({ away_player_id: fpId, status: "in_progress" }, "-scheduled_date", 5),
       );
     }
 
@@ -381,11 +355,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
               <p className="text-muted-foreground">
                 {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
               </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                {games.length === 0
-                  ? t("matchFlow.followToSeeMatches")
-                  : t("matchFlow.switchToAll")}
-              </p>
+              {games.length > 0 ? <p className="text-xs text-muted-foreground/60 mt-1">{t("matchFlow.switchToAll")}</p> : null}
             </div>
           ) : (
             visibleGames.map(game => (
@@ -430,11 +400,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             <p className="text-muted-foreground text-sm">
               {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
             </p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              {games.length === 0
-                ? t("matchFlow.followToSeeMatches")
-                : t("matchFlow.switchToAll")}
-            </p>
+            {games.length > 0 ? <p className="text-xs text-muted-foreground/60 mt-1">{t("matchFlow.switchToAll")}</p> : null}
           </div>
         ) : (
           visibleGames.map(game => (

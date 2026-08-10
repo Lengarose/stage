@@ -56,13 +56,20 @@ export default function NotificationBell() {
     const onVisibility = () => {
       if (document.visibilityState === "visible") refreshUnread();
     };
+    const onNotificationsRead = (event) => {
+      const count = Number(event.detail?.count || 1);
+      setUnreadCount((prev) => Math.max(0, prev - count));
+      refreshUnread();
+    };
     window.addEventListener("focus", refreshUnread);
+    window.addEventListener("stage:notifications-read", onNotificationsRead);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       stopped = true;
       if (intervalId) window.clearInterval(intervalId);
       window.removeEventListener("focus", refreshUnread);
+      window.removeEventListener("stage:notifications-read", onNotificationsRead);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);

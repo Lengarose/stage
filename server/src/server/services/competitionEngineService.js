@@ -9,6 +9,10 @@ const {
   broadcastNotification,
   broadcastTournament,
 } = require('../utils/socketBroadcast');
+const {
+  awardClubTrophyToClubAndPlayers,
+  awardPlayerOnlyTrophy,
+} = require('./trophyAwardService');
 
 const model = new CompetitionEngineModel();
 
@@ -1620,6 +1624,21 @@ async function completeCommunityTournament(tournament, match, currentRound) {
       tournament.id,
     ],
   );
+  if (winner?.player) {
+    await awardPlayerOnlyTrophy({
+      playerId: winner.id,
+      trophyItemId: tournament.trophy_item_id,
+      tournamentId: tournament.id,
+      tournament,
+    }).catch(err => console.error('[community tournament player trophy award]', err.message));
+  } else if (winner?.id) {
+    await awardClubTrophyToClubAndPlayers({
+      clubId: winner.id,
+      trophyItemId: tournament.trophy_item_id,
+      tournamentId: tournament.id,
+      tournament,
+    }).catch(err => console.error('[community tournament club trophy award]', err.message));
+  }
   broadcastCommunityTournamentState(tournament, {
     status: 'completed',
     winner_club_id: winner?.player ? null : winner?.id || null,
@@ -1831,6 +1850,12 @@ async function advanceCommunityTournamentIfReady(match) {
        WHERE id = ?`,
       [winner.id, winner.name, Number(tournament.current_round || match.round || 1), tournament.id],
     );
+    await awardClubTrophyToClubAndPlayers({
+      clubId: winner.id,
+      trophyItemId: tournament.trophy_item_id,
+      tournamentId: tournament.id,
+      tournament,
+    }).catch(err => console.error('[community league trophy award]', err.message));
     broadcastCommunityTournamentState(tournament, {
       status: 'completed',
       winner_club_id: winner.id,

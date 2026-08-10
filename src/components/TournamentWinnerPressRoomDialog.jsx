@@ -297,7 +297,7 @@ export default function TournamentWinnerPressRoomDialog({ open, onClose, tournam
       answers: quotes,
     });
 
-    // Post in Feed — visible to followers of winner club
+    // Post the champion story in Feed.
     await stageClient.entities.Post.create({
       author_email: user.email,
       author_name: winnerClub.name,

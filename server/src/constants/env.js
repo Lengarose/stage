@@ -9,6 +9,8 @@ const ENV = {
   SERVER_URL: 'https://stageleagues.com',
   FRONTEND_URL: 'https://stageleagues.com',
   BASE_URL: 'https://stageleagues.com',
+  // eafc-app deep link after OAuth (when client=mobile)
+  MOBILE_OAUTH_CALLBACK: 'stage://auth/callback',
   // Optional: override uploads dir (default: <entry script dir>/uploads, e.g. …/vhosts/default/uploads)
   UPLOADS_DIR: '',
 

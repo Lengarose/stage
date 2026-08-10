@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS players (
   gamertag              VARCHAR(100),
   position              VARCHAR(50),
   secondary_position    VARCHAR(50),
+  -- The position the player wants to be scouted for on their showcase, which may
+  -- differ from the one they currently play at their club.
+  showcase_position     VARCHAR(40),
   platform              VARCHAR(50),
   country               VARCHAR(100),
   country_code          VARCHAR(10),
@@ -262,6 +265,10 @@ CREATE TABLE IF NOT EXISTS matches (
   -- notes
   admin_notes            TEXT,
   notes                  TEXT,
+  -- admin score correction trail (the full before/after lives in admin_audit_log;
+  -- these two exist so the match itself can show it was corrected by hand)
+  score_corrected_at     DATETIME,
+  score_corrected_by     VARCHAR(36),
   -- wagers
   wager_stc              DECIMAL(12,2) DEFAULT 0,
   wager_status           VARCHAR(50),
@@ -293,6 +300,9 @@ CREATE TABLE IF NOT EXISTS tournaments (
   winner_club_name    VARCHAR(150),
   winner_player_id    VARCHAR(36),
   winner_player_name  VARCHAR(150),
+  -- Runner-up earns ranking points too (see rankingController); without this
+  -- column the whole ranking query fails, not just the runner-up part.
+  runner_up_club_id   VARCHAR(36),
   trophy_url          TEXT,
   registered_players  JSON,
   registered_clubs    JSON,
@@ -419,11 +429,22 @@ CREATE TABLE IF NOT EXISTS posts (
   media_type          VARCHAR(50),
   club_id             VARCHAR(36),
   club_name           VARCHAR(150),
+  tournament_id       VARCHAR(36),
   likes               JSON,
   likes_count         INT          DEFAULT 0,
   comments_count      INT          DEFAULT 0,
+  tags                JSON,
   created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS post_likes (
+  id           VARCHAR(36)  PRIMARY KEY,
+  post_id      VARCHAR(36)  NOT NULL,
+  user_email   VARCHAR(255) NOT NULL,
+  created_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_post_likes_post_user (post_id, user_email),
+  INDEX idx_post_likes_post (post_id)
 );
 
 -- ── comments ──────────────────────────────────────────────────
@@ -431,6 +452,8 @@ CREATE TABLE IF NOT EXISTS comments (
   id           VARCHAR(36)  PRIMARY KEY,
   post_id      VARCHAR(36)  NOT NULL,
   author_email VARCHAR(255) NOT NULL,
+  author_name  VARCHAR(100),
+  author_avatar TEXT,
   content      TEXT         NOT NULL,
   created_date DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
@@ -652,18 +675,6 @@ CREATE TABLE IF NOT EXISTS dressing_rooms (
   updated_date   DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- ── follows ───────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS follows (
-  id                VARCHAR(36)  PRIMARY KEY,
-  follower_email    VARCHAR(255) NOT NULL,
-  follower_player_id VARCHAR(36),
-  target_id         VARCHAR(36)  NOT NULL,
-  target_type       VARCHAR(100),
-  target_name       VARCHAR(200),
-  created_date      DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_follow (follower_email, target_id, target_type)
-);
-
 -- ── join_requests ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS join_requests (
   id           VARCHAR(36)  PRIMARY KEY,
@@ -715,6 +726,45 @@ CREATE TABLE IF NOT EXISTS recruitment_interests (
   status               VARCHAR(30) DEFAULT 'pending',
   created_date         DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── player_showcase_videos ───────────────────────────────────
+-- A player's own shop window: clips they publish so clubs can judge how they
+-- play. Owned by the player, not by whoever scouts them — a scout can only look.
+-- Public, like the rest of the profile: the point is to be found.
+CREATE TABLE IF NOT EXISTS player_showcase_videos (
+  id           VARCHAR(36) PRIMARY KEY,
+  player_id    VARCHAR(36) NOT NULL,
+  url          TEXT NOT NULL,
+  title        VARCHAR(120),
+  description  VARCHAR(500),
+  duration_seconds DECIMAL(5,2),
+  likes_count INT DEFAULT 0,
+  comments_count INT DEFAULT 0,
+  sort_order   INT DEFAULT 0,
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS player_showcase_video_likes (
+  id         VARCHAR(36) PRIMARY KEY,
+  video_id   VARCHAR(36) NOT NULL,
+  user_email VARCHAR(255) NOT NULL,
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_psv_likes_video_user (video_id, user_email),
+  INDEX idx_psv_likes_video (video_id)
+);
+
+CREATE TABLE IF NOT EXISTS player_showcase_video_comments (
+  id                VARCHAR(36) PRIMARY KEY,
+  video_id          VARCHAR(36) NOT NULL,
+  author_email      VARCHAR(255) NOT NULL,
+  author_player_id  VARCHAR(36),
+  author_name       VARCHAR(150),
+  author_avatar_url TEXT,
+  content           TEXT NOT NULL,
+  created_date      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_psv_comments_video (video_id)
 );
 
 -- ── scouting_reports ─────────────────────────────────────────
@@ -948,7 +998,9 @@ CREATE TABLE IF NOT EXISTS trophy_placements (
   owner_id      VARCHAR(36) NOT NULL,
   owner_type    VARCHAR(100),
   trophy_item_id VARCHAR(36),
-  position      INT         DEFAULT 0
+  position      INT         DEFAULT 0,
+  created_date  DATETIME    DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ── chat_messages ─────────────────────────────────────────────
@@ -1255,7 +1307,6 @@ CREATE INDEX idx_pic_status          ON player_identity_claims(status);
 CREATE INDEX idx_pic_created         ON player_identity_claims(created_date);
 CREATE INDEX idx_chat_match          ON chat_messages(match_id);
 CREATE INDEX idx_stats_match         ON match_player_stats(match_id);
-CREATE INDEX idx_follows_email       ON follows(follower_email);
 CREATE INDEX idx_stc_club            ON stc_transactions(club_id);
 CREATE INDEX idx_rp_type_status      ON recruitment_posts(post_type, status);
 CREATE INDEX idx_rp_player           ON recruitment_posts(author_player_id);
@@ -1265,6 +1316,8 @@ CREATE INDEX idx_ri_post             ON recruitment_interests(recruitment_post_i
 CREATE INDEX idx_ri_sender_user      ON recruitment_interests(sender_user_id);
 CREATE INDEX idx_ri_recipient_user   ON recruitment_interests(recipient_user_id);
 CREATE INDEX idx_ri_status           ON recruitment_interests(status);
+CREATE INDEX idx_psv_player          ON player_showcase_videos(player_id, sort_order);
+CREATE INDEX idx_psv_created         ON player_showcase_videos(created_date);
 CREATE INDEX idx_sr_club_status      ON scouting_reports(club_id, status);
 CREATE INDEX idx_sr_target           ON scouting_reports(target_player_id);
 CREATE INDEX idx_sr_scout            ON scouting_reports(scouted_by_player_id);
@@ -2332,13 +2385,6 @@ SET @sql = IF(
   (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='dressing_rooms' AND constraint_name='fk_dressing_rooms_club_id') = 0
   AND (SELECT COUNT(*) FROM dressing_rooms dr LEFT JOIN clubs c ON c.id = dr.club_id WHERE dr.club_id IS NOT NULL AND c.id IS NULL) = 0,
   'ALTER TABLE dressing_rooms ADD CONSTRAINT fk_dressing_rooms_club_id FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE CASCADE',
-  'SELECT 1'
-); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
-SET @sql = IF(
-  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='follows' AND constraint_name='fk_follows_follower_player_id') = 0
-  AND (SELECT COUNT(*) FROM follows f LEFT JOIN players p ON p.id = f.follower_player_id WHERE f.follower_player_id IS NOT NULL AND p.id IS NULL) = 0,
-  'ALTER TABLE follows ADD CONSTRAINT fk_follows_follower_player_id FOREIGN KEY (follower_player_id) REFERENCES players(id) ON DELETE SET NULL',
   'SELECT 1'
 ); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

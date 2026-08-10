@@ -1,6 +1,17 @@
 const express = require('express');
 const router  = express.Router();
 const Comment = require('../models/commentModel');
+const Post = require('../models/postModel');
+const { EXECUTESQL } = require('../db/database');
+const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
+const { resolveMentionedPlayers } = require('../services/socialMentionService');
+
+async function getCurrentUser(req) {
+  const userId = req.user?.id;
+  if (!userId) return null;
+  const rows = await EXECUTESQL('SELECT id, email, full_name FROM users WHERE id = ? LIMIT 1', [userId]);
+  return rows[0] || null;
+}
 
 // GET /
 router.get('/', async (req, res) => {
@@ -33,10 +44,56 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
-    const comment = new Comment(req.body);
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser?.email) return res.status(403).json({ error: 'Forbidden' });
+    const postId = String(req.body?.post_id || '').trim();
+    const content = String(req.body?.content || '').trim();
+    if (!postId || !content) return res.status(400).json({ error: 'post_id and content are required' });
+
+    const postRows = await new Post().selectOne(postId);
+    if (!postRows.length) return res.status(404).json({ error: 'Post not found' });
+    const playerRows = await EXECUTESQL(
+      'SELECT gamertag, avatar_url FROM players WHERE LOWER(email) = LOWER(?) LIMIT 1',
+      [currentUser.email]
+    );
+    const player = playerRows[0] || {};
+    const comment = new Comment({
+      post_id: postId,
+      content,
+      author_email: currentUser.email,
+      author_name: player.gamertag || currentUser.full_name || currentUser.email,
+      author_avatar: player.avatar_url || '',
+    });
     await comment.create();
     const created = await comment.selectOne(comment.id);
-    res.status(201).json(created[0]);
+    const record = created[0];
+    await comment.incrementPostCommentsCount();
+
+    const post = postRows[0];
+    const actorEmail = String(currentUser.email).toLowerCase();
+    if (String(post.author_email || '').toLowerCase() !== actorEmail) {
+      await createNotificationIfEnabled({
+        recipientEmail: post.author_email,
+        type: 'post_comment',
+        title: 'New comment on your post',
+        body: `${record.author_name} commented on your post.`,
+        link: `/social?post=${post.id}&comment=${record.id}`,
+        relatedId: record.id,
+      });
+    }
+    const mentionedPlayers = await resolveMentionedPlayers(EXECUTESQL, content);
+    for (const mentionedPlayer of mentionedPlayers) {
+      if (!mentionedPlayer.email || String(mentionedPlayer.email).toLowerCase() === actorEmail) continue;
+      await createNotificationIfEnabled({
+        recipientEmail: mentionedPlayer.email,
+        type: 'mention',
+        title: 'You were mentioned in a comment',
+        body: `${record.author_name} mentioned you in a comment.`,
+        link: `/social?post=${post.id}&comment=${record.id}`,
+        relatedId: record.id,
+      });
+    }
+    res.status(201).json(record);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

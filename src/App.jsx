@@ -61,7 +61,6 @@ const TransferMarket = React.lazy(() => import('./pages/TransferMarket'));
 const Scouting = React.lazy(() => import('./pages/Scouting'));
 const Lifestyle = React.lazy(() => import('./pages/Lifestyle'));
 const Wallet = React.lazy(() => import('./pages/Wallet'));
-const FollowBack = React.lazy(() => import('./pages/FollowBack'));
 const Competitions = React.lazy(() => import('./pages/Competitions'));
 const CompetitionDetail = React.lazy(() => import('./pages/CompetitionDetail'));
 const LeagueDetail = React.lazy(() => import('./pages/LeagueDetail'));
@@ -115,6 +114,17 @@ const OAuthCallback = () => {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
+      // If OAuth was started from the mobile app, leave the website immediately.
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('mobile') === '1' || params.get('client') === 'mobile') {
+          window.location.replace(`stage://auth/callback?${params.toString()}`);
+          return;
+        }
+      } catch {
+        /* continue with web flow */
+      }
+
       const result = stageClient.auth.handleOAuthCallback();
       if (!result?.ok) {
         clearOAuthReturnState();
@@ -136,6 +146,7 @@ const OAuthCallback = () => {
       // Tournament entrance invites: apply limited mode for eligible free users
       // before onboarding mounts (Onboarding replaces the entrance route).
       const returnTo = result.returnTo || '/';
+
       const entranceMatch = String(returnTo).match(/\/tournaments\/entrance\/([^/]+)\/(signin|signup)/);
       const shouldLimit =
         Boolean(entranceMatch) &&
@@ -171,6 +182,34 @@ const OAuthCallback = () => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-background">
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
+// SPA fallback when /auth/mobile-handoff is served as index.html (no Express hit).
+// Immediately deep-links into the native app so Safari never shows a website 404.
+const MobileOAuthHandoff = () => {
+  React.useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const redirectUri = params.get('redirect_uri') || 'stage://auth/callback';
+      params.delete('redirect_uri');
+      const allowed =
+        redirectUri === 'stage://auth/callback' ||
+        redirectUri.startsWith('stage://auth/callback') ||
+        /^exp:\/\//i.test(redirectUri);
+      const deepBase = allowed ? redirectUri.split('?')[0] : 'stage://auth/callback';
+      const qs = params.toString();
+      window.location.replace(qs ? `${deepBase}?${qs}` : deepBase);
+    } catch {
+      window.location.replace('stage://auth/callback');
+    }
+  }, []);
+
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">Opening the Stage app…</p>
     </div>
   );
 };
@@ -368,6 +407,10 @@ const AuthenticatedApp = () => {
             <Route path="/admin/landing" element={<AdminLandingPage />} />
             <Route path="/admin/home" element={<AdminHomePage />} />
             <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+            {/* The admin recruitment tab is gone. Without this, /admin/:section
+                below still matches and renders an empty admin shell — worse than
+                a redirect for anyone with the old bookmark. */}
+            <Route path="/admin/recruitment" element={<Navigate to="/admin" replace />} />
             <Route path="/admin/:section" element={<AdminSectionRoutePage />} />
             <Route path="/tournaments/:id/clubs" element={<ClubsRegistered />} />
             <Route path="/tournaments/:id/players" element={<PlayersRegistered />} />
@@ -394,7 +437,6 @@ const AuthenticatedApp = () => {
             <Route path="/scouting" element={<Scouting />} />
             <Route path="/lifestyle" element={<Lifestyle />} />
             <Route path="/wallet" element={<Wallet />} />
-            <Route path="/follow-back" element={<FollowBack />} />
             <Route path="/competitions" element={<Competitions />} />
             <Route path="/competitions/:slug" element={<CompetitionDetail />} />
             <Route path="/leagues/:slug" element={<LeagueDetail />} />
@@ -419,6 +461,7 @@ function App() {
               <Routes>
                 {/* OAuth callback must be outside AuthenticatedApp so tokens are stored before auth check */}
                 <Route path="/auth/callback" element={<OAuthCallback />} />
+                <Route path="/auth/mobile-handoff" element={<MobileOAuthHandoff />} />
                 <Route path="*" element={
                   <ChatNotificationsProvider>
                     <AuthenticatedApp />

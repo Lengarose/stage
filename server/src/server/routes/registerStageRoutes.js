@@ -8,6 +8,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/functions', verifyToken, require('../controllers/functionsController'));
 
   app.use('/api/stage/players', verifyToken, require('../controllers/playerController'));
+  app.use('/api/stage/player-careers', verifyToken, require('../controllers/playerCareerController'));
   app.use('/api/stage/presidents', verifyToken, require('../controllers/presidentController'));
   app.use('/api/stage/clubs', verifyToken, require('../controllers/clubController'));
   app.use('/api/stage/matches', verifyToken, require('../controllers/matchController'));
@@ -58,7 +59,6 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/stc-transactions', verifyToken, require('../controllers/stcTransactionController'));
   app.use('/api/stage/shirt-sales', verifyToken, require('../controllers/shirtSaleController'));
   app.use('/api/stage/dressing-rooms', verifyToken, require('../controllers/dressingRoomController'));
-  app.use('/api/stage/follows', verifyToken, require('../controllers/followController'));
   app.use('/api/stage/join-requests', verifyToken, require('../controllers/joinRequestController'));
   app.use('/api/stage/lifestyle-items', verifyToken, require('../controllers/lifestyleItemController'));
   app.use('/api/stage/lifestyle-purchases', verifyToken, require('../controllers/lifestylePurchaseController'));
@@ -81,9 +81,11 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/player-achievements', verifyToken, require('../controllers/playerAchievementController'));
   app.use('/api/stage/player-stc-transactions', verifyToken, require('../controllers/playerStcTransactionController'));
   app.use('/api/stage/player-identity-claims', verifyToken, require('../controllers/playerIdentityClaimController'));
+  app.use('/api/stage/player-showcase-videos', verifyToken, require('../controllers/playerShowcaseVideoController'));
   app.use('/api/stage/scouting-reports', verifyToken, require('../controllers/scoutingReportController'));
   app.use('/api/stage/rankings', verifyToken, require('../controllers/rankingController'));
   app.use('/api/stage/admin-analytics', verifyToken, require('../controllers/adminAnalyticsController'));
+  app.use('/api/stage/match-archive', verifyToken, require('../controllers/matchArchiveController'));
   app.use('/api/stage/club-applicants', verifyToken, require('../controllers/clubApplicantController'));
   app.use('/api/stage/club-memberships', verifyToken, require('../controllers/clubMembershipController'));
   app.use('/api/stage/club-staff-roles', verifyToken, require('../controllers/clubStaffRoleController'));

@@ -121,9 +121,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [tournamentMap, setTournamentMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followId, setFollowId] = useState(null);
-  const [followersCount, setFollowersCount] = useState(0);
   const [joinRequests, setJoinRequests] = useState([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [trialRequestSent, setTrialRequestSent] = useState(false);
@@ -139,9 +136,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
   const [pendingLogo, setPendingLogo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [playerFollowMap, setPlayerFollowMap] = useState({});
-  const [followersModalOpen, setFollowersModalOpen] = useState(false);
-  const [followersList, setFollowersList] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("posts");
@@ -255,13 +249,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           );
         }
 
-        const [matchesHomeRaw, matchesAwayRaw, followRows, followerRows, tmHomeRaw, tmAwayRaw] = await Promise.all([
+        const [matchesHomeRaw, matchesAwayRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
           stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30).catch(() => []),
           stageClient.profileMatches.list({ away_club_id: id, status: "completed" }, "round", 30).catch(() => []),
-          userEmail
-            ? stageClient.entities.Follow.filter({ follower_email: userEmail, target_id: id, target_type: "club" }).catch(() => [])
-            : Promise.resolve([]),
-          stageClient.entities.Follow.filter({ target_id: id, target_type: "club" }).catch(() => []),
           stageClient.profileMatches.list({ home_club_id: id, status: "scheduled" }, "round", 30).catch(() => []),
           stageClient.profileMatches.list({ away_club_id: id, status: "scheduled" }, "round", 30).catch(() => []),
         ]);
@@ -270,8 +260,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         const matchesAway = asObjectArray(matchesAwayRaw);
         const tmHome = asObjectArray(tmHomeRaw);
         const tmAway = asObjectArray(tmAwayRaw);
-        const followData = asObjectArray(followRows);
-        const allFollowersData = asObjectArray(followerRows);
         const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
         const tIds = [...new Set(allMatchesRaw.map((match) => match.tournament_id).filter((tid) => tid && tid !== "ranked"))];
         const tMap = {};
@@ -286,33 +274,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         }
         setTournamentMap(tMap);
 
-        const playerFollows = playerData.length > 0 && userEmail
-          ? asObjectArray(await stageClient.entities.Follow.filter({ follower_email: userEmail, target_type: "player" }).catch(() => []))
-          : [];
-        const pfMap = {};
-        for (const follow of playerFollows) {
-          if (follow.target_id) pfMap[follow.target_id] = follow;
-        }
-
         setClub(c);
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
-        setPlayerFollowMap(pfMap);
 
         const allMatches = [...matchesHome, ...matchesAway].sort(
           (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
         );
         setMatches(allMatches);
         setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
-
-        if (followData.length > 0) {
-          setIsFollowing(true);
-          setFollowId(followData[0].id || null);
-        } else {
-          setIsFollowing(false);
-          setFollowId(null);
-        }
-        setFollowersCount(allFollowersData.length);
-        setFollowersList(allFollowersData);
 
         if (myPl.length > 0) {
           const mine = myPl[0];
@@ -388,25 +357,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     }, { club_id: id });
     return () => { unsubPlayer(); };
   }, [id]);
-
-  async function toggleFollow() {
-    if (!currentUser?.email) return;
-    if (isFollowing && followId) {
-      await stageClient.entities.Follow.delete(followId);
-      setIsFollowing(false); setFollowId(null);
-      setFollowersCount(c => Math.max(0, c - 1));
-    } else {
-      const f = await stageClient.entities.Follow.create({
-        follower_email: currentUser.email,
-        follower_player_id: myPlayer?.id || "",
-        target_id: id,
-        target_type: "club",
-        target_name: club?.name,
-      });
-      setIsFollowing(true); setFollowId(f.id);
-      setFollowersCount(c => c + 1);
-    }
-  }
 
   async function sendTrialRequest() {
     if (!myPlayer || !club) return;
@@ -802,24 +752,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           </button>
         ) : null}
         infoAside={<ClubPresidentChip club={club} president={president} />}
-        sideActions={!isMember ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={toggleFollow}
-            className={cn("h-9 px-4 text-xs font-heading uppercase", isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-gradient-to-r from-amber-500/80 to-yellow-500/80 hover:from-amber-400 hover:to-yellow-400 text-black font-black")}
-          >
-            {isFollowing ? t("commonPages.cdUnfollow") : t("commonPages.cdFollow")}
-          </Button>
-        ) : null}
-        followers={(
-          <div className="flex items-center gap-3 text-sm">
-            <button type="button" onClick={() => setFollowersModalOpen(true)} className="hover:opacity-70 transition-opacity">
-              <span className="font-bold text-white">{followersCount}</span>
-              <span className="text-white/40 ml-1 text-xs">{t("commonPages.cdFollowersLower")}</span>
-            </button>
-          </div>
-        )}
+        sideActions={null}
       >
         <div className="mt-1">
           <ClubForm matches={safeMatches} clubId={id} />
@@ -1129,8 +1062,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                     myPlayer={myPlayer}
                     isPresident={isPresident}
                     onAssignRole={assignRole}
-                    initialFollowing={!!playerFollowMap[p.id]}
-                    initialFollowId={playerFollowMap[p.id]?.id || null}
                   />
                 ))}
               </div>
@@ -1290,15 +1221,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
         }}
       />
 
-      <Dialog open={followersModalOpen} onOpenChange={setFollowersModalOpen}>
-        <DialogContent className="max-w-md bg-[#0d1225] border-white/10 text-white">
-          <DialogHeader><DialogTitle>{t("commonPages.cdFollowers")}</DialogTitle></DialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <FollowList items={followersList} emptyLabel={t("commonPages.cdNoFollowers")} onClose={() => setFollowersModalOpen(false)} />
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <ImagePositionEditor
         open={!!pendingLogo}
         onClose={() => { setPendingLogo(null); pendingFileRef.current = null; }}
@@ -1344,10 +1266,8 @@ function deriveCompetitionLabel(match, tournamentMap = {}, tr = (k) => k) {
   return tour.name || tr("commonPages.cdTournament");
 }
 
-function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole, initialFollowing = false, initialFollowId = null }) {
+function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole }) {
   const { t } = useTranslation();
-  const [isFollowing, setIsFollowing] = useState(initialFollowing);
-  const [followId, setFollowId] = useState(initialFollowId);
   const player = asObject(rawPlayer);
   if (!player?.id) return null;
   const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
@@ -1357,25 +1277,6 @@ function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPre
   const isViceCaptainRole = primaryRole === "vice_captain";
   const isStaffRole = ["recruiter", "finance_manager", "match_coordinator"].includes(primaryRole);
   const roleLabel = clubRoleLabel(t, primaryRole);
-
-  async function _toggleFollow(e) {
-    e.preventDefault();
-    if (!currentUser?.email || !player?.id) return;
-    if (isFollowing && followId) {
-      await stageClient.entities.Follow.delete(followId);
-      setIsFollowing(false); setFollowId(null);
-    } else {
-      const { player: myPl_ } = await resolveMyPlayerAndClub();
-      const f = await stageClient.entities.Follow.create({
-        follower_email: currentUser.email,
-        follower_player_id: myPl_?.id || "",
-        target_id: player.id,
-        target_type: "player",
-        target_name: player.gamertag,
-      });
-      setIsFollowing(true); setFollowId(f.id);
-    }
-  }
 
   return (
     <Link to={`/players/${player.id}`} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-blue-400/30 transition-all block">
@@ -1445,46 +1346,5 @@ function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPre
         </div>
       )}
     </Link>
-  );
-}
-
-function FollowList({ items, emptyLabel, onClose }) {
-  const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const navigate = useNavigate();
-  const safeItems = asObjectArray(items);
-
-  const filtered = safeItems.filter(item => {
-    const name = String(item.target_name || item._player_name || item.follower_email || "");
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
-
-  if (safeItems.length === 0) {
-    return <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center"><p className="text-white/40 text-sm">{emptyLabel}</p></div>;
-  }
-
-  return (
-    <>
-      <input type="text" placeholder={t("commonPages.cdSearchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)}
-        className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-blue-400"
-      />
-      <div className="space-y-2">
-        {filtered.length === 0 && <p className="text-center text-sm text-white/40 py-4">{t("commonPages.cdNoResults")}</p>}
-        {filtered.map(item => {
-          const name = String(item.target_name || item._player_name || item.follower_email || "Unknown");
-          const imageUrl = item.avatar_url || item.logo_url;
-          const targetId = item._player_id || item.target_id;
-          return (
-            <button key={item.id || targetId} onClick={() => { if (targetId) { onClose?.(); navigate(`/players/${targetId}`); } }}
-              className="w-full text-left bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-blue-400/30 transition-all">
-              <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                {imageUrl ? <img src={imageUrl} alt={name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(name[0] || "?").toUpperCase()}</span>}
-              </div>
-              <p className="text-sm font-bold text-white truncate">{name}</p>
-            </button>
-          );
-        })}
-      </div>
-    </>
   );
 }

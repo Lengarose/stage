@@ -25,6 +25,10 @@ const {
   createTemporaryClubPresident,
   linkTemporaryClubPresident,
 } = require('./legacy/economyTestHelpers');
+const {
+  awardClubTrophyToClubAndPlayers,
+  awardPlayerOnlyTrophy,
+} = require('../services/trophyAwardService');
 
 const EA_BASE = 'https://proclubs.ea.com/api/fc/';
 
@@ -2057,53 +2061,13 @@ async function createOrRepairNextRoundFromTieResults(query, tournamentId, tieRes
 }
 
 async function awardTournamentTrophyServer(query, tournament, winnerClubId) {
-  if (!tournament?.trophy_item_id || !winnerClubId) return { awarded: false, reason: 'missing_trophy_or_winner' };
-  const items = await query('SELECT * FROM trophy_items WHERE id = ? LIMIT 1', [tournament.trophy_item_id]).catch(() => []);
-  const item = items[0];
-  if (!item) return { awarded: false, reason: 'trophy_item_not_found' };
-
-  const existingRows = await query(
-    'SELECT * FROM trophy_placements WHERE owner_id = ? AND trophy_item_id = ? LIMIT 1 FOR UPDATE',
-    [winnerClubId, tournament.trophy_item_id]
-  ).catch(() => []);
-  const existing = existingRows[0];
-  const wonIds = parseMaybeJson(existing?.won_tournament_ids, []);
-  const normalizedWonIds = Array.isArray(wonIds) ? wonIds.map(String) : [];
-  if (normalizedWonIds.includes(String(tournament.id))) {
-    return { awarded: false, skipped: true, reason: 'already_awarded' };
-  }
-  const nextWonIds = JSON.stringify([...normalizedWonIds, tournament.id]);
-
-  if (existing) {
-    await query(
-      `UPDATE trophy_placements
-          SET win_count = IFNULL(win_count, 1) + 1,
-              won_tournament_ids = ?,
-              trophy_image_url = COALESCE(trophy_image_url, ?),
-              trophy_name = COALESCE(trophy_name, ?)
-        WHERE id = ?`,
-      [nextWonIds, item.image_url || tournament.trophy_url || null, item.name || tournament.name || null, existing.id]
-    ).catch(async () => {
-      await query('UPDATE trophy_placements SET position = position WHERE id = ?', [existing.id]).catch(() => {});
-    });
-    return { awarded: true, placement_id: existing.id, updated: true };
-  }
-
-  const placementId = uuidv4();
-  await query(
-    `INSERT INTO trophy_placements
-      (id, owner_id, owner_type, trophy_item_id, position)
-     VALUES (?, ?, 'club', ?, 0)`,
-    [placementId, winnerClubId, tournament.trophy_item_id]
-  );
-  await query(
-    `UPDATE trophy_placements
-        SET trophy_image_url = ?, trophy_name = ?, x_percent = 50, y_percent = 50,
-            scale = 1, win_count = 1, won_tournament_ids = ?
-      WHERE id = ?`,
-    [item.image_url || tournament.trophy_url || null, item.name || tournament.name || null, nextWonIds, placementId]
-  ).catch(() => {});
-  return { awarded: true, placement_id: placementId, created: true };
+  return awardClubTrophyToClubAndPlayers({
+    query,
+    clubId: winnerClubId,
+    trophyItemId: tournament?.trophy_item_id,
+    tournamentId: tournament?.id,
+    tournament,
+  });
 }
 
 async function assertTournamentOrganizer(userId, tournament) {
@@ -3766,6 +3730,15 @@ const HANDLERS = {
             WHERE id = ?`,
           [winnerId, winnerName || 'Winner', id]
         );
+        await awardPlayerOnlyTrophy({
+          query,
+          playerId: winnerId,
+          trophyItemId: tournament.trophy_item_id,
+          tournamentId: tournament.id,
+          tournament,
+        }).catch((err) => {
+          console.error('[officializeTournament player trophy award]', err.message);
+        });
       } else {
         await query(
           `UPDATE tournaments
@@ -8213,7 +8186,7 @@ const HANDLERS = {
           [club_id]
         ),
         EXECUTESQL(
-          "SELECT pc.*, p.gamertag FROM player_contracts pc LEFT JOIN players p ON p.id = COALESCE(pc.user_id, pc.player_id) WHERE COALESCE(pc.club_id, pc.team_id) = ? AND pc.status = 'active' ORDER BY pc.weekly_salary_stc DESC LIMIT 20",
+          "SELECT pc.*, p.gamertag FROM player_contracts pc LEFT JOIN players p ON p.id = pc.user_id WHERE pc.team_id = ? AND pc.status = 'active' ORDER BY pc.weekly_salary_stc DESC LIMIT 20",
           [club_id]
         ),
         EXECUTESQL(
@@ -8331,7 +8304,7 @@ const HANDLERS = {
           "SELECT m.id, m.home_club_name, m.away_club_name, m.wager_stc, m.wager_status FROM matches m WHERE m.wager_status = 'active' AND m.status IN ('completed','forfeit') LIMIT 50"
         ),
         EXECUTESQL(
-          "SELECT pc.id, pc.user_id, pc.club_id, pc.weekly_salary_stc FROM player_contracts pc WHERE pc.status = 'active' AND (pc.weekly_salary_stc < 0 OR pc.weekly_salary_stc IS NULL) LIMIT 50"
+          "SELECT pc.id, pc.user_id, pc.team_id, pc.weekly_salary_stc FROM player_contracts pc WHERE pc.status = 'active' AND (pc.weekly_salary_stc < 0 OR pc.weekly_salary_stc IS NULL) LIMIT 50"
         ),
       ]);
       return {

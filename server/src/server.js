@@ -46,6 +46,10 @@ app.use('/api/stage',                      apiLimiter);
 const { registerStageRoutes } = require('./server/routes/registerStageRoutes');
 registerStageRoutes(app, { verifyToken });
 
+app.use('/api/mobile', apiLimiter);
+const { registerMobileCompatRoutes } = require('./server/routes/registerMobileCompatRoutes');
+registerMobileCompatRoutes(app, { verifyToken });
+
 // Static `/uploads` — same folder as multer (see constants/paths.js); created if missing
 const uploadsStaticDir = ensureUploadsDir();
 app.use('/uploads', require('express').static(uploadsStaticDir));
@@ -62,8 +66,49 @@ app.get('/auth/error', (_req, res) => {
   );
 });
 
+// Mobile OAuth handoff: HTTPS page → deep link into the app.
+// Kept at /auth/* because production already serves this path from Express.
+// Also mirrored at /api/stage/auth/mobile-handoff for SPA-safe fallbacks.
+app.get('/auth/mobile-handoff', (req, res) => {
+  const params = new URLSearchParams(req.query || {});
+  const redirectUri = String(params.get('redirect_uri') || 'stage://auth/callback').trim();
+  params.delete('redirect_uri');
+  const allowed =
+    redirectUri === 'stage://auth/callback' ||
+    redirectUri.startsWith('stage://auth/callback') ||
+    /^exp:\/\//i.test(redirectUri);
+  const deepBase = allowed ? redirectUri.split('?')[0] : 'stage://auth/callback';
+  const q = params.toString();
+  const deepLink = q ? `${deepBase}?${q}` : deepBase;
+  const j = JSON.stringify(deepLink);
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Opening Stage…</title>
+  </head>
+  <body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;text-align:center">
+    <p>Opening the Stage app…</p>
+    <p style="font-size:14px;opacity:.75;margin-top:12px">
+      If nothing happens, <a id="open" href=${j}>tap here</a>.
+    </p>
+    <script>
+      (function () {
+        var deep = ${j};
+        try { window.location.replace(deep); } catch (e) {}
+        setTimeout(function () {
+          try { window.location.href = deep; } catch (e) {}
+        }, 250);
+      })();
+    </script>
+  </body>
+</html>`);
+});
+
 // OAuth callback fallback for hosts where frontend route /auth/callback is not directly served.
-// It mirrors stageClient token keys, then navigates to home.
+// If mobile=1, bounce into the app deep link instead of the website.
 app.get('/auth/callback', (req, res) => {
   const {
     accessToken = '',
@@ -73,7 +118,17 @@ app.get('/auth/callback', (req, res) => {
     ownerId = '',
     ownedClubId = '',
     isNewUser = '',
+    mobile = '',
+    presidentClubId = '',
+    presidentId = '',
   } = req.query || {};
+
+  const wantsMobile = String(mobile) === '1' || String(req.query?.client || '') === 'mobile';
+  if (wantsMobile) {
+    const params = new URLSearchParams(req.query || {});
+    // Prefer API path when available; keep /auth/mobile-handoff as working fallback.
+    return res.redirect(302, `/auth/mobile-handoff?${params}`);
+  }
 
   const j = (v) => JSON.stringify(String(v || ''));
   res.status(200).send(`<!doctype html>

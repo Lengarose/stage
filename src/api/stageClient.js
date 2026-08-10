@@ -401,7 +401,7 @@ const ENTITY_NAMES = [
   'MatchPlayerStat', 'Notification', 'PlayerContract', 'InboxMessage',
   'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
-  'Follow', 'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
+  'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
   'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage', 'ChatRead',
   'NewsItem', 'LiveMatch',
   // Competition & league stack used by frontend pages
@@ -436,8 +436,11 @@ const ENTITY_NAMES = [
   // Player identity claiming and admin verification workflow. Approval marks
   // players.is_verified and stores the verified platform handle.
   'PlayerIdentityClaim',
-  // Club-private scouting pipeline: members file video-backed reports on players
-  // they want signed. Always scoped server-side to the caller's own club.
+  // A player's own showcase clips, published on their profile so clubs can judge
+  // how they play. Readable by anyone; writable only by the player who owns them.
+  'PlayerShowcaseVideo',
+  // Club-private scouting pipeline: members flag players worth signing, backed by
+  // that player's showcase. Always scoped server-side to the caller's own club.
   // Replaced the old public recruitment/LFG board.
   'ScoutingReport',
   // Private club operations: applicant pipeline, staff permissions, fixture availability,

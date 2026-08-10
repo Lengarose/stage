@@ -20,6 +20,7 @@ import HomeTab from "@/components/admin/sections/HomeTab";
 import AnalyticsTab from "@/components/admin/sections/AnalyticsTab";
 import StoreTab from "@/components/admin/sections/StoreTab";
 import IdentityRepairTab from "@/components/admin/sections/IdentityRepairTab";
+import MatchArchiveTab from "@/components/admin/sections/MatchArchiveTab";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AdminGamerLayout from "@/components/admin/AdminGamerUI";
 import "@/styles/admin-gamer-theme.css";
@@ -1694,7 +1695,6 @@ export default function Admin(props) {
             <TransfersTab />
           )}
 
-
           {adminTab === "trophies" && (
             <TrophiesTab
               newTrophyName={newTrophyName}
@@ -1744,6 +1744,10 @@ export default function Admin(props) {
 
           {adminTab === "identity-repair" && (
             <IdentityRepairTab />
+          )}
+
+          {adminTab === "match-archive" && (
+            <MatchArchiveTab />
           )}
     </>
   );

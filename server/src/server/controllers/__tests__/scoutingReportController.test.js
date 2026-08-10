@@ -92,6 +92,7 @@ test('a club member can file a scouting report, and the club is taken from their
     if (isUserLookup(sql)) return [{ id: 'scout-user', email: 'scout@example.test', role_id: 2 }];
     if (isMemberClubLookup(sql)) return [{ id: 'scout-player', club_id: 'club-1' }];
     if (/FROM players WHERE id = \?/.test(sql)) return [{ id: 'target-player', club_id: 'club-9' }];
+    if (/FROM player_showcase_videos/.test(sql)) return [{ n: 1 }];
     if (sql === 'TEST_CREATE_SCOUTING_REPORT') { createdBody = params[1]; return { affectedRows: 1 }; }
     if (sql === 'TEST_SELECT_SCOUTING_REPORT') return [{ id: params[0], ...createdBody }];
     throw new Error(`Unexpected SQL: ${sql}`);
@@ -106,7 +107,6 @@ test('a club member can file a scouting report, and the club is taken from their
       body: {
         club_id: 'club-666',
         target_player_id: 'target-player',
-        video_links: ['https://youtube.com/watch?v=abc'],
       },
       user: { id: 'scout-user' },
     },
@@ -117,7 +117,6 @@ test('a club member can file a scouting report, and the club is taken from their
   assert.equal(createdBody.club_id, 'club-1', 'club must come from the scout membership, never the request body');
   assert.equal(createdBody.scouted_by_player_id, 'scout-player');
   assert.equal(createdBody.scouted_by_user_id, 'scout-user');
-  assert.deepEqual(createdBody.video_links, ['https://youtube.com/watch?v=abc']);
 });
 
 test('a player with no club cannot file a scouting report', async () => {
@@ -133,7 +132,7 @@ test('a player with no club cannot file a scouting report', async () => {
 
   await routeHandler(router, 'post', '/')(
     {
-      body: { target_player_id: 'target-player', video_links: ['https://youtube.com/watch?v=abc'] },
+      body: { target_player_id: 'target-player' },
       user: { id: 'free-agent-user' },
     },
     response
@@ -142,7 +141,60 @@ test('a player with no club cannot file a scouting report', async () => {
   assert.equal(response.statusCode, 403);
 });
 
-test('a scouting report needs a target player and at least one video link', async () => {
+test('a player with no showcase video cannot be scouted, and the refusal says why', async () => {
+  const executesql = async (sql, params = []) => {
+    if (isUserLookup(sql)) return [{ id: 'scout-user', email: 'scout@example.test', role_id: 2 }];
+    if (isMemberClubLookup(sql)) return [{ id: 'scout-player', club_id: 'club-1' }];
+    if (/FROM players WHERE id = \?/.test(sql)) return [{ id: 'target-player', club_id: null }];
+    // The target has published nothing, so the club would have nothing to judge.
+    if (/FROM player_showcase_videos/.test(sql)) return [{ n: 0 }];
+    if (sql === 'TEST_CREATE_SCOUTING_REPORT') throw new Error('must not scout a player with an empty showcase');
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadScoutingRouterWithMocks(executesql);
+  const response = makeResponse();
+
+  await routeHandler(router, 'post', '/')(
+    { body: { target_player_id: 'target-player' }, user: { id: 'scout-user' } },
+    response
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.match(String(response.body.error), /video/i, 'the message must explain the showcase is empty');
+});
+
+test('a scouting report no longer carries video links — it points at the player showcase', async () => {
+  let created = null;
+  const executesql = async (sql, params = []) => {
+    if (isUserLookup(sql)) return [{ id: 'scout-user', email: 'scout@example.test', role_id: 2 }];
+    if (isMemberClubLookup(sql)) return [{ id: 'scout-player', club_id: 'club-1' }];
+    if (/FROM players WHERE id = \?/.test(sql)) return [{ id: 'target-player', club_id: null }];
+    if (/FROM player_showcase_videos/.test(sql)) return [{ n: 2 }];
+    if (sql === 'TEST_CREATE_SCOUTING_REPORT') { created = params[1]; return { affectedRows: 1 }; }
+    if (sql === 'TEST_SELECT_SCOUTING_REPORT') return [{ id: params[0], ...created }];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadScoutingRouterWithMocks(executesql);
+  const response = makeResponse();
+
+  await routeHandler(router, 'post', '/')(
+    {
+      // Even if a client sends links, they must not become part of the report:
+      // footage belongs to the player, not to whoever filed the report.
+      body: { target_player_id: 'target-player', video_links: ['https://scout-supplied.example/clip'], notes: 'Great movement' },
+      user: { id: 'scout-user' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(created.notes, 'Great movement');
+  assert.deepEqual(created.video_links ?? [], [], 'the scout cannot attach footage to the report');
+});
+
+test('a scouting report needs a target player', async () => {
   const executesql = async (sql) => {
     if (isUserLookup(sql)) return [{ id: 'scout-user', email: 'scout@example.test', role_id: 2 }];
     if (isMemberClubLookup(sql)) return [{ id: 'scout-player', club_id: 'club-1' }];
@@ -155,17 +207,10 @@ test('a scouting report needs a target player and at least one video link', asyn
 
   const noTarget = makeResponse();
   await routeHandler(router, 'post', '/')(
-    { body: { video_links: ['https://youtube.com/watch?v=abc'] }, user: { id: 'scout-user' } },
+    { body: {}, user: { id: 'scout-user' } },
     noTarget
   );
   assert.equal(noTarget.statusCode, 400);
-
-  const noLinks = makeResponse();
-  await routeHandler(router, 'post', '/')(
-    { body: { target_player_id: 'target-player', video_links: [] }, user: { id: 'scout-user' } },
-    noLinks
-  );
-  assert.equal(noLinks.statusCode, 400);
 });
 
 test('a player already under contract at another club can still be scouted', async () => {
@@ -175,6 +220,7 @@ test('a player already under contract at another club can still be scouted', asy
     if (isMemberClubLookup(sql)) return [{ id: 'scout-player', club_id: 'club-1' }];
     // Target is a signed player at a rival club — scouting must not care.
     if (/FROM players WHERE id = \?/.test(sql)) return [{ id: 'rival-player', club_id: 'club-2' }];
+    if (/FROM player_showcase_videos/.test(sql)) return [{ n: 1 }];
     if (sql === 'TEST_CREATE_SCOUTING_REPORT') { createdBody = params[1]; return { affectedRows: 1 }; }
     if (sql === 'TEST_SELECT_SCOUTING_REPORT') return [{ id: params[0], ...createdBody }];
     throw new Error(`Unexpected SQL: ${sql}`);
@@ -185,7 +231,7 @@ test('a player already under contract at another club can still be scouted', asy
 
   await routeHandler(router, 'post', '/')(
     {
-      body: { target_player_id: 'rival-player', video_links: ['https://youtube.com/watch?v=abc'] },
+      body: { target_player_id: 'rival-player' },
       user: { id: 'scout-user' },
     },
     response

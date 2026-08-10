@@ -17,7 +17,6 @@ export default function GamerProfileHero({
   topLeftActions,
   topActions,
   sideActions,
-  followers,
   verifiedHandle,
   onAvatarClick,
   children,
@@ -102,7 +101,6 @@ export default function GamerProfileHero({
                 {verifiedHandle}
               </p>
             ) : null}
-            {followers}
             {children}
           </div>
         </div>

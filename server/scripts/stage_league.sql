@@ -650,28 +650,6 @@ CREATE TABLE `fixture_admin_actions` (
 
 -- --------------------------------------------------------
 
---
--- Structure de la table `follows`
---
-
-CREATE TABLE `follows` (
-  `id` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `follower_email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `follower_player_id` varchar(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `target_id` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `target_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `target_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `created_date` datetime DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Déchargement des données de la table `follows`
---
-
-INSERT INTO `follows` (`id`, `follower_email`, `follower_player_id`, `target_id`, `target_type`, `target_name`, `created_date`) VALUES
-('2d736762-dc65-48a8-9cbe-3dba200ceec7', 'berton.lutina@hotmail.com', 'd759e668-82a0-4ba8-bb55-25decc217e97', '153014cd-f6b7-4a59-8d38-5b52c06e5863', 'player', 'Lyano24', '2026-05-07 05:47:05'),
-('6474c39a-1edd-4c33-ab7b-04a2580093aa', 'lutinabeats@gmail.com', '153014cd-f6b7-4a59-8d38-5b52c06e5863', '9ae52991-60be-4309-a28e-f7c16f23b0e5', 'club', 'Zaire', '2026-05-07 05:06:40');
-
 -- --------------------------------------------------------
 
 --
@@ -2553,16 +2531,6 @@ ALTER TABLE `fixture_admin_actions`
   ADD KEY `idx_performed_by` (`performed_by`),
   ADD KEY `idx_created` (`created_date`);
 
---
--- Index pour la table `follows`
---
-ALTER TABLE `follows`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_follow` (`follower_email`,`target_id`,`target_type`),
-  ADD KEY `idx_follows_email` (`follower_email`),
-  ADD KEY `fk_follows_follower_player_id` (`follower_player_id`);
-
---
 -- Index pour la table `home_page_contents`
 --
 ALTER TABLE `home_page_contents`
@@ -2972,13 +2940,6 @@ ALTER TABLE `dressing_rooms`
   ADD CONSTRAINT `fk_dressing_rooms_club_id` FOREIGN KEY (`club_id`) REFERENCES `clubs` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_dressing_rooms_match_id` FOREIGN KEY (`match_id`) REFERENCES `matches` (`id`) ON DELETE CASCADE;
 
---
--- Contraintes pour la table `follows`
---
-ALTER TABLE `follows`
-  ADD CONSTRAINT `fk_follows_follower_player_id` FOREIGN KEY (`follower_player_id`) REFERENCES `players` (`id`) ON DELETE SET NULL;
-
---
 -- Contraintes pour la table `join_requests`
 --
 ALTER TABLE `join_requests`

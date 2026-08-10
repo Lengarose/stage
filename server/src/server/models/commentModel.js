@@ -47,6 +47,13 @@ class Comment {
     ]);
   }
 
+  incrementPostCommentsCount() {
+    return EXECUTESQL(
+      'UPDATE posts SET comments_count = COALESCE(comments_count, 0) + 1 WHERE id = ?',
+      [this.post_id]
+    );
+  }
+
   delete(id) {
     return EXECUTESQL('DELETE FROM comments WHERE id = ?', [id]);
   }

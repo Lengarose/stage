@@ -3,9 +3,9 @@ import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake, Crown,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
-  Inbox, CalendarDays, Zap, Coins, Heart, Sun, Moon, LogOut, Star, Bell,
+  Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog, Binoculars,
+  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog, Binoculars, Archive,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -144,7 +144,6 @@ function getPlayerGroups(t, _clubPath) {
     {
       label: t("nav.discover"),
       items: [
-        { path: "/follow-back",  icon: Heart,      label: t("nav.followBack") },
         { path: "/social",       icon: Rss,        label: t("nav.feed") },
         { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
         { path: "/news",  icon: Newspaper,   label: t("nav.news") },
@@ -245,6 +244,7 @@ function getAdminGroups(t) {
         { path: "/admin/tournaments", icon: Trophy, label: t("admin.nav.tournaments") },
         { path: "/admin/international-tournaments", icon: Globe2, label: t("admin.nav.international") },
         { path: "/admin/store", icon: ShoppingBag, label: t("admin.nav.store") },
+        { path: "/admin/match-archive", icon: Archive, label: t("admin.nav.matchArchive") },
         { path: "/admin/identity-repair", icon: UserCog, label: t("admin.nav.identityRepair") },
       ],
     },
@@ -496,16 +496,6 @@ const MOBILE_WALKTHROUGHS = [
     ],
   },
   {
-    path: "/follow-back",
-    label: "Follow Back",
-    title: "Follow back",
-    steps: [
-      "See who follows you and decide who to follow back.",
-      "Use this to build a useful player and club network without searching manually.",
-      "Open profiles first when you want to check who someone is before following.",
-    ],
-  },
-  {
     path: "/profile",
     label: "Profile",
     title: "Profile",
@@ -580,7 +570,6 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/wallet": "wallet",
   "/social": "feed",
   "/community": "discord",
-  "/follow-back": "followBack",
   "/profile": "profile",
   "/search": "search",
   "/lifestyle": "lifestyle",
@@ -617,7 +606,6 @@ const NAV_LABEL_KEYS = {
   "Wallet": "wallet",
   "Feed": "feed",
   "Discord": "discord",
-  "Follow Back": "followBack",
   "Profile": "profile",
   "My Profile": "myProfile",
   "Search": "search",
@@ -1018,7 +1006,6 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     items: [
       { path: "/social",          icon: Rss,            label: "Feed"          },
       { path: "/community",       icon: MessagesSquare, label: "Discord"       },
-      { path: "/follow-back",     icon: Heart,          label: "Follow Back"   },
     ],
   },
   {
@@ -2179,9 +2166,17 @@ export default function Layout() {
       const { user: u, player: p, club: c, presidentClub, president } = await resolveMyPlayerAndClub();
       if (!u) return;
       setCurrentUserId(u.id || null);
-      const storedIntent = readAccountIntent(u.id);
-      setAccountIntent(storedIntent);
       const activePresidentClub = presidentClub || null;
+      // The stored intent lives in localStorage, so it is missing on a new device,
+      // in a private window, or after clearing site data — and it then defaults to
+      // "player". An account that genuinely holds both identities must not lose
+      // the role switcher because of that, so what the account *is* wins over what
+      // it once said it wanted, and the stored value is healed to match.
+      const storedIntent = readAccountIntent(u.id);
+      const hasBothIdentities = Boolean(p?.id && activePresidentClub?.id);
+      const effectiveIntent = hasBothIdentities ? "both" : storedIntent;
+      setAccountIntent(effectiveIntent);
+      if (effectiveIntent !== storedIntent) writeAccountIntent(effectiveIntent, u.id);
       const resolvedPresidentId = president?.id || activePresidentClub?.president_id || null;
       setMyPresidentId(resolvedPresidentId);
 
@@ -2284,14 +2279,28 @@ export default function Layout() {
   const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
-    (async () => {
+    let stopped = false;
+    let userEmail = null;
+    async function refreshNotifications() {
       const u = await stageClient.auth.me().catch(() => null);
-      if (!u) return;
+      if (!u || stopped) return;
+      userEmail = u.email;
       const notifs = await stageClient.entities.Notification
         .filter({ recipient_email: u.email }, "-created_date", 30)
         .catch(() => []);
-      setNotifCount(notifs.filter(n => !n.read).length);
-    })();
+      if (!stopped) setNotifCount(notifs.filter(n => !n.read).length);
+    }
+    function onNotificationsRead(event) {
+      const count = Number(event.detail?.count || 1);
+      setNotifCount(prev => Math.max(0, prev - count));
+      if (userEmail) refreshNotifications();
+    }
+    window.addEventListener("stage:notifications-read", onNotificationsRead);
+    refreshNotifications();
+    return () => {
+      stopped = true;
+      window.removeEventListener("stage:notifications-read", onNotificationsRead);
+    };
   }, []);
 
   return (
