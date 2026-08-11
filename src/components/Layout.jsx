@@ -765,7 +765,6 @@ function HeaderIdentityMenu({
   myPlayer,
   myClub,
   myClubId,
-  myPresidentId,
   accountIntent,
   accountMode,
   switchMode,
@@ -773,13 +772,9 @@ function HeaderIdentityMenu({
   userCredits = null,
   isWhiteTheme = false,
 }) {
-  const { t } = useTranslation();
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
-  const presidentProfilePath = myPresidentId
-    ? `/presidents/${myPresidentId}`
-    : (myClub?.president_id ? `/presidents/${myClub.president_id}` : null);
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
@@ -880,48 +875,6 @@ function HeaderIdentityMenu({
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
           </>
         )}
-        {(myPlayer || presidentProfilePath || myClubId) ? (
-          <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
-            {t("commonPages.accountProfilesLabel")}
-          </DropdownMenuLabel>
-        ) : null}
-        {myPlayer ? (
-          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-            <Link
-              to="/profile"
-              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <User className="h-4 w-4 shrink-0 text-blue-400" />
-              {t("commonPages.playerProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {presidentProfilePath ? (
-          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-            <Link
-              to={presidentProfilePath}
-              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Crown className="h-4 w-4 shrink-0 text-amber-400" />
-              {t("commonPages.presProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {myClubId ? (
-          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-            <Link
-              to={`/clubs/${myClubId}`}
-              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Shield className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-              {t("commonPages.presMyClubMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
         <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
           <Link
             to="/settings"
@@ -1790,7 +1743,6 @@ function MobileThemeButton({ theme, setTheme }) {
 }
 
 function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, accountIntent, accountMode, switchMode }) {
-  const { t } = useTranslation();
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && presidentClub?.id);
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
   const displayClub = showAsPresident ? presidentClub : myClub;
@@ -1894,49 +1846,6 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
             <Crown className="h-4 w-4 shrink-0 text-amber-400" /> President
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-        <DropdownMenuLabel
-          className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
-          style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
-        >
-          {t("commonPages.accountProfilesLabel")}
-        </DropdownMenuLabel>
-        {myPlayer ? (
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-            <Link
-              to="/profile"
-              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <User className="h-4 w-4 shrink-0 text-blue-400" />
-              {t("commonPages.playerProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {presidentProfilePath ? (
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-            <Link
-              to={presidentProfilePath}
-              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Crown className="h-4 w-4 shrink-0 text-amber-400" />
-              {t("commonPages.presProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {presidentClub?.id ? (
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-            <Link
-              to={`/clubs/${presidentClub.id}`}
-              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Shield className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-              {t("commonPages.presMyClubMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
         <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
           <Link
@@ -2443,7 +2352,6 @@ export default function Layout() {
                   myPlayer={myPlayer}
                   myClub={myClub}
                   myClubId={myClubId}
-                  myPresidentId={myPresidentId}
                   accountIntent={accountIntent}
                   accountMode={accountMode}
                   switchMode={switchMode}

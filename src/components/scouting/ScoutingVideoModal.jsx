@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import { Heart, Loader2, MessageCircle, Send, User } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function meta(video) {
   return [
@@ -21,6 +22,7 @@ export default function ScoutingVideoModal({
   onLike,
   onVideoChanged,
 }) {
+  const { t } = useTranslation();
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [content, setContent] = useState("");
@@ -63,7 +65,7 @@ export default function ScoutingVideoModal({
     try {
       await onLike?.(video);
     } catch (err) {
-      setError(err?.message || "Could not update like.");
+      setError(err?.message || t("commonPages.scoutVoteFailed"));
     }
   }
 
@@ -81,7 +83,7 @@ export default function ScoutingVideoModal({
         comments_count: Number(video.comments_count || 0) + 1,
       });
     } catch (err) {
-      setError(err?.message || "Could not add comment.");
+      setError(err?.message || t("commonPages.scoutCommentFailed"));
     } finally {
       setSaving(false);
     }
@@ -93,7 +95,7 @@ export default function ScoutingVideoModal({
         {video && (
           <div className="grid max-h-[92vh] grid-rows-[auto_minmax(0,1fr)]">
             <DialogHeader className="border-b border-border px-4 py-3 text-left">
-              <DialogTitle className="truncate text-base">{video.title || "Showcase video"}</DialogTitle>
+              <DialogTitle className="truncate text-base">{video.title || t("commonPages.showcaseUntitled")}</DialogTitle>
             </DialogHeader>
 
             <div className="grid min-h-0 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_21rem]">
@@ -121,7 +123,7 @@ export default function ScoutingVideoModal({
                       </span>
                     )}
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold">{video.gamertag || "Unknown player"}</span>
+                      <span className="block truncate text-sm font-bold">{video.gamertag || t("commonPages.scoutUnknownPlayer")}</span>
                       {meta(video) && <span className="block truncate text-xs text-muted-foreground">{meta(video)}</span>}
                     </span>
                   </Link>
@@ -150,7 +152,7 @@ export default function ScoutingVideoModal({
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   ) : comments.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">No comments yet.</p>
+                    <p className="py-8 text-center text-sm text-muted-foreground">{t("commonPages.scoutNoComments")}</p>
                   ) : (
                     <div className="space-y-3">
                       {comments.map((comment) => {
@@ -173,7 +175,7 @@ export default function ScoutingVideoModal({
                                 </span>
                               )}
                               <span className="truncate text-xs font-bold text-foreground">
-                                {comment.author_name || "Player"}
+                                {comment.author_name || t("commonPages.scoutUnknownPlayer")}
                               </span>
                             </div>
                             <p className="whitespace-pre-wrap text-sm text-muted-foreground">{comment.content}</p>
@@ -188,7 +190,7 @@ export default function ScoutingVideoModal({
                   <Textarea
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
-                    placeholder="Add a comment"
+                    placeholder={t("commonPages.addComment")}
                     rows={3}
                     maxLength={1000}
                   />
@@ -199,7 +201,7 @@ export default function ScoutingVideoModal({
                     className="mt-2 w-full gap-1.5"
                   >
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Comment
+                    {t("commonPages.scoutComment")}
                   </Button>
                 </div>
               </aside>

@@ -106,8 +106,6 @@ test("president profile supports owner/admin edit via shared ProfileEditShell", 
   assert.match(clubEdit, /ProfileEditShell/);
   assert.match(clubEdit, /entities\.Club\.update/);
   assert.match(layout, /presProfileMenu/);
-  assert.match(layout, /playerProfileMenu/);
-  assert.match(layout, /accountProfilesLabel/);
   assert.match(layout, /\/presidents\/\$\{/);
 });
 

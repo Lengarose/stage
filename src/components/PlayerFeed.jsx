@@ -78,11 +78,19 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
   }
 
   async function toggleLike(post) {
-    const liked = post.likes?.includes(currentUser?.email);
-    const likes = liked
-      ? post.likes.filter(e => e !== currentUser.email)
-      : [...(post.likes || []), currentUser.email];
-    await stageClient.entities.Post.update(post.id, { likes, likes_count: likes.length });
+    const updated = await stageClient.http.post(`/posts/${post.id}/like`, {});
+    setPosts(prev => prev.map(p => p.id === post.id ? updated : p));
+    setExpandedPost(prev => prev?.id === post.id ? updated : prev);
+  }
+
+  function addCommentToPost(postId, comment) {
+    setPosts(prev => prev.map(p => p.id === postId
+      ? { ...p, comments_count: Number(p.comments_count || 0) + 1 }
+      : p));
+    setExpandedPost(prev => prev?.id === postId
+      ? { ...prev, comments_count: Number(prev.comments_count || 0) + 1 }
+      : prev);
+    return comment;
   }
 
   async function deletePost(postId) {
@@ -206,6 +214,7 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
           isOwner={isOwner}
           onClose={() => setExpandedPost(null)}
           onLike={() => toggleLike(expandedPost)}
+          onCommentCreated={(comment) => addCommentToPost(expandedPost.id, comment)}
           onDelete={isOwner && expandedPost.author_email === currentUser?.email ? () => { deletePost(expandedPost.id); setExpandedPost(null); } : null}
         />
       )}
@@ -213,7 +222,7 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
   );
 }
 
-function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
+function PostModal({ post, currentUser, onClose, onLike, onCommentCreated, onDelete }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -229,24 +238,19 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
     e.preventDefault();
     if (!commentText.trim()) return;
     setSubmitting(true);
-    await stageClient.entities.Comment.create({
-      post_id: post.id,
-      author_email: currentUser.email,
-      author_name: currentUser.full_name || currentUser.email,
-      content: commentText.trim(),
-    });
-    await stageClient.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
-    setComments(prev => [...prev, {
-      id: Date.now(),
-      post_id: post.id,
-      author_email: currentUser.email,
-      author_name: currentUser.full_name || currentUser.email,
-      content: commentText.trim(),
-      created_date: new Date().toISOString(),
-    }]);
-    setCommentText("");
-    setSubmitting(false);
-    setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    try {
+      const created = await stageClient.entities.Comment.create({
+        post_id: post.id,
+        author_email: currentUser.email,
+        content: commentText.trim(),
+      });
+      setComments(prev => [...prev, created]);
+      onCommentCreated?.(created);
+      setCommentText("");
+      setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

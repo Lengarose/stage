@@ -9,6 +9,34 @@ const OUTCOME_STYLE = {
   D: "bg-amber-500/15 text-amber-400 border-amber-500/30",
 };
 
+const LABEL_FALLBACKS = {
+  ppCareerRecentMatches: "Recent matches",
+  ppCareerOpponent: "Opponent",
+  ppCareerMatch: "Match",
+  ppCareerClubTitle: "My Club Career",
+  ppCareerPlayerTitle: "My Player Career",
+  ppCareerGames: "Games",
+  ppCareerGoals: "Goals",
+  ppCareerAssists: "Assists",
+  ppCareerAvgRating: "Avg Rating",
+  ppCareerWins: "Wins",
+  ppCareerDraws: "Draws",
+  ppCareerLosses: "Losses",
+  ppCareerMotm: "MOTM",
+  ppCareerTrophiesWon: "Trophies Won",
+  ppCareerRankingPoints: "Ranking Points",
+  ppCareerGoalsFor: "Goals For",
+  ppCareerGoalsAgainst: "Goals Against",
+  ppCareerUnavailable: "Career data unavailable",
+  ppCareerLoading: "Loading career...",
+};
+
+function text(t, key, params) {
+  const path = `commonPages.${key}`;
+  const translated = t(path, params);
+  return translated === path ? LABEL_FALLBACKS[key] || key : translated;
+}
+
 function number(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -38,15 +66,15 @@ function HistoryRows({ history, playerCareer = false, t }) {
 
   return (
     <div className="mt-4 border-t border-white/10 pt-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">{t("commonPages.ppCareerRecentMatches")}</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">{text(t, "ppCareerRecentMatches")}</p>
       <div className="space-y-2">
         {rows.map((row, index) => {
           const outcome = String(row?.result || "").toUpperCase();
-          const opponent = row?.opponent_name || row?.opponent || row?.opponent_club_name || t("commonPages.ppCareerOpponent");
-          const source = row?.source_label || row?.competition_name || row?.competition || t("commonPages.ppCareerMatch");
+          const opponent = row?.opponent_name || row?.opponent || row?.opponent_club_name || text(t, "ppCareerOpponent");
+          const source = row?.source_label || row?.competition_name || row?.competition || text(t, "ppCareerMatch");
           const detail = playerCareer
-            ? t("commonPages.ppCareerVs", { opponent })
-            : [row?.goals != null ? t("commonPages.ppCareerGoalsValue", { count: number(row.goals) }) : null, row?.assists != null ? t("commonPages.ppCareerAssistsValue", { count: number(row.assists) }) : null, row?.rating != null ? t("commonPages.ppCareerRatingValue", { rating: formatRating(row.rating) }) : null].filter(Boolean).join(" · ");
+            ? `vs ${opponent}`
+            : [row?.goals != null ? `${number(row.goals)} goals` : null, row?.assists != null ? `${number(row.assists)} assists` : null, row?.rating != null ? `${formatRating(row.rating)} rating` : null].filter(Boolean).join(" · ");
           return (
             <div key={row?.match_id || row?.id || `${source}-${index}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
               {OUTCOME_STYLE[outcome] ? (
@@ -80,7 +108,7 @@ export default function PlayerCareerSummary({ career, loading }) {
   const { t } = useTranslation();
 
   if (loading) {
-    return <GamerSectionCard><div className="py-10 text-center text-sm text-white/40">{t("commonPages.ppCareerLoading")}</div></GamerSectionCard>;
+    return <GamerSectionCard><div className="py-10 text-center text-sm text-white/40">{text(t, "ppCareerLoading")}</div></GamerSectionCard>;
   }
 
   const club = career?.club_career || {};
@@ -89,39 +117,39 @@ export default function PlayerCareerSummary({ career, loading }) {
   return (
     <div className="space-y-4">
       <CareerSection
-        title={t("commonPages.ppCareerClubTitle")}
+        title={text(t, "ppCareerClubTitle")}
         history={club.history}
         t={t}
         stats={[
-          { label: t("commonPages.ppCareerGames"), value: number(club.games) },
-          { label: t("commonPages.ppCareerGoals"), value: number(club.goals), accent: "gold" },
-          { label: t("commonPages.ppCareerAssists"), value: number(club.assists), accent: "sky" },
-          { label: t("commonPages.ppCareerAvgRating"), value: formatRating(club.avg_rating), accent: "violet" },
-          { label: t("commonPages.ppCareerWins"), value: number(club.wins), accent: "green" },
-          { label: t("commonPages.ppCareerDraws"), value: number(club.draws), accent: "gold" },
-          { label: t("commonPages.ppCareerLosses"), value: number(club.losses), accent: "rose" },
-          { label: t("commonPages.ppCareerMotm"), value: number(club.motm), accent: "gold" },
-          { label: t("commonPages.ppCareerTrophiesWon"), value: number(club.trophies_won), accent: "gold" },
-          { label: t("commonPages.ppCareerRankingPoints"), value: number(club.ranking_points), accent: "violet" },
+          { label: text(t, "ppCareerGames"), value: number(club.games) },
+          { label: text(t, "ppCareerGoals"), value: number(club.goals), accent: "gold" },
+          { label: text(t, "ppCareerAssists"), value: number(club.assists), accent: "sky" },
+          { label: text(t, "ppCareerAvgRating"), value: formatRating(club.avg_rating), accent: "violet" },
+          { label: text(t, "ppCareerWins"), value: number(club.wins), accent: "green" },
+          { label: text(t, "ppCareerDraws"), value: number(club.draws), accent: "gold" },
+          { label: text(t, "ppCareerLosses"), value: number(club.losses), accent: "rose" },
+          { label: text(t, "ppCareerMotm"), value: number(club.motm), accent: "gold" },
+          { label: text(t, "ppCareerTrophiesWon"), value: number(club.trophies_won), accent: "gold" },
+          { label: text(t, "ppCareerRankingPoints"), value: number(club.ranking_points), accent: "violet" },
         ]}
       />
       <CareerSection
-        title={t("commonPages.ppCareerPlayerTitle")}
+        title={text(t, "ppCareerPlayerTitle")}
         history={player.history}
         playerCareer
         t={t}
         stats={[
-          { label: t("commonPages.ppCareerGames"), value: number(player.games) },
-          { label: t("commonPages.ppCareerGoalsFor"), value: number(player.goals_for), accent: "gold" },
-          { label: t("commonPages.ppCareerGoalsAgainst"), value: number(player.goals_against), accent: "rose" },
-          { label: t("commonPages.ppCareerWins"), value: number(player.wins), accent: "green" },
-          { label: t("commonPages.ppCareerDraws"), value: number(player.draws), accent: "gold" },
-          { label: t("commonPages.ppCareerLosses"), value: number(player.losses), accent: "rose" },
-          { label: t("commonPages.ppCareerTrophiesWon"), value: number(player.trophies_won), accent: "gold" },
+          { label: text(t, "ppCareerGames"), value: number(player.games) },
+          { label: text(t, "ppCareerGoalsFor"), value: number(player.goals_for), accent: "gold" },
+          { label: text(t, "ppCareerGoalsAgainst"), value: number(player.goals_against), accent: "rose" },
+          { label: text(t, "ppCareerWins"), value: number(player.wins), accent: "green" },
+          { label: text(t, "ppCareerDraws"), value: number(player.draws), accent: "gold" },
+          { label: text(t, "ppCareerLosses"), value: number(player.losses), accent: "rose" },
+          { label: text(t, "ppCareerTrophiesWon"), value: number(player.trophies_won), accent: "gold" },
         ]}
       />
       {!career ? (
-        <div className="flex items-center justify-center gap-2 py-1 text-xs text-white/35"><Trophy className="h-3.5 w-3.5" />{t("commonPages.ppCareerUnavailable")}</div>
+        <div className="flex items-center justify-center gap-2 py-1 text-xs text-white/35"><Trophy className="h-3.5 w-3.5" />{text(t, "ppCareerUnavailable")}</div>
       ) : null}
     </div>
   );

@@ -19,14 +19,11 @@ import ProfileCompletionModal from "../components/ProfileCompletionModal";
 import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
-import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
-import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
+import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
 import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
-import { loadEafcSummary, loadFutMatches } from "@/lib/dashboardData";
 import { COUNTRIES } from "../lib/countries";
 import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -61,6 +58,14 @@ function normalizeClubRoles(roles) {
 // with getVisibleClubRole() in PlayerProfile.jsx.
 const NON_PLAYER_ROLES = new Set(["president", "owner", "manager", "member"]);
 
+function emitNotificationsRead(ids) {
+  const readIds = ids.filter(Boolean);
+  if (!readIds.length) return;
+  window.dispatchEvent(new CustomEvent("stage:notifications-read", {
+    detail: { ids: readIds, count: readIds.length },
+  }));
+}
+
 function getProfileRoleBadges(player) {
   const rawRoles = normalizeClubRoles(player?.club_roles);
   const roles = rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
@@ -75,7 +80,7 @@ export default function Profile({
   initialView = "profile",
 } = {}) {
   const { t } = useTranslation();
-  const _navigate = useNavigate();
+  const navigate = useNavigate();
   const [view, setView] = useState(initialView);
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
@@ -101,6 +106,8 @@ export default function Profile({
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const [pvpMatches, setPvpMatches] = useState([]);
+  const [career, setCareer] = useState(null);
+  const [careerLoading, setCareerLoading] = useState(false);
   const [profileTab, setProfileTab] = useState("posts");
   const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
 
@@ -125,8 +132,6 @@ export default function Profile({
   const [_clubDialogOpen, setClubDialogOpen] = useState(false);
   const [clubOnboardingOpen, setClubOnboardingOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [futMatches, setFutMatches] = useState([]);
-  const [eafcSummary, setEafcSummary] = useState(null);
   const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
   const canUsePlayerProfile = accountIntent !== "president";
 
@@ -198,14 +203,11 @@ export default function Profile({
             setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0)));
           });
 
-          Promise.all([
-            loadFutMatches(p, 20).catch(() => []),
-            p.eafc_club_id ? loadEafcSummary(p).catch(() => null) : Promise.resolve(null),
-          ]).then(([futRows, eafcData]) => {
-            if (!alive) return;
-            setFutMatches(asObjectArray(futRows));
-            setEafcSummary(asObject(eafcData));
-          });
+          setCareerLoading(true);
+          stageClient.http.get(`/player-careers/${p.id}`)
+            .then(data => { if (alive) setCareer(asObject(data)); })
+            .catch(() => { if (alive) setCareer(null); })
+            .finally(() => { if (alive) setCareerLoading(false); });
 
           if (resolvedPresidentClub) {
             setMyClub(resolvedPresidentClub);
@@ -352,6 +354,25 @@ export default function Profile({
     setView("profile");
   }
 
+  async function markNotificationRead(notification) {
+    if (!notification?.id || notification.read) return;
+    setNotifications(prev => asObjectArray(prev).map(item => (
+      item.id === notification.id ? { ...item, read: true } : item
+    )));
+    const updated = await stageClient.http.post(`/notifications/${notification.id}/read`, {}).catch(() => null);
+    if (updated) {
+      setNotifications(prev => asObjectArray(prev).map(item => (
+        item.id === notification.id ? { ...item, ...updated, read: true } : item
+      )));
+    }
+    emitNotificationsRead([notification.id]);
+  }
+
+  async function openNotification(notification) {
+    await markNotificationRead(notification);
+    if (notification?.link) navigate(notification.link.replace(/^\/messages/, "/inbox"));
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
   }
@@ -360,7 +381,6 @@ export default function Profile({
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeIdentityClaims = asObjectArray(identityClaims);
   const safePvpMatches = asObjectArray(pvpMatches);
-  const safeFutMatches = asObjectArray(futMatches);
   const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
@@ -376,7 +396,6 @@ export default function Profile({
   if (view === "profile") {
     const profileTabs = [
       { id: "posts", label: t("commonPages.profTab_posts") },
-      { id: "stats", label: t("commonPages.profTab_stats") },
       { id: "career", label: t("commonPages.gamerTabCareer") },
       { id: "matches", label: t("commonPages.profTab_matches") },
       { id: "trophies", label: t("commonPages.profTab_trophies") },
@@ -510,16 +529,9 @@ export default function Profile({
                 </div>
               ) : null}
 
-              {profileTab === "stats" ? (
-                <div className="pt-2">
-                  <GamerProfileStatsPanel player={player} t={t} />
-                </div>
-              ) : null}
-
               {profileTab === "career" ? (
-                <div className="pt-2 space-y-4">
-                  <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} onPlayerUpdate={setPlayer} />
-                  <FutMatchLogPanel playerId={player.id} initialMatches={safeFutMatches} />
+                <div className="pt-2">
+                  <PlayerCareerSummary career={career} loading={careerLoading} />
                 </div>
               ) : null}
 
@@ -943,11 +955,19 @@ export default function Profile({
                 <p className="text-[10px] text-muted-foreground/60 mt-1">{n.created_date ? new Date(n.created_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : ""}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {n.link && <a href={n.link} className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                {n.link && (
+                  <button
+                    type="button"
+                    onClick={() => openNotification(n)}
+                    className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                    aria-label={t("commonPages.view")}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {!n.read && (
                   <button onClick={async () => {
-                    await stageClient.entities.Notification.update(n.id, { read: true });
-                    setNotifications(prev => asObjectArray(prev).map(x => x.id === n.id ? { ...x, read: true } : x));
+                    await markNotificationRead(n);
                   }} className="p-1.5 rounded-lg hover:bg-success/10 text-success transition-colors">
                     <Check className="w-3.5 h-3.5" />
                   </button>

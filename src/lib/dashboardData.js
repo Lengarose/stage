@@ -376,7 +376,7 @@ export async function loadDashboardGlance(player, user) {
   ]);
 
   const unreadInbox = inbox.filter((m) => !m.is_read);
-  const unreadNotifications = notifications.filter((n) => !n.is_read);
+  const unreadNotifications = notifications.filter((n) => !(n.read || n.is_read));
 
   return {
     stc: Number(player?.stc || 0),
@@ -429,15 +429,13 @@ export async function loadPlayerDashboard() {
     club: null,
   }));
 
-  const [rankings, upcomingMatches, activeTournaments, leagueStandings, matchStats, activeContract, futMatches, eafcSummary, recentCompleted, glance] = await Promise.all([
+  const [rankings, upcomingMatches, activeTournaments, leagueStandings, matchStats, activeContract, recentCompleted, glance] = await Promise.all([
     rankingsPromise,
     loadMyUpcomingMatches(player, club, 6),
     loadActiveTournamentsWithProgress(player, club),
     loadClubLeagueStandings(club),
     loadPlayerMatchStats(player),
     loadActiveContract(player, club),
-    loadFutMatches(player, 30),
-    loadEafcSummary(player),
     loadRecentCompletedMatches(player, club, 10),
     loadDashboardGlance(player, user),
   ]);
@@ -457,8 +455,6 @@ export async function loadPlayerDashboard() {
   const tenure = buildTenureSummary({ user, player, club, activeContract });
   const stageForm = buildStageFormStrip(recentCompleted, player, club, 10);
   const ratingForm = buildRatingFormStrip(matchStats, 10);
-  const futForm = buildFutFormStrip(futMatches, 10);
-  const futWeekly = buildFutWeeklyBuckets(futMatches, 8);
 
   return {
     user,
@@ -473,17 +469,10 @@ export async function loadPlayerDashboard() {
     leagueStandings,
     activity,
     tenure,
-    futMatches,
-    eafcSummary,
     glance,
     form: {
       stage: stageForm,
       rating: ratingForm,
-      fut: futForm,
-    },
-    futActivity: {
-      weekly: futWeekly,
-      summary: buildFutSummary(futMatches),
     },
   };
 }

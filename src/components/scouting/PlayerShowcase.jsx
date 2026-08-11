@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Upload, Video } from "lucide-react";
-import VideoEmbed from "@/components/scouting/VideoEmbed";
+import { Loader2, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
@@ -28,6 +28,7 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
   const [videoDuration, setVideoDuration] = useState(null);
   const [position, setPosition] = useState(player?.showcase_position || "");
   const [error, setError] = useState(null);
+  const [watchingVideo, setWatchingVideo] = useState(null);
 
   const playerId = player?.id;
 
@@ -219,7 +220,25 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {videos.map((video) => (
             <div key={video.id} className="space-y-1.5">
-              <VideoEmbed url={video.url} />
+              <button
+                type="button"
+                onClick={() => setWatchingVideo(video)}
+                className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-border bg-black text-left"
+                aria-label={`Watch ${video.title || t("commonPages.showcaseUntitled")}`}
+              >
+                <video
+                  src={video.media_url || video.url}
+                  className="absolute inset-0 h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/10">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg">
+                    <Play className="h-5 w-5 fill-current" />
+                  </span>
+                </span>
+              </button>
               <div className="flex items-start gap-2">
                 {canEdit ? (
                   <Input
@@ -288,6 +307,29 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
           </p>
         </div>
       )}
+
+      <Dialog open={Boolean(watchingVideo)} onOpenChange={(open) => !open && setWatchingVideo(null)}>
+        <DialogContent className="max-h-[92vh] max-w-4xl overflow-hidden p-0">
+          {watchingVideo ? (
+            <div className="grid max-h-[92vh] grid-rows-[auto_minmax(0,1fr)]">
+              <DialogHeader className="border-b border-border px-4 py-3 text-left">
+                <DialogTitle className="truncate text-base">
+                  {watchingVideo.title || t("commonPages.showcaseUntitled")}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="min-h-0 bg-black">
+                <video
+                  src={watchingVideo.media_url || watchingVideo.url}
+                  className="h-full max-h-[78vh] min-h-[16rem] w-full bg-black object-contain"
+                  controls
+                  playsInline
+                  autoPlay
+                />
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

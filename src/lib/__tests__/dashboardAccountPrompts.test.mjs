@@ -28,7 +28,19 @@ test("global header does not duplicate role upgrade prompts from settings", () =
 
 test("president-only header does not expose the player profile menu item", () => {
   const source = readText("src/components/Layout.jsx");
+  const desktopIdentityMenu = source.slice(
+    source.indexOf("function HeaderIdentityMenu"),
+    source.indexOf("function MobileBottomBar")
+  );
+  const mobileIdentityMenu = source.slice(
+    source.indexOf("function MobileHeaderIdentity"),
+    source.indexOf("function MobileAppFooter")
+  );
 
-  assert.match(source, /\{myPlayer \? \(\s*<DropdownMenuItem[\s\S]{0,320}<Link\s+to="\/profile"/);
-  assert.doesNotMatch(source, /<DropdownMenuSeparator[\s\S]{0,140}\/>\s*<DropdownMenuItem[\s\S]{0,220}<Link\s+to="\/profile"/);
+  assert.doesNotMatch(desktopIdentityMenu, /accountProfilesLabel/);
+  assert.doesNotMatch(desktopIdentityMenu, /playerProfileMenu/);
+  assert.doesNotMatch(desktopIdentityMenu, /<Link\s+to="\/profile"/);
+  assert.doesNotMatch(mobileIdentityMenu, /accountProfilesLabel/);
+  assert.doesNotMatch(mobileIdentityMenu, /playerProfileMenu/);
+  assert.doesNotMatch(mobileIdentityMenu, /<DropdownMenuSeparator[\s\S]{0,140}\/>\s*<DropdownMenuItem[\s\S]{0,220}<Link\s+to="\/profile"/);
 });

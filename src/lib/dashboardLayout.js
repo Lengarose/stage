@@ -6,8 +6,6 @@ export const DASHBOARD_WIDGET_META = [
   { id: "upcoming", labelKey: "dashboardWidgetUpcoming" },
   { id: "activity_objectives", labelKey: "dashboardWidgetActivity" },
   { id: "tournaments_league", labelKey: "dashboardWidgetCompetitions" },
-  { id: "fut_eafc", labelKey: "dashboardWidgetFutEafc" },
-  { id: "fut_log", labelKey: "dashboardWidgetFutLog" },
 ];
 
 export const DEFAULT_DASHBOARD_LAYOUT = DASHBOARD_WIDGET_META.map((w) => w.id);
