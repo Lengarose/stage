@@ -8,7 +8,10 @@ import { Loader2, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
-const MAX_VIDEO_SECONDS = 10;
+const MAX_VIDEO_SECONDS = 20;
+const ACCEPTED_VIDEO_EXTENSIONS = [".mp4", ".m4v", ".webm", ".mov", ".ogv"];
+const ACCEPTED_VIDEO_MIME_TYPES = ["video/mp4", "video/x-m4v", "video/webm", "video/quicktime", "video/ogg"];
+const ACCEPTED_VIDEO_INPUT = [...ACCEPTED_VIDEO_MIME_TYPES, ...ACCEPTED_VIDEO_EXTENSIONS].join(",");
 
 /**
  * A player's showcase: the clips they publish so clubs can see how they play.
@@ -71,7 +74,10 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
     setVideoDuration(null);
     if (!file) return;
 
-    if (!file.type?.startsWith("video/")) {
+    const fileName = String(file.name || "").toLowerCase();
+    const extensionAllowed = ACCEPTED_VIDEO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+    const mimeAllowed = ACCEPTED_VIDEO_MIME_TYPES.includes(file.type);
+    if (!extensionAllowed && !mimeAllowed) {
       setError(t("commonPages.showcaseVideoTypeError"));
       return;
     }
@@ -290,7 +296,7 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
               </span>
               <input
                 type="file"
-                accept="video/*"
+                accept={ACCEPTED_VIDEO_INPUT}
                 className="sr-only"
                 onChange={(e) => selectVideoFile(e.target.files?.[0])}
               />

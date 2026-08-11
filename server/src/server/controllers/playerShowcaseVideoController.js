@@ -5,6 +5,8 @@ const { EXECUTESQL } = require('../db/database');
 const { get } = require('../../constants/env');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 
+const MAX_SHOWCASE_VIDEO_SECONDS = 20;
+
 /**
  * A player's showcase clips.
  *
@@ -303,8 +305,8 @@ router.post('/', async (req, res) => {
     if (title.length > 120) return res.status(400).json({ error: 'Video title must be 120 characters or less' });
 
     const duration = cleanDuration(body.duration_seconds);
-    if (duration !== null && duration > 10) {
-      return res.status(400).json({ error: 'Showcase videos must be 10 seconds or shorter' });
+    if (duration !== null && duration > MAX_SHOWCASE_VIDEO_SECONDS) {
+      return res.status(400).json({ error: `Showcase videos must be ${MAX_SHOWCASE_VIDEO_SECONDS} seconds or shorter` });
     }
 
     // The server assigns the id; letting a client pick one is surface we don't need.
@@ -351,8 +353,8 @@ router.patch('/:id', async (req, res) => {
     const duration = body.duration_seconds !== undefined
       ? cleanDuration(body.duration_seconds)
       : existing.duration_seconds;
-    if (duration !== null && duration !== undefined && Number(duration) > 10) {
-      return res.status(400).json({ error: 'Showcase videos must be 10 seconds or shorter' });
+    if (duration !== null && duration !== undefined && Number(duration) > MAX_SHOWCASE_VIDEO_SECONDS) {
+      return res.status(400).json({ error: `Showcase videos must be ${MAX_SHOWCASE_VIDEO_SECONDS} seconds or shorter` });
     }
 
     const model = new PlayerShowcaseVideo({
