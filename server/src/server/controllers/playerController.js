@@ -6,6 +6,50 @@ const { broadcastPlayer, broadcastPlayerDeleted } = require('../utils/socketBroa
 
 let secondaryPositionColumnReady = null;
 
+/**
+ * Fields this endpoint must never take from the request unless the caller is an
+ * admin.
+ *
+ * Two groups, both of which decide something the client does not get to decide:
+ * the wallet and subscription (what a paying account is owed — these are set by
+ * the Stripe fulfilment path and the credit service, never by an edit form), and
+ * the identity links (which account owns this player).
+ *
+ * They are stripped rather than rejected on purpose: several legitimate flows —
+ * the dressing room, game day, club role management — PATCH a player wholesale
+ * and would otherwise start failing on fields they never meant to change.
+ */
+const ADMIN_ONLY_PLAYER_FIELDS = [
+  'credits',
+  'stc',
+  'subscription',
+  'subscription_expires_at',
+  'subscription_billing',
+  'stripe_subscription_id',
+  'stripe_customer_id',
+  'is_verified',
+  'user_id',
+  'email',
+];
+
+function isAdmin(user) {
+  return [0, 2].includes(Number(user?.role_id));
+}
+
+async function getUser(req) {
+  const rows = await EXECUTESQL(
+    'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
+    [req.user?.id]
+  ).catch(() => []);
+  return rows[0] || null;
+}
+
+function stripAdminOnlyFields(body) {
+  const safe = { ...body };
+  for (const field of ADMIN_ONLY_PLAYER_FIELDS) delete safe[field];
+  return safe;
+}
+
 function normalizePlayerPayload(body = {}) {
   const payload = { ...body };
   if ('secondary_position' in payload) {
@@ -143,7 +187,10 @@ router.patch('/:id', async (req, res) => {
   try {
     await ensureSecondaryPositionColumn();
     const { id } = req.params;
-    const body = normalizePlayerPayload(req.body);
+    const caller = await getUser(req);
+    const body = isAdmin(caller)
+      ? normalizePlayerPayload(req.body)
+      : normalizePlayerPayload(stripAdminOnlyFields(req.body || {}));
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     if (body?.gamertag) {

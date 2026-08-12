@@ -18,10 +18,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { loadPlayerDashboard, getMatchOpponent } from "@/lib/dashboardData";
 import DashboardActivityChart from "@/components/dashboard/DashboardActivityChart";
 import DashboardFormStrip from "@/components/dashboard/DashboardFormStrip";
-import DashboardFutChart from "@/components/dashboard/DashboardFutChart";
 import DashboardQuickGlance from "@/components/dashboard/DashboardQuickGlance";
-import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
-import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
 import DashboardWidgetGrid from "@/components/dashboard/DashboardWidgetGrid";
 import ObjectivesWidget from "@/components/objectives/ObjectivesWidget";
 import DashboardGamerStatCard, { DashboardRankRing } from "@/components/dashboard/DashboardGamerStatCard";
@@ -80,7 +77,7 @@ export default function Dashboard() {
     );
   }
 
-  const { user, player, club, playerRank, clubRank, nextMatch, upcomingMatches, activeTournaments, leagueStandings, activity, tenure, futMatches, eafcSummary, glance, form, futActivity } =
+  const { user, player, club, playerRank, clubRank, nextMatch, upcomingMatches, activeTournaments, leagueStandings, activity, tenure, glance, form } =
     data || {};
 
   const rankedPlayer = playerRank.row;
@@ -221,7 +218,7 @@ export default function Dashboard() {
               form: (
                 <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-4">
                   <h2 className="font-heading font-black uppercase text-xl text-foreground">{t("commonPages.dashboardRecentForm")}</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <DashboardFormStrip
                       label={t("commonPages.dashboardStageForm")}
                       mode="outcome"
@@ -233,12 +230,6 @@ export default function Dashboard() {
                       mode="rating"
                       items={form?.rating}
                       emptyLabel={t("commonPages.dashboardRatingFormEmpty")}
-                    />
-                    <DashboardFormStrip
-                      label={t("commonPages.dashboardFutForm")}
-                      mode="outcome"
-                      items={form?.fut}
-                      emptyLabel={t("commonPages.dashboardFutFormEmpty")}
                     />
                   </div>
                 </section>
@@ -505,23 +496,6 @@ export default function Dashboard() {
                     )}
                   </section>
                 </div>
-              ),
-              fut_eafc: (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-4">
-                    <h2 className="font-heading font-black uppercase text-xl text-foreground">{t("commonPages.dashboardFutActivity")}</h2>
-                    <DashboardFutChart
-                      weekly={futActivity?.weekly}
-                      winsLabel={t("commonPages.dashboardFutWins")}
-                      lossesLabel={t("commonPages.dashboardFutLosses")}
-                      emptyLabel={t("commonPages.dashboardFutChartEmpty")}
-                    />
-                  </section>
-                  <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} compact />
-                </div>
-              ),
-              fut_log: (
-                <FutMatchLogPanel playerId={player.id} initialMatches={futMatches || []} compact />
               ),
             }}
           />

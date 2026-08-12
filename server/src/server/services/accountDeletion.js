@@ -112,7 +112,6 @@ async function purgeEmailFingerprints(exec, userId, emailsRaw) {
   const delPrefix = [
     'DELETE FROM auth_tokens WHERE LOWER(TRIM(email)) IN ',
     'DELETE FROM notifications WHERE LOWER(TRIM(recipient_email)) IN ',
-    'DELETE FROM follows WHERE LOWER(TRIM(follower_email)) IN ',
     'DELETE FROM chat_messages WHERE LOWER(TRIM(sender_email)) IN ',
     'DELETE FROM join_requests WHERE LOWER(TRIM(player_email)) IN ',
     'DELETE FROM comments WHERE LOWER(TRIM(author_email)) IN ',
@@ -205,7 +204,6 @@ async function purgeReferencesForPlayerIds(exec, playerIdsRaw) {
 
   await exec(`DELETE FROM trophy_placements WHERE owner_id IN ${IN_IDS} AND LOWER(IFNULL(owner_type, '')) = 'player'`, p);
 
-  await exec(`UPDATE follows SET follower_player_id = NULL WHERE follower_player_id IN ${IN_IDS}`, p);
   await exec(`UPDATE recruitment_posts SET author_player_id = NULL WHERE author_player_id IN ${IN_IDS}`, p);
   await exec(`UPDATE recruitment_interests SET sender_player_id = NULL WHERE sender_player_id IN ${IN_IDS}`, p);
   await exec(`UPDATE recruitment_interests SET recipient_player_id = NULL WHERE recipient_player_id IN ${IN_IDS}`, p);

@@ -40,7 +40,16 @@ export default function TransferMarket() {
   async function load() {
     setLoading(true);
     try {
-      const { user, player, club, activeRoles = [] } = await resolveMyPlayerAndClub();
+      const { user, player, club: resolvedClub, presidentClub, activeRoles = [] } = await resolveMyPlayerAndClub();
+
+      // Offering a contract is a president action, so it has to be made on behalf
+      // of the club this account presides over. `resolvedClub` is NOT that club:
+      // it is the club the account *plays* for whenever it has one, and the
+      // president club only fills in when there is no player club. For anyone who
+      // both plays for one club and presides over another, using it sends the
+      // offer from the wrong club — the header shows one name while the request
+      // carries another id, and the server rightly refuses.
+      const club = presidentClub || resolvedClub;
 
       const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
       const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
@@ -54,7 +63,7 @@ export default function TransferMarket() {
         setMyClub(club);
         setMyContracts(normalizePlayerContracts(contractArr));
         const isManagement = player?.club_roles?.includes("president") || player?.club_roles?.includes("captain");
-        setCanManage(canManageClubIdentity({ user, club, activeRoles }) || isManagement);
+        setCanManage(canManageClubIdentity({ user, club, presidentClub, activeRoles }) || isManagement);
       }
     } catch (err) {
       console.error("[TransferMarket] load failed:", err);
@@ -266,6 +275,7 @@ export default function TransferMarket() {
         player={offerTarget?.player || offerTarget}
         existingActiveContract={null}
         playerContracts={offerTarget ? myContracts.filter(c => getContractTargetPlayerId(c) === (offerTarget.player || offerTarget)?.id) : []}
+        clubContracts={myContracts}
         onOffer={handleOffer}
         windowOpen={windowOpen}
         club={myClub}

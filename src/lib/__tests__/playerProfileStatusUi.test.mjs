@@ -28,7 +28,7 @@ test("My Profile renders management status separately from football role and inc
   assert.match(source, /getFootballRoleBadges/);
   assert.match(source, /getPlayerManagementBadges/);
   assert.match(source, /managementBadges=\{profileManagementBadges\}/);
-  assert.match(source, /id:\s*"showcase"/);
+  assert.match(source, /getPlayerProfileTabs/);
   assert.match(source, /profileTab === "showcase"/);
   assert.doesNotMatch(source, /President identity, which is deliberately\s+separate from the Player identity/);
 });

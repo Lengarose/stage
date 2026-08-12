@@ -549,18 +549,6 @@ CREATE TABLE IF NOT EXISTS dressing_rooms (
   updated_date   DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- ── follows ───────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS follows (
-  id                VARCHAR(36)  PRIMARY KEY,
-  follower_email    VARCHAR(255) NOT NULL,
-  follower_player_id VARCHAR(36),
-  target_id         VARCHAR(36)  NOT NULL,
-  target_type       VARCHAR(100),
-  target_name       VARCHAR(200),
-  created_date      DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_follow (follower_email, target_id, target_type)
-);
-
 -- ── join_requests ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS join_requests (
   id           VARCHAR(36)  PRIMARY KEY,
@@ -880,7 +868,6 @@ CREATE INDEX idx_pic_status          ON player_identity_claims(status);
 CREATE INDEX idx_pic_created         ON player_identity_claims(created_date);
 CREATE INDEX idx_chat_match          ON chat_messages(match_id);
 CREATE INDEX idx_stats_match         ON match_player_stats(match_id);
-CREATE INDEX idx_follows_email       ON follows(follower_email);
 CREATE INDEX idx_stc_club            ON stc_transactions(club_id);
 CREATE INDEX idx_rp_type_status      ON recruitment_posts(post_type, status);
 CREATE INDEX idx_rp_player           ON recruitment_posts(author_player_id);
@@ -1898,13 +1885,6 @@ SET @sql = IF(
   (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='dressing_rooms' AND constraint_name='fk_dressing_rooms_club_id') = 0
   AND (SELECT COUNT(*) FROM dressing_rooms dr LEFT JOIN clubs c ON c.id = dr.club_id WHERE dr.club_id IS NOT NULL AND c.id IS NULL) = 0,
   'ALTER TABLE dressing_rooms ADD CONSTRAINT fk_dressing_rooms_club_id FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE CASCADE',
-  'SELECT 1'
-); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
-SET @sql = IF(
-  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='follows' AND constraint_name='fk_follows_follower_player_id') = 0
-  AND (SELECT COUNT(*) FROM follows f LEFT JOIN players p ON p.id = f.follower_player_id WHERE f.follower_player_id IS NOT NULL AND p.id IS NULL) = 0,
-  'ALTER TABLE follows ADD CONSTRAINT fk_follows_follower_player_id FOREIGN KEY (follower_player_id) REFERENCES players(id) ON DELETE SET NULL',
   'SELECT 1'
 ); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

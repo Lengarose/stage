@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,7 @@ import { findBlockingContractConflict } from "@/lib/contractOfferVisibility";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
-export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], onOffer, windowOpen, isNegotiation, existingContract, club }) {
+export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], clubContracts = null, onOffer, windowOpen, isNegotiation, existingContract, club }) {
   const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState(existingContract?.contract_type || "squad");
   const [note, setNote] = useState(existingContract?.offer_note || "");
@@ -22,6 +22,10 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   const [targets, setTargets] = useState(existingContract?.performance_targets || []);
   const [showTargets, setShowTargets] = useState(false);
   const [offering, setOffering] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  // A stale refusal from the previous target would be misleading on the next one.
+  useEffect(() => { setSubmitError(null); }, [open, player?.id]);
 
   const statOptions = getStatOptionsForPosition(player?.position);
   const groupedStats = groupStatOptions(statOptions);
@@ -31,7 +35,13 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
     : null;
   const weeklySalaryNumber = parseInt(weeklySalary, 10) || 0;
   const wageCap = Number(club?.wage_budget_stc || 0);
-  const committedWeeklyWages = (playerContracts || []).reduce((sum, contract) => {
+  // The wage cap is a CLUB total, so it has to be summed over the club's whole
+  // contract book. `playerContracts` is scoped to the one player being offered to
+  // (it drives the conflict check), so using it here under-counts and the preview
+  // says there's room when the server knows there isn't. Callers that have the
+  // club's contracts pass them; the rest fall back to the old, narrower behaviour.
+  const wageSourceContracts = clubContracts || playerContracts || [];
+  const committedWeeklyWages = wageSourceContracts.reduce((sum, contract) => {
     if (existingContract?.id && contract.id === existingContract.id) return sum;
     const status = String(contract.status || "").toLowerCase();
     const type = String(contract.contract_type || "").toLowerCase();
@@ -65,6 +75,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
     if (offerLockedByWindow) return;
     if (blockingConflict && !isNegotiation) return;
     setOffering(true);
+    setSubmitError(null);
     try {
       await onOffer({
         contract_type: selectedType,
@@ -80,6 +91,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
       setWeeklySalary("");
       setSigningBonus("");
       onClose();
+    } catch (err) {
+      // The server enforces rules this dialog can only guess at — wage cap,
+      // transfer window, an existing live contract. Without this catch the
+      // rejection was swallowed: the dialog stayed open, nothing was shown, and
+      // the button simply re-enabled, which reads as "the button is broken".
+      setSubmitError(err?.message || t("commonPages.ocdOfferFailed"));
     } finally {
       setOffering(false);
     }
@@ -328,6 +345,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                 rows={3}
               />
             </div>
+
+            {submitError && (
+              <div className="px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                {submitError}
+              </div>
+            )}
 
             <Button
               onClick={handleOffer}

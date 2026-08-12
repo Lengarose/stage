@@ -124,9 +124,7 @@ router.post('/', async (req, res) => {
 
     const body = req.body || {};
     const targetPlayerId = body.target_player_id;
-    const videoLinks = ScoutingReport.cleanVideoLinks(body.video_links);
     if (!targetPlayerId) return res.status(400).json({ error: 'target_player_id is required' });
-    if (!videoLinks.length) return res.status(400).json({ error: 'At least one video link is required' });
 
     const targetRows = await EXECUTESQL(
       'SELECT id, club_id FROM players WHERE id = ? LIMIT 1',
@@ -136,12 +134,27 @@ router.post('/', async (req, res) => {
     // A target already signed elsewhere is deliberately allowed: eligibility is a
     // question for the offer (see the president decision flow), not for scouting.
 
+    // Footage belongs to the player, who publishes it on their own showcase — a
+    // scout reports on what they saw there, they don't supply it. So a player with
+    // an empty showcase can't be scouted: the club would have nothing to watch,
+    // nothing to vote on, and no basis for the president to decide.
+    const showcaseRows = await EXECUTESQL(
+      'SELECT COUNT(*) AS n FROM player_showcase_videos WHERE player_id = ?',
+      [targetPlayerId]
+    ).catch(() => [{ n: 0 }]);
+    if (Number(showcaseRows[0]?.n || 0) === 0) {
+      return res.status(409).json({
+        error: 'This player has no showcase video yet. They need to publish one on their profile before a club can scout them.',
+      });
+    }
+
     const model = new ScoutingReport({
       club_id: context.scout.club_id,
       scouted_by_player_id: context.scout.id,
       scouted_by_user_id: context.user.id,
       target_player_id: targetPlayerId,
-      video_links: videoLinks,
+      // Never taken from the request: see above.
+      video_links: [],
       notes: body.notes || null,
       status: 'open',
     });
@@ -170,14 +183,10 @@ router.patch('/:id', async (req, res) => {
     if (body.status !== undefined) {
       return res.status(400).json({ error: 'Status is changed through the vote and decision endpoints, not by editing the report' });
     }
-    const videoLinks = body.video_links !== undefined
-      ? ScoutingReport.cleanVideoLinks(body.video_links)
-      : existing.video_links;
-    if (!videoLinks.length) return res.status(400).json({ error: 'At least one video link is required' });
-
+    // Only the scout's own words are editable. Footage is the player's, and any
+    // video_links still on old rows stay exactly as they were.
     const model = new ScoutingReport({
       ...existing,
-      video_links: videoLinks,
       notes: body.notes !== undefined ? body.notes : existing.notes,
     });
     await model.update(req.params.id);

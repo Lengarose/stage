@@ -1,6 +1,23 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+function normalizePost(row) {
+  if (!row) return row;
+  let likes = row.likes;
+  let tags = row.tags;
+  if (typeof likes === 'string') {
+    try { likes = JSON.parse(likes); } catch { likes = []; }
+  }
+  if (typeof tags === 'string') {
+    try { tags = JSON.parse(tags); } catch { tags = []; }
+  }
+  return {
+    ...row,
+    likes: Array.isArray(likes) ? likes : [],
+    tags: Array.isArray(tags) ? tags : [],
+  };
+}
+
 class Post {
   constructor(body = {}) {
     this.id              = body.id;
@@ -30,19 +47,22 @@ class Post {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM posts ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL('SELECT * FROM posts ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset])
+      .then((rows) => rows.map(normalizePost));
   }
 
   selectOne(id) {
-    return EXECUTESQL('SELECT * FROM posts WHERE id = ?', [id]);
+    return EXECUTESQL('SELECT * FROM posts WHERE id = ?', [id]).then((rows) => rows.map(normalizePost));
   }
 
   selectByClub(club_id) {
-    return EXECUTESQL('SELECT * FROM posts WHERE club_id = ? ORDER BY id DESC', [club_id]);
+    return EXECUTESQL('SELECT * FROM posts WHERE club_id = ? ORDER BY id DESC', [club_id])
+      .then((rows) => rows.map(normalizePost));
   }
 
   selectByAuthor(email) {
-    return EXECUTESQL('SELECT * FROM posts WHERE author_email = ? ORDER BY id DESC', [email]);
+    return EXECUTESQL('SELECT * FROM posts WHERE author_email = ? ORDER BY id DESC', [email])
+      .then((rows) => rows.map(normalizePost));
   }
 
   create() {
@@ -79,6 +99,29 @@ class Post {
       id,
     ];
     return EXECUTESQL(sql, values);
+  }
+
+  async toggleLike(id, userEmail) {
+    const email = String(userEmail || '').trim().toLowerCase();
+    const inserted = await EXECUTESQL(
+      'INSERT IGNORE INTO post_likes (id, post_id, user_email) VALUES (?,?,?)',
+      [uuidv4(), id, email]
+    );
+    const liked = Number(inserted.affectedRows || 0) > 0;
+    if (!liked) {
+      await EXECUTESQL(
+        'DELETE FROM post_likes WHERE post_id = ? AND LOWER(user_email) = LOWER(?)',
+        [id, email]
+      );
+    }
+    await EXECUTESQL(
+      `UPDATE posts SET
+         likes = COALESCE((SELECT JSON_ARRAYAGG(user_email) FROM post_likes WHERE post_id = ?), JSON_ARRAY()),
+         likes_count = (SELECT COUNT(*) FROM post_likes WHERE post_id = ?)
+       WHERE id = ?`,
+      [id, id, id]
+    );
+    return liked;
   }
 
   delete(id) {

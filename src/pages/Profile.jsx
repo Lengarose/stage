@@ -19,27 +19,34 @@ import ProfileCompletionModal from "../components/ProfileCompletionModal";
 import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
-import EafcClubLinkPanel from "@/components/dashboard/EafcClubLinkPanel";
-import FutMatchLogPanel from "@/components/dashboard/FutMatchLogPanel";
+import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
 import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
 import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
-import { loadEafcSummary, loadFutMatches } from "@/lib/dashboardData";
 import { COUNTRIES } from "../lib/countries";
-import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { isPresidentAccountIntent, readAccountIntent } from "@/lib/accountIntent";
 import { getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getFootballRoleBadges, getPlayerManagementBadges } from "@/lib/playerProfileStatus";
+import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
+import { buildPlayerProfileStats } from "@/lib/playerProfileStats";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
+}
+
+function emitNotificationsRead(ids) {
+  const readIds = ids.filter(Boolean);
+  if (!readIds.length) return;
+  window.dispatchEvent(new CustomEvent("stage:notifications-read", {
+    detail: { ids: readIds, count: readIds.length },
+  }));
 }
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
@@ -49,7 +56,7 @@ export default function Profile({
   initialView = "profile",
 } = {}) {
   const { t } = useTranslation();
-  const _navigate = useNavigate();
+  const navigate = useNavigate();
   const [view, setView] = useState(initialView);
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
@@ -74,8 +81,9 @@ export default function Profile({
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const [pvpMatches, setPvpMatches] = useState([]);
+  const [career, setCareer] = useState(null);
+  const [careerLoading, setCareerLoading] = useState(false);
   const [profileTab, setProfileTab] = useState("posts");
-  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
   const [playerContracts, setPlayerContracts] = useState([]);
   const [clubMemberships, setClubMemberships] = useState([]);
 
@@ -97,11 +105,8 @@ export default function Profile({
     name: "", tag: "", platform: "PlayStation", region: "Europe", description: "", country_code: "",
   });
 
-  const [_clubDialogOpen, setClubDialogOpen] = useState(false);
   const [clubOnboardingOpen, setClubOnboardingOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [futMatches, setFutMatches] = useState([]);
-  const [eafcSummary, setEafcSummary] = useState(null);
   const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
   const canUsePlayerProfile = accountIntent !== "president";
 
@@ -177,14 +182,11 @@ export default function Profile({
             setPvpMatches([...pvpMap.values()].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0)));
           });
 
-          Promise.all([
-            loadFutMatches(p, 20).catch(() => []),
-            p.eafc_club_id ? loadEafcSummary(p).catch(() => null) : Promise.resolve(null),
-          ]).then(([futRows, eafcData]) => {
-            if (!alive) return;
-            setFutMatches(asObjectArray(futRows));
-            setEafcSummary(asObject(eafcData));
-          });
+          setCareerLoading(true);
+          stageClient.http.get(`/player-careers/${p.id}`)
+            .then(data => { if (alive) setCareer(asObject(data)); })
+            .catch(() => { if (alive) setCareer(null); })
+            .finally(() => { if (alive) setCareerLoading(false); });
 
           if (resolvedPresidentClub) {
             setMyClub(resolvedPresidentClub);
@@ -279,48 +281,6 @@ export default function Profile({
     }
   }
 
-  async function _createClub() {
-    if (!user || !player) return;
-    const club = await stageClient.entities.Club.create({
-      user_id: user.id,
-      owner_email: user.email,
-      name: clubForm.name,
-      tag: (clubForm.tag || "").toUpperCase(),
-      platform: clubForm.platform,
-      region: clubForm.region,
-      country_code: clubForm.country_code,
-      description: clubForm.description || "",
-      logo_url: null,
-      wins: 0, losses: 0, draws: 0, goals_scored: 0, goals_conceded: 0,
-      rating: 1500, peak_rating: 1500, matches_ranked: 0, is_provisional: 1,
-      stc: 2500000,
-      wage_budget_stc: 250000, transfer_budget_stc: 1000000,
-      stadium_level: 0, stadium_capacity: 5000,
-      tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
-    });
-    if (!club?.id) return;
-    const refreshedPl = user.player_id
-      ? await stageClient.entities.Player.get(user.player_id).catch(() => null)
-      : null;
-    const refreshed = refreshedPl ? [refreshedPl] : [];
-    if (asObject(refreshed[0])) setPlayer(refreshed[0]);
-    setMyClub(asObject(club));
-    setClubForm({
-      name: club.name || "",
-      tag: club.tag || "",
-      platform: club.platform || "PlayStation",
-      region: club.region || "Europe",
-      description: club.description || "",
-      country_code: club.country_code || "",
-    });
-    setClubDialogOpen(false);
-    setPresidentContractPrompt({
-      club,
-      president: club.president || { id: club.president_id, display_name: club.president_name || user.email },
-      contractId: club.president_contract_id || club.owner_contract_id || null,
-    });
-  }
-
   async function leaveClub() {
     if (!player) return;
     await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
@@ -331,6 +291,25 @@ export default function Profile({
     setView("profile");
   }
 
+  async function markNotificationRead(notification) {
+    if (!notification?.id || notification.read) return;
+    setNotifications(prev => asObjectArray(prev).map(item => (
+      item.id === notification.id ? { ...item, read: true } : item
+    )));
+    const updated = await stageClient.http.post(`/notifications/${notification.id}/read`, {}).catch(() => null);
+    if (updated) {
+      setNotifications(prev => asObjectArray(prev).map(item => (
+        item.id === notification.id ? { ...item, ...updated, read: true } : item
+      )));
+    }
+    emitNotificationsRead([notification.id]);
+  }
+
+  async function openNotification(notification) {
+    await markNotificationRead(notification);
+    if (notification?.link) navigate(notification.link.replace(/^\/messages/, "/inbox"));
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
   }
@@ -339,7 +318,6 @@ export default function Profile({
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeIdentityClaims = asObjectArray(identityClaims);
   const safePvpMatches = asObjectArray(pvpMatches);
-  const safeFutMatches = asObjectArray(futMatches);
   const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
@@ -350,6 +328,11 @@ export default function Profile({
     memberships: clubMemberships,
     contracts: playerContracts,
   });
+  const profileStats = buildPlayerProfileStats({
+    player,
+    pvpMatches: safePvpMatches,
+    playerId: player?.id,
+  });
 
   const OUTCOME_STYLE = {
     W: "bg-success/15 text-success border-success/30",
@@ -359,29 +342,10 @@ export default function Profile({
 
   // ─── Public Player Profile View ───
   if (view === "profile") {
-    const profileTabs = [
-      { id: "posts", label: t("commonPages.profTab_posts") },
-      { id: "showcase", label: t("commonPages.profTab_showcase") },
-      { id: "stats", label: t("commonPages.profTab_stats") },
-      { id: "career", label: t("commonPages.gamerTabCareer") },
-      { id: "matches", label: t("commonPages.profTab_matches") },
-      { id: "trophies", label: t("commonPages.profTab_trophies") },
-    ];
+    const profileTabs = getPlayerProfileTabs({ context: "owner", tournamentLimited: tournamentMode, t });
 
     return (
       <GamerProfileShell>
-        <PresidentContractDialog
-          open={!!presidentContractPrompt}
-          club={presidentContractPrompt?.club}
-          president={presidentContractPrompt?.president}
-          contractId={presidentContractPrompt?.contractId}
-          onSigned={() => {
-            setPresidentContractPrompt(null);
-            setView("club");
-          }}
-          onClose={() => setPresidentContractPrompt(null)}
-        />
-
         <GamerProfileHero
           player={player}
           user={user}
@@ -545,14 +509,13 @@ export default function Profile({
 
               {profileTab === "stats" ? (
                 <div className="pt-2">
-                  <GamerProfileStatsPanel player={player} t={t} />
+                  <GamerProfileStatsPanel stats={profileStats} t={t} />
                 </div>
               ) : null}
 
               {profileTab === "career" ? (
-                <div className="pt-2 space-y-4">
-                  <EafcClubLinkPanel player={player} eafcSummary={eafcSummary} onPlayerUpdate={setPlayer} />
-                  <FutMatchLogPanel playerId={player.id} initialMatches={safeFutMatches} />
+                <div className="pt-2">
+                  <PlayerCareerSummary career={career} loading={careerLoading} />
                 </div>
               ) : null}
 
@@ -976,11 +939,19 @@ export default function Profile({
                 <p className="text-[10px] text-muted-foreground/60 mt-1">{n.created_date ? new Date(n.created_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : ""}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {n.link && <a href={n.link} className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                {n.link && (
+                  <button
+                    type="button"
+                    onClick={() => openNotification(n)}
+                    className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                    aria-label={t("commonPages.view")}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {!n.read && (
                   <button onClick={async () => {
-                    await stageClient.entities.Notification.update(n.id, { read: true });
-                    setNotifications(prev => asObjectArray(prev).map(x => x.id === n.id ? { ...x, read: true } : x));
+                    await markNotificationRead(n);
                   }} className="p-1.5 rounded-lg hover:bg-success/10 text-success transition-colors">
                     <Check className="w-3.5 h-3.5" />
                   </button>

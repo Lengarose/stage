@@ -20,11 +20,13 @@ test("feed components use server-owned like and comment actions", () => {
   for (const file of feedFiles) {
     const source = read(file);
     assert.match(source, /stageClient\.posts\.likeToggle/);
-    assert.match(source, /stageClient\.comments\.createForPost/);
     assert.doesNotMatch(source, /stageClient\.entities\.Post\.update\([^)]*likes_count/s);
     assert.doesNotMatch(source, /stageClient\.entities\.Post\.update\([^)]*comments_count/s);
     assert.doesNotMatch(source, /stageClient\.entities\.Comment\.create/);
   }
+  const modalSource = read("src/components/feed/FeedPostModal.jsx");
+  assert.match(modalSource, /stageClient\.comments\.createForPost/);
+  assert.doesNotMatch(modalSource, /stageClient\.entities\.Comment\.create/);
 });
 
 test("old image posts without framing metadata use safe square defaults", () => {
@@ -58,6 +60,20 @@ test("feed image posts pass framing metadata on create and reuse shared media re
     assert.match(source, /media_aspect/);
     assert.match(source, /FeedPostImageFrame/);
   }
+});
+
+test("Social media posts open an in-app post modal that syncs server-owned actions", () => {
+  const socialSource = read("src/pages/Social.jsx");
+  const modalSource = read("src/components/feed/FeedPostModal.jsx");
+
+  assert.match(socialSource, /const \[expandedPost,\s*setExpandedPost\]/);
+  assert.match(socialSource, /<FeedPostModal/);
+  assert.match(socialSource, /onOpenPost=\{\(post\) => setExpandedPost\(post\)\}/);
+  assert.match(socialSource, /renderContent=\{\(modalPost\) =>/);
+  assert.doesNotMatch(socialSource, /window\.open|target="_blank"/);
+  assert.match(modalSource, /FeedPostImageFrame[\s\S]*variant="modal"/);
+  assert.match(modalSource, /stageClient\.comments\.createForPost/);
+  assert.match(modalSource, /onPostUpdated\(result\.post\)/);
 });
 
 test("global uploads still allow video for proof and scouting workflows", () => {

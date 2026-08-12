@@ -5,14 +5,15 @@ import {
   gamerStatScore,
 } from "./GamerProfileUI";
 
-export default function GamerProfileStatsPanel({ player, t }) {
-  const matches = Number(player?.matches_played || 0);
-  const goals = Number(player?.goals || 0);
-  const assists = Number(player?.assists || 0);
-  const avgRating = Number(player?.avg_match_rating || 6);
-  const wins = Number(player?.wins_count || 0);
-  const cleanSheets = Number(player?.clean_sheets || 0);
-  const motm = Number(player?.man_of_the_match || 0);
+export default function GamerProfileStatsPanel({ player, stats, t }) {
+  const source = stats?.playerFields || player;
+  const matches = Number(source?.matches_played || 0);
+  const goals = Number(source?.goals || 0);
+  const assists = Number(source?.assists || 0);
+  const avgRating = Number(source?.avg_match_rating || 6);
+  const wins = Number(source?.wins_count || 0);
+  const cleanSheets = Number(source?.clean_sheets || 0);
+  const motm = Number(source?.man_of_the_match || 0);
   const winRate = matches ? Math.round((wins / matches) * 100) : 0;
 
   return (
@@ -23,7 +24,7 @@ export default function GamerProfileStatsPanel({ player, t }) {
         <GamerStatTile label={t("commonPages.assists")} value={assists} accent="violet" />
         <GamerStatTile label={t("commonPages.profAvgRating")} value={avgRating.toFixed(1)} accent="gold" sub={`${winRate}% WR`} />
         <GamerStatTile label={t("commonPages.profWins")} value={wins} accent="green" />
-        <GamerStatTile label={t("commonPages.profLosses")} value={player?.losses_count || 0} accent="rose" />
+        <GamerStatTile label={t("commonPages.profLosses")} value={source?.losses_count || 0} accent="rose" />
         <GamerStatTile label={t("commonPages.profMotm")} value={motm} accent="gold" />
         <GamerStatTile label={t("commonPages.profCleanSheets")} value={cleanSheets} accent="cyan" />
       </div>

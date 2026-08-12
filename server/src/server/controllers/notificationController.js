@@ -11,6 +11,10 @@ async function getCurrentUser(req) {
   return rows[0] || null;
 }
 
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
@@ -35,6 +39,35 @@ router.get('/', async (req, res) => {
       result = (result || []).filter((row) => Boolean(Number(row.read)) === wantRead);
     }
     res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /:id/read
+router.post('/:id/read', async (req, res) => {
+  try {
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser?.email) return res.status(403).json({ error: 'Forbidden' });
+
+    const notification = new Notification();
+    const existing = await notification.selectOne(req.params.id);
+    if (!existing.length) return res.status(404).json({ error: 'Not found' });
+
+    const record = existing[0];
+    const isAdmin = Number(currentUser.role_id) === 0;
+    const recipientEmail = normalizeEmail(record.recipient_email);
+    const currentEmail = normalizeEmail(currentUser.email);
+    if (!isAdmin && recipientEmail !== currentEmail) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await notification.markRead(req.params.id);
+    const updated = await notification.selectOne(req.params.id);
+    const updatedRecord = updated[0] || { ...record, read: 1 };
+    broadcastNotification(updatedRecord);
+    res.json(updatedRecord);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

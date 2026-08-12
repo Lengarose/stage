@@ -12,6 +12,7 @@ const SECTION_SLUG_TO_KEY = {
   "press-conferences": "pressConferences",
   lifestyles: "lifestyles",
   transfers: "transfers",
+  "match-archive": "matchArchive",
   trophies: "trophies",
   rewards: "rewards",
   landing: "landing",

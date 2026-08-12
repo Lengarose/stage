@@ -99,7 +99,7 @@ function mergeAndSort(newsItems, pressArticles) {
 }
 
 /** Determine if a news item is visible to the current user */
-function isVisible(item, myPlayer, myClub, followedIds) {
+function isVisible(item, myPlayer, myClub) {
   // Global items visible to everyone
   if (item.is_global) return true;
 
@@ -118,10 +118,6 @@ function isVisible(item, myPlayer, myClub, followedIds) {
   // Player directly involved
   if (myPlayer && item.visible_to_player_ids?.includes(myPlayer.id)) return true;
 
-  // Following the club or player involved
-  if (item.club_id && followedIds.has(item.club_id)) return true;
-  if (item.player_id && followedIds.has(item.player_id)) return true;
-
   return false;
 }
 
@@ -132,13 +128,11 @@ export default function News() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
-  const [followedIds, setFollowedIds] = useState(new Set());
 
   useEffect(() => {
     async function load() {
       let player = null;
       let club = null;
-      let followed = new Set();
 
       try {
         const resolved = await resolveMyPlayerAndClub();
@@ -146,13 +140,6 @@ export default function News() {
         club = resolved.club;
         setMyPlayer(player);
         setMyClub(club);
-
-        // Load followed entities to use for visibility
-        if (player?.id) {
-          const follows = await stageClient.entities.Follow.filter({ follower_player_id: player.id });
-          followed = new Set(follows.map(f => f.target_id));
-          setFollowedIds(followed);
-        }
       } catch (_) {}
 
       const [news, press] = await Promise.all([
@@ -189,7 +176,7 @@ export default function News() {
     return () => { unsub1(); unsub2(); };
   }, []);
 
-  const visible = allItems.filter(i => isVisible(i, myPlayer, myClub, followedIds));
+  const visible = allItems.filter(i => isVisible(i, myPlayer, myClub));
   const filtered = activeFilter === "all" ? visible : visible.filter(i => i._category === activeFilter);
 
   const featured = filtered.find(i => i.is_featured) || filtered[0];

@@ -15,7 +15,6 @@ export default function GamerClubProfileHero({
   topActions,
   sideActions,
   infoAside,
-  followers,
   memberCount,
   onBannerClick,
   onLogoClick,
@@ -105,7 +104,6 @@ export default function GamerClubProfileHero({
             {club?.description ? (
               <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{club.description}</p>
             ) : null}
-            {followers}
             {children}
           </div>
         </div>

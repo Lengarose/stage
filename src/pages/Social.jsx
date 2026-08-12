@@ -1,17 +1,23 @@
 import { useState, useEffect, useRef, useId} from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { AlertCircle, Heart, MessageCircle, Plus, Image, Move, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import FeedPostImageFrame from "@/components/feed/FeedPostImageFrame";
+import FeedPostModal from "@/components/feed/FeedPostModal";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { cn } from "@/lib/utils";
 import { DEFAULT_POST_MEDIA_FRAME } from "@/lib/feedMedia";
 import { useTranslation } from "@/hooks/useTranslation";
+import { getMentionPlayerId } from "@/lib/mentions";
 
 export default function Social() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const targetPostId = searchParams.get("post");
+  const targetCommentId = searchParams.get("comment");
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
@@ -24,23 +30,29 @@ export default function Social() {
   const [mediaZoom, setMediaZoom] = useState(DEFAULT_POST_MEDIA_FRAME.zoom);
   const [mediaEditorOpen, setMediaEditorOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [expandedPost, setExpandedPost] = useState(null);
   const [likePendingId, setLikePendingId] = useState(null);
   const [actionError, setActionError] = useState("");
   const fileInputId = useId();
   const fileRef = useRef();
+  const postRefs = useRef(new Map());
 
   useEffect(() => {
     async function load() {
       const { user: u, player: myPl } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
       setUser(u);
-      const [postData, newsData, pressData] = await Promise.all([
+      const [postData, newsData, pressData, targetPost] = await Promise.all([
         stageClient.entities.Post.list("-created_date", 30),
         stageClient.entities.NewsItem.list("-published_at", 10),
         stageClient.entities.PressArticle.list("-published_at", 10),
+        targetPostId ? stageClient.entities.Post.get(targetPostId).catch(() => null) : Promise.resolve(null),
       ]);
+      const socialPosts = targetPost && !postData.some((post) => post.id === targetPost.id)
+        ? [targetPost, ...postData]
+        : postData;
       const allPosts = [
-        ...postData.map(p => ({ ...p, _type: "post", _sortDate: p.created_date })),
+        ...socialPosts.map(p => ({ ...p, _type: "post", _sortDate: p.created_date })),
         ...newsData.map(n => ({ ...n, _type: "news", _sortDate: n.published_at || n.created_date })),
         ...pressData.map(a => ({ ...a, _type: "press", _sortDate: a.published_at })),
       ].sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0));
@@ -62,7 +74,12 @@ export default function Social() {
       if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "press", _sortDate: event.data.published_at || event.data.created_date }, ...prev]);
     });
     return () => { unsub(); unsubNews(); unsubPress(); };
-  }, []);
+  }, [targetPostId]);
+
+  useEffect(() => {
+    const target = targetPostId ? postRefs.current.get(targetPostId) : null;
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [posts, targetPostId]);
 
   useEffect(() => () => {
     if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
@@ -121,10 +138,13 @@ export default function Social() {
   async function deletePost(postId) {
     await stageClient.entities.Post.delete(postId);
     setPosts(prev => prev.filter(p => p.id !== postId));
+    setExpandedPost(prev => prev?.id === postId ? null : prev);
   }
 
   function replaceFeedPost(updatedPost) {
-    setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...updatedPost, _type: "post", _sortDate: updatedPost.created_date } : p));
+    const normalizedPost = { ...updatedPost, _type: "post", _sortDate: updatedPost.created_date };
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? normalizedPost : p));
+    setExpandedPost(prev => prev?.id === updatedPost.id ? normalizedPost : prev);
   }
 
   async function toggleLike(post) {
@@ -233,16 +253,22 @@ export default function Social() {
               if (post._type === "news") return <NewsPostCard key={"news_" + post.id} item={post} />;
               if (post._type === "press") return <PressPostCard key={"press_" + post.id} item={post} />;
               return (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  user={user}
-                  onLike={toggleLike}
-                  likePending={likePendingId === post.id}
-                  actionError={actionError}
-                  onDelete={deletePost}
-                  onPostUpdated={replaceFeedPost}
-                />
+                <div key={post.id} ref={(node) => {
+                  if (node) postRefs.current.set(post.id, node);
+                  else postRefs.current.delete(post.id);
+                }}>
+                  <PostCard
+                    post={post}
+                    user={user}
+                    onLike={toggleLike}
+                    likePending={likePendingId === post.id}
+                    actionError={actionError}
+                    onDelete={deletePost}
+                    onPostUpdated={replaceFeedPost}
+                    onOpenPost={(post) => setExpandedPost(post)}
+                    focusCommentId={post.id === targetPostId ? targetCommentId : null}
+                  />
+                </div>
               );
             })}
           </div>
@@ -261,6 +287,18 @@ export default function Social() {
           setMediaEditorOpen(false);
         }}
       />
+      {expandedPost && (
+        <FeedPostModal
+          post={expandedPost}
+          currentUser={user}
+          onClose={() => setExpandedPost(null)}
+          onLike={() => toggleLike(expandedPost)}
+          onPostUpdated={replaceFeedPost}
+          likePending={likePendingId === expandedPost.id}
+          onDelete={expandedPost.author_email === user?.email ? () => deletePost(expandedPost.id) : null}
+          renderContent={(modalPost) => <PostContent content={modalPost.content} tags={modalPost.tags} />}
+        />
+      )}
     </div>
   );
 }
@@ -332,7 +370,7 @@ function PressPostCard({ item }) {
   );
 }
 
-function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPostUpdated }) {
+function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPostUpdated, onOpenPost, focusCommentId }) {
   const { t } = useTranslation();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
@@ -340,17 +378,43 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentError, setCommentError] = useState("");
-  const liked = post.likes?.includes(user?.email);
+  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
+  const commentsLoaded = useRef(false);
+  const commentRefs = useRef(new Map());
+  const liked = (post.likes || []).some((email) => String(email).toLowerCase() === String(user?.email || "").toLowerCase());
 
   async function loadComments() {
-    if (!commentsOpen) {
+    if (!commentsLoaded.current) {
       setLoadingComments(true);
       const data = await stageClient.entities.Comment.filter({ post_id: post.id }, "created_date");
       setComments(data);
+      commentsLoaded.current = true;
       setLoadingComments(false);
     }
     setCommentsOpen(prev => !prev);
   }
+
+  useEffect(() => {
+    if (!focusCommentId) return;
+    setCommentsOpen(true);
+    if (commentsLoaded.current) return;
+    setLoadingComments(true);
+    stageClient.entities.Comment.filter({ post_id: post.id }, "created_date")
+      .then((data) => {
+        setComments(data);
+        commentsLoaded.current = true;
+      })
+      .finally(() => setLoadingComments(false));
+  }, [focusCommentId, post.id]);
+
+  useEffect(() => {
+    const comment = focusCommentId ? commentRefs.current.get(focusCommentId) : null;
+    if (!comment) return;
+    setHighlightedCommentId(focusCommentId);
+    comment.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeout = window.setTimeout(() => setHighlightedCommentId(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [comments, focusCommentId]);
 
   async function addComment(e) {
     e.preventDefault();
@@ -369,6 +433,13 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
       setCommentError(err?.message || "Could not add comment.");
     } finally {
       setCommentSubmitting(false);
+    }
+  }
+
+  function openPostFromKeyboard(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpenPost(post);
     }
   }
 
@@ -394,14 +465,30 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
       </div>
 
       {/* Content */}
-      {post.content && <p className="px-4 pb-3 text-sm text-foreground leading-relaxed">{post.content}</p>}
+      {post.content && <p className="px-4 pb-3 text-sm text-foreground leading-relaxed"><PostContent content={post.content} tags={post.tags} /></p>}
 
       {/* Media */}
       {post.media_url && post.media_type === "image" && (
-        <FeedPostImageFrame post={post} variant="card" alt="post media" />
+        <button
+          type="button"
+          onClick={() => onOpenPost(post)}
+          className="block w-full cursor-zoom-in"
+          aria-label="Open post"
+        >
+          <FeedPostImageFrame post={post} variant="card" alt="post media" />
+        </button>
       )}
       {post.media_url && post.media_type === "video" && (
-        <video src={post.media_url} poster={post.media_cover_url || undefined} controls className="w-full max-h-96" />
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenPost(post)}
+          onKeyDown={openPostFromKeyboard}
+          className="cursor-zoom-in"
+          aria-label="Open post"
+        >
+          <video src={post.media_url} poster={post.media_cover_url || undefined} controls className="w-full max-h-96" />
+        </div>
       )}
 
       {/* Actions */}
@@ -432,7 +519,10 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
         <div className="border-t border-border/50 px-4 pb-4 pt-3 space-y-3">
           {loadingComments && <div className="text-center py-2"><div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" /></div>}
           {comments.map(c => (
-            <div key={c.id} className="flex gap-2">
+            <div key={c.id} ref={(node) => {
+              if (node) commentRefs.current.set(c.id, node);
+              else commentRefs.current.delete(c.id);
+            }} className={cn("flex gap-2 transition-colors", highlightedCommentId === c.id && "rounded-lg bg-primary/10")}>
               <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0">
                 <span className="text-[10px] font-bold text-primary">{c.author_name?.[0]?.toUpperCase()}</span>
               </div>
@@ -458,4 +548,22 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
       )}
     </div>
   );
+}
+
+function PostContent({ content, tags }) {
+  const nodes = [];
+  let lastIndex = 0;
+  for (const match of String(content).matchAll(/(^|\s)@([A-Za-z0-9_-]{2,32})\b/g)) {
+    const prefix = match[1];
+    const gamertag = match[2];
+    const mentionStart = match.index + prefix.length;
+    nodes.push(String(content).slice(lastIndex, mentionStart));
+    const playerId = getMentionPlayerId(tags, gamertag);
+    nodes.push(playerId
+      ? <Link key={`${mentionStart}-${gamertag}`} to={`/players/${playerId}`} className="font-semibold text-primary hover:underline">@{gamertag}</Link>
+      : `@${gamertag}`);
+    lastIndex = mentionStart + gamertag.length + 1;
+  }
+  nodes.push(String(content).slice(lastIndex));
+  return nodes;
 }

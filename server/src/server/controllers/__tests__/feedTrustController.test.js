@@ -135,14 +135,14 @@ test('POST /:id/like-toggle likes once and unlikes on second toggle', async () =
   await handle({ params: { id: 'post-1' }, body: {}, user: { id: 'actor-user', email: 'actor@example.test' } }, first);
 
   assert.equal(first.statusCode, 200);
-  assert.deepEqual(JSON.parse(first.body.post.likes), ['actor@example.test']);
+  assert.deepEqual(first.body.post.likes, ['actor@example.test']);
   assert.equal(first.body.post.likes_count, 1);
 
   const second = makeJsonResponse();
   await handle({ params: { id: 'post-1' }, body: {}, user: { id: 'actor-user', email: 'actor@example.test' } }, second);
 
   assert.equal(second.statusCode, 200);
-  assert.deepEqual(JSON.parse(second.body.post.likes), []);
+  assert.deepEqual(second.body.post.likes, []);
   assert.equal(second.body.post.likes_count, 0);
   assert.equal(updates.length, 2);
   assert.equal(notifications.length, 1);
@@ -347,19 +347,14 @@ test('PATCH /posts/:id rejects changing feed post media to video', async () => {
   assert.equal(response.body.error, 'Video uploads are not supported yet. Please upload an image.');
 });
 
-test('PATCH /posts/:id preserves server-owned likes and comment counts', async () => {
+test('PATCH /posts/:id rejects server-owned likes and comment counts', async () => {
   const existingPost = makePost({
     likes: '["owner@example.test"]',
     likes_count: 1,
     comments_count: 4,
   });
-  const updates = [];
   const router = loadPostRouterWithDbMock(async (sql, params = []) => {
     if (/SELECT \* FROM posts WHERE id = \?/.test(sql)) return [existingPost];
-    if (/UPDATE posts SET/.test(sql)) {
-      updates.push(params);
-      return { affectedRows: 1 };
-    }
     throw new Error(`Unexpected SQL: ${sql}`);
   });
   const handle = routeHandler(router, '/:id', 'patch');
@@ -379,11 +374,8 @@ test('PATCH /posts/:id preserves server-owned likes and comment counts', async (
     response,
   );
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(updates[0][3], 'Updated caption');
-  assert.equal(updates[0][10], '["owner@example.test"]');
-  assert.equal(updates[0][11], 1);
-  assert.equal(updates[0][12], 4);
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /dedicated social actions/i);
 });
 
 test('PATCH /posts/:id updates image framing metadata without changing server-owned counts', async () => {
@@ -414,8 +406,6 @@ test('PATCH /posts/:id updates image framing metadata without changing server-ow
         media_position: '30% 70%',
         media_zoom: 180,
         media_aspect: 'square',
-        likes_count: 99,
-        comments_count: 99,
       },
       user: { id: 'user-1', email: 'user@example.test' },
     },
