@@ -1,0 +1,19 @@
+StageLeagues Slice 5 feed trust and media summary.
+
+The President-as-Player identity work is now coherent through onboarding, contracts, public routes, and Player profile badges. The next slice should improve feed trust.
+
+Today likes are patched from the frontend by editing the post likes array and likes count. Comments are created through generic CRUD, and the frontend patches the comment count afterward. That is not trustworthy enough for a competitive platform.
+
+Slice 5 should add a server-owned post like toggle. The frontend calls one endpoint, the server decides whether the user is liking or unliking, updates the likes array and count, and returns the updated post.
+
+Slice 5 should also make comment creation server-owned for feed UX. The server should derive the author identity from the authenticated user and Player profile where possible, create the comment, increment the post comment count, and return the result.
+
+Notifications should be added for likes and comments when the actor is not the post owner. Do not send self-notifications.
+
+New feed posts should be image-only. If a new post tries to use media type video, reject it with: Video uploads are not supported yet. Please upload an image.
+
+Important: do not block video globally. Match proof, scouting, and other video workflows may still need video uploads. Existing old video posts should also keep rendering.
+
+Frontend PlayerFeed, ClubFeed, and Social should use the new server actions, stop manually patching likes and comment counts, and remove new video upload controls while keeping old video rendering.
+
+Out of scope: Transfer Room, rankings, STC rewards, trophies, contracts, and President identity changes.

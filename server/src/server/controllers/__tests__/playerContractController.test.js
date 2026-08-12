@@ -12,6 +12,8 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   const deliveryPath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesPath = path.resolve(__dirname, '../../services/contractRulesService.js');
   const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
+  const presidentResolutionServicePath = path.resolve(__dirname, '../../services/presidentResolutionService.js');
+  const clubFinanceServicePath = path.resolve(__dirname, '../../services/clubFinanceService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[modelPath];
@@ -22,6 +24,8 @@ function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
   delete require.cache[deliveryPath];
   delete require.cache[contractRulesPath];
   delete require.cache[transferWindowServicePath];
+  delete require.cache[presidentResolutionServicePath];
+  delete require.cache[clubFinanceServicePath];
 
   class PlayerContractMock {
     constructor(body = {}) {
@@ -109,12 +113,26 @@ function makeResponse() {
   };
 }
 
+function isClubFinanceUsageQuery(sql) {
+  return /SELECT\s+COALESCE\(SUM\(CASE WHEN status = 'active' THEN weekly_salary_stc ELSE 0 END\), 0\) AS active_wages/.test(sql);
+}
+
 test('creating a player contract delegates offer delivery to the central message service', async () => {
   const deliveredContractIds = [];
   const directDeliveryQueries = [];
   const executesql = async (sql, params = []) => {
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
     if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: 'club-1',
+        stc: 2500000,
+        wage_budget_stc: 1000000,
+        transfer_budget_stc: 1000000,
+        stadium_level: 0,
+      }];
+    }
+    if (isClubFinanceUsageQuery(sql)) return [{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql)) return [];
     if (sql === 'TEST_CREATE_PLAYER_CONTRACT') return { affectedRows: 1 };
     if (sql === 'TEST_SELECT_PLAYER_CONTRACT') {

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 import { isPublicPlayerProfile } from "@/lib/playerDirectory";
-import { isPublicPresidentProfile } from "@/lib/presidentDirectory";
+import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
 
 export default function Search() {
   const { t } = useTranslation();
@@ -39,9 +39,8 @@ export default function Search() {
     setSearched(true);
     const q = query.toLowerCase();
 
-    const [allPlayers, allPresidents, allClubs, eafcRes] = await Promise.all([
+    const [allPlayers, allClubs, eafcRes] = await Promise.all([
       stageClient.entities.Player.list("-overall_rating", 200),
-      stageClient.entities.President.list("-created_date", 200).catch(() => []),
       stageClient.entities.Club.list("-wins", 200),
       searchClub(query.trim(), platform).catch(() => null),
     ]);
@@ -49,8 +48,8 @@ export default function Search() {
     setPlayers(allPlayers.filter(p =>
       isPublicPlayerProfile(p) && p.gamertag?.toLowerCase().includes(q)
     ));
-    setPresidents(allPresidents.filter(p =>
-      isPublicPresidentProfile(p) && (p.display_name || "").toLowerCase().includes(q)
+    setPresidents(buildPlayerPresidentDirectoryRows(allClubs, allPlayers).filter((p) =>
+      matchesPlayerPresidentQuery(p, q)
     ));
     setClubs(allClubs.filter(c => c.name?.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q)));
     setEafcClubs(Array.isArray(eafcRes) ? eafcRes : []);
@@ -249,8 +248,8 @@ export default function Search() {
               <div className="space-y-3">
                 {presidents.map((p) => (
                   <Link
-                    key={p.id}
-                    to={`/presidents/${p.id}`}
+                    key={`${p.club_id}-${p.player_id}`}
+                    to={`/players/${p.player_id}`}
                     className="block bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-amber-400/30 transition-all"
                   >
                     <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center overflow-hidden shrink-0">
@@ -263,7 +262,7 @@ export default function Search() {
                     <div className="flex-1 min-w-0">
                       <p className="leading-relaxed font-bold text-foreground">{p.display_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {[p.role_title, p.country_code, p.management_style].filter(Boolean).join(" · ") || t("commonPages.cdPresident")}
+                        {[p.role_title, p.club_name, p.country_code].filter(Boolean).join(" · ") || t("commonPages.cdPresident")}
                       </p>
                     </div>
                   </Link>

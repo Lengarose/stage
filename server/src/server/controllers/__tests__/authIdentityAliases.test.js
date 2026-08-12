@@ -12,7 +12,8 @@ test('auth responses expose owned club id alias alongside legacy owner id', () =
   assert.match(authController, /AS president_club_id/);
   assert.match(authController, /president_club_id:/);
   assert.match(authController, /president_id:/);
-  assert.match(authController, /ensurePresidentForClub/);
+  assert.match(authController, /president_player_id:/);
+  assert.doesNotMatch(authController, /ensurePresidentForClub/);
   assert.match(authController, /AS owned_club_id/);
   assert.match(authController, /owned_club_id:/);
   assert.match(oauthController, /ownedClubId/);

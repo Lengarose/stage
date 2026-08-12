@@ -69,6 +69,7 @@ export default function PresidentProfile() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [legacyCompatibility, setLegacyCompatibility] = useState(false);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [mainTab, setMainTab] = useState("history");
 
@@ -76,6 +77,7 @@ export default function PresidentProfile() {
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLegacyCompatibility(false);
       try {
         const [row, me, historyRows] = await Promise.all([
           stageClient.entities.President.get(id).catch(() => null),
@@ -84,9 +86,20 @@ export default function PresidentProfile() {
         ]);
         if (cancelled) return;
         const presidentRow = asObject(row);
+        if (presidentRow?.user_id) {
+          const mappedPlayers = await stageClient.entities.Player
+            .filter({ user_id: presidentRow.user_id }, null, 1)
+            .catch(() => []);
+          const mappedPlayer = asObject(asObjectArray(mappedPlayers)[0]);
+          if (mappedPlayer?.id) {
+            navigate(`/players/${mappedPlayer.id}`, { replace: true });
+            return;
+          }
+        }
         setPresident(presidentRow);
         setCurrentUser(asObject(me));
         setClubHistory(asObjectArray(historyRows));
+        setLegacyCompatibility(Boolean(presidentRow?.id));
         if (presidentRow?.club_id) {
           const clubRow = asObject(await stageClient.entities.Club.get(presidentRow.club_id).catch(() => null));
           if (!cancelled) setClub(clubRow);
@@ -99,7 +112,7 @@ export default function PresidentProfile() {
     }
     load();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, navigate]);
 
   const canEdit = Boolean(
     president?.id
@@ -137,6 +150,34 @@ export default function PresidentProfile() {
           {t("commonPages.profBack")}
         </Button>
       </div>
+    );
+  }
+
+  if (legacyCompatibility) {
+    return (
+      <GamerProfileShell>
+        <div className="min-h-[60vh] flex items-center justify-center px-6">
+          <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center">
+            <Shield className="w-10 h-10 text-amber-300/80 mx-auto mb-4" />
+            <h1 className="font-heading text-2xl font-black uppercase text-white">
+              {t("commonPages.presProfileMenu")}
+            </h1>
+            <p className="mt-3 text-sm text-white/55">
+              This legacy President profile is kept for compatibility. Public President identity now lives on the linked Player profile.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                {t("commonPages.profBack")}
+              </Button>
+              {club?.id ? (
+                <Button asChild>
+                  <Link to={`/clubs/${club.id}`}>{t("commonPages.presMyClubMenu")}</Link>
+                </Button>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </GamerProfileShell>
     );
   }
 

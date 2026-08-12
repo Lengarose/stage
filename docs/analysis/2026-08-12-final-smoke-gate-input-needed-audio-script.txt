@@ -1,0 +1,11 @@
+StageLeagues final smoke gate status.
+
+The branch is clean from automated and source evidence. Slice 8 found no product bugs, and Slice 9 fixed the repo-level local database config blocker by allowing TCP MySQL when DB socket path is empty.
+
+But the authenticated browser smoke gate is not complete yet. The remaining blocker is environment access.
+
+We need one safe option. Option one: local MySQL server with host, port, database name, username, password, and a database initialized from server schema dot sql. Option two: staging frontend URL, staging API URL if different, and one or two disposable test accounts with permission to create test clubs and posts. Option three: explicit production smoke approval, only if you accept clearly named test data being created and cleaned up on production.
+
+My recommendation is staging with disposable credentials. It is closest to production behavior, avoids local setup delays, and avoids polluting production.
+
+Until one of those inputs exists, do not mark authenticated smoke complete. Product code status is clean from automated QA. Release gate status is blocked only by missing authenticated smoke environment.

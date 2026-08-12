@@ -1,0 +1,17 @@
+StageLeagues Slice 4 profile cleanup summary.
+
+Slices 1 to 3 made Player the public President identity, created a contract-backed founder flow, and routed public President surfaces to Player profiles. The next gap is inside the Player profile itself.
+
+Some profile code still treats President and Owner as separate from the Player identity, and filters those roles out of player badges. That now conflicts with the product model.
+
+Slice 4 should make Player profiles visibly carry President, Owner, or Founder status as management badges. These badges should be separate from football position. Do not turn president into a football role like striker or midfielder.
+
+The badge should be derived from canonical data, especially clubs dot president player id. Membership source or primary role can be a fallback when needed, but do not infer President status from display text or legacy President profile names.
+
+My Profile should get a Showcase tab or surface, consistent with public PlayerProfile. Keep it lightweight in this slice; do not build the full media system yet.
+
+If an old OW, OD, OL form strip still appears above the profile bio, remove that hero or bio strip. Do not remove useful recent form from Career or Stats unless it is the specific above-bio strip.
+
+Out of scope: Transfer Room, feed likes and comments, media upload rules, STC economy, contract lifecycle changes, trophy migration, and admin President transfer tooling.
+
+The developer task is to implement Player profile President and Founder status cleanup, add My Profile Showcase, protect football role display from management-role pollution, add focused tests, and keep the scope tight.

@@ -5,18 +5,9 @@ import { Crown, Search, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray } from "@/lib/safeData";
-import { filterPublicPresidentProfiles } from "@/lib/presidentDirectory";
+import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
 
 const PAGE_SIZE = 15;
-const SUCCESS_LEVELS = ["All Levels", "less_successful", "successful", "more_successful", "most_successful", "boss"];
-
-const SUCCESS_LABEL_KEYS = {
-  less_successful: "presSuccessLess",
-  successful: "presSuccessSuccessful",
-  more_successful: "presSuccessMore",
-  most_successful: "presSuccessMost",
-  boss: "presSuccessBoss",
-};
 
 export default function Presidents() {
   const { t } = useTranslation();
@@ -24,20 +15,19 @@ export default function Presidents() {
   const [clubs, setClubs] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [successLevel, setSuccessLevel] = useState("All Levels");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     async function load() {
       try {
-        const [presData, clubData] = await Promise.all([
-          stageClient.entities.President.list("-created_date", 500).catch(() => []),
+        const [clubData, playerData] = await Promise.all([
           stageClient.entities.Club.list(null, 500).catch(() => []),
+          stageClient.entities.Player.list("-overall_rating", 500).catch(() => []),
         ]);
-        setPresidents(filterPublicPresidentProfiles(asObjectArray(presData)));
         const map = {};
         asObjectArray(clubData).forEach((c) => { if (c?.id) map[c.id] = c; });
         setClubs(map);
+        setPresidents(buildPlayerPresidentDirectoryRows(asObjectArray(clubData), asObjectArray(playerData)));
       } catch {
         setPresidents([]);
       } finally {
@@ -48,19 +38,13 @@ export default function Presidents() {
   }, []);
 
   const filtered = asObjectArray(presidents).filter((p) => {
-    const q = search.toLowerCase();
-    const name = (p.display_name || "").toLowerCase();
-    const clubName = (clubs[p.club_id]?.name || "").toLowerCase();
-    const matchSearch = !search || name.includes(q) || clubName.includes(q);
-    const matchLevel = successLevel === "All Levels" || p.success_level === successLevel;
-    return matchSearch && matchLevel;
+    return matchesPlayerPresidentQuery(p, search);
   }).sort((a, b) => (a.display_name || "").localeCompare(b.display_name || ""));
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400/50 focus:bg-white/8 transition-all";
-  const selectCls = "bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none cursor-pointer appearance-none min-w-[150px]";
 
   return (
     <div className="min-h-screen p-6 lg:p-10 max-w-7xl mx-auto">
@@ -88,19 +72,6 @@ export default function Presidents() {
             className={cn(inputCls, "pl-10 w-full")}
           />
         </div>
-        <select
-          value={successLevel}
-          onChange={(e) => { setSuccessLevel(e.target.value); setPage(1); }}
-          className={selectCls}
-        >
-          {SUCCESS_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {level === "All Levels"
-                ? t("commonPages.presidentsAllLevels")
-                : t(`commonPages.${SUCCESS_LABEL_KEYS[level]}`)}
-            </option>
-          ))}
-        </select>
       </div>
 
       {loading ? (
@@ -123,11 +94,9 @@ export default function Presidents() {
           <div className="space-y-2">
             {paginated.map((president) => {
               const club = president.club_id ? clubs[president.club_id] : null;
-              const successKey = SUCCESS_LABEL_KEYS[president.success_level];
-              const successLabel = successKey ? t(`commonPages.${successKey}`) : president.success_level;
 
               return (
-                <Link key={president.id} to={`/presidents/${president.id}`} className="block group">
+                <Link key={`${president.club_id}-${president.player_id}`} to={`/players/${president.player_id}`} className="block group">
                   <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>
                     {president.banner_url ? (
                       <div
@@ -172,11 +141,6 @@ export default function Presidents() {
                               {president.role_title}
                             </span>
                           ) : null}
-                          {successLabel ? (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-white/10 text-white/70 border border-white/15 uppercase tracking-wider shrink-0">
-                              {successLabel}
-                            </span>
-                          ) : null}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
                           {president.country_code ? <span>{president.country_code}</span> : null}
@@ -191,7 +155,7 @@ export default function Presidents() {
                               <span>·</span>
                               <span className="flex items-center gap-1 text-amber-300/70">
                                 <Shield className="w-2.5 h-2.5" />
-                                {club.name}
+                                {president.club_name || club.name}
                               </span>
                             </>
                           ) : null}

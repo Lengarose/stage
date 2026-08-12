@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useId} from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { Heart, MessageCircle, Plus, Image, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
+import { AlertCircle, Heart, MessageCircle, Plus, Image, Move, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import FeedPostImageFrame from "@/components/feed/FeedPostImageFrame";
+import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { cn } from "@/lib/utils";
+import { DEFAULT_POST_MEDIA_FRAME } from "@/lib/feedMedia";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function Social() {
@@ -14,9 +17,15 @@ export default function Social() {
   const [myPlayer, setMyPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [postForm, setPostForm] = useState({ content: "", media_type: "none" });
+  const [postForm, setPostForm] = useState({ content: "" });
   const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState("");
+  const [mediaPosition, setMediaPosition] = useState(DEFAULT_POST_MEDIA_FRAME.position);
+  const [mediaZoom, setMediaZoom] = useState(DEFAULT_POST_MEDIA_FRAME.zoom);
+  const [mediaEditorOpen, setMediaEditorOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [likePendingId, setLikePendingId] = useState(null);
+  const [actionError, setActionError] = useState("");
   const fileInputId = useId();
   const fileRef = useRef();
 
@@ -55,31 +64,58 @@ export default function Social() {
     return () => { unsub(); unsubNews(); unsubPress(); };
   }, []);
 
+  useEffect(() => () => {
+    if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+  }, [mediaPreviewUrl]);
+
+  function clearMediaFile() {
+    if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+    setMediaFile(null);
+    setMediaPreviewUrl("");
+    setMediaPosition(DEFAULT_POST_MEDIA_FRAME.position);
+    setMediaZoom(DEFAULT_POST_MEDIA_FRAME.zoom);
+  }
+
+  function handleMediaFile(file) {
+    if (!file) return;
+    if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+    setMediaFile(file);
+    setMediaPreviewUrl(URL.createObjectURL(file));
+    setMediaPosition(DEFAULT_POST_MEDIA_FRAME.position);
+    setMediaZoom(DEFAULT_POST_MEDIA_FRAME.zoom);
+  }
+
   async function createPost() {
     if (!postForm.content.trim() && !mediaFile) return;
     setPosting(true);
+    setActionError("");
     let media_url = "";
     let media_type = "none";
-    if (mediaFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: mediaFile });
-      media_url = res.file_url;
-      media_type = mediaFile.type.startsWith("video") ? "video" : "image";
+    try {
+      if (mediaFile) {
+        const res = await stageClient.integrations.Core.UploadFile({ file: mediaFile });
+        media_url = res.file_url;
+        media_type = "image";
+      }
+      await stageClient.entities.Post.create({
+        author_email: user.email,
+        author_name: myPlayer?.gamertag || user.full_name || user.email,
+        author_avatar: myPlayer?.avatar_url || "",
+        content: postForm.content,
+        media_url,
+        media_type,
+        media_position: mediaFile ? mediaPosition : undefined,
+        media_zoom: mediaFile ? mediaZoom : undefined,
+        media_aspect: mediaFile ? "square" : undefined,
+      });
+      setPostForm({ content: "" });
+      clearMediaFile();
+      setCreateOpen(false);
+    } catch (err) {
+      setActionError(err?.message || "Could not publish this post.");
+    } finally {
+      setPosting(false);
     }
-    await stageClient.entities.Post.create({
-      author_email: user.email,
-      author_name: myPlayer?.gamertag || user.full_name || user.email,
-      author_avatar: myPlayer?.avatar_url || "",
-      content: postForm.content,
-      media_url,
-      media_type,
-      likes: [],
-      likes_count: 0,
-      comments_count: 0,
-    });
-    setPostForm({ content: "", media_type: "none" });
-    setMediaFile(null);
-    setPosting(false);
-    setCreateOpen(false);
   }
 
   async function deletePost(postId) {
@@ -87,13 +123,22 @@ export default function Social() {
     setPosts(prev => prev.filter(p => p.id !== postId));
   }
 
+  function replaceFeedPost(updatedPost) {
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...updatedPost, _type: "post", _sortDate: updatedPost.created_date } : p));
+  }
+
   async function toggleLike(post) {
-    const liked = post.likes?.includes(user.email);
-    const newLikes = liked
-      ? post.likes.filter(e => e !== user.email)
-      : [...(post.likes || []), user.email];
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: newLikes, likes_count: newLikes.length } : p));
-    await stageClient.entities.Post.update(post.id, { likes: newLikes, likes_count: newLikes.length });
+    if (likePendingId === post.id) return;
+    setLikePendingId(post.id);
+    setActionError("");
+    try {
+      const result = await stageClient.posts.likeToggle(post.id);
+      replaceFeedPost(result.post);
+    } catch (err) {
+      setActionError(err?.message || "Could not update like.");
+    } finally {
+      setLikePendingId(null);
+    }
   }
 
   if (loading) return (
@@ -137,24 +182,35 @@ export default function Social() {
                   className="bg-secondary border-border min-h-[100px]"
                   placeholder={t("commonPages.shareWithCommunity")}
                 />
-                {mediaFile && (
+                {mediaPreviewUrl && (
                   <div className="relative">
-                    {mediaFile.type.startsWith("image") ? (
-                      <img src={URL.createObjectURL(mediaFile)} className="w-full rounded-xl object-cover max-h-48" alt="preview" />
-                    ) : (
-                      <video src={URL.createObjectURL(mediaFile)} className="w-full rounded-xl max-h-48" controls />
-                    )}
-                    <button onClick={() => setMediaFile(null)} className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5 hover:bg-black/70 transition-colors">
+                    <FeedPostImageFrame
+                      post={{ media_url: mediaPreviewUrl, media_position: mediaPosition, media_zoom: mediaZoom, media_aspect: "square" }}
+                      variant="preview"
+                      className="rounded-xl border border-border"
+                      alt="preview"
+                    />
+                    <button type="button" onClick={clearMediaFile} className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5 hover:bg-black/70 transition-colors">
                       <X className="w-3 h-3 text-white" />
                     </button>
                   </div>
                 )}
                 <div className="flex items-center gap-3">
-                  <input id={fileInputId} ref={fileRef} type="file" accept="image/*,video/*" className="sr-only" onChange={e => setMediaFile(e.target.files[0])} />
+                  <input id={fileInputId} ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={e => handleMediaFile(e.target.files[0])} />
                   <label htmlFor={fileInputId} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
-                    <Image className="w-4 h-4" /> {t("commonPages.photoVideo")}
+                    <Image className="w-4 h-4" /> Photo
                   </label>
+                  {mediaPreviewUrl && (
+                    <button type="button" onClick={() => setMediaEditorOpen(true)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary">
+                      <Move className="w-4 h-4" /> Frame
+                    </button>
+                  )}
                 </div>
+                {actionError && (
+                  <p className="text-xs text-destructive flex items-center gap-1.5">
+                    <AlertCircle className="w-3 h-3" /> {actionError}
+                  </p>
+                )}
                 <Button onClick={createPost} disabled={posting || (!postForm.content.trim() && !mediaFile)}
                   className="w-full bg-primary text-primary-foreground">
                   {posting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("commonPages.posting")}</> : <><Send className="w-4 h-4 mr-2" /> {t("commonPages.share")}</>}
@@ -176,11 +232,35 @@ export default function Social() {
             {posts.map(post => {
               if (post._type === "news") return <NewsPostCard key={"news_" + post.id} item={post} />;
               if (post._type === "press") return <PressPostCard key={"press_" + post.id} item={post} />;
-              return <PostCard key={post.id} post={post} user={user} onLike={toggleLike} onDelete={deletePost} />;
+              return (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  user={user}
+                  onLike={toggleLike}
+                  likePending={likePendingId === post.id}
+                  actionError={actionError}
+                  onDelete={deletePost}
+                  onPostUpdated={replaceFeedPost}
+                />
+              );
             })}
           </div>
         )}
       </div>
+      <ImagePositionEditor
+        open={mediaEditorOpen}
+        onClose={() => setMediaEditorOpen(false)}
+        imageUrl={mediaPreviewUrl}
+        aspect="square"
+        initialPosition={mediaPosition}
+        initialZoom={mediaZoom}
+        onConfirm={(_url, position, zoom) => {
+          setMediaPosition(position || DEFAULT_POST_MEDIA_FRAME.position);
+          setMediaZoom(zoom || DEFAULT_POST_MEDIA_FRAME.zoom);
+          setMediaEditorOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -252,12 +332,14 @@ function PressPostCard({ item }) {
   );
 }
 
-function PostCard({ post, user, onLike, onDelete }) {
+function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPostUpdated }) {
   const { t } = useTranslation();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState("");
   const liked = post.likes?.includes(user?.email);
 
   async function loadComments() {
@@ -273,15 +355,21 @@ function PostCard({ post, user, onLike, onDelete }) {
   async function addComment(e) {
     e.preventDefault();
     if (!commentInput.trim()) return;
-    const c = await stageClient.entities.Comment.create({
-      post_id: post.id,
-      author_email: user.email,
-      author_name: user.full_name || user.email,
-      content: commentInput.trim(),
-    });
-    await stageClient.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
-    setComments(prev => [...prev, c]);
-    setCommentInput("");
+    setCommentSubmitting(true);
+    setCommentError("");
+    try {
+      const result = await stageClient.comments.createForPost({
+        post_id: post.id,
+        content: commentInput.trim(),
+      });
+      if (result.comment) setComments(prev => [...prev, result.comment]);
+      if (result.post) onPostUpdated(result.post);
+      setCommentInput("");
+    } catch (err) {
+      setCommentError(err?.message || "Could not add comment.");
+    } finally {
+      setCommentSubmitting(false);
+    }
   }
 
   return (
@@ -310,7 +398,7 @@ function PostCard({ post, user, onLike, onDelete }) {
 
       {/* Media */}
       {post.media_url && post.media_type === "image" && (
-        <img src={post.media_url} alt="post media" className="w-full max-h-96 object-cover" />
+        <FeedPostImageFrame post={post} variant="card" alt="post media" />
       )}
       {post.media_url && post.media_type === "video" && (
         <video src={post.media_url} poster={post.media_cover_url || undefined} controls className="w-full max-h-96" />
@@ -320,11 +408,13 @@ function PostCard({ post, user, onLike, onDelete }) {
       <div className="flex items-center gap-4 px-4 py-3 border-t border-border/50">
         <button
           onClick={() => onLike(post)}
+          disabled={likePending}
           className={cn("flex items-center gap-1.5 text-sm transition-colors",
-            liked ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            liked ? "text-primary" : "text-muted-foreground hover:text-foreground",
+            likePending && "opacity-60 cursor-not-allowed"
           )}
         >
-          <Heart className="w-4 h-4" fill={liked ? "currentColor" : "none"} />
+          {likePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" fill={liked ? "currentColor" : "none"} />}
           <span>{post.likes_count || 0}</span>
         </button>
         <button
@@ -335,6 +425,7 @@ function PostCard({ post, user, onLike, onDelete }) {
           <span>{post.comments_count || 0}</span>
         </button>
       </div>
+      {actionError && <p className="px-4 pb-3 text-xs text-destructive">{actionError}</p>}
 
       {/* Comments */}
       {commentsOpen && (
@@ -358,10 +449,11 @@ function PostCard({ post, user, onLike, onDelete }) {
               placeholder={t("commonPages.addComment")}
               className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
             />
-            <Button type="submit" size="icon" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 w-8 h-8 shrink-0" disabled={!commentInput.trim()}>
-              <Send className="w-3 h-3" />
+            <Button type="submit" size="icon" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 w-8 h-8 shrink-0" disabled={commentSubmitting || !commentInput.trim()}>
+              {commentSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
             </Button>
           </form>
+          {commentError && <p className="text-xs text-destructive">{commentError}</p>}
         </div>
       )}
     </div>

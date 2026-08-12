@@ -11,6 +11,9 @@ class Post {
     this.media_url       = body.media_url;
     this.media_cover_url = body.media_cover_url;
     this.media_type      = body.media_type;
+    this.media_position  = body.media_position;
+    this.media_zoom      = body.media_zoom;
+    this.media_aspect    = body.media_aspect;
     this.club_id         = body.club_id;
     this.club_name       = body.club_name;
     this.tournament_id   = body.tournament_id;
@@ -47,13 +50,15 @@ class Post {
     const sql = `INSERT INTO posts
       (id, author_email, author_name, author_avatar, content, media_url,
        media_cover_url, media_type, club_id, club_name, tournament_id,
-       likes, likes_count, comments_count, tags)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       likes, likes_count, comments_count, tags, media_position, media_zoom,
+       media_aspect)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.author_email, this.author_name, this.author_avatar,
       this.content, this.media_url, this.media_cover_url, this.media_type,
       this.club_id, this.club_name, this.tournament_id,
       this.likes, this.likes_count, this.comments_count, this.tags,
+      this.media_position, this.media_zoom, this.media_aspect,
     ];
     return EXECUTESQL(sql, values);
   }
@@ -62,13 +67,15 @@ class Post {
     const sql = `UPDATE posts SET
       author_email=?, author_name=?, author_avatar=?, content=?, media_url=?,
       media_cover_url=?, media_type=?, club_id=?, club_name=?, tournament_id=?,
-      likes=?, likes_count=?, comments_count=?, tags=?
+      likes=?, likes_count=?, comments_count=?, tags=?, media_position=?,
+      media_zoom=?, media_aspect=?
       WHERE id=?`;
     const values = [
       this.author_email, this.author_name, this.author_avatar, this.content,
       this.media_url, this.media_cover_url, this.media_type, this.club_id,
       this.club_name, this.tournament_id,
       this.likes, this.likes_count, this.comments_count, this.tags,
+      this.media_position, this.media_zoom, this.media_aspect,
       id,
     ];
     return EXECUTESQL(sql, values);

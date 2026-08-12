@@ -1,6 +1,5 @@
 const { EXECUTESQL } = require('../db/database');
 const {
-  ensurePresidentForClub,
   resolvePresidentForUserId,
 } = require('./presidentResolutionService');
 
@@ -77,6 +76,9 @@ async function resolveUserIdentity(userId) {
   const legacyMemberClub = legacyMemberClubRows[0] || null;
 
   const presidentClubByUser = await safeQuery('SELECT * FROM clubs WHERE president_user_id = ? LIMIT 1', [user.id]);
+  const presidentClubByPlayer = !presidentClubByUser.length && player?.id
+    ? await safeQuery('SELECT * FROM clubs WHERE president_player_id = ? LIMIT 1', [player.id])
+    : [];
 
   // `users.owner_id` is legacy naming: it stores the owned club id.
   const ownerClubByUserField = user.owner_id
@@ -88,21 +90,17 @@ async function resolveUserIdentity(userId) {
   const ownerClubByEmail = !presidentClubByUser.length && !ownerClubByUserField.length && !ownerClubByClubUser.length && user.email
     ? await safeQuery('SELECT * FROM clubs WHERE LOWER(TRIM(owner_email)) = LOWER(TRIM(?)) LIMIT 1', [user.email])
     : [];
-  const presidentClub = presidentClubByUser[0] || null;
+  const presidentClub = presidentClubByUser[0] || presidentClubByPlayer[0] || null;
   const ownedClub = presidentClub || ownerClubByUserField[0] || ownerClubByClubUser[0] || ownerClubByEmail[0] || null;
   const ownedClubId = ownedClub?.id || user.owner_id || null;
   const presidentClubId = presidentClub?.id || (
     ownedClub && sameId(ownedClub.president_user_id, user.id) ? ownedClub.id : null
   );
 
-  // Ensure a first-class President entity exists for this president account.
+  // Resolve legacy first-class President rows when they already exist. New
+  // player-president identity must not synthesize standalone President rows.
   let president = await resolvePresidentForUserId(user.id, { ensure: false });
   const clubForPresident = presidentClub || (presidentClubId && ownedClub && sameId(ownedClub.id, presidentClubId) ? ownedClub : null);
-  if (!president && clubForPresident) {
-    president = await ensurePresidentForClub(clubForPresident);
-  } else if (president && clubForPresident && !sameId(president.club_id, clubForPresident.id)) {
-    president = await ensurePresidentForClub(clubForPresident);
-  }
 
   user.owned_club_id = ownedClubId;
   user.president_club_id = presidentClubId;
@@ -121,6 +119,7 @@ async function resolveUserIdentity(userId) {
   const roles = [];
   if (
     (presidentClub && sameId(presidentClub.president_user_id, user.id))
+    || (presidentClub && player?.id && sameId(presidentClub.president_player_id, player.id))
     || (ownedClub && (sameId(ownedClub.user_id, user.id) || sameEmail(ownedClub.owner_email, user.email) || sameId(ownedClubId, ownedClub.id)))
   ) {
     roles.push('president');

@@ -2,22 +2,48 @@ const mysql = require('mysql2');
 const { get } = require('../../constants/env');
 const { isIsoDateString, toMysqlDateTime } = require('../utils/datetime');
 
-const dbSocketPath = String(get('DB_SOCKET_PATH') || '').trim();
-if (!dbSocketPath) {
-  throw new Error('DB_SOCKET_PATH is required for Gandi MySQL');
+function buildPoolConfig(env = {}) {
+  console.log('buildPoolConfig', JSON.stringify(env, null, 2));
+  const read = (key, fallback = '') => {
+    if (Object.prototype.hasOwnProperty.call(env, key)) return env[key];
+    return get(key) ?? fallback;
+  };
+
+  const socketPath = String(read('DB_SOCKET_PATH')).trim();
+  const user = read('DB_USER', 'root') || 'root';
+  if (socketPath === '/srv/run/mysqld/mysqld.sock' && user === 'hosting-db') {
+    throw new Error(
+      '[db-config] Invalid Gandi MySQL configuration: DB_USER=hosting-db is a PostgreSQL-style default. ' +
+      'Use DB_USER=root with DB_SOCKET_PATH=/srv/run/mysqld/mysqld.sock unless a real MySQL user was created.'
+    );
+  }
+
+  const baseConfig = {
+    user,
+    password:          read('DB_PASSWORD', ''),
+    database:          read('DB_NAME', 'stage_league') || 'stage_league',
+    charset:           'utf8mb4',
+    waitForConnections: true,
+    connectionLimit:    10,
+    // Return DATETIME as "YYYY-MM-DD HH:mm:ss" — wall-clock, no UTC JSON shift in API responses.
+    dateStrings:        true,
+  };
+
+  if (socketPath) {
+    return {
+      ...baseConfig,
+      socketPath,
+    };
+  }
+
+  return {
+    ...baseConfig,
+    host: read('DB_HOST', 'localhost') || 'localhost',
+    port: Number(read('DB_PORT', '3306')) || 3306,
+  };
 }
 
-const pool = mysql.createPool({
-  socketPath:         dbSocketPath,
-  user:              'root',
-  password:          '',
-  database:          'stage_league',
-  charset:           'utf8mb4',
-  waitForConnections: true,
-  connectionLimit:    10,
-  // Return DATETIME as "YYYY-MM-DD HH:mm:ss" — wall-clock, no UTC JSON shift in API responses.
-  dateStrings:        true,
-});
+const pool = mysql.createPool(buildPoolConfig());
 
 // Coerce ISO 8601 datetime strings to MySQL DATETIME format inside the parameter
 // array of EXECUTESQL. This is done in the DB layer (and nowhere else) so every
@@ -75,4 +101,4 @@ async function withTransaction(fn) {
   }
 }
 
-module.exports = { EXECUTESQL, pool, withTransaction };
+module.exports = { EXECUTESQL, pool, withTransaction, buildPoolConfig };

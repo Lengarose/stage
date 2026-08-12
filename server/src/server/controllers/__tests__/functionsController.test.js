@@ -12,6 +12,10 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesServicePath = path.resolve(__dirname, '../../services/contractRulesService.js');
   const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
+  const clubFinanceServicePath = path.resolve(__dirname, '../../services/clubFinanceService.js');
+  const clubMembershipServicePath = path.resolve(__dirname, '../../services/clubMembershipService.js');
+  const presidentResolutionServicePath = path.resolve(__dirname, '../../services/presidentResolutionService.js');
+  const scoreProofServicePath = path.resolve(__dirname, '../../services/scoreProofService.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
@@ -24,6 +28,10 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[messageDeliveryServicePath];
   delete require.cache[contractRulesServicePath];
   delete require.cache[transferWindowServicePath];
+  delete require.cache[clubFinanceServicePath];
+  delete require.cache[clubMembershipServicePath];
+  delete require.cache[presidentResolutionServicePath];
+  delete require.cache[scoreProofServicePath];
   delete require.cache[servicePath];
   delete require.cache[matchModelPath];
   delete require.cache[socketPath];
@@ -85,6 +93,22 @@ function makeJsonResponse() {
       this.body = body;
     },
   };
+}
+
+function makeFinanceReadyClub(overrides = {}) {
+  return {
+    id: 'club-1',
+    name: 'Club One',
+    stc: 2500000,
+    wage_budget_stc: 1000000,
+    transfer_budget_stc: 1000000,
+    stadium_level: 0,
+    ...overrides,
+  };
+}
+
+function isClubFinanceUsageQuery(sql) {
+  return /SELECT\s+COALESCE\(SUM\(CASE WHEN status = 'active' THEN weekly_salary_stc ELSE 0 END\), 0\) AS active_wages/.test(sql);
 }
 
 test('playerWallet get_balance resolves player linked by users.player_id', async () => {
@@ -832,13 +856,13 @@ test('contractActions offer stores duration metadata for market offers', async (
   const inboxUpdates = [];
   const notificationUpdates = [];
   let createdContractId = null;
-  const clubRow = {
+  const clubRow = makeFinanceReadyClub({
     id: 'club-1',
     user_id: 'owner-user',
     president_user_id: 'owner-user',
     president_id: 'pres-1',
     owner_email: 'owner@example.test',
-  };
+  });
   const presidentRow = { id: 'pres-1', user_id: 'owner-user', club_id: 'club-1', email: 'owner@example.test' };
   const executesql = async (sql, params = []) => {
     if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
@@ -860,6 +884,7 @@ test('contractActions offer stores duration metadata for market offers', async (
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
     if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) return [{ id: 'window-open', status: 'open' }];
     if (/FROM player_contracts/.test(sql) && /status IN/.test(sql) && /team_id = \?/.test(sql)) return [];
+    if (isClubFinanceUsageQuery(sql)) return [{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }];
     if (/INSERT INTO player_contracts/.test(sql)) {
       createdContractId = params[0];
       contractInserts.push({ sql, params });
@@ -1048,7 +1073,7 @@ test('contractManagement accept writes active club membership', async () => {
     role: 'member',
     club_roles: null,
   };
-  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const club = makeFinanceReadyClub();
   const connection = {
     async beginTransaction() {},
     async commit() {},
@@ -1059,6 +1084,8 @@ test('contractManagement accept writes active club membership', async () => {
       if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
       if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql) && /status IN/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
@@ -1104,7 +1131,7 @@ test('contractManagement accept writes active club membership', async () => {
   assert.deepEqual(insert.params.slice(1), ['club-1', 'player-1', 'user-player', 'member', 'contract_acceptance']);
 });
 
-test('contractManagement accept updates canonical president link for ownership contracts', async () => {
+test('contractManagement accept preserves president links for ownership contracts until Slice 2', async () => {
   const queries = [];
   const contract = {
     id: 'ownership-contract-1',
@@ -1124,14 +1151,14 @@ test('contractManagement accept updates canonical president link for ownership c
     role: 'free_agent',
     club_roles: null,
   };
-  const club = {
+  const club = makeFinanceReadyClub({
     id: 'club-1',
     name: 'Club One',
-    wage_budget_stc: 1000000,
     user_id: 'old-president-user',
     president_user_id: 'old-president-user',
+    president_player_id: 'old-president-player',
     owner_email: 'old@example.test',
-  };
+  });
   const connection = {
     async beginTransaction() {},
     async commit() {},
@@ -1147,8 +1174,6 @@ test('contractManagement accept updates canonical president link for ownership c
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE notifications/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE players SET club_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
-      if (/UPDATE clubs SET president_user_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
-      if (/UPDATE users SET owner_id = \?/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/DELETE FROM club_memberships/.test(sql)) return [{ affectedRows: 0 }, []];
       if (/UPDATE club_memberships/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/SELECT \* FROM club_memberships/.test(sql)) return [[], []];
@@ -1178,10 +1203,9 @@ test('contractManagement accept updates canonical president link for ownership c
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.status, 'active');
-  const clubUpdate = queries.find((call) => /UPDATE clubs SET president_user_id = \?/.test(call.sql));
-  assert.deepEqual(clubUpdate.params, ['new-president-user', 'new-president-user', 'president@example.test', 'club-1']);
-  const userUpdate = queries.find((call) => /UPDATE users SET owner_id = \?/.test(call.sql));
-  assert.deepEqual(userUpdate.params, ['club-1', 'new-president-user']);
+  assert.equal(queries.some((call) => /UPDATE clubs SET president_user_id = \?/.test(call.sql)), false);
+  assert.equal(queries.some((call) => /UPDATE users SET owner_id = \?/.test(call.sql)), false);
+  assert.equal(queries.some((call) => /INSERT INTO club_memberships/.test(call.sql)), true);
 });
 
 test('contractManagement accept rejects ownership contracts for unlinked player identities', async () => {
@@ -1283,7 +1307,7 @@ test('contractManagement mark_pending_window activates free-agent accepted contr
     role: 'member',
     club_roles: null,
   };
-  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const club = makeFinanceReadyClub();
   const connection = {
     async beginTransaction() {},
     async commit() {},
@@ -1294,6 +1318,8 @@ test('contractManagement mark_pending_window activates free-agent accepted contr
       if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
       if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql) && /status IN/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
@@ -1441,7 +1467,7 @@ test('contractManagement accept closes competing live offers for the same player
     role: 'member',
     club_roles: null,
   };
-  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const club = makeFinanceReadyClub();
   const connection = {
     async beginTransaction() {},
     async commit() {},
@@ -1452,6 +1478,8 @@ test('contractManagement accept closes competing live offers for the same player
       if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
       if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) {
         return [[
           { id: 'other-offer', team_id: 'club-2', user_id: 'player-1', contract_type: 'important', status: 'pending' },
@@ -1522,7 +1550,7 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
     role: 'member',
     club_roles: null,
   };
-  const club = { id: 'club-1', name: 'Club One', wage_budget_stc: 1000000 };
+  const club = makeFinanceReadyClub();
   const connection = {
     async beginTransaction() {},
     async commit() {},
@@ -1533,6 +1561,8 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
       if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[pendingContract], []];
       if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];

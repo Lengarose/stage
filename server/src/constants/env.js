@@ -71,7 +71,7 @@ const ENV = {
   SMTP_HOST: 'mail.gandi.net',
   SMTP_PORT: '465',
   SMTP_USER: 'info@stageleagues.com',   // Gandi mailbox used to send
-  SMTP_PASS: 'BERIS0404!!',                        // that mailbox's password — set in env.local.js
+  SMTP_PASS: '',                        // that mailbox's password — set in env.local.js
   MAIL_FROM: 'STAGE  <info@stageleagues.com>',
 };
 
@@ -107,7 +107,7 @@ function applyToProcessEnv() {
 
 /** Resolved value: shell/host `process.env` wins, then `ENV`, then `undefined`. */
 function get(key) {
-  return process.env[key] !== undefined ? process.env[key] : ENV[key];
+  return ENV[key]//process.env[key] !== undefined ? process.env[key] : ENV[key];
 }
 
 module.exports = {

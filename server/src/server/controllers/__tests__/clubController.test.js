@@ -10,6 +10,7 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const membershipPath = path.resolve(__dirname, '../../services/clubMembershipService.js');
+  const founderLifecyclePath = path.resolve(__dirname, '../../services/founderContractLifecycleService.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
 
   delete require.cache[controllerPath];
@@ -17,6 +18,7 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
   delete require.cache[staffRoleModelPath];
   delete require.cache[lineupModelPath];
   delete require.cache[membershipPath];
+  delete require.cache[founderLifecyclePath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
@@ -45,6 +47,19 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
     exports: {
       broadcastClub() {},
       broadcastClubDeleted() {},
+    },
+  };
+  require.cache[founderLifecyclePath] = {
+    id: founderLifecyclePath,
+    filename: founderLifecyclePath,
+    loaded: true,
+    exports: {
+      createFounderContractLifecycle: async (payload) => ({
+        player: { id: payload.playerId, club_id: 'club-founder', role: 'president', status: 'active' },
+        club: { id: 'club-founder', name: payload.club.name, president_player_id: payload.playerId },
+        contract: { id: 'contract-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'founder' },
+        membership: { id: 'membership-founder', club_id: 'club-founder', player_id: payload.playerId, status: 'active', primary_role: 'president' },
+      }),
     },
   };
 
@@ -108,6 +123,98 @@ test('PATCH /:id requires club profile permission before updating', async () => 
   assert.equal(response.statusCode, 403);
   assert.equal(selectCalled, false);
   assert.equal(updateCalled, false);
+});
+
+test('POST / creates player-president club without creating standalone President profile', async () => {
+  const calls = [];
+  const executesql = async (sql, params = []) => {
+    calls.push({ sql, params });
+    if (/SELECT id FROM clubs WHERE LOWER\(name\)/.test(sql)) return [];
+    if (/SELECT id FROM users WHERE id = \? LIMIT 1/.test(sql)) return [{ id: params[0] }];
+    if (/SELECT id, user_id, email FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-president-1', user_id: 'president-user', email: 'president@example.test' }];
+    }
+    if (/INSERT INTO clubs/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM clubs WHERE id = \?/.test(sql)) {
+      return [{
+        id: params[0],
+        user_id: 'president-user',
+        president_user_id: 'president-user',
+        president_player_id: 'player-president-1',
+        president_id: null,
+        owner_email: 'president@example.test',
+        name: 'Player President FC',
+        stc: 2500000,
+      }];
+    }
+    if (/INSERT INTO stc_transactions/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE users SET owner_id/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE players\s+SET club_id = \?/.test(sql)) return { affectedRows: 1 };
+    if (/DELETE FROM club_memberships/.test(sql)) return { affectedRows: 0 };
+    if (/UPDATE club_memberships/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM club_memberships/.test(sql)) return [];
+    if (/INSERT INTO club_memberships/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadClubRouterWithDbMock(executesql);
+  const handle = routeHandler(router, '/', 'post');
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      body: {
+        user_id: 'president-user',
+        owner_email: 'president@example.test',
+        president_player_id: 'player-president-1',
+        name: 'Player President FC',
+        tag: 'PPF',
+      },
+      user: { id: 'president-user', email: 'president@example.test' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.president_id, null);
+  assert.equal(response.body.president, null);
+  assert.equal(calls.some((call) => /INSERT INTO presidents/.test(call.sql)), false);
+  assert.equal(calls.some((call) => /UPDATE players\s+SET club_id = \?/.test(call.sql)), true);
+  const membershipInsert = calls.find((call) => /INSERT INTO club_memberships/.test(call.sql));
+  assert.deepEqual(membershipInsert.params.slice(1), [
+    response.body.id,
+    'player-president-1',
+    'president-user',
+    'president',
+    'club_creation',
+  ]);
+});
+
+test('POST /founder delegates player-president onboarding to founder lifecycle service', async () => {
+  const router = loadClubRouterWithDbMock(async () => []);
+  const handle = routeHandler(router, '/founder', 'post');
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      body: {
+        player_id: 'player-president-1',
+        idempotency_key: 'founder-key-1',
+        club: {
+          name: 'Founder FC',
+          tag: 'FFC',
+        },
+      },
+      user: { id: 'president-user', email: 'president@example.test' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.club.id, 'club-founder');
+  assert.equal(response.body.club.president_player_id, 'player-president-1');
+  assert.equal(response.body.player.status, 'active');
+  assert.equal(response.body.contract.status, 'active');
+  assert.equal(response.body.membership.primary_role, 'president');
 });
 
 test('PATCH /:id ignores sensitive president identity fields from generic updates', async () => {

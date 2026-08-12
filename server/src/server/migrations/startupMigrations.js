@@ -74,6 +74,9 @@ async function runStartupMigrations() {
   await addIndex('notifications', 'idx_notifications_idempotency', '(idempotency_key)');
   await addIndex('inbox_messages', 'idx_inbox_type_related', '(message_type, related_entity_id)');
   await addIndex('inbox_messages', 'idx_inbox_idempotency', '(idempotency_key)');
+  await addCol('posts', 'media_position', 'VARCHAR(50) NULL');
+  await addCol('posts', 'media_zoom', 'INT NULL DEFAULT 100');
+  await addCol('posts', 'media_aspect', "VARCHAR(30) NULL DEFAULT 'square'");
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
@@ -127,6 +130,17 @@ async function runStartupMigrations() {
   await addIndex('clubs', 'idx_clubs_president_user', '(president_user_id)');
   await addCol('clubs', 'president_id', 'VARCHAR(36) NULL');
   await addIndex('clubs', 'idx_clubs_president_id', '(president_id)');
+  await addCol('clubs', 'president_player_id', 'VARCHAR(36) NULL');
+  await addIndex('clubs', 'idx_clubs_president_player', '(president_player_id)');
+  await EXECUTESQL(`
+    UPDATE clubs c
+    JOIN presidents pr ON pr.id = c.president_id
+    JOIN players p ON p.user_id = pr.user_id
+    SET c.president_player_id = p.id,
+        c.updated_date = NOW()
+    WHERE c.president_player_id IS NULL
+      AND pr.user_id IS NOT NULL
+  `).catch(err => console.error('[migration] clubs.president_player_id backfill:', err.message));
     await addCol('clubs', 'transfer_locked_stc', 'DECIMAL(12,2) DEFAULT 0');
     await addCol('clubs', 'finance_warning', 'VARCHAR(100) NULL');
     await addCol('stc_transactions', 'related_entity_type', 'VARCHAR(100) NULL');

@@ -27,31 +27,37 @@ function readRepoFile(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
-test("club creation onboarding submits nested president entity payload", () => {
+test("club creation onboarding uses the founder lifecycle operation", () => {
   const clubSetup = readRepoFile("src/components/onboarding/ClubSetup.jsx");
   const modal = readRepoFile("src/components/ClubOnboardingModal.jsx");
   const presidentSetup = readRepoFile("src/components/onboarding/PresidentSetup.jsx");
 
-  assert.match(clubSetup, /president:\s*toPresidentApiPayload\(presidentProfile\)/);
-  assert.match(modal, /president:\s*toPresidentApiPayload\(presidentProfile\)/);
-  assert.match(clubSetup, /PresidentSetup/);
-  assert.match(modal, /PresidentSetup/);
+  assert.match(clubSetup, /stageClient\.clubs\.createFounder/);
+  assert.match(clubSetup, /player_id:\s*player\.id/);
+  assert.match(modal, /stageClient\.clubs\.createFounder/);
+  assert.match(modal, /player_id:\s*player\.id/);
+  assert.doesNotMatch(clubSetup, /stageClient\.entities\.Club\.create/);
+  assert.doesNotMatch(modal, /stageClient\.entities\.Club\.create/);
+  assert.doesNotMatch(clubSetup, /president:\s*toPresidentApiPayload\(presidentProfile\)/);
+  assert.doesNotMatch(modal, /president:\s*toPresidentApiPayload\(presidentProfile\)/);
+  assert.doesNotMatch(clubSetup, /PresidentSetup/);
+  assert.doesNotMatch(modal, /PresidentSetup/);
 
   for (const field of PRESIDENT_API_FIELDS) {
     assert.match(presidentSetup, new RegExp(`\\b${field}\\b`), `PresidentSetup is missing ${field}`);
   }
 });
 
-test("club creation separates president profile and club profile into different steps", () => {
+test("club creation skips standalone president profile in new player-president flows", () => {
   const clubSetup = readRepoFile("src/components/onboarding/ClubSetup.jsx");
   const modal = readRepoFile("src/components/ClubOnboardingModal.jsx");
 
-  assert.match(clubSetup, /required \? "president" : "choice"/);
-  assert.match(clubSetup, /step === "president"/);
-  assert.match(clubSetup, /setStep\("club_profile"\)/);
+  assert.match(clubSetup, /required \? "club_profile" : "choice"/);
+  assert.doesNotMatch(clubSetup, /step === "president"/);
+  assert.doesNotMatch(clubSetup, /setStep\("president"\)/);
 
-  assert.match(modal, /choose \| president \| club_profile \| join/);
-  assert.match(modal, /step === "president"/);
+  assert.match(modal, /choose \| club_profile \| join/);
+  assert.doesNotMatch(modal, /step === "president"/);
   assert.match(modal, /step === "club_profile"/);
 });
 
@@ -70,7 +76,7 @@ test("president onboarding uses the same ImagePositionEditor photo UX as players
   assert.doesNotMatch(presidentSetup, /border-dashed/);
 });
 
-test("club detail loads President entity and links to president profile", () => {
+test("club detail prefers canonical president Player identity", () => {
   const detail = readRepoFile("src/pages/ClubDetail.jsx");
   const hero = readRepoFile("src/components/profile/gamer/GamerClubProfileHero.jsx");
   const app = readRepoFile("src/App.jsx");
@@ -78,8 +84,11 @@ test("club detail loads President entity and links to president profile", () => 
 
   assert.match(detail, /ClubPresidentChip/, "ClubDetail should render a compact president chip in the hero");
   assert.match(detail, /infoAside=\{/);
-  assert.match(detail, /entities\.President/, "ClubDetail should load the President entity");
-  assert.match(detail, /\/presidents\//);
+  assert.match(detail, /c\?\.president_player_id/, "ClubDetail should read the canonical club president_player_id");
+  assert.match(detail, /entities\.Player\.get\(c\.president_player_id\)/, "ClubDetail should load the President as a Player first");
+  assert.match(detail, /profile_path:\s*`\/players\/\$\{presidentPlayer\.id\}`/);
+  assert.match(detail, /club\?\.president_player_id \? `\/players\/\$\{club\.president_player_id\}`/);
+  assert.match(detail, /entities\.President/, "ClubDetail should keep legacy President fallback compatibility");
   assert.doesNotMatch(detail, /PresidentProfileCard/);
   assert.doesNotMatch(detail, /View president profile/);
   assert.match(hero, /infoAside/);
@@ -95,6 +104,9 @@ test("president profile supports owner/admin edit via shared ProfileEditShell", 
   const clubEdit = readRepoFile("src/components/club/ClubProfileEdit.jsx");
   const layout = readRepoFile("src/components/Layout.jsx");
 
+  assert.match(presidentPage, /entities\.Player\s*\.\s*filter\(\{\s*user_id:\s*presidentRow\.user_id\s*\}/);
+  assert.match(presidentPage, /navigate\(`\/players\/\$\{mappedPlayer\.id\}`,\s*\{\s*replace:\s*true\s*\}\)/);
+  assert.match(presidentPage, /legacy President profile is kept for compatibility/i);
   assert.match(presidentPage, /PresidentProfileEdit/);
   assert.match(presidentPage, /canEdit/);
   assert.match(presidentEdit, /ProfileEditShell/);
@@ -105,24 +117,42 @@ test("president profile supports owner/admin edit via shared ProfileEditShell", 
   assert.match(shell, /profChangeBanner/);
   assert.match(clubEdit, /ProfileEditShell/);
   assert.match(clubEdit, /entities\.Club\.update/);
-  assert.match(layout, /presProfileMenu/);
+  assert.match(layout, /presMyClubMenu/);
   assert.match(layout, /playerProfileMenu/);
   assert.match(layout, /accountProfilesLabel/);
-  assert.match(layout, /\/presidents\/\$\{/);
+  assert.doesNotMatch(layout, /\/presidents\/\$\{/, "Layout should not route normal identity menus to legacy President profiles");
 });
 
-test("presidents list page is routed and linked in market nav", () => {
+test("presidents list page derives public presidents from Player-linked clubs", () => {
   const app = readRepoFile("src/App.jsx");
   const layout = readRepoFile("src/components/Layout.jsx");
   const page = readRepoFile("src/pages/Presidents.jsx");
+  const directory = readRepoFile("src/lib/presidentDirectory.js");
 
   assert.match(app, /path="\/presidents-list"/);
   assert.match(app, /import\('\.\/pages\/Presidents'\)/);
   assert.match(layout, /\/presidents-list/);
   assert.match(layout, /nav\.presidents/);
-  assert.match(page, /entities\.President\.list/);
-  assert.match(page, /filterPublicPresidentProfiles/);
-  assert.match(page, /\/presidents\/\$\{president\.id\}/);
+  assert.match(page, /entities\.Club\.list/);
+  assert.match(page, /entities\.Player\.list/);
+  assert.match(page, /buildPlayerPresidentDirectoryRows/);
+  assert.match(page, /to=\{`\/players\/\$\{president\.player_id\}`\}/);
+  assert.doesNotMatch(page, /entities\.President\.list/);
+  assert.doesNotMatch(page, /filterPublicPresidentProfiles/);
+  assert.match(directory, /club\?\.president_player_id/);
+  assert.match(directory, /player_id:\s*player\.id/);
+  assert.match(directory, /club_name:\s*club\.name/);
+});
+
+test("search President results use Player president links", () => {
+  const search = readRepoFile("src/pages/Search.jsx");
+
+  assert.match(search, /buildPlayerPresidentDirectoryRows\(allClubs,\s*allPlayers\)/);
+  assert.match(search, /matchesPlayerPresidentQuery/);
+  assert.match(search, /to=\{`\/players\/\$\{p\.player_id\}`\}/);
+  assert.doesNotMatch(search, /entities\.President\.list/);
+  assert.doesNotMatch(search, /isPublicPresidentProfile/);
+  assert.doesNotMatch(search, /to=\{`\/presidents\/\$\{p\.id\}`\}/);
 });
 
 test("president profile loads and renders club history", () => {

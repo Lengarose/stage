@@ -20,34 +20,37 @@ test("player-only onboarding completes after player identity instead of showing 
   const source = readText("src/pages/Onboarding.jsx");
 
   assert.match(source, /writeAccountIntent/);
-  assert.match(source, /function continueAfterPlayerProfile/);
-  assert.match(source, /if\s*\(\s*intent\s*===\s*"player"\s*\)[\s\S]{0,80}finishOnboarding\(\)/);
-  assert.doesNotMatch(source, /setStep\("identity"\)/);
+  assert.match(source, /const handlePlayerComplete = async/);
+  assert.match(source, /if\s*\(\s*intent\s*===\s*"both"\s*\)\s*setStep\("club"\);[\s\S]{0,80}else finishOnboarding\(\)/);
   assert.doesNotMatch(source, /setStep\(intent\s*===\s*"both"\s*\?\s*"owner_club"\s*:\s*"club"\)/);
 });
 
-test("onboarding role flows use the requested 1, 2, and 3 step counters", () => {
+test("onboarding role flows remove president-only and use player identity for club creation", () => {
   const onboarding = readText("src/pages/Onboarding.jsx");
   const clubSetup = readText("src/components/onboarding/ClubSetup.jsx");
 
   assert.match(onboarding, /clubSetupPhase/);
   assert.match(onboarding, /getStepMeta\(intent,\s*step,\s*clubSetupPhase\)/);
-  assert.match(onboarding, /intent === "both" \? 4 : 2/);
-  assert.match(onboarding, /intent === "both" \? 4 : 3/);
+  assert.match(onboarding, /dual \? 4 : 3/);
   assert.match(onboarding, /phase === "club"/);
-  assert.match(onboarding, /label: "President Profile"/);
   assert.match(onboarding, /label: "Club Profile"/);
+  assert.doesNotMatch(onboarding, /setStep\("owner_club"\)/);
+  assert.doesNotMatch(onboarding, /step === "owner_club"/);
+  assert.doesNotMatch(onboarding, /setOnboardingIntent\("president"/);
   assert.match(clubSetup, /onPhaseChange/);
-  assert.match(clubSetup, /required \? "president" : "choice"/);
-  assert.match(clubSetup, /setStep\("club_profile"\)/);
+  assert.match(clubSetup, /required \? "club_profile" : "choice"/);
+  assert.match(clubSetup, /stageClient\.clubs\.createFounder/);
+  assert.match(clubSetup, /player_id:\s*player\.id/);
+  assert.doesNotMatch(clubSetup, /stageClient\.entities\.Club\.create/);
+  assert.doesNotMatch(clubSetup, /toPresidentApiPayload/);
 });
 
-test("onboarding stores whether the user chose player, president, or both", () => {
+test("onboarding stores whether the user chose player or player-president", () => {
   const source = readText("src/pages/Onboarding.jsx");
 
   assert.match(source, /setOnboardingIntent\("player",\s*"player"\)/);
-  assert.match(source, /setOnboardingIntent\("president",\s*"club"\)/);
   assert.match(source, /setOnboardingIntent\("both",\s*"player"\)/);
+  assert.doesNotMatch(source, /setOnboardingIntent\("president"/);
 });
 
 test("player-only setup continues without club wording while player-president keeps club handoff", () => {
@@ -82,11 +85,14 @@ test("mobile header role switch uses the canonical president club only", () => {
 
   assert.match(source, /function MobileHeaderIdentity\(\{ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode \}\)/);
   assert.match(source, /const canSwitchRole = accountIntent === "both"[\s\S]{0,80}myPlayer[\s\S]{0,80}presidentClub\?\.id/);
-  assert.match(source, /const identityHref = showAsPresident && presidentClub\?\.id \? `\/clubs\/\$\{presidentClub\.id\}` : "\/profile"/);
+  assert.match(source, /const identityHref = showAsPresident[\s\S]{0,120}presidentClub\?\.id \? `\/clubs\/\$\{presidentClub\.id\}` : "\/profile"/);
   assert.match(source, /<Link to=\{identityHref\}/);
   assert.match(source, /accountIntent=\{accountIntent\}/);
   assert.match(source, /presidentClub=\{myClub\}/);
   assert.match(source, /myClub=\{mobileClubIdentity\}/);
+  assert.doesNotMatch(source, /myPresidentId/);
+  assert.doesNotMatch(source, /presidentProfilePath/);
+  assert.doesNotMatch(source, /\/presidents\/\$\{/);
   assert.doesNotMatch(source, /const canSwitchRole = Boolean\(myPlayer && myClub\?\.id\)/);
   assert.doesNotMatch(source, /if \(!canSwitchRole\)[\s\S]{0,120}<Link to="\/profile"/);
 });

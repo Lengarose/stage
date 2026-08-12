@@ -137,7 +137,7 @@ test('resolveUserIdentity presents owner email fallback accounts as presidents',
   assert.deepEqual(identity.roles, ['president']);
 });
 
-test('resolveUserIdentity resolves president-only user without player profile', async () => {
+test('resolveUserIdentity resolves president-only management role without creating President profile', async () => {
   const user = {
     id: 'president-user',
     email: 'president@example.test',
@@ -170,7 +170,7 @@ test('resolveUserIdentity resolves president-only user without player profile', 
   assert.equal(identity.presidentClubId, 'club-president');
   assert.equal(identity.ownedClub.id, 'club-president');
   assert.equal(identity.club.id, 'club-president');
-  assert.ok(identity.presidentId);
+  assert.equal(identity.presidentId, null);
   assert.deepEqual(identity.roles, ['president']);
 });
 

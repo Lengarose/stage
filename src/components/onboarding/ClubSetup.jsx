@@ -5,11 +5,6 @@ import { Loader2, Camera, ChevronLeft } from "lucide-react";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
-import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
-import PresidentSetup, {
-  buildInitialPresidentProfile,
-  toPresidentApiPayload,
-} from "@/components/onboarding/PresidentSetup";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
@@ -22,7 +17,7 @@ const selectCls = "bg-white/10 border-white/20 text-white text-sm rounded-xl h-1
 
 export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, required = false }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState(required ? "president" : "choice");
+  const [step, setStep] = useState(required ? "club_profile" : "choice");
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [platform, setPlatform] = useState(player?.platform || "PlayStation");
@@ -32,11 +27,9 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
   const [pendingLogo, setPendingLogo] = useState(null);
   const [logoPosition, setLogoPosition] = useState("50% 50%");
   const [logoZoom, setLogoZoom] = useState(150);
-  const [presidentProfile, setPresidentProfile] = useState(() => buildInitialPresidentProfile(player));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
   const logoInputRef = useRef();
   const logoInputId = useId();
   const previewClub = {
@@ -51,8 +44,8 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
 
   useEffect(() => {
     if (!required) return;
-    onPhaseChange?.(step === "club_profile" ? "club" : "president");
-  }, [onPhaseChange, required, step]);
+    onPhaseChange?.("club");
+  }, [onPhaseChange, required]);
 
   async function uploadLogo(e) {
     const file = e.target.files[0];
@@ -88,49 +81,30 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
     setSaving(true);
     setError(null);
     try {
-      const club = await stageClient.entities.Club.create({
-        user_id: user?.id,
-        name,
-        tag: tag.toUpperCase(),
-        platform,
-        region,
-        country_code: country,
-        owner_email: user?.email,
-        logo_url: logoUrl || null,
-        logo_position: logoPosition,
-        logo_zoom: logoZoom,
-        description: "",
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        goals_scored: 0,
-        goals_conceded: 0,
-        rating: 1500,
-        peak_rating: 1500,
-        matches_ranked: 0,
-        is_provisional: 1,
-        trophies: 0,
-        credits: 0,
-        stc: 2500000,
-        wage_budget_stc: 250000,
-        transfer_budget_stc: 1000000,
-        stadium_level: 0,
-        stadium_capacity: 5000,
-        tier: "Silver",
-        win_streak: 0,
-        loss_streak: 0,
-        status: "active",
-        president: toPresidentApiPayload(presidentProfile),
+      if (!player?.id) throw new Error("Create your Player profile before founding a club.");
+      const founderState = await stageClient.clubs.createFounder({
+        player_id: player.id,
+        idempotency_key: `${user?.id || user?.email || "user"}:${player.id}:${name.trim().toLowerCase()}`,
+        club: {
+          name,
+          tag: tag.toUpperCase(),
+          platform,
+          region,
+          country_code: country,
+          owner_email: user?.email,
+          logo_url: logoUrl || null,
+          logo_position: logoPosition,
+          logo_zoom: logoZoom,
+          description: "",
+          trophies: [],
+        },
       });
+      const club = founderState?.club;
 
       if (!club?.id) throw new Error("Server returned no club ID");
 
       setSaving(false);
-      setPresidentContractPrompt({
-        club,
-        president: club.president || { ...presidentProfile, id: club.president_id },
-        contractId: club.president_contract_id || club.owner_contract_id || null,
-      });
+      onComplete(club, founderState);
     } catch (err) {
       console.error("Failed to create club:", err);
       setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
@@ -153,7 +127,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
         <div className={required ? "" : "grid grid-cols-2 gap-3"}>
           <button
             type="button"
-            onClick={() => setStep("president")}
+            onClick={() => setStep("club_profile")}
             className="w-full bg-white/10 border border-white/20 hover:border-blue-400/60 hover:bg-blue-500/10 rounded-xl p-5 text-left transition-all group"
           >
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 mb-3 flex items-center justify-center">
@@ -187,40 +161,17 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
     );
   }
 
-  if (step === "president") {
-    return (
-      <PresidentSetup
-        initialProfile={presidentProfile}
-        player={player}
-        onContinue={(profile) => {
-          setPresidentProfile(profile);
-          setStep("club_profile");
-        }}
-      />
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <PresidentContractDialog
-        open={!!presidentContractPrompt}
-        club={presidentContractPrompt?.club}
-        president={presidentContractPrompt?.president}
-        contractId={presidentContractPrompt?.contractId}
-        onSigned={() => {
-          const club = presidentContractPrompt?.club;
-          setPresidentContractPrompt(null);
-          onComplete(club);
-        }}
-        onClose={() => setPresidentContractPrompt(null)}
-      />
-      <button
-        type="button"
-        onClick={() => setStep("president")}
-        className="flex items-center gap-1 text-white/40 hover:text-white text-xs uppercase tracking-widest transition-colors mb-1"
-      >
-        <ChevronLeft className="w-3.5 h-3.5" /> {t("commonPages.obBack")}
-      </button>
+      {!required && (
+        <button
+          type="button"
+          onClick={() => setStep("choice")}
+          className="flex items-center gap-1 text-white/40 hover:text-white text-xs uppercase tracking-widest transition-colors mb-1"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> {t("commonPages.obBack")}
+        </button>
+      )}
 
       <div>
         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">Create Club Profile</h2>

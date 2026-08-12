@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   user_id             VARCHAR(36),
   president_user_id   VARCHAR(36) NOT NULL,
   president_id        VARCHAR(36),
+  president_player_id VARCHAR(36),
   owner_email         VARCHAR(255) NOT NULL,
   name                VARCHAR(150) NOT NULL,
   tag                 VARCHAR(20),
@@ -417,6 +418,9 @@ CREATE TABLE IF NOT EXISTS posts (
   media_url           TEXT,
   media_cover_url     TEXT,
   media_type          VARCHAR(50),
+  media_position      VARCHAR(50),
+  media_zoom          INT          DEFAULT 100,
+  media_aspect        VARCHAR(30)  DEFAULT 'square',
   club_id             VARCHAR(36),
   club_name           VARCHAR(150),
   likes               JSON,
@@ -1230,6 +1234,7 @@ CREATE INDEX idx_clubs_owner         ON clubs(owner_email);
 CREATE INDEX idx_clubs_user          ON clubs(user_id);
 CREATE INDEX idx_clubs_president_user ON clubs(president_user_id);
 CREATE INDEX idx_clubs_president_id  ON clubs(president_id);
+CREATE INDEX idx_clubs_president_player ON clubs(president_player_id);
 CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
@@ -1663,6 +1668,9 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='last_salary_paid_at'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN last_salary_paid_at DATETIME NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='posts'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_id'),'SELECT 1','ALTER TABLE posts ADD COLUMN tournament_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tags'),'SELECT 1','ALTER TABLE posts ADD COLUMN tags JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='media_position'),'SELECT 1','ALTER TABLE posts ADD COLUMN media_position VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='media_zoom'),'SELECT 1','ALTER TABLE posts ADD COLUMN media_zoom INT NULL DEFAULT 100')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='media_aspect'),'SELECT 1','ALTER TABLE posts ADD COLUMN media_aspect VARCHAR(30) NULL DEFAULT ''square''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='predictions'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='live_match_id'),'SELECT 1','ALTER TABLE predictions ADD COLUMN live_match_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='predictor_email'),'SELECT 1','ALTER TABLE predictions ADD COLUMN predictor_email VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='predictor_name'),'SELECT 1','ALTER TABLE predictions ADD COLUMN predictor_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -2206,6 +2214,13 @@ SET @sql = IF(
   (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='clubs' AND constraint_name='fk_clubs_president_id') = 0
   AND (SELECT COUNT(*) FROM clubs c LEFT JOIN presidents p ON p.id = c.president_id WHERE c.president_id IS NOT NULL AND p.id IS NULL) = 0,
   'ALTER TABLE clubs ADD CONSTRAINT fk_clubs_president_id FOREIGN KEY (president_id) REFERENCES presidents(id) ON DELETE SET NULL',
+  'SELECT 1'
+); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema=@db AND table_name='clubs' AND constraint_name='fk_clubs_president_player_id') = 0
+  AND (SELECT COUNT(*) FROM clubs c LEFT JOIN players p ON p.id = c.president_player_id WHERE c.president_player_id IS NOT NULL AND p.id IS NULL) = 0,
+  'ALTER TABLE clubs ADD CONSTRAINT fk_clubs_president_player_id FOREIGN KEY (president_player_id) REFERENCES players(id) ON DELETE SET NULL',
   'SELECT 1'
 ); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

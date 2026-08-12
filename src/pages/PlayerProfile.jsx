@@ -37,36 +37,10 @@ import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 import { asObject, asObjectArray, parseJsonArray } from "@/lib/safeData";
+import { getPlayerManagementBadges, getVisibleFootballRole } from "@/lib/playerProfileStatus";
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
-}
-
-function normalizeClubRoles(roles) {
-  if (Array.isArray(roles)) return roles;
-  if (typeof roles === "string") {
-    try {
-      const parsed = JSON.parse(roles);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return roles.split(",").map((role) => role.trim()).filter(Boolean);
-    }
-  }
-  return [];
-}
-
-// A player profile only ever shows squad roles. `president`/`owner` belong to
-// the President identity, which is separate: presiding over a club does not
-// make your player a member of it, and a president signed by some club is a
-// regular squad member there. Keep in sync with getProfileRoleBadges() in
-// Profile.jsx.
-const NON_PLAYER_ROLES = ["president", "owner", "manager", "member"];
-
-function getVisibleClubRole(player) {
-  const roles = normalizeClubRoles(player?.club_roles);
-  if (roles.includes("captain") || player?.role === "captain") return "captain";
-  if (roles.includes("vice-captain") || player?.role === "vice-captain") return "vice-captain";
-  return player?.role && !NON_PLAYER_ROLES.includes(player.role) ? player.role : "";
 }
 
 export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
@@ -83,6 +57,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const ownProfilePath = limitedTournamentId ? "/tournaments/profile-player" : "/profile";
   const [player, setPlayer] = useState(null);
   const [club, setClub] = useState(null);
+  const [presidedClub, setPresidedClub] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followId, setFollowId] = useState(null);
@@ -108,7 +83,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [futMatches, setFutMatches] = useState([]);
   const [eafcSummary, setEafcSummary] = useState(null);
   const navigate = useNavigate();
-  const visibleClubRole = getVisibleClubRole(player);
+  const visibleClubRole = getVisibleFootballRole(player);
 
   useEffect(() => {
     async function load() {
@@ -161,6 +136,11 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           const signedClubId = getSignedClubIdForPlayer(p, safeContracts);
           setPlayerContracts(liveContracts);
           setActiveContract(safeContracts.find(c => c.status === "active") || null);
+          const presidentClubRows = await stageClient.entities.Club
+            .filter({ president_player_id: p.id }, null, 1)
+            .catch(() => []);
+          const presidentClub = asObject(asObjectArray(presidentClubRows)[0]);
+          setPresidedClub(presidentClub);
 
           if (signedClubId) {
             const [clubsRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
@@ -174,7 +154,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
             if (clubs.length > 0) setClub(clubs[0]);
             setUpcomingMatches(asObjectArray([...asObjectArray(tmHomeRaw), ...asObjectArray(tmAwayRaw)]));
           } else {
-            setClub(null);
+            setClub(presidentClub);
             setUpcomingMatches([]);
           }
 
@@ -230,6 +210,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           setPlayerContracts([]);
           setActiveContract(null);
           setClub(null);
+          setPresidedClub(null);
           setUpcomingMatches([]);
           setPvpMatches([]);
           setFutMatches([]);
@@ -360,6 +341,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const marketValue = calculatePlayerValue(player);
   const valueTier = getValueTier(marketValue);
   const roleBadges = visibleClubRole ? [visibleClubRole] : [];
+  const managementClub = presidedClub || (club?.president_player_id === player?.id ? club : null);
+  const managementBadges = getPlayerManagementBadges({ player, club: managementClub, contracts: playerContracts });
   const signedClubIdForProfile = getSignedClubIdForPlayer(player, playerContracts);
   const canOfferProfileContract = canCreateContractOffer(windowOpen) && canShowContractOfferButton({
     player,
@@ -381,6 +364,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         user={null}
         club={club}
         roleBadges={roleBadges}
+        managementBadges={managementBadges}
         formatPositions={formatPositions}
         onAvatarClick={player.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
         topLeftActions={(

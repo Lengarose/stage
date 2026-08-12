@@ -6,6 +6,7 @@ const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
 const {
   recognizeScoreFromImageUrl,
+  verifyScoreProofs,
 } = require('../services/scoreProofService');
 const {
   createNotificationIfEnabled,
@@ -6275,6 +6276,43 @@ const HANDLERS = {
           data: {
             status: 'disputed',
             reason: 'submitted_scores_disagree',
+            home_submission: homeSub,
+            away_submission: awaySub,
+          },
+        };
+      }
+
+      const proofVerification = verifyScoreProofs({
+        homeSubmission: homeSub,
+        awaySubmission: awaySub,
+      });
+      if (proofVerification.status === 'needs_review') {
+        await EXECUTESQL(
+          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
+          [
+            JSON.stringify({
+              reason: proofVerification.reason,
+              proof_verification: proofVerification,
+              home_score: Number(homeSub.home_score),
+              away_score: Number(homeSub.away_score),
+              home_proof_url: homeSub.proof_url || null,
+              away_proof_url: awaySub.proof_url || null,
+            }),
+            match_id,
+          ]
+        );
+        await notifyMatchAdmins(
+          updated,
+          'Match proof needs review',
+          `${updated.home_club_name || updated.home_player_name || 'Home'} vs ${updated.away_club_name || updated.away_player_name || 'Away'} needs proof review.`
+        );
+        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match proof under review', 'Admin is reviewing the submitted screenshots.').catch(() => {});
+        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match proof under review', 'Admin is reviewing the submitted screenshots.').catch(() => {});
+        await broadcastMatchById(match_id);
+        return {
+          data: {
+            status: 'disputed',
+            proof_verification: proofVerification,
             home_submission: homeSub,
             away_submission: awaySub,
           },

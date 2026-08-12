@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const Comment = require('../models/commentModel');
+const { createTrustedComment } = require('../services/feedTrustService');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -33,13 +34,11 @@ router.get('/:id', async (req, res) => {
 // POST /
 router.post('/', async (req, res) => {
   try {
-    const comment = new Comment(req.body);
-    await comment.create();
-    const created = await comment.selectOne(comment.id);
-    res.status(201).json(created[0]);
+    const result = await createTrustedComment({ body: req.body, user: req.user });
+    res.status(201).json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

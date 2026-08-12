@@ -1,0 +1,21 @@
+StageLeagues Slice 3 public identity cleanup summary.
+
+Slice 1 made Player the canonical president identity through president player id. Slice 2 made Create Player plus President contract-backed. Slice 3 should now clean up the public product surfaces.
+
+The product rule is: President is no longer a separate public identity for new flows. The Player profile is the public President identity.
+
+The Presidents directory should become a directory of Player presidents. It should list Players who preside over Clubs through clubs dot president player id, and cards should link to player profiles.
+
+Search President results should also use Player presidents and link to slash players slash player id. The same person should not appear as two separate public identities.
+
+Club president chips should prefer president player id, display the Player gamertag and avatar when available, and link to the Player profile.
+
+The header and mobile identity menus should not send users to a standalone President profile. Club mode should open the Club or club management surface. Player mode should open the personal Player profile.
+
+Do not simply delete old President pages. Keep slash presidents slash id as compatibility. If a legacy President row maps safely to a Player by user id, redirect to that Player profile. If not, show a deprecated compatibility state.
+
+Admin President tools must stay intact. Legacy President transfer and history tools are admin compatibility, not public identity.
+
+Out of scope: Transfer Room, feed and media cleanup, contract lifecycle changes, STC economy, and trophies.
+
+The developer task is to implement Slice 3 public identity cleanup with focused tests for Presidents directory links, Search links, Club president chip behavior, Layout identity menu targets, legacy President compatibility, and admin tool preservation.

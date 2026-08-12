@@ -19,6 +19,7 @@ const {
   STARTER_CLUB_FINANCE,
   assertClubFinanceWithinTier,
 } = require('../services/clubFinanceService');
+const { createFounderContractLifecycle } = require('../services/founderContractLifecycleService');
 
 const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
@@ -41,6 +42,7 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
   'user_id',
   'president_user_id',
   'president_id',
+  'president_player_id',
   'owner_email',
   'name',
   'tag',
@@ -80,7 +82,7 @@ const CLUB_MODEL_UPDATE_FIELDS = new Set([
 ]);
 
 const FORMATION_UPDATE_FIELDS = new Set(['formation', 'lineup']);
-const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'president_id', 'owner_email']);
+const PROTECTED_IDENTITY_FIELDS = new Set(['id', 'user_id', 'president_user_id', 'president_id', 'president_player_id', 'owner_email']);
 
 function hasClubPermission(access, permission) {
   return Boolean(access?.admin || access?.permissions?.includes(permission));
@@ -127,14 +129,43 @@ async function resolveClubUserId(req, body = {}) {
   return candidate;
 }
 
+async function resolvePresidentPlayerForClub(req, body = {}) {
+  const presidentPlayerId = body.president_player_id || null;
+  if (!presidentPlayerId) return null;
+
+  const rows = await EXECUTESQL(
+    'SELECT id, user_id, email FROM players WHERE id = ? LIMIT 1',
+    [presidentPlayerId]
+  );
+  const player = rows[0];
+  if (!player) {
+    const err = new Error('Invalid president_player_id: player does not exist');
+    err.status = 400;
+    throw err;
+  }
+
+  const expectedUserId = body.president_user_id || body.user_id || req.user?.id || null;
+  const expectedEmail = body.owner_email || req.user?.email || null;
+  const sameUser = expectedUserId && player.user_id && String(player.user_id) === String(expectedUserId);
+  const sameEmail = expectedEmail && player.email && String(player.email).trim().toLowerCase() === String(expectedEmail).trim().toLowerCase();
+  if (!sameUser && !sameEmail) {
+    const err = new Error('president_player_id must belong to the club president account');
+    err.status = 403;
+    throw err;
+  }
+
+  return player;
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { owner_email, user_id, page, id, name } = req.query;
+    const { owner_email, user_id, president_player_id, page, id, name } = req.query;
     const club = new Club();
     let result;
     if (owner_email) result = await club.selectByOwner(owner_email);
     else if (user_id) result = await club.selectByUserId(user_id);
+    else if (president_player_id) result = await club.selectByPresidentPlayerId(president_player_id);
     else if (id) result = await club.selectOne(String(id));
     else if (name) {
       result = await EXECUTESQL(
@@ -147,6 +178,27 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /founder — backend-owned Create Player + President lifecycle.
+router.post('/founder', async (req, res) => {
+  try {
+    const result = await createFounderContractLifecycle({
+      user: req.user,
+      playerId: req.body?.player_id || req.body?.president_player_id || req.body?.club?.president_player_id,
+      club: req.body?.club || req.body || {},
+      contract: req.body?.contract || {},
+      idempotencyKey: req.body?.idempotency_key || req.body?.idempotencyKey || null,
+    });
+    broadcastClub(result.club);
+    res.status(201).json(result);
+  } catch (err) {
+    console.error(err);
+    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+    const payload = { error: err.message };
+    if (err?.code) payload.code = String(err.code);
+    res.status(status).json(payload);
   }
 });
 
@@ -187,11 +239,12 @@ router.post('/', async (req, res) => {
     if (body.wage_budget_stc == null) body.wage_budget_stc = STARTER_CLUB_FINANCE.wage_budget_stc;
     if (body.stadium_level == null) body.stadium_level = STARTER_CLUB_FINANCE.stadium_level;
     if (body.stadium_capacity == null) body.stadium_capacity = STARTER_CLUB_FINANCE.stadium_capacity;
+    const presidentPlayer = await resolvePresidentPlayerForClub(req, body);
 
-    // Ensure a President entity exists for the club president.
-    // Accepts nested `president` (current) or legacy flat president_* keys.
     let presidentId = body.president_id || null;
-    if (!presidentId && body.president_user_id) {
+    if (!presidentPlayer && !presidentId && body.president_user_id) {
+      // Legacy compatibility only: old clients may still submit a standalone
+      // President profile. New player-president flows use president_player_id.
       const existingPresident = await EXECUTESQL(
         'SELECT id FROM presidents WHERE user_id = ? LIMIT 1',
         [body.president_user_id]
@@ -271,6 +324,7 @@ router.post('/', async (req, res) => {
       }
     }
     body.president_id = presidentId || null;
+    body.president_player_id = presidentPlayer?.id || body.president_player_id || null;
 
     const club = new Club(body);
     await club.create();
@@ -313,10 +367,25 @@ router.post('/', async (req, res) => {
         [record.id, record.user_id]
       );
     }
-    // President identity and player identity are deliberately separate.
-    // Club creation must not place the creator's player in the squad and must
-    // not create a player ownership contract; players join only through the
-    // normal player contract acceptance flow.
+    if (record?.president_player_id) {
+      await EXECUTESQL(
+        `UPDATE players
+         SET club_id = ?,
+             role = 'president',
+             club_roles = JSON_ARRAY('president', 'member'),
+             status = 'active',
+             updated_date = NOW()
+         WHERE id = ?`,
+        [record.id, record.president_player_id]
+      );
+      await upsertActiveMembership({
+        clubId: record.id,
+        playerId: record.president_player_id,
+        userId: presidentPlayer?.user_id || record.president_user_id || record.user_id || null,
+        primaryRole: 'president',
+        source: 'club_creation',
+      });
+    }
     const presidentRows = record?.president_id
       ? await new President().selectOne(record.president_id).catch(() => [])
       : [];

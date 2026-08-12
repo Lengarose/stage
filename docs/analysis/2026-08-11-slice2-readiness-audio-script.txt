@@ -1,0 +1,15 @@
+StageLeagues Slice 2 readiness summary.
+
+Slice 1 identity foundation is implemented on branch codex slash president player slice one. The reported scope is correct: President-only onboarding is removed, Create Player and Create Player plus President remain, the new club flow uses president player id, legacy President data is preserved, and Transfer Room was not touched.
+
+My recommendation is not to start Slice 2 yet.
+
+The reason is simple: full server tests still fail in eight legacy contract and functions tests. Slice 2 will directly depend on contract sequencing, so contract tests must be fixed or formally baselined before changing that area.
+
+The current Slice 1 behavior is acceptable as an identity foundation, but it should be treated as temporary. In the final product, Player plus President should not attach a player to a club through a loose update. The player should join the club through a real active player contract.
+
+The Slice 2 target journey should be: create the Player, prepare the Club, create the player contract, sign or activate the contract, attach the Player to the Club, set the Player as president or owner, and only then mark the Player as not free agent.
+
+The biggest implementation risk is partial state. Today club creation is not fully transaction-wrapped. If club creation succeeds but player membership, contract creation, or STC side effects fail, the system can leave a broken club or broken player career.
+
+Before Slice 2, approve a stabilization pass first. The developer agent should reproduce the eight failing server tests, fix or baseline them, and then return with a short Slice 2 implementation plan. Transfer Room must remain out of scope.

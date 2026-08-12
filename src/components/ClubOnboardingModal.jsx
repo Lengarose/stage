@@ -9,11 +9,6 @@ import { Shield, Search, Plus, ArrowRight, Loader2, Check, Crown, Sparkles } fro
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
-import PresidentContractDialog from "@/components/contracts/PresidentContractDialog";
-import PresidentSetup, {
-  buildInitialPresidentProfile,
-  toPresidentApiPayload,
-} from "@/components/onboarding/PresidentSetup";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -21,15 +16,13 @@ const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", 
 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState("choose"); // choose | president | club_profile | join
+  const [step, setStep] = useState("choose"); // choose | club_profile | join
   const [creating, setCreating] = useState(false);
   const [requestingIds, setRequestingIds] = useState(new Set());
   const [requested, setRequested] = useState(new Set());
   const [clubs, setClubs] = useState([]);
   const [search, setSearch] = useState("");
   const [loadingClubs, setLoadingClubs] = useState(false);
-  const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
-  const [presidentProfile, setPresidentProfile] = useState(() => buildInitialPresidentProfile(player));
 
   const [form, setForm] = useState({
     name: "", tag: "", platform: player?.platform || "PlayStation",
@@ -83,31 +76,26 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     if (!form.name || !form.tag || !form.country_code) return;
     setCreating(true);
     try {
+      if (!player?.id) throw new Error("Create your Player profile before founding a club.");
       const u = await stageClient.auth.me();
-      const club = await stageClient.entities.Club.create({
-        user_id: u?.id,
-        owner_email: u?.email,
-        name: form.name,
-        tag: form.tag.toUpperCase(),
-        platform: form.platform,
-        region: form.region,
-        country_code: form.country_code,
-        description: form.description || "",
-        logo_url: null,
-        wins: 0, losses: 0, draws: 0, goals_scored: 0, goals_conceded: 0,
-        rating: 1500, peak_rating: 1500, matches_ranked: 0, is_provisional: 1,
-        stc: 2500000,
-        wage_budget_stc: 250000, transfer_budget_stc: 1000000,
-        stadium_level: 0, stadium_capacity: 5000,
-        tier: "Silver", win_streak: 0, loss_streak: 0, status: "active",
-        president: toPresidentApiPayload(presidentProfile),
+      const founderState = await stageClient.clubs.createFounder({
+        player_id: player.id,
+        idempotency_key: `${u?.id || u?.email || "user"}:${player.id}:${form.name.trim().toLowerCase()}`,
+        club: {
+          owner_email: u?.email,
+          name: form.name,
+          tag: form.tag.toUpperCase(),
+          platform: form.platform,
+          region: form.region,
+          country_code: form.country_code,
+          description: form.description || "",
+          logo_url: null,
+          trophies: [],
+        },
       });
+      const club = founderState?.club;
       if (!club?.id) throw new Error("Server returned no club ID");
-      setPresidentContractPrompt({
-        club,
-        president: club.president || { ...presidentProfile, id: club.president_id },
-        contractId: club.president_contract_id || club.owner_contract_id || null,
-      });
+      onComplete?.(club, founderState);
     } catch (err) {
       console.error("Club creation failed:", err);
       await swalAlert("Failed to create club: " + (err?.message || err));
@@ -169,7 +157,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Shield className="w-5 h-5 text-primary" />
             {step === "choose" && t("commonPages.comJoinOrCreate")}
-            {step === "president" && "Create President Profile"}
             {step === "club_profile" && "Create Club Profile"}
             {step === "join" && t("commonPages.comFindClub")}
           </DialogTitle>
@@ -181,7 +168,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setStep("president")}
+                onClick={() => setStep("club_profile")}
                 className="bg-primary/10 border border-primary/30 hover:border-primary/60 rounded-2xl p-5 text-left transition-all group"
               >
                 <Plus className="w-8 h-8 text-primary mb-3" />
@@ -220,27 +207,9 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </div>
         )}
 
-        {step === "president" && (
-          <div className="space-y-3 mt-2">
-            <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              {t("commonPages.comBack")}
-            </button>
-            <div className="rounded-xl border border-border bg-[#0d2461]/95 p-3">
-              <PresidentSetup
-                initialProfile={presidentProfile}
-                player={player}
-                onContinue={(profile) => {
-                  setPresidentProfile(profile);
-                  setStep("club_profile");
-                }}
-              />
-            </div>
-          </div>
-        )}
-
         {step === "club_profile" && (
           <div className="space-y-4 mt-2">
-            <button type="button" onClick={() => setStep("president")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               {t("commonPages.comBack")}
             </button>
             <div>
@@ -352,18 +321,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
         )}
       </DialogContent>
     </Dialog>
-    <PresidentContractDialog
-      open={!!presidentContractPrompt}
-      club={presidentContractPrompt?.club}
-      president={presidentContractPrompt?.president}
-      contractId={presidentContractPrompt?.contractId}
-      onSigned={() => {
-        const club = presidentContractPrompt?.club;
-        setPresidentContractPrompt(null);
-        onComplete?.(club);
-      }}
-      onClose={() => setPresidentContractPrompt(null)}
-    />
     </>
   );
 }

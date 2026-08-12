@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useId} from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
-import { Image, Video, Send, Heart, MessageSquare, Loader2, X, Trash2 } from "lucide-react";
-import VideoCoverPicker from "./VideoCoverPicker";
+import { AlertCircle, Image, Move, Send, Heart, MessageSquare, Loader2, X, Trash2 } from "lucide-react";
+import FeedPostImageFrame from "@/components/feed/FeedPostImageFrame";
+import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { cn } from "@/lib/utils";
+import { DEFAULT_POST_MEDIA_FRAME } from "@/lib/feedMedia";
 
 export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
   const [posts, setPosts] = useState([]);
@@ -11,15 +13,16 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState(null);
   const [mediaType, setMediaType] = useState("none");
+  const [mediaPosition, setMediaPosition] = useState(DEFAULT_POST_MEDIA_FRAME.position);
+  const [mediaZoom, setMediaZoom] = useState(DEFAULT_POST_MEDIA_FRAME.zoom);
+  const [mediaEditorOpen, setMediaEditorOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
-  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
-  const [mediaCoverUrl, setMediaCoverUrl] = useState(null);
   const [expandedPost, setExpandedPost] = useState(null);
+  const [likePendingId, setLikePendingId] = useState(null);
+  const [actionError, setActionError] = useState("");
   const imageInputId = useId();
-  const videoInputId = useId();
   const imageRef = useRef();
-  const videoRef = useRef();
 
   useEffect(() => {
     async function load() {
@@ -43,35 +46,56 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
     return unsub;
   }, [club.id]);
 
-  async function uploadMedia(e, type) {
+  function replacePost(updatedPost) {
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+    setExpandedPost(prev => prev?.id === updatedPost.id ? updatedPost : prev);
+  }
+
+  async function uploadMedia(e) {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
     const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
     setMediaUrl(file_url);
-    setMediaType(type);
+    setMediaType("image");
+    setMediaPosition(DEFAULT_POST_MEDIA_FRAME.position);
+    setMediaZoom(DEFAULT_POST_MEDIA_FRAME.zoom);
     setUploading(false);
     e.target.value = "";
+  }
+
+  function clearMedia() {
+    setMediaUrl(null);
+    setMediaType("none");
+    setMediaPosition(DEFAULT_POST_MEDIA_FRAME.position);
+    setMediaZoom(DEFAULT_POST_MEDIA_FRAME.zoom);
   }
 
   async function submitPost() {
     if (!content.trim() && !mediaUrl) return;
     setPosting(true);
-    await stageClient.entities.Post.create({
-      author_email: currentUser.email,
-      author_name: club.name,
-      author_avatar: club.logo_url || undefined,
-      content: content.trim(),
-      media_url: mediaUrl || undefined,
-      media_cover_url: mediaCoverUrl || undefined,
-      media_type: mediaType,
-      club_id: club.id,
-      club_name: club.name,
-      likes: [],
-      likes_count: 0,
-    });
-    setContent(""); setMediaUrl(null); setMediaType("none"); setMediaCoverUrl(null);
-    setPosting(false);
+    setActionError("");
+    try {
+      await stageClient.entities.Post.create({
+        author_email: currentUser.email,
+        author_name: club.name,
+        author_avatar: club.logo_url || undefined,
+        content: content.trim(),
+        media_url: mediaUrl || undefined,
+        media_type: mediaType,
+        media_position: mediaUrl ? mediaPosition : undefined,
+        media_zoom: mediaUrl ? mediaZoom : undefined,
+        media_aspect: mediaUrl ? "square" : undefined,
+        club_id: club.id,
+        club_name: club.name,
+      });
+      setContent("");
+      clearMedia();
+    } catch (err) {
+      setActionError(err?.message || "Could not publish this post.");
+    } finally {
+      setPosting(false);
+    }
   }
 
   async function deletePost(postId) {
@@ -79,11 +103,17 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
   }
 
   async function toggleLike(post) {
-    const liked = post.likes?.includes(currentUser?.email);
-    const likes = liked
-      ? post.likes.filter(e => e !== currentUser.email)
-      : [...(post.likes || []), currentUser.email];
-    await stageClient.entities.Post.update(post.id, { likes, likes_count: likes.length });
+    if (likePendingId === post.id) return;
+    setLikePendingId(post.id);
+    setActionError("");
+    try {
+      const result = await stageClient.posts.likeToggle(post.id);
+      replacePost(result.post);
+    } catch (err) {
+      setActionError(err?.message || "Could not update like.");
+    } finally {
+      setLikePendingId(null);
+    }
   }
 
   return (
@@ -108,16 +138,15 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
 
           {mediaUrl && (
             <div className="relative inline-block">
-              {mediaType === "image" && <img src={mediaUrl} alt="preview" className="max-h-48 rounded-xl object-cover" />}
-              {mediaType === "video" && (
-                <div className="space-y-1">
-                  <video src={mediaUrl} className="max-h-48 rounded-xl" controls />
-                  <button onClick={() => setCoverPickerOpen(true)} className="text-xs text-primary hover:underline">
-                    {mediaCoverUrl ? "✓ Cover set — change it" : "Pick a cover frame"}
-                  </button>
-                </div>
+              {mediaType === "image" && (
+                <FeedPostImageFrame
+                  post={{ media_url: mediaUrl, media_position: mediaPosition, media_zoom: mediaZoom, media_aspect: "square" }}
+                  variant="preview"
+                  className="rounded-xl border border-border"
+                  alt="preview"
+                />
               )}
-              <button onClick={() => { setMediaUrl(null); setMediaType("none"); setMediaCoverUrl(null); }}
+              <button type="button" onClick={clearMedia}
                 className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80">
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -126,31 +155,30 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
 
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              <input id={imageInputId} ref={imageRef} type="file" accept="image/*" className="sr-only" disabled={uploading} onChange={e => uploadMedia(e, "image")} />
-              <input id={videoInputId} ref={videoRef} type="file" accept="video/*" className="sr-only" disabled={uploading} onChange={e => uploadMedia(e, "video")} />
+              <input id={imageInputId} ref={imageRef} type="file" accept="image/*" className="sr-only" disabled={uploading} onChange={uploadMedia} />
               <label htmlFor={uploading ? undefined : imageInputId}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />} Photo
               </label>
-              <label htmlFor={uploading ? undefined : videoInputId}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary cursor-pointer touch-manipulation">
-                <Video className="w-4 h-4" /> Video
-              </label>
+              {mediaUrl && (
+                <button type="button" onClick={() => setMediaEditorOpen(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-secondary">
+                  <Move className="w-4 h-4" /> Frame
+                </button>
+              )}
             </div>
             <Button onClick={submitPost} disabled={posting || (!content.trim() && !mediaUrl)}
               size="sm" className="bg-primary text-primary-foreground leading-relaxed">
               {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-3.5 h-3.5 mr-1.5" /> Post</>}
             </Button>
           </div>
+          {actionError && (
+            <p className="text-xs text-destructive flex items-center gap-1.5">
+              <AlertCircle className="w-3 h-3" /> {actionError}
+            </p>
+          )}
         </div>
       )}
-
-      <VideoCoverPicker
-        open={coverPickerOpen}
-        onClose={() => setCoverPickerOpen(false)}
-        videoUrl={mediaUrl}
-        onConfirm={(url) => { setMediaCoverUrl(url); setCoverPickerOpen(false); }}
-      />
 
       {/* Instagram-style grid */}
       {loading ? (
@@ -167,10 +195,10 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
               <button key={post.id} onClick={() => setExpandedPost(post)}
                 className="relative aspect-square bg-secondary rounded-lg overflow-hidden group">
                 {post.media_url && post.media_type === "image" ? (
-                  <img src={post.media_url} className="w-full h-full object-cover" alt="" />
+                  <FeedPostImageFrame post={post} variant="thumbnail" alt="" />
                 ) : post.media_url && post.media_type === "video" ? (
                   post.media_cover_url
-                    ? <img src={post.media_cover_url} className="w-full h-full object-cover" alt="" />
+                    ? <FeedPostImageFrame post={{ ...post, media_url: post.media_cover_url }} variant="thumbnail" alt="" />
                     : <video src={post.media_url} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center p-3 bg-secondary">
@@ -198,17 +226,33 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
           currentUser={currentUser}
           onClose={() => setExpandedPost(null)}
           onLike={() => toggleLike(expandedPost)}
+          onPostUpdated={replacePost}
+          likePending={likePendingId === expandedPost.id}
           onDelete={expandedPost.author_email === currentUser?.email ? () => { deletePost(expandedPost.id); setExpandedPost(null); } : null}
         />
       )}
+      <ImagePositionEditor
+        open={mediaEditorOpen}
+        onClose={() => setMediaEditorOpen(false)}
+        imageUrl={mediaUrl}
+        aspect="square"
+        initialPosition={mediaPosition}
+        initialZoom={mediaZoom}
+        onConfirm={(_url, position, zoom) => {
+          setMediaPosition(position || DEFAULT_POST_MEDIA_FRAME.position);
+          setMediaZoom(zoom || DEFAULT_POST_MEDIA_FRAME.zoom);
+          setMediaEditorOpen(false);
+        }}
+      />
     </div>
   );
 }
 
-function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
+function PostModal({ post, currentUser, onClose, onLike, onPostUpdated, likePending, onDelete }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState("");
   const commentsEndRef = useRef();
   const liked = post.likes?.includes(currentUser?.email);
 
@@ -220,17 +264,21 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
     e.preventDefault();
     if (!commentText.trim()) return;
     setSubmitting(true);
-    const c = await stageClient.entities.Comment.create({
-      post_id: post.id,
-      author_email: currentUser.email,
-      author_name: currentUser.full_name || currentUser.email,
-      content: commentText.trim(),
-    });
-    await stageClient.entities.Post.update(post.id, { comments_count: (post.comments_count || 0) + 1 });
-    setComments(prev => [...prev, c]);
-    setCommentText("");
-    setSubmitting(false);
-    setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setCommentError("");
+    try {
+      const result = await stageClient.comments.createForPost({
+        post_id: post.id,
+        content: commentText.trim(),
+      });
+      if (result.comment) setComments(prev => [...prev, result.comment]);
+      if (result.post) onPostUpdated(result.post);
+      setCommentText("");
+      setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch (err) {
+      setCommentError(err?.message || "Could not add comment.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -243,7 +291,7 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
         {post.media_url && (
           <div className="md:w-1/2 bg-black flex items-center justify-center shrink-0">
             {post.media_type === "image" ? (
-              <img src={post.media_url} className="w-full h-full object-contain max-h-[60vh] md:max-h-[90vh]" alt="" />
+              <FeedPostImageFrame post={post} variant="modal" className="bg-black" alt="" />
             ) : (
               <video src={post.media_url} poster={post.media_cover_url || undefined} controls className="w-full max-h-[60vh] md:max-h-[90vh]" />
             )}
@@ -305,10 +353,11 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
           {/* Like + comment input */}
           <div className="px-4 py-3 border-t border-border space-y-2 shrink-0">
             <div className="flex items-center gap-4">
-              <button onClick={onLike}
+              <button onClick={onLike} disabled={likePending}
                 className={cn("flex items-center gap-1.5 text-sm font-medium transition-colors",
-                  liked ? "text-red-500" : "text-muted-foreground hover:text-red-500")}>
-                <Heart className="w-5 h-5" fill={liked ? "currentColor" : "none"} />
+                  liked ? "text-red-500" : "text-muted-foreground hover:text-red-500",
+                  likePending && "opacity-60 cursor-not-allowed")}>
+                {likePending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Heart className="w-5 h-5" fill={liked ? "currentColor" : "none"} />}
                 {post.likes_count || 0} likes
               </button>
               <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -330,6 +379,7 @@ function PostModal({ post, currentUser, onClose, onLike, onDelete }) {
                 </button>
               </form>
             )}
+            {commentError && <p className="text-xs text-destructive">{commentError}</p>}
           </div>
         </div>
       </div>

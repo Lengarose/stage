@@ -1,0 +1,21 @@
+StageLeagues Slice 2 founder contract lifecycle summary.
+
+The contract and functions server-test baseline is now clean, so Slice 2 can begin. The goal is to turn Create Player plus President from a temporary identity attachment into a real contract-backed founder career flow.
+
+The product rule stays simple: Create Player can remain a free agent. Create Player plus President cannot remain a free agent after successful completion.
+
+The correct final state is: Player exists, Club exists, Player has an active contract with that Club, Player is attached to the Club through membership, and the Club points to that Player through president player id.
+
+The biggest risk is partial state. If the frontend creates the club, then creates the contract, then accepts the contract, then updates the player, a network or server failure can leave the platform with a broken club or broken player career.
+
+The better solution is one backend-owned founder lifecycle operation. It should validate the user and Player, create the Club, create and activate the founder Player contract, attach the Player to the Club, set president player id, and return the final Player, Club, Contract, and Membership state.
+
+This flow should be atomic or safely compensated. It should also be idempotent, so retrying onboarding does not create duplicate clubs, duplicate contracts, duplicate STC effects, or duplicate notifications.
+
+Do not teach generic contract acceptance to rewrite president links. Founder ownership should live in the dedicated founder lifecycle service.
+
+Do not create standalone President profiles in the new flow. Keep legacy President data and routes for compatibility.
+
+Transfer Room remains out of scope.
+
+The developer task is to create a short implementation plan, then implement Slice 2 with focused tests for success, failure, retry behavior, Player-only free-agent behavior, legacy compatibility, and untouched Transfer Room scope.

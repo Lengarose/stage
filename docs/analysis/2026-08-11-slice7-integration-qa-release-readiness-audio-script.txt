@@ -1,0 +1,15 @@
+StageLeagues Slice 7 integration QA summary.
+
+Slices 1 through 6 are individually complete. The branch now touches onboarding, club creation, founder contracts, President-as-Player identity, public routes, Player profiles, posts, comments, likes, notifications, feed media metadata, schema, and migrations.
+
+The next task should not be another feature. It should be integration QA and release readiness.
+
+The developer should prove the full journey works together: Create Player remains player-only and can stay free agent. Create Player plus President creates Player, Club, active founder contract, active membership, and President status. Public President surfaces route to Player profiles. Player profiles show President or Founder badges. Feed image posts, likes, comments, notifications, and media metadata work together.
+
+They should also verify old compatibility: legacy President pages degrade safely, old video posts still render, global video uploads remain available for proof and scouting, and Transfer Room remains untouched.
+
+The QA pass should include diff review, full automated verification, schema versus startup migration consistency, and browser or manual smoke testing if feasible.
+
+No new product systems should be added in this slice. Fix only bugs found by QA.
+
+The developer should produce a result note with exact commands, smoke coverage, blockers, and residual risks. If there are no release blockers, say that clearly.

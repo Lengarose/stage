@@ -34,38 +34,12 @@ import { asObject, asObjectArray } from "@/lib/safeData";
 import { isPresidentAccountIntent, readAccountIntent } from "@/lib/accountIntent";
 import { getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { normalizePlayerContracts } from "@/lib/playerContractFields";
+import { getFootballRoleBadges, getPlayerManagementBadges } from "@/lib/playerProfileStatus";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
-}
-
-function normalizeClubRoles(roles) {
-  if (Array.isArray(roles)) return roles;
-  if (typeof roles === "string") {
-    try {
-      const parsed = JSON.parse(roles);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return roles.split(",").map((role) => role.trim()).filter(Boolean);
-    }
-  }
-  return [];
-}
-
-// Roles never shown on a player profile.
-// `president`/`owner` belong to the President identity, which is deliberately
-// separate from the Player identity: creating a club does not make your player
-// a member of it, and presiding over a club is not a squad role. Keep in sync
-// with getVisibleClubRole() in PlayerProfile.jsx.
-const NON_PLAYER_ROLES = new Set(["president", "owner", "manager", "member"]);
-
-function getProfileRoleBadges(player) {
-  const rawRoles = normalizeClubRoles(player?.club_roles);
-  const roles = rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
-
-  return Array.from(new Set(roles.filter((role) => role && !NON_PLAYER_ROLES.has(role))));
 }
 
 // Which view is active: "profile" | "edit_player" | "club" | "edit_club" | "notifications" | "requests" | "feed"
@@ -79,10 +53,9 @@ export default function Profile({
   const [view, setView] = useState(initialView);
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
-  // `myClub` = the club this account presides over (President identity).
-  // `signedClub` = the club this account's player is under contract with
-  // (Player identity). They are independent: a president is a free agent until
-  // some club signs him, and that club need not be his own.
+  // `myClub` is the management club this Player presides over.
+  // `signedClub` is the football squad currently attached through player-side
+  // membership or contracts. Keep management status separate from positions.
   const [myClub, setMyClub] = useState(null);
   const [signedClub, setSignedClub] = useState(null);
   const [accountIntent, setAccountIntent] = useState("player");
@@ -103,6 +76,8 @@ export default function Profile({
   const [pvpMatches, setPvpMatches] = useState([]);
   const [profileTab, setProfileTab] = useState("posts");
   const [presidentContractPrompt, setPresidentContractPrompt] = useState(null);
+  const [playerContracts, setPlayerContracts] = useState([]);
+  const [clubMemberships, setClubMemberships] = useState([]);
 
   const [playerForm, setPlayerForm] = useState({
     gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
@@ -158,18 +133,22 @@ export default function Profile({
           const p = resolvedPlayer;
           setPlayer(p);
 
-          // Resolve the signed club strictly from the player record and his
-          // contracts. resolveMyPlayerAndClub() falls back to the president
-          // club on its `club` field, which would leak the President identity
-          // onto the player profile.
+          // Resolve signed club from player membership/contracts. The hero may
+          // still show the management club separately through status badges.
           stageClient.entities.PlayerContract.filter({ user_id: p.id })
             .catch(() => [])
             .then((contractRows) => {
-              const signedClubId = getSignedClubIdForPlayer(p, normalizePlayerContracts(contractRows));
+              const normalizedContracts = normalizePlayerContracts(contractRows);
+              if (alive) setPlayerContracts(normalizedContracts);
+              const signedClubId = getSignedClubIdForPlayer(p, normalizedContracts);
               return signedClubId ? stageClient.entities.Club.get(signedClubId).catch(() => null) : null;
             })
             .then((clubRecord) => { if (alive) setSignedClub(asObject(clubRecord)); })
             .catch(() => { if (alive) setSignedClub(null); });
+          stageClient.entities.ClubMembership
+            .filter({ player_id: p.id, status: "active" }, "-created_date", 20)
+            .then((rows) => { if (alive) setClubMemberships(asObjectArray(rows)); })
+            .catch(() => { if (alive) setClubMemberships([]); });
 
           stageClient.identityClaims
             .list({ player_id: p.id }, "-created_date", 20)
@@ -347,7 +326,7 @@ export default function Profile({
     await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
     setPlayer(prev => ({ ...asObject(prev), club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
     // Leaving a squad ends the Player-side membership only. The presided club
-    // (`myClub`) is the President identity and is untouched.
+    // (`myClub`) is a management status on this Player and is untouched.
     setSignedClub(null);
     setView("profile");
   }
@@ -364,7 +343,13 @@ export default function Profile({
   const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
-  const profileRoleBadges = getProfileRoleBadges(player);
+  const profileRoleBadges = getFootballRoleBadges(player);
+  const profileManagementBadges = getPlayerManagementBadges({
+    player,
+    club: myClub,
+    memberships: clubMemberships,
+    contracts: playerContracts,
+  });
 
   const OUTCOME_STYLE = {
     W: "bg-success/15 text-success border-success/30",
@@ -376,6 +361,7 @@ export default function Profile({
   if (view === "profile") {
     const profileTabs = [
       { id: "posts", label: t("commonPages.profTab_posts") },
+      { id: "showcase", label: t("commonPages.profTab_showcase") },
       { id: "stats", label: t("commonPages.profTab_stats") },
       { id: "career", label: t("commonPages.gamerTabCareer") },
       { id: "matches", label: t("commonPages.profTab_matches") },
@@ -399,8 +385,9 @@ export default function Profile({
         <GamerProfileHero
           player={player}
           user={user}
-          club={signedClub}
+          club={signedClub || myClub}
           roleBadges={profileRoleBadges}
+          managementBadges={profileManagementBadges}
           formatPositions={formatPositions}
           onAvatarClick={player?.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
           verifiedHandle={
@@ -507,6 +494,52 @@ export default function Profile({
               {profileTab === "posts" ? (
                 <div className="pt-2">
                   <PlayerFeed currentUser={user} player={player} isOwner={true} />
+                </div>
+              ) : null}
+
+              {profileTab === "showcase" ? (
+                <div className="pt-2 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                  <GamerSectionCard title={t("commonPages.profTab_showcase")}>
+                    <div className="space-y-3">
+                      <p className="font-heading text-2xl font-black uppercase text-white leading-none">
+                        {player.gamertag || user?.full_name || "Player"}
+                      </p>
+                      {player.bio ? (
+                        <p className="text-sm text-white/60 leading-relaxed">{player.bio}</p>
+                      ) : (
+                        <p className="text-sm text-white/40">{t("commonPages.profBioPlaceholder")}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {profileManagementBadges.map((badge) => (
+                          <span key={badge.id} className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-200">
+                            {badge.label}
+                          </span>
+                        ))}
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/55">
+                          {formatPositions(player)}
+                        </span>
+                      </div>
+                    </div>
+                  </GamerSectionCard>
+                  <GamerSectionCard title={t("commonPages.currentClub")}>
+                    {signedClub || myClub ? (
+                      <Link to={signedClub?.id ? `/clubs/${signedClub.id}` : (myClubHref || `/clubs/${myClub.id}`)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:border-cyan-400/30 transition-colors">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                          {(signedClub || myClub).logo_url ? (
+                            <img src={(signedClub || myClub).logo_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <Shield className="h-5 w-5 text-cyan-300/80" />
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-white truncate">{(signedClub || myClub).name}</span>
+                          <span className="block text-xs text-white/40 truncate">{(signedClub || myClub).tag ? `[${(signedClub || myClub).tag}]` : t("commonPages.cdClubOffice")}</span>
+                        </span>
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-white/40">{t("commonPages.profNotClub")}</p>
+                    )}
+                  </GamerSectionCard>
                 </div>
               ) : null}
 

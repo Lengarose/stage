@@ -1,0 +1,13 @@
+StageLeagues Slice 9 smoke environment enablement summary.
+
+Slice 8 did not find product bugs, but it could not complete true authenticated browser smoke. The blocker is environment access, not product behavior.
+
+Production was not used because the smoke gate required local or staging unless production testing is explicitly approved. No staging URL or test credentials were available. The local backend could start on port 8080, but database queries failed because the expected Gandi MySQL socket path does not exist locally.
+
+The next developer task is to enable one safe authenticated smoke environment. The best option is a local seeded MySQL database. The other option is staging with disposable test credentials.
+
+Do not use production unless explicitly approved. Do not commit secrets. Do not add product features just to make smoke easier.
+
+Once a safe environment exists, rerun the Slice 8 checklist: Create Player, Create Player plus President, founder contract state, Player profile badges, Presidents directory and Search routing, legacy President compatibility, feed image metadata after reload, server-owned likes and comments, notifications if a second account exists, and Transfer Room untouched scan.
+
+If the environment still cannot be enabled, the developer should document exactly what is missing: local database config, MySQL socket or TCP settings, seed data, staging URL, or disposable credentials.

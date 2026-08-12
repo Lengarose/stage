@@ -20,14 +20,19 @@ test("club president contract dialog is the canonical component imported by cons
   );
 
   const consumerFiles = [
-    "src/components/ClubOnboardingModal.jsx",
-    "src/components/onboarding/ClubSetup.jsx",
     "src/pages/Profile.jsx",
   ];
 
   for (const file of consumerFiles) {
     const source = read(file);
     assert.match(source, /PresidentContractDialog/);
+    assert.doesNotMatch(source, /OwnerContractDialog/);
+    assert.doesNotMatch(source, /ownerContractPrompt/);
+  }
+
+  for (const file of ["src/components/ClubOnboardingModal.jsx", "src/components/onboarding/ClubSetup.jsx"]) {
+    const source = read(file);
+    assert.doesNotMatch(source, /PresidentContractDialog/);
     assert.doesNotMatch(source, /OwnerContractDialog/);
     assert.doesNotMatch(source, /ownerContractPrompt/);
   }

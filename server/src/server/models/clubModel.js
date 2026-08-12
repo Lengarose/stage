@@ -6,6 +6,7 @@ const CLUB_COLUMNS = [
   'user_id',
   'president_user_id',
   'president_id',
+  'president_player_id',
   'owner_email',
   'name',
   'tag',
@@ -74,6 +75,10 @@ class Club {
 
   selectByUserId(user_id) {
     return EXECUTESQL('SELECT * FROM clubs WHERE user_id = ?', [user_id]);
+  }
+
+  selectByPresidentPlayerId(president_player_id) {
+    return EXECUTESQL('SELECT * FROM clubs WHERE president_player_id = ? LIMIT 50', [president_player_id]);
   }
 
   create() {

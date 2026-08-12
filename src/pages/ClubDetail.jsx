@@ -75,12 +75,13 @@ function clubRoleLabel(t, role) {
 
 function ClubPresidentChip({ club, president }) {
   const { t } = useTranslation();
-  const presidentId = president?.id || club?.president_id;
+  const presidentId = president?.player_id || president?.id || club?.president_player_id || club?.president_id;
   if (!presidentId) return null;
-  const name = president?.display_name || t("commonPages.cdPresident");
+  const name = president?.display_name || president?.gamertag || t("commonPages.cdPresident");
+  const profilePath = president?.profile_path || (club?.president_player_id ? `/players/${club.president_player_id}` : `/presidents/${presidentId}`);
   return (
     <Link
-      to={`/presidents/${presidentId}`}
+      to={profilePath}
       className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/45 backdrop-blur-md px-2.5 py-1.5 hover:bg-black/60 hover:border-amber-300/30 transition-colors max-w-[220px]"
       title={t("commonPages.presProfileMenu")}
     >
@@ -198,7 +199,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const c = asObject(clubRecordRaw);
         let presidentRecord = null;
-        if (c?.president_id) {
+        if (c?.president_player_id) {
+          const presidentPlayer = asObject(await stageClient.entities.Player.get(c.president_player_id).catch(() => null));
+          if (presidentPlayer?.id) {
+            presidentRecord = {
+              ...presidentPlayer,
+              player_id: presidentPlayer.id,
+              display_name: presidentPlayer.gamertag || presidentPlayer.display_name,
+              profile_path: `/players/${presidentPlayer.id}`,
+            };
+          }
+        }
+        if (!presidentRecord && c?.president_id) {
           presidentRecord = asObject(await stageClient.entities.President.get(c.president_id).catch(() => null));
         } else if (c?.id) {
           const byClub = await stageClient.entities.President.filter({ club_id: c.id }, null, 1).catch(() => []);

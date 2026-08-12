@@ -1,0 +1,19 @@
+StageLeagues analysis summary.
+
+The strongest product direction is to make Player the only public identity. President should become a role or status on the Player profile, not a separate public profile. That makes the platform easier to understand and more trustworthy.
+
+The new onboarding split should have only two choices: Create Player, and Create Player plus President. President only should be removed.
+
+Create Player creates a normal Player profile and leaves that player as a free agent unless they already have an active contract.
+
+Create Player plus President must create the Player first, then create the Club, then connect the Club president to that Player. This flow cannot end with the player as a free agent. The final state must include a Player, a Club, an active Player contract, club membership, and a President or Owner badge on the Player profile.
+
+The current codebase still has a separate President model, President setup screen, President profile routes, President directory, and club creation logic that deliberately keeps President and Player separate. That is the main conflict with the new product rule.
+
+The safest implementation is not to delete old President data yet. Add compatibility fields like president_player_id on clubs, stop new onboarding from creating standalone President profiles, and redirect new public identity links to Player profiles.
+
+Transfer Room should not be touched in this work.
+
+Feed, comments, likes, media, notifications, profile showcase, and president directory cleanup should be later slices. Do identity first, then contract and squad membership, then public routes, then feed and media.
+
+My recommendation is to approve Slice 1 only first: add the identity foundation, remove President-only onboarding, connect Create Player plus President to Player and Club, and keep President management view available. Development should wait for approval.

@@ -5,6 +5,15 @@
  *   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
  */
 module.exports = {
+  // Local smoke/development DB. Leave DB_SOCKET_PATH set on Gandi; set it to
+  // an empty string locally to use DB_HOST/DB_PORT over TCP.
+  DB_SOCKET_PATH: '',
+  DB_HOST: '127.0.0.1',
+  DB_PORT: '3306',
+  DB_USER: 'root',
+  DB_PASSWORD: '',
+  DB_NAME: 'stage_league',
+
   ACCESS_TOKEN_SECRET: '<generate-96-hex-chars>',
   REFRESH_TOKEN_SECRET: '<generate-96-hex-chars>',
   // Must match EMIT_SECRET on the Render socket service.

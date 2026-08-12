@@ -1,0 +1,15 @@
+StageLeagues Slice 6 feed media UX polish summary.
+
+Slice 5 made feed likes and comments trustworthy with server-owned actions. Slice 6 should make the feed feel polished without creating a large social rewrite.
+
+The goal is simple: new image posts should have predictable square framing, users should be able to adjust image position and zoom before posting if the existing image-position editor can be reused, and thumbnails and modals should render images consistently.
+
+If metadata is needed, add minimal post media fields such as media position, media zoom, and media aspect. Old posts must keep working with safe defaults.
+
+PlayerFeed, ClubFeed, and Social should keep using the server-owned like toggle and server-owned comment creation from Slice 5. The UI should add basic loading and error handling so users cannot easily double-submit likes or comments while a request is pending.
+
+Existing old video posts must still render. New feed video uploads remain blocked. The global upload endpoint must still allow video for match proof and scouting workflows.
+
+Do not build a full media studio. Do not normalize likes into a new table in this slice. Do not touch Transfer Room, rankings, STC, trophies, contract lifecycle, President identity, or the full Showcase media backend.
+
+The developer task is to add lightweight feed image framing, consistent modal and thumbnail rendering, and interaction polish while keeping the Slice 5 trust model intact.

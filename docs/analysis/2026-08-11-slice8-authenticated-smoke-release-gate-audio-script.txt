@@ -1,0 +1,17 @@
+StageLeagues Slice 8 final smoke gate summary.
+
+Slice 7 found no release blockers. Automated verification is clean: targeted backend and frontend tests, lint, typecheck, server syntax, server tests, full tests, production build, diff check, and graph update all passed.
+
+The only material remaining risk is that no authenticated browser smoke was completed, because the QA environment did not have a seeded authenticated app session.
+
+Slice 8 should close that gap with one local or staging click-through. This is not a new feature slice.
+
+The developer should verify Create Player remains player-only and can stay free agent. Then verify Create Player plus President creates Player, Club, active founder contract, active membership, and President status, and that the Player profile does not look like a free agent.
+
+They should verify Presidents directory and Search open Player profiles, legacy slash presidents slash id redirects or degrades safely, and Player profiles show President or Founder badges.
+
+They should verify feed image posting with position and zoom metadata, reload persistence, old video rendering, and server-owned likes and comments. If a second account is available, verify non-owner notifications and skipped self-notifications.
+
+Use local or staging, not production, unless production testing is explicitly approved. Do not add features. Fix only bugs found by smoke testing. Confirm Transfer Room remains untouched.
+
+The result should be a short note with environment, account setup, pass or fail checklist, bugs fixed or blockers, and final release recommendation.

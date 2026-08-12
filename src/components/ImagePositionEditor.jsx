@@ -59,13 +59,16 @@ export default function ImagePositionEditor({
 
   const isAvatar = aspect === "avatar";
   const isCard = aspect === "card";
+  const isSquare = aspect === "square";
   const previewFramePlayer = previewPlayer || {};
   const previewFrameClub = previewClub || {};
   const usePlayerProfileFrame = (isAvatar || isCard) && Boolean(previewPlayer);
   const useClubProfileFrame = (isAvatar || isCard) && !usePlayerProfileFrame && Boolean(previewClub);
   const dialogTitle = useClubProfileFrame
     ? "Position Club Logo"
-    : usePlayerProfileFrame || isCard
+    : isSquare
+      ? "Position Feed Image"
+      : usePlayerProfileFrame || isCard
       ? "Position Player Card"
       : isAvatar
         ? "Position Profile Photo"
@@ -179,6 +182,15 @@ export default function ImagePositionEditor({
                 <div className="w-20 h-12 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Club frame · wide crop</p>
               </div>
+            </div>
+          ) : isSquare ? (
+            <div className="flex flex-col items-center gap-4">
+              <div
+                className="w-52 h-52 rounded-xl cursor-grab active:cursor-grabbing select-none border border-white/20 shadow-xl"
+                style={previewStyle}
+                {...dragHandlers}
+              />
+              <p className="text-white/25 text-[10px] uppercase tracking-widest">Square feed preview</p>
             </div>
           ) : isAvatar ? (
             <div className="flex flex-col items-center gap-4">

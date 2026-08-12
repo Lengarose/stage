@@ -19,11 +19,6 @@ const PlayerIcon = () => (
     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
   </svg>
 );
-const OwnerIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-);
 const PlayerPresidentIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
     <circle cx="8" cy="8" r="3"/><path d="M3 20c0-3.2 2.2-5.5 5-5.5s5 2.3 5 5.5"/><path d="M17 21s4-2.2 4-5.8v-4.1L17 9.5l-4 1.6v4.1c0 3.6 4 5.8 4 5.8z"/>
@@ -60,30 +55,22 @@ function detectBrowserTimezone() {
 /* ── step meta ─────────────────────────────────────────────── */
 function getStepMeta(intent, step, phase) {
   // Player: choose → player → identity
-  // Player+President: choose → player → identity → president → club profile
+  // Player+President: choose → player → identity → club profile
   const dual = intent === "both";
 
   if (step === "player") {
-    return { labelKey: "obStepPlayerProfile", index: 1, total: dual ? 5 : 3 };
+    return { labelKey: "obStepPlayerProfile", index: 1, total: dual ? 4 : 3 };
   }
 
   if (step === "identity") {
-    return { labelKey: "obStepVerifyIdentity", index: 2, total: dual ? 5 : 3 };
+    return { labelKey: "obStepVerifyIdentity", index: 2, total: dual ? 4 : 3 };
   }
 
   if (step === "club" && dual) {
     if (phase === "club") {
-      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 4, total: 5 };
+      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 3, total: 4 };
     }
-    return { label: "President Profile", labelKey: "obStepClubSetup", index: 3, total: 5 };
-  }
-
-  // President-only: choose → president → club profile
-  if (step === "owner_club") {
-    if (phase === "club") {
-      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 2, total: 3 };
-    }
-    return { label: "President Profile", labelKey: "obStepClubSetup", index: 1, total: 3 };
+    return { label: "Club Profile", labelKey: "obStepClubSetup", index: 3, total: 4 };
   }
 
   return { labelKey: "obStepChooseRole", index: 0, total: 2 };
@@ -96,7 +83,7 @@ export default function Onboarding({ onComplete }) {
   const [player,       setPlayer]       = useState(null);
   const [step,         setStep]         = useState("choose");
   const [intent,       setIntent]       = useState("player");
-  const [clubSetupPhase, setClubSetupPhase] = useState("president");
+  const [clubSetupPhase, setClubSetupPhase] = useState("club");
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [timezone, setTimezone] = useState(() => detectBrowserTimezone());
@@ -298,27 +285,6 @@ export default function Onboarding({ onComplete }) {
                           </div>
                         </button>
 
-                        {/* President */}
-                        <button
-                          onClick={() => {
-                            setOnboardingIntent("president", "club");
-                            setClubSetupPhase("president");
-                            setStep("owner_club");
-                          }}
-                          className="w-full group text-left bg-white/5 border border-white/15 hover:border-amber-500/60 hover:bg-amber-500/8 rounded-2xl p-5 transition-all duration-200"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 shrink-0">
-                              <OwnerIcon />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-black uppercase tracking-wide text-white text-sm mb-1">{t("commonPages.obClubOwner")}</p>
-                              <p className="text-white/40 text-xs leading-relaxed">{t("commonPages.obClubOwnerDesc")}</p>
-                            </div>
-                            <ChevronRight />
-                          </div>
-                        </button>
-
                         {/* Player + President */}
                         <button
                           onClick={() => {
@@ -409,17 +375,6 @@ export default function Onboarding({ onComplete }) {
                     />
                   )}
 
-                  {/* ── REQUIRED CLUB (president-only path) ──── */}
-                  {step === "owner_club" && (
-                    <ClubSetup
-                      onComplete={finishOnboarding}
-                      onPhaseChange={setClubSetupPhase}
-                      player={player}
-                      user={user}
-                      required
-                    />
-                  )}
-
                   {step === "discord" && (
                     <DiscordJoinCard
                       variant="onboarding"
@@ -433,7 +388,7 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               {/* Back */}
-              {step !== "choose" && step !== "club" && step !== "owner_club" && step !== "discord" && (
+              {step !== "choose" && step !== "club" && step !== "discord" && (
                 <button
                   type="button"
                   onClick={() => setStep(step === "identity" ? "player" : "choose")}

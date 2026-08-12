@@ -5,7 +5,6 @@ import { getBannerStyle } from "@/lib/storeItems";
 import {
   GamerMetaPill,
   GamerPlayerCard,
-  GamerRecordStrip,
 } from "./GamerProfileUI";
 
 export default function GamerProfileHero({
@@ -13,6 +12,7 @@ export default function GamerProfileHero({
   user,
   club,
   roleBadges = [],
+  managementBadges = [],
   formatPositions,
   topLeftActions,
   topActions,
@@ -23,10 +23,6 @@ export default function GamerProfileHero({
   children,
 }) {
   const bannerStyle = getBannerStyle(player?.banner_url, player?.banner_position);
-  const wins = player?.wins_count ?? player?.wins ?? 0;
-  const draws = player?.draws_count ?? player?.draws ?? 0;
-  const losses = player?.losses_count ?? player?.losses ?? 0;
-
   return (
     <div className="relative">
       <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden">
@@ -89,12 +85,29 @@ export default function GamerProfileHero({
                     ))}
                   </div>
                 ) : null}
+
+                {managementBadges.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {managementBadges.map((badge) => (
+                      <span
+                        key={badge.id}
+                        className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider border",
+                          badge.tone === "amber" ? "bg-amber-500/15 text-amber-300 border-amber-500/30" :
+                          badge.tone === "cyan" ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" :
+                          "bg-white/5 text-white/55 border-white/10"
+                        )}
+                        title={badge.clubName || undefined}
+                      >
+                        {badge.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {sideActions ? <div className="flex flex-wrap gap-2 shrink-0">{sideActions}</div> : null}
             </div>
-
-            <GamerRecordStrip wins={wins} draws={draws} losses={losses} />
 
             {player?.bio ? <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{player.bio}</p> : null}
             {verifiedHandle ? (
