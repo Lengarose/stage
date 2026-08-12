@@ -1,0 +1,15 @@
+StageLeagues profile tabs analysis.
+
+The issue in Profile.jsx and PlayerProfile.jsx is real. The tabs do not currently have one clear business meaning.
+
+In My Profile, Stats is mostly raw player stats. In the public Player Profile, Stats also includes market value, derived match stats, recent form, and PvP record. That means the owner and the public can see different versions of the same player truth.
+
+Career is the biggest naming problem. Today it mostly shows EAFC and FUT information. But in StageLeagues, Career should mean the player's platform career: active contract, club history, founder or president status, memberships, achievements, trophies, and important milestones.
+
+Matches is also mixed. In My Profile it shows completed PvP matches. In the public Player Profile it shows upcoming signed-club fixtures and PvP history. Future fixtures and completed history should not silently share the same meaning unless the tab is renamed to Fixtures and Matches.
+
+The better product structure is simple. Posts means social activity. Showcase means identity and presentation. Stats means verified performance and scouting numbers. Career means the player's StageLeagues CV. Matches means match history. Trophies means achievements and cups. Lifestyle means personality or cosmetic identity, and it should either exist in both profiles or be clearly public-only.
+
+The recommended developer slice is to create a shared profile tab contract and a shared stats adapter. Both Profile.jsx and PlayerProfile.jsx should use the same domain rules. Owner and public pages can differ by permissions, but not by the meaning of each tab.
+
+Also, Profile.jsx still contains an old generic club creation function. If it is unused, remove it. If it is still used, it must go through the founder lifecycle endpoint. Transfer Room stays untouched.
