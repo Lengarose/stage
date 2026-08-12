@@ -604,11 +604,8 @@ router.patch('/:id', async (req, res) => {
       }
     }
     if (record.status === 'completed') {
-      await competitionEngineService.syncMatchResultToSource(record).catch((err) => {
-        console.error('[match source sync]', err.message);
-      });
-      await competitionEngineService.advanceCommunityTournamentIfReady(record).catch((err) => {
-        console.error('[community tournament advance]', err.message);
+      await competitionEngineService.advanceAfterFinalResult(record).catch((err) => {
+        console.error('[final result progression]', err.message);
       });
     }
     broadcastMatch(record);

@@ -37,6 +37,17 @@ test("active founder contract adds Founder for public profile viewers", () => {
   assert.deepEqual(getPlayerManagementBadges({ player, club, contracts }).map((badge) => badge.id), ["founder", "president"]);
 });
 
+test("active founder player contract adds Founder without replacing President ownership status", () => {
+  const player = { id: "player-1", user_id: "user-1" };
+  const club = { id: "club-1", name: "Founders FC", president_player_id: "player-1" };
+  const contracts = [
+    { team_id: "club-1", user_id: "player-1", contract_type: "founder_player", status: "active" },
+    { team_id: "club-1", user_id: "player-1", contract_type: "ownership", status: "active" },
+  ];
+
+  assert.deepEqual(getPlayerManagementBadges({ player, club, contracts }).map((badge) => badge.id), ["founder", "president"]);
+});
+
 test("non-president player does not get management status", () => {
   assert.deepEqual(
     getPlayerManagementBadges({

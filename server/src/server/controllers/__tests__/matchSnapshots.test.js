@@ -31,6 +31,7 @@ function loadMatchRouterWithDbMock(executesql, serviceMock = {}) {
     exports: {
       syncMatchResultToSource: async () => ({ synced: false }),
       advanceCommunityTournamentIfReady: async () => ({ advanced: false }),
+      advanceAfterFinalResult: async () => ({ triggered: false }),
       ...serviceMock,
     },
   };
@@ -136,8 +137,8 @@ test('POST / snapshots club owner emails and player emails from ids', async () =
   assert.equal(inserted.length, 1);
 });
 
-test('PATCH / syncs completed matches to source fixture flow', async () => {
-  const synced = [];
+test('PATCH / advances completed matches through central final-result progression hook', async () => {
+  const progressed = [];
   let updateSeen = false;
   const executesql = async (sql) => {
     if (/FROM users WHERE id = \?/.test(sql)) {
@@ -175,9 +176,9 @@ test('PATCH / syncs completed matches to source fixture flow', async () => {
   };
 
   const router = loadMatchRouterWithDbMock(executesql, {
-    syncMatchResultToSource: async (record) => {
-      synced.push(record);
-      return { synced: true };
+    advanceAfterFinalResult: async (record) => {
+      progressed.push(record);
+      return { triggered: true, sync: { synced: true }, community: { advanced: false } };
     },
   });
   const handle = patchMatchHandler(router);
@@ -201,6 +202,6 @@ test('PATCH / syncs completed matches to source fixture flow', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.status, 'completed');
-  assert.equal(synced.length, 1);
-  assert.equal(synced[0].source_fixture_id, 'fixture-1');
+  assert.equal(progressed.length, 1);
+  assert.equal(progressed[0].source_fixture_id, 'fixture-1');
 });

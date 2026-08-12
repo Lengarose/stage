@@ -31,7 +31,7 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
   const calls = [];
   const state = {
     clubs: existing.club ? [existing.club] : [],
-    contracts: existing.contract ? [existing.contract] : [],
+    contracts: existing.contracts || (existing.contract ? [existing.contract] : []),
     memberships: existing.membership ? [existing.membership] : [],
     player: existing.player || {
       id: 'player-1',
@@ -94,8 +94,24 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
       }
       if (/INSERT INTO stc_transactions/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE users SET owner_id/.test(sql)) return [{ affectedRows: 1 }, []];
+      if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1/.test(sql)) {
+        return [[state.contracts.find((contract) => contract.id === params[0])].filter(Boolean), []];
+      }
       if (/SELECT \*, user_id AS target_player_id\s+FROM player_contracts/.test(sql)) {
-        return [state.contracts.filter((contract) => contract.team_id === params[0] && contract.user_id === params[1]), []];
+        const byClubAndPlayer = state.contracts.filter((contract) => (
+          contract.team_id === params[0] && contract.user_id === params[1]
+        ));
+        if (/contract_type = 'founder'/.test(sql)) {
+          return [byClubAndPlayer.filter((contract) => contract.contract_type === 'founder'), []];
+        }
+        if (/contract_type = \?/.test(sql)) {
+          return [byClubAndPlayer.filter((contract) => contract.contract_type === params[2]), []];
+        }
+        if (/contract_type IN/.test(sql)) {
+          const allowedTypes = params.slice(2).filter((param) => ['founder_player', 'founder', 'ownership'].includes(param));
+          return [byClubAndPlayer.filter((contract) => allowedTypes.includes(contract.contract_type)), []];
+        }
+        return [byClubAndPlayer, []];
       }
       if (/INSERT INTO player_contracts/.test(sql)) {
         state.contracts.push({
@@ -103,17 +119,17 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
           team_id: params[1],
           user_id: params[2],
           contract_type: params[3],
-          status: params[4],
-          offered_by: params[5],
-          offered_by_user_id: params[6],
-          offered_by_club_id: params[7],
-          max_games: params[8],
-          max_days: params[9],
-          weekly_salary_stc: params[10],
-          signing_bonus_stc: params[11],
-          transfer_fee_stc: params[12],
-          offer_note: params[13],
-          captaincy_offered: params[14],
+          status: 'active',
+          offered_by: params[4],
+          offered_by_user_id: params[5],
+          offered_by_club_id: params[6],
+          max_games: params[7],
+          max_days: params[8],
+          weekly_salary_stc: params[9],
+          signing_bonus_stc: params[10],
+          transfer_fee_stc: params[11],
+          offer_note: params[12],
+          captaincy_offered: 0,
           target_player_id: params[2],
         });
         return [{ affectedRows: 1 }, []];
@@ -168,9 +184,6 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
         return [[state.clubs.find((club) => club.id === params[0])].filter(Boolean), []];
       }
-      if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1/.test(sql)) {
-        return [[state.contracts.find((contract) => contract.id === params[0])].filter(Boolean), []];
-      }
       if (/SELECT \* FROM club_memberships WHERE id = \? LIMIT 1/.test(sql)) {
         return [[state.memberships.find((membership) => membership.id === params[0])].filter(Boolean), []];
       }
@@ -183,7 +196,7 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
   return connection;
 }
 
-test('founder lifecycle creates club, active contract, active membership, and president player link', async () => {
+test('founder lifecycle creates club, active player contract, active president contract, membership, and president player link', async () => {
   const connection = makeConnection();
   const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
 
@@ -199,11 +212,19 @@ test('founder lifecycle creates club, active contract, active membership, and pr
   assert.equal(result.club.president_player_id, 'player-1');
   assert.equal(result.player.club_id, result.club.id);
   assert.equal(result.player.status, 'active');
-  assert.equal(result.contract.status, 'active');
-  assert.equal(result.contract.contract_type, 'founder');
+  assert.equal(result.contract.id, result.playerContract.id, 'legacy contract alias should point to player contract');
+  assert.equal(result.playerContract.status, 'active');
+  assert.equal(result.playerContract.contract_type, 'founder_player');
+  assert.equal(result.playerContract.team_id, result.club.id);
+  assert.equal(result.playerContract.user_id, 'player-1');
+  assert.equal(result.presidentContract.status, 'active');
+  assert.equal(result.presidentContract.contract_type, 'ownership');
+  assert.equal(result.presidentContract.team_id, result.club.id);
+  assert.equal(result.presidentContract.user_id, 'player-1');
+  assert.deepEqual(result.contracts.map((contract) => contract.contract_type).sort(), ['founder_player', 'ownership']);
   assert.equal(result.membership.primary_role, 'president');
   assert.equal(connection.state.clubs.length, 1);
-  assert.equal(connection.state.contracts.length, 1);
+  assert.equal(connection.state.contracts.length, 2);
   assert.equal(connection.state.memberships.length, 1);
 });
 
@@ -242,7 +263,7 @@ test('founder lifecycle does not report success when membership attachment fails
   assert.equal(connection.rolledBack, true);
 });
 
-test('founder lifecycle retry reuses existing founder club and contract', async () => {
+test('founder lifecycle retry reuses existing founder club and both founder contracts', async () => {
   const existingClub = {
     id: 'club-existing',
     user_id: 'user-1',
@@ -251,14 +272,23 @@ test('founder lifecycle retry reuses existing founder club and contract', async 
     owner_email: 'founder@example.test',
     name: 'Founder FC',
   };
-  const existingContract = {
-    id: 'contract-existing',
+  const existingPlayerContract = {
+    id: 'contract-player-existing',
     team_id: 'club-existing',
     user_id: 'player-1',
     target_player_id: 'player-1',
-    contract_type: 'founder',
+    contract_type: 'founder_player',
     status: 'active',
-    offer_note: 'Founder contract: founder-key-1',
+    offer_note: 'Founder player contract: founder-key-1',
+  };
+  const existingPresidentContract = {
+    id: 'contract-president-existing',
+    team_id: 'club-existing',
+    user_id: 'player-1',
+    target_player_id: 'player-1',
+    contract_type: 'ownership',
+    status: 'active',
+    offer_note: 'Founder president contract: founder-key-1',
   };
   const existingMembership = {
     id: 'membership-existing',
@@ -272,7 +302,7 @@ test('founder lifecycle retry reuses existing founder club and contract', async 
   const connection = makeConnection({
     existing: {
       club: existingClub,
-      contract: existingContract,
+      contracts: [existingPlayerContract, existingPresidentContract],
       membership: existingMembership,
       player: {
         id: 'player-1',
@@ -294,8 +324,58 @@ test('founder lifecycle retry reuses existing founder club and contract', async 
   });
 
   assert.equal(result.club.id, 'club-existing');
-  assert.equal(result.contract.id, 'contract-existing');
+  assert.equal(result.contract.id, 'contract-player-existing');
+  assert.equal(result.playerContract.id, 'contract-player-existing');
+  assert.equal(result.presidentContract.id, 'contract-president-existing');
+  assert.deepEqual(result.contracts.map((contract) => contract.id).sort(), ['contract-player-existing', 'contract-president-existing']);
   assert.equal(result.membership.id, 'membership-existing');
   assert.equal(connection.state.clubs.length, 1);
-  assert.equal(connection.state.contracts.length, 1);
+  assert.equal(connection.state.contracts.length, 2);
+});
+
+test('founder lifecycle retry treats legacy founder contract as player-side founder contract and creates ownership contract', async () => {
+  const existingClub = {
+    id: 'club-existing',
+    user_id: 'user-1',
+    president_user_id: 'user-1',
+    president_player_id: 'player-1',
+    owner_email: 'founder@example.test',
+    name: 'Founder FC',
+  };
+  const legacyFounderContract = {
+    id: 'contract-legacy-founder',
+    team_id: 'club-existing',
+    user_id: 'player-1',
+    target_player_id: 'player-1',
+    contract_type: 'founder',
+    status: 'active',
+    offer_note: 'Founder contract: founder-key-1',
+  };
+  const connection = makeConnection({
+    existing: {
+      club: existingClub,
+      contracts: [legacyFounderContract],
+      player: {
+        id: 'player-1',
+        user_id: 'user-1',
+        email: 'founder@example.test',
+        club_id: 'club-existing',
+        role: 'president',
+        club_roles: JSON.stringify(['president', 'member']),
+      },
+    },
+  });
+  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
+
+  const result = await createFounderContractLifecycle({
+    user: { id: 'user-1', email: 'founder@example.test' },
+    playerId: 'player-1',
+    club: { name: 'Founder FC', tag: 'FFC' },
+    idempotencyKey: 'founder-key-1',
+  });
+
+  assert.equal(result.playerContract.id, 'contract-legacy-founder');
+  assert.equal(result.playerContract.contract_type, 'founder');
+  assert.equal(result.presidentContract.contract_type, 'ownership');
+  assert.equal(connection.state.contracts.length, 2);
 });

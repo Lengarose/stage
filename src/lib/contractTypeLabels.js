@@ -1,8 +1,10 @@
 const CONTRACT_TYPE_LABELS = {
+  founder_player: "Founder Player",
   ownership: "Club President",
 };
 
 const CONTRACT_TYPE_SENTENCE_LABELS = {
+  founder_player: "founder player",
   ownership: "president",
 };
 

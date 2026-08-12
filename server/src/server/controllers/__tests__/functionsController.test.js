@@ -48,6 +48,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
     exports: {
       notifyIfPhaseReady: async () => ({ notified: false }),
       syncMatchResultToSource: async () => ({ synced: false }),
+      advanceAfterFinalResult: async () => ({ triggered: false }),
       ...options.serviceMock,
     },
   };
@@ -148,7 +149,7 @@ test('playerWallet get_balance resolves player linked by users.player_id', async
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error);
   assert.equal(response.body.data.balance, 1234);
   assert.equal(contractLookups[0].params[0], 'player-1');
   assert.match(contractLookups[0].sql, /target_player_id/);
@@ -210,13 +211,149 @@ test('resolveClubContact prefers canonical president user over legacy owner emai
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error);
   assert.equal(response.body.data.recipient_email, 'President@Example.TEST');
   assert.equal(response.body.data.owner_user_id, 'president-user');
   assert.equal(queries.some(({ params }) => params[0] === 'president-user'), true);
 });
 
-test('regionalLeagueFixtureResult processes fixture and standings on the server', async () => {
+test('competitionFixtureResult processes fixture and triggers central progression', async () => {
+  const updates = [];
+  const auditRows = [];
+  const fixture = {
+    id: 'fixture-1',
+    entity_type: 'competition_fixture',
+    status: 'scheduled',
+    data_json: JSON.stringify({
+      id: 'fixture-1',
+      season_id: 'season-1',
+      competition_id: 'competition-1',
+      phase: 'league',
+      home_club_id: 'club-home',
+      away_club_id: 'club-away',
+      home_club_name: 'Home FC',
+      away_club_name: 'Away FC',
+      status: 'scheduled',
+      stats_processed: false,
+    }),
+  };
+  const standings = [
+    {
+      id: 'standing-home',
+      entity_type: 'competition_standing',
+      season_id: 'season-1',
+      club_id: 'club-home',
+      data_json: JSON.stringify({
+        id: 'standing-home',
+        season_id: 'season-1',
+        club_id: 'club-home',
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goals_for: 0,
+        goals_against: 0,
+        goal_difference: 0,
+        points: 0,
+        position: 1,
+      }),
+    },
+    {
+      id: 'standing-away',
+      entity_type: 'competition_standing',
+      season_id: 'season-1',
+      club_id: 'club-away',
+      data_json: JSON.stringify({
+        id: 'standing-away',
+        season_id: 'season-1',
+        club_id: 'club-away',
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goals_for: 0,
+        goals_against: 0,
+        goal_difference: 0,
+        points: 0,
+        position: 2,
+      }),
+    },
+  ];
+  const conn = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      if (/SELECT \* FROM league_entities\s+WHERE id = \? AND entity_type = 'competition_fixture'/.test(sql)) {
+        return [[fixture], []];
+      }
+      if (/entity_type = 'competition_standing'\s+AND season_id = \?\s+AND club_id IN/.test(sql)) {
+        return [standings, []];
+      }
+      if (/entity_type = 'competition_standing' AND season_id = \?/.test(sql)) {
+        return [standings, []];
+      }
+      if (/UPDATE league_entities SET/.test(sql)) {
+        updates.push({ sql, params });
+        if (params.includes('competition_fixture')) {
+          fixture.data_json = params[0];
+          fixture.status = params[1] || fixture.status;
+        }
+        return [{ affectedRows: 1 }, []];
+      }
+      throw new Error(`Unexpected transaction SQL: ${sql}`);
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) {
+      auditRows.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  let progressionCall = null;
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    pool: { promise: () => ({ getConnection: async () => conn }) },
+    serviceMock: {
+      advanceAfterFinalResult: async (payload, options) => {
+        progressionCall = { payload, options };
+        return {
+          triggered: true,
+          source: 'fixture',
+          source_type: options.sourceType,
+          fixture_id: payload.fixture.id,
+          advance: { advanced: false, reason: 'phase_incomplete' },
+        };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      params: { name: 'competitionFixtureResult' },
+      body: { fixture_id: 'fixture-1', home_score: 3, away_score: 1 },
+      user: { id: 'admin-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.progression.triggered, true);
+  assert.equal(response.body.data.advance.reason, 'phase_incomplete');
+  assert.equal(progressionCall.options.sourceType, 'competition');
+  assert.equal(progressionCall.payload.fixture.status, 'completed');
+  assert.equal(auditRows.length, 1);
+  assert.equal(updates.length > 0, true);
+});
+
+test('regionalLeagueFixtureResult processes fixture and triggers central progression', async () => {
   const updates = [];
   const auditRows = [];
   const queries = [];
@@ -297,6 +434,10 @@ test('regionalLeagueFixtureResult processes fixture and standings on the server'
       }
       if (/UPDATE league_entities SET/.test(sql)) {
         updates.push({ sql, params });
+        if (params.includes('regional_league_fixture')) {
+          fixture.data_json = params[0];
+          fixture.status = params[1] || fixture.status;
+        }
         return [{ affectedRows: 1 }, []];
       }
       throw new Error(`Unexpected transaction SQL: ${sql}`);
@@ -313,8 +454,21 @@ test('regionalLeagueFixtureResult processes fixture and standings on the server'
     throw new Error(`Unexpected SQL: ${sql}`);
   };
 
+  let progressionCall = null;
   const router = loadFunctionsRouterWithDbMock(executesql, {
     pool: { promise: () => ({ getConnection: async () => conn }) },
+    serviceMock: {
+      advanceAfterFinalResult: async (payload, options) => {
+        progressionCall = { payload, options };
+        return {
+          triggered: true,
+          source: 'fixture',
+          source_type: options.sourceType,
+          fixture_id: payload.fixture.id,
+          advance: { advanced: false, reason: 'season_incomplete' },
+        };
+      },
+    },
   });
   const handle = postFunctionHandler(router);
   const response = {
@@ -338,8 +492,12 @@ test('regionalLeagueFixtureResult processes fixture and standings on the server'
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error);
   assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.progression.triggered, true);
+  assert.equal(response.body.data.advance.reason, 'season_incomplete');
+  assert.equal(progressionCall.options.sourceType, 'regional_league');
+  assert.equal(progressionCall.payload.fixture.status, 'played');
   assert.equal(auditRows.length, 1);
   assert.equal(queries.some(q => /FOR UPDATE/.test(q.sql)), true);
   const fixtureUpdate = updates.find(update => update.params.includes('regional_league_fixture'));
@@ -1206,6 +1364,168 @@ test('contractManagement accept preserves president links for ownership contract
   assert.equal(queries.some((call) => /UPDATE clubs SET president_user_id = \?/.test(call.sql)), false);
   assert.equal(queries.some((call) => /UPDATE users SET owner_id = \?/.test(call.sql)), false);
   assert.equal(queries.some((call) => /INSERT INTO club_memberships/.test(call.sql)), true);
+});
+
+test('identity repair dry run maps legacy President user to canonical president Player', async () => {
+  const router = loadFunctionsRouterWithDbMock(async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'admin-user', email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        club_id: 'club-1',
+        club_name: 'Canonical FC',
+        club_user_id: 'president-user',
+        president_user_id: null,
+        president_player_id: null,
+        owner_email: 'president@example.test',
+        president_id: 'legacy-president-1',
+        legacy_president_id: 'legacy-president-1',
+        legacy_president_name: 'Legacy President',
+        legacy_president_user_id: 'president-user',
+        legacy_president_email: 'president@example.test',
+      }];
+    }
+    if (/SELECT id, email FROM users WHERE id IN/.test(sql)) {
+      return [{ id: 'president-user', email: 'president@example.test' }];
+    }
+    if (/FROM players\s+WHERE user_id IN/.test(sql)) {
+      return [{ id: 'player-president', user_id: 'president-user', email: 'president@example.test', gamertag: 'Prez', club_id: 'club-1', role: 'member', status: 'active' }];
+    }
+    if (/FROM players\s+WHERE LOWER\(TRIM\(email\)\) IN/.test(sql)) {
+      return [{ id: 'player-president', user_id: 'president-user', email: 'president@example.test', gamertag: 'Prez', club_id: 'club-1', role: 'member', status: 'active' }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'repairPlayerPresidentIdentityLinks' }, body: { scan_all: true, dry_run: true }, user: { id: 'admin-user' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.dry_run, true);
+  assert.equal(response.body.candidates.length, 1);
+  assert.equal(response.body.candidates[0].mapping_status, 'repairable');
+  assert.equal(response.body.candidates[0].player_id, 'player-president');
+  assert.equal(response.body.candidates[0].current_president_player_id, null);
+  assert.equal(response.body.groups.repairable.length, 1);
+});
+
+test('identity repair reports ambiguous President-to-Player mappings without repairing', async () => {
+  const writes = [];
+  const router = loadFunctionsRouterWithDbMock(async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'admin-user', email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        club_id: 'club-1',
+        club_name: 'Ambiguous FC',
+        club_user_id: 'president-user',
+        president_user_id: null,
+        president_player_id: null,
+        owner_email: 'president@example.test',
+        president_id: 'legacy-president-1',
+        legacy_president_id: 'legacy-president-1',
+        legacy_president_name: 'Legacy President',
+        legacy_president_user_id: 'president-user',
+        legacy_president_email: 'president@example.test',
+      }];
+    }
+    if (/SELECT id, email FROM users WHERE id IN/.test(sql)) return [{ id: 'president-user', email: 'president@example.test' }];
+    if (/FROM players\s+WHERE user_id IN/.test(sql)) {
+      return [
+        { id: 'player-one', user_id: 'president-user', email: 'president@example.test', gamertag: 'PrezOne' },
+        { id: 'player-two', user_id: 'president-user', email: 'president@example.test', gamertag: 'PrezTwo' },
+      ];
+    }
+    if (/FROM players\s+WHERE LOWER\(TRIM\(email\)\) IN/.test(sql)) return [];
+    if (/UPDATE clubs SET/.test(sql) || /INSERT INTO admin_audit_log/.test(sql) || /UPDATE players SET/.test(sql)) {
+      writes.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'repairPlayerPresidentIdentityLinks' }, body: { scan_all: true, dry_run: false }, user: { id: 'admin-user' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.repaired_count, 0);
+  assert.equal(response.body.groups.ambiguous.length, 1);
+  assert.equal(writes.length, 0);
+});
+
+test('identity repair writes canonical club president Player link and audit without detaching player', async () => {
+  const writes = [];
+  const router = loadFunctionsRouterWithDbMock(async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'admin-user', email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      return [{
+        club_id: 'club-1',
+        club_name: 'Canonical FC',
+        club_user_id: null,
+        president_user_id: null,
+        president_player_id: null,
+        owner_email: null,
+        president_id: 'legacy-president-1',
+        legacy_president_id: 'legacy-president-1',
+        legacy_president_name: 'Legacy President',
+        legacy_president_user_id: 'president-user',
+        legacy_president_email: 'president@example.test',
+      }];
+    }
+    if (/SELECT id, email FROM users WHERE id IN/.test(sql)) {
+      return [{ id: 'president-user', email: 'president@example.test' }];
+    }
+    if (/FROM players\s+WHERE user_id IN/.test(sql)) {
+      return [{ id: 'player-president', user_id: 'president-user', email: 'president@example.test', gamertag: 'Prez', club_id: 'club-1', role: 'president', status: 'active' }];
+    }
+    if (/FROM players\s+WHERE LOWER\(TRIM\(email\)\) IN/.test(sql)) return [];
+    if (/UPDATE clubs SET/.test(sql)) {
+      writes.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) {
+      writes.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE players SET/.test(sql) || /UPDATE player_contracts/.test(sql) || /DELETE FROM club_memberships/.test(sql) || /DELETE FROM club_staff_roles/.test(sql)) {
+      throw new Error(`Destructive repair SQL must not run: ${sql}`);
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'repairPlayerPresidentIdentityLinks' }, body: { scan_all: true, dry_run: false }, user: { id: 'admin-user' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.repaired_count, 1);
+  const clubUpdate = writes.find((call) => /UPDATE clubs SET/.test(call.sql));
+  assert.ok(clubUpdate, 'club update should run');
+  assert.equal(clubUpdate.params[0], 'player-president');
+  assert.equal(clubUpdate.params[1], 'president-user');
+  assert.equal(clubUpdate.params[2], 'president-user');
+  assert.equal(clubUpdate.params[3], 'president@example.test');
+  assert.equal(clubUpdate.params[4], 'club-1');
+  const audit = writes.find((call) => /INSERT INTO admin_audit_log/.test(call.sql));
+  assert.ok(audit, 'admin audit row should be written');
+  assert.equal(audit.params[3], 'repair_player_president_identity_links');
+  assert.equal(audit.params[4], 'club');
+  assert.equal(audit.params[5], 'club-1');
 });
 
 test('contractManagement accept rejects ownership contracts for unlinked player identities', async () => {
@@ -2106,7 +2426,15 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
     if (/sync/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
-  const router = loadFunctionsRouterWithDbMock(executesql);
+  const progressedMatches = [];
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    serviceMock: {
+      advanceAfterFinalResult: async (record) => {
+        progressedMatches.push(record);
+        return { triggered: true, source: 'match', match_id: record.id };
+      },
+    },
+  });
   const handle = postFunctionHandler(router);
 
   const nonAdminResponse = makeJsonResponse();
@@ -2184,6 +2512,80 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
   assert.equal(match.home_score, 3);
   assert.equal(match.away_score, 2);
   assert.equal(updates.length, 1);
+  assert.equal(progressedMatches.length, 1);
+  assert.equal(progressedMatches[0].id, 'match-dispute-1');
+});
+
+test('adminMatchActions approve forfeit triggers central final-result progression', async () => {
+  const match = {
+    id: 'match-forfeit-1',
+    status: 'scheduled',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    forfeit_claimed_by: 'club-home',
+  };
+  const auditRows = [];
+  const conn = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      if (/SELECT \* FROM matches WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[match], []];
+      if (/UPDATE matches\s+SET status = \?/.test(sql)) {
+        match.status = params[0];
+        match.forfeit_status = params[1];
+        match.winner_club_id = params[2];
+        match.winner_club_name = params[3];
+        return [{ affectedRows: 1 }, []];
+      }
+      if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [[match], []];
+      throw new Error(`Unexpected transaction SQL: ${sql}`);
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) {
+      auditRows.push(params);
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const progressed = [];
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    pool: { promise: () => ({ getConnection: async () => conn }) },
+    serviceMock: {
+      advanceAfterFinalResult: async (record) => {
+        progressed.push(record);
+        return { triggered: true, source: 'match', match_id: record.id };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      params: { name: 'adminMatchActions' },
+      body: { action: 'resolve_forfeit', match_id: 'match-forfeit-1', approve: true },
+      user: { id: 'admin-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.match.status, 'forfeit');
+  assert.equal(response.body.data.progression.triggered, true);
+  assert.equal(progressed.length, 1);
+  assert.equal(progressed[0].id, 'match-forfeit-1');
+  assert.equal(progressed[0].status, 'forfeit');
+  assert.equal(auditRows.length, 1);
 });
 
 test('tournamentRegistration stores club registration proof photo', async () => {

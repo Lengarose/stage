@@ -1,0 +1,9 @@
+StageLeagues final coverage audit.
+
+The approved development work is mostly complete. President identity is unified into Player profiles. President-only onboarding is removed. Player plus President uses the same Player identity and the canonical club link is president player id. Presidents pages and club president links now point to Player profiles.
+
+Profile tabs were cleaned up. Stats, Career, Matches, Showcase, Trophies, and Lifestyle now have clearer business meaning. Feed likes, comments, notifications, square image framing, image repositioning, and post modals are implemented. Admin identity repair now repairs toward president player id and no longer detaches valid Player-presidents.
+
+Automated verification is green. The remaining release gate is a true authenticated browser smoke test. That needs a seeded local database, staging credentials, or explicit production smoke approval.
+
+Transfer Room was not touched because it was later placed out of scope. If Transfer Room naming is back in scope, it should be a separate small slice.

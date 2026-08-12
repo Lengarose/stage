@@ -1,0 +1,13 @@
+StageLeagues contracts and competition progression analysis.
+
+There are two serious systems to fix.
+
+First: Player plus President onboarding should create two long-term contracts for the same person. One contract is the Player contract. One contract is the President or ownership contract. Both must target the same Player id and the same Club id. A normal Player account should only receive normal player contracts and should not receive a President contract.
+
+The current founder lifecycle appears to create one active founder contract. That is not clear enough. Founder should be metadata, not a third identity. The clean rule is: ownership equals President contract, and non-ownership equals Player contract.
+
+Second: tournaments, leagues, and competitions must advance automatically. After any match result becomes final, the backend should update standings, check whether the phase is complete, rank teams by the competition rule, create the next phase, update status, notify, and stop without an admin pressing a button.
+
+The current code already has some automatic progression, but it is split across community tournaments, official competitions, regional leagues, and competition fixtures. The next job is to harden that so every completed result path triggers the same progression service and never duplicates fixtures.
+
+Recommended order: first fix dual founder contracts, then harden automatic competition progression.

@@ -859,8 +859,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     await settleCompletedMatchWager(fresh).catch((err) => {
       console.error('[matchKickoff wager settlement]', err.message);
     });
-    await competitionEngineService.syncMatchResultToSource(fresh).catch((err) => {
-      console.error('[matchKickoff source sync]', err.message);
+    await competitionEngineService.advanceAfterFinalResult(fresh).catch((err) => {
+      console.error('[matchKickoff progression]', err.message);
     });
     return { data: { status: 'completed', skipped: true } };
   }
@@ -1024,8 +1024,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   }
 
   const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
-  await competitionEngineService.syncMatchResultToSource(completedForSourceSync).catch((err) => {
-    console.error('[matchKickoff source sync]', err.message);
+  await competitionEngineService.advanceAfterFinalResult(completedForSourceSync).catch((err) => {
+    console.error('[matchKickoff progression]', err.message);
   });
 
   await notifyMatchSide(completedForSourceSync, 'home', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
@@ -3855,7 +3855,13 @@ const HANDLERS = {
       });
 
       broadcastMatch(result);
-      return { data: { success: true, match: result } };
+      const progression = String(result.status || '').toLowerCase() === 'forfeit'
+        ? await competitionEngineService.advanceAfterFinalResult(result).catch((err) => {
+          console.error('[adminMatchActions.resolve_forfeit.progression]', err.message);
+          return { triggered: false, reason: 'progression_error', error: err.message };
+        })
+        : { triggered: false, reason: 'forfeit_rejected' };
+      return { data: { success: true, match: result, progression } };
     }
 
     throw new Error(`Unknown adminMatchActions action: ${action}`);
@@ -4180,22 +4186,16 @@ const HANDLERS = {
       return updatedFixture;
     });
 
-    await competitionEngineService.notifyIfPhaseReady({
-      sourceId: result.season_id || result.competition_id,
-      sourceType: 'competition',
-      fixtureType: 'competition_fixture',
-      organizerUserId: result.organizer_user_id || result.admin_user_id || null,
-    }).catch((err) => {
-      console.error('[competitionFixtureResult.notifyIfPhaseReady]', err.message);
+    const progression = await competitionEngineService.advanceAfterFinalResult(
+      { fixture: result },
+      { sourceType: 'competition' },
+    ).catch((err) => {
+      console.error('[competitionFixtureResult.progression]', err.message);
+      return { triggered: false, reason: 'progression_error', error: err.message };
     });
-    const advance = typeof competitionEngineService.advanceLegacyOfficialCompetitionIfReady === 'function'
-      ? await competitionEngineService.advanceLegacyOfficialCompetitionIfReady(result).catch((err) => {
-        console.error('[competitionFixtureResult.advance]', err.message);
-        return { advanced: false, reason: 'advance_error', error: err.message };
-      })
-      : { advanced: false, reason: 'advance_unavailable' };
+    const advance = progression.advance || { advanced: false, reason: progression.reason || 'advance_unavailable' };
 
-    return { data: { success: true, fixture: result, advance } };
+    return { data: { success: true, fixture: result, advance, progression } };
   },
 
   async regionalLeagueFixtureResult({
@@ -4331,22 +4331,16 @@ const HANDLERS = {
       return updatedFixture;
     });
 
-    await competitionEngineService.notifyIfPhaseReady({
-      sourceId: result.league_id,
-      sourceType: 'regional_league',
-      fixtureType: 'regional_league_fixture',
-      organizerUserId: result.organizer_user_id || result.admin_user_id || null,
-    }).catch((err) => {
-      console.error('[regionalLeagueFixtureResult.notifyIfPhaseReady]', err.message);
+    const progression = await competitionEngineService.advanceAfterFinalResult(
+      { fixture: result },
+      { sourceType: 'regional_league' },
+    ).catch((err) => {
+      console.error('[regionalLeagueFixtureResult.progression]', err.message);
+      return { triggered: false, reason: 'progression_error', error: err.message };
     });
-    const advance = typeof competitionEngineService.advanceRegionalLeagueIfReady === 'function'
-      ? await competitionEngineService.advanceRegionalLeagueIfReady(result).catch((err) => {
-        console.error('[regionalLeagueFixtureResult.advance]', err.message);
-        return { advanced: false, reason: 'advance_error', error: err.message };
-      })
-      : { advanced: false, reason: 'advance_unavailable' };
+    const advance = progression.advance || { advanced: false, reason: progression.reason || 'advance_unavailable' };
 
-    return { data: { success: true, fixture: result, advance } };
+    return { data: { success: true, fixture: result, advance, progression } };
   },
 
   async resolveClubContact({ _auth_user_id, club_id }) {
@@ -9792,7 +9786,7 @@ const HANDLERS = {
     return { success: true, deleted_user_id: targetUserId };
   },
 
-  // ── Admin: repair legacy bug where a creator player was made president ──────
+  // ── Admin: repair canonical President-as-Player identity links ──────────────
   async repairPlayerPresidentIdentityLinks({
     _auth_user_id,
     user_id,
@@ -9808,12 +9802,18 @@ const HANDLERS = {
     const where = [];
     const params = [];
     if (user_id) {
-      where.push('u.id = ?');
-      params.push(user_id);
+      where.push('(c.user_id = ? OR c.president_user_id = ? OR pr.user_id = ?)');
+      params.push(user_id, user_id, user_id);
     }
     if (email) {
-      where.push('LOWER(TRIM(u.email)) = LOWER(TRIM(?))');
-      params.push(email);
+      where.push(`(
+        LOWER(TRIM(c.owner_email)) = LOWER(TRIM(?))
+        OR LOWER(TRIM(pr.email)) = LOWER(TRIM(?))
+        OR LOWER(TRIM(club_user.email)) = LOWER(TRIM(?))
+        OR LOWER(TRIM(president_user.email)) = LOWER(TRIM(?))
+        OR LOWER(TRIM(legacy_president_user.email)) = LOWER(TRIM(?))
+      )`);
+      params.push(email, email, email, email, email);
     }
     if (club_id) {
       where.push('c.id = ?');
@@ -9824,105 +9824,263 @@ const HANDLERS = {
     if (!where.length && scan_all) where.push('1=1');
     if (!where.length) throw new Error('user_id, email, club_id, or scan_all is required');
 
-    const candidates = await EXECUTESQL(
+    const clubRows = await EXECUTESQL(
       `SELECT
-          u.id AS user_id,
-          u.email AS user_email,
-          p.id AS player_id,
-          p.club_id AS player_club_id,
-          p.role AS player_role,
-          p.club_roles,
           c.id AS club_id,
           c.name AS club_name,
+          c.user_id AS club_user_id,
           c.president_id,
           c.president_user_id,
-          pr.display_name AS president_name
-       FROM users u
-       JOIN clubs c
-         ON (c.user_id = u.id OR c.president_user_id = u.id OR c.id = u.owner_id)
-       JOIN presidents pr
-         ON pr.id = c.president_id AND pr.user_id = u.id
-       JOIN players p
-         ON (p.user_id = u.id OR LOWER(TRIM(p.email)) = LOWER(TRIM(u.email)))
+          c.president_player_id,
+          c.owner_email,
+          pr.id AS legacy_president_id,
+          pr.display_name AS legacy_president_name,
+          pr.user_id AS legacy_president_user_id,
+          pr.email AS legacy_president_email
+       FROM clubs c
+       LEFT JOIN presidents pr
+         ON pr.id = c.president_id OR pr.club_id = c.id
+       LEFT JOIN users club_user
+         ON club_user.id = c.user_id
+       LEFT JOIN users president_user
+         ON president_user.id = c.president_user_id
+       LEFT JOIN users legacy_president_user
+         ON legacy_president_user.id = pr.user_id
        WHERE ${where.join(' AND ')}
-         AND p.club_id = c.id
          AND (
-           p.role IN ('president','owner')
-           OR p.club_roles LIKE '%president%'
-           OR EXISTS (
-             SELECT 1 FROM player_contracts pc
-             WHERE pc.team_id = c.id
-               AND pc.user_id = p.id
-               AND pc.contract_type = 'ownership'
-               AND pc.status IN ('pending','pending_window','negotiating','active')
-           )
-         )
-         AND NOT EXISTS (
-           SELECT 1 FROM player_contracts pc2
-           WHERE pc2.team_id = c.id
-             AND pc2.user_id = p.id
-             AND pc2.contract_type <> 'ownership'
-             AND pc2.status = 'active'
+           c.president_player_id IS NULL
+           OR c.president_player_id = ''
+           OR pr.id IS NOT NULL
          )`,
       params
     );
 
-    if (dry_run) return { success: true, dry_run: true, candidates };
+    const byId = (rows) => {
+      const map = new Map();
+      for (const row of rows || []) {
+        if (row?.id) map.set(String(row.id), row);
+      }
+      return map;
+    };
+    const unique = (values) => [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))];
+    const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+    const userIds = unique(clubRows.flatMap(row => [
+      row.club_user_id,
+      row.president_user_id,
+      row.legacy_president_user_id,
+    ]));
+    const currentPresidentPlayerIds = unique(clubRows.map(row => row.president_player_id));
+    const clubEmails = unique(clubRows.flatMap(row => [
+      row.owner_email,
+      row.legacy_president_email,
+    ])).map(normalizeEmail).filter(Boolean);
+
+    const userRows = userIds.length
+      ? await EXECUTESQL(
+        `SELECT id, email FROM users WHERE id IN (${userIds.map(() => '?').join(',')})`,
+        userIds
+      )
+      : [];
+    const usersById = byId(userRows);
+    const userEmails = userRows.map(row => normalizeEmail(row.email)).filter(Boolean);
+    const candidateEmails = unique([...clubEmails, ...userEmails]);
+    const playersByUser = userIds.length
+      ? await EXECUTESQL(
+        `SELECT id, user_id, email, gamertag, club_id, role, status
+           FROM players
+          WHERE user_id IN (${userIds.map(() => '?').join(',')})`,
+        userIds
+      )
+      : [];
+    const playersByEmail = candidateEmails.length
+      ? await EXECUTESQL(
+        `SELECT id, user_id, email, gamertag, club_id, role, status
+           FROM players
+          WHERE LOWER(TRIM(email)) IN (${candidateEmails.map(() => '?').join(',')})`,
+        candidateEmails
+      )
+      : [];
+    const existingPresidentPlayers = currentPresidentPlayerIds.length
+      ? await EXECUTESQL(
+        `SELECT id, user_id, email, gamertag, club_id, role, status
+           FROM players
+          WHERE id IN (${currentPresidentPlayerIds.map(() => '?').join(',')})`,
+        currentPresidentPlayerIds
+      )
+      : [];
+    const existingPresidentPlayersById = byId(existingPresidentPlayers);
+    const allPlayers = [...playersByUser, ...playersByEmail, ...existingPresidentPlayers];
+    const playersById = byId(allPlayers);
+
+    function getPlayerCandidatesForClub(row) {
+      const strongUserIds = unique([
+        row.legacy_president_user_id,
+        row.president_user_id,
+        row.club_user_id,
+      ]);
+      const strongEmails = unique([
+        row.legacy_president_email,
+        row.owner_email,
+        ...strongUserIds.map(id => usersById.get(String(id))?.email),
+      ]).map(normalizeEmail).filter(Boolean);
+      const candidatesById = new Map();
+      for (const player of allPlayers) {
+        const playerUserId = String(player.user_id || '');
+        const playerEmail = normalizeEmail(player.email);
+        if (strongUserIds.includes(playerUserId) || (playerEmail && strongEmails.includes(playerEmail))) {
+          candidatesById.set(String(player.id), player);
+        }
+      }
+      return [...candidatesById.values()];
+    }
+
+    function makeCandidate(row) {
+      const currentPlayerId = row.president_player_id || null;
+      const currentPlayer = currentPlayerId ? existingPresidentPlayersById.get(String(currentPlayerId)) : null;
+      const inferredPlayers = getPlayerCandidatesForClub(row);
+      const base = {
+        club_id: row.club_id,
+        club_name: row.club_name,
+        club_user_id: row.club_user_id || null,
+        president_user_id: row.president_user_id || null,
+        owner_email: row.owner_email || null,
+        current_president_player_id: currentPlayerId,
+        legacy_president_id: row.legacy_president_id || row.president_id || null,
+        legacy_president_name: row.legacy_president_name || null,
+        legacy_president_user_id: row.legacy_president_user_id || null,
+        legacy_president_email: row.legacy_president_email || null,
+        inferred_players: inferredPlayers.map(player => ({
+          player_id: player.id,
+          user_id: player.user_id || null,
+          email: player.email || null,
+          gamertag: player.gamertag || null,
+          club_id: player.club_id || null,
+          role: player.role || null,
+          status: player.status || null,
+        })),
+      };
+
+      if (currentPlayer) {
+        return {
+          ...base,
+          mapping_status: 'already_ok',
+          mapping_reason: 'Club already has a valid canonical president Player link.',
+          player_id: currentPlayer.id,
+          player_user_id: currentPlayer.user_id || null,
+          player_email: currentPlayer.email || null,
+          player_gamertag: currentPlayer.gamertag || null,
+        };
+      }
+      if (currentPlayerId && !currentPlayer) {
+        if (inferredPlayers.length === 1) {
+          const player = inferredPlayers[0];
+          return {
+            ...base,
+            mapping_status: 'repairable',
+            mapping_reason: 'Current president_player_id is missing, but a single strong Player mapping exists.',
+            player_id: player.id,
+            player_user_id: player.user_id || null,
+            player_email: player.email || null,
+            player_gamertag: player.gamertag || null,
+          };
+        }
+        return {
+          ...base,
+          mapping_status: inferredPlayers.length > 1 ? 'ambiguous' : 'invalid',
+          mapping_reason: inferredPlayers.length > 1
+            ? 'Current president_player_id is missing and multiple Player candidates match.'
+            : 'Current president_player_id is missing and no strong Player mapping exists.',
+          player_id: null,
+        };
+      }
+      if (inferredPlayers.length === 1) {
+        const player = inferredPlayers[0];
+        return {
+          ...base,
+          mapping_status: 'repairable',
+          mapping_reason: 'Missing canonical president_player_id and one strong Player mapping exists.',
+          player_id: player.id,
+          player_user_id: player.user_id || null,
+          player_email: player.email || null,
+          player_gamertag: player.gamertag || null,
+        };
+      }
+      return {
+        ...base,
+        mapping_status: inferredPlayers.length > 1 ? 'ambiguous' : 'invalid',
+        mapping_reason: inferredPlayers.length > 1
+          ? 'Multiple Player candidates match this club ownership identity.'
+          : 'No strong Player mapping exists for this club ownership identity.',
+        player_id: null,
+      };
+    }
+
+    const dedupedClubRows = [...new Map(clubRows.map(row => [String(row.club_id), row])).values()];
+    const allCandidates = dedupedClubRows.map(makeCandidate);
+    const groups = {
+      repairable: allCandidates.filter(row => row.mapping_status === 'repairable'),
+      ambiguous: allCandidates.filter(row => row.mapping_status === 'ambiguous'),
+      invalid: allCandidates.filter(row => row.mapping_status === 'invalid'),
+      already_ok: allCandidates.filter(row => row.mapping_status === 'already_ok'),
+    };
+    const summary = Object.fromEntries(Object.entries(groups).map(([key, rows]) => [key, rows.length]));
+
+    if (dry_run) {
+      return {
+        success: true,
+        dry_run: true,
+        candidates: groups.repairable,
+        groups,
+        summary,
+      };
+    }
 
     const repaired = [];
-    for (const row of candidates) {
+    for (const row of groups.repairable) {
+      const player = playersById.get(String(row.player_id)) || {};
+      const safeUserId = row.player_user_id || player.user_id || row.legacy_president_user_id || row.president_user_id || row.club_user_id || null;
+      const safeEmail = row.player_email || player.email || row.legacy_president_email || row.owner_email || null;
       await EXECUTESQL(
-        `UPDATE players
-            SET club_id = NULL,
-                role = CASE WHEN role IN ('president','owner') THEN 'member' ELSE role END,
-                club_roles = ?,
-                status = 'free_agent',
-                updated_date = NOW()
+        `UPDATE clubs SET
+            president_player_id = ?,
+            president_user_id = CASE WHEN president_user_id IS NULL OR president_user_id = '' THEN ? ELSE president_user_id END,
+            user_id = CASE WHEN user_id IS NULL OR user_id = '' THEN ? ELSE user_id END,
+            owner_email = CASE WHEN owner_email IS NULL OR owner_email = '' THEN ? ELSE owner_email END,
+            updated_date = NOW()
           WHERE id = ?`,
-        [JSON.stringify(['free_agent']), row.player_id]
+        [row.player_id, safeUserId, safeUserId, safeEmail, row.club_id]
       );
-      await EXECUTESQL(
-        `UPDATE player_contracts
-            SET status = 'cancelled',
-                updated_date = NOW()
-          WHERE team_id = ?
-            AND user_id = ?
-            AND contract_type = 'ownership'
-            AND status IN ('pending','pending_window','negotiating','active')`,
-        [row.club_id, row.player_id]
-      ).catch(() => {});
-      await EXECUTESQL(
-        `DELETE FROM club_memberships
-          WHERE club_id = ?
-            AND player_id = ?
-            AND source IN ('club_creation','contract_acceptance')`,
-        [row.club_id, row.player_id]
-      ).catch(() => {});
-      await EXECUTESQL(
-        `DELETE FROM club_staff_roles
-          WHERE club_id = ?
-            AND player_id = ?
-            AND role IN ('owner','president')`,
-        [row.club_id, row.player_id]
-      ).catch(() => {});
       await EXECUTESQL(
         `INSERT INTO admin_audit_log
            (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason, created_date)
-         VALUES (?, ?, ?, 'repair_player_president_identity_links', 'player', ?, ?, ?, ?, NOW())`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           uuidv4(),
           admin.id,
           admin.email || null,
-          row.player_id,
+          'repair_player_president_identity_links',
+          'club',
+          row.club_id,
           JSON.stringify(row),
-          JSON.stringify({ player_id: row.player_id, club_id: null, role: 'member', status: 'free_agent' }),
-          'Separated auto-linked player from president-owned club',
+          JSON.stringify({
+            club_id: row.club_id,
+            president_player_id: row.player_id,
+            president_user_id: safeUserId,
+            owner_email: safeEmail,
+          }),
+          'Repaired canonical President Player link from legacy President mapping',
         ]
       ).catch(() => {});
       repaired.push(row);
     }
 
-    return { success: true, repaired_count: repaired.length, repaired };
+    return {
+      success: true,
+      repaired_count: repaired.length,
+      repaired,
+      groups,
+      summary,
+    };
   },
 };
 

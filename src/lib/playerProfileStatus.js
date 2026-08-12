@@ -1,4 +1,5 @@
 const NON_FOOTBALL_ROLES = new Set(["president", "owner", "manager", "member"]);
+const FOUNDER_CONTRACT_TYPES = new Set(["founder", "founder_player"]);
 
 export function normalizeClubRoles(roles) {
   if (Array.isArray(roles)) return roles;
@@ -50,7 +51,7 @@ export function getPlayerManagementBadges({ player, club, memberships = [], cont
   const presidentMembership = activeMemberships.find((membership) => membership.primary_role === "president");
   const founderContract = Array.isArray(contracts) ? contracts.find((contract) => (
     contract?.status === "active" &&
-    getContractType(contract) === "founder" &&
+    FOUNDER_CONTRACT_TYPES.has(getContractType(contract)) &&
     String(contract.team_id || "") === String(club.id) &&
     String(getContractTargetPlayerId(contract) || "") === String(player.id)
   )) : null;

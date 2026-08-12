@@ -692,8 +692,16 @@ async function finalizeAgreedResult(fixture, home, away) {
      WHERE id = ?`,
     [homeScore, awayScore, winnerParticipantId, fixture.id],
   );
-  await syncMatchResultToSource(fixture.match_id);
-  return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId };
+  const progression = await advanceAfterFinalResult({
+    id: fixture.match_id,
+    status: 'completed',
+    home_score: homeScore,
+    away_score: awayScore,
+    source_fixture_type: 'competition_engine',
+    source_fixture_id: fixture.id,
+    tournament_id: null,
+  });
+  return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId, progression };
 }
 
 async function syncCompetitionFixtureResult(match, sourceFixtureId) {
@@ -1826,7 +1834,7 @@ async function insertCommunityTournamentMatch(tournament, home, away, round, typ
 }
 
 async function advanceCommunityTournamentIfReady(match) {
-  if (!match?.tournament_id || match.status !== 'completed') {
+  if (!match?.tournament_id || !isFinishedStatus(match.status)) {
     return { advanced: false, reason: 'not_completed_tournament_match' };
   }
   const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
@@ -2121,6 +2129,73 @@ async function syncMatchResultToSource(matchOrId) {
   return { synced: Boolean(engineFixture || legacyResult.synced), legacy: legacyResult, ready, advance };
 }
 
+async function advanceAfterFinalResult(finalResult, options = {}) {
+  const match = options.match || finalResult?.match || (
+    finalResult?.id && !finalResult?.fixture ? finalResult : null
+  );
+  if (match) {
+    const matchStatus = String(match.status || '').toLowerCase();
+    if (!isFinishedStatus(matchStatus)) {
+      return { triggered: false, reason: 'match_not_final' };
+    }
+    const sync = matchStatus === 'completed'
+      ? await syncMatchResultToSource(match).catch((err) => ({
+        synced: false,
+        reason: 'sync_error',
+        error: err.message,
+      }))
+      : { synced: false, reason: 'non_played_final_result' };
+    const community = await advanceCommunityTournamentIfReady(match).catch((err) => ({
+      advanced: false,
+      reason: 'community_advance_error',
+      error: err.message,
+    }));
+    return {
+      triggered: true,
+      source: 'match',
+      match_id: match.id,
+      sync,
+      community,
+      advance: sync?.advance || community,
+    };
+  }
+
+  const fixture = options.fixture || finalResult?.fixture || finalResult;
+  const sourceType = options.sourceType || finalResult?.sourceType || finalResult?.fixture_type || null;
+  const isRegional = sourceType === 'regional_league' || sourceType === 'regional_league_fixture';
+  const isCompetition = sourceType === 'competition' || sourceType === 'competition_fixture';
+  if (!fixture?.id) return { triggered: false, reason: 'fixture_missing' };
+  if (!isCompetition && !isRegional) return { triggered: false, reason: 'unsupported_source' };
+  if (!isFinishedStatus(fixture.status, { regional: isRegional })) {
+    return { triggered: false, reason: 'fixture_not_final' };
+  }
+
+  const ready = await notifyLegacyPhaseReady({ fixture, sourceType }).catch((err) => ({
+    notified: false,
+    reason: 'ready_error',
+    error: err.message,
+  }));
+  const advance = isCompetition
+    ? await advanceLegacyOfficialCompetitionIfReady(fixture).catch((err) => ({
+      advanced: false,
+      reason: 'advance_error',
+      error: err.message,
+    }))
+    : await advanceRegionalLeagueIfReady(fixture).catch((err) => ({
+      advanced: false,
+      reason: 'advance_error',
+      error: err.message,
+    }));
+  return {
+    triggered: true,
+    source: 'fixture',
+    source_type: sourceType,
+    fixture_id: fixture.id,
+    ready,
+    advance,
+  };
+}
+
 async function submitResult({ matchId, side, submittedByUserId, scoreHome, scoreAway, payloadJson, proofUrl }) {
   assertSide(side);
   const fixtureRows = await model.selectFixtureByMatch(matchId);
@@ -2162,6 +2237,7 @@ module.exports = {
   submitResult,
   mapFixtureToMatch,
   syncMatchResultToSource,
+  advanceAfterFinalResult,
   advanceLegacyOfficialCompetitionIfReady,
   advanceRegionalLeagueIfReady,
   advanceCommunityTournamentIfReady,

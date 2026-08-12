@@ -15,6 +15,7 @@ const express = require('express');
 const router = express.Router();
 const { EXECUTESQL } = require('../db/database');
 const FixtureAdminAction = require('../models/fixtureAdminActionModel');
+const competitionEngineService = require('../services/competitionEngineService');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -271,7 +272,14 @@ router.post('/declare-forfeit', async (req, res) => {
     });
 
     const updated = await getFixture(fixture_type, fixture_id);
-    res.json({ success: true, fixture: updated, audit });
+    const progression = await competitionEngineService.advanceAfterFinalResult(
+      { fixture: updated },
+      { sourceType: fixture_type },
+    ).catch((err) => {
+      console.error('[fixture admin progression]', err.message);
+      return { triggered: false, reason: 'progression_error', error: err.message };
+    });
+    res.json({ success: true, fixture: updated, audit, progression });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

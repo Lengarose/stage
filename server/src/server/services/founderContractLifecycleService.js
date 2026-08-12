@@ -19,6 +19,11 @@ const STARTER_CLUB = Object.freeze({
   status: 'active',
 });
 
+const FOUNDER_PLAYER_CONTRACT_TYPE = 'founder_player';
+const FOUNDER_PRESIDENT_CONTRACT_TYPE = 'ownership';
+const LEGACY_FOUNDER_CONTRACT_TYPE = 'founder';
+const FOUNDER_CONTRACT_DAYS = 3650;
+
 function httpError(message, status = 400, code = null) {
   const err = new Error(message);
   err.status = status;
@@ -41,6 +46,14 @@ function makeFounderKey({ userId, playerId, clubName, idempotencyKey }) {
 
 function makeFounderOfferNote(founderKey) {
   return `Founder contract: ${founderKey}`;
+}
+
+function makeFounderPlayerOfferNote(founderKey) {
+  return `Founder player contract: ${founderKey}`;
+}
+
+function makeFounderPresidentOfferNote(founderKey) {
+  return `Founder president contract: ${founderKey}`;
 }
 
 function toRows(result) {
@@ -148,18 +161,30 @@ async function createFounderClub(query, { user, playerId, club }) {
   return { id: clubId };
 }
 
-async function ensureFounderContract(query, { clubId, playerId, user, founderKey, terms = {} }) {
-  const offerNote = makeFounderOfferNote(founderKey);
+async function ensureFounderContract(query, {
+  clubId,
+  playerId,
+  user,
+  founderKey,
+  contractType,
+  kind,
+  offerNote,
+  compatibleTypes = [contractType],
+  compatibleOfferNotes = [offerNote],
+  terms = {},
+}) {
+  const contractTypes = [...new Set(compatibleTypes.filter(Boolean))];
+  const offerNotes = [...new Set(compatibleOfferNotes.filter(Boolean))];
   const existing = await query(
     `SELECT *, user_id AS target_player_id
        FROM player_contracts
       WHERE team_id = ?
         AND user_id = ?
-        AND contract_type = 'founder'
-        AND offer_note = ?
+        AND contract_type IN (${contractTypes.map(() => '?').join(',')})
+        AND offer_note IN (${offerNotes.map(() => '?').join(',')})
       LIMIT 1
       FOR UPDATE`,
-    [clubId, playerId, offerNote]
+    [clubId, playerId, ...contractTypes, ...offerNotes]
   );
   if (existing[0]) {
     if (existing[0].status !== 'active') {
@@ -180,28 +205,29 @@ async function ensureFounderContract(query, { clubId, playerId, user, founderKey
       offered_by_club_id, max_games, max_days, weekly_salary_stc, signing_bonus_stc,
       transfer_fee_stc, offer_note, captaincy_offered, negotiation_round,
       start_date, end_date, performance_targets, created_date, updated_date
-    ) VALUES (?, ?, ?, 'founder', 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NOW(), NOW())`,
+    ) VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       clubId,
       playerId,
+      contractType,
       user.email || 'Founder',
       user.id,
       clubId,
       Number(terms.max_games ?? 0),
-      Number(terms.max_days ?? 3650),
+      Number(terms.max_days ?? FOUNDER_CONTRACT_DAYS),
       Number(terms.weekly_salary_stc ?? 0),
       Number(terms.signing_bonus_stc ?? 0),
       Number(terms.transfer_fee_stc ?? 0),
       offerNote,
       new Date().toISOString().slice(0, 10),
       null,
-      JSON.stringify({ source: 'founder_onboarding', idempotency_key: founderKey }),
+      JSON.stringify({ source: 'founder_onboarding', founder_contract_kind: kind, idempotency_key: founderKey }),
     ]
   );
 
   const rows = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [id]);
-  return rows[0] || { id, team_id: clubId, user_id: playerId, target_player_id: playerId, contract_type: 'founder', status: 'active', offer_note: offerNote };
+  return rows[0] || { id, team_id: clubId, user_id: playerId, target_player_id: playerId, contract_type: contractType, status: 'active', offer_note: offerNote };
 }
 
 async function createFounderContractLifecycle(input, options = {}) {
@@ -244,12 +270,29 @@ async function createFounderContractLifecycle(input, options = {}) {
     });
     const clubId = clubShell.id;
 
-    const contract = await ensureFounderContract(query, {
+    const playerContract = await ensureFounderContract(query, {
       clubId,
       playerId,
       user,
       founderKey,
-      terms: input?.contract || {},
+      contractType: FOUNDER_PLAYER_CONTRACT_TYPE,
+      kind: 'player',
+      offerNote: makeFounderPlayerOfferNote(founderKey),
+      compatibleTypes: [FOUNDER_PLAYER_CONTRACT_TYPE, LEGACY_FOUNDER_CONTRACT_TYPE],
+      compatibleOfferNotes: [makeFounderPlayerOfferNote(founderKey), makeFounderOfferNote(founderKey)],
+      terms: input?.playerContract || input?.contract || {},
+    });
+    const presidentContract = await ensureFounderContract(query, {
+      clubId,
+      playerId,
+      user,
+      founderKey,
+      contractType: FOUNDER_PRESIDENT_CONTRACT_TYPE,
+      kind: 'president',
+      offerNote: makeFounderPresidentOfferNote(founderKey),
+      compatibleTypes: [FOUNDER_PRESIDENT_CONTRACT_TYPE],
+      compatibleOfferNotes: [makeFounderPresidentOfferNote(founderKey)],
+      terms: input?.presidentContract || {},
     });
 
     await query(
@@ -274,17 +317,23 @@ async function createFounderContractLifecycle(input, options = {}) {
       query,
     });
 
-    const [clubRows, playerRows, contractRows, membershipRows] = await Promise.all([
+    const [clubRows, playerRows, playerContractRows, presidentContractRows, membershipRows] = await Promise.all([
       query('SELECT * FROM clubs WHERE id = ? LIMIT 1', [clubId]),
       query('SELECT id, user_id, email, club_id, role, club_roles FROM players WHERE id = ? LIMIT 1', [playerId]),
-      query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract.id]),
+      query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [playerContract.id]),
+      query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [presidentContract.id]),
       query('SELECT * FROM club_memberships WHERE id = ? LIMIT 1', [membershipId]),
     ]);
+    const finalPlayerContract = playerContractRows[0] || playerContract;
+    const finalPresidentContract = presidentContractRows[0] || presidentContract;
 
     return {
       club: clubRows[0] || { ...clubShell, president_player_id: playerId },
       player: playerRows[0] || { ...player, club_id: clubId, role: 'president', status: 'active' },
-      contract: contractRows[0] || contract,
+      contract: finalPlayerContract,
+      playerContract: finalPlayerContract,
+      presidentContract: finalPresidentContract,
+      contracts: [finalPlayerContract, finalPresidentContract],
       membership: membershipRows[0] || {
         id: membershipId,
         club_id: clubId,

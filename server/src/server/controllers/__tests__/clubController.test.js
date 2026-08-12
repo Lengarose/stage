@@ -57,7 +57,13 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
       createFounderContractLifecycle: async (payload) => ({
         player: { id: payload.playerId, club_id: 'club-founder', role: 'president', status: 'active' },
         club: { id: 'club-founder', name: payload.club.name, president_player_id: payload.playerId },
-        contract: { id: 'contract-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'founder' },
+        contract: { id: 'contract-player-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'founder_player' },
+        playerContract: { id: 'contract-player-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'founder_player' },
+        presidentContract: { id: 'contract-president-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'ownership' },
+        contracts: [
+          { id: 'contract-player-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'founder_player' },
+          { id: 'contract-president-founder', team_id: 'club-founder', user_id: payload.playerId, status: 'active', contract_type: 'ownership' },
+        ],
         membership: { id: 'membership-founder', club_id: 'club-founder', player_id: payload.playerId, status: 'active', primary_role: 'president' },
       }),
     },
@@ -214,6 +220,10 @@ test('POST /founder delegates player-president onboarding to founder lifecycle s
   assert.equal(response.body.club.president_player_id, 'player-president-1');
   assert.equal(response.body.player.status, 'active');
   assert.equal(response.body.contract.status, 'active');
+  assert.equal(response.body.contract.id, response.body.playerContract.id);
+  assert.equal(response.body.playerContract.contract_type, 'founder_player');
+  assert.equal(response.body.presidentContract.contract_type, 'ownership');
+  assert.deepEqual(response.body.contracts.map((contract) => contract.contract_type).sort(), ['founder_player', 'ownership']);
   assert.equal(response.body.membership.primary_role, 'president');
 });
 

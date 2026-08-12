@@ -87,6 +87,88 @@ test('submitResult marks fixture disputed when scores disagree', async () => {
   assert.equal(result.status, 'disputed');
 });
 
+test('submitResult completion returns progression trace after agreed result finalizes', async () => {
+  const fixtureRows = [{
+    id: 'engine-fixture-1',
+    match_id: 'match-1',
+    status: 'scheduled',
+    legacy_fixture_type: 'competition_fixture',
+    legacy_fixture_id: 'fixture-legacy',
+    home_participant_id: 'participant-home',
+    away_participant_id: 'participant-away',
+  }];
+  const submissions = [
+    { side: 'home', score_home: 2, score_away: 1 },
+    { side: 'away', score_home: 2, score_away: 1 },
+  ];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM competition_fixtures WHERE match_id = \? LIMIT 1/.test(sql)) return fixtureRows;
+    if (/INSERT INTO competition_result_submissions/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM competition_result_submissions WHERE match_id = \?/.test(sql)) return submissions;
+    if (/UPDATE matches\s+SET status = 'completed'/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE competition_fixtures\s+SET status = 'completed'/.test(sql)) {
+      fixtureRows[0] = { ...fixtureRows[0], status: 'completed', home_score: params[0], away_score: params[1], winner_participant_id: params[2], stats_processed: 1 };
+      return { affectedRows: 1 };
+    }
+    if (/WHERE id = \? AND entity_type = 'competition_fixture'/.test(sql)) {
+      return [{
+        id: 'fixture-legacy',
+        entity_type: 'competition_fixture',
+        status: 'scheduled',
+        data_json: JSON.stringify({
+          season_id: 'season-1',
+          phase: 'league',
+          round: 1,
+          home_club_id: 'club-home',
+          home_club_name: 'Home FC',
+          away_club_id: 'club-away',
+          away_club_name: 'Away FC',
+          stats_processed: false,
+        }),
+      }];
+    }
+    if (/entity_type = 'competition_standing'\s+AND season_id = \?\s+AND club_id IN/.test(sql)) return [];
+    if (/entity_type = 'competition_standing' AND season_id = \?/.test(sql)) return [];
+    if (/UPDATE league_entities SET/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM league_entities WHERE entity_type = \? AND `season_id` = \? LIMIT 1000/.test(sql)) {
+      return [{ id: 'fixture-legacy', entity_type: 'competition_fixture', status: 'completed', data_json: JSON.stringify({ phase: 'league', round: 1, status: 'completed' }) }];
+    }
+    if (/SELECT \* FROM competition_instances/.test(sql)) return [];
+    return [];
+  });
+
+  const result = await service.submitResult({
+    matchId: 'match-1',
+    side: 'away',
+    submittedByUserId: 'user-1',
+    scoreHome: 2,
+    scoreAway: 1,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.progression.triggered, true);
+  assert.equal(result.progression.sync.legacy.synced, true);
+  assert.equal(result.progression.sync.advance.reason, 'not_enough_playoff_participants');
+});
+
+test('advanceAfterFinalResult treats forfeited matches as final without score sync', async () => {
+  const service = loadService(async (sql) => {
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.advanceAfterFinalResult({
+    id: 'match-forfeit-1',
+    status: 'forfeit',
+    tournament_id: null,
+  });
+
+  assert.equal(result.triggered, true);
+  assert.equal(result.source, 'match');
+  assert.equal(result.sync.synced, false);
+  assert.equal(result.sync.reason, 'non_played_final_result');
+  assert.equal(result.community.reason, 'not_completed_tournament_match');
+});
+
 test('syncMatchResultToSource updates official fixture and standings server-side', async () => {
   const updates = [];
   const service = loadService(async (sql, params = []) => {

@@ -57,6 +57,26 @@ export const CONTRACT_TYPES = {
     badge: "bg-warning/20 text-warning",
     description: "400 games or 180 days",
   },
+  founder_player: {
+    label: getContractTypeLabel("founder_player"),
+    max_games: 999,
+    max_days: 3650,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
+    badge: "bg-amber-500/20 text-amber-400",
+    description: "Founder player contract for the club (10 years)",
+  },
+  founder: {
+    label: "Founder",
+    max_games: 999,
+    max_days: 3650,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
+    badge: "bg-amber-500/20 text-amber-400",
+    description: "Legacy founder player contract for the club (10 years)",
+  },
   ownership: {
     label: `🏢 ${getContractTypeLabel("ownership")}`,
     max_games: 999,
@@ -69,15 +89,11 @@ export const CONTRACT_TYPES = {
   },
 };
 
-// 'ownership' is intentionally excluded here: it must never be offerable through a
-// generic player contract dialog (Create Contract, Offer, Renew). President/owner
-// identity is assigned only via club creation (see clubController.js) and lives in the
-// separate `presidents` table — offering it as a normal contract previously let accepting
-// it silently merge the player and president identities on one profile. The `ownership`
-// entry is kept in CONTRACT_TYPES above purely so existing/legacy contracts of that type
-// still render a sensible label and progress bar.
+// Ownership and founder contracts are lifecycle-owned documents. They must never be
+// offerable through generic player contract dialogs, but they still need metadata so
+// legacy and founder lifecycle contracts render cleanly.
 export const CONTRACT_TYPE_OPTIONS = Object.entries(CONTRACT_TYPES)
-  .filter(([value]) => value !== "ownership")
+  .filter(([value]) => !["ownership", "founder_player", "founder"].includes(value))
   .map(([value, meta]) => ({
     value,
     ...meta,
