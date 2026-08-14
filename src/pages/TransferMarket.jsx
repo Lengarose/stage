@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { TrendingUp, X } from "lucide-react";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
-import TransferPlayerList from "@/components/transfer/TransferPlayerList";
+import TransferPlayerCarousel from "@/components/transfer/TransferPlayerCarousel";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
@@ -138,137 +137,77 @@ export default function TransferMarket() {
     });
   }, [allEntries, search, positionFilter, statusFilter, platformFilter]);
 
+  useEffect(() => {
+    if (filteredEntries.length === 0) {
+      setSelected(null);
+      return;
+    }
+    setSelected((prev) => {
+      const match = prev && filteredEntries.find((entry) => entry.player.id === prev.player.id);
+      return match || filteredEntries[0];
+    });
+  }, [filteredEntries]);
+
+  const selectEntry = useCallback((entry) => {
+    setSelected(entry);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header — matches Schedule/GameDay style */}
-        <div className="flex items-center gap-3 mb-6">
-          <TrendingUp className="w-6 h-6 text-primary" />
-          <div>
-            <h1
-              className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
-              style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-            >
-              {t("commonPages.transferTitle")}
-            </h1>
-            <p className="font-subtitle text-xs text-muted-foreground mt-2">{t("commonPages.transferSubtitle")}</p>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-32">
-            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Transfer Window Banner */}
-            <TransferWindowBanner window={currentWindow} />
-
-            {/* Desktop: two-column layout */}
-            <div className="hidden lg:grid lg:grid-cols-[1fr_360px] gap-4 items-start">
-              {/* Left: filters + list */}
-              <div className="space-y-4">
-                <TransferFilters
-                  search={search} onSearch={setSearch}
-                  position={positionFilter} onPosition={setPositionFilter}
-                  statusFilter={statusFilter} onStatus={setStatusFilter}
-                  platform={platformFilter} onPlatform={setPlatformFilter}
-                />
-                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                  <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
-                  <span className="flex gap-3">
-                    <span className="text-success font-medium">{t("commonPages.freeAgentsShort", { count: freeAgents.length })}</span>
-                    <span className="text-warning font-medium">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
-                  </span>
-                </div>
-                <TransferPlayerList
-                  players={filteredEntries}
-                  selectedId={selected?.player?.id}
-                  onSelect={setSelected}
-                  canManage={canManage}
-                  canOffer={canOfferPlayer}
-                  getOfferBlockReason={getOfferBlockReason}
-                  onOffer={setOfferTarget}
-                />
-              </div>
-
-              {/* Right: sticky detail panel */}
-              <div className="sticky top-6 self-start">
-                <TransferDetailPanel
-                  entry={selected}
-                  canManage={canManage}
-                  canOffer={canOfferPlayer}
-                  getOfferBlockReason={getOfferBlockReason}
-                  onOffer={setOfferTarget}
-                  windowOpen={windowOpen}
-                />
-              </div>
-            </div>
-
-            {/* Mobile/Tablet: single column */}
-            <div className="lg:hidden space-y-4">
-              <TransferFilters
-                search={search} onSearch={setSearch}
-                position={positionFilter} onPosition={setPositionFilter}
-                statusFilter={statusFilter} onStatus={setStatusFilter}
-                platform={platformFilter} onPlatform={setPlatformFilter}
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
-                <span className="flex gap-3">
-                  <span className="text-success font-medium">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
-                  <span className="text-warning font-medium">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
-                </span>
-              </div>
-              <TransferPlayerList
-                players={filteredEntries}
-                selectedId={selected?.player?.id}
-                onSelect={setSelected}
-                canManage={canManage}
-                canOffer={canOfferPlayer}
-                getOfferBlockReason={getOfferBlockReason}
-                onOffer={setOfferTarget}
-              />
-            </div>
-
-            {/* Mobile slide-up detail panel */}
-            {selected && (
-              <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
-                <div
-                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                  onClick={() => setSelected(null)}
-                />
-                <div className="relative bg-background rounded-t-2xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-                  {/* Handle bar + close */}
-                  <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
-                    <div className="w-10 h-1 rounded-full bg-border absolute left-1/2 -translate-x-1/2 top-2" />
-                    <span className="text-sm font-semibold text-foreground">{t("commonPages.playerDetails")}</span>
-                    <button
-                      onClick={() => setSelected(null)}
-                      className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="overflow-y-auto flex-1">
-                    <TransferDetailPanel
-                      entry={selected}
-                      canManage={canManage}
-                      canOffer={canOfferPlayer}
-                      getOfferBlockReason={getOfferBlockReason}
-                      onOffer={e => { setOfferTarget(e); setSelected(null); }}
-                      windowOpen={windowOpen}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+    <div className="min-h-full bg-[#05080f] text-white">
+      <div className="border-b border-[#f5c542]/20 bg-gradient-to-r from-[#071018] via-[#0a1628] to-[#071018] px-4 py-5 sm:px-6">
+        <p className="font-heading text-[10px] font-black uppercase tracking-[0.32em] text-[#00e5ff]">Transfer Hub</p>
+        <h1 className="font-heading text-4xl font-black uppercase leading-none text-white md:text-6xl">
+          {t("commonPages.transferTitle")}
+        </h1>
+        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/45">
+          {t("commonPages.transferSubtitle")}
+        </p>
       </div>
 
-      {/* Offer dialog */}
+      {loading ? (
+        <div className="flex justify-center py-32">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#f5c542]/20 border-t-[#f5c542]" />
+        </div>
+      ) : (
+        <div>
+          <div className="px-4 py-4 sm:px-6">
+            <TransferWindowBanner window={currentWindow} />
+          </div>
+          <div className="border-y border-white/10 bg-black/30 px-4 py-4 sm:px-6">
+            <TransferFilters
+              search={search} onSearch={setSearch}
+              position={positionFilter} onPosition={setPositionFilter}
+              statusFilter={statusFilter} onStatus={setStatusFilter}
+              platform={platformFilter} onPlatform={setPlatformFilter}
+            />
+            <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-white/45">
+              <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
+              <span className="flex gap-4">
+                <span className="text-[#7cff6b]">{t("commonPages.freeAgentsShort", { count: freeAgents.length })}</span>
+                <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
+              </span>
+            </div>
+          </div>
+
+          <TransferPlayerCarousel
+            entries={filteredEntries}
+            selectedId={selected?.player?.id}
+            onSelect={selectEntry}
+          />
+
+          <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
+            <TransferDetailPanel
+              entry={selected}
+              canManage={canManage}
+              canOffer={canOfferPlayer}
+              getOfferBlockReason={getOfferBlockReason}
+              onOffer={setOfferTarget}
+              windowOpen={windowOpen}
+            />
+          </div>
+        </div>
+      )}
+
       <OfferContractDialog
         open={!!offerTarget}
         onClose={() => setOfferTarget(null)}

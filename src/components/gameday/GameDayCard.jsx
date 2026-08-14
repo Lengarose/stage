@@ -1,7 +1,9 @@
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
-import { Shield, Trophy, Radio } from "lucide-react";
+import { Radio } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
+import { getMatchSideNames } from "@/lib/gameDayPresentation";
+import GameDayCrest from "./GameDayCrest";
 
 function parseDate(d) {
   if (!d) return null;
@@ -10,23 +12,20 @@ function parseDate(d) {
 }
 
 const STATUS_BADGE = {
-  scheduled: { key: "scheduled", cls: "bg-primary/10 text-primary" },
-  in_progress: { key: "live", cls: "bg-success/10 text-success animate-pulse" },
-  awaiting_confirmation: { key: "pending", cls: "bg-warning/10 text-warning" },
+  scheduled: { key: "scheduled" },
+  in_progress: { key: "live" },
+  awaiting_confirmation: { key: "pending" },
 };
 
 export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament }) {
   const { t } = useTranslation();
   const date = parseDate(game.scheduled_date);
-  const status = STATUS_BADGE[game.status] || { label: game.status, cls: "bg-secondary text-muted-foreground" };
-
-  // Determine matchup display
-  const isClubMatch = game.mode === "club";
-  const home = isClubMatch ? game.home_club_name : game.home_player_name;
-  const away = isClubMatch ? game.away_club_name : game.away_player_name;
+  const status = STATUS_BADGE[game.status] || { label: game.status };
+  const { home, away, isClub } = getMatchSideNames(game, t("matchFlow.tbd"));
   const isMyClubInvolved = myClub && (game.home_club_id === myClub.id || game.away_club_id === myClub.id);
+  const homeLogo = isClub && myClub && game.home_club_id === myClub.id ? myClub.logo_url : null;
+  const awayLogo = isClub && myClub && game.away_club_id === myClub.id ? myClub.logo_url : null;
 
-  // Determine competition label — same logic as Schedule and ClubDetail
   function deriveCompetition(match, tournament) {
     if (!match.tournament_id || match.tournament_id === "ranked") return t("matchFlow.rankedMatch");
     if (!tournament) return t("matchFlow.tournament");
@@ -38,62 +37,42 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
     return tournament.name || t("matchFlow.tournament");
   }
   const competition = game.competition_context || deriveCompetition(game, tournament);
+  const live = game.status === "in_progress";
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "w-full text-left p-4 rounded-xl border transition-all",
+        "flex min-w-[240px] max-w-[320px] shrink-0 items-center gap-3 rounded-sm border px-3 py-2.5 text-left transition-all",
         selected
-          ? "bg-primary/10 border-primary/40 shadow-lg"
-          : "bg-card border-border hover:border-primary/30"
+          ? "border-[#f5c542] bg-[#f5c542]/10 shadow-[0_0_22px_rgba(245,197,66,0.22)]"
+          : "border-white/10 bg-black/35 hover:border-[#00e5ff]/40",
       )}
     >
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div className="flex-1">
-          {date && (
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {format(date, "EEE d MMM yyyy")} • {format(date, "HH:mm")}
-            </p>
-          )}
-          <div className="mt-2 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-primary shrink-0" />
-            <h3 className="text-sm font-bold text-foreground">
-              {home || t("matchFlow.tbd")} {t("matchFlow.versus")} {away || t("matchFlow.tbd")}
-            </h3>
-          </div>
-        </div>
-        <span className={cn("text-[10px] px-2 py-1 rounded-full font-medium whitespace-nowrap shrink-0", status.cls)}>
-          {status.key ? t(`matchFlow.${status.key}`) : status.label}
-        </span>
+      <div className="flex items-center -space-x-2">
+        <GameDayCrest name={home} imageUrl={homeLogo} size="sm" />
+        <GameDayCrest name={away} imageUrl={awayLogo} size="sm" />
       </div>
-
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Trophy className="w-3 h-3" />
-          <span className="capitalize">{competition}</span>
-        </div>
-        {game.home_score !== undefined && game.away_score !== undefined && (
-          <span className="font-bold text-foreground">
-            {game.home_score} - {game.away_score}
-          </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-heading text-[11px] font-black uppercase tracking-wide text-white">
+          {home} <span className="text-[#f5c542]">vs</span> {away}
+        </p>
+        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.16em] text-white/45">
+          {date ? `${format(date, "EEE HH:mm")} · ` : ""}
+          {status.key ? t(`matchFlow.${status.key}`) : status.label}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        {live || game.home_stream_url || game.away_stream_url ? (
+          <Radio className="h-3 w-3 text-[#00e5ff] motion-safe:animate-pulse" />
+        ) : null}
+        {isMyClubInvolved ? (
+          <span className="text-[8px] font-black uppercase tracking-widest text-[#f5c542]">{t("matchFlow.yourClub")}</span>
+        ) : (
+          <span className="max-w-[72px] truncate text-[8px] uppercase tracking-widest text-white/35">{competition}</span>
         )}
       </div>
-
-      {(isMyClubInvolved || game.home_stream_url || game.away_stream_url) && (
-        <div className="mt-2 pt-2 border-t border-border flex items-center gap-2 flex-wrap">
-          {isMyClubInvolved && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              {t("matchFlow.yourClub")}
-            </span>
-          )}
-          {(game.home_stream_url || game.away_stream_url) && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium flex items-center gap-1">
-              <Radio className="w-2.5 h-2.5 animate-pulse" /> {t("matchFlow.liveStream")}
-            </span>
-          )}
-        </div>
-      )}
     </button>
   );
 }

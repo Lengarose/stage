@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isProfileFullBleedRoute } from "../profileRouteLayout.js";
+import { isFullBleedRoute, isGameDayFullBleedRoute, isProfileFullBleedRoute, isTransferMarketFullBleedRoute } from "../profileRouteLayout.js";
 
 test("profile hero routes render outside the global max-width wrapper", () => {
   assert.equal(isProfileFullBleedRoute("/profile"), true);
@@ -18,5 +18,18 @@ test("list and market routes keep the standard page wrapper", () => {
   assert.equal(isProfileFullBleedRoute("/players-list"), false);
   assert.equal(isProfileFullBleedRoute("/presidents-list"), false);
   assert.equal(isProfileFullBleedRoute("/tournaments/clubs"), false);
+  assert.equal(isProfileFullBleedRoute("/transfer-market"), false);
+});
+
+test("game day fills the layout without the global max-width wrapper", () => {
+  assert.equal(isGameDayFullBleedRoute("/game-day"), true);
+  assert.equal(isGameDayFullBleedRoute("/tournaments/game-day"), true);
+  assert.equal(isFullBleedRoute("/game-day"), true);
+  assert.equal(isFullBleedRoute("/clubs"), false);
+});
+
+test("transfer market fills the layout without the global max-width wrapper", () => {
+  assert.equal(isTransferMarketFullBleedRoute("/transfer-market"), true);
+  assert.equal(isFullBleedRoute("/transfer-market"), true);
   assert.equal(isProfileFullBleedRoute("/transfer-market"), false);
 });

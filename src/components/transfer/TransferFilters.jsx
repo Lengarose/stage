@@ -16,7 +16,7 @@ export default function TransferFilters({ search, onSearch, position, onPosition
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder={t("commonPages.searchGamertag")}
-          className="w-full bg-secondary border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50 transition-colors"
+          className="w-full bg-black/40 border border-white/10 rounded-none pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-[#f5c542]/50 transition-colors"
         />
       </div>
 
@@ -34,10 +34,10 @@ export default function TransferFilters({ search, onSearch, position, onPosition
             key={opt.id}
             onClick={() => onStatus(opt.id)}
             className={cn(
-              "text-xs px-3 py-1.5 rounded-full border font-medium transition-all",
+              "text-xs px-3 py-1.5 rounded-none border font-heading uppercase tracking-wide transition-all",
               statusFilter === opt.id
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                ? "bg-[#f5c542] text-black border-[#f5c542] shadow-[0_0_18px_rgba(245,197,66,0.35)]"
+                : "bg-black/40 text-white/55 border-white/10 hover:border-[#f5c542]/40 hover:text-white"
             )}
           >
             {opt.label}
@@ -50,7 +50,7 @@ export default function TransferFilters({ search, onSearch, position, onPosition
         <select
           value={position}
           onChange={e => onPosition(e.target.value)}
-          className="text-xs bg-secondary border border-border rounded-full px-3 py-1.5 text-muted-foreground outline-none focus:border-primary/50 cursor-pointer"
+          className="text-xs bg-black/40 border border-white/10 rounded-none px-3 py-1.5 text-white/70 outline-none focus:border-[#f5c542]/50 cursor-pointer"
         >
           <option value="">{t("commonPages.allPositions")}</option>
           {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -60,7 +60,7 @@ export default function TransferFilters({ search, onSearch, position, onPosition
         <select
           value={platform}
           onChange={e => onPlatform(e.target.value)}
-          className="text-xs bg-secondary border border-border rounded-full px-3 py-1.5 text-muted-foreground outline-none focus:border-primary/50 cursor-pointer"
+          className="text-xs bg-black/40 border border-white/10 rounded-none px-3 py-1.5 text-white/70 outline-none focus:border-[#f5c542]/50 cursor-pointer"
         >
           <option value="">{t("commonPages.allPlatforms")}</option>
           {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}

@@ -7,10 +7,10 @@ export default function TransferWindowBanner({ window: currentWindow }) {
 
   return (
     <div className={cn(
-      "rounded-2xl border p-4 flex items-center gap-4",
+      "border p-4 flex items-center gap-4",
       isOpen
-        ? "bg-success/10 border-success/30"
-        : "bg-secondary/60 border-border"
+        ? "bg-[#0b1c13] border-[#7cff6b]/30"
+        : "bg-black/40 border-white/10"
     )}>
       <div className={cn(
         "w-9 h-9 rounded-full flex items-center justify-center shrink-0",

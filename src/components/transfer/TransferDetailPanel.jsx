@@ -18,7 +18,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
   const { t } = useTranslation();
   if (!entry) {
     return (
-      <div className="bg-card border border-border rounded-2xl p-10 text-center flex flex-col items-center justify-center h-full min-h-[320px]">
+      <div className="border border-white/10 bg-[#071018] p-10 text-center flex flex-col items-center justify-center h-full min-h-[220px]">
         <Users className="w-10 h-10 text-muted-foreground/30 mb-3" />
         <p className="text-sm font-medium text-muted-foreground">{t("commonPages.selectPlayer")}</p>
         <p className="text-xs text-muted-foreground/60 mt-1">{t("commonPages.selectPlayerDetails")}</p>
@@ -33,7 +33,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
   const valueTier = getValueTier(marketValue);
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="overflow-hidden border border-[#f5c542]/20 bg-[#05080f]">
       {/* Top banner — shorter so it doesn't eat into the name */}
       <div className="h-14 bg-gradient-to-br from-primary/20 via-secondary to-background relative">
         <div className="absolute inset-0 fc-stripe opacity-40" />
@@ -153,7 +153,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
           {canOfferPlayer && (
             <Button
               onClick={() => onOffer({ player, badgeType })}
-              className="w-full bg-primary text-primary-foreground gap-2"
+              className="w-full gap-2 rounded-none bg-gradient-to-b from-[#ffe27a] to-[#c9a227] font-heading text-sm font-black uppercase tracking-[0.18em] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
             >
               <FileText className="w-4 h-4" />
               {t("commonPages.sendContractOffer")}
