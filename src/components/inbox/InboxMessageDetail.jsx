@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { format } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getEffectiveInboxActionType } from "@/lib/inboxActionTypes";
+import { getEffectiveInboxActionType, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
+import InboxLoanProposal from "@/components/inbox/InboxLoanProposal";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
 import InboxScheduleProposal from "@/components/inbox/InboxScheduleProposal";
 import {
@@ -84,6 +85,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   const effectiveActionType = getEffectiveInboxActionType(message);
   const hasAction = effectiveActionType !== "none" && status === "pending";
   const isActioned = effectiveActionType !== "none" && status !== "pending";
+  const isCancelRequest = isMatchCancelRequest(message);
 
   return (
     <div className="flex flex-col h-full">
@@ -232,6 +234,14 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             }}
           />
         )}
+        {message.message_type === "loan_proposal" && effectiveActionType === "loan_parent_response" && (
+          <InboxLoanProposal
+            message={message}
+            onActioned={(action) => {
+              if (action === "reject") onStatusChanged?.(message.id, "declined");
+            }}
+          />
+        )}
 
         {/* League / competition scheduling proposal */}
         {message.message_type === "league_schedule" && (
@@ -246,7 +256,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       </div>
 
       {/* Action buttons — only for non-contract, non-trial, non-schedule messages */}
-      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
+      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "loan_proposal" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
         <div className="p-4 border-t border-warning/20 bg-warning/5">
           <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -262,7 +272,11 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   className="bg-success text-white hover:bg-success/90 gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {loading === "accepted" ? t("matchFlow.accepting") : t("matchFlow.accept")}
+                  {loading === "accepted"
+                    ? t("matchFlow.confirming")
+                    : isCancelRequest
+                      ? t("matchFlow.confirmCancel", "Confirm cancel")
+                      : t("matchFlow.accept")}
                 </Button>
                 <Button
                   size="sm"
@@ -272,7 +286,11 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-1.5"
                 >
                   <X className="w-3.5 h-3.5" />
-                  {loading === "declined" ? t("matchFlow.declining") : t("matchFlow.decline")}
+                  {loading === "declined"
+                    ? t("matchFlow.declining")
+                    : isCancelRequest
+                      ? t("matchFlow.keepMatch", "Keep match")
+                      : t("matchFlow.decline")}
                 </Button>
               </>
             )}

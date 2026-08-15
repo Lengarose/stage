@@ -50,6 +50,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/match-player-stats', verifyToken, require('../controllers/matchPlayerStatController'));
   app.use('/api/stage/notifications', verifyToken, require('../controllers/notificationController'));
   app.use('/api/stage/player-contracts', verifyToken, require('../controllers/playerContractController'));
+  app.use('/api/stage/player-loans', verifyToken, require('../controllers/playerLoanController'));
   app.use('/api/stage/inbox-messages', verifyToken, require('../controllers/inboxMessageController'));
   app.use('/api/stage/predictions', verifyToken, require('../controllers/predictionController'));
   app.use('/api/stage/press-conferences', verifyToken, require('../controllers/pressConferenceController'));
@@ -68,6 +69,8 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/chat-messages', verifyToken, require('../controllers/chatMessageController'));
   app.use('/api/stage/chat-reads', verifyToken, require('../controllers/chatReadController'));
   app.use('/api/stage/news-items', verifyToken, require('../controllers/newsItemController'));
+  app.use('/api/stage/news-desks', verifyToken, require('../controllers/newsDeskController'));
+  app.use('/api/stage/mercato-transfers', verifyToken, require('../controllers/mercatoTransferController'));
   app.use('/api/stage/live-matches', verifyToken, require('../controllers/liveMatchController'));
   app.use('/api/stage/landing-page-contents', verifyToken, require('../controllers/landingPageContentController'));
   app.use('/api/stage/home-page-contents', verifyToken, require('../controllers/homePageContentController'));

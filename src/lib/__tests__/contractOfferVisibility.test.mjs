@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canShowContractOfferButton,
+  canShowLoanRequestButton,
   findBlockingContractConflict,
   getSignedClubIdForPlayer,
 } from "../contractOfferVisibility.js";
@@ -65,5 +66,38 @@ test("contract conflict checks ignore malformed rows from the API", () => {
       ],
     }),
     liveSquadContract
+  );
+});
+
+test("signed players show Request Loan to a different club, not a contract offer", () => {
+  const player = { id: "player-1", club_id: "club-a" };
+  const viewerClub = { id: "club-b" };
+  const playerContracts = [
+    { id: "contract-1", user_id: "player-1", team_id: "club-a", status: "active" },
+  ];
+
+  assert.equal(canShowContractOfferButton({ player, viewerClub, playerContracts }), false);
+  assert.equal(canShowLoanRequestButton({ player, viewerClub, playerContracts }), true);
+});
+
+test("a club cannot request a loan for its own contracted player", () => {
+  assert.equal(
+    canShowLoanRequestButton({
+      player: { id: "player-1", club_id: "club-a" },
+      viewerClub: { id: "club-a" },
+      playerContracts: [],
+    }),
+    false
+  );
+});
+
+test("free agents do not get a loan request button", () => {
+  assert.equal(
+    canShowLoanRequestButton({
+      player: { id: "player-free" },
+      viewerClub: { id: "club-b" },
+      playerContracts: [],
+    }),
+    false
   );
 });

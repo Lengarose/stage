@@ -46,3 +46,15 @@ export function canShowContractOfferButton({
   if (!player?.id || !viewerClub?.id || limitedTournamentId) return false;
   return getContractOfferBlockReason({ player, playerContracts }) === null;
 }
+
+export function canShowLoanRequestButton({
+  player,
+  viewerClub,
+  playerContracts = [],
+  limitedTournamentId = null,
+} = {}) {
+  if (!player?.id || !viewerClub?.id || limitedTournamentId) return false;
+  const signedClubId = getSignedClubIdForPlayer(player, playerContracts);
+  if (!signedClubId) return false;
+  return String(signedClubId) !== String(viewerClub.id);
+}

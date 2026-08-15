@@ -14,7 +14,7 @@ const CONTRACT_TYPE_LABELS = {
   star:      { label: "Star",   desc: "Top team player" },
 };
 
-export default function TransferDetailPanel({ entry, canManage, canOffer, getOfferBlockReason, onOffer, windowOpen }) {
+export default function TransferDetailPanel({ entry, canManage, canOffer, canRequestLoan, getOfferBlockReason, onOffer, onRequestLoan, windowOpen }) {
   const { t } = useTranslation();
   if (!entry) {
     return (
@@ -159,7 +159,17 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
               {t("commonPages.sendContractOffer")}
             </Button>
           )}
-          {blockReason && (
+          {canManage && canRequestLoan && (
+            <Button
+              type="button"
+              onClick={() => onRequestLoan?.({ player, badgeType, contract })}
+              className="w-full gap-2 rounded-none border border-[#f5c542]/40 bg-transparent font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542] hover:bg-[#f5c542]/10"
+            >
+              <FileText className="w-4 h-4" />
+              {t("commonPages.requestLoan") || "Request Loan"}
+            </Button>
+          )}
+          {blockReason && !canRequestLoan && (
             <div className="w-full text-center py-2.5 rounded-xl bg-muted border border-border text-sm text-muted-foreground font-medium">
               {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.offerAlreadySent")}
             </div>

@@ -540,6 +540,31 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- ── player_loans ──────────────────────────────────────────────
+-- Temporary registration with a borrowing club. The parent player-group
+-- contract stays on parent_club_id; this row must not replace it.
+CREATE TABLE IF NOT EXISTS player_loans (
+  id                       VARCHAR(36) PRIMARY KEY,
+  player_id                VARCHAR(36) NOT NULL,
+  contract_id              VARCHAR(36) NOT NULL,
+  parent_club_id           VARCHAR(36) NOT NULL,
+  loan_club_id             VARCHAR(36) NOT NULL,
+  start_date               DATE,
+  end_date                 DATE,
+  loan_fee_stc             BIGINT DEFAULT 0,
+  parent_wage_percentage   INT NOT NULL,
+  loan_wage_percentage     INT NOT NULL,
+  status                   VARCHAR(30) NOT NULL DEFAULT 'PROPOSED',
+  proposed_by_club_id      VARCHAR(36),
+  parent_accepted_at       DATETIME NULL,
+  loan_club_accepted_at    DATETIME NULL,
+  player_accepted_at       DATETIME NULL,
+  activated_at             DATETIME NULL,
+  completed_at             DATETIME NULL,
+  created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ── player_identity_claims ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS player_identity_claims (
   id                    VARCHAR(36)  PRIMARY KEY,
@@ -1306,6 +1331,10 @@ CREATE INDEX idx_contracts_user      ON player_contracts(user_id);
 CREATE INDEX idx_contracts_offered_by_user ON player_contracts(offered_by_user_id);
 CREATE INDEX idx_contracts_offered_by_club ON player_contracts(offered_by_club_id);
 CREATE INDEX idx_contracts_offered_by_president ON player_contracts(offered_by_president_id);
+CREATE INDEX idx_ploans_player_status ON player_loans(player_id, status);
+CREATE INDEX idx_ploans_parent ON player_loans(parent_club_id);
+CREATE INDEX idx_ploans_loan_club ON player_loans(loan_club_id);
+CREATE INDEX idx_ploans_contract ON player_loans(contract_id);
 CREATE INDEX idx_pic_player          ON player_identity_claims(player_id);
 CREATE INDEX idx_pic_user            ON player_identity_claims(user_id);
 CREATE INDEX idx_pic_status          ON player_identity_claims(status);

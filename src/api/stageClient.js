@@ -398,7 +398,7 @@ function makeEntity(name) {
 // ── Entity registry ────────────────────────────────────────────────────────────
 const ENTITY_NAMES = [
   'Player', 'President', 'Club', 'Match', 'Tournament', 'Post', 'Comment',
-  'MatchPlayerStat', 'Notification', 'PlayerContract', 'InboxMessage',
+  'MatchPlayerStat', 'Notification', 'PlayerContract', 'PlayerLoan', 'InboxMessage',
   'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
@@ -622,11 +622,11 @@ const auth = {
 // ── File upload ────────────────────────────────────────────────────────────────
 const integrations = {
   Core: {
-    async UploadFile({ file }) {
+    async UploadFile({ file, timeoutMs = 20000 }) {
       const form = new FormData();
       form.append('file', file);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 20000);
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
       try {
         return await apiFetch('/upload', { method: 'POST', body: form, signal: controller.signal });
       } catch (err) {
@@ -915,6 +915,10 @@ const presidents = {
 const clubs = {
   createFounder(body = {}) {
     return http.post('/clubs/founder', body);
+  },
+  leave(clubId, body = {}) {
+    if (!clubId) return Promise.reject(new Error('clubId is required'));
+    return http.post(`/clubs/${encodeURIComponent(clubId)}/leave`, body);
   },
 };
 
