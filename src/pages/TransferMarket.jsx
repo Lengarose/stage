@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { LayoutList, SlidersHorizontal, UserRound, Images } from "lucide-react";
+import { LayoutList, SlidersHorizontal, Images } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
@@ -242,16 +242,6 @@ export default function TransferMarket() {
                   {filterCount}
                 </span>
               ) : null}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!selected}
-              onClick={() => setDetailsOpen(true)}
-              className={cn(headerBtn, "border-[#f5c542]/40 bg-black/40 text-[#f5c542] hover:bg-[#f5c542]/10 disabled:opacity-40")}
-            >
-              <UserRound className="h-4 w-4" />
-              {t("commonPages.playerDetails")}
             </Button>
           </div>
         </div>
