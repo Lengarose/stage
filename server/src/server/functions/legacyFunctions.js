@@ -5759,6 +5759,11 @@ const HANDLERS = {
             excludeContractId: contract_id,
             query,
           });
+          const { assertNoLiveLoanForTransfer } = require('../services/playerLoanService');
+          await assertNoLiveLoanForTransfer({
+            playerId: contract.user_id,
+            contractType: contract.contract_type,
+          }, { query });
         }
 
         const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
@@ -5907,7 +5912,22 @@ const HANDLERS = {
         }
         return { expiredCount, completedCount };
       });
-      return { success: true, data: { expired_count: result.expiredCount || 0, completed_count: result.completedCount || 0 } };
+      let loansCompleted = 0;
+      try {
+        const { completeDueLoans } = require('../services/playerLoanService');
+        const loanResult = await completeDueLoans();
+        loansCompleted = Number(loanResult?.completed || 0);
+      } catch (err) {
+        console.warn('[contractManagement] completeDueLoans failed:', err?.message || err);
+      }
+      return {
+        success: true,
+        data: {
+          expired_count: result.expiredCount || 0,
+          completed_count: result.completedCount || 0,
+          loans_completed: loansCompleted,
+        },
+      };
     }
 
     // ── auto_pay_salaries ────────────────────────────────────────────────────
@@ -6252,7 +6272,15 @@ const HANDLERS = {
       const gamesLeft = maxGames > 0 ? (maxGames - gamesPlayed) : null;
       if ((gamesLeft !== null && gamesLeft <= 10) || (daysLeft !== null && daysLeft <= 7)) warned += 1;
     }
-    return { checked: active.length, completed, expired, warned };
+    let loansCompleted = 0;
+    try {
+      const { completeDueLoans } = require('../services/playerLoanService');
+      const loanResult = await completeDueLoans();
+      loansCompleted = Number(loanResult?.completed || 0);
+    } catch (err) {
+      console.warn('[checkExpiredContracts] completeDueLoans failed:', err?.message || err);
+    }
+    return { checked: active.length, completed, expired, warned, loans_completed: loansCompleted };
   },
 
   async updateMatchStats({ data }) {

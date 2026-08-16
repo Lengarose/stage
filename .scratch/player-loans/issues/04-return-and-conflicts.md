@@ -6,10 +6,10 @@ A second live loan cannot be activated for the same player (including concurrent
 
 **Blocked by:** 03 — Play for the borrower and split wages
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] End date reached → `COMPLETED`; row kept; playing club is the owner again
-- [ ] After completion, Club A can select the player and Club B cannot
-- [ ] Two activation attempts for the same player leave only one `ACTIVE` loan
-- [ ] Permanent contract accept while a loan is `PROPOSED` / `AWAITING_PLAYER` / `PENDING_WINDOW` / `ACTIVE` → `LOAN_TRANSFER_CONFLICT`
-- [ ] No-loan players still transfer, expire, and get paid exactly as before
+- [x] End date reached → `COMPLETED`; row kept; playing club is the owner again
+- [x] After completion, Club A can select the player and Club B cannot
+- [x] Two activation attempts for the same player leave only one `ACTIVE` loan
+- [x] Permanent contract accept while a loan is `PROPOSED` / `AWAITING_PLAYER` / `PENDING_WINDOW` / `ACTIVE` → `LOAN_TRANSFER_CONFLICT`
+- [x] No-loan players still transfer, expire, and get paid exactly as before

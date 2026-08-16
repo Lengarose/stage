@@ -67,6 +67,14 @@ function createHarness({ player, contracts, loans = [], clubs, memberships, pres
     if (/FROM player_loans/.test(text) && /PENDING_WINDOW/.test(text) && !/WHERE id =/.test(text)) {
       return state.loans.filter((loan) => loan.status === 'PENDING_WINDOW');
     }
+    if (/FROM player_loans/.test(text) && /status = 'ACTIVE'/.test(text) && /end_date/.test(text) && !/parent_club_id/.test(text) && !/player_id = \?/.test(text)) {
+      return state.loans.filter((loan) => loan.status === 'ACTIVE' && loan.end_date);
+    }
+    if (/FROM player_loans/.test(text) && /status = 'ACTIVE'/.test(text) && /id <> \?/.test(text)) {
+      return state.loans.filter((loan) => (
+        loan.player_id === params[0] && loan.status === 'ACTIVE' && loan.id !== params[1]
+      ));
+    }
     if (/FROM player_loans/.test(text) && /status = 'ACTIVE'/.test(text) && /parent_club_id = \?/.test(text)) {
       return state.loans
         .filter((loan) => loan.status === 'ACTIVE' && (loan.parent_club_id === params[0] || loan.loan_club_id === params[1] || loan.loan_club_id === params[0]))
@@ -757,4 +765,85 @@ test('owner wage usage uses the parent share and the borrower uses the loan shar
   const borrower = await service.getClubLoanWageDelta('club-b', loanDeps(harness));
   assert.equal(owner.active_weekly_delta, -7000);
   assert.equal(borrower.active_weekly_delta, 7000);
+});
+
+test('completing a due loan returns playing rights to the owner without rewriting club_id', async () => {
+  const harness = createHarness({
+    loans: [activeLoanFixture({ end_date: '2026-01-01' })],
+  });
+  const service = loadService();
+
+  const result = await service.completeDueLoans(loanDeps(harness));
+  assert.equal(result.completed, 1);
+  assert.equal(harness.state.loans[0].status, 'COMPLETED');
+  assert.ok(harness.state.loans[0].completed_at);
+  assert.equal(harness.state.player.club_id, 'club-a');
+  assert.equal(harness.state.contracts[0].status, 'active');
+
+  const registration = await service.getPlayingRegistration('player-1', loanDeps(harness));
+  assert.equal(registration.playing_club_id, 'club-a');
+  await service.assertPlayerEligibleForClub({ playerId: 'player-1', clubId: 'club-a' }, loanDeps(harness));
+  await assertLoanError(
+    () => service.assertPlayerEligibleForClub({ playerId: 'player-1', clubId: 'club-b' }, loanDeps(harness)),
+    'LOAN_PLAYER_NOT_ELIGIBLE',
+  );
+});
+
+test('two activation attempts for the same player leave only one ACTIVE loan', async () => {
+  const first = activeLoanFixture({
+    id: 'loan-one',
+    status: 'PENDING_WINDOW',
+    loan_fee_stc: 0,
+  });
+  const second = activeLoanFixture({
+    id: 'loan-two',
+    status: 'PENDING_WINDOW',
+    loan_fee_stc: 0,
+    loan_club_id: 'club-c',
+  });
+  const harness = createHarness({
+    loans: [first, second],
+    clubs: {
+      'club-a': { id: 'club-a', name: 'Club A', stc: 80000 },
+      'club-b': { id: 'club-b', name: 'Club B', stc: 50000 },
+      'club-c': { id: 'club-c', name: 'Club C', stc: 50000 },
+    },
+  });
+  const service = loadService();
+
+  const activated = await service.activateLoan({ loanId: 'loan-one' }, loanDeps(harness));
+  assert.equal(activated.status, 'ACTIVE');
+  await assertLoanError(
+    () => service.activateLoan({ loanId: 'loan-two' }, loanDeps(harness)),
+    'LOAN_ALREADY_LIVE',
+  );
+  assert.equal(harness.state.loans.filter((loan) => loan.status === 'ACTIVE').length, 1);
+  assert.equal(harness.state.loans.find((loan) => loan.id === 'loan-two').status, 'PENDING_WINDOW');
+  assert.equal(harness.state.player.club_id, 'club-a');
+});
+
+test('a live loan blocks a permanent player-group contract accept', async () => {
+  const harness = createHarness({ loans: [activeLoanFixture()] });
+  const service = loadService();
+
+  await assertLoanError(
+    () => service.assertNoLiveLoanForTransfer({
+      playerId: 'player-1',
+      contractType: 'squad',
+    }, loanDeps(harness)),
+    'LOAN_TRANSFER_CONFLICT',
+  );
+  await service.assertNoLiveLoanForTransfer({
+    playerId: 'player-1',
+    contractType: 'ownership',
+  }, loanDeps(harness));
+});
+
+test('players with no live loan are not blocked from a permanent accept', async () => {
+  const harness = createHarness({ loans: [] });
+  const service = loadService();
+  await service.assertNoLiveLoanForTransfer({
+    playerId: 'player-1',
+    contractType: 'squad',
+  }, loanDeps(harness));
 });

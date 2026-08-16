@@ -114,6 +114,10 @@ function isClubFinanceUsageQuery(sql) {
   return /SELECT\s+COALESCE\(SUM\(CASE WHEN status = 'active' THEN weekly_salary_stc ELSE 0 END\), 0\) AS active_wages/.test(sql);
 }
 
+function isLiveLoanLookup(sql) {
+  return /FROM player_loans/.test(sql) && /player_id = \?/.test(sql) && /status IN/.test(sql);
+}
+
 test('playerWallet get_balance resolves player linked by users.player_id', async () => {
   const player = { id: 'player-1', email: 'player@example.test', stc: 1234 };
   const contractLookups = [];
@@ -1406,6 +1410,7 @@ test('contractManagement accept writes active club membership', async () => {
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
       if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
+      if (isLiveLoanLookup(sql)) return [[], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql) && /status IN/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
@@ -1802,6 +1807,7 @@ test('contractManagement mark_pending_window activates free-agent accepted contr
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
       if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
+      if (isLiveLoanLookup(sql)) return [[], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql) && /status IN/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
@@ -1962,6 +1968,7 @@ test('contractManagement accept closes competing live offers for the same player
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
       if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
+      if (isLiveLoanLookup(sql)) return [[], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) {
         return [[
           { id: 'other-offer', team_id: 'club-2', user_id: 'player-1', contract_type: 'important', status: 'pending' },
@@ -2012,6 +2019,69 @@ test('contractManagement accept closes competing live offers for the same player
   assert.equal(queries.some((call) => /UPDATE inbox_messages/.test(call.sql) && call.params.includes('other-offer')), true);
 });
 
+test('contractManagement accept rejects a permanent offer while a live loan exists', async () => {
+  const queries = [];
+  const contract = {
+    id: 'contract-1',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'pending',
+    contract_type: 'squad',
+    weekly_salary_stc: 0,
+    max_days: 90,
+    captaincy_offered: 0,
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-player',
+    email: 'player@example.test',
+    club_id: 'club-a',
+    role: 'member',
+    club_roles: null,
+  };
+  const club = makeFinanceReadyClub();
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \* FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[contract], []];
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+      if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
+      if (isLiveLoanLookup(sql)) return [[{ id: 'loan-active' }], []];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const router = loadFunctionsRouterWithDbMock(async (sql) => {
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  }, { pool });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'accept', contract_id: 'contract-1' },
+      user: { id: 'user-player' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, 'LOAN_TRANSFER_CONFLICT');
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = 'active'/.test(call.sql)), false);
+  assert.equal(queries.some((call) => /UPDATE players SET club_id = \?/.test(call.sql)), false);
+});
+
 test('transferWindowActions execute_pending activates accepted window-waiting contracts', async () => {
   const queries = [];
   const pendingContract = {
@@ -2045,6 +2115,7 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
       if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
+      if (isLiveLoanLookup(sql)) return [[], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) return [[], []];
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) return [{ affectedRows: 1 }, []];
       if (/UPDATE inbox_messages/.test(sql)) return [{ affectedRows: 1 }, []];
@@ -2151,6 +2222,7 @@ test('contractManagement expire_overdue completes max-game contracts and release
     },
   };
   const router = loadFunctionsRouterWithDbMock(async (sql) => {
+    if (/FROM player_loans/.test(sql) && /end_date/.test(sql)) return [];
     throw new Error(`Unexpected SQL outside transaction: ${sql}`);
   }, { pool });
   const handle = postFunctionHandler(router);

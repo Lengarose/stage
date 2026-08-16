@@ -2,7 +2,7 @@
 
 Spec: [spec.md](spec.md)
 
-Attack order: **01 → 02 → 03 → 04**. 01–03 are done; 04 is next.
+Attack order: **01 → 02 → 03 → 04**. 01–04 are done.
 
 | # | Ticket | Delivers |
 |---|---|---|

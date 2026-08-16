@@ -48,8 +48,9 @@ async function runInTransaction(deps, fn) {
   return result;
 }
 
-async function loadLoan(query, loanId) {
-  const rows = await queryWith(query, 'SELECT * FROM player_loans WHERE id = ? LIMIT 1', [loanId]);
+async function loadLoan(query, loanId, options = {}) {
+  const lock = options.forUpdate ? ' FOR UPDATE' : '';
+  const rows = await queryWith(query, `SELECT * FROM player_loans WHERE id = ? LIMIT 1${lock}`, [loanId]);
   return rows[0] || null;
 }
 
@@ -172,11 +173,24 @@ async function activateLoan(input = {}, deps = {}) {
   if (!loanId) throw loanError('LOAN_NOT_ALLOWED', 'Loan is required');
 
   return runInTransaction(deps, async (query) => {
-    const loan = await loadLoan(query, loanId);
+    const loan = await loadLoan(query, loanId, { forUpdate: true });
     if (!loan) throw loanError('LOAN_NOT_ALLOWED', 'Loan not found', 404);
     if (!ACTIVATABLE_STATUSES.includes(loan.status)) {
       throw loanError('LOAN_NOT_ALLOWED', 'Only an agreed loan can be activated');
     }
+
+    const live = await queryWith(
+      query,
+      `SELECT id
+         FROM player_loans
+        WHERE player_id = ?
+          AND status = 'ACTIVE'
+          AND id <> ?
+        LIMIT 1
+        FOR UPDATE`,
+      [loan.player_id, loanId]
+    );
+    if (live.length) throw loanError('LOAN_ALREADY_LIVE', 'Player already has a live loan');
 
     await settleLoanFee(query, loan);
 
@@ -420,6 +434,50 @@ async function cancelLoan(input = {}, deps = {}) {
   await updateLoan(query, loanId, { status: 'CANCELLED' });
   await markLoanInbox(query, loanId, 'cancelled');
   return { ...loan, status: 'CANCELLED' };
+}
+
+async function completeDueLoans(deps = {}) {
+  const query = deps.query || EXECUTESQL;
+  const rows = await queryWith(
+    query,
+    `SELECT *
+       FROM player_loans
+      WHERE status = 'ACTIVE'
+        AND end_date IS NOT NULL
+        AND end_date <= CURDATE()`,
+    []
+  );
+
+  const completedAt = nowStamp(deps);
+  let completed = 0;
+  for (const loan of rows) {
+    await updateLoan(query, loan.id, {
+      status: 'COMPLETED',
+      completed_at: completedAt,
+    });
+    completed += 1;
+  }
+  return { completed };
+}
+
+async function assertNoLiveLoanForTransfer({ playerId, contractType } = {}, deps = {}) {
+  if (contractType === 'ownership') return;
+  const query = deps.query || EXECUTESQL;
+  const id = String(playerId || '').trim();
+  if (!id) return;
+
+  const live = await queryWith(
+    query,
+    `SELECT id
+       FROM player_loans
+      WHERE player_id = ?
+        AND status IN (${LIVE_LOAN_STATUSES.map(() => '?').join(',')})
+      LIMIT 1`,
+    [id, ...LIVE_LOAN_STATUSES]
+  );
+  if (live.length) {
+    throw loanError('LOAN_TRANSFER_CONFLICT', 'A live loan blocks this permanent contract accept', 409);
+  }
 }
 
 async function activatePendingWindowLoans(deps = {}) {
@@ -696,6 +754,9 @@ module.exports = {
   activateLoan,
   activatePendingLoans: activatePendingWindowLoans,
   activatePendingWindowLoans,
+  completeDueLoans,
+  assertNoLiveLoanForTransfer,
+  assertLoanDoesNotBlockContractAccept: assertNoLiveLoanForTransfer,
   getActiveLoanForPlayer,
   getPlayingRegistration,
   assertPlayerEligibleForClub,

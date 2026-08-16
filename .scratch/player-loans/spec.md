@@ -1,6 +1,6 @@
 # Playable Player Loans
 
-**Status:** ready-for-agent  
+**Status:** done  
 **Slice:** playable loans (request / three-party accept / wage split / STC fee / squad eligibility / return). Later slices: counter-offers, performance clauses, option/obligation to buy, recall, Mercato copy.
 
 ## Problem Statement
