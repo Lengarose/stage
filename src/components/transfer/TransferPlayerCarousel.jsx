@@ -123,10 +123,9 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
             <button
               key={`${player.id}-${offset}`}
               type="button"
-              onClick={() => onSelect?.(entry)}
+              onClick={() => onSelect?.(entry, { openDetails: true })}
               className={cn(
-                "absolute origin-center motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out",
-                focused ? "cursor-default" : "cursor-pointer",
+                "absolute origin-center cursor-pointer motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out",
               )}
               style={{
                 transform: `translateX(${x}px) translateZ(${z}px) rotateY(${rot}deg) scale(${scale})`,

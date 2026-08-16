@@ -67,11 +67,66 @@ function clubRoleLabel(t, role) {
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
 }
 
+function normalizePresidentPlayer(player) {
+  if (!player?.id) return null;
+  return {
+    ...player,
+    player_id: player.id,
+    display_name: player.gamertag || player.display_name,
+    profile_path: `/players/${player.id}`,
+  };
+}
+
+async function resolvePresidentRecord(club) {
+  const c = asObject(club);
+  if (!c?.id) return null;
+
+  if (c.president_player_id) {
+    const presidentPlayer = asObject(await stageClient.entities.Player.get(c.president_player_id).catch(() => null));
+    const normalizedPlayer = normalizePresidentPlayer(presidentPlayer);
+    if (normalizedPlayer) return normalizedPlayer;
+  }
+
+  let presidentRecord = null;
+  if (c.president_id) {
+    presidentRecord = asObject(await stageClient.entities.President.get(c.president_id).catch(() => null));
+  }
+  if (!presidentRecord?.id) {
+    const byClub = await stageClient.entities.President.filter({ club_id: c.id }, null, 1).catch(() => []);
+    presidentRecord = asObject(asObjectArray(byClub)[0]);
+  }
+  if (!presidentRecord?.id) return null;
+
+  if (!presidentRecord.avatar_url && (presidentRecord.user_id || presidentRecord.email)) {
+    const [playerMatch] = asObjectArray(await stageClient.entities.Player
+      .filter(
+        presidentRecord.user_id
+          ? { user_id: presidentRecord.user_id }
+          : { email: presidentRecord.email },
+        null,
+        1,
+      )
+      .catch(() => []));
+    if (playerMatch?.avatar_url) {
+      return {
+        ...presidentRecord,
+        avatar_url: playerMatch.avatar_url,
+        avatar_zoom: playerMatch.avatar_zoom,
+        avatar_position: playerMatch.avatar_position,
+        player_id: playerMatch.id,
+        profile_path: `/players/${playerMatch.id}`,
+      };
+    }
+  }
+
+  return presidentRecord;
+}
+
 function ClubPresidentChip({ club, president }) {
   const { t } = useTranslation();
   const presidentId = president?.player_id || president?.id || club?.president_player_id || club?.president_id;
   if (!presidentId) return null;
-  const name = president?.display_name || president?.gamertag || t("commonPages.cdPresident");
+  const name = t("commonPages.cdPresident");
   const profilePath = president?.profile_path || (club?.president_player_id ? `/players/${club.president_player_id}` : `/presidents/${presidentId}`);
   return (
     <Link
@@ -184,24 +239,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         ]);
 
         const c = asObject(clubRecordRaw);
-        let presidentRecord = null;
-        if (c?.president_player_id) {
-          const presidentPlayer = asObject(await stageClient.entities.Player.get(c.president_player_id).catch(() => null));
-          if (presidentPlayer?.id) {
-            presidentRecord = {
-              ...presidentPlayer,
-              player_id: presidentPlayer.id,
-              display_name: presidentPlayer.gamertag || presidentPlayer.display_name,
-              profile_path: `/players/${presidentPlayer.id}`,
-            };
-          }
-        }
-        if (!presidentRecord && c?.president_id) {
-          presidentRecord = asObject(await stageClient.entities.President.get(c.president_id).catch(() => null));
-        } else if (c?.id) {
-          const byClub = await stageClient.entities.President.filter({ club_id: c.id }, null, 1).catch(() => []);
-          presidentRecord = asObject(asObjectArray(byClub)[0]);
-        }
+        const presidentRecord = await resolvePresidentRecord(c);
         setPresident(presidentRecord);
         const staffRows = asObjectArray(staffRoleRows);
         const myPl = myPlResolved ? [myPlResolved] : [];
