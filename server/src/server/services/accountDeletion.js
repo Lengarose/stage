@@ -201,6 +201,9 @@ async function purgeReferencesForPlayerIds(exec, playerIdsRaw) {
   await exec(`DELETE FROM club_staff_roles WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_fixture_availability WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM match_player_stats WHERE player_id IN ${IN_IDS}`, p);
+  // Loans reference the player on both sides; leaving them behind would keep a
+  // live agreement pointing at a player who no longer exists.
+  await exec(`DELETE FROM player_loans WHERE player_id IN ${IN_IDS}`, p);
 
   await exec(`DELETE FROM trophy_placements WHERE owner_id IN ${IN_IDS} AND LOWER(IFNULL(owner_type, '')) = 'player'`, p);
 
@@ -240,6 +243,7 @@ async function purgeReferencesForClubIds(exec, clubIdsRaw) {
   await exec(`DELETE FROM club_fixture_availability WHERE club_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM club_fixture_lineups WHERE club_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM dressing_rooms WHERE club_id IN ${IN_IDS}`, p);
+  await exec(`DELETE FROM player_loans WHERE parent_club_id IN ${IN_IDS} OR loan_club_id IN ${IN_IDS}`, [...p, ...p]);
 
   await exec(`DELETE FROM trophy_placements WHERE owner_id IN ${IN_IDS} AND LOWER(IFNULL(owner_type, '')) = 'club'`, p);
 

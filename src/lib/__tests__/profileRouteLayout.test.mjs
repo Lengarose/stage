@@ -33,3 +33,9 @@ test("news fills the layout as a full newspaper sheet", () => {
   assert.equal(isFullBleedRoute("/news"), true);
   assert.equal(isNewsFullBleedRoute("/notifications"), false);
 });
+
+test("transfer market fills the remaining viewport under the app header", () => {
+  assert.equal(isTransferMarketFullBleedRoute("/transfer-market"), true);
+  assert.equal(isFullBleedRoute("/transfer-market"), true);
+  assert.equal(isTransferMarketFullBleedRoute("/transfers"), false);
+});

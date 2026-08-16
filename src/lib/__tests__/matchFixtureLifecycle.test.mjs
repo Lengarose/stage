@@ -27,5 +27,6 @@ test("web Game Day only lets a player request cancel, not delete the fixture alo
   assert.equal(canConfirmMatchCancel(arranged, home), false);
   const source = readFileSync(resolve(root, "src/components/gameday/GameDayDetail.jsx"), "utf8");
   assert.match(source, /GameDayFixtureActions/);
+  assert.match(source, /opsOpen/);
   assert.match(readFileSync(resolve(root, "src/components/gameday/GameDayFixtureActions.jsx"), "utf8"), /request_cancel/);
 });

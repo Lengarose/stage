@@ -30,7 +30,7 @@ import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
-import { applyLoanAnnotations, splitSquadByLoan } from "@/lib/playerLoanDisplay";
+import { applyLoanAnnotations, canExercisePurchaseOption, canProposeEarlyEnd, isEarlyEndWaitingOnClub, isLoanRecallable, isPurchaseAwaitingPlayer, splitSquadByLoan } from "@/lib/playerLoanDisplay";
 import { getClubPresidentContactEmail, isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { useNavigate } from "react-router-dom";
@@ -39,6 +39,7 @@ import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 import { useChatChannel } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
+import { swalConfirm, swalError, swalPrompt } from "@/lib/swal";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
@@ -602,6 +603,173 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     navigate(clubsListPath);
   }
 
+  async function handleRecallLoan(player) {
+    const loanId = player?.loan_id;
+    if (!loanId) return;
+    const confirmed = await swalConfirm(
+      t("commonPages.recallPlayerConfirm") || "Recall this player from the loan? Playing rights return immediately. The loan fee is not refunded.",
+      {
+        title: t("commonPages.recallPlayer") || "Recall player",
+        confirmText: t("commonPages.recallPlayer") || "Recall",
+        cancelText: t("commonPages.cancel") || "Cancel",
+      }
+    );
+    if (!confirmed) return;
+    try {
+      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/recall`, {});
+      setPlayers((prev) => asObjectArray(prev).map((row) => {
+        if (row.id !== player.id) return row;
+        const next = { ...row, selectable: true };
+        delete next.loan_id;
+        delete next.loan_status;
+        delete next.on_loan_club_id;
+        delete next.on_loan_club_name;
+        delete next.loan_end_date;
+        delete next.recall_allowed;
+        delete next.recall_after_date;
+        delete next.loan_recallable;
+        delete next.early_end_proposed_by_club_id;
+        return next;
+      }));
+    } catch (err) {
+      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not recall this player."));
+    }
+  }
+
+  // Exercising an option to buy is its own loan endpoint, not a contract offer:
+  // the player still has to accept the permanent terms before ownership moves.
+  async function handleExerciseOption(player) {
+    const loanId = player?.loan_id;
+    if (!loanId) return;
+    const salaryText = await swalPrompt(
+      t("commonPages.exerciseOptionSalaryPrompt") || "Weekly salary (STC) for the permanent contract",
+      {
+        title: t("commonPages.exerciseOption") || "Exercise option to buy",
+        confirmText: t("commonPages.continue") || "Continue",
+        cancelText: t("commonPages.cancel") || "Cancel",
+      }
+    );
+    if (salaryText === null) return;
+    const weeklySalary = Number(salaryText);
+    if (!Number.isFinite(weeklySalary) || weeklySalary < 0) {
+      await swalError(t("commonPages.invalidAmount") || "Enter a valid amount.");
+      return;
+    }
+    const daysText = await swalPrompt(
+      t("commonPages.exerciseOptionDaysPrompt") || "Contract length in days (leave empty to keep the current end date)",
+      {
+        title: t("commonPages.exerciseOption") || "Exercise option to buy",
+        confirmText: t("commonPages.exerciseOption") || "Exercise option",
+        cancelText: t("commonPages.cancel") || "Cancel",
+      }
+    );
+    if (daysText === null) return;
+    const days = daysText === "" ? 0 : Number(daysText);
+    if (!Number.isFinite(days) || days < 0) {
+      await swalError(t("commonPages.invalidAmount") || "Enter a valid number of days.");
+      return;
+    }
+    try {
+      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/exercise-option`, {
+        weekly_salary_stc: weeklySalary,
+        max_days: days,
+      });
+      setPlayers((prev) => asObjectArray(prev).map((row) => (
+        row.id === player.id
+          ? { ...row, purchase_offer_status: "AWAITING_PLAYER", can_exercise_purchase_option: false }
+          : row
+      )));
+    } catch (err) {
+      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not exercise this option."));
+    }
+  }
+
+  function clearLoanFields(row) {
+    const next = { ...row, selectable: true };
+    delete next.loan_id;
+    delete next.loan_badge;
+    delete next.loan_status;
+    delete next.on_loan_club_id;
+    delete next.on_loan_club_name;
+    delete next.loan_from_club_id;
+    delete next.loan_from_club_name;
+    delete next.loan_end_date;
+    delete next.recall_allowed;
+    delete next.recall_after_date;
+    delete next.loan_recallable;
+    delete next.early_end_proposed_by_club_id;
+    return next;
+  }
+
+  async function handleProposeEarlyEnd(player) {
+    const loanId = player?.loan_id;
+    if (!loanId) return;
+    const confirmed = await swalConfirm(
+      t("commonPages.requestReturnConfirm") || "Request an early return of this player? The other club must accept. The loan fee is not refunded.",
+      {
+        title: t("commonPages.requestReturn") || "Request return",
+        confirmText: t("commonPages.requestReturn") || "Request return",
+        cancelText: t("commonPages.cancel") || "Cancel",
+      }
+    );
+    if (!confirmed) return;
+    try {
+      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end`, {
+        actor_club_id: id,
+      });
+      setPlayers((prev) => asObjectArray(prev).map((row) => (
+        row.id === player.id
+          ? { ...row, early_end_proposed_by_club_id: id }
+          : row
+      )));
+    } catch (err) {
+      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not request this return."));
+    }
+  }
+
+  async function handleAcceptEarlyEnd(player) {
+    const loanId = player?.loan_id;
+    if (!loanId) return;
+    const confirmed = await swalConfirm(
+      t("commonPages.acceptReturnConfirm") || "Accept the early return? Playing rights go back to the parent club immediately. The loan fee is not refunded.",
+      {
+        title: t("commonPages.acceptReturn") || "Accept return",
+        confirmText: t("commonPages.acceptReturn") || "Accept return",
+        cancelText: t("commonPages.cancel") || "Cancel",
+      }
+    );
+    if (!confirmed) return;
+    try {
+      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end-accept`, {
+        actor_club_id: id,
+      });
+      setPlayers((prev) => asObjectArray(prev).flatMap((row) => {
+        if (row.id !== player.id) return [row];
+        if (player.loan_status === "loaned_in" && String(row.club_id) !== String(id)) return [];
+        return [clearLoanFields(row)];
+      }));
+    } catch (err) {
+      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not accept this return."));
+    }
+  }
+
+  async function handleRejectEarlyEnd(player) {
+    const loanId = player?.loan_id;
+    if (!loanId) return;
+    try {
+      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end-reject`, {
+        actor_club_id: id,
+      });
+      setPlayers((prev) => asObjectArray(prev).map((row) => (
+        row.id === player.id
+          ? { ...row, early_end_proposed_by_club_id: null }
+          : row
+      )));
+    } catch (err) {
+      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not reject this return."));
+    }
+  }
+
   async function saveLogo(localUrl, position, zoom) {
     const file = pendingFileRef.current;
     if (!file) return;
@@ -997,6 +1165,32 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                       myPlayer={myPlayer}
                       isPresident={isPresident}
                       onAssignRole={assignRole}
+                      canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
+                        status: "ACTIVE",
+                        parent_club_id: p.loan_from_club_id,
+                        loan_club_id: id,
+                        early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
+                      }, id)}
+                      canRespondToReturn={(isPresident || isOwner) && Boolean(p.loan_id) && isEarlyEndWaitingOnClub({
+                        status: "ACTIVE",
+                        early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
+                      }, id)}
+                      onRequestReturn={() => handleProposeEarlyEnd(p)}
+                      onAcceptReturn={() => handleAcceptEarlyEnd(p)}
+                      onRejectReturn={() => handleRejectEarlyEnd(p)}
+                      canExerciseOption={(isPresident || isOwner) && Boolean(p.loan_id) && canExercisePurchaseOption({
+                        status: "ACTIVE",
+                        loan_club_id: id,
+                        purchase_type: p.purchase_type,
+                        purchase_offer_status: p.purchase_offer_status,
+                        purchase_option_deadline: p.purchase_option_deadline,
+                        end_date: p.loan_end_date,
+                      }, id)}
+                      purchaseAwaitingPlayer={Boolean(p.loan_id) && isPurchaseAwaitingPlayer({
+                        status: "ACTIVE",
+                        purchase_offer_status: p.purchase_offer_status,
+                      })}
+                      onExerciseOption={() => handleExerciseOption(p)}
                     />
                   ))}
                 </div>
@@ -1012,6 +1206,25 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                           myPlayer={myPlayer}
                           isPresident={isPresident}
                           onAssignRole={assignRole}
+                          canRecallLoan={(isPresident || isOwner) && Boolean(p.loan_id) && isLoanRecallable({
+                            status: "ACTIVE",
+                            recall_allowed: p.recall_allowed,
+                            recall_after_date: p.recall_after_date,
+                          })}
+                          onRecallLoan={() => handleRecallLoan(p)}
+                          canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
+                            status: "ACTIVE",
+                            parent_club_id: id,
+                            loan_club_id: p.on_loan_club_id,
+                            early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
+                          }, id)}
+                          canRespondToReturn={(isPresident || isOwner) && Boolean(p.loan_id) && isEarlyEndWaitingOnClub({
+                            status: "ACTIVE",
+                            early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
+                          }, id)}
+                          onRequestReturn={() => handleProposeEarlyEnd(p)}
+                          onAcceptReturn={() => handleAcceptEarlyEnd(p)}
+                          onRejectReturn={() => handleRejectEarlyEnd(p)}
                         />
                       ))}
                     </div>
@@ -1207,7 +1420,23 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
   );
 }
 
-function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole }) {
+function PlayerCard({
+  player: rawPlayer,
+  currentUser,
+  myPlayer: _myPlayer,
+  isPresident,
+  onAssignRole,
+  canRecallLoan = false,
+  onRecallLoan,
+  canRequestReturn = false,
+  onRequestReturn,
+  canRespondToReturn = false,
+  onAcceptReturn,
+  onRejectReturn,
+  canExerciseOption = false,
+  purchaseAwaitingPlayer = false,
+  onExerciseOption,
+}) {
   const { t } = useTranslation();
   const player = asObject(rawPlayer);
   if (!player?.id) return null;
@@ -1269,6 +1498,62 @@ function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPre
         <span>{player.assists || 0} {t("commonPages.assists").toLowerCase()}</span>
         <span>{player.matches_played || 0} {t("commonPages.matches").toLowerCase()}</span>
       </div>
+      {canExerciseOption ? (
+        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+          <button
+            type="button"
+            onClick={onExerciseOption}
+            className="w-full text-xs py-1.5 rounded-lg border border-emerald-300/40 text-emerald-200 hover:bg-emerald-400/10 transition-all"
+          >
+            {t("commonPages.exerciseOption") || "Exercise option to buy"}
+          </button>
+        </div>
+      ) : null}
+      {purchaseAwaitingPlayer ? (
+        <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-emerald-200/70">
+          {t("commonPages.purchaseAwaitingPlayer") || "Awaiting player response"}
+        </p>
+      ) : null}
+      {canRecallLoan ? (
+        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+          <button
+            type="button"
+            onClick={onRecallLoan}
+            className="w-full text-xs py-1.5 rounded-lg border border-amber-300/40 text-amber-200 hover:bg-amber-400/10 transition-all"
+          >
+            {t("commonPages.recallPlayer") || "Recall"}
+          </button>
+        </div>
+      ) : null}
+      {canRequestReturn ? (
+        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+          <button
+            type="button"
+            onClick={onRequestReturn}
+            className="w-full text-xs py-1.5 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition-all"
+          >
+            {t("commonPages.requestReturn") || "Request return"}
+          </button>
+        </div>
+      ) : null}
+      {canRespondToReturn ? (
+        <div className="mt-3 flex gap-2" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+          <button
+            type="button"
+            onClick={onAcceptReturn}
+            className="flex-1 text-xs py-1.5 rounded-lg border border-emerald-300/40 text-emerald-200 hover:bg-emerald-400/10 transition-all"
+          >
+            {t("commonPages.acceptReturn") || "Accept return"}
+          </button>
+          <button
+            type="button"
+            onClick={onRejectReturn}
+            className="flex-1 text-xs py-1.5 rounded-lg border border-white/20 text-white/70 hover:bg-white/10 transition-all"
+          >
+            {t("commonPages.rejectReturn") || "Reject"}
+          </button>
+        </div>
+      ) : null}
       {isPresident && currentUser?.email !== player.email && !playerRoles.includes("president") && (
         <div className="mt-3 flex gap-2" onClick={e => e.preventDefault()}>
           <button

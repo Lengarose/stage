@@ -61,8 +61,8 @@ export default function GameDayKickoffArena({
       <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70" />
 
-      <div className="relative z-[1] px-4 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-6">
-        <div className="mb-6 flex items-start justify-between gap-3">
+      <div className="relative z-[1] px-4 pb-5 pt-4 sm:px-8 sm:pb-6 sm:pt-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f5c542]">
               {competitionLabel}
@@ -121,7 +121,7 @@ export default function GameDayKickoffArena({
         </div>
 
         {countdown && !countdown.started ? (
-          <div className="mt-6 flex justify-center gap-5 sm:gap-8">
+          <div className="mt-4 flex justify-center gap-5 sm:gap-8">
             <ClockCell value={formatBroadcastUnit(countdown.hours)} label="Hours" />
             <ClockCell value={padClock(countdown.minutes)} label="Mins" />
             <ClockCell value={padClock(countdown.seconds)} label="Secs" />
@@ -138,7 +138,7 @@ export default function GameDayKickoffArena({
           </div>
         ) : null}
 
-        {children ? <div className="mx-auto mt-6 max-w-xl">{children}</div> : null}
+        {children ? <div className="mx-auto mt-4 max-w-xl">{children}</div> : null}
       </div>
     </section>
   );

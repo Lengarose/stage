@@ -106,6 +106,18 @@ async function leaveClubLifecycle(input, options = {}) {
       throw httpError('You are not a member of this club', 400, 'not_a_member');
     }
 
+    // A live loan is an agreement between two clubs. Walking out of the parent
+    // club would leave the loan pointing at a club that no longer holds the
+    // player, so the loan has to end first (recall, mutual end, or expiry).
+    const { hasLiveLoan } = require('./playerLoanService');
+    if (await hasLiveLoan(player.id, { query })) {
+      throw httpError(
+        'You have a live loan and cannot leave this club until it ends',
+        409,
+        'live_loan',
+      );
+    }
+
     const activeIds = liveContracts.filter((row) => row.status === 'active').map((row) => row.id);
     const offerIds = liveContracts
       .filter((row) => ACTIONABLE_OFFER_STATUSES.includes(row.status))

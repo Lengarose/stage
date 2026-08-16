@@ -20,7 +20,10 @@ export function normalizeTransferMarketPlayers(payload = {}) {
   const expiringPlayers = Array.isArray(payload.expiring_players)
     ? payload.expiring_players.map(normalizeExpiringEntry).filter(Boolean)
     : [];
-  return { freeAgents, expiringPlayers };
+  // Live loans let the market hide the Request Loan button for a player who
+  // already has one, instead of failing on submit with LOAN_ALREADY_LIVE.
+  const liveLoans = Array.isArray(payload.live_loans) ? payload.live_loans : [];
+  return { freeAgents, expiringPlayers, liveLoans };
 }
 
 export function buildTransferMarketEntries(freeAgents = [], expiringPlayers = []) {

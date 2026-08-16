@@ -35,7 +35,7 @@ import {
   getLiveDarkFx,
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
-import { isFullBleedRoute, isNewsFullBleedRoute } from "@/lib/profileRouteLayout";
+import { isFullBleedRoute, isNewsFullBleedRoute, isTransferMarketFullBleedRoute } from "@/lib/profileRouteLayout";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import {
   filterTransferWindowNavGroups,
@@ -2536,7 +2536,10 @@ export default function Layout() {
       <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
         <main
           className={cn(
-            "relative z-[1] flex-1 overflow-y-auto overflow-x-hidden",
+            "relative z-[1] flex-1 overflow-x-hidden",
+            isTransferMarketFullBleedRoute(location.pathname) || isNewsFullBleedRoute(location.pathname)
+              ? "overflow-hidden"
+              : "overflow-y-auto",
             isVideoTheme ? "bg-transparent" : "bg-background"
           )}
         >
@@ -2547,6 +2550,10 @@ export default function Layout() {
             </div>
           ) : isNewsFullBleedRoute(location.pathname) ? (
             <div className="h-full min-h-0 overflow-hidden">
+              <Outlet />
+            </div>
+          ) : isTransferMarketFullBleedRoute(location.pathname) ? (
+            <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden pb-[calc(var(--mobile-tab-h)+var(--safe-bottom))] md:pb-0">
               <Outlet />
             </div>
           ) : fullBleedProfileRoute ? (

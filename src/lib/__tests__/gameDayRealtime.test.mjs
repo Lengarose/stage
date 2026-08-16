@@ -28,4 +28,14 @@ test("GameDay keeps the selected match fresh through targeted realtime and fallb
     /isActiveGameDayMatch/,
     "GameDay should drop cancelled and forfeited matches from the live list"
   );
+  assert.match(
+    source,
+    /setOpsOpen\(true\)/,
+    "GameDay should open live stream and match actions from a header button"
+  );
+  assert.match(
+    source,
+    /setChatOpen\(true\)/,
+    "GameDay should open match chat from a header button"
+  );
 });

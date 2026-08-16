@@ -155,6 +155,12 @@ router.delete('/:id/players/:userId', async (req, res) => {
       [req.params.id, req.params.userId, req.params.userId]
     );
     if (!players.length) return fail(res, 404, 'Player not found in club');
+    // A live loan is an agreement between two clubs; a player cannot be
+    // dropped out of it by leaving the squad list.
+    const { hasLiveLoan } = require('../services/playerLoanService');
+    if (await hasLiveLoan(players[0].id)) {
+      return fail(res, 409, 'This player has a live loan and cannot leave the club');
+    }
     await EXECUTESQL('UPDATE players SET club_id = NULL, updated_date = NOW() WHERE id = ?', [players[0].id]);
     return ok(res, { success: true });
   } catch (err) {
@@ -263,6 +269,14 @@ router.post('/:id/join-requests/:requestId/accept', async (req, res) => {
     const existing = await new JoinRequest().selectOne(req.params.requestId);
     if (!existing.length) return fail(res, 404, 'Not found');
     const row = existing[0];
+    // A player mid-loan is owed to two clubs already — accepting them into a
+    // third would leave the loan pointing at clubs that no longer hold them.
+    if (row.player_id) {
+      const { hasLiveLoan } = require('../services/playerLoanService');
+      if (await hasLiveLoan(row.player_id)) {
+        return fail(res, 409, 'This player has a live loan and cannot join a club yet');
+      }
+    }
     const jr = new JoinRequest({ ...row, status: 'accepted' });
     await jr.update(row.id);
     if (row.player_id) {

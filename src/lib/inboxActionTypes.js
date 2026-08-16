@@ -20,6 +20,8 @@ export function getEffectiveInboxActionType(message = {}) {
   if (message.message_type === "contract_offer") return "contract_negotiation";
   if (message.message_type === "trial_request") return "trial_response";
   if (message.message_type === "loan_proposal") return "loan_parent_response";
+  if (message.message_type === "loan_early_end") return "loan_early_end_response";
+  if (message.message_type === "loan_purchase") return "loan_purchase_response";
   return "none";
 }
 

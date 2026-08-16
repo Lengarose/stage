@@ -13,6 +13,8 @@ class PlayerLoan {
     this.loan_fee_stc = body.loan_fee_stc;
     this.parent_wage_percentage = body.parent_wage_percentage;
     this.loan_wage_percentage = body.loan_wage_percentage;
+    this.recall_allowed = body.recall_allowed;
+    this.recall_after_date = body.recall_after_date;
     this.status = body.status || 'PROPOSED';
     this.proposed_by_club_id = body.proposed_by_club_id;
   }
@@ -51,12 +53,15 @@ class PlayerLoan {
     return EXECUTESQL(
       `INSERT INTO player_loans
         (id, player_id, contract_id, parent_club_id, loan_club_id, start_date, end_date,
-         loan_fee_stc, parent_wage_percentage, loan_wage_percentage, status, proposed_by_club_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         loan_fee_stc, parent_wage_percentage, loan_wage_percentage, status, proposed_by_club_id,
+         recall_allowed, recall_after_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         this.id, this.player_id, this.contract_id, this.parent_club_id, this.loan_club_id,
         this.start_date, this.end_date, this.loan_fee_stc, this.parent_wage_percentage,
         this.loan_wage_percentage, this.status, this.proposed_by_club_id,
+        this.recall_allowed == null ? 1 : this.recall_allowed,
+        this.recall_after_date || null,
       ]
     );
   }

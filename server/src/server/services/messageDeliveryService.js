@@ -23,6 +23,23 @@ function formatMoney(value) {
   return Number(value || 0).toLocaleString();
 }
 
+function purchaseTermsLine(loan) {
+  const type = String(loan?.purchase_type || 'NONE').toUpperCase();
+  if (type === 'NONE' || !type) return null;
+  const label = type === 'MANDATORY' ? 'Obligation to buy' : type === 'OPTIONAL' ? 'Option to buy' : null;
+  if (!label) return null;
+  return `${label}: ${formatMoney(loan.purchase_option_stc)} STC`;
+}
+
+function purchaseTermsMetadata(loan) {
+  const type = String(loan?.purchase_type || 'NONE').toUpperCase();
+  if (type === 'NONE' || (type !== 'OPTIONAL' && type !== 'MANDATORY')) return {};
+  return {
+    purchase_type: type,
+    purchase_option_stc: Number(loan.purchase_option_stc || 0),
+  };
+}
+
 function formatTargetsForBody(targets) {
   const list = Array.isArray(targets) ? targets : [];
   if (!list.length) return null;
@@ -85,6 +102,9 @@ function messageTypeToNotificationType(messageType) {
   if (key === 'match_invite') return 'match_reminder';
   if (key === 'contract_offer') return 'contract_offer';
   if (key === 'loan_proposal') return 'loan_offer';
+  if (key === 'loan_recalled') return 'loan_offer';
+  if (key === 'loan_early_end') return 'loan_offer';
+  if (key === 'loan_terminated_early') return 'loan_offer';
   if (key === 'club_invite') return 'club_update';
   if (key === 'announcement') return 'announcement';
   return 'message';
@@ -483,6 +503,7 @@ async function deliverLoanProposal(loan) {
   const loanClub = loanClubs[0] || {};
   const clubName = loanClub.name || 'A club';
   const fee = Number(loan.loan_fee_stc || 0).toLocaleString();
+  const purchaseLine = purchaseTermsLine(loan);
   const subject = `Loan offer for ${playerName}`;
   const body = [
     `${clubName} has requested a loan for ${playerName}.`,
@@ -490,6 +511,7 @@ async function deliverLoanProposal(loan) {
     `Duration: ${loan.start_date || '—'} → ${loan.end_date || '—'}`,
     `Loan fee: ${fee} STC`,
     `Wage split: parent ${Number(loan.parent_wage_percentage || 0)}% / ${clubName} ${Number(loan.loan_wage_percentage || 0)}%`,
+    ...(purchaseLine ? [purchaseLine] : []),
     '',
     'Accept or reject this proposal from your inbox. The player is asked only after you accept.',
   ].join('\n');
@@ -519,6 +541,7 @@ async function deliverLoanProposal(loan) {
       loan_club_id: loan.loan_club_id,
       player_name: playerName,
       loan_club_name: clubName,
+      ...purchaseTermsMetadata(loan),
     },
   });
   return delivery;
@@ -541,6 +564,7 @@ async function deliverPlayerLoanOffer(loan) {
   const parentName = parentClub.name || 'Parent club';
   const loanClubName = loanClub.name || 'Loan club';
   const fee = Number(loan.loan_fee_stc || 0).toLocaleString();
+  const purchaseLine = purchaseTermsLine(loan);
   const subject = `Loan offer from ${loanClubName}`;
   const body = [
     `${loanClubName} and ${parentName} have agreed a loan for you.`,
@@ -550,6 +574,7 @@ async function deliverPlayerLoanOffer(loan) {
     `Duration: ${loan.start_date || '—'} → ${loan.end_date || '—'}`,
     `Loan fee: ${fee} STC`,
     `Wage split: ${parentName} ${Number(loan.parent_wage_percentage || 0)}% / ${loanClubName} ${Number(loan.loan_wage_percentage || 0)}%`,
+    ...(purchaseLine ? [purchaseLine] : []),
     '',
     'Accept or reject this loan from your inbox.',
   ].join('\n');
@@ -580,8 +605,296 @@ async function deliverPlayerLoanOffer(loan) {
       player_name: playerName,
       parent_club_name: parentName,
       loan_club_name: loanClubName,
+      ...purchaseTermsMetadata(loan),
     },
   });
+}
+
+// Club B exercised its option to buy. The player is asked to accept the
+// permanent deal; the loan stays ACTIVE until they do.
+async function deliverLoanPurchaseOffer(loan) {
+  if (!loan?.id || !loan.player_id) return;
+  const players = await EXECUTESQL(
+    'SELECT gamertag, email FROM players WHERE id = ? LIMIT 1',
+    [loan.player_id]
+  ).catch(() => []);
+  const recipientEmail = String(players[0]?.email || '').trim().toLowerCase();
+  if (!recipientEmail) return;
+
+  const parentClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.parent_club_id]).catch(() => []);
+  const loanClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.loan_club_id]).catch(() => []);
+  const playerName = players[0]?.gamertag || 'Player';
+  const parentClub = parentClubs[0] || {};
+  const loanClub = loanClubs[0] || {};
+  const parentName = parentClub.name || 'Parent club';
+  const loanClubName = loanClub.name || 'Loan club';
+  const price = formatMoney(loan.purchase_option_stc);
+  const salary = formatMoney(loan.purchase_salary_stc);
+  const days = Number(loan.purchase_contract_days || 0);
+  const subject = `${loanClubName} wants to sign you permanently`;
+  const body = [
+    `${loanClubName} has exercised its option to buy you from ${parentName}.`,
+    '',
+    `Purchase fee: ${price} STC (paid to ${parentName})`,
+    `Weekly salary: ${salary} STC`,
+    days > 0 ? `Contract length: ${days} days` : `Contract length: the remainder of your current deal`,
+    '',
+    'Accept and you become a permanent player at ' + loanClubName + '. Reject and your loan continues as agreed.',
+  ].join('\n');
+
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: loanClub.owner_email || parentClub.owner_email || 'system@stage.com',
+    senderGamertag: loanClubName,
+    senderAvatarUrl: loanClub.logo_url || '',
+    senderClubName: loanClubName,
+    subject,
+    body,
+    messageType: 'loan_purchase',
+    actionType: 'loan_purchase_response',
+    relatedEntityId: loan.id,
+    relatedEntityType: 'player_loan',
+    idempotencyKey: `loan_purchase_offer:player_loan:${loan.id}:${recipientEmail}`,
+    notification: {
+      type: 'loan_offer',
+      title: subject,
+      body: `${loanClubName} has exercised its option to buy you from ${parentName}.`,
+    },
+    metadata: {
+      loan_id: loan.id,
+      player_id: loan.player_id,
+      parent_club_id: loan.parent_club_id,
+      loan_club_id: loan.loan_club_id,
+      player_name: playerName,
+      parent_club_name: parentName,
+      loan_club_name: loanClubName,
+      purchase_option_stc: Number(loan.purchase_option_stc || 0),
+      purchase_salary_stc: Number(loan.purchase_salary_stc || 0),
+      purchase_contract_days: days || null,
+    },
+  });
+}
+
+async function deliverLoanRecalled(loan) {
+  if (!loan?.id) return;
+  const players = await EXECUTESQL(
+    'SELECT gamertag, email FROM players WHERE id = ? LIMIT 1',
+    [loan.player_id]
+  ).catch(() => []);
+  const parentClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.parent_club_id]).catch(() => []);
+  const loanClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.loan_club_id]).catch(() => []);
+  const playerName = players[0]?.gamertag || 'A player';
+  const parentClub = parentClubs[0] || {};
+  const loanClub = loanClubs[0] || {};
+  const parentName = parentClub.name || 'Parent club';
+  const loanClubName = loanClub.name || 'Loan club';
+  const subject = `${playerName} has been recalled`;
+  const body = [
+    `${parentName} has recalled ${playerName} from the loan at ${loanClubName}.`,
+    '',
+    'Playing rights have returned to the parent club. No response is required.',
+  ].join('\n');
+  const metadata = {
+    loan_id: loan.id,
+    player_id: loan.player_id,
+    parent_club_id: loan.parent_club_id,
+    loan_club_id: loan.loan_club_id,
+    player_name: playerName,
+    parent_club_name: parentName,
+    loan_club_name: loanClubName,
+  };
+
+  const borrowerContact = await resolveClubPresidentContact({ clubId: loan.loan_club_id });
+  const borrowerEmail = String(borrowerContact?.email || '').trim().toLowerCase();
+  if (borrowerEmail) {
+    await sendActionMessage({
+      recipientEmail: borrowerEmail,
+      senderEmail: parentClub.owner_email || 'system@stage.com',
+      senderGamertag: parentName,
+      senderAvatarUrl: parentClub.logo_url || '',
+      senderClubName: parentName,
+      subject,
+      body,
+      messageType: 'loan_recalled',
+      actionType: 'none',
+      relatedEntityId: loan.id,
+      relatedEntityType: 'player_loan',
+      idempotencyKey: `loan_recalled:player_loan:${loan.id}:${borrowerEmail}`,
+      notification: {
+        type: 'loan_offer',
+        title: subject,
+        body: `${parentName} has recalled ${playerName}.`,
+      },
+      metadata,
+    });
+  }
+
+  const playerEmail = String(players[0]?.email || '').trim().toLowerCase();
+  if (playerEmail) {
+    await sendActionMessage({
+      recipientEmail: playerEmail,
+      senderEmail: parentClub.owner_email || 'system@stage.com',
+      senderGamertag: parentName,
+      senderAvatarUrl: parentClub.logo_url || '',
+      senderClubName: parentName,
+      subject,
+      body,
+      messageType: 'loan_recalled',
+      actionType: 'none',
+      relatedEntityId: loan.id,
+      relatedEntityType: 'player_loan',
+      idempotencyKey: `loan_recalled:player_loan:${loan.id}:${playerEmail}`,
+      notification: {
+        type: 'loan_offer',
+        title: subject,
+        body: `${parentName} has recalled you from ${loanClubName}.`,
+      },
+      metadata,
+    });
+  }
+}
+
+async function loanClubNames(loan) {
+  const players = await EXECUTESQL(
+    'SELECT gamertag, email FROM players WHERE id = ? LIMIT 1',
+    [loan.player_id]
+  ).catch(() => []);
+  const parentClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.parent_club_id]).catch(() => []);
+  const loanClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.loan_club_id]).catch(() => []);
+  const parentClub = parentClubs[0] || {};
+  const loanClub = loanClubs[0] || {};
+  return {
+    playerName: players[0]?.gamertag || 'A player',
+    playerEmail: String(players[0]?.email || '').trim().toLowerCase(),
+    parentClub,
+    loanClub,
+    parentName: parentClub.name || 'Parent club',
+    loanClubName: loanClub.name || 'Loan club',
+    metadata: {
+      loan_id: loan.id,
+      player_id: loan.player_id,
+      parent_club_id: loan.parent_club_id,
+      loan_club_id: loan.loan_club_id,
+      player_name: players[0]?.gamertag || 'A player',
+      parent_club_name: parentClub.name || 'Parent club',
+      loan_club_name: loanClub.name || 'Loan club',
+      early_end_proposed_by_club_id: loan.early_end_proposed_by_club_id || null,
+    },
+  };
+}
+
+async function deliverEarlyEndRequest(loan) {
+  if (!loan?.id) return;
+  const proposedBy = String(loan.early_end_proposed_by_club_id || '').trim();
+  const otherClubId = proposedBy && proposedBy === String(loan.parent_club_id)
+    ? loan.loan_club_id
+    : loan.parent_club_id;
+  const otherContact = await resolveClubPresidentContact({ clubId: otherClubId });
+  const recipientEmail = String(otherContact?.email || '').trim().toLowerCase();
+  if (!recipientEmail) return;
+
+  const names = await loanClubNames(loan);
+  const proposerIsParent = proposedBy === String(loan.parent_club_id);
+  const proposerName = proposerIsParent ? names.parentName : names.loanClubName;
+  const proposerClub = proposerIsParent ? names.parentClub : names.loanClub;
+  const subject = `${proposerName} requested an early return`;
+  const body = [
+    `${proposerName} has asked to end the loan of ${names.playerName} early.`,
+    '',
+    `From: ${names.parentName}`,
+    `To: ${names.loanClubName}`,
+    '',
+    'Accept to return playing rights to the parent club, or reject to keep the loan active.',
+  ].join('\n');
+
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: proposerClub.owner_email || 'system@stage.com',
+    senderGamertag: proposerName,
+    senderAvatarUrl: proposerClub.logo_url || '',
+    senderClubName: proposerName,
+    subject,
+    body,
+    messageType: 'loan_early_end',
+    actionType: 'loan_early_end_response',
+    relatedEntityId: loan.id,
+    relatedEntityType: 'player_loan',
+    idempotencyKey: `loan_early_end:player_loan:${loan.id}:${recipientEmail}`,
+    notification: {
+      type: 'loan_offer',
+      title: subject,
+      body: `${proposerName} requested an early return of ${names.playerName}.`,
+    },
+    metadata: names.metadata,
+  });
+}
+
+async function deliverLoanTerminatedEarly(loan) {
+  if (!loan?.id) return;
+  const names = await loanClubNames(loan);
+  const subject = `${names.playerName}'s loan ended early`;
+  const body = [
+    `${names.parentName} and ${names.loanClubName} have agreed to end the loan of ${names.playerName} early.`,
+    '',
+    'Playing rights have returned to the parent club. No response is required.',
+  ].join('\n');
+  const metadata = names.metadata;
+
+  const recipients = [];
+  const parentContact = await resolveClubPresidentContact({ clubId: loan.parent_club_id });
+  const parentEmail = String(parentContact?.email || '').trim().toLowerCase();
+  if (parentEmail) recipients.push({ email: parentEmail, club: names.parentClub, clubName: names.parentName });
+  const borrowerContact = await resolveClubPresidentContact({ clubId: loan.loan_club_id });
+  const borrowerEmail = String(borrowerContact?.email || '').trim().toLowerCase();
+  if (borrowerEmail && borrowerEmail !== parentEmail) {
+    recipients.push({ email: borrowerEmail, club: names.loanClub, clubName: names.loanClubName });
+  }
+
+  for (const recipient of recipients) {
+    await sendActionMessage({
+      recipientEmail: recipient.email,
+      senderEmail: names.parentClub.owner_email || names.loanClub.owner_email || 'system@stage.com',
+      senderGamertag: names.parentName,
+      senderAvatarUrl: names.parentClub.logo_url || '',
+      senderClubName: names.parentName,
+      subject,
+      body,
+      messageType: 'loan_terminated_early',
+      actionType: 'none',
+      relatedEntityId: loan.id,
+      relatedEntityType: 'player_loan',
+      idempotencyKey: `loan_terminated_early:player_loan:${loan.id}:${recipient.email}`,
+      notification: {
+        type: 'loan_offer',
+        title: subject,
+        body: `${names.playerName}'s loan has ended early.`,
+      },
+      metadata,
+    });
+  }
+
+  if (names.playerEmail) {
+    await sendActionMessage({
+      recipientEmail: names.playerEmail,
+      senderEmail: names.parentClub.owner_email || 'system@stage.com',
+      senderGamertag: names.parentName,
+      senderAvatarUrl: names.parentClub.logo_url || '',
+      senderClubName: names.parentName,
+      subject,
+      body,
+      messageType: 'loan_terminated_early',
+      actionType: 'none',
+      relatedEntityId: loan.id,
+      relatedEntityType: 'player_loan',
+      idempotencyKey: `loan_terminated_early:player_loan:${loan.id}:${names.playerEmail}`,
+      notification: {
+        type: 'loan_offer',
+        title: subject,
+        body: `Your loan at ${names.loanClubName} has ended early.`,
+      },
+      metadata,
+    });
+  }
 }
 
 module.exports = {
@@ -590,6 +903,10 @@ module.exports = {
   deliverContractOfferMessage,
   deliverLoanProposal,
   deliverPlayerLoanOffer,
+  deliverLoanPurchaseOffer,
+  deliverLoanRecalled,
+  deliverEarlyEndRequest,
+  deliverLoanTerminatedEarly,
   messageTypeToNotificationType,
   resolveContractOfferRecipient,
   sendActionMessage,
