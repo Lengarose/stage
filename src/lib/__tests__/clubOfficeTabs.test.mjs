@@ -46,6 +46,13 @@ test("limited tournament clubs do not expose Office tools", () => {
   assert.equal(groups.some((group) => group.tabs.includes("requests")), false);
 });
 
+test("chat tab is only included for squad players", () => {
+  const hidden = buildClubTabGroups({ t, showChat: false });
+  const visible = buildClubTabGroups({ t, showChat: true });
+  assert.equal(hidden.some((group) => group.tabs.includes("chat")), false);
+  assert.equal(visible.some((group) => group.tabs.includes("chat")), true);
+});
+
 test("club detail uses grouped Office navigation", () => {
   const source = readFileSync(resolve(root, "src/pages/ClubDetail.jsx"), "utf8");
   assert.match(source, /GamerClubTabNav/);

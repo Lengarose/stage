@@ -9,7 +9,6 @@ const ACTIONABLE_MESSAGE_SOURCES = [
   "lib/contractOfferDelivery.js",
   "components/schedule/ArrangeGameDialog.jsx",
   "lib/scheduleEngine.js",
-  "pages/ClubDetail.jsx",
   "components/inbox/InboxTrialRequest.jsx",
 ];
 

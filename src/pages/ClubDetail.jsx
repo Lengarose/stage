@@ -4,19 +4,17 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, ArrowLeft,
   Check, X, Send, Loader2, LogOut,
-  Trash2, Edit2, ClipboardList, Clock, MessageCircle,
+  Trash2, Edit2, MessageCircle,
   Bell, BellOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import ClubFeed from "../components/ClubFeed";
@@ -31,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
 import { applyLoanAnnotations, canExercisePurchaseOption, canProposeEarlyEnd, isEarlyEndWaitingOnClub, isLoanRecallable, isPurchaseAwaitingPlayer, splitSquadByLoan } from "@/lib/playerLoanDisplay";
-import { getClubPresidentContactEmail, isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
+import { isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
@@ -47,13 +45,6 @@ import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
-
-const POSITION_OPTIONS = [
-  "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
-  "RM", "LM", "RW", "LW", "CF", "ST",
-];
-
-const CONSOLE_OPTIONS = ["PlayStation", "Xbox", "PC"];
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -127,14 +118,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [myPlayer, setMyPlayer] = useState(null);
   const [joinRequests, setJoinRequests] = useState([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [trialRequestSent, setTrialRequestSent] = useState(false);
-  const [sendingTrial, setSendingTrial] = useState(false);
-  const [trialMsg, setTrialMsg] = useState("");
-  const [trialPosition, setTrialPosition] = useState("");
-  const [trialConsole, setTrialConsole] = useState("");
-  const [trialExperience, setTrialExperience] = useState("");
-  const [showTrialPreview, setShowTrialPreview] = useState(false);
-  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [_myClubData, setMyClubData] = useState(null);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
@@ -179,11 +162,17 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   } = useChatChannel(CLUB_CHAT_CHANNEL);
 
   useEffect(() => {
+    if (activeTab !== "chat") return;
+    const onSquad = (!!myPlayer?.club_id && myPlayer.club_id === id)
+      || asObjectArray(players).some((player) => player.id && player.id === myPlayer?.id);
+    if (!onSquad) setActiveTab("posts");
+  }, [activeTab, myPlayer, players, id]);
+
+  useEffect(() => {
     async function load() {
       try {
         const user = asObject(await stageClient.auth.me().catch(() => null));
         setCurrentUser(user);
-        const userEmail = user?.email || "";
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
@@ -345,18 +334,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           setJoinRequests([]);
         }
 
-        if (myPl.length > 0 && userEmail) {
-          const existingTrials = asObjectArray(await stageClient.entities.InboxMessage.filter(
-            { sender_email: userEmail, message_type: "trial_request" }, null, 20
-          ).catch(() => []));
-          const sentToThisClub = existingTrials.some((message) => (
-            asObject(message.metadata)?.club_id === id || message.related_entity_id === id
-          ));
-          setTrialRequestSent(sentToThisClub);
-        } else {
-          setTrialRequestSent(false);
-        }
-
         const clubChatRows = await stageClient.entities.ChatMessage
           .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
           .catch(() => []);
@@ -389,84 +366,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     return () => { unsubPlayer(); };
   }, [id]);
 
-  async function sendTrialRequest() {
-    if (!myPlayer || !club) return;
-    const gamerTag = myPlayer.gamertag || "Unknown";
-    let recipientEmail = String(getClubPresidentContactEmail({ club })).trim().toLowerCase();
-    if (!recipientEmail) {
-      const contact = await stageClient.functions.invoke("resolveClubContact", { club_id: id }).catch(() => null);
-      recipientEmail = String(contact?.data?.recipient_email || "").trim().toLowerCase();
-    }
-    if (!recipientEmail) {
-      console.error("Trial request aborted: club president contact email is missing", club);
-      return;
-    }
-    const preferredPosition = trialPosition || myPlayer.position || "N/A";
-    const consoleName = trialConsole || myPlayer.platform || "N/A";
-    const experienceText = trialExperience.trim() || "No experience details shared.";
-    const customNote = trialMsg.trim();
-    const formattedRequest = [
-      `Hello ${club.name} management team,`,
-      "",
-      `My name is ${gamerTag}, and I would like to request a trial with your club.`,
-      "",
-      "Player Profile",
-      `- GamerTag: ${gamerTag}`,
-      `- Preferred Position: ${preferredPosition}`,
-      `- Console: ${consoleName}`,
-      `- Overall: ${myPlayer.overall_rating || "N/A"}`,
-      "",
-      "Experience",
-      experienceText,
-      "",
-      customNote ? `Additional Message\n${customNote}\n` : "",
-      "I am motivated, active, and ready to prove myself. Thank you for your consideration.",
-    ].filter(Boolean).join("\n");
-
-    setSendingTrial(true);
-    try {
-      await stageClient.functions.invoke("sendInboxMessage", {
-        recipient_email:   recipientEmail,
-        sender_email:      currentUser.email,
-        sender_gamertag:   gamerTag,
-        sender_avatar_url: myPlayer.avatar_url || "",
-        subject:           `⚽ Trial Request from ${gamerTag}`,
-        body:              formattedRequest,
-        message_type:      "trial_request",
-        action_type:       "trial_response",
-        related_entity_id: id,
-        status:            "pending",
-        is_read:           false,
-        metadata: {
-          player_id:        myPlayer.id,
-          player_gamertag:  gamerTag,
-          player_email:     currentUser.email,
-          player_avatar_url: myPlayer.avatar_url || "",
-          player_position:  preferredPosition,
-          player_console:   consoleName,
-          player_experience: experienceText,
-          trial_note:       customNote,
-          player_overall:   myPlayer.overall_rating || 70,
-          club_id:          id,
-          club_name:        club.name,
-          club_logo_url:    club.logo_url || "",
-        },
-        send_notification: true,
-      });
-      setTrialRequestSent(true);
-      setTrialDialogOpen(false);
-      setTrialMsg("");
-      setTrialPosition("");
-      setTrialConsole("");
-      setTrialExperience("");
-      setShowTrialPreview(false);
-    } catch (err) {
-      console.error("Failed to send trial request:", err);
-    } finally {
-      setSendingTrial(false);
-    }
-  }
-
   useEffect(() => {
     const unsub = stageClient.entities.ChatMessage.subscribe((event) => {
       const payload = asObject(event.data);
@@ -493,7 +392,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
   async function sendClubChatMessage() {
     const content = clubChatInput.trim();
-    if (!content || !currentUser?.email) return;
+    const onSquad = isMember || asObjectArray(players).some((player) => player.id && player.id === myPlayer?.id);
+    if (!content || !currentUser?.email || !onSquad) return;
     setSendingClubChat(true);
     try {
       await stageClient.entities.ChatMessage.create({
@@ -825,14 +725,17 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     ...clubTabLabels(t),
     requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
   };
+  const canSeeClubChat = isMember || safePlayers.some((player) => player.id && player.id === myPlayer?.id);
   const tabGroups = buildClubTabGroups({
     t,
     canOpenOperations,
     isOwner,
     showRequests,
+    showChat: canSeeClubChat,
     limitedTournamentId,
   });
   function changeClubTab(tab) {
+    if (tab === "chat" && !canSeeClubChat) return;
     setActiveTab(tab);
     if (tab === "history") loadHistory();
   }
@@ -938,123 +841,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       </GamerClubProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
-        {/* Trial request — visible to signed-in players who are not members */}
-        {!isMember && !isOwner && myPlayer ? (
-          <div>
-            {trialRequestSent ? (
-              <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning font-medium">
-                <Clock className="w-3 h-3" /> {t("commonPages.cdTrialSent")}
-              </span>
-            ) : (
-              <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button type="button" size="sm" variant="outline" className="border-white/20 text-white/60 hover:text-white hover:border-white/40 text-xs gap-1.5 h-7 px-3">
-                    <ClipboardList className="w-3 h-3" /> {t("commonPages.cdRequestTrial")}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-[#0d1225] border-white/10 max-h-[85vh] overflow-y-auto">
-                  <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> {t("commonPages.cdRequestTrialAt", { name: club.name })}</DialogTitle></DialogHeader>
-                  <div className="space-y-4 mt-2">
-                    <p className="text-sm text-white/60 leading-relaxed">
-                      {t("commonPages.cdTrialIntro", { name: club.name })}
-                    </p>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdPlayerName")}</label>
-                      <Input
-                        value={myPlayer?.gamertag || ""}
-                        readOnly
-                        className="bg-white/5 border-white/10 text-white"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.position")}</label>
-                        <Select value={trialPosition || (myPlayer?.position || "")} onValueChange={setTrialPosition}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue placeholder={t("commonPages.cdSelectPosition")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {POSITION_OPTIONS.map((pos) => (
-                              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdWhichConsole")}</label>
-                        <Select value={trialConsole || (myPlayer?.platform || "")} onValueChange={setTrialConsole}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue placeholder={t("commonPages.cdSelectConsole")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CONSOLE_OPTIONS.map((consoleName) => (
-                              <SelectItem key={consoleName} value={consoleName}>{consoleName}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdExperience")}</label>
-                      <Textarea
-                        value={trialExperience}
-                        onChange={e => setTrialExperience(e.target.value)}
-                        className="bg-white/5 border-white/10 resize-none"
-                        rows={3}
-                        placeholder={t("commonPages.cdExperiencePlaceholder")}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-white/50">{t("commonPages.cdAdditionalMessage")}</label>
-                    <Textarea
-                      value={trialMsg}
-                      onChange={e => setTrialMsg(e.target.value)}
-                      className="bg-white/5 border-white/10 resize-none"
-                      rows={3}
-                        placeholder={t("commonPages.cdAdditionalPlaceholder")}
-                    />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowTrialPreview(true)}
-                      disabled={!trialExperience.trim()}
-                      className="w-full border-white/20 text-white hover:border-primary/40 hover:text-primary"
-                    >
-                      {t("commonPages.cdShowRequestMessage")}
-                    </Button>
-                    {showTrialPreview && (
-                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-                        <p className="text-xs uppercase tracking-widest text-primary/90 font-semibold">{t("commonPages.cdRequestPreview")}</p>
-                        <pre className="whitespace-pre-wrap text-sm text-white/85 leading-relaxed font-sans">
-{`Hello ${club.name} management team,
-
-My name is ${myPlayer?.gamertag || "Unknown"}, and I would like to request a trial with your club.
-
-Player Profile
-- GamerTag: ${myPlayer?.gamertag || "Unknown"}
-- Preferred Position: ${trialPosition || myPlayer?.position || "N/A"}
-- Console: ${trialConsole || myPlayer?.platform || "N/A"}
-- Overall: ${myPlayer?.overall_rating || "N/A"}
-
-Experience
-${trialExperience.trim() || "No experience details shared."}
-
-${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motivated, active, and ready to prove myself. Thank you for your consideration.`}
-                        </pre>
-                      </div>
-                    )}
-                    <Button onClick={sendTrialRequest} disabled={sendingTrial || !trialExperience.trim()} className="w-full bg-primary text-primary-foreground gap-2">
-                      {sendingTrial ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      {sendingTrial ? t("commonPages.cdSending") : t("commonPages.cdSendTrialRequest")}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-        ) : null}
-
         {canEdit ? (
           <input
             id={logoInputId}
@@ -1081,7 +867,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             <ClubFeed club={club} currentUser={currentUser} myPlayer={myPlayer} isMember={isMember} />
           </TabsContent>
 
-          <TabsContent value="chat" className="px-4 pt-4">
+          {canSeeClubChat ? <TabsContent value="chat" className="px-4 pt-4">
             <div className="rounded-xl border border-white/10 bg-white/[0.02]">
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-primary" />
@@ -1145,7 +931,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 </Button>
               </div>
             </div>
-          </TabsContent>
+          </TabsContent> : null}
 
           {/* Squad */}
           <TabsContent value="squad" className="px-4 pt-4">

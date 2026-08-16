@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildPoolConfig } = require('../database');
+const { buildPoolConfig, resolveMysqlTimeZone, offsetForIanaTimeZone } = require('../database');
 
 test('database config uses Gandi socket when DB_SOCKET_PATH is set', () => {
   const config = buildPoolConfig({
@@ -45,4 +45,10 @@ test('database config rejects Gandi socket with PostgreSQL default user', () => 
     }),
     /DB_USER=hosting-db is a PostgreSQL-style default/
   );
+});
+
+test('database timezone defaults to Brussels and can be overridden', () => {
+  assert.equal(resolveMysqlTimeZone({}), 'Europe/Brussels');
+  assert.equal(resolveMysqlTimeZone({ DB_TIME_ZONE: 'Europe/Paris' }), 'Europe/Paris');
+  assert.match(offsetForIanaTimeZone('Europe/Brussels'), /^[+-]\d{2}:\d{2}$/);
 });

@@ -3,15 +3,22 @@ export function buildClubTabGroups({
   canOpenOperations = false,
   isOwner = false,
   showRequests = false,
+  showChat = false,
   limitedTournamentId = null,
 } = {}) {
   const groups = [
     { label: t("commonPages.profTab_posts"), tabs: ["posts"] },
     { label: t("nav.squad"), tabs: ["squad"] },
-    { label: t("commonPages.cdChat"), tabs: ["chat"] },
+  ];
+
+  if (showChat) {
+    groups.push({ label: t("commonPages.cdChat"), tabs: ["chat"] });
+  }
+
+  groups.push(
     { label: t("commonPages.profTab_trophies"), tabs: ["trophies"] },
     { label: t("commonPages.cdHistory"), tabs: ["history"] },
-  ];
+  );
 
   if (canOpenOperations) {
     groups.push({ label: t("commonPages.profOperations"), tabs: ["operations"] });

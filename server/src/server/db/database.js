@@ -2,12 +2,43 @@ const mysql = require('mysql2');
 const { get } = require('../../constants/env');
 const { isIsoDateString, toMysqlDateTime } = require('../utils/datetime');
 
+const DEFAULT_DB_TIME_ZONE = 'Europe/Brussels';
+
+function readEnv(env, key, fallback = '') {
+  if (Object.prototype.hasOwnProperty.call(env, key)) return env[key];
+  return get(key) ?? fallback;
+}
+
+/** Current UTC offset for an IANA zone, e.g. "+02:00" in Belgian summer time. */
+function offsetForIanaTimeZone(timeZone = DEFAULT_DB_TIME_ZONE) {
+  try {
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'longOffset',
+    }).format(new Date());
+    const match = formatted.match(/GMT([+-]\d{2}:\d{2})/);
+    if (match) return match[1];
+  } catch { /* ignore */ }
+  return '+01:00';
+}
+
+function resolveMysqlTimeZone(env = {}) {
+  const zone = String(readEnv(env, 'DB_TIME_ZONE', DEFAULT_DB_TIME_ZONE) || DEFAULT_DB_TIME_ZONE).trim();
+  return zone || DEFAULT_DB_TIME_ZONE;
+}
+
+function applyConnectionTimeZone(connection, env = {}) {
+  const zone = resolveMysqlTimeZone(env);
+  connection.query('SET time_zone = ?', [zone], (err) => {
+    if (!err) return;
+    // Gandi MySQL often lacks named TZ tables — fall back to the live offset.
+    connection.query('SET time_zone = ?', [offsetForIanaTimeZone(zone)], () => {});
+  });
+}
+
 function buildPoolConfig(env = {}) {
   console.log('buildPoolConfig', JSON.stringify(env, null, 2));
-  const read = (key, fallback = '') => {
-    if (Object.prototype.hasOwnProperty.call(env, key)) return env[key];
-    return get(key) ?? fallback;
-  };
+  const read = (key, fallback = '') => readEnv(env, key, fallback);
 
   const socketPath = String(read('DB_SOCKET_PATH')).trim();
   const user = read('DB_USER', 'root') || 'root';
@@ -44,6 +75,7 @@ function buildPoolConfig(env = {}) {
 }
 
 const pool = mysql.createPool(buildPoolConfig());
+pool.on('connection', (connection) => applyConnectionTimeZone(connection));
 
 // Coerce ISO 8601 datetime strings to MySQL DATETIME format inside the parameter
 // array of EXECUTESQL. This is done in the DB layer (and nowhere else) so every
@@ -101,4 +133,12 @@ async function withTransaction(fn) {
   }
 }
 
-module.exports = { EXECUTESQL, pool, withTransaction, buildPoolConfig };
+module.exports = {
+  EXECUTESQL,
+  pool,
+  withTransaction,
+  buildPoolConfig,
+  resolveMysqlTimeZone,
+  offsetForIanaTimeZone,
+  applyConnectionTimeZone,
+};
