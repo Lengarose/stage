@@ -12,6 +12,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
   const contractRulesServicePath = path.resolve(__dirname, '../../services/contractRulesService.js');
   const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
+  const playerLoanServicePath = path.resolve(__dirname, '../../services/playerLoanService.js');
   const clubFinanceServicePath = path.resolve(__dirname, '../../services/clubFinanceService.js');
   const clubMembershipServicePath = path.resolve(__dirname, '../../services/clubMembershipService.js');
   const presidentResolutionServicePath = path.resolve(__dirname, '../../services/presidentResolutionService.js');
@@ -28,6 +29,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[messageDeliveryServicePath];
   delete require.cache[contractRulesServicePath];
   delete require.cache[transferWindowServicePath];
+  delete require.cache[playerLoanServicePath];
   delete require.cache[clubFinanceServicePath];
   delete require.cache[clubMembershipServicePath];
   delete require.cache[presidentResolutionServicePath];
@@ -2067,6 +2069,9 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
     }
     if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE status = 'pending_window'/.test(sql)) {
       return [pendingContract];
+    }
+    if (/FROM player_loans/.test(sql) && /PENDING_WINDOW/.test(sql)) {
+      return [];
     }
     if (/UPDATE transfer_windows SET transfers_executed/.test(sql)) {
       queries.push({ sql, params });

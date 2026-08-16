@@ -1,4 +1,5 @@
 const { EXECUTESQL } = require('../db/database');
+const { getClubLoanWageDelta } = require('./playerLoanService');
 
 const STARTER_CLUB_FINANCE = Object.freeze({
   balance_stc: 2_500_000,
@@ -81,8 +82,9 @@ async function getClubFinanceUsage(clubId, query = EXECUTESQL, options = {}) {
     [clubId, excluded, excluded]
   );
   const usage = contractRows[0] || {};
+  const loanDelta = await getClubLoanWageDelta(clubId, { query }).catch(() => ({ active_weekly_delta: 0 }));
   const tier = getStadiumFinanceTier(club.stadium_level);
-  const activeWeeklyWages = numberOrZero(usage.active_wages);
+  const activeWeeklyWages = numberOrZero(usage.active_wages) + numberOrZero(loanDelta.active_weekly_delta);
   const pendingWeeklyWages = numberOrZero(usage.pending_wages);
   const transferLockedStc = numberOrZero(usage.pending_transfer_fees);
   const wageCap = numberOrZero(club.wage_budget_stc);

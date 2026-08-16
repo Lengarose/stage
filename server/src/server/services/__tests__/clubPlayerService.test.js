@@ -4,9 +4,11 @@ const test = require('node:test');
 
 function loadServiceWithDbMock(executesql) {
   const servicePath = path.resolve(__dirname, '../clubPlayerService.js');
+  const loanServicePath = path.resolve(__dirname, '../playerLoanService.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
 
   delete require.cache[servicePath];
+  delete require.cache[loanServicePath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
@@ -37,6 +39,30 @@ test('listActiveClubPlayers reads active memberships as well as legacy player cl
   assert.match(calls[0].sql, /cm\.club_id = \?/);
   assert.match(calls[0].sql, /OR p\.club_id = \?/);
   assert.deepEqual(calls[0].params, ['club-1', 'club-1', 11]);
+});
+
+test('listActiveClubPlayers annotates loanees from the player-loan module', async () => {
+  const executesql = async (sql) => {
+    if (/LEFT JOIN club_memberships/.test(sql)) return [{ id: 'owner-player', club_id: 'club-1' }];
+    if (/FROM player_loans/.test(sql)) {
+      return [{
+        player_id: 'loanee-1',
+        parent_club_id: 'club-a',
+        loan_club_id: 'club-1',
+        status: 'ACTIVE',
+        end_date: '2027-06-30',
+        weekly_salary_stc: 10000,
+      }];
+    }
+    if (/FROM players WHERE id IN/.test(sql)) return [{ id: 'loanee-1', gamertag: 'Loanee' }];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const { listActiveClubPlayers } = loadServiceWithDbMock(executesql);
+
+  const players = await listActiveClubPlayers('club-1');
+  const loanee = players.find((player) => player.id === 'loanee-1');
+  assert.equal(loanee.loan_badge, 'LOAN');
+  assert.equal(loanee.selectable, true);
 });
 
 test('listActiveClubPlayerEmails returns distinct emails for membership and legacy links', async () => {

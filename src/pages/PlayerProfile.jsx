@@ -27,6 +27,7 @@ import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { canShowContractOfferButton, canShowLoanRequestButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
+import { getPlayingClubId } from "@/lib/playerLoanDisplay";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
@@ -72,6 +73,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [viewerClub, setViewerClub] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
+  const [activeLoan, setActiveLoan] = useState(null);
+  const [ownerClub, setOwnerClub] = useState(null);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
   const visibleClubRole = getVisibleFootballRole(player);
@@ -112,6 +115,10 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           const LIVE = ["active", "pending", "pending_window", "negotiating"];
           const liveContracts = safeContracts.filter(c => LIVE.includes(c.status));
           const signedClubId = getSignedClubIdForPlayer(p, safeContracts);
+          const loanRows = await stageClient.entities.PlayerLoan.filter({ player_id: p.id, status: "ACTIVE" }).catch(() => []);
+          const liveLoan = (Array.isArray(loanRows) ? loanRows : []).find((row) => String(row.status || "").toUpperCase() === "ACTIVE") || null;
+          setActiveLoan(liveLoan);
+          const playingClubId = getPlayingClubId(p, liveLoan ? [liveLoan] : []) || signedClubId;
           setPlayerContracts(liveContracts);
           setActiveContract(safeContracts.find(c => c.status === "active") || null);
           const presidentClubRows = await stageClient.entities.Club
@@ -120,16 +127,20 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           const presidentClub = asObject(asObjectArray(presidentClubRows)[0]);
           setPresidedClub(presidentClub);
 
-          if (signedClubId) {
-            const [clubsRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
-              stageClient.entities.Club.get(signedClubId)
+          if (playingClubId) {
+            const [clubsRaw, ownerRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
+              stageClient.entities.Club.get(playingClubId)
                 .then((clubRecord) => clubRecord ? [clubRecord] : [])
-                .catch(() => stageClient.entities.Club.filter({ id: signedClubId }).catch(() => [])),
-              stageClient.profileMatches.list({ home_club_id: signedClubId, status: "scheduled" }, "round", 20).catch(() => []),
-              stageClient.profileMatches.list({ away_club_id: signedClubId, status: "scheduled" }, "round", 20).catch(() => []),
+                .catch(() => stageClient.entities.Club.filter({ id: playingClubId }).catch(() => [])),
+              liveLoan?.parent_club_id
+                ? stageClient.entities.Club.get(liveLoan.parent_club_id).catch(() => null)
+                : Promise.resolve(null),
+              stageClient.profileMatches.list({ home_club_id: playingClubId, status: "scheduled" }, "round", 20).catch(() => []),
+              stageClient.profileMatches.list({ away_club_id: playingClubId, status: "scheduled" }, "round", 20).catch(() => []),
             ]);
             const clubs = asObjectArray(clubsRaw);
             if (clubs.length > 0) setClub(clubs[0]);
+            setOwnerClub(asObject(ownerRaw));
             setUpcomingMatches(asObjectArray([...asObjectArray(tmHomeRaw), ...asObjectArray(tmAwayRaw)]));
           } else {
             setClub(presidentClub);
@@ -357,6 +368,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           </>
         )}
       >
+        {activeLoan ? (
+          <p className="text-xs text-amber-200/80">
+            {t("commonPages.onLoanFrom") || "On loan from"} {ownerClub?.name || activeLoan.parent_club_name || "parent club"}
+            {activeLoan.end_date ? ` ${t("commonPages.until") || "until"} ${activeLoan.end_date}` : ""}
+          </p>
+        ) : null}
         {activeContract ? (() => {
           const progress = getContractProgress(activeContract);
           return (

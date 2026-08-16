@@ -92,6 +92,8 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
     notes: "",
   });
 
+  const lineupPlayers = (players || []).filter((player) => player.selectable !== false);
+
   const myClubRoles = normalizeList(myPlayer?.club_roles);
   const isAdmin = isAdminUser(currentUser);
   const isOwner = isAdmin || isClubPresidentForUser({ user: currentUser, club });
@@ -533,12 +535,12 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
                 </select>
               </div>
               <div className="grid md:grid-cols-2 gap-3">
-                <LineupPickList title={t("commonPages.coopStartingXi")} players={players} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
-                <LineupPickList title={t("commonPages.coopBench")} players={players} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
+                <LineupPickList title={t("commonPages.coopStartingXi")} players={lineupPlayers} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
+                <LineupPickList title={t("commonPages.coopBench")} players={lineupPlayers} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
               </div>
               <select value={lineupForm.captain_player_id} onChange={(e) => setLineupForm((prev) => ({ ...prev, captain_player_id: e.target.value }))} className="w-full rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
                 <option value="">{t("commonPages.coopSelectCaptain")}</option>
-                {players.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
+                {lineupPlayers.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
               </select>
               <Textarea value={lineupForm.notes} onChange={(e) => setLineupForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder={t("commonPages.coopLineupNotesPlaceholder")} className="bg-white/5 border-white/10" />
               <div className="flex gap-2">

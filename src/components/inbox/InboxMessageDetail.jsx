@@ -234,10 +234,11 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             }}
           />
         )}
-        {message.message_type === "loan_proposal" && effectiveActionType === "loan_parent_response" && (
+        {message.message_type === "loan_proposal" && (effectiveActionType === "loan_parent_response" || effectiveActionType === "loan_player_response") && (
           <InboxLoanProposal
             message={message}
             onActioned={(action) => {
+              if (action === "accept") onStatusChanged?.(message.id, "accepted");
               if (action === "reject") onStatusChanged?.(message.id, "declined");
             }}
           />

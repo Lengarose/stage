@@ -15,6 +15,7 @@ const {
   writeClubAudit,
 } = require('../services/clubOperationsService');
 const { upsertActiveMembership } = require('../services/clubMembershipService');
+const { assertLineupEligibleForClub } = require('../services/playerLoanService');
 const { extractPresidentProfileFromClubBody } = require('./presidentController');
 const {
   STARTER_CLUB_FINANCE,
@@ -596,6 +597,7 @@ router.post('/:id/lineups/:fixtureId/publish', async (req, res) => {
     const rows = await new ClubFixtureLineup().selectAll({ club_id: id, fixture_id: fixtureId, limit: 1 });
     if (!rows.length) return res.status(404).json({ error: 'Lineup not found' });
     const existing = rows[0];
+    await assertLineupEligibleForClub(id, existing);
     await new ClubFixtureLineup({ ...existing, status: 'published', created_by_user_id: existing.created_by_user_id || user.id }).update(existing.id);
     const updated = (await new ClubFixtureLineup().selectOne(existing.id))[0];
     await writeClubAudit({ clubId: id, user, action: 'lineup_published', entityType: 'club_fixture_lineup', entityId: existing.id, oldValue: existing, newValue: updated });

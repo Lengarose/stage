@@ -30,6 +30,7 @@ import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
+import { applyLoanAnnotations, splitSquadByLoan } from "@/lib/playerLoanDisplay";
 import { getClubPresidentContactEmail, isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { useNavigate } from "react-router-dom";
@@ -261,6 +262,22 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             id
           );
         }
+
+        const [incomingLoans, outgoingLoans] = await Promise.all([
+          stageClient.entities.PlayerLoan.filter({ loan_club_id: id, status: "ACTIVE" }).catch(() => []),
+          stageClient.entities.PlayerLoan.filter({ parent_club_id: id, status: "ACTIVE" }).catch(() => []),
+        ]);
+        const loans = [...asObjectArray(incomingLoans), ...asObjectArray(outgoingLoans)];
+        const loanPlayerIds = [...new Set(loans.map((loan) => loan.player_id).filter(Boolean))];
+        const presentIds = new Set(playerData.map((player) => player.id));
+        const missingLoanIds = loanPlayerIds.filter((playerId) => !presentIds.has(playerId));
+        if (missingLoanIds.length) {
+          const extraPlayers = await Promise.all(
+            missingLoanIds.map((playerId) => stageClient.entities.Player.get(playerId).catch(() => null))
+          );
+          playerData = [...playerData, ...asObjectArray(extraPlayers)];
+        }
+        playerData = applyLoanAnnotations(playerData, loans, id);
 
         const [matchesHomeRaw, matchesAwayRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
           stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30).catch(() => []),
@@ -613,6 +630,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }
 
   const safePlayers = asObjectArray(players);
+  const { selectable: selectablePlayers, onLoan: onLoanPlayers } = splitSquadByLoan(safePlayers);
   const safeMatches = asObjectArray(matches);
   const safeTournamentMatches = asObjectArray(tournamentMatches);
   const safeJoinRequests = asObjectArray(joinRequests);
@@ -969,17 +987,36 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
                 <p className="text-white/40 text-sm">{t("commonPages.cdNoPlayers")}</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {safePlayers.map(p => (
-                  <PlayerCard
-                    key={p.id}
-                    player={p}
-                    currentUser={currentUser}
-                    myPlayer={myPlayer}
-                    isPresident={isPresident}
-                    onAssignRole={assignRole}
-                  />
-                ))}
+              <div className="space-y-6">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {selectablePlayers.map(p => (
+                    <PlayerCard
+                      key={p.id}
+                      player={p}
+                      currentUser={currentUser}
+                      myPlayer={myPlayer}
+                      isPresident={isPresident}
+                      onAssignRole={assignRole}
+                    />
+                  ))}
+                </div>
+                {onLoanPlayers.length ? (
+                  <div className="space-y-3">
+                    <p className="text-xs uppercase tracking-wider text-white/40">{t("commonPages.onLoan") || "On loan"}</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {onLoanPlayers.map(p => (
+                        <PlayerCard
+                          key={p.id}
+                          player={p}
+                          currentUser={currentUser}
+                          myPlayer={myPlayer}
+                          isPresident={isPresident}
+                          onAssignRole={assignRole}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </TabsContent>
@@ -1193,6 +1230,15 @@ function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPre
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-white truncate">{player.gamertag}</p>
+          {player.loan_badge === "LOAN" ? (
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">LOAN</p>
+          ) : null}
+          {player.loan_status === "loaned_out" ? (
+            <p className="text-[10px] text-white/45">
+              {t("commonPages.onLoanAt") || "On loan at"} {player.on_loan_club_name || player.on_loan_club_id}
+              {player.loan_end_date ? ` · ${player.loan_end_date}` : ""}
+            </p>
+          ) : null}
           <div className="mt-1 flex items-center gap-2">
             <span
               className={cn(

@@ -8,12 +8,12 @@ Activation debits Club B and credits Club A for the loan fee on the existing STC
 
 **Blocked by:** 01 — Request and refuse a loan
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Parent accept → `AWAITING_PLAYER` and a player inbox offer naming both clubs, dates, fee, and wage split
-- [ ] Player reject → `REJECTED`; player accept + open window → `ACTIVE`
-- [ ] Player accept + closed window → `PENDING_WINDOW`; execute-pending then activates
-- [ ] On `ACTIVE`: parent contract still `active`, `club_id` still the owner club, membership/president unchanged
-- [ ] Loan fee settles Club B → Club A with ledger rows; insufficient STC rolls back completely (`LOAN_INSUFFICIENT_STC`)
-- [ ] Wrong actor cannot accept/reject (`LOAN_NOT_PARENT` / `LOAN_NOT_BORROWER` / `LOAN_NOT_PLAYER`)
-- [ ] Pre-activation cancel → `CANCELLED` with no registration change
+- [x] Parent accept → `AWAITING_PLAYER` and a player inbox offer naming both clubs, dates, fee, and wage split
+- [x] Player reject → `REJECTED`; player accept + open window → `ACTIVE`
+- [x] Player accept + closed window → `PENDING_WINDOW`; execute-pending then activates
+- [x] On `ACTIVE`: parent contract still `active`, `club_id` still the owner club, membership/president unchanged
+- [x] Loan fee settles Club B → Club A with ledger rows; insufficient STC rolls back completely (`LOAN_INSUFFICIENT_STC`)
+- [x] Wrong actor cannot accept/reject (`LOAN_NOT_PARENT` / `LOAN_NOT_BORROWER` / `LOAN_NOT_PLAYER`)
+- [x] Pre-activation cancel → `CANCELLED` with no registration change

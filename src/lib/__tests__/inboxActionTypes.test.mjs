@@ -7,6 +7,10 @@ test("legacy actionable inbox messages recover their action type from message_ty
   assert.equal(getEffectiveInboxActionType({ message_type: "contract_offer" }), "contract_negotiation");
   assert.equal(getEffectiveInboxActionType({ message_type: "trial_request" }), "trial_response");
   assert.equal(getEffectiveInboxActionType({ message_type: "loan_proposal" }), "loan_parent_response");
+  assert.equal(getEffectiveInboxActionType({
+    message_type: "loan_proposal",
+    action_type: "loan_player_response",
+  }), "loan_player_response");
   assert.equal(getEffectiveInboxActionType({ message_type: "general" }), "none");
 });
 

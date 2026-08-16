@@ -524,11 +524,72 @@ async function deliverLoanProposal(loan) {
   return delivery;
 }
 
+async function deliverPlayerLoanOffer(loan) {
+  if (!loan?.id || !loan.player_id) return;
+  const players = await EXECUTESQL(
+    'SELECT gamertag, email FROM players WHERE id = ? LIMIT 1',
+    [loan.player_id]
+  ).catch(() => []);
+  const recipientEmail = String(players[0]?.email || '').trim().toLowerCase();
+  if (!recipientEmail) return;
+
+  const parentClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.parent_club_id]).catch(() => []);
+  const loanClubs = await EXECUTESQL('SELECT name, logo_url, owner_email FROM clubs WHERE id = ? LIMIT 1', [loan.loan_club_id]).catch(() => []);
+  const playerName = players[0]?.gamertag || 'Player';
+  const parentClub = parentClubs[0] || {};
+  const loanClub = loanClubs[0] || {};
+  const parentName = parentClub.name || 'Parent club';
+  const loanClubName = loanClub.name || 'Loan club';
+  const fee = Number(loan.loan_fee_stc || 0).toLocaleString();
+  const subject = `Loan offer from ${loanClubName}`;
+  const body = [
+    `${loanClubName} and ${parentName} have agreed a loan for you.`,
+    '',
+    `From: ${parentName}`,
+    `To: ${loanClubName}`,
+    `Duration: ${loan.start_date || '—'} → ${loan.end_date || '—'}`,
+    `Loan fee: ${fee} STC`,
+    `Wage split: ${parentName} ${Number(loan.parent_wage_percentage || 0)}% / ${loanClubName} ${Number(loan.loan_wage_percentage || 0)}%`,
+    '',
+    'Accept or reject this loan from your inbox.',
+  ].join('\n');
+
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: loanClub.owner_email || parentClub.owner_email || 'system@stage.com',
+    senderGamertag: loanClubName,
+    senderAvatarUrl: loanClub.logo_url || '',
+    senderClubName: loanClubName,
+    subject,
+    body,
+    messageType: 'loan_proposal',
+    actionType: 'loan_player_response',
+    relatedEntityId: loan.id,
+    relatedEntityType: 'player_loan',
+    idempotencyKey: `loan_player_offer:player_loan:${loan.id}:${recipientEmail}`,
+    notification: {
+      type: 'loan_offer',
+      title: subject,
+      body: `${loanClubName} and ${parentName} have agreed a loan for you.`,
+    },
+    metadata: {
+      loan_id: loan.id,
+      player_id: loan.player_id,
+      parent_club_id: loan.parent_club_id,
+      loan_club_id: loan.loan_club_id,
+      player_name: playerName,
+      parent_club_name: parentName,
+      loan_club_name: loanClubName,
+    },
+  });
+}
+
 module.exports = {
   buildContractOfferIdempotencyKey,
   createNotificationIfEnabled,
   deliverContractOfferMessage,
   deliverLoanProposal,
+  deliverPlayerLoanOffer,
   messageTypeToNotificationType,
   resolveContractOfferRecipient,
   sendActionMessage,

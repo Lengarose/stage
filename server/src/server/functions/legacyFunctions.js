@@ -5925,6 +5925,24 @@ const HANDLERS = {
       let paid = 0; let failed = 0;
       for (const contract of overdue) {
         try {
+          const { getActiveLoanForPlayer, paySplitWeeklySalary } = require('../services/playerLoanService');
+          const activeLoan = await getActiveLoanForPlayer(contract.user_id).catch(() => null);
+          if (activeLoan) {
+            const salary = Number(contract.weekly_salary_stc);
+            const lastPaid  = contract.last_salary_paid_at || contract.start_date || contract.created_date;
+            const weeksMult = lastPaid
+              ? Math.max(1, Math.floor((Date.now() - new Date(lastPaid).getTime()) / (7 * 24 * 60 * 60 * 1000)))
+              : 1;
+            const split = await paySplitWeeklySalary({
+              contract,
+              weeklySalary: salary * weeksMult,
+              loan: activeLoan,
+            });
+            if (split.player_received <= 0) { failed++; continue; }
+            await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = NOW(), updated_date = NOW() WHERE id = ?', [contract.id]);
+            paid++;
+            continue;
+          }
           const salary    = Number(contract.weekly_salary_stc);
           const lastPaid  = contract.last_salary_paid_at || contract.start_date || contract.created_date;
           const weeksMult = lastPaid
@@ -6091,6 +6109,16 @@ const HANDLERS = {
           errors.push({ contract_id: c.id, error: err.message });
         }
       }
+      try {
+        const { activatePendingWindowLoans } = require('../services/playerLoanService');
+        const loanResult = await activatePendingWindowLoans();
+        executed += Number(loanResult?.activated || 0);
+        for (const error of loanResult?.errors || []) {
+          errors.push({ loan_id: error.loan_id, error: error.error, code: error.code });
+        }
+      } catch (err) {
+        errors.push({ loans: true, error: err.message });
+      }
       if (current?.id) {
         await EXECUTESQL(
           'UPDATE transfer_windows SET transfers_executed = transfers_executed + ?, updated_date = NOW() WHERE id = ?',
@@ -6132,6 +6160,19 @@ const HANDLERS = {
         const gross = Number(contract.weekly_salary_stc || 0) * weeksSincePaid;
         if (gross <= 0) continue;
 
+        const { getActiveLoanForPlayer, paySplitWeeklySalary } = require('../services/playerLoanService');
+        const activeLoan = await getActiveLoanForPlayer(contract.user_id).catch(() => null);
+        if (activeLoan) {
+          const split = await paySplitWeeklySalary({
+            contract,
+            weeklySalary: gross,
+            loan: activeLoan,
+          });
+          if (split.player_received <= 0) continue;
+          await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = ?, updated_date = NOW() WHERE id = ?', [toMysqlDateTime(now), contract.id]);
+          paid.push({ player: contract.user_id, amount: split.player_received, weeks: weeksSincePaid, loan: true });
+          continue;
+        }
         const [playerRows, clubRows] = await Promise.all([
           EXECUTESQL('SELECT id, email, gamertag, stc FROM players WHERE id = ? LIMIT 1', [contract.user_id]),
           EXECUTESQL('SELECT id, name, stc FROM clubs WHERE id = ? LIMIT 1', [contract.team_id]),

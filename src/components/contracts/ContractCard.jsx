@@ -21,7 +21,7 @@ function isEnabled(value) {
   return value === true || value === 1 || value === "1";
 }
 
-export default function ContractCard({ contract: rawContract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onCancel, onRenew, onNegotiate, dualContract = false }) {
+export default function ContractCard({ contract: rawContract, player, canManage, isMyContract, onAccept, onReject, onTerminate, onCancel, onRenew, onNegotiate, dualContract = false, loan = null }) {
   const contract = normalizePlayerContract(rawContract);
   if (!contract) return null;
   const contractType = getContractType(contract);
@@ -94,6 +94,11 @@ export default function ContractCard({ contract: rawContract, player, canManage,
                 <Building2 className="w-2.5 h-2.5" /> Dual Contract
               </span>
             )}
+            {loan ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-amber-500/15 text-amber-300 border-amber-500/30 uppercase tracking-wider">
+                Loan
+              </span>
+            ) : null}
           </div>
 
           <p className="text-xs text-muted-foreground mt-0.5">

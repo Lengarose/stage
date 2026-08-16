@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const ClubFixtureLineup = require('../models/clubFixtureLineupModel');
 const { requireClubPermission, writeClubAudit, parseJson } = require('../services/clubOperationsService');
+const { assertLineupEligibleForClub } = require('../services/playerLoanService');
 
 const STATUSES = new Set(['draft', 'published']);
 
 function handleError(res, err) {
-  res.status(err.status || 500).json({ error: err.message });
+  res.status(err.status || 500).json({ error: err.message, code: err.code || null });
 }
 
 function normalize(row) {
@@ -47,6 +48,7 @@ router.post('/', async (req, res) => {
   try {
     const { user } = await requireClubPermission(req, req.body?.club_id, 'manage_lineup');
     if (!STATUSES.has(req.body?.status || 'draft')) return res.status(400).json({ error: 'Invalid status' });
+    await assertLineupEligibleForClub(req.body?.club_id, req.body);
     const model = new ClubFixtureLineup({ ...req.body, status: req.body?.status || 'draft', created_by_user_id: user.id });
     await model.create();
     const created = await loadLineup(model.id);
@@ -63,6 +65,7 @@ router.patch('/:id', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const { user } = await requireClubPermission(req, existing.club_id, 'manage_lineup');
     const body = { ...existing, ...req.body, created_by_user_id: existing.created_by_user_id || user.id };
+    await assertLineupEligibleForClub(existing.club_id, body);
     if (!STATUSES.has(body.status)) return res.status(400).json({ error: 'Invalid status' });
     await new ClubFixtureLineup(body).update(existing.id);
     const updated = await loadLineup(existing.id);

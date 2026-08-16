@@ -1,11 +1,26 @@
 const { EXECUTESQL } = require('../db/database');
+const { getSquadLoanView } = require('./playerLoanService');
 
 const DEFAULT_ORDER = 'FIELD(p.position, "ST","LW","RW","CAM","CM","CDM","CB","LB","RB","GK"), p.gamertag';
+
+async function annotateClubPlayers(clubId, players) {
+  const view = await getSquadLoanView(clubId).catch(() => ({ incoming_player_ids: [], annotations: {} }));
+  const byId = new Map((players || []).map((player) => [player.id, { ...player, ...(view.annotations[player.id] || { selectable: true }) }]));
+  const missingIds = (view.incoming_player_ids || []).filter((id) => !byId.has(id));
+  if (missingIds.length) {
+    const placeholders = missingIds.map(() => '?').join(',');
+    const extras = await EXECUTESQL(`SELECT * FROM players WHERE id IN (${placeholders})`, missingIds).catch(() => []);
+    for (const player of extras) {
+      byId.set(player.id, { ...player, ...(view.annotations[player.id] || {}) });
+    }
+  }
+  return [...byId.values()];
+}
 
 async function listActiveClubPlayers(clubId, { limit = 300, columns = 'p.*' } = {}) {
   if (!clubId) return [];
   const cappedLimit = Math.min(Number(limit) || 300, 500);
-  return EXECUTESQL(
+  const rows = await EXECUTESQL(
     `SELECT DISTINCT ${columns}
        FROM players p
        LEFT JOIN club_memberships cm
@@ -26,6 +41,7 @@ async function listActiveClubPlayers(clubId, { limit = 300, columns = 'p.*' } = 
       [clubId, cappedLimit]
     ).catch(() => [])
   ));
+  return annotateClubPlayers(clubId, rows);
 }
 
 async function listActiveClubPlayerEmails(clubIds) {
