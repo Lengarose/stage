@@ -292,6 +292,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
     player,
     viewerClub,
     playerContracts,
+    loans: activeLoan ? [activeLoan] : [],
     limitedTournamentId,
   });
 

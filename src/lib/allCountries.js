@@ -1,4 +1,5 @@
 import iso3166 from './iso3166-all.json';
+export { flagImageUrl } from './flagImages.js';
 
 /** ISO alpha-2 → regional indicator flag emoji (e.g. BE → 🇧🇪). */
 export function countryCodeToFlag(code) {

@@ -7,7 +7,7 @@ export default function TransferWindowBanner({ window: currentWindow }) {
 
   return (
     <div className={cn(
-      "border p-4 flex items-center gap-4",
+      "flex items-center gap-3 border p-3",
       isOpen
         ? "bg-[#0b1c13] border-[#7cff6b]/30"
         : "bg-black/40 border-white/10"

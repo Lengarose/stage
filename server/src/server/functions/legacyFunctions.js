@@ -460,6 +460,12 @@ function getNotificationSettingKey(type) {
 async function releasePlayerFromClubIfUnassigned({ playerId, clubId, query = null }) {
   if (!playerId || !clubId) return { skipped: true };
   const run = query || EXECUTESQL;
+  // A live loan holds the player at their parent club even once the contract
+  // that created the loan has expired — otherwise a contract completing on
+  // max_games (or a mandatory loan retrying past its end date) would turn a
+  // player who is currently out on loan into a free agent mid-loan.
+  const { LIVE_LOAN_STATUSES } = require('../services/playerLoanService');
+  const liveLoanPlaceholders = LIVE_LOAN_STATUSES.map(() => '?').join(',');
   await run(
     `UPDATE players p
        LEFT JOIN player_contracts active_pc
@@ -477,8 +483,13 @@ async function releasePlayerFromClubIfUnassigned({ playerId, clubId, query = nul
       WHERE p.id = ?
         AND p.club_id = ?
         AND active_pc.id IS NULL
-        AND csr.id IS NULL`,
-    [clubId, clubId, playerId, clubId]
+        AND csr.id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM player_loans pl
+           WHERE pl.player_id = p.id
+             AND pl.status IN (${liveLoanPlaceholders})
+        )`,
+    [clubId, clubId, playerId, clubId, ...LIVE_LOAN_STATUSES]
   );
   await run(
     `UPDATE club_memberships cm
@@ -495,8 +506,13 @@ async function releasePlayerFromClubIfUnassigned({ playerId, clubId, query = nul
         AND cm.club_id = ?
         AND cm.status = 'active'
         AND active_pc.id IS NULL
-        AND csr.id IS NULL`,
-    [playerId, clubId]
+        AND csr.id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM player_loans pl
+           WHERE pl.player_id = cm.player_id
+             AND pl.status IN (${liveLoanPlaceholders})
+        )`,
+    [playerId, clubId, ...LIVE_LOAN_STATUSES]
   );
   return { success: true };
 }
@@ -926,13 +942,63 @@ async function applySoloPlayerRecord(playerId, result) {
   ).catch(() => {});
 }
 
+// Drops match stat rows that attribute a player to a club they cannot play
+// for. A player out on loan plays for the borrower; the owner cannot record
+// them. Rows without a player_id or club_id, and players the loan module does
+// not know, are left alone.
+async function filterEligibleMatchStats(stats) {
+  const list = Array.isArray(stats) ? stats : [];
+  const playerIds = list.map((stat) => stat?.player_id).filter(Boolean);
+  if (!playerIds.length) return { playerStats: list, rejectedStats: [] };
+
+  let registrations;
+  try {
+    const { getPlayingClubIds } = require('../services/playerLoanService');
+    registrations = await getPlayingClubIds(playerIds);
+  } catch (err) {
+    console.warn('[processMatchCompletion] eligibility lookup failed:', err?.message || err);
+    return { playerStats: list, rejectedStats: [] };
+  }
+
+  const playerStats = [];
+  const rejectedStats = [];
+  for (const stat of list) {
+    const playerId = stat?.player_id ? String(stat.player_id) : '';
+    const clubId = stat?.club_id ? String(stat.club_id) : '';
+    const registration = playerId ? registrations.get(playerId) : null;
+    if (!playerId || !clubId || !registration || !registration.playing_club_id) {
+      playerStats.push(stat);
+      continue;
+    }
+    if (registration.playing_club_id === clubId) {
+      playerStats.push(stat);
+      continue;
+    }
+    rejectedStats.push({
+      player_id: playerId,
+      submitted_club_id: clubId,
+      playing_club_id: registration.playing_club_id,
+      loan_id: registration.loan_id || null,
+    });
+  }
+  if (rejectedStats.length) {
+    console.warn('[processMatchCompletion] dropped ineligible player stats:', JSON.stringify(rejectedStats));
+  }
+  return { playerStats, rejectedStats };
+}
+
 async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
   const awayScore = Number(acceptedSubmission.away_score || 0);
   const primaryStats = Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : [];
   const secondaryStats = Array.isArray(secondarySubmission?.player_stats) ? secondarySubmission.player_stats : [];
-  const playerStats = [...primaryStats, ...secondaryStats];
+  const submittedStats = [...primaryStats, ...secondaryStats];
+  // Eligibility is enforced on the recorded result, not only on the planned
+  // lineup: a loaned-out player must not be reported as having played for the
+  // club that owns them. Ineligible rows are dropped and reported rather than
+  // failing the whole result submission.
+  const { playerStats, rejectedStats } = await filterEligibleMatchStats(submittedStats);
   const primaryGoals = Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : [];
   const secondaryGoals = Array.isArray(secondarySubmission?.goal_events) ? secondarySubmission.goal_events : [];
   const goalEvents = [...primaryGoals, ...secondaryGoals];
@@ -1150,7 +1216,12 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   await notifyMatchSide(completedForSourceSync, 'away', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
 
   await broadcastMatchById(matchId);
-  return { data: { status: 'completed' } };
+  return {
+    data: {
+      status: 'completed',
+      ...(rejectedStats.length ? { rejected_player_stats: rejectedStats } : {}),
+    },
+  };
 }
 
 async function ensureIdentityClaimsTable() {
@@ -3451,14 +3522,23 @@ const HANDLERS = {
       Math.random() > 0.5 ? homeScore++ : awayScore++;
     }
 
-    const [homePlayers, awayPlayers] = await Promise.all([
+    // Load the full squad, then drop players who are not selectable for this
+    // club (loaned out) and only then take an XI. Slicing to 11 in SQL would
+    // spend slots on loaned-out players and cut off the loaned-in ones, which
+    // are appended by the loan annotation after the query.
+    const selectableXI = (players) => (players || [])
+      .filter((player) => player.selectable !== false)
+      .slice(0, 11);
+    const [homeSquad, awaySquad] = await Promise.all([
       match.home_club_id
-        ? listActiveClubPlayers(match.home_club_id, { limit: 11 })
+        ? listActiveClubPlayers(match.home_club_id)
         : Promise.resolve([]),
       match.away_club_id
-        ? listActiveClubPlayers(match.away_club_id, { limit: 11 })
+        ? listActiveClubPlayers(match.away_club_id)
         : Promise.resolve([]),
     ]);
+    const homePlayers = selectableXI(homeSquad);
+    const awayPlayers = selectableXI(awaySquad);
     const simulatedStats = buildSimulatedPlayerStats(homePlayers, awayPlayers, match, homeScore, awayScore);
 
     const result = await processMatchCompletion(match, {
@@ -5427,11 +5507,31 @@ const HANDLERS = {
       expiring_players.push({ player: playerRows[0], contract: c, days_left });
     }
 
+    // The market has to be able to say a player is already out on loan —
+    // otherwise the Request Loan button is offered for a player who will be
+    // rejected with LOAN_ALREADY_LIVE only after the request is submitted.
+    let loaned_player_ids = [];
+    let live_loans = [];
+    try {
+      const loanRows = await EXECUTESQL(
+        `SELECT id, player_id, parent_club_id, loan_club_id, status, end_date, purchase_type
+           FROM player_loans
+          WHERE status IN ('PROPOSED','AWAITING_PLAYER','PENDING_WINDOW','ACTIVE')`,
+        []
+      );
+      live_loans = loanRows;
+      loaned_player_ids = [...new Set(loanRows.map((row) => String(row.player_id)))];
+    } catch (err) {
+      console.warn('[getTransferMarket] loan annotation failed:', err?.message || err);
+    }
+
     return {
       data: {
         free_agents,
         expiring_players,
         current_window: currentWindow,
+        loaned_player_ids,
+        live_loans,
       },
     };
   },
@@ -5868,6 +5968,22 @@ const HANDLERS = {
 
     // ── expire_overdue ───────────────────────────────────────────────────────
     if (action === 'expire_overdue') {
+      // Loans settle BEFORE contracts expire. A live loan now blocks the
+      // release, so the loan must be given the chance to end (or convert) in
+      // the same run — otherwise a player whose loan ended today would stay
+      // attached to a club whose contract expired today until the next run.
+      let loansCompleted = 0;
+      let loansPurchased = 0;
+      let loansRetried = 0;
+      try {
+        const { completeDueLoans } = require('../services/playerLoanService');
+        const loanResult = await completeDueLoans();
+        loansCompleted = Number(loanResult?.completed || 0);
+        loansPurchased = Number(loanResult?.purchased || 0);
+        loansRetried = Number(loanResult?.retried || 0);
+      } catch (err) {
+        console.warn('[contractManagement] completeDueLoans failed:', err?.message || err);
+      }
       const result = await withTransaction(async (query) => {
         const activeContracts = await query(
           `SELECT *, user_id AS target_player_id
@@ -5912,20 +6028,14 @@ const HANDLERS = {
         }
         return { expiredCount, completedCount };
       });
-      let loansCompleted = 0;
-      try {
-        const { completeDueLoans } = require('../services/playerLoanService');
-        const loanResult = await completeDueLoans();
-        loansCompleted = Number(loanResult?.completed || 0);
-      } catch (err) {
-        console.warn('[contractManagement] completeDueLoans failed:', err?.message || err);
-      }
       return {
         success: true,
         data: {
           expired_count: result.expiredCount || 0,
           completed_count: result.completedCount || 0,
           loans_completed: loansCompleted,
+          loans_purchased: loansPurchased,
+          loans_purchase_retried: loansRetried,
         },
       };
     }
@@ -5946,7 +6056,9 @@ const HANDLERS = {
       for (const contract of overdue) {
         try {
           const { getActiveLoanForPlayer, paySplitWeeklySalary } = require('../services/playerLoanService');
-          const activeLoan = await getActiveLoanForPlayer(contract.user_id).catch(() => null);
+          // Deliberately not caught: a failed loan lookup must not fall through
+        // to the 100%-to-owner path. The per-contract catch records it instead.
+        const activeLoan = await getActiveLoanForPlayer(contract.user_id);
           if (activeLoan) {
             const salary = Number(contract.weekly_salary_stc);
             const lastPaid  = contract.last_salary_paid_at || contract.start_date || contract.created_date;
@@ -6132,7 +6244,7 @@ const HANDLERS = {
       try {
         const { activatePendingWindowLoans } = require('../services/playerLoanService');
         const loanResult = await activatePendingWindowLoans();
-        executed += Number(loanResult?.activated || 0);
+        executed += Number(loanResult?.activated || 0) + Number(loanResult?.purchased || 0);
         for (const error of loanResult?.errors || []) {
           errors.push({ loan_id: error.loan_id, error: error.error, code: error.code });
         }
@@ -6181,7 +6293,9 @@ const HANDLERS = {
         if (gross <= 0) continue;
 
         const { getActiveLoanForPlayer, paySplitWeeklySalary } = require('../services/playerLoanService');
-        const activeLoan = await getActiveLoanForPlayer(contract.user_id).catch(() => null);
+        // Deliberately not caught: a failed loan lookup must not fall through
+        // to the 100%-to-owner path. The per-contract catch records it instead.
+        const activeLoan = await getActiveLoanForPlayer(contract.user_id);
         if (activeLoan) {
           const split = await paySplitWeeklySalary({
             contract,
@@ -6234,6 +6348,17 @@ const HANDLERS = {
     const CONTRACT_META = {
       trial: { max_games: 5 }, academy: { max_games: 20 }, squad: { max_games: 100 }, important: { max_games: 250 }, star: { max_games: 400 },
     };
+    // Loans settle first — a live loan blocks the release below.
+    let loansCompleted = 0;
+    let loansPurchased = 0;
+    try {
+      const { completeDueLoans } = require('../services/playerLoanService');
+      const loanResult = await completeDueLoans();
+      loansCompleted = Number(loanResult?.completed || 0);
+      loansPurchased = Number(loanResult?.purchased || 0);
+    } catch (err) {
+      console.warn('[checkExpiredContracts] completeDueLoans failed:', err?.message || err);
+    }
     const active = await EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active'", []);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -6272,15 +6397,14 @@ const HANDLERS = {
       const gamesLeft = maxGames > 0 ? (maxGames - gamesPlayed) : null;
       if ((gamesLeft !== null && gamesLeft <= 10) || (daysLeft !== null && daysLeft <= 7)) warned += 1;
     }
-    let loansCompleted = 0;
-    try {
-      const { completeDueLoans } = require('../services/playerLoanService');
-      const loanResult = await completeDueLoans();
-      loansCompleted = Number(loanResult?.completed || 0);
-    } catch (err) {
-      console.warn('[checkExpiredContracts] completeDueLoans failed:', err?.message || err);
-    }
-    return { checked: active.length, completed, expired, warned, loans_completed: loansCompleted };
+    return {
+      checked: active.length,
+      completed,
+      expired,
+      warned,
+      loans_completed: loansCompleted,
+      loans_purchased: loansPurchased,
+    };
   },
 
   async updateMatchStats({ data }) {
@@ -8449,6 +8573,25 @@ const HANDLERS = {
       const club = clubs[0];
       if (!club) throw new Error('Club not found');
       const weeksMultiplier = lastPaid ? Math.floor((Date.now() - new Date(lastPaid).getTime()) / (7 * 24 * 60 * 60 * 1000)) : 1;
+
+      // A player out on loan is paid by both clubs on the agreed split. The
+      // manual claim must go through the same path as the scheduled jobs,
+      // otherwise claiming by hand makes the parent club pay 100%.
+      const { getActiveLoanForPlayer, paySplitWeeklySalary } = require('../services/playerLoanService');
+      const activeLoan = await getActiveLoanForPlayer(player.id);
+      if (activeLoan) {
+        const split = await paySplitWeeklySalary({
+          contract,
+          weeklySalary: salary * weeksMultiplier,
+          loan: activeLoan,
+        });
+        if (Number(split?.player_received || 0) <= 0) {
+          throw new Error('Clubs have insufficient funds to pay salary');
+        }
+        await EXECUTESQL('UPDATE player_contracts SET last_salary_paid_at = NOW(), updated_date = NOW() WHERE id = ?', [contract.id]);
+        return { success: true, data: { ...split, loan: true, amount: split.player_received } };
+      }
+
       const grossAmount = Math.min(salary * weeksMultiplier, Number(club.stc || 0));
       if (grossAmount <= 0) throw new Error('Club has insufficient funds to pay salary');
 

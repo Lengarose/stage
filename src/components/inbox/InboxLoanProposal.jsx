@@ -70,6 +70,18 @@ export default function InboxLoanProposal({ message, onActioned }) {
       <p className="text-sm text-foreground">
         {loan.start_date || "—"} → {loan.end_date || "—"}
       </p>
+      {["OPTIONAL", "MANDATORY"].includes(String(loan.purchase_type || "").toUpperCase()) ? (
+        <p className="text-sm text-foreground">
+          {String(loan.purchase_type).toUpperCase() === "MANDATORY"
+            ? tx("commonPages.purchaseMandatory", "Obligation to buy")
+            : tx("commonPages.purchaseOptional", "Option to buy")}
+          {": "}
+          {formatSTC(loan.purchase_option_stc || 0)}
+          {loan.purchase_option_deadline
+            ? ` · ${tx("commonPages.purchaseDeadline", "Purchase deadline")}: ${String(loan.purchase_option_deadline).slice(0, 10)}`
+            : ""}
+        </p>
+      ) : null}
       {error ? <p className="text-sm text-red-400">{String(error)}</p> : null}
       {canDecide ? (
         <div className="flex flex-col gap-2">

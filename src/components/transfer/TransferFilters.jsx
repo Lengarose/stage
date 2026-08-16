@@ -8,7 +8,7 @@ const PLATFORMS = ["PlayStation", "Xbox", "PC"];
 export default function TransferFilters({ search, onSearch, position, onPosition, statusFilter, onStatus, platform, onPlatform }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

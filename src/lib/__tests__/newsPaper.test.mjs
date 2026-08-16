@@ -124,7 +124,7 @@ test("desktop newspaper keeps the lead photo on screen and scrolls the rail", ()
   assert.match(layout, /h-full min-h-0 overflow-hidden/);
 });
 
-test("world news uses a d3 geographic map and a country picker", () => {
+test("world news uses a d3 geographic map and continent country flags", () => {
   const desk = readFileSync(resolve(import.meta.dirname, "../../components/news/WorldNewsDesk.jsx"), "utf8");
   const atlas = readFileSync(resolve(import.meta.dirname, "../../components/news/WorldAtlas.jsx"), "utf8");
   const pkg = readFileSync(resolve(import.meta.dirname, "../../../package.json"), "utf8");
@@ -134,8 +134,10 @@ test("world news uses a d3 geographic map and a country picker", () => {
   assert.match(atlas, /react-simple-maps/);
   assert.match(atlas, /world-atlas\/countries-110m/);
   assert.match(atlas, /World map/);
-  assert.match(desk, /Select a country/);
+  assert.match(desk, /world-country-flags/);
+  assert.match(desk, /flagImageUrl/);
   assert.match(desk, /onSelectCountry/);
+  assert.doesNotMatch(desk, /Select a country/);
   assert.match(service, /tallyCountries/);
   assert.match(service, /loadClubCatalog/);
 });

@@ -52,6 +52,9 @@ test('messageTypeToNotificationType maps inbox messages to notification categori
   assert.equal(service.messageTypeToNotificationType('match_invite'), 'match_reminder');
   assert.equal(service.messageTypeToNotificationType('contract_offer'), 'contract_offer');
   assert.equal(service.messageTypeToNotificationType('loan_proposal'), 'loan_offer');
+  assert.equal(service.messageTypeToNotificationType('loan_recalled'), 'loan_offer');
+  assert.equal(service.messageTypeToNotificationType('loan_early_end'), 'loan_offer');
+  assert.equal(service.messageTypeToNotificationType('loan_terminated_early'), 'loan_offer');
   assert.equal(service.messageTypeToNotificationType('club_invite'), 'club_update');
   assert.equal(service.messageTypeToNotificationType('announcement'), 'announcement');
   assert.equal(service.messageTypeToNotificationType('unknown'), 'message');
@@ -113,6 +116,263 @@ test('deliverPlayerLoanOffer names both clubs, dates, fee, and wage split for th
   assert.equal(inboxInsert.params[8], 'loan_proposal');
   assert.equal(inboxInsert.params[9], 'loan_player_response');
   assert.equal(inboxInsert.params.at(-1), 'loan_player_offer:player_loan:loan-1:player@example.test');
+});
+
+test('deliverPlayerLoanOffer includes option-to-buy type and price when purchase terms are not none', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM players WHERE id = \?/.test(sql)) {
+      return [{ gamertag: 'Player X', email: 'player@example.test' }];
+    }
+    if (/FROM clubs WHERE id = \?/.test(sql)) {
+      if (params[0] === 'club-a') return [{ name: 'Club A', logo_url: '', owner_email: 'a@example.test' }];
+      if (params[0] === 'club-b') return [{ name: 'Club B', logo_url: '', owner_email: 'b@example.test' }];
+      return [];
+    }
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'player@example.test',
+        subject: 'Loan offer from Club B',
+        message_type: 'loan_proposal',
+        action_type: 'loan_player_response',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.deliverPlayerLoanOffer({
+    id: 'loan-1',
+    player_id: 'player-1',
+    parent_club_id: 'club-a',
+    loan_club_id: 'club-b',
+    start_date: '2027-01-01',
+    end_date: '2027-06-30',
+    loan_fee_stc: 25000,
+    parent_wage_percentage: 30,
+    loan_wage_percentage: 70,
+    purchase_type: 'OPTIONAL',
+    purchase_option_stc: 100000,
+    purchase_option_deadline: '2027-05-01',
+  });
+
+  const inboxInsert = queries.find(({ sql }) => /INSERT INTO inbox_messages/.test(sql));
+  assert.match(String(inboxInsert.params[7]), /Option to buy: 100,000 STC/);
+  const metadata = JSON.parse(inboxInsert.params[11]);
+  assert.equal(metadata.purchase_type, 'OPTIONAL');
+  assert.equal(Number(metadata.purchase_option_stc), 100000);
+});
+
+test('deliverLoanRecalled notifies the borrower president and the player without an accept step', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM clubs c/.test(sql)) {
+      if (params[0] === 'club-b') {
+        return [{
+          id: 'club-b',
+          name: 'Club B',
+          logo_url: '',
+          owner_email: 'b@example.test',
+          president_user_email: 'b-president@example.test',
+        }];
+      }
+      return [];
+    }
+    if (/FROM players WHERE id = \?/.test(sql)) {
+      return [{ gamertag: 'Player X', email: 'player@example.test' }];
+    }
+    if (/FROM clubs WHERE id = \?/.test(sql)) {
+      if (params[0] === 'club-a') return [{ name: 'Club A', logo_url: '', owner_email: 'a@example.test' }];
+      if (params[0] === 'club-b') return [{ name: 'Club B', logo_url: '', owner_email: 'b@example.test' }];
+      return [];
+    }
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'player@example.test',
+        subject: 'Loan recalled',
+        message_type: 'loan_recalled',
+        action_type: 'none',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.deliverLoanRecalled({
+    id: 'loan-1',
+    player_id: 'player-1',
+    parent_club_id: 'club-a',
+    loan_club_id: 'club-b',
+    status: 'RECALLED',
+  });
+
+  const inboxInserts = queries.filter(({ sql }) => /INSERT INTO inbox_messages/.test(sql));
+  assert.equal(inboxInserts.length, 2);
+  const recipients = inboxInserts.map(({ params }) => params[1]).sort();
+  assert.deepEqual(recipients, ['b-president@example.test', 'player@example.test']);
+  for (const insert of inboxInserts) {
+    assert.equal(insert.params[8], 'loan_recalled');
+    assert.equal(insert.params[9], 'none');
+    assert.match(String(insert.params[7]), /recalled/i);
+  }
+});
+
+test('deliverEarlyEndRequest notifies the other club president with accept and reject', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM clubs c/.test(sql)) {
+      if (params[0] === 'club-b') {
+        return [{
+          id: 'club-b',
+          name: 'Club B',
+          logo_url: '',
+          owner_email: 'b@example.test',
+          president_user_email: 'b-president@example.test',
+        }];
+      }
+      return [];
+    }
+    if (/FROM players WHERE id = \?/.test(sql)) {
+      return [{ gamertag: 'Player X', email: 'player@example.test' }];
+    }
+    if (/FROM clubs WHERE id = \?/.test(sql)) {
+      if (params[0] === 'club-a') return [{ name: 'Club A', logo_url: '', owner_email: 'a@example.test' }];
+      if (params[0] === 'club-b') return [{ name: 'Club B', logo_url: '', owner_email: 'b@example.test' }];
+      return [];
+    }
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'b-president@example.test',
+        subject: 'Early loan return requested',
+        message_type: 'loan_early_end',
+        action_type: 'loan_early_end_response',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.deliverEarlyEndRequest({
+    id: 'loan-1',
+    player_id: 'player-1',
+    parent_club_id: 'club-a',
+    loan_club_id: 'club-b',
+    status: 'ACTIVE',
+    early_end_proposed_by_club_id: 'club-a',
+  });
+
+  const inboxInserts = queries.filter(({ sql }) => /INSERT INTO inbox_messages/.test(sql));
+  assert.equal(inboxInserts.length, 1);
+  assert.equal(inboxInserts[0].params[1], 'b-president@example.test');
+  assert.equal(inboxInserts[0].params[8], 'loan_early_end');
+  assert.equal(inboxInserts[0].params[9], 'loan_early_end_response');
+  assert.match(String(inboxInserts[0].params[7]), /return|early/i);
+});
+
+test('deliverLoanTerminatedEarly notifies both clubs and the player without an accept step', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM clubs c/.test(sql)) {
+      if (params[0] === 'club-a') {
+        return [{
+          id: 'club-a',
+          name: 'Club A',
+          logo_url: '',
+          owner_email: 'a@example.test',
+          president_user_email: 'a-president@example.test',
+        }];
+      }
+      if (params[0] === 'club-b') {
+        return [{
+          id: 'club-b',
+          name: 'Club B',
+          logo_url: '',
+          owner_email: 'b@example.test',
+          president_user_email: 'b-president@example.test',
+        }];
+      }
+      return [];
+    }
+    if (/FROM players WHERE id = \?/.test(sql)) {
+      return [{ gamertag: 'Player X', email: 'player@example.test' }];
+    }
+    if (/FROM clubs WHERE id = \?/.test(sql)) {
+      if (params[0] === 'club-a') return [{ name: 'Club A', logo_url: '', owner_email: 'a@example.test' }];
+      if (params[0] === 'club-b') return [{ name: 'Club B', logo_url: '', owner_email: 'b@example.test' }];
+      return [];
+    }
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) return [];
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'player@example.test',
+        subject: 'Loan ended early',
+        message_type: 'loan_terminated_early',
+        action_type: 'none',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.deliverLoanTerminatedEarly({
+    id: 'loan-1',
+    player_id: 'player-1',
+    parent_club_id: 'club-a',
+    loan_club_id: 'club-b',
+    status: 'TERMINATED_EARLY',
+  });
+
+  const inboxInserts = queries.filter(({ sql }) => /INSERT INTO inbox_messages/.test(sql));
+  assert.equal(inboxInserts.length, 3);
+  const recipients = inboxInserts.map(({ params }) => params[1]).sort();
+  assert.deepEqual(recipients, [
+    'a-president@example.test',
+    'b-president@example.test',
+    'player@example.test',
+  ]);
+  for (const insert of inboxInserts) {
+    assert.equal(insert.params[8], 'loan_terminated_early');
+    assert.equal(insert.params[9], 'none');
+  }
 });
 
 test('createNotificationIfEnabled reuses an existing related notification', async () => {

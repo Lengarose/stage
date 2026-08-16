@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Coins, TrendingUp, Zap, Wallet,
   ShoppingBag, Building2, Trophy, RefreshCw,
-  ChevronDown, Briefcase, ArrowUpRight, ArrowDownRight,
+  ChevronDown, Briefcase, ArrowUpRight, ArrowDownRight, Lock,
 } from "lucide-react";
 
 function getCategoryMeta(category, t) {
@@ -30,27 +30,30 @@ function getCategoryMeta(category, t) {
 
 function fmt(n) { return Number(n || 0).toLocaleString(); }
 
+const panel = "overflow-hidden rounded-2xl border border-[#f5c542]/20 bg-card/80 shadow-[0_0_80px_-28px_rgba(245,197,66,0.35)] backdrop-blur-md";
+const goldCta = "h-10 gap-1.5 rounded-sm bg-gradient-to-b from-[#ffe27a] to-[#c9a227] px-3 font-heading text-xs font-black uppercase tracking-[0.16em] text-black hover:from-[#fff0a8] hover:to-[#d4ad30] focus-visible:ring-2 focus-visible:ring-[#f5c542]";
+
 function TxRow({ tx, t }) {
   const meta = getCategoryMeta(tx.category, t);
   const Icon = meta.icon;
   const isPos = Number(tx.amount) > 0;
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors">
-      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", meta.bg)}>
-        <Icon className={cn("w-4 h-4", meta.color)} />
+    <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-secondary/30">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-sm", meta.bg)}>
+        <Icon className={cn("h-4 w-4", meta.color)} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-foreground truncate">{tx.description || meta.label}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", meta.bg, meta.color)}>{meta.label}</span>
-          {tx.source && <span className="text-[10px] text-muted-foreground truncate">{tx.source}</span>}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-semibold text-foreground">{tx.description || meta.label}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <span className={cn("rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider", meta.bg, meta.color)}>{meta.label}</span>
+          {tx.source && <span className="truncate text-[10px] text-muted-foreground">{tx.source}</span>}
         </div>
       </div>
-      <div className="text-right shrink-0">
-        <p className={cn("font-heading font-black text-sm", isPos ? "text-success" : "text-destructive")}>
+      <div className="shrink-0 text-right">
+        <p className={cn("font-heading text-sm font-black tabular-nums", isPos ? "text-success" : "text-destructive")}>
           {isPos ? "+" : ""}{fmt(tx.amount)}
         </p>
-        <p className="text-[9px] text-muted-foreground">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
           {new Date(tx.created_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
         </p>
       </div>
@@ -126,8 +129,16 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
   const totalExpense = summary.filter(s => s.type === "expense").reduce((a, s) => a + Math.abs(Number(s.total || 0)), 0);
 
   const filteredTx = txFilter === "all" ? allTx
-    : txFilter === "income"  ? allTx.filter(t => Number(t.amount) > 0)
-    : allTx.filter(t => Number(t.amount) < 0);
+    : txFilter === "income"  ? allTx.filter(row => Number(row.amount) > 0)
+    : allTx.filter(row => Number(row.amount) < 0);
+
+  const lastWager = allTx.find((tx) =>
+    ["wager_stake", "wager_win", "wager_loss", "wager_refund"].includes(tx.category)
+  );
+  const lockedWager = lastWager?.category === "wager_stake" && Number(lastWager.amount) < 0
+    ? lastWager
+    : null;
+  const lockedStake = lockedWager ? Math.abs(Number(lockedWager.amount)) : 0;
 
   const hasPassiveItems = true; // allow collect attempt always (server returns 0 if nothing)
   const salaryDue = salary > 0 && (nextDays === 0 || nextDays === null);
@@ -138,64 +149,93 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16" aria-label={t("commonPages.loading")}>
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#f5c542] border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      {/* ── Balance card ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-success/20 bg-gradient-to-br from-success/8 via-card to-primary/8 p-6">
-        <div className="absolute top-0 right-0 w-48 h-48 opacity-5">
-          <Wallet className="w-full h-full" />
-        </div>
-        <div className="flex items-start justify-between gap-4 relative">
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">{t("commonPages.walStcBalance")}</p>
-            <p className="font-heading font-black text-5xl text-success leading-none">{fmt(balance)}</p>
-            <p className="text-xs text-muted-foreground mt-1.5">{t("commonPages.walStageCoin")}</p>
+      <div className="relative overflow-hidden rounded-2xl border border-[#f5c542]/28 bg-card/70 shadow-[0_0_80px_-24px_rgba(245,197,66,0.4)] backdrop-blur-md">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-80"
+          style={{
+            background: [
+              "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(245,197,66,0.18), transparent 52%)",
+              "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(0,229,255,0.08), transparent 58%)",
+              "repeating-linear-gradient(90deg, rgba(8,21,15,0.55) 0px, rgba(8,21,15,0.55) 56px, rgba(11,28,19,0.35) 56px, rgba(11,28,19,0.35) 112px)",
+            ].join(", "),
+          }}
+        />
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[46%] h-[200px] w-[200px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+        <div className="relative z-[1] p-6">
+          <div className="mb-5 flex items-start justify-between gap-3">
+            <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f5c542]">
+              {t("commonPages.walStcBalance")}
+            </p>
+            <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#f5c542]/35 bg-[#f5c542]/10">
+              <Coins className="h-4 w-4 text-[#f5c542]" />
+            </div>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-success/15 flex items-center justify-center shrink-0">
-            <Coins className="w-7 h-7 text-success" />
-          </div>
-        </div>
 
-        {/* Income / Expense stats (30 day) */}
-        <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-border/40">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-success/15 flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4 text-success" />
+          <div className="text-center">
+            <p className={cn(
+              "font-heading font-black tabular-nums leading-none text-success",
+              compact ? "text-4xl" : "text-5xl sm:text-7xl"
+            )}>
+              {fmt(balance)}
+            </p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+              {t("commonPages.walStageCoin")}
+            </p>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-success/15">
+                <ArrowUpRight className="h-4 w-4 text-success" />
+              </div>
+              <div>
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.wal30dIncome")}</p>
+                <p className="font-heading text-sm font-black tabular-nums text-success">+{fmt(totalIncome)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("commonPages.wal30dIncome")}</p>
-              <p className="text-sm font-bold text-success">+{fmt(totalIncome)}</p>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-destructive/15">
+                <ArrowDownRight className="h-4 w-4 text-destructive" />
+              </div>
+              <div>
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.wal30dSpent")}</p>
+                <p className="font-heading text-sm font-black tabular-nums text-destructive">-{fmt(totalExpense)}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-destructive/15 flex items-center justify-center">
-              <ArrowDownRight className="w-4 h-4 text-destructive" />
+
+          {lockedStake > 0 && (
+            <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-[#f5c542]/35 bg-black/40 px-4 py-2.5 text-[#f5c542]">
+              <Coins className="h-4 w-4 shrink-0" />
+              <p className="font-heading text-xs font-black uppercase tracking-[0.18em] sm:text-sm">
+                {t("commonPages.walCatWagerStake")} · {fmt(lockedStake)}
+              </p>
+              <Lock className="h-3.5 w-3.5 shrink-0 text-[#f5c542]/80" />
             </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{t("commonPages.wal30dSpent")}</p>
-              <p className="text-sm font-bold text-destructive">-{fmt(totalExpense)}</p>
-            </div>
-          </div>
+          )}
         </div>
+        <Wallet className="pointer-events-none absolute -right-6 -top-6 h-40 w-40 text-foreground/5" />
       </div>
 
-      {/* ── Income sources ── */}
       {!compact && (salary > 0 || hasPassiveItems) && (
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-secondary/30">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("commonPages.walIncomeSources")}</p>
+        <div className={panel}>
+          <div className="border-b border-[#f5c542]/15 bg-secondary/30 px-4 py-3">
+            <p className="font-heading text-[11px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{t("commonPages.walIncomeSources")}</p>
           </div>
           <div className="divide-y divide-border/50">
             {salary > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 gap-3">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Briefcase className="w-4 h-4 text-primary" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-primary/10">
+                    <Briefcase className="h-4 w-4 text-primary" />
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-foreground">{t("commonPages.cccWeeklySalary")}</p>
@@ -204,49 +244,53 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <p className="font-heading font-black text-sm text-primary">+{fmt(salary)}</p>
+                <div className="flex shrink-0 items-center gap-3">
+                  <p className="font-heading text-sm font-black tabular-nums text-primary">+{fmt(salary)}</p>
                   {salaryDue && (
-                    <Button size="sm" onClick={collectSalary} disabled={collecting}
-                      className="h-7 px-3 text-xs bg-primary text-primary-foreground gap-1">
-                      {collecting ? <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" /> : <><Coins className="w-3 h-3" />{t("commonPages.walCollect")}</>}
+                    <Button size="sm" onClick={collectSalary} disabled={collecting} className={goldCta}>
+                      {collecting ? <div className="h-3 w-3 animate-spin rounded-full border border-black/30 border-t-black" /> : <><Coins className="h-3.5 w-3.5" />{t("commonPages.walCollect")}</>}
                     </Button>
                   )}
                 </div>
               </div>
             )}
-            <div className="flex items-center justify-between px-4 py-3 gap-3">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-accent" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-accent/10">
+                  <TrendingUp className="h-4 w-4 text-accent" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-foreground">{t("commonPages.walInvestmentReturns")}</p>
                   <p className="text-[10px] text-muted-foreground">{t("commonPages.walPassiveIncomeDesc")}</p>
                 </div>
               </div>
-              <Button size="sm" onClick={collectPassive} disabled={collecting}
-                className="h-7 px-3 text-xs bg-accent/20 text-accent hover:bg-accent/30 border-0 gap-1 shrink-0">
-                {collecting ? <div className="w-3 h-3 border border-accent/30 border-t-accent rounded-full animate-spin" /> : <><RefreshCw className="w-3 h-3" />{t("commonPages.walCollect")}</>}
+              <Button size="sm" onClick={collectPassive} disabled={collecting} className={goldCta}>
+                {collecting ? <div className="h-3 w-3 animate-spin rounded-full border border-black/30 border-t-black" /> : <><RefreshCw className="h-3.5 w-3.5" />{t("commonPages.walCollect")}</>}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Transaction history ── */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("commonPages.walTransactionHistory")}</p>
-          <span className="text-[9px] text-muted-foreground">{t("commonPages.walTotalCount", { count: totalTx })}</span>
+      <div className={panel}>
+        <div className="flex items-center justify-between border-b border-[#f5c542]/15 bg-secondary/30 px-4 py-3">
+          <p className="font-heading text-[11px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{t("commonPages.walTransactionHistory")}</p>
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.walTotalCount", { count: totalTx })}</span>
         </div>
 
-        {/* Filter tabs */}
         <div className="flex gap-0 border-b border-border">
           {[["all", t("commonPages.all")], ["income", t("commonPages.walIncome")], ["expense", t("commonPages.walExpenses")]].map(([val, lbl]) => (
-            <button key={val} type="button" onClick={() => setTxFilter(val)}
-              className={cn("flex-1 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors",
-                txFilter === val ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground")}>
+            <button
+              key={val}
+              type="button"
+              onClick={() => setTxFilter(val)}
+              className={cn(
+                "min-h-11 flex-1 py-2 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#f5c542]",
+                txFilter === val
+                  ? "border-b-2 border-[#f5c542] bg-[#f5c542]/5 text-[#f5c542]"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
               {lbl}
             </button>
           ))}
@@ -254,7 +298,7 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
 
         {filteredTx.length === 0 ? (
           <div className="py-12 text-center">
-            <Coins className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+            <Coins className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">{t("commonPages.walNoTransactions")}</p>
           </div>
         ) : (
@@ -263,10 +307,10 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
               {filteredTx.map(tx => <TxRow key={tx.id} tx={tx} t={t} />)}
             </div>
             {allTx.length < totalTx && (
-              <div className="p-3 border-t border-border">
+              <div className="border-t border-border p-3">
                 <Button variant="ghost" size="sm" onClick={() => loadHistory(page + 1, true)} disabled={loadingMore}
-                  className="w-full text-xs text-muted-foreground gap-1.5">
-                  {loadingMore ? <div className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  className="h-10 w-full gap-1.5 text-xs text-muted-foreground">
+                  {loadingMore ? <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground/30 border-t-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   {t("commonPages.crLoadMore")}
                 </Button>
               </div>
@@ -275,26 +319,25 @@ export default function STCWallet({ player: initialPlayer, compact = false }) {
         )}
       </div>
 
-      {/* ── Earn guide (only in full mode) ── */}
       {!compact && (
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+        <div className={cn(panel, "space-y-3 p-5")}>
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" />
-            <p className="text-xs font-bold text-foreground uppercase tracking-wider">{t("commonPages.walHowToEarn")}</p>
+            <Zap className="h-4 w-4 text-[#00e5ff]" />
+            <p className="font-heading text-xs font-black uppercase tracking-[0.16em] text-foreground">{t("commonPages.walHowToEarn")}</p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {[
               { key: "salary",      label: t("commonPages.cccWeeklySalary"),         val: t("commonPages.walEarnPerContract"),   color: "text-primary",  desc: t("commonPages.walEarnSalaryDesc") },
               { key: "wager",       label: t("commonPages.walCatWagerWon"),          val: t("commonPages.walEarnWagerWinVal"),   color: "text-success",  desc: t("commonPages.walEarnWagerWinDesc") },
               { key: "investment",  label: t("commonPages.walEarnInvestmentIncome"), val: t("commonPages.walEarnPassiveDaily"),  color: "text-accent",   desc: t("commonPages.walEarnInvestmentDesc") },
               { key: "competition", label: t("commonPages.walCatCompetitionReward"), val: t("commonPages.walEarnPrizePool"), color: "text-warning",  desc: t("commonPages.walEarnCompetitionDesc") },
             ].map(r => (
-              <div key={r.key} className="flex items-center justify-between rounded-lg px-3 py-2 text-xs bg-secondary/40 border border-border">
-                <div className="flex flex-col gap-0.5 flex-1">
-                  <span className="text-foreground font-medium">{r.label}</span>
+              <div key={r.key} className="flex items-center justify-between rounded-sm border border-border bg-secondary/40 px-3 py-2 text-xs">
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="font-medium text-foreground">{r.label}</span>
                   <span className="text-[9px] text-muted-foreground">{r.desc}</span>
                 </div>
-                <span className={cn("font-bold whitespace-nowrap ml-2 text-[11px]", r.color)}>{r.val}</span>
+                <span className={cn("ml-2 whitespace-nowrap font-heading text-[11px] font-black uppercase", r.color)}>{r.val}</span>
               </div>
             ))}
           </div>

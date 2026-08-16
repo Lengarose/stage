@@ -3,8 +3,9 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Target, Zap, MessageSquare, Users, Mic, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
+import { Target, Zap, MessageSquare, Mic, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayDressingRoom from "./GameDayDressingRoom";
 import GameDayPressRoom from "./GameDayPressRoom";
@@ -50,7 +51,17 @@ const STATUS_LABEL_KEYS = {
   forfeit: "forfeit",
 };
 
-export default function GameDayDetail({ game: initialGame, myClub, myPlayer, user, onGameUpdate }) {
+export default function GameDayDetail({
+  game: initialGame,
+  myClub,
+  myPlayer,
+  user,
+  onGameUpdate,
+  opsOpen = false,
+  chatOpen = false,
+  onOpsOpenChange,
+  onChatOpenChange,
+}) {
   const { t } = useTranslation();
   const [game, setGame] = useState(initialGame);
   const [tournament, setTournament] = useState(null);
@@ -68,8 +79,12 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
 
   // Unread badge on the Chat tab trigger. Reads off the global chat
   // notifications provider; falls back to 0 when no provider is mounted.
-  const { getUnreadCount } = useChatNotifications();
+  const { getUnreadCount, registerChannel } = useChatNotifications();
   const chatUnread = game?.id ? getUnreadCount(game.id) : 0;
+
+  useEffect(() => {
+    if (game?.id) registerChannel(game.id);
+  }, [game?.id, registerChannel]);
 
   const isClubMatchEarly = isClubGameDayMatch(game);
 
@@ -413,8 +428,13 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
         </div>
       )}
 
-      <div className="grid border-t border-white/10 lg:grid-cols-2">
-        <div className="border-white/10 lg:border-r">
+      <Dialog open={opsOpen} onOpenChange={onOpsOpenChange}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#00e5ff]">
+              {t("matchFlow.liveStream")}
+            </DialogTitle>
+          </DialogHeader>
           <StreamLinkSection
             game={game}
             isMyMatch={isMyMatch}
@@ -481,6 +501,15 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
             }}
           />
 
+          {isClubMatch && myClub && (
+            <div className="border-t border-white/10 p-4">
+              <p className="mb-3 font-heading text-[11px] font-black uppercase tracking-[0.16em] text-[#f5c542]">
+                {t("matchFlow.dressingRoom")}
+              </p>
+              <GameDayDressingRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
+            </div>
+          )}
+
           {showResultDock && (
             <div className="space-y-3 border-t border-white/10 px-5 py-4">
               {resultControls.showHomeSubmit && (
@@ -529,131 +558,126 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               )}
             </div>
           )}
-        </div>
+        </DialogContent>
+      </Dialog>
 
-        <div className="min-h-[280px] bg-black/20">
-      {isMyMatch && (
-        <Tabs
-          key={game.id}
-          defaultValue={isClubMatch && myClub ? "dressing_room" : "chat"}
-          className="border-0"
-        >
-          <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-white/10 bg-black/30 p-0">
-            {isClubMatch && myClub && (
-              <TabsTrigger value="dressing_room" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
-                <Users className="w-3.5 h-3.5" /> {t("matchFlow.dressingRoom")}
-              </TabsTrigger>
-            )}
-            {isClubMatch && myClub && canAccessPressRoom && (
-              <TabsTrigger value="press_room" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
-                <Mic className="w-3.5 h-3.5" /> {t("matchFlow.pressRoom")}
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
-              <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
-              {chatUnread > 0 && (
-                <span
-                  aria-label={t("matchFlow.unreadChat", { count: chatUnread })}
-                  className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none"
-                >
-                  {chatUnread > 99 ? "99+" : chatUnread}
-                </span>
-              )}
-            </TabsTrigger>
-            {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
-              <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
-                <Target className="w-3.5 h-3.5" /> {t("matchFlow.stats")}
-              </TabsTrigger>
-            )}
-          </TabsList>
+      <Dialog open={chatOpen} onOpenChange={onChatOpenChange}>
+        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col overflow-hidden border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              {t("matchFlow.chat")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {isMyMatch ? (
+              <Tabs
+                key={game.id}
+                defaultValue="chat"
+                className="border-0"
+              >
+                <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-white/10 bg-black/30 p-0">
+                  {isClubMatch && myClub && canAccessPressRoom && (
+                    <TabsTrigger value="press_room" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
+                      <Mic className="w-3.5 h-3.5" /> {t("matchFlow.pressRoom")}
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
+                    <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
+                    {chatUnread > 0 && (
+                      <span
+                        aria-label={t("matchFlow.unreadChat", { count: chatUnread })}
+                        className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none"
+                      >
+                        {chatUnread > 99 ? "99+" : chatUnread}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
+                    <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
+                      <Target className="w-3.5 h-3.5" /> {t("matchFlow.stats")}
+                    </TabsTrigger>
+                  )}
+                </TabsList>
 
-          {isClubMatch && myClub && (
-            <TabsContent value="dressing_room" className="p-4">
-              <GameDayDressingRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-            </TabsContent>
-          )}
+                {isClubMatch && myClub && canAccessPressRoom && (
+                  <TabsContent value="press_room" className="p-4">
+                    <GameDayPressRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
+                  </TabsContent>
+                )}
 
-          {isClubMatch && myClub && canAccessPressRoom && (
-            <TabsContent value="press_room" className="p-4">
-              <GameDayPressRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-            </TabsContent>
-          )}
+                <TabsContent value="chat" className="p-4">
+                  <GameDayMatchChat game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
+                </TabsContent>
 
-          <TabsContent value="chat" className="p-4">
-            <GameDayMatchChat game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-          </TabsContent>
-
-          {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
-            <TabsContent value="stats" className="p-4 space-y-4">
-              {hasGoalTimeline && (
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.goals")}</p>
-                  <div className="space-y-0.5">
-                    {allGoalEvents.map((ev, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs py-1.5 border-b border-border last:border-0">
-                        <span className="text-muted-foreground w-8 shrink-0 text-right">
-                          {ev.minute ? `${ev.minute}'` : "—"}
-                        </span>
-                        <Target className="w-3 h-3 text-success shrink-0" />
-                        <span className="font-medium text-foreground">{ev.scorer_gamertag || "?"}</span>
-                        {ev.assist_gamertag && (
-                          <span className="text-muted-foreground flex items-center gap-0.5">
-                            <Zap className="w-2.5 h-2.5" />{ev.assist_gamertag}
-                          </span>
-                        )}
-                        {ev.is_penalty && (
-                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-warning/10 text-warning">PEN</span>
-                        )}
-                        <span className="ml-auto text-[10px] text-muted-foreground">{ev.teamName}</span>
+                {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
+                  <TabsContent value="stats" className="p-4 space-y-4">
+                    {hasGoalTimeline && (
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.goals")}</p>
+                        <div className="space-y-0.5">
+                          {allGoalEvents.map((ev, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs py-1.5 border-b border-border last:border-0">
+                              <span className="text-muted-foreground w-8 shrink-0 text-right">
+                                {ev.minute ? `${ev.minute}'` : "—"}
+                              </span>
+                              <Target className="w-3 h-3 text-success shrink-0" />
+                              <span className="font-medium text-foreground">{ev.scorer_gamertag || "?"}</span>
+                              {ev.assist_gamertag && (
+                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                  <Zap className="w-2.5 h-2.5" />{ev.assist_gamertag}
+                                </span>
+                              )}
+                              {ev.is_penalty && (
+                                <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-warning/10 text-warning">PEN</span>
+                              )}
+                              <span className="ml-auto text-[10px] text-muted-foreground">{ev.teamName}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {stats.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.playerRatings")}</p>
-                  {stats.map(stat => (
-                    <div key={stat.id} className="text-xs border border-border rounded px-2 py-2 flex items-center justify-between">
-                      <span className="text-foreground font-medium">{stat.player_gamertag}</span>
-                      <div className="flex items-center gap-3 text-muted-foreground">
-                        {stat.goals > 0 && <span className="flex items-center gap-1 text-success"><Target className="w-3 h-3" />{stat.goals}</span>}
-                        {stat.assists > 0 && <span className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" />{stat.assists}</span>}
-                        <span className="font-semibold text-foreground">{stat.rating}/10</span>
+                    )}
+                    {stats.length > 0 && (
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.playerRatings")}</p>
+                        {stats.map(stat => (
+                          <div key={stat.id} className="text-xs border border-border rounded px-2 py-2 flex items-center justify-between">
+                            <span className="text-foreground font-medium">{stat.player_gamertag}</span>
+                            <div className="flex items-center gap-3 text-muted-foreground">
+                              {stat.goals > 0 && <span className="flex items-center gap-1 text-success"><Target className="w-3 h-3" />{stat.goals}</span>}
+                              {stat.assists > 0 && <span className="flex items-center gap-1 text-primary"><Zap className="w-3 h-3" />{stat.assists}</span>}
+                              <span className="font-semibold text-foreground">{stat.rating}/10</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    )}
+                  </TabsContent>
+                )}
+              </Tabs>
+            ) : (
+              <div className="p-4">
+                {isCompleted && stats.length > 0 ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.stats")}</p>
+                    <div className="space-y-1.5">
+                      {stats.map(stat => (
+                        <div key={stat.id} className="text-xs border border-border rounded px-2 py-1.5 flex items-center justify-between">
+                          <span className="font-medium">{stat.player_gamertag}</span>
+                          <span className="text-muted-foreground">{stat.rating}/10</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          )}
-        </Tabs>
-      )}
-
-      {/* Non-participant view — only show if truly not a participant */}
-      {!isMyMatch && (
-        <div className="p-4">
-          {isCompleted && stats.length > 0 ? (
-            <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">{t("matchFlow.stats")}</p>
-              <div className="space-y-1.5">
-                {stats.map(stat => (
-                  <div key={stat.id} className="text-xs border border-border rounded px-2 py-1.5 flex items-center justify-between">
-                    <span className="font-medium">{stat.player_gamertag}</span>
-                    <span className="text-muted-foreground">{stat.rating}/10</span>
                   </div>
-                ))}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {isLive ? t("matchFlow.matchInProgress") : t("matchFlow.noDetailsYet")}
+                  </p>
+                )}
               </div>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {isLive ? t("matchFlow.matchInProgress") : t("matchFlow.noDetailsYet")}
-            </p>
-          )}
-        </div>
-      )}
-        </div>
-      </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

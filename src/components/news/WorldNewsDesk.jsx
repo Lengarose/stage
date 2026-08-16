@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { stageClient } from "@/api/stageClient";
-import { continentIdFromIso, countryCodeToFlag, getCountryName } from "@/lib/allCountries";
+import { continentIdFromIso, flagImageUrl, getCountryName } from "@/lib/allCountries";
 import { filterDeskFeed, formatDeskClock } from "@/lib/newsDesks";
 import WorldAtlas from "@/components/news/WorldAtlas";
 import { StoryCard, StoryDetail } from "@/components/news/NewsBeatDesk";
@@ -14,11 +14,9 @@ function countryMatches(rowCode, selected) {
   return uk.has(a) && uk.has(b);
 }
 
-function countryLabel(row) {
+function countryName(row) {
   const code = String(row.code || "").toUpperCase();
-  const name = row.name || getCountryName(code) || code;
-  const flag = countryCodeToFlag(code) || "";
-  return `${flag ? `${flag} ` : ""}${name}`;
+  return row.name || getCountryName(code) || code;
 }
 
 export default function WorldNewsDesk({ initialContinent = "", initialCountry = "" }) {
@@ -101,54 +99,42 @@ export default function WorldNewsDesk({ initialContinent = "", initialCountry = 
         onSelectCountry={pickCountry}
       />
 
-      <div className="world-country-bar">
-        <label>
-          Country
-          <select
-            value={country}
-            onChange={(event) => {
-              const next = event.target.value;
-              if (!next) {
-                setCountry("");
-                setSelectedId("");
-                return;
-              }
-              pickCountry(next);
-            }}
-          >
-            <option value="">{continent ? "All countries in this continent" : "Select a country"}</option>
-            {(continent ? countries : (desk?.countries || [])).map((row) => (
-              <option key={row.code} value={row.code}>
-                {countryLabel(row)} · {row.count}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {continent || country ? (
-        <div className="world-country-chips">
-          <button
-            type="button"
-            className={!country ? "is-active" : ""}
-            onClick={() => { setCountry(""); setSelectedId(""); }}
-          >
-            All
-          </button>
-          {countries.map((row) => (
-            <button
-              key={row.code}
-              type="button"
-              className={country === row.code ? "is-active" : ""}
-              onClick={() => pickCountry(row.code)}
-            >
-              {countryLabel(row)}
-              <strong>{row.count}</strong>
-            </button>
-          ))}
+      {continent ? (
+        <div className="world-country-flags" aria-label="Countries with clubs">
+          {countries.length === 0 ? (
+            <p className="world-atlas-hint">No clubs on this continent yet.</p>
+          ) : countries.map((row) => {
+            const selected = country === row.code;
+            const name = countryName(row);
+            const src = flagImageUrl(row.code, 80);
+            return (
+              <button
+                key={row.code}
+                type="button"
+                aria-pressed={selected}
+                aria-label={name}
+                title={name}
+                className={selected ? "is-active" : ""}
+                onClick={() => {
+                  if (selected) {
+                    setCountry("");
+                    setSelectedId("");
+                    return;
+                  }
+                  pickCountry(row.code);
+                }}
+              >
+                {src ? (
+                  <img src={src} alt="" width={48} height={36} decoding="async" />
+                ) : (
+                  <span className="world-country-flags-code">{row.code}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       ) : (
-        <p className="world-atlas-hint">Click a country on the map, or pick a continent first.</p>
+        <p className="world-atlas-hint">Click a continent, then a flag. Every country on the map is also clickable.</p>
       )}
 
       {(continent || country) ? (

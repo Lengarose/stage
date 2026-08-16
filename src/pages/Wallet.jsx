@@ -17,21 +17,31 @@ export default function Wallet() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f5c542] border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-2">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <WalletIcon className="w-5 h-5 text-primary" />
-        </div>
+    <div className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-heading font-black text-2xl uppercase tracking-tight text-foreground">{t("commonPages.walletTitle")}</h1>
-          <p className="font-subtitle text-xs text-muted-foreground">{t("commonPages.walletSubtitle")}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#00e5ff]">
+            {t("matchFlow.kickoff")}
+          </p>
+          <h1
+            className="font-heading text-4xl font-black uppercase leading-none tracking-tight text-foreground md:text-5xl"
+            style={{ letterSpacing: "0.04em" }}
+          >
+            {t("commonPages.walletTitle")}
+          </h1>
+          <p className="mt-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            {t("commonPages.walletSubtitle")}
+          </p>
+        </div>
+        <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#f5c542]/35 bg-[#f5c542]/10 sm:flex">
+          <WalletIcon className="h-5 w-5 text-[#f5c542]" />
         </div>
       </div>
       <STCWallet player={player} compact={false} />

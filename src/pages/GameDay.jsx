@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useSearchParams } from "react-router-dom";
-import { Plus, RefreshCw, Zap } from "lucide-react";
+import { MessageSquare, Plus, Radio, RefreshCw, Zap } from "lucide-react";
+import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
@@ -39,7 +40,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [selectedGame, setSelectedGame] = useState(null);
   const [tournamentMap, setTournamentMap] = useState({});
   const [arrangeOpen, setArrangeOpen] = useState(false);
+  const [opsOpen, setOpsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const { getUnreadCount } = useChatNotifications();
+  const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   // "all" or a group key (see groupKeyForGame). Stable across re-renders.
   const [leagueFilter, setLeagueFilter] = useState("all");
 
@@ -51,6 +56,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     const fresh = games.find((g) => g.id === selectedGame.id);
     if (fresh && fresh !== selectedGame) setSelectedGame(fresh);
   }, [games, selectedGame]);
+
+  useEffect(() => {
+    setOpsOpen(false);
+    setChatOpen(false);
+  }, [selectedGame?.id]);
 
   useEffect(() => {
     if (!selectedGame?.id) return;
@@ -289,6 +299,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       myClub={myClub}
       myPlayer={myPlayer}
       user={user}
+      opsOpen={opsOpen}
+      chatOpen={chatOpen}
+      onOpsOpenChange={setOpsOpen}
+      onChatOpenChange={setChatOpen}
       onGameUpdate={(updated) => {
         if (!isActiveGameDayMatch(updated)) {
           setSelectedGame(prev => prev?.id === updated.id ? null : prev);
@@ -300,7 +314,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       }}
     />
   ) : (
-    <div className="flex min-h-[420px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-16 text-center">
+    <div className="flex min-h-[240px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-12 text-center">
       <Zap className="mb-3 h-10 w-10 text-[#f5c542]/30" />
       <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white/50">
         {t("matchFlow.selectGameDetails")}
@@ -337,6 +351,31 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 {t("matchFlow.arrangeGame")}
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!selectedGame}
+              onClick={() => setOpsOpen(true)}
+              className="h-9 gap-2 rounded-sm border-[#00e5ff]/40 bg-black/40 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#00e5ff] hover:bg-[#00e5ff]/10 disabled:opacity-40"
+            >
+              <Radio className="h-4 w-4" />
+              {t("matchFlow.liveStream")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!selectedGame}
+              onClick={() => setChatOpen(true)}
+              className="relative h-9 gap-2 rounded-sm border-[#f5c542]/40 bg-black/40 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#f5c542] hover:bg-[#f5c542]/10 disabled:opacity-40"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {t("matchFlow.chat")}
+              {chatUnread > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#00e5ff] px-1 text-[10px] font-semibold leading-none text-black">
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              ) : null}
+            </Button>
 
             {leagueGroups.length > 1 && (
               <div className="flex items-center gap-2">
@@ -391,7 +430,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         )}
       </div>
 
-      <div className="px-0 pb-8 sm:px-0">
+      <div className="px-0 pb-4 sm:px-0">
         {detail}
       </div>
 

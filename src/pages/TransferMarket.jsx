@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { LayoutList, SlidersHorizontal, UserRound, Images } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
 import TransferPlayerCarousel from "@/components/transfer/TransferPlayerCarousel";
+import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
@@ -15,6 +17,9 @@ import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export default function TransferMarket() {
   const { t } = useTranslation();
@@ -22,6 +27,7 @@ export default function TransferMarket() {
   const [loading, setLoading] = useState(true);
   const [freeAgents, setFreeAgents] = useState([]);
   const [expiringPlayers, setExpiringPlayers] = useState([]);
+  const [liveLoans, setLiveLoans] = useState([]);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [myContracts, setMyContracts] = useState([]);
@@ -35,6 +41,9 @@ export default function TransferMarket() {
   const [positionFilter, setPositionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "free_agent" | "expiring"
   const [platformFilter, setPlatformFilter] = useState("");
+  const [viewMode, setViewMode] = useState("carousel"); // "carousel" | "list"
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -58,6 +67,7 @@ export default function TransferMarket() {
       setMyPlayer(player);
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
+      setLiveLoans(normalizedMarket.liveLoans);
 
       if (club) {
         const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
@@ -85,7 +95,12 @@ export default function TransferMarket() {
 
   function canRequestLoanForPlayer(player, entryContract = null) {
     const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return canManage && canShowLoanRequestButton({ player, viewerClub: myClub, playerContracts: contracts });
+    return canManage && canShowLoanRequestButton({
+      player,
+      viewerClub: myClub,
+      playerContracts: contracts,
+      loans: liveLoans,
+    });
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
@@ -155,67 +170,157 @@ export default function TransferMarket() {
     });
   }, [filteredEntries]);
 
-  const selectEntry = useCallback((entry) => {
+  const selectEntry = useCallback((entry, { openDetails = false } = {}) => {
     setSelected(entry);
+    if (openDetails) setDetailsOpen(true);
   }, []);
 
+  const filterCount = [search, positionFilter, platformFilter].filter(Boolean).length
+    + (statusFilter !== "all" ? 1 : 0);
+
+  const headerBtn = "h-9 gap-2 rounded-sm font-heading text-xs font-black uppercase tracking-[0.16em]";
+
   return (
-    <div className="min-h-full bg-[#05080f] text-white">
-      <div className="border-b border-[#f5c542]/20 bg-gradient-to-r from-[#071018] via-[#0a1628] to-[#071018] px-4 py-5 sm:px-6">
-        <p className="font-heading text-[10px] font-black uppercase tracking-[0.32em] text-[#00e5ff]">Transfer Hub</p>
-        <h1 className="font-heading text-4xl font-black uppercase leading-none text-white md:text-6xl">
-          {t("commonPages.transferTitle")}
-        </h1>
-        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/45">
-          {t("commonPages.transferSubtitle")}
-        </p>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent text-white">
+      <div className="shrink-0 border-b border-[#f5c542]/20 bg-[#071018]/80 px-4 py-3 sm:px-6 backdrop-blur-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#00e5ff]">Transfer Hub</p>
+            <h1
+              className="font-heading text-4xl font-black uppercase leading-none text-white md:text-5xl"
+              style={{ letterSpacing: "0.04em" }}
+            >
+              {t("commonPages.transferTitle")}
+            </h1>
+            <p className="mt-1 text-xs text-white/45">
+              {t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}
+              <span className="mx-2 text-white/20">·</span>
+              <span className="text-[#7cff6b]">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
+              <span className="mx-2 text-white/20">·</span>
+              <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              onClick={() => setViewMode("carousel")}
+              className={cn(
+                headerBtn,
+                viewMode === "carousel"
+                  ? "bg-gradient-to-b from-[#ffe27a] to-[#c9a227] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
+                  : "border border-[#f5c542]/40 bg-black/40 text-[#f5c542] hover:bg-[#f5c542]/10"
+              )}
+            >
+              <Images className="h-4 w-4" />
+              {t("commonPages.transferCarousel")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setViewMode("list")}
+              className={cn(
+                headerBtn,
+                viewMode === "list"
+                  ? "border-transparent bg-gradient-to-b from-[#ffe27a] to-[#c9a227] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
+                  : "border-[#00e5ff]/40 bg-black/40 text-[#00e5ff] hover:bg-[#00e5ff]/10"
+              )}
+            >
+              <LayoutList className="h-4 w-4" />
+              {t("commonPages.transferList")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFiltersOpen(true)}
+              className={cn(headerBtn, "relative border-[#00e5ff]/40 bg-black/40 text-[#00e5ff] hover:bg-[#00e5ff]/10")}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {t("commonPages.transferFilters")}
+              {filterCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#00e5ff] px-1 text-[10px] font-semibold leading-none text-black">
+                  {filterCount}
+                </span>
+              ) : null}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!selected}
+              onClick={() => setDetailsOpen(true)}
+              className={cn(headerBtn, "border-[#f5c542]/40 bg-black/40 text-[#f5c542] hover:bg-[#f5c542]/10 disabled:opacity-40")}
+            >
+              <UserRound className="h-4 w-4" />
+              {t("commonPages.playerDetails")}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-32">
+        <div className="flex flex-1 items-center justify-center py-24">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#f5c542]/20 border-t-[#f5c542]" />
         </div>
+      ) : viewMode === "list" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6">
+          <TransferPlayerList
+            players={filteredEntries}
+            selectedId={selected?.player?.id}
+            onSelect={(entry) => selectEntry(entry, { openDetails: true })}
+            canManage={canManage}
+            canOffer={canOfferPlayer}
+            getOfferBlockReason={getOfferBlockReason}
+            onOffer={setOfferTarget}
+          />
+        </div>
       ) : (
-        <div>
-          <div className="px-4 py-4 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <TransferPlayerCarousel
+            entries={filteredEntries}
+            selectedId={selected?.player?.id}
+            onSelect={selectEntry}
+          />
+        </div>
+      )}
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#00e5ff]">
+              {t("commonPages.transferFilters")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-5 pb-5">
             <TransferWindowBanner window={currentWindow} />
-          </div>
-          <div className="border-y border-white/10 bg-black/30 px-4 py-4 sm:px-6">
             <TransferFilters
               search={search} onSearch={setSearch}
               position={positionFilter} onPosition={setPositionFilter}
               statusFilter={statusFilter} onStatus={setStatusFilter}
               platform={platformFilter} onPlatform={setPlatformFilter}
             />
-            <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-white/45">
-              <span>{t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}</span>
-              <span className="flex gap-4">
-                <span className="text-[#7cff6b]">{t("commonPages.freeAgentsShort", { count: freeAgents.length })}</span>
-                <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
-              </span>
-            </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          <TransferPlayerCarousel
-            entries={filteredEntries}
-            selectedId={selected?.player?.id}
-            onSelect={selectEntry}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              {t("commonPages.playerDetails")}
+            </DialogTitle>
+          </DialogHeader>
+          <TransferDetailPanel
+            entry={selected}
+            canManage={canManage}
+            canOffer={canOfferPlayer}
+            canRequestLoan={selected ? canRequestLoanForPlayer(selected.player, selected.contract) : false}
+            getOfferBlockReason={getOfferBlockReason}
+            onOffer={(target) => { setDetailsOpen(false); setOfferTarget(target); }}
+            onRequestLoan={(target) => { setDetailsOpen(false); setLoanTarget(target); }}
+            windowOpen={windowOpen}
           />
-
-          <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
-            <TransferDetailPanel
-              entry={selected}
-              canManage={canManage}
-              canOffer={canOfferPlayer}
-              canRequestLoan={selected ? canRequestLoanForPlayer(selected.player, selected.contract) : false}
-              getOfferBlockReason={getOfferBlockReason}
-              onOffer={setOfferTarget}
-              onRequestLoan={setLoanTarget}
-              windowOpen={windowOpen}
-            />
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <OfferContractDialog
         open={!!offerTarget}

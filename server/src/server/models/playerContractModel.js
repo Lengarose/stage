@@ -25,8 +25,9 @@ class PlayerContract {
     this.transfer_fee_stc    = body.transfer_fee_stc;
     this.offer_note          = body.offer_note;
     this.transfer_window_id  = body.transfer_window_id;
-    this.is_loan             = body.is_loan;
-    this.loan_return_date    = body.loan_return_date;
+    // is_loan / loan_return_date are deliberately NOT carried. Loans live in
+    // player_loans (see schema.sql "never on player_contracts.is_loan"); these
+    // legacy columns are a second source of truth the loan module never sees.
     this.last_salary_paid_at = body.last_salary_paid_at;
     this.captaincy_offered   = body.captaincy_offered;
     this.last_negotiated_by  = body.last_negotiated_by;
@@ -76,15 +77,15 @@ class PlayerContract {
       (id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, offered_by_president_id,
        max_games, max_days, games_played,
        weekly_salary_stc, salary_per_game_stc, signing_bonus_stc, transfer_fee_stc,
-       offer_note, transfer_window_id, is_loan, loan_return_date, last_salary_paid_at,
+       offer_note, transfer_window_id, last_salary_paid_at,
        captaincy_offered, last_negotiated_by, negotiation_round,
        start_date, end_date, performance_targets)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.team_id, this.user_id, this.contract_type, this.status, this.offered_by, this.offered_by_user_id, this.offered_by_club_id, this.offered_by_president_id,
       this.max_games, this.max_days, this.games_played,
       this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
-      this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,
+      this.offer_note, this.transfer_window_id, this.last_salary_paid_at,
       this.captaincy_offered, this.last_negotiated_by, this.negotiation_round,
       this.start_date, this.end_date, this.performance_targets,
     ];
@@ -96,7 +97,7 @@ class PlayerContract {
       team_id=?, user_id=?, contract_type=?, status=?, offered_by=?, offered_by_user_id=?, offered_by_club_id=?, offered_by_president_id=?,
       max_games=?, max_days=?, games_played=?,
       weekly_salary_stc=?, salary_per_game_stc=?, signing_bonus_stc=?, transfer_fee_stc=?,
-      offer_note=?, transfer_window_id=?, is_loan=?, loan_return_date=?, last_salary_paid_at=?,
+      offer_note=?, transfer_window_id=?, last_salary_paid_at=?,
       captaincy_offered=?, last_negotiated_by=?, negotiation_round=?,
       start_date=?, end_date=?, performance_targets=?
       WHERE id=?`;
@@ -104,7 +105,7 @@ class PlayerContract {
       this.team_id, this.user_id, this.contract_type, this.status, this.offered_by, this.offered_by_user_id, this.offered_by_club_id, this.offered_by_president_id,
       this.max_games, this.max_days, this.games_played,
       this.weekly_salary_stc, this.salary_per_game_stc, this.signing_bonus_stc, this.transfer_fee_stc,
-      this.offer_note, this.transfer_window_id, this.is_loan, this.loan_return_date, this.last_salary_paid_at,
+      this.offer_note, this.transfer_window_id, this.last_salary_paid_at,
       this.captaincy_offered, this.last_negotiated_by, this.negotiation_round,
       this.start_date, this.end_date, this.performance_targets,
       id,

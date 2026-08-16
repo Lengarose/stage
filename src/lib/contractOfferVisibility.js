@@ -47,14 +47,31 @@ export function canShowContractOfferButton({
   return getContractOfferBlockReason({ player, playerContracts }) === null;
 }
 
+// Mirrors the server's LIVE_LOAN_STATUSES. A player with a loan in any of
+// these states is rejected by proposeLoan with LOAN_ALREADY_LIVE, so the
+// button must not be offered.
+const LIVE_LOAN_STATUSES = new Set(["PROPOSED", "AWAITING_PLAYER", "PENDING_WINDOW", "ACTIVE"]);
+
+export function hasLiveLoan(player, loans = []) {
+  const playerId = String(player?.id || "");
+  if (!playerId) return false;
+  return (loans || []).some((loan) => (
+    String(loan?.player_id || "") === playerId &&
+    LIVE_LOAN_STATUSES.has(String(loan?.status || "").toUpperCase())
+  ));
+}
+
 export function canShowLoanRequestButton({
   player,
   viewerClub,
   playerContracts = [],
+  loans = [],
   limitedTournamentId = null,
 } = {}) {
   if (!player?.id || !viewerClub?.id || limitedTournamentId) return false;
   const signedClubId = getSignedClubIdForPlayer(player, playerContracts);
   if (!signedClubId) return false;
-  return String(signedClubId) !== String(viewerClub.id);
+  if (String(signedClubId) === String(viewerClub.id)) return false;
+  // A player can only be on one loan at a time.
+  return !hasLiveLoan(player, loans);
 }

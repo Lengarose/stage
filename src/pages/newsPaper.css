@@ -1041,55 +1041,50 @@
   color: #4a3724;
 }
 
-.world-country-bar {
-  margin: 0 2px 10px;
-}
-
-.world-country-bar label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.world-country-bar select {
-  font: inherit;
-  letter-spacing: 0;
-  text-transform: none;
-  font-weight: 600;
-  border: 2px solid var(--ink);
-  background: var(--slip);
-  padding: 8px 10px;
-}
-
-.world-country-chips {
+.world-country-flags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   margin: 0 2px 14px;
+  padding: 10px 8px;
+  border: 2px solid var(--ink);
+  background: var(--slip);
 }
 
-.world-country-chips button {
+.world-country-flags button {
+  width: 56px;
+  height: 44px;
+  padding: 4px;
   border: 1px solid var(--ink);
-  background: var(--slip);
-  font: inherit;
-  padding: 6px 9px;
+  background: #efe4b4;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
 }
 
-.world-country-chips button strong {
+.world-country-flags button img {
+  display: block;
+  width: 48px;
+  height: 36px;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.world-country-flags-code {
   font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
-.world-country-chips button.is-active {
-  background: #110c08;
-  color: #f3e2a8;
+.world-country-flags button.is-active {
+  background: #c70f2b;
+  box-shadow: 0 0 0 2px #110c08;
+}
+
+.world-country-flags button:focus-visible {
+  outline: 2px solid #c70f2b;
+  outline-offset: 2px;
 }
 
 .world-desk-back {

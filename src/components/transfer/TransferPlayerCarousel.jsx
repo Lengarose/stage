@@ -6,10 +6,10 @@ import TransferBadge from "./TransferBadge";
 import { stepCarouselIndex, visibleCarouselSlots } from "@/lib/transferCarousel";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const SLOT_X = { "-2": -280, "-1": -168, 0: 0, 1: 168, 2: 280 };
-const SLOT_Z = { "-2": -160, "-1": -70, 0: 80, 1: -70, 2: -160 };
+const SLOT_X = { "-2": -250, "-1": -150, 0: 0, 1: 150, 2: 250 };
+const SLOT_Z = { "-2": -150, "-1": -65, 0: 70, 1: -65, 2: -150 };
 const SLOT_ROT = { "-2": 38, "-1": 24, 0: 0, 1: -24, 2: -38 };
-const SLOT_SCALE = { "-2": 0.72, "-1": 0.86, 0: 1.08, 1: 0.86, 2: 0.72 };
+const SLOT_SCALE = { "-2": 0.72, "-1": 0.86, 0: 1.06, 1: 0.86, 2: 0.72 };
 
 export default function TransferPlayerCarousel({ entries = [], selectedId, onSelect }) {
   const { t } = useTranslation();
@@ -49,7 +49,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
 
   if (entries.length === 0) {
     return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-16 text-center">
+      <div className="flex h-full min-h-0 flex-col items-center justify-center border border-white/10 bg-[#071018]/30 px-6 text-center">
         <Shield className="mb-3 h-10 w-10 text-[#f5c542]/30" />
         <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white/55">
           {t("competitionFlow.noPlayersFound")}
@@ -61,7 +61,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
 
   return (
     <div
-      className="relative overflow-x-hidden bg-[#08150f]"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-transparent"
       onPointerDown={(event) => {
         pointer.current = { x: event.clientX, active: true };
       }}
@@ -76,17 +76,16 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 opacity-30"
         style={{
           background: [
-            "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245,197,66,0.22), transparent 55%)",
-            "radial-gradient(ellipse 40% 60% at 15% 50%, rgba(0,229,255,0.08), transparent 60%)",
-            "radial-gradient(ellipse 40% 60% at 85% 50%, rgba(0,229,255,0.08), transparent 60%)",
+            "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245,197,66,0.55), transparent 55%)",
+            "radial-gradient(ellipse 40% 60% at 15% 50%, rgba(0,229,255,0.22), transparent 60%)",
+            "radial-gradient(ellipse 40% 60% at 85% 50%, rgba(0,229,255,0.22), transparent 60%)",
             "repeating-linear-gradient(90deg, #08150f 0px, #08150f 56px, #0b1c13 56px, #0b1c13 112px)",
           ].join(", "),
         }}
       />
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
 
       <button
         type="button"
@@ -108,7 +107,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
       </button>
 
       <div
-        className="relative mx-auto flex h-[380px] items-center justify-center sm:h-[440px] md:h-[480px]"
+        className="relative z-[1] mx-auto flex min-h-0 w-full flex-1 items-center justify-center"
         style={{ perspective: "1400px", transformStyle: "preserve-3d" }}
       >
         {slots.map(({ index, offset }) => {
@@ -139,7 +138,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
               <GamerPlayerPhotoFrame
                 player={player}
                 className={cn(
-                  "w-[150px] sm:w-[180px] md:w-[210px]",
+                  "w-[150px] sm:w-[180px] md:w-[200px]",
                   focused
                     ? "border-[#f5c542]/70 shadow-[0_0_48px_-6px_rgba(245,197,66,0.55)]"
                     : "border-cyan-400/20 shadow-none",
@@ -150,7 +149,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
                 </div>
               </GamerPlayerPhotoFrame>
               <p className={cn(
-                "mt-3 max-w-[210px] truncate text-center font-heading uppercase tracking-wide",
+                "mt-3 max-w-[200px] truncate text-center font-heading uppercase tracking-wide",
                 focused ? "text-base text-white sm:text-xl" : "text-xs text-white/50",
               )}
               >
@@ -161,7 +160,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
         })}
       </div>
 
-      <div className="relative z-[1] pb-4 text-center">
+      <div className="relative z-[1] shrink-0 pb-4 text-center">
         <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f5c542]">
           {center + 1} / {entries.length}
         </p>

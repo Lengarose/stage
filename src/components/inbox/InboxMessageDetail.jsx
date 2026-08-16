@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 import { getEffectiveInboxActionType, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxLoanProposal from "@/components/inbox/InboxLoanProposal";
+import InboxLoanRecalled from "@/components/inbox/InboxLoanRecalled";
+import InboxLoanEarlyEnd from "@/components/inbox/InboxLoanEarlyEnd";
+import InboxLoanPurchaseOffer from "@/components/inbox/InboxLoanPurchaseOffer";
+import InboxLoanTerminatedEarly from "@/components/inbox/InboxLoanTerminatedEarly";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
 import InboxScheduleProposal from "@/components/inbox/InboxScheduleProposal";
 import {
@@ -243,6 +247,30 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
             }}
           />
         )}
+        {message.message_type === "loan_purchase" && effectiveActionType === "loan_purchase_response" && (
+          <InboxLoanPurchaseOffer
+            message={message}
+            onActioned={(action) => {
+              if (action === "accept") onStatusChanged?.(message.id, "accepted");
+              if (action === "reject") onStatusChanged?.(message.id, "declined");
+            }}
+          />
+        )}
+        {message.message_type === "loan_recalled" && (
+          <InboxLoanRecalled message={message} />
+        )}
+        {message.message_type === "loan_early_end" && effectiveActionType === "loan_early_end_response" && (
+          <InboxLoanEarlyEnd
+            message={message}
+            onActioned={(action) => {
+              if (action === "accept") onStatusChanged?.(message.id, "accepted");
+              if (action === "reject") onStatusChanged?.(message.id, "declined");
+            }}
+          />
+        )}
+        {message.message_type === "loan_terminated_early" && (
+          <InboxLoanTerminatedEarly message={message} />
+        )}
 
         {/* League / competition scheduling proposal */}
         {message.message_type === "league_schedule" && (
@@ -257,7 +285,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
       </div>
 
       {/* Action buttons — only for non-contract, non-trial, non-schedule messages */}
-      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "loan_proposal" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
+      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "loan_proposal" && message.message_type !== "loan_purchase" && message.message_type !== "loan_recalled" && message.message_type !== "loan_early_end" && message.message_type !== "loan_terminated_early" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
         <div className="p-4 border-t border-warning/20 bg-warning/5">
           <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" />

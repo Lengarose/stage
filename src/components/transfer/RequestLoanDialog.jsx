@@ -22,6 +22,11 @@ export default function RequestLoanDialog({ open, onClose, player, club, onSubmi
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [loanFee, setLoanFee] = useState("0");
   const [loanWage, setLoanWage] = useState("70");
+  const [recallAllowed, setRecallAllowed] = useState(true);
+  const [recallAfterDate, setRecallAfterDate] = useState("");
+  const [purchaseType, setPurchaseType] = useState("NONE");
+  const [purchaseOptionStc, setPurchaseOptionStc] = useState("0");
+  const [purchaseOptionDeadline, setPurchaseOptionDeadline] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
@@ -31,6 +36,11 @@ export default function RequestLoanDialog({ open, onClose, player, club, onSubmi
     setEndDate(defaultEndDate());
     setLoanFee("0");
     setLoanWage("70");
+    setRecallAllowed(true);
+    setRecallAfterDate("");
+    setPurchaseType("NONE");
+    setPurchaseOptionStc("0");
+    setPurchaseOptionDeadline("");
   }, [open, player?.id]);
 
   const parentWage = 100 - (parseInt(loanWage, 10) || 0);
@@ -49,6 +59,11 @@ export default function RequestLoanDialog({ open, onClose, player, club, onSubmi
         loan_fee_stc: parseInt(loanFee, 10) || 0,
         parent_wage_percentage: parentWage,
         loan_wage_percentage: parseInt(loanWage, 10) || 0,
+        recall_allowed: recallAllowed,
+        recall_after_date: recallAfterDate || null,
+        purchase_type: purchaseType,
+        purchase_option_stc: purchaseType === "NONE" ? 0 : (parseInt(purchaseOptionStc, 10) || 0),
+        purchase_option_deadline: purchaseType === "NONE" ? null : (purchaseOptionDeadline || null),
       });
       onSubmitted?.();
       onClose?.();
@@ -114,6 +129,61 @@ export default function RequestLoanDialog({ open, onClose, player, club, onSubmi
         <p className="text-xs text-white/50">
           {tx("commonPages.parentWageShare", "Parent club pays {percent}%", { percent: parentWage })}
         </p>
+        <label className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/45">
+          <input
+            type="checkbox"
+            checked={recallAllowed}
+            onChange={(event) => setRecallAllowed(event.target.checked)}
+            className="accent-amber-300"
+          />
+          {tx("commonPages.recallAllowed", "Parent may recall")}
+        </label>
+        {recallAllowed ? (
+          <label className="text-xs uppercase tracking-wider text-white/45">
+            {tx("commonPages.recallAfterDate", "Recall after")}
+            <input
+              type="date"
+              value={recallAfterDate}
+              onChange={(event) => setRecallAfterDate(event.target.value)}
+              className="mt-1 w-full rounded-none border border-white/15 bg-black/40 px-3 py-2 text-sm text-white"
+            />
+          </label>
+        ) : null}
+        <label className="text-xs uppercase tracking-wider text-white/45">
+          {tx("commonPages.purchaseType", "Purchase")}
+          <select
+            value={purchaseType}
+            onChange={(event) => setPurchaseType(event.target.value)}
+            className="mt-1 w-full rounded-none border border-white/15 bg-black/40 px-3 py-2 text-sm text-white"
+          >
+            <option value="NONE">{tx("commonPages.purchaseNone", "None")}</option>
+            <option value="OPTIONAL">{tx("commonPages.purchaseOptional", "Option to buy")}</option>
+            <option value="MANDATORY">{tx("commonPages.purchaseMandatory", "Obligation to buy")}</option>
+          </select>
+        </label>
+        {purchaseType !== "NONE" ? (
+          <>
+            <label className="text-xs uppercase tracking-wider text-white/45">
+              {tx("commonPages.purchasePrice", "Purchase price (STC)")}
+              <input
+                type="number"
+                min="0"
+                value={purchaseOptionStc}
+                onChange={(event) => setPurchaseOptionStc(event.target.value)}
+                className="mt-1 w-full rounded-none border border-white/15 bg-black/40 px-3 py-2 text-sm text-white"
+              />
+            </label>
+            <label className="text-xs uppercase tracking-wider text-white/45">
+              {tx("commonPages.purchaseDeadline", "Purchase deadline")}
+              <input
+                type="date"
+                value={purchaseOptionDeadline}
+                onChange={(event) => setPurchaseOptionDeadline(event.target.value)}
+                className="mt-1 w-full rounded-none border border-white/15 bg-black/40 px-3 py-2 text-sm text-white"
+              />
+            </label>
+          </>
+        ) : null}
         {submitError ? <p className="text-sm text-red-400">{String(submitError)}</p> : null}
         <Button
           type="button"

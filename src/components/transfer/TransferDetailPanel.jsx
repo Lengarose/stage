@@ -35,14 +35,13 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, canReq
   return (
     <div className="overflow-hidden border border-[#f5c542]/20 bg-[#05080f]">
       {/* Top banner — shorter so it doesn't eat into the name */}
-      <div className="h-14 bg-gradient-to-br from-primary/20 via-secondary to-background relative">
+      <div className="relative h-8 bg-gradient-to-br from-primary/20 via-secondary to-background">
         <div className="absolute inset-0 fc-stripe opacity-40" />
       </div>
 
-      {/* Avatar + name row — avatar overlaps banner, name sits fully below */}
       <div className="px-5 pb-5">
-        <div className="flex items-end gap-4 -mt-8 mb-1">
-          <div className="w-16 h-16 rounded-full border-4 border-card bg-secondary overflow-hidden shrink-0 shadow-xl relative z-10">
+        <div className="mb-1 -mt-5 flex items-end gap-4">
+          <div className="relative z-10 h-14 w-14 shrink-0 overflow-hidden rounded-full border-4 border-card bg-secondary shadow-xl">
             {player.avatar_url
               ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
               : <div className="w-full h-full flex items-center justify-center bg-primary/10">

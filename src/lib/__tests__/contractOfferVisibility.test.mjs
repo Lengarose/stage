@@ -101,3 +101,45 @@ test("free agents do not get a loan request button", () => {
     false
   );
 });
+
+test("the loan request button is hidden for a player who already has a live loan", () => {
+  const player = { id: "player-1", club_id: "club-a" };
+  const viewerClub = { id: "club-b" };
+
+  assert.equal(canShowLoanRequestButton({ player, viewerClub, loans: [] }), true);
+
+  for (const status of ["PROPOSED", "AWAITING_PLAYER", "PENDING_WINDOW", "ACTIVE"]) {
+    assert.equal(
+      canShowLoanRequestButton({
+        player,
+        viewerClub,
+        loans: [{ player_id: "player-1", status }],
+      }),
+      false,
+      status,
+    );
+  }
+
+  for (const status of ["COMPLETED", "PURCHASED", "RECALLED", "TERMINATED_EARLY"]) {
+    assert.equal(
+      canShowLoanRequestButton({
+        player,
+        viewerClub,
+        loans: [{ player_id: "player-1", status }],
+      }),
+      true,
+      status,
+    );
+  }
+});
+
+test("another player's live loan does not hide the button", () => {
+  assert.equal(
+    canShowLoanRequestButton({
+      player: { id: "player-1", club_id: "club-a" },
+      viewerClub: { id: "club-b" },
+      loans: [{ player_id: "player-2", status: "ACTIVE" }],
+    }),
+    true,
+  );
+});

@@ -2505,6 +2505,20 @@ async function runStartupMigrations() {
     player_accepted_at       DATETIME NULL,
     activated_at             DATETIME NULL,
     completed_at             DATETIME NULL,
+    recall_allowed           TINYINT(1) NOT NULL DEFAULT 1,
+    recall_after_date        DATE NULL,
+    early_end_proposed_by_club_id VARCHAR(36) NULL,
+    early_end_proposed_at    DATETIME NULL,
+    purchase_type            VARCHAR(20) NOT NULL DEFAULT 'NONE',
+    purchase_option_stc      BIGINT DEFAULT 0,
+    purchase_option_deadline DATE NULL,
+    purchase_offer_status    VARCHAR(20) NULL,
+    purchase_salary_stc      BIGINT NULL,
+    purchase_contract_days   INT NULL,
+    purchase_exercised_at    DATETIME NULL,
+    purchase_player_accepted_at DATETIME NULL,
+    purchased_at             DATETIME NULL,
+    purchase_contract_id     VARCHAR(36) NULL,
     created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_ploans_player_status (player_id, status),
@@ -2512,6 +2526,21 @@ async function runStartupMigrations() {
     INDEX idx_ploans_loan_club (loan_club_id),
     INDEX idx_ploans_contract (contract_id)
   )`).catch((err) => console.error('[migration] player_loans:', err.message));
+
+  await addCol('player_loans', 'recall_allowed', 'TINYINT(1) NOT NULL DEFAULT 1');
+  await addCol('player_loans', 'recall_after_date', 'DATE NULL');
+  await addCol('player_loans', 'early_end_proposed_by_club_id', 'VARCHAR(36) NULL');
+  await addCol('player_loans', 'early_end_proposed_at', 'DATETIME NULL');
+  await addCol('player_loans', 'purchase_type', "VARCHAR(20) NOT NULL DEFAULT 'NONE'");
+  await addCol('player_loans', 'purchase_option_stc', 'BIGINT DEFAULT 0');
+  await addCol('player_loans', 'purchase_option_deadline', 'DATE NULL');
+  await addCol('player_loans', 'purchase_offer_status', 'VARCHAR(20) NULL');
+  await addCol('player_loans', 'purchase_salary_stc', 'BIGINT NULL');
+  await addCol('player_loans', 'purchase_contract_days', 'INT NULL');
+  await addCol('player_loans', 'purchase_exercised_at', 'DATETIME NULL');
+  await addCol('player_loans', 'purchase_player_accepted_at', 'DATETIME NULL');
+  await addCol('player_loans', 'purchased_at', 'DATETIME NULL');
+  await addCol('player_loans', 'purchase_contract_id', 'VARCHAR(36) NULL');
 }
 
 module.exports = { runStartupMigrations };

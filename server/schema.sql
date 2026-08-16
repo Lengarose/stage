@@ -561,6 +561,22 @@ CREATE TABLE IF NOT EXISTS player_loans (
   player_accepted_at       DATETIME NULL,
   activated_at             DATETIME NULL,
   completed_at             DATETIME NULL,
+  recall_allowed           TINYINT(1) NOT NULL DEFAULT 1,
+  recall_after_date        DATE NULL,
+  early_end_proposed_by_club_id VARCHAR(36) NULL,
+  early_end_proposed_at    DATETIME NULL,
+  purchase_type            VARCHAR(20) NOT NULL DEFAULT 'NONE',
+  purchase_option_stc      BIGINT DEFAULT 0,
+  purchase_option_deadline DATE NULL,
+  -- Pending-purchase metadata. Lives on this row, never on player_contracts.is_loan.
+  -- purchase_offer_status: NULL | 'AWAITING_PLAYER' | 'PENDING_WINDOW'.
+  purchase_offer_status    VARCHAR(20) NULL,
+  purchase_salary_stc      BIGINT NULL,
+  purchase_contract_days   INT NULL,
+  purchase_exercised_at    DATETIME NULL,
+  purchase_player_accepted_at DATETIME NULL,
+  purchased_at             DATETIME NULL,
+  purchase_contract_id     VARCHAR(36) NULL,
   created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
