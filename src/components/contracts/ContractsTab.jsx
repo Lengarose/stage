@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
+import { isLifecycleOwnedContract, clubIsMissingPresidentContract } from "@/lib/lifecycleOwnedContracts";
 import { notify, postContractNews } from "@/lib/notify";
 import { swalConfirm } from "@/lib/swal";
 
@@ -30,12 +31,48 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   useEffect(() => {
     if (!club?.id) return;
     loadContracts();
-  }, [club?.id]);
+  }, [club?.id, canManage, myPlayer?.id]);
 
   async function loadContracts() {
     setLoading(true);
     const all = await stageClient.entities.PlayerContract.filter({ team_id: club.id });
-    const safeContracts = normalizePlayerContracts(all);
+    let safeContracts = normalizePlayerContracts(all);
+
+    if (canManage && clubIsMissingPresidentContract(safeContracts)) {
+      const playerId = club.president_player_id || myPlayer?.id;
+      if (playerId && club.name) {
+        try {
+          const founderState = await stageClient.clubs.createFounder({
+            player_id: playerId,
+            idempotency_key: `${club.president_user_id || club.user_id || myPlayer?.user_id || "user"}:${playerId}:${String(club.name).trim().toLowerCase()}`,
+            club: {
+              name: club.name,
+              tag: club.tag,
+              platform: club.platform,
+              region: club.region,
+              country_code: club.country_code,
+              owner_email: club.owner_email,
+              logo_url: club.logo_url || null,
+            },
+          });
+          const fromLifecycle = normalizePlayerContracts(founderState?.contracts);
+          if (fromLifecycle.length) {
+            const byId = new Map(safeContracts.map((contract) => [contract.id, contract]));
+            fromLifecycle.forEach((contract) => {
+              if (contract?.id) byId.set(contract.id, contract);
+            });
+            safeContracts = [...byId.values()];
+          } else {
+            safeContracts = normalizePlayerContracts(
+              await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => safeContracts)
+            );
+          }
+        } catch {
+          /* keep the contracts already loaded */
+        }
+      }
+    }
+
     setContracts(safeContracts);
 
     const pMap = {};
@@ -88,6 +125,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
       club_name: club.name, club_logo_url: club.logo_url || "",
       player_name: player.gamertag, player_avatar_url: player.avatar_url || "",
       link: `/clubs/${club.id}`,
+      transfer_id: result?.data?.transfer_id,
     });
 
     if (newContract) setContracts(prev => normalizePlayerContracts([...prev, newContract]));
@@ -107,15 +145,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
       status: "negotiating",
       negotiation_round: (contract.negotiation_round || 0) + 1,
     };
-    const recipient = playerMap[getContractTargetPlayerId(contract)];
-    const recipientEmail = recipient?.email || null;
-    if (recipientEmail) {
-      notify(recipientEmail, "contract_offer",
-        `🔄 Counter-Offer from ${club.name}`,
-        `${club.name} has responded to your contract negotiation. Round ${(contract.negotiation_round || 0) + 1}.`,
-        "/inbox"
-      );
-    }
     const nplayer = playerMap[getContractTargetPlayerId(contract)];
     postContractNews({
       title: `🔄 ${club.name} sent a counter-offer to ${nplayer?.gamertag || "a player"}`,
@@ -150,6 +179,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
       club_name: club.name, club_logo_url: club.logo_url || "",
       player_name: player?.gamertag || "", player_avatar_url: player?.avatar_url || "",
       link: `/clubs/${club.id}`,
+      transfer_id: result?.data?.transfer_id,
     });
     setContracts(prev => normalizePlayerContracts(prev.map(c =>
       c.id === contract.id ? { ...c, status: "active", start_date, end_date } : c
@@ -203,6 +233,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   }
 
   async function terminateContract(contract) {
+    if (isLifecycleOwnedContract(contract)) return;
     if (!(await swalConfirm("Are you sure you want to terminate this contract?"))) return;
     await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
     const playerId = getContractTargetPlayerId(contract);
@@ -231,7 +262,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
     }
   }
 
-  async function renewContract({ contract_type, offer_note }) {
+  async function renewContract({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, performance_targets }) {
     if (!canCreateContractOffer(windowOpen)) return;
     const contract = renewDialog;
     const player   = playerMap[getContractTargetPlayerId(contract)];
@@ -243,9 +274,9 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
       offer_note:          offer_note || "",
       max_games:           typeMeta.max_games,
       max_days:            typeMeta.max_days,
-      weekly_salary_stc:   contract.weekly_salary_stc  || 0,
-      signing_bonus_stc:   contract.signing_bonus_stc  || 0,
-      performance_targets: contract.performance_targets || [],
+      weekly_salary_stc:   weekly_salary_stc ?? contract.weekly_salary_stc ?? 0,
+      signing_bonus_stc:   signing_bonus_stc ?? contract.signing_bonus_stc ?? 0,
+      performance_targets: performance_targets ?? contract.performance_targets ?? [],
     });
     const newContract = result?.data?.contract;
     postContractNews({
@@ -403,6 +434,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
                         onTerminate={terminateContract}
                         onCancel={cancelContractOffer}
                         onRenew={canManageContractOffers ? () => setRenewDialog(c) : null}
+                        onNegotiate={() => setNegotiateDialog(c)}
                         dualContract={true}
                       />
                     ))}
@@ -420,6 +452,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
                     onTerminate={terminateContract}
                     onCancel={cancelContractOffer}
                     onRenew={canManageContractOffers ? () => setRenewDialog(c) : null}
+                    onNegotiate={() => setNegotiateDialog(c)}
                   />
                 ))}
               </>
@@ -443,6 +476,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
                 onTerminate={terminateContract}
                 onCancel={cancelContractOffer}
                 onRenew={null}
+                onNegotiate={() => setNegotiateDialog(c)}
               />
             ))
           )}

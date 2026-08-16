@@ -126,6 +126,10 @@
       "type": "number",
       "title": "Transfer Fee (STC)",
       "default": 0
+    },
+    "transfer_id": {
+      "type": "string",
+      "title": "Mercato Transfer ID"
     }
   },
   "required": [

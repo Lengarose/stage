@@ -13,6 +13,7 @@ import GameDayMatchResult from "./GameDayMatchResult";
 import GameDayKickoffArena from "./GameDayKickoffArena";
 import StreamLinkSection from "./StreamLinkSection";
 import WagerPanel from "./WagerPanel";
+import GameDayFixtureActions from "./GameDayFixtureActions";
 import { cn } from "@/lib/utils";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -467,6 +468,18 @@ export default function GameDayDetail({ game: initialGame, myClub, myPlayer, use
               }}
             />
           )}
+
+          <GameDayFixtureActions
+            game={game}
+            user={user}
+            myPlayer={myPlayer}
+            myClub={myClub}
+            isMyMatch={isMyMatch}
+            onGameUpdate={(updated) => {
+              setGame(updated);
+              if (onGameUpdate) onGameUpdate(updated);
+            }}
+          />
 
           {showResultDock && (
             <div className="space-y-3 border-t border-white/10 px-5 py-4">

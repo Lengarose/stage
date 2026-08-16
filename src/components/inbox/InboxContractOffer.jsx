@@ -16,7 +16,7 @@ import { formatSTC } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
 import { useTranslation } from "@/hooks/useTranslation";
 import { withTranslationFallback } from "@/lib/translationFallback";
-import { getContractTargetPlayerId, getContractType, normalizePlayerContract } from "@/lib/playerContractFields";
+import { getContractTargetPlayerId, getContractType, isLastNegotiatedByTargetPlayer, normalizePlayerContract } from "@/lib/playerContractFields";
 import { getContractAcceptanceFlow } from "@/lib/contractAcceptanceFlow";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
@@ -109,22 +109,21 @@ export default function InboxContractOffer({ message, onActioned }) {
     );
   }
 
-  // Determine my role.
-  // isPlayer: direct ID match OR this inbox message was delivered to me (I am the recipient).
-  const isPlayer = myPlayer != null && (
-    myPlayer.id === getContractTargetPlayerId(contract) ||
-    (myEmail && myEmail === message?.recipient_email)
+  const targetPlayerId = getContractTargetPlayerId(contract);
+  const isTargetPlayer = myPlayer != null && myPlayer.id === targetPlayerId;
+  const isInboxRecipient = Boolean(
+    myEmail && message?.recipient_email && myEmail.toLowerCase() === String(message.recipient_email).toLowerCase()
   );
-  const isClubPresident = myClub?.id === contract.team_id;
+  const isClubPresident = !isTargetPlayer && (
+    myClub?.id === contract.team_id || isInboxRecipient
+  );
+  const isPlayer = isTargetPlayer || (isInboxRecipient && !isClubPresident);
   const isActionable = ["pending", "negotiating"].includes(contract.status);
-  // Player can act when: pending (always), or negotiating where last move was by club
+  const lastMoveByPlayer = isLastNegotiatedByTargetPlayer(contract);
   const playerCanAct = isPlayer && isActionable && (
-    contract.status === "pending" || contract.last_negotiated_by !== myPlayer?.id
+    contract.status === "pending" || !lastMoveByPlayer
   );
-  // Club president/manager can act when contract is actionable and last move was NOT by club
-  // (allows the club to counter its own initial offer, or respond to player counter)
-  const clubCanAct = isClubPresident && isActionable &&
-    contract.last_negotiated_by !== myClub?.id;
+  const clubCanAct = isClubPresident && isActionable && lastMoveByPlayer;
 
   const canAct = playerCanAct || clubCanAct;
   const acceptanceFlow = getContractAcceptanceFlow({ contract, player: myPlayer, windowOpen });
@@ -171,6 +170,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           club_name: clubName || "", club_logo_url: clubLogoUrl || "",
           player_name: myPlayer?.gamertag || "", player_avatar_url: myPlayer?.avatar_url || "",
           link: `/clubs/${contract.team_id}`,
+          transfer_id: result?.data?.transfer_id,
         });
       } else {
         const result = await stageClient.functions.invoke("contractManagement", {
@@ -229,11 +229,6 @@ export default function InboxContractOffer({ message, onActioned }) {
       setContract(prev => normalizePlayerContract({ ...(prev || {}), ...(result?.data?.contract || updatedFields) }));
       setShowCounter(false);
       setCounterNote("");
-      notify(clubPresidentEmail, "contract_offer",
-        `🔄 Counter-Offer from ${myPlayer?.gamertag || "Player"}`,
-        `${myPlayer?.gamertag || "A player"} has sent a counter-offer on your contract. Round ${updatedFields.negotiation_round}.`,
-        `/clubs/${contract.team_id}`
-      );
       postContractNews({
         title: `🔄 ${myPlayer?.gamertag || "A player"} sent counter-offer to ${clubName || "a club"}`,
         body: `${myPlayer?.gamertag || "A player"} has sent a counter-offer (Round ${updatedFields.negotiation_round}).`,

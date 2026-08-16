@@ -4,6 +4,8 @@ import { stageClient, resolveMyPlayerAndClub, userNeedsOnboarding } from "@/api/
 import PlayerSetup from "@/components/onboarding/PlayerSetup";
 import ClubSetup from "@/components/onboarding/ClubSetup";
 import IdentityClaimSetup from "@/components/onboarding/IdentityClaimSetup";
+import FounderPlayerTermsSetup from "@/components/onboarding/FounderPlayerTermsSetup";
+import PresidentContractSetup from "@/components/onboarding/PresidentContractSetup";
 import TutorialPopup from "@/components/onboarding/TutorialPopup";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { isDiscordConfigured } from "@/lib/discordConfig";
@@ -55,22 +57,30 @@ function detectBrowserTimezone() {
 /* ── step meta ─────────────────────────────────────────────── */
 function getStepMeta(intent, step, phase) {
   // Player: choose → player → identity
-  // Player+President: choose → player → identity → club profile
+  // Player+President: choose → player → identity → founder wages → club → president contract
   const dual = intent === "both";
 
   if (step === "player") {
-    return { labelKey: "obStepPlayerProfile", index: 1, total: dual ? 4 : 3 };
+    return { labelKey: "obStepPlayerProfile", index: 1, total: dual ? 6 : 3 };
   }
 
   if (step === "identity") {
-    return { labelKey: "obStepVerifyIdentity", index: 2, total: dual ? 4 : 3 };
+    return { labelKey: "obStepVerifyIdentity", index: 2, total: dual ? 6 : 3 };
+  }
+
+  if (step === "founder_terms" && dual) {
+    return { labelKey: "obStepFounderWages", index: 3, total: 6 };
   }
 
   if (step === "club" && dual) {
     if (phase === "club") {
-      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 3, total: 4 };
+      return { label: "Club Profile", labelKey: "obStepClubSetup", index: 4, total: 6 };
     }
-    return { label: "Club Profile", labelKey: "obStepClubSetup", index: 3, total: 4 };
+    return { label: "Club Profile", labelKey: "obStepClubSetup", index: 4, total: 6 };
+  }
+
+  if (step === "president_contract" && dual) {
+    return { label: "President Contract", labelKey: "obStepPresidentContract", index: 5, total: 6 };
   }
 
   return { labelKey: "obStepChooseRole", index: 0, total: 2 };
@@ -84,6 +94,9 @@ export default function Onboarding({ onComplete }) {
   const [step,         setStep]         = useState("choose");
   const [intent,       setIntent]       = useState("player");
   const [clubSetupPhase, setClubSetupPhase] = useState("club");
+  const [foundedClub,  setFoundedClub]  = useState(null);
+  const [founderState, setFounderState] = useState(null);
+  const [founderPlayerTerms, setFounderPlayerTerms] = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [timezone, setTimezone] = useState(() => detectBrowserTimezone());
@@ -145,6 +158,12 @@ export default function Onboarding({ onComplete }) {
     else setTutorialOpen(true);
   };
 
+  const handleClubComplete = (club, nextFounderState) => {
+    setFoundedClub(club || nextFounderState?.club || null);
+    setFounderState(nextFounderState || null);
+    setStep("president_contract");
+  };
+
   const handleTimezoneChange = (event) => {
     const nextTimezone = event.target.value;
     setTimezone(nextTimezone);
@@ -156,7 +175,7 @@ export default function Onboarding({ onComplete }) {
 
   const meta = getStepMeta(intent, step, clubSetupPhase);
   const progress = ((meta.index) / (Math.max(meta.total - 1, 1))) * 100;
-  const isWideStep = step === "identity" || step === "discord";
+  const isWideStep = step === "identity" || step === "founder_terms" || step === "discord";
 
   return (
     <motion.div className={cn(
@@ -357,8 +376,19 @@ export default function Onboarding({ onComplete }) {
                     <IdentityClaimSetup
                       player={player}
                       onComplete={() => {
-                        if (intent === "both") setStep("club");
+                        if (intent === "both") setStep("founder_terms");
                         else finishOnboarding();
+                      }}
+                    />
+                  )}
+
+                  {step === "founder_terms" && intent === "both" && (
+                    <FounderPlayerTermsSetup
+                      player={player}
+                      initialTerms={founderPlayerTerms}
+                      onComplete={(terms) => {
+                        setFounderPlayerTerms(terms);
+                        setStep("club");
                       }}
                     />
                   )}
@@ -367,11 +397,23 @@ export default function Onboarding({ onComplete }) {
                   {step === "club" && intent === "both" && (
                     <ClubSetup
                       onSkip={finishOnboarding}
-                      onComplete={finishOnboarding}
+                      onComplete={handleClubComplete}
                       onPhaseChange={setClubSetupPhase}
                       player={player}
                       user={user}
+                      playerContract={founderPlayerTerms}
                       required
+                    />
+                  )}
+
+                  {step === "president_contract" && intent === "both" && (
+                    <PresidentContractSetup
+                      club={foundedClub}
+                      player={player}
+                      user={user}
+                      founderState={founderState}
+                      playerContract={founderPlayerTerms}
+                      onComplete={finishOnboarding}
                     />
                   )}
 
@@ -388,10 +430,10 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               {/* Back */}
-              {step !== "choose" && step !== "club" && step !== "discord" && (
+              {step !== "choose" && step !== "club" && step !== "president_contract" && step !== "discord" && (
                 <button
                   type="button"
-                  onClick={() => setStep(step === "identity" ? "player" : "choose")}
+                  onClick={() => setStep(step === "founder_terms" ? "identity" : step === "identity" ? "player" : "choose")}
                   className="mt-5 shrink-0 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-widest transition-colors flex items-center gap-1"
                 >
                   ← Back

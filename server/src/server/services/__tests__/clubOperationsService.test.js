@@ -141,3 +141,12 @@ test('getPlayerForUser accepts active membership when legacy player club id diff
   assert.equal(resolved.id, 'player-1');
   assert.equal(resolved.club_id, 'club-1');
 });
+
+test('normalizeAssignableStaffRole only accepts captain and vice-captain', () => {
+  const { normalizeAssignableStaffRole } = loadClubOperationsServiceWithDbMock(async () => []);
+  assert.equal(normalizeAssignableStaffRole('captain'), 'captain');
+  assert.equal(normalizeAssignableStaffRole('vice-captain'), 'vice_captain');
+  assert.equal(normalizeAssignableStaffRole('vice_captain'), 'vice_captain');
+  assert.equal(normalizeAssignableStaffRole('president'), null);
+  assert.equal(normalizeAssignableStaffRole('recruiter'), null);
+});

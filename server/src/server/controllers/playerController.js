@@ -27,6 +27,7 @@ const ADMIN_ONLY_PLAYER_FIELDS = [
   'subscription_billing',
   'stripe_subscription_id',
   'stripe_customer_id',
+  'subscription_cancel_at_period_end',
   'is_verified',
   'user_id',
   'email',

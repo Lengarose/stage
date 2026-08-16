@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isFullBleedRoute, isGameDayFullBleedRoute, isProfileFullBleedRoute, isTransferMarketFullBleedRoute } from "../profileRouteLayout.js";
+import { isFullBleedRoute, isGameDayFullBleedRoute, isNewsFullBleedRoute, isProfileFullBleedRoute, isTransferMarketFullBleedRoute } from "../profileRouteLayout.js";
 
 test("profile hero routes render outside the global max-width wrapper", () => {
   assert.equal(isProfileFullBleedRoute("/profile"), true);
@@ -28,8 +28,8 @@ test("game day fills the layout without the global max-width wrapper", () => {
   assert.equal(isFullBleedRoute("/clubs"), false);
 });
 
-test("transfer market fills the layout without the global max-width wrapper", () => {
-  assert.equal(isTransferMarketFullBleedRoute("/transfer-market"), true);
-  assert.equal(isFullBleedRoute("/transfer-market"), true);
-  assert.equal(isProfileFullBleedRoute("/transfer-market"), false);
+test("news fills the layout as a full newspaper sheet", () => {
+  assert.equal(isNewsFullBleedRoute("/news"), true);
+  assert.equal(isFullBleedRoute("/news"), true);
+  assert.equal(isNewsFullBleedRoute("/notifications"), false);
 });

@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
-import { getContractType, normalizePlayerContract } from "@/lib/playerContractFields";
+import { canRenegotiateFounderPlayerContract, isLifecycleOwnedContract } from "@/lib/lifecycleOwnedContracts";
+import { getContractType, isLastNegotiatedByTargetPlayer, normalizePlayerContract } from "@/lib/playerContractFields";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { X, CheckCircle, Clock, Gamepad2, RefreshCw, AlertTriangle, MessageSquare, Coins, Target, Building2 } from "lucide-react";
@@ -27,6 +28,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
   const meta = CONTRACT_TYPES[contractType] || CONTRACT_TYPES.squad;
   const progress = getContractProgress(contract);
   const isOwnershipContract = contractType === "ownership";
+  const lifecycleOwned = isLifecycleOwnedContract(contract);
 
   const isPendingWindow = contract.status === "pending_window";
   const isNegotiating = contract.status === "negotiating";
@@ -34,8 +36,10 @@ export default function ContractCard({ contract: rawContract, player, canManage,
     progress.gamesLeft <= 10 || progress.daysLeft <= 7
   );
 
-  const isRenewable = canManage && ["active", "completed", "expired"].includes(contract.status);
+  const isRenewable = canManage && !lifecycleOwned && ["active", "completed", "expired"].includes(contract.status);
   const canNegotiate = isMyContract && (contract.status === "pending" || (isNegotiating && contract.last_negotiated_by !== player?.id));
+  const clubCanRespond = canManage && !isMyContract && isNegotiating && isLastNegotiatedByTargetPlayer(contract);
+  const canRenegotiateFounder = canRenegotiateFounderPlayerContract(contract, { isMyContract, canManage });
 
   return (
     <div className={cn("rounded-xl border p-4 transition-all", meta.bg, meta.border)}>
@@ -178,6 +182,11 @@ export default function ContractCard({ contract: rawContract, player, canManage,
 
         {/* Actions */}
         <div className="flex flex-col gap-1.5 shrink-0">
+          {lifecycleOwned && (
+            <span className="text-[10px] px-2 py-1 rounded-full border border-white/15 text-white/40 uppercase tracking-wider text-center">
+              Protected
+            </span>
+          )}
           {/* Player actions on their own pending contract */}
           {(contract.status === "pending" || (isNegotiating && canNegotiate)) && isMyContract && (
             <>
@@ -194,13 +203,25 @@ export default function ContractCard({ contract: rawContract, player, canManage,
               </Button>
             </>
           )}
+          {clubCanRespond && (
+            <>
+              <Button size="sm" className="h-7 px-2 text-xs bg-success/20 text-success hover:bg-success/30 border-0" onClick={() => onAccept(contract)}>
+                <CheckCircle className="w-3 h-3 mr-1" /> Accept
+              </Button>
+              {onNegotiate && (
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={() => onNegotiate(contract)}>
+                  <MessageSquare className="w-3 h-3 mr-1" /> Counter
+                </Button>
+              )}
+            </>
+          )}
           {/* Management actions */}
-          {contract.status === "active" && canManage && (
+          {contract.status === "active" && canManage && !lifecycleOwned && (
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => onTerminate(contract)}>
               <X className="w-3 h-3 mr-1" /> Terminate
             </Button>
           )}
-          {["pending", "pending_window", "negotiating"].includes(contract.status) && canManage && onCancel && (
+          {["pending", "pending_window", "negotiating"].includes(contract.status) && canManage && onCancel && !lifecycleOwned && (
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => onCancel(contract)}>
               <X className="w-3 h-3 mr-1" /> Cancel Offer
             </Button>
@@ -208,6 +229,11 @@ export default function ContractCard({ contract: rawContract, player, canManage,
           {isRenewable && onRenew && (
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => onRenew(contract)}>
               <RefreshCw className="w-3 h-3 mr-1" /> Renew
+            </Button>
+          )}
+          {canRenegotiateFounder && onNegotiate && (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={() => onNegotiate(contract)}>
+              <MessageSquare className="w-3 h-3 mr-1" /> Negotiate
             </Button>
           )}
         </div>

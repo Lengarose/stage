@@ -798,6 +798,8 @@ router.post('/rebuild', async (req, res) => {
     if (!admin) return;
     const summary = await buildRankings();
     await persistRankings(summary);
+    const { publishRankingBulletin } = require('../services/newsFeedService');
+    await publishRankingBulletin(summary).catch(() => {});
     await EXECUTESQL(
       `INSERT INTO admin_audit_log
         (admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason, created_date)

@@ -42,10 +42,11 @@ test("tournament-limited profiles hide only lifestyle while preserving tab meani
 
   assert.deepEqual(
     publicTournament.map((tab) => tab.id),
-    ["posts", "showcase", "stats", "career", "matches", "trophies"],
+    ["posts", "showcase", "career", "trophies"],
   );
   assert.equal(getPlayerProfileTabContract("career").domain, "stageleagues_cv");
-  assert.equal(getPlayerProfileTabContract("matches").domain, "completed_match_history");
+  assert.equal(getPlayerProfileTabContract("stats"), null);
+  assert.equal(getPlayerProfileTabContract("matches"), null);
 });
 
 test("shared stats adapter gives owner and public pages the same source precedence", () => {
@@ -79,15 +80,27 @@ test("shared stats adapter gives owner and public pages the same source preceden
 test("profile pages use canonical helpers and do not keep EAFC-only career or stale founder creation", () => {
   const ownerSource = read("src/pages/Profile.jsx");
   const publicSource = read("src/pages/PlayerProfile.jsx");
+  const clubSource = read("src/pages/ClubDetail.jsx");
+  const operationsSource = read("src/components/club/ClubOperations.jsx");
 
   assert.match(ownerSource, /getPlayerProfileTabs/);
   assert.match(publicSource, /getPlayerProfileTabs/);
-  assert.match(ownerSource, /buildPlayerProfileStats/);
-  assert.match(publicSource, /buildPlayerProfileStats/);
+  assert.doesNotMatch(ownerSource, /profileTab === "stats"/);
+  assert.doesNotMatch(ownerSource, /profileTab === "matches"/);
+  assert.doesNotMatch(publicSource, /activeTab === "stats"/);
+  assert.doesNotMatch(publicSource, /activeTab === "matches"/);
   assert.match(ownerSource, /<PlayerCareerSummary/);
   assert.match(publicSource, /<PlayerCareerSummary/);
+  assert.match(ownerSource, /<PlayerShowcase player=\{player\} canEdit=\{true\}/);
+  assert.match(publicSource, /<PlayerShowcase player=\{player\} canEdit=\{isOwnProfile\}/);
   assert.doesNotMatch(ownerSource, /async function _createClub/);
   assert.doesNotMatch(ownerSource, /stageClient\.entities\.Club\.create/);
   assert.doesNotMatch(ownerSource, /PresidentContractDialog/);
   assert.doesNotMatch(publicSource, /activeTab === "matches"[\s\S]*homeUpcoming/);
+  assert.match(clubSource, /GamerClubTabNav/);
+  assert.doesNotMatch(clubSource, /id: "stats"/);
+  assert.doesNotMatch(clubSource, /id: "matches"/);
+  assert.doesNotMatch(operationsSource, /coopTabOverview/);
+  assert.match(operationsSource, /commonPages.cdCaptain/);
+  assert.match(operationsSource, /commonPages.cdViceCaptain/);
 });

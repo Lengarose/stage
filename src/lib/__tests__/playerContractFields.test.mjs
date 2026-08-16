@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getContractTargetPlayerId,
   getContractType,
+  isLastNegotiatedByTargetPlayer,
   normalizePlayerContract,
   normalizePlayerContracts,
 } from "../playerContractFields.js";
@@ -30,6 +31,21 @@ test("getContractType uses a safe fallback for null or invalid contract types", 
   assert.equal(getContractType({ contract_type: null }), "squad");
   assert.equal(getContractType({ contract_type: false }), "squad");
   assert.equal(getContractType({ contract_type: "star" }), "star");
+});
+
+test("isLastNegotiatedByTargetPlayer compares player id, not club id", () => {
+  assert.equal(isLastNegotiatedByTargetPlayer({
+    user_id: "player-1",
+    last_negotiated_by: "player-1",
+  }), true);
+  assert.equal(isLastNegotiatedByTargetPlayer({
+    user_id: "player-1",
+    last_negotiated_by: "club-1",
+  }), false);
+  assert.equal(isLastNegotiatedByTargetPlayer({
+    user_id: "player-1",
+    last_negotiated_by: "president-player",
+  }), false);
 });
 
 test("normalizePlayerContract keeps legacy contracts usable with safe defaults", () => {

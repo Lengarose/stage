@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,121 +18,165 @@ export default function TutorialPopup({ open, onClose, intent = "player" }) {
   const current = steps[safeStep];
   const isFirst = safeStep === 0;
   const isLast = safeStep === steps.length - 1;
+  const points = Array.isArray(current?.points) && current.points.length
+    ? current.points
+    : (current?.tips || []);
 
   if (!current) return null;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
-      <DialogContent className="bg-card border-border max-w-sm sm:max-w-lg p-0 overflow-hidden rounded-xl">
-        {/* Banner */}
-        <div className="relative h-36 sm:h-44 overflow-hidden">
-          <img
-            src={NameLogo}
-            alt="STAGE"
-            className="w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/50" />
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-lg bg-black/30 hover:bg-black/50 transition-colors z-10"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-        </div>
+      <DialogContent
+        hideCloseButton
+        className="bg-card border-border max-w-[calc(100vw-1.5rem)] sm:max-w-lg lg:max-w-4xl p-0 overflow-hidden rounded-2xl max-h-[90vh] grid-rows-1"
+      >
+        <DialogTitle className="sr-only">{current.title}</DialogTitle>
+        <DialogDescription className="sr-only">{current.description}</DialogDescription>
 
-        {/* Content container */}
-        <div className="p-6 sm:p-8 space-y-6">
-          {/* Header */}
-          <div className="space-y-3">
-            {/* Step indicator */}
-            <div className="flex items-center gap-1.5">
-              <div className="flex gap-1 flex-1">
+        <div className="flex max-h-[90vh] flex-col lg:flex-row">
+          <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-secondary/30 p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground mb-4">
+              How STAGE works
+            </p>
+            <ol className="space-y-2">
+              {steps.map((item, i) => (
+                <li key={item.title}>
+                  <button
+                    type="button"
+                    onClick={() => setStep(i)}
+                    className={cn(
+                      "w-full rounded-xl border px-3 py-3 text-left transition-colors",
+                      i === safeStep
+                        ? "border-primary/50 bg-primary/10"
+                        : "border-transparent hover:bg-secondary/80"
+                    )}
+                  >
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {i + 1} / {steps.length}
+                    </span>
+                    <span className={cn(
+                      "mt-1 block text-sm font-semibold leading-snug",
+                      i === safeStep ? "text-foreground" : "text-muted-foreground"
+                    )}
+                    >
+                      {item.title}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </aside>
+
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <div className="relative h-28 sm:h-36 overflow-hidden">
+              <img
+                src={NameLogo}
+                alt="STAGE"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/55" />
+              <button
+                type="button"
+                onClick={onClose}
+                className="absolute top-3 right-3 p-2 rounded-lg bg-black/40 hover:bg-black/60 transition-colors z-10"
+                aria-label="Close tutorial"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-7 space-y-5">
+              <div className="flex items-center gap-1.5 lg:hidden">
                 {steps.map((_, i) => (
-                  <div
+                  <button
                     key={i}
+                    type="button"
+                    onClick={() => setStep(i)}
                     className={cn(
                       "h-1.5 flex-1 rounded-full transition-colors",
                       i === safeStep ? "bg-primary" : "bg-border"
                     )}
+                    aria-label={`Go to ${steps[i].title}`}
                   />
                 ))}
+                <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                  {safeStep + 1} of {steps.length}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground ml-auto shrink-0">
-                {safeStep + 1} of {steps.length}
-              </span>
-            </div>
 
-            {/* Title and icon */}
-            <div className="flex items-start gap-3">
-              <div className="text-4xl">{current.icon}</div>
-              <div className="flex-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-                  {current.title}
-                </h2>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="text-4xl leading-none">{current.icon}</div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+                      {current.title}
+                    </h2>
+                    {current.where ? (
+                      <p className="text-xs text-primary mt-1 font-semibold">
+                        Find it in {current.where}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {current.description}
+                </p>
+                {current.detail ? (
+                  <p className="text-sm text-foreground/80 leading-relaxed">
+                    {current.detail}
+                  </p>
+                ) : null}
               </div>
+
+              <div className="bg-secondary/50 border border-border rounded-xl p-4 space-y-3">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Each point
+                </p>
+                <ol className="space-y-2.5">
+                  {points.map((point, i) => (
+                    <li key={point} className="flex items-start gap-3 text-sm text-muted-foreground leading-relaxed">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-black text-primary">
+                        {i + 1}
+                      </span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (isFirst) onClose();
+                    else setStep(safeStep - 1);
+                  }}
+                  variant="outline"
+                  className="flex-1 gap-2"
+                >
+                  {isFirst ? "Skip" : <>
+                    <ChevronLeft className="w-4 h-4" /> Back
+                  </>}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (isLast) onClose?.();
+                    else setStep(safeStep + 1);
+                  }}
+                  className="flex-1 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {isLast ? "Got It!" : <>
+                    Next <ChevronRight className="w-4 h-4" />
+                  </>}
+                </Button>
+              </div>
+
+              <p className="text-xs text-center text-muted-foreground">
+                You can reopen this tutorial anytime from Settings
+              </p>
             </div>
-
-            {/* Description */}
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {current.description}
-            </p>
           </div>
-
-          {/* Tips section */}
-          <div className="bg-secondary/50 border border-border rounded-lg p-4 space-y-3">
-            <p className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Quick Tips
-            </p>
-            <ul className="space-y-2">
-              {current.tips.map((tip, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span className="text-primary font-bold mt-0.5">•</span>
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Navigation buttons */}
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              onClick={() => {
-                if (isFirst) {
-                  onClose();
-                } else {
-                  setStep(safeStep - 1);
-                }
-              }}
-              variant="outline"
-              className="flex-1 gap-2"
-            >
-              {isFirst ? "Skip" : <>
-                <ChevronLeft className="w-4 h-4" /> Back
-              </>}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (isLast) {
-                  onClose?.();
-                } else {
-                  setStep(safeStep + 1);
-                }
-              }}
-              className="flex-1 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {isLast ? "Got It!" : <>
-                Next <ChevronRight className="w-4 h-4" />
-              </>}
-            </Button>
-          </div>
-
-          {/* Footer */}
-          <p className="text-xs text-center text-muted-foreground">
-            You can revisit this tutorial anytime from Settings
-          </p>
         </div>
       </DialogContent>
     </Dialog>

@@ -58,7 +58,8 @@ function makeResponse() {
 }
 
 function isUserLookup(sql) {
-  return /SELECT id, email, full_name, role_id FROM users WHERE id = \? LIMIT 1/.test(sql);
+  return /SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)
+    && !/full_name/.test(sql);
 }
 /** "which player rows belong to this account" */
 function isOwnPlayersLookup(sql) {
@@ -195,7 +196,7 @@ test('new showcase videos reject external hosts even when the path looks uploade
   assert.equal(response.statusCode, 400);
 });
 
-test('showcase videos must be 20 seconds or shorter when duration is provided', async () => {
+test('showcase videos must be 60 seconds or shorter when duration is provided', async () => {
   let created = null;
   const executesql = async (sql, params = []) => {
     if (isUserLookup(sql)) return [{ id: 'user-1', email: 'me@example.test', role_id: 2 }];
@@ -209,15 +210,15 @@ test('showcase videos must be 20 seconds or shorter when duration is provided', 
   const accepted = makeResponse();
 
   await routeHandler(router, 'post', '/')(
-    { body: { player_id: 'player-1', url: '/uploads/clip.mp4', title: 'Limit clip', duration_seconds: 20 }, user: { id: 'user-1' } },
+    { body: { player_id: 'player-1', url: '/uploads/clip.mp4', title: 'Limit clip', duration_seconds: 60 }, user: { id: 'user-1' } },
     accepted
   );
 
   assert.equal(accepted.statusCode, 201);
-  assert.equal(created.duration_seconds, 20);
+  assert.equal(created.duration_seconds, 60);
 });
 
-test('showcase videos reject anything longer than 20 seconds', async () => {
+test('showcase videos reject anything longer than 60 seconds', async () => {
   const executesql = async (sql) => {
     if (isUserLookup(sql)) return [{ id: 'user-1', email: 'me@example.test', role_id: 2 }];
     if (isOwnPlayersLookup(sql)) return [{ id: 'player-1' }];
@@ -229,12 +230,12 @@ test('showcase videos reject anything longer than 20 seconds', async () => {
   const response = makeResponse();
 
   await routeHandler(router, 'post', '/')(
-    { body: { player_id: 'player-1', url: '/uploads/clip.mp4', title: 'Long clip', duration_seconds: 20.01 }, user: { id: 'user-1' } },
+    { body: { player_id: 'player-1', url: '/uploads/clip.mp4', title: 'Long clip', duration_seconds: 60.01 }, user: { id: 'user-1' } },
     response
   );
 
   assert.equal(response.statusCode, 400);
-  assert.match(response.body.error, /20 seconds/);
+  assert.match(response.body.error, /60 seconds/);
 });
 
 test('anyone signed in can read a player showcase — it is a shop window', async () => {
@@ -549,4 +550,29 @@ test('scouting comments use server-resolved Gamertag author and notify the video
   assert.equal(notifications[0].recipientEmail, 'owner@example.test');
   assert.equal(notifications[0].type, 'showcase_comment');
   assert.equal(notifications[0].link, '/scouting?video=video-1&comment=comment-1');
+});
+
+test('preferred position lookup uses real users columns, not full_name', async () => {
+  let updated = null;
+  const executesql = async (sql, params = []) => {
+    if (isUserLookup(sql)) return [{ id: 'user-1', email: 'me@example.test', role_id: 2 }];
+    if (isOwnPlayersLookup(sql)) return [{ id: 'player-1' }];
+    if (/UPDATE players SET showcase_position/.test(sql)) {
+      updated = params;
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadShowcaseRouterWithMocks(executesql);
+  const response = makeResponse();
+
+  await routeHandler(router, 'post', '/position')(
+    { body: { player_id: 'player-1', showcase_position: 'CB' }, user: { id: 'user-1' } },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(updated, ['CB', 'player-1']);
+  assert.equal(response.body.showcase_position, 'CB');
 });

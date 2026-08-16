@@ -10,6 +10,7 @@ const { broadcastClub, broadcastClubDeleted } = require('../utils/socketBroadcas
 const {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
+  normalizeAssignableStaffRole,
   requireClubPermission,
   writeClubAudit,
 } = require('../services/clubOperationsService');
@@ -20,6 +21,7 @@ const {
   assertClubFinanceWithinTier,
 } = require('../services/clubFinanceService');
 const { createFounderContractLifecycle } = require('../services/founderContractLifecycleService');
+const { leaveClubLifecycle } = require('../services/leaveClubLifecycleService');
 
 const CLUB_PROFILE_UPDATE_FIELDS = [
   'name',
@@ -189,10 +191,31 @@ router.post('/founder', async (req, res) => {
       playerId: req.body?.player_id || req.body?.president_player_id || req.body?.club?.president_player_id,
       club: req.body?.club || req.body || {},
       contract: req.body?.contract || {},
+      playerContract: req.body?.playerContract || req.body?.player_contract || req.body?.contract || {},
+      presidentContract: req.body?.presidentContract || req.body?.president_contract || {},
       idempotencyKey: req.body?.idempotency_key || req.body?.idempotencyKey || null,
     });
     broadcastClub(result.club);
     res.status(201).json(result);
+  } catch (err) {
+    console.error(err);
+    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+    const payload = { error: err.message };
+    if (err?.code) payload.code = String(err.code);
+    res.status(status).json(payload);
+  }
+});
+
+// POST /:id/leave — player (+ president) leaves the club, terminates live contracts, returns as free agent.
+router.post('/:id/leave', async (req, res) => {
+  try {
+    const result = await leaveClubLifecycle({
+      user: req.user,
+      playerId: req.body?.player_id || req.body?.playerId || null,
+      clubId: req.params.id,
+    });
+    if (result.club) broadcastClub(result.club);
+    res.json(result);
   } catch (err) {
     console.error(err);
     const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
@@ -493,8 +516,8 @@ router.post('/:id/staff', async (req, res) => {
   try {
     const { id } = req.params;
     const { user } = await requireClubPermission(req, id, 'manage_staff');
-    const role = req.body?.role;
-    if (!ROLE_PERMISSIONS[role]) return res.status(400).json({ error: 'Invalid role' });
+    const role = normalizeAssignableStaffRole(req.body?.role);
+    if (!role) return res.status(400).json({ error: 'Invalid role' });
     const playerId = req.body?.player_id;
     if (!playerId) return res.status(400).json({ error: 'player_id is required' });
     const players = await EXECUTESQL('SELECT id, user_id FROM players WHERE id = ? AND club_id = ? LIMIT 1', [playerId, id]);

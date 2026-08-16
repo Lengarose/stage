@@ -1,4 +1,5 @@
 import { stageClient } from "@/api/stageClient";
+import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
 
 // ─── Context label ────────────────────────────────────────────────────────────
 
@@ -34,12 +35,15 @@ export async function createMatchFromFixture(fixture, fixtureType) {
   const existingByLinkedId = fixture.match_id
     ? await stageClient.entities.Match.get(fixture.match_id).catch(() => null)
     : null;
-  if (existingByLinkedId?.id) return existingByLinkedId;
+  if (existingByLinkedId?.id) {
+    return isActiveGameDayMatch(existingByLinkedId) ? existingByLinkedId : null;
+  }
 
   const existingBySource = await stageClient.entities.Match
     .filter({ source_fixture_id: fixture.id, source_fixture_type: sourceType }, "-created_date", 1)
     .catch(() => []);
   if (existingBySource[0]?.id) {
+    if (!isActiveGameDayMatch(existingBySource[0])) return null;
     if (!fixture.match_id && fixtureEntity?.update) {
       await fixtureEntity.update(fixture.id, { match_id: existingBySource[0].id }).catch(() => {});
     }
@@ -52,7 +56,7 @@ export async function createMatchFromFixture(fixture, fixtureType) {
       fixture_type: sourceType,
     });
     const match = result?.data?.match || result?.match || null;
-    if (match?.id) return match;
+    if (match?.id) return isActiveGameDayMatch(match) ? match : null;
   } catch (err) {
     // Older deployments may not have the server function yet. Fall back to the
     // normal Match route so confirmed fixtures never disappear from Game Day.

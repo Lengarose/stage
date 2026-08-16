@@ -5,6 +5,7 @@ const { EXECUTESQL } = require('../db/database');
 const {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
+  normalizeAssignableStaffRole,
   parseJson,
   getUser,
   isAdmin,
@@ -13,8 +14,7 @@ const {
   writeClubAudit,
 } = require('../services/clubOperationsService');
 const { upsertActiveMembership } = require('../services/clubMembershipService');
-
-const ROLES = new Set(['owner', 'president', 'captain', 'vice_captain', 'recruiter', 'finance_manager', 'match_coordinator']);
+const { recordStaffMercatoEvent } = require('../services/mercatoTransferService');
 
 function handleError(res, err) {
   res.status(err.status || 500).json({ error: err.message });
@@ -70,9 +70,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { user } = await requireClubPermission(req, req.body?.club_id, 'manage_staff');
-    if (!ROLES.has(req.body?.role)) return res.status(400).json({ error: 'Invalid role' });
-    const permissions = (req.body?.permissions || ROLE_PERMISSIONS[req.body.role] || []).filter((p) => ALL_PERMISSIONS.includes(p));
-    const body = await attachUserId({ ...req.body, permissions, assigned_by_user_id: user.id });
+    const role = normalizeAssignableStaffRole(req.body?.role);
+    if (!role) return res.status(400).json({ error: 'Invalid role' });
+    const permissions = (req.body?.permissions || ROLE_PERMISSIONS[role] || []).filter((p) => ALL_PERMISSIONS.includes(p));
+    const body = await attachUserId({ ...req.body, role, permissions, assigned_by_user_id: user.id });
     const existing = await new ClubStaffRole().selectAll({ club_id: body.club_id, player_id: body.player_id, role: body.role, limit: 1 });
     if (existing.length) return res.status(409).json({ error: 'Role already assigned' });
     const model = new ClubStaffRole(body);
@@ -86,6 +87,13 @@ router.post('/', async (req, res) => {
     });
     const created = await loadRole(model.id);
     await writeClubAudit({ clubId: created.club_id, user, action: 'staff_role_changed', entityType: 'club_staff_role', entityId: created.id, newValue: created });
+    const playerRows = created.player_id
+      ? await EXECUTESQL('SELECT id, gamertag, avatar_url FROM players WHERE id = ? LIMIT 1', [created.player_id]).catch(() => [])
+      : [];
+    const clubRows = created.club_id
+      ? await EXECUTESQL('SELECT id, name, logo_url FROM clubs WHERE id = ? LIMIT 1', [created.club_id]).catch(() => [])
+      : [];
+    await recordStaffMercatoEvent(created, playerRows[0], clubRows[0]).catch(() => null);
     res.status(201).json(created);
   } catch (err) {
     handleError(res, err);

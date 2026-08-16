@@ -19,3 +19,15 @@ test("layout shell uses president-mode names for club identity navigation", () =
   assert.doesNotMatch(source, /owner and tournament context/);
   assert.doesNotMatch(source, /owner OR member/);
 });
+
+test("layout resolves president identity from resolveMyPlayerAndClub", () => {
+  const source = readFileSync(resolve(root, "src/components/Layout.jsx"), "utf8");
+  assert.match(source, /presidentClub, president \}/);
+  assert.match(source, /resolvedPresidentId = president\?\.id/);
+});
+
+test("president Home always includes My Club", () => {
+  const source = readFileSync(resolve(root, "src/components/Layout.jsx"), "utf8");
+  assert.match(source, /clubPath \|\| "\/clubs", icon: Shield,\s+label: t\("nav\.myClub"\)/);
+  assert.doesNotMatch(source, /if \(clubPath\) homeItems\.push/);
+});

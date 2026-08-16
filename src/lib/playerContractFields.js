@@ -27,3 +27,10 @@ export function normalizePlayerContracts(value) {
 export function getContractTargetPlayerId(contract) {
   return contract?.target_player_id || contract?.user_id || null;
 }
+
+/** True when the last counter came from the player the contract is offered to. */
+export function isLastNegotiatedByTargetPlayer(contract) {
+  const lastBy = contract?.last_negotiated_by;
+  const targetId = getContractTargetPlayerId(contract);
+  return Boolean(lastBy && targetId && String(lastBy) === String(targetId));
+}

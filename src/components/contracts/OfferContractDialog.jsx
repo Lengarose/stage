@@ -9,6 +9,13 @@ import { suggestSalaryRange, formatSTC } from "@/lib/playerValue";
 import { getStatOptionsForPosition, groupStatOptions } from "@/lib/contractPerformanceTargets";
 import { useTranslation } from "@/hooks/useTranslation";
 import { findBlockingContractConflict } from "@/lib/contractOfferVisibility";
+import { isFounderPlayerContract } from "@/lib/lifecycleOwnedContracts";
+import {
+  FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
+  FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
+  founderPlayerWageError,
+  normalizePerformanceTargets,
+} from "@/lib/founderPlayerTerms";
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
@@ -19,7 +26,8 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   const [weeklySalary, setWeeklySalary] = useState(existingContract?.weekly_salary_stc?.toString() || "");
   const [signingBonus, setSigningBonus] = useState(existingContract?.signing_bonus_stc?.toString() || "");
   const [captaincy, setCaptaincy] = useState(existingContract?.captaincy_offered || false);
-  const [targets, setTargets] = useState(existingContract?.performance_targets || []);
+  const [targets, setTargets] = useState(normalizePerformanceTargets(existingContract?.performance_targets));
+  const lockContractType = isNegotiation && isFounderPlayerContract(existingContract);
   const [showTargets, setShowTargets] = useState(false);
   const [offering, setOffering] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -74,11 +82,18 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
   async function handleOffer() {
     if (offerLockedByWindow) return;
     if (blockingConflict && !isNegotiation) return;
+    if (lockContractType || isFounderPlayerContract({ contract_type: selectedType })) {
+      const wageError = founderPlayerWageError(weeklySalaryNumber);
+      if (wageError) {
+        setSubmitError(wageError);
+        return;
+      }
+    }
     setOffering(true);
     setSubmitError(null);
     try {
       await onOffer({
-        contract_type: selectedType,
+        contract_type: lockContractType ? (existingContract?.contract_type || selectedType) : selectedType,
         offer_note: note,
         weekly_salary_stc: weeklySalary ? parseInt(weeklySalary) : 0,
         signing_bonus_stc: signingBonus ? parseInt(signingBonus) : 0,
@@ -108,7 +123,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="w-5 h-5 text-primary" />
-            {isNegotiation ? t("commonPages.ocdCounterOffer") : t("commonPages.offerContract")}
+            {lockContractType ? t("commonPages.ocdRenegotiateFounder") : isNegotiation ? t("commonPages.ocdCounterOffer") : t("commonPages.offerContract")}
             {player && <span className="text-muted-foreground font-normal text-base">{t("commonPages.ocdTo", { name: player?.gamertag })}</span>}
           </DialogTitle>
         </DialogHeader>
@@ -133,17 +148,17 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
         {(!blockingConflict || isNegotiation) && (
           <div className="space-y-5 mt-2">
             {/* Transfer window awareness */}
-            <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
+            {!lockContractType && <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
               <FileText className="w-3.5 h-3.5 shrink-0" />
               {windowOpen === false
                 ? t("commonPages.ocdWindowClosed")
                 : windowOpen === true
                 ? t("commonPages.ocdWindowOpen")
                 : t("commonPages.ocdWindowChecking")}
-            </div>
+            </div>}
 
             {/* Contract type */}
-            <div>
+            {!lockContractType && <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">{t("commonPages.ocdContractType")}</label>
               <div className="space-y-2">
                 {CONTRACT_TYPE_OPTIONS.map((opt) => (
@@ -165,7 +180,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Financials */}
             {selectedType !== "ownership" && <div>
@@ -219,8 +234,9 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     type="number"
                     value={weeklySalary}
                     onChange={e => setWeeklySalary(e.target.value)}
-                    placeholder="e.g. 50000"
-                    min="0"
+                    placeholder={lockContractType ? "e.g. 40000" : "e.g. 50000"}
+                    min={lockContractType ? FOUNDER_PLAYER_WEEKLY_SALARY_MIN : 0}
+                    max={lockContractType ? FOUNDER_PLAYER_WEEKLY_SALARY_MAX : undefined}
                     className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidMonthly")}</p>

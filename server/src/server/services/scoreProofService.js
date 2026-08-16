@@ -53,13 +53,38 @@ function proofUrlsMatch(homeSubmission, awaySubmission) {
   return Boolean(homeProof && awayProof && homeProof === awayProof);
 }
 
+function hasOwnOpponentScores(submission) {
+  return submission?.own_score != null && submission?.own_score !== ''
+    && submission?.opponent_score != null && submission?.opponent_score !== '';
+}
+
+function fixtureScoreFromSubmission(submission, side) {
+  if (hasOwnOpponentScores(submission)) {
+    const own = Number(submission.own_score);
+    const opponent = Number(submission.opponent_score);
+    if (side === 'away') return { home: opponent, away: own };
+    return { home: own, away: opponent };
+  }
+  return {
+    home: Number(submission?.home_score),
+    away: Number(submission?.away_score),
+  };
+}
+
+function declaredScoresAgree(homeSubmission, awaySubmission) {
+  const home = fixtureScoreFromSubmission(homeSubmission, 'home');
+  const away = fixtureScoreFromSubmission(awaySubmission, 'away');
+  return Number.isFinite(home.home)
+    && Number.isFinite(home.away)
+    && home.home === away.home
+    && home.away === away.away;
+}
+
 function verifyScoreProofs({ homeSubmission, awaySubmission }) {
-  const homeScore = Number(homeSubmission?.home_score ?? NaN);
-  const awayScore = Number(homeSubmission?.away_score ?? NaN);
-  const scoreMatch = Number.isFinite(homeScore) &&
-    Number.isFinite(awayScore) &&
-    homeScore === Number(awaySubmission?.home_score) &&
-    awayScore === Number(awaySubmission?.away_score);
+  const home = fixtureScoreFromSubmission(homeSubmission, 'home');
+  const homeScore = home.home;
+  const awayScore = home.away;
+  const scoreMatch = declaredScoresAgree(homeSubmission, awaySubmission);
   const proofMatch = proofUrlsMatch(homeSubmission, awaySubmission);
   const homeProofUrl = normalizeProofUrl(homeSubmission?.proof_url);
   const awayProofUrl = normalizeProofUrl(awaySubmission?.proof_url);
@@ -76,60 +101,24 @@ function verifyScoreProofs({ homeSubmission, awaySubmission }) {
       proof_match: proofMatch,
       home_ocr_scores: homeCandidates,
       away_ocr_scores: awayCandidates,
+      home_ocr_matches: homeOcrMatches,
+      away_ocr_matches: awayOcrMatches,
     };
   }
 
-  if (!homeProofUrl || !awayProofUrl) {
-    return {
-      status: 'needs_review',
-      reason: 'missing_proof',
-      score_match: true,
-      proof_match: false,
-      home_ocr_scores: homeCandidates,
-      away_ocr_scores: awayCandidates,
-    };
-  }
-
-  if (proofMatch) {
-    return {
-      status: 'verified',
-      reason: 'matching_proof',
-      score_match: true,
-      proof_match: true,
-      home_ocr_scores: homeCandidates,
-      away_ocr_scores: awayCandidates,
-    };
-  }
-
-  if ((homeCandidates.length || awayCandidates.length) && (!homeOcrMatches || !awayOcrMatches)) {
-    return {
-      status: 'needs_review',
-      reason: 'ocr_score_mismatch',
-      score_match: true,
-      proof_match: false,
-      home_ocr_scores: homeCandidates,
-      away_ocr_scores: awayCandidates,
-    };
-  }
-
-  if (homeOcrMatches && awayOcrMatches) {
-    return {
-      status: 'verified',
-      reason: 'ocr_score_match',
-      score_match: true,
-      proof_match: false,
-      home_ocr_scores: homeCandidates,
-      away_ocr_scores: awayCandidates,
-    };
-  }
-
+  // Declared scores already agree. Proof/OCR is audit-only and must not
+  // block completion — screenshots are often unreadable to Tesseract.
   return {
-    status: 'needs_review',
-    reason: 'proofs_differ_without_readable_score',
+    status: 'verified',
+    reason: 'declared_scores_agree',
     score_match: true,
-    proof_match: false,
+    proof_match: proofMatch,
     home_ocr_scores: homeCandidates,
     away_ocr_scores: awayCandidates,
+    home_ocr_matches: homeOcrMatches,
+    away_ocr_matches: awayOcrMatches,
+    home_proof_url: homeProofUrl,
+    away_proof_url: awayProofUrl,
   };
 }
 
@@ -170,7 +159,9 @@ async function recognizeScoreFromImageUrl(url) {
 }
 
 module.exports = {
+  declaredScoresAgree,
   extractScoreCandidates,
+  fixtureScoreFromSubmission,
   localUploadPathFromUrl,
   normalizeProofUrl,
   proofUrlsMatch,

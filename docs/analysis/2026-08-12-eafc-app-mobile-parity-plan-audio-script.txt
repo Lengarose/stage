@@ -1,0 +1,17 @@
+StageLeagues mobile parity plan summary.
+
+The real mobile app is at `/Users/creaafde/Documents/eafc/eafc-app`. It is an Expo app, and it already has Stage concepts like auth, onboarding, profile, social feed, matches, tournaments, and President screens.
+
+The mobile app is behind the web and backend changes from August eleventh onward. The biggest gap is founder onboarding. Mobile still creates clubs through generic Club create and then tries to accept a contract afterward. Web now uses the backend founder lifecycle endpoint, which creates the club, attaches the player, writes membership, and creates two long-term contracts: founder player and ownership.
+
+The second gap is the mobile API client. It needs the same wrappers as web: clubs create founder, post like toggle, and comments create for post.
+
+The third gap is President identity. Mobile still treats President as a separate profile surface in places. The new product logic is President as a management status on the Player profile, with legacy President rows only for compatibility.
+
+The fourth gap is profile tabs and stats. Mobile should align with the canonical meanings: Posts, Showcase, Stats, Career, Matches, Trophies, and Lifestyle. Official stats must stay separate from self-authored showcase.
+
+The fifth gap is feed trust and media. Mobile should use server-owned likes and comments and render image framing metadata. It should not add new feed video upload controls.
+
+The sixth gap is match result proof and club player stats. Mobile should wait for backend Slice fifteen, then build score proof upload and club event capture on top of the backend-owned lifecycle.
+
+Recommended first mobile development slice is M1 plus M2: API client parity and founder onboarding parity. No Transfer Room changes.

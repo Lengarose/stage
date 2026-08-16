@@ -4,8 +4,10 @@ const PlayerShowcaseVideo = require('../models/playerShowcaseVideoModel');
 const { EXECUTESQL } = require('../db/database');
 const { get } = require('../../constants/env');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
-
-const MAX_SHOWCASE_VIDEO_SECONDS = 20;
+const {
+  MAX_SHOWCASE_VIDEO_SECONDS,
+  showcaseDurationError,
+} = require('../services/showcaseVideoLimits');
 
 /**
  * A player's showcase clips.
@@ -50,7 +52,7 @@ function isUploadedAssetUrl(url) {
 
 async function getUser(req) {
   const rows = await EXECUTESQL(
-    'SELECT id, email, full_name, role_id FROM users WHERE id = ? LIMIT 1',
+    'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
     [req.user?.id]
   );
   return rows[0] || null;
@@ -185,7 +187,7 @@ router.post('/:id/like', async (req, res) => {
         recipientEmail: existing.owner_email,
         type: 'showcase_like',
         title: 'New like on your showcase video',
-        body: `${user.full_name || user.email} liked "${existing.title || 'your showcase video'}".`,
+        body: `${user.email} liked "${existing.title || 'your showcase video'}".`,
         link: `/scouting?video=${existing.id}`,
         relatedId: existing.id,
         idempotencyKey: `showcase-like:${existing.id}:${actorEmail}`,
@@ -234,7 +236,7 @@ router.post('/:id/comments', async (req, res) => {
       content,
       author_email: user.email,
       author_player_id: player.id || null,
-      author_name: player.gamertag || user.full_name || user.email,
+      author_name: player.gamertag || user.email,
       author_avatar_url: player.avatar_url || '',
     });
 
@@ -306,7 +308,7 @@ router.post('/', async (req, res) => {
 
     const duration = cleanDuration(body.duration_seconds);
     if (duration !== null && duration > MAX_SHOWCASE_VIDEO_SECONDS) {
-      return res.status(400).json({ error: `Showcase videos must be ${MAX_SHOWCASE_VIDEO_SECONDS} seconds or shorter` });
+      return res.status(400).json({ error: showcaseDurationError() });
     }
 
     // The server assigns the id; letting a client pick one is surface we don't need.
@@ -354,7 +356,7 @@ router.patch('/:id', async (req, res) => {
       ? cleanDuration(body.duration_seconds)
       : existing.duration_seconds;
     if (duration !== null && duration !== undefined && Number(duration) > MAX_SHOWCASE_VIDEO_SECONDS) {
-      return res.status(400).json({ error: `Showcase videos must be ${MAX_SHOWCASE_VIDEO_SECONDS} seconds or shorter` });
+      return res.status(400).json({ error: showcaseDurationError() });
     }
 
     const model = new PlayerShowcaseVideo({

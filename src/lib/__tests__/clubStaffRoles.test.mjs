@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ASSIGNABLE_CLUB_STAFF_ROLES,
   getPrimaryClubRole,
   mergeStaffRolesIntoPlayers,
 } from "../clubStaffRoles.js";
@@ -21,4 +22,8 @@ test("getPrimaryClubRole prioritizes president over other roles", () => {
     getPrimaryClubRole({ role: "member", club_roles: ["recruiter", "president"] }),
     "president",
   );
+});
+
+test("assignable club staff roles are only captain and vice-captain", () => {
+  assert.deepEqual(ASSIGNABLE_CLUB_STAFF_ROLES, ["captain", "vice_captain"]);
 });

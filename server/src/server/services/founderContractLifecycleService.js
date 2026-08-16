@@ -23,6 +23,43 @@ const FOUNDER_PLAYER_CONTRACT_TYPE = 'founder_player';
 const FOUNDER_PRESIDENT_CONTRACT_TYPE = 'ownership';
 const LEGACY_FOUNDER_CONTRACT_TYPE = 'founder';
 const FOUNDER_CONTRACT_DAYS = 3650;
+const FOUNDER_TARGET_TYPES = new Set(['min', 'exact', 'range']);
+const FOUNDER_PLAYER_WEEKLY_SALARY_MIN = 40000;
+const FOUNDER_PLAYER_WEEKLY_SALARY_MAX = 500000;
+
+function sanitizeFounderPlayerTerms(terms = {}) {
+  const weekly = Math.max(0, Number(terms.weekly_salary_stc) || 0);
+  const hasWageInput = terms.weekly_salary_stc != null && String(terms.weekly_salary_stc) !== '';
+  if (hasWageInput && (weekly < FOUNDER_PLAYER_WEEKLY_SALARY_MIN || weekly > FOUNDER_PLAYER_WEEKLY_SALARY_MAX)) {
+    throw httpError(
+      `Founder Player wage must be between ${FOUNDER_PLAYER_WEEKLY_SALARY_MIN.toLocaleString()} and ${FOUNDER_PLAYER_WEEKLY_SALARY_MAX.toLocaleString()} STC per week`,
+      400,
+      'founder_wage_range'
+    );
+  }
+  const bonus = Math.max(0, Number(terms.signing_bonus_stc) || 0);
+  const rawTargets = Array.isArray(terms.performance_targets) ? terms.performance_targets : [];
+  const targets = rawTargets
+    .filter((row) => row && typeof row === 'object' && row.stat)
+    .map((row) => ({
+      stat: String(row.stat),
+      type: FOUNDER_TARGET_TYPES.has(row.type) ? row.type : 'min',
+      value: Number(row.value) || 0,
+      value_max: Number(row.value_max) || 0,
+    }));
+  return {
+    weekly_salary_stc: weekly,
+    signing_bonus_stc: bonus,
+    performance_targets: targets,
+  };
+}
+
+function serializeFounderPerformanceTargets(terms, kind, founderKey) {
+  if (Array.isArray(terms?.performance_targets) && terms.performance_targets.length) {
+    return JSON.stringify(terms.performance_targets);
+  }
+  return JSON.stringify({ source: 'founder_onboarding', founder_contract_kind: kind, idempotency_key: founderKey });
+}
 
 function httpError(message, status = 400, code = null) {
   const err = new Error(message);
@@ -174,31 +211,53 @@ async function ensureFounderContract(query, {
   terms = {},
 }) {
   const contractTypes = [...new Set(compatibleTypes.filter(Boolean))];
-  const offerNotes = [...new Set(compatibleOfferNotes.filter(Boolean))];
   const existing = await query(
     `SELECT *, user_id AS target_player_id
        FROM player_contracts
       WHERE team_id = ?
         AND user_id = ?
         AND contract_type IN (${contractTypes.map(() => '?').join(',')})
-        AND offer_note IN (${offerNotes.map(() => '?').join(',')})
+        AND status IN ('active', 'pending', 'pending_window', 'negotiating')
+      ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, created_date DESC
       LIMIT 1
       FOR UPDATE`,
-    [clubId, playerId, ...contractTypes, ...offerNotes]
+    [clubId, playerId, ...contractTypes]
   );
   if (existing[0]) {
+    const safeTerms = sanitizeFounderPlayerTerms(terms);
+    const shouldUpdateTerms = kind === 'player' && (
+      safeTerms.weekly_salary_stc > 0
+      || safeTerms.signing_bonus_stc > 0
+      || safeTerms.performance_targets.length > 0
+    );
     if (existing[0].status !== 'active') {
       await query(
         "UPDATE player_contracts SET status = 'active', start_date = COALESCE(start_date, ?), end_date = COALESCE(end_date, ?), updated_date = NOW() WHERE id = ?",
         [new Date().toISOString().slice(0, 10), null, existing[0].id]
       );
-      const activeRows = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [existing[0].id]);
-      return activeRows[0] || { ...existing[0], status: 'active' };
     }
-    return existing[0];
+    if (shouldUpdateTerms) {
+      await query(
+        `UPDATE player_contracts
+            SET weekly_salary_stc = ?,
+                signing_bonus_stc = ?,
+                performance_targets = ?,
+                updated_date = NOW()
+          WHERE id = ?`,
+        [
+          safeTerms.weekly_salary_stc,
+          safeTerms.signing_bonus_stc,
+          serializeFounderPerformanceTargets(safeTerms, kind, founderKey),
+          existing[0].id,
+        ]
+      );
+    }
+    const rows = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [existing[0].id]);
+    return rows[0] || { ...existing[0], status: 'active' };
   }
 
   const id = terms.id || uuidv4();
+  const safeTerms = sanitizeFounderPlayerTerms(terms);
   await query(
     `INSERT INTO player_contracts (
       id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id,
@@ -216,13 +275,13 @@ async function ensureFounderContract(query, {
       clubId,
       Number(terms.max_games ?? 0),
       Number(terms.max_days ?? FOUNDER_CONTRACT_DAYS),
-      Number(terms.weekly_salary_stc ?? 0),
-      Number(terms.signing_bonus_stc ?? 0),
+      Number(safeTerms.weekly_salary_stc),
+      Number(safeTerms.signing_bonus_stc),
       Number(terms.transfer_fee_stc ?? 0),
       offerNote,
       new Date().toISOString().slice(0, 10),
       null,
-      JSON.stringify({ source: 'founder_onboarding', founder_contract_kind: kind, idempotency_key: founderKey }),
+      serializeFounderPerformanceTargets(safeTerms, kind, founderKey),
     ]
   );
 

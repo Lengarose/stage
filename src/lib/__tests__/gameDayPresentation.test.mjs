@@ -6,6 +6,7 @@ import {
   formatBroadcastUnit,
   getKickoffCountdownParts,
   getMatchSideNames,
+  isActiveGameDayMatch,
   pad2,
 } from "../gameDayPresentation.js";
 
@@ -43,4 +44,22 @@ test("kickoff countdown marks a kickoff that already started", () => {
   const parts = getKickoffCountdownParts("2026-08-14T20:00:00.000Z", now);
   assert.equal(parts.started, true);
   assert.equal(parts.hours, 0);
+});
+
+test("cancelled and forfeited matches leave Game Day", () => {
+  const now = new Date("2026-08-15T00:00:00.000Z").getTime();
+  assert.equal(isActiveGameDayMatch({ id: "m1", status: "scheduled" }, now), true);
+  assert.equal(isActiveGameDayMatch({ id: "m2", status: "in_progress" }, now), true);
+  assert.equal(isActiveGameDayMatch({ id: "m3", status: "disputed" }, now), true);
+  assert.equal(isActiveGameDayMatch({ id: "m4", status: "forfeit" }, now), false);
+  assert.equal(isActiveGameDayMatch({ id: "m5", status: "cancelled" }, now), false);
+  assert.equal(isActiveGameDayMatch({ id: "m6", status: "canceled" }, now), false);
+  assert.equal(
+    isActiveGameDayMatch({ id: "m7", status: "completed", updated_date: "2026-08-14T12:00:00.000Z" }, now),
+    true,
+  );
+  assert.equal(
+    isActiveGameDayMatch({ id: "m8", status: "completed", updated_date: "2026-08-13T12:00:00.000Z" }, now),
+    false,
+  );
 });

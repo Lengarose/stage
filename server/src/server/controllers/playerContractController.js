@@ -7,6 +7,7 @@ const { deliverContractOfferMessage } = require('../services/messageDeliveryServ
 const { assertCanCreateContractOffer } = require('../services/contractRulesService');
 const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
 const { assertClubContractFinance } = require('../services/clubFinanceService');
+const { assertContractCanBeDeleted } = require('../services/lifecycleOwnedContracts');
 const { v4: uuidv4 } = require('uuid');
 
 async function insertClubLedgerRow({
@@ -262,11 +263,15 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new PlayerContract().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    assertContractCanBeDeleted(existing[0]);
     await new PlayerContract().delete(id);
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+    if (status >= 500) console.error(err);
+    const payload = { error: err.message };
+    if (err?.code) payload.code = String(err.code);
+    res.status(status).json(payload);
   }
 });
 

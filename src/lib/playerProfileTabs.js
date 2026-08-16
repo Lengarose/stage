@@ -1,9 +1,7 @@
 export const PLAYER_PROFILE_TAB_IDS = [
   "posts",
   "showcase",
-  "stats",
   "career",
-  "matches",
   "trophies",
   "lifestyle",
 ];
@@ -20,14 +18,7 @@ const TAB_CONTRACTS = [
     id: "showcase",
     labelKey: "commonPages.ppTab_showcase",
     domain: "profile_presentation",
-    meaning: "Public presentation of player identity, bio, preferred positions, current club, and management status.",
-    tournamentVisible: true,
-  },
-  {
-    id: "stats",
-    labelKey: "commonPages.ppTab_stats",
-    domain: "verified_performance",
-    meaning: "Comparable scouting and performance numbers derived from one shared profile stats adapter.",
+    meaning: "Player-owned gameplay clips and preferred showcase position. Clubs and scouts can watch; they cannot add footage.",
     tournamentVisible: true,
   },
   {
@@ -35,13 +26,6 @@ const TAB_CONTRACTS = [
     labelKey: "commonPages.ppTab_career",
     domain: "stageleagues_cv",
     meaning: "StageLeagues career CV: active contracts, club history, memberships, president/founder status, and achievements summary.",
-    tournamentVisible: true,
-  },
-  {
-    id: "matches",
-    labelKey: "commonPages.ppTab_matches",
-    domain: "completed_match_history",
-    meaning: "Completed match history only. Future fixtures belong in schedule or career overview surfaces.",
     tournamentVisible: true,
   },
   {

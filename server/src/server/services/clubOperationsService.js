@@ -25,13 +25,17 @@ const ROLE_PERMISSIONS = {
   captain: ['manage_recruitment', 'review_applicants', 'offer_contracts', 'manage_formation', 'manage_lineup'],
   vice_captain: ['review_applicants', 'manage_formation', 'manage_lineup'],
   'vice-captain': ['review_applicants', 'manage_formation', 'manage_lineup'],
-  // Still a coherent role after the board's removal: reviewing applicants and
-  // offering contracts are both alive, and scouting gives this role more to do,
-  // not less. Scouting itself needs no permission — any club member may scout.
   recruiter: ['manage_recruitment', 'review_applicants', 'offer_contracts'],
   finance_manager: ['view_finances', 'manage_finances'],
   match_coordinator: ['manage_formation', 'manage_lineup'],
 };
+
+const ASSIGNABLE_STAFF_ROLES = new Set(['captain', 'vice_captain']);
+
+function normalizeAssignableStaffRole(role) {
+  const normalized = String(role || '').trim().toLowerCase().replace(/-/g, '_');
+  return ASSIGNABLE_STAFF_ROLES.has(normalized) ? normalized : null;
+}
 
 function parseJson(value, fallback) {
   if (value == null || value === '') return fallback;
@@ -217,6 +221,8 @@ async function getCurrentTransferWindow() {
 module.exports = {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
+  ASSIGNABLE_STAFF_ROLES,
+  normalizeAssignableStaffRole,
   parseJson,
   getUser,
   isAdmin,

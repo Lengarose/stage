@@ -26,4 +26,7 @@ module.exports = {
   MICROSOFT_CLIENT_SECRET: '<microsoft-client-secret>',
   // Google OAuth client secret — console.cloud.google.com -> Credentials.
   GOOGLE_CLIENT_SECRET: '<google-client-secret>',
+  // OneSignal dashboard → Settings → Keys & IDs
+  ONESIGNAL_APP_ID: '<onesignal-app-id>',
+  ONESIGNAL_REST_API_KEY: '<onesignal-rest-api-key>',
 };

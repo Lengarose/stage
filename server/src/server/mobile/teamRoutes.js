@@ -18,6 +18,7 @@ const {
   mapJoinRequest,
   resolveCallerContext,
 } = require('./helpers');
+const { leaveClubLifecycle } = require('../services/leaveClubLifecycleService');
 
 const router = express.Router();
 const upload = multer({
@@ -293,13 +294,20 @@ router.post('/:id/leave', async (req, res) => {
   try {
     const ctx = await resolveCallerContext(req.user);
     if (!ctx?.player) return fail(res, 400, 'No player profile');
-    if (String(ctx.player.club_id) !== String(req.params.id)) {
-      return fail(res, 400, 'You are not a member of this club');
-    }
-    await EXECUTESQL('UPDATE players SET club_id = NULL, updated_date = NOW() WHERE id = ?', [ctx.player.id]);
-    return ok(res, { success: true });
+    const result = await leaveClubLifecycle({
+      user: req.user,
+      playerId: ctx.player.id,
+      clubId: req.params.id,
+    });
+    const clubRows = await new Club().selectOne(req.params.id).catch(() => []);
+    return ok(res, clubRows?.[0] ? mapClub(clubRows[0]) : {
+      success: true,
+      id: req.params.id,
+      detachedPresidency: Boolean(result?.detachedPresidency),
+    });
   } catch (err) {
-    return fail(res, 500, err.message);
+    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+    return fail(res, status, err.message);
   }
 });
 

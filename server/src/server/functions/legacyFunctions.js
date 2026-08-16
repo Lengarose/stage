@@ -5,8 +5,19 @@ const { v4: uuidv4 } = require('uuid');
 const { deleteUserAccount } = require('../services/accountDeletion');
 const competitionEngineService = require('../services/competitionEngineService');
 const {
+  phaseLabel,
+  publishClubTrophyStory,
+  publishNewsItem,
+  publishTournamentStory,
+  registeredCount,
+  tournamentFieldFacts,
+  tournamentKickoffCopy,
+} = require('../services/newsFeedService');
+const { recordContractMercatoEvent } = require('../services/mercatoTransferService');
+const {
+  declaredScoresAgree,
+  fixtureScoreFromSubmission,
   recognizeScoreFromImageUrl,
-  verifyScoreProofs,
 } = require('../services/scoreProofService');
 const {
   createNotificationIfEnabled,
@@ -14,6 +25,17 @@ const {
   messageTypeToNotificationType,
   sendActionMessage,
 } = require('../services/messageDeliveryService');
+const {
+  canRequestMatchCancel,
+  canConfirmMatchCancel,
+  canRequestMatchReschedule,
+  resolveMatchOpponent,
+  applyConfirmedCancelPatch,
+  applyCancelRequestPatch,
+  applyDeclinedCancelPatch,
+  buildCancelRequestMessage,
+  buildRescheduleRequestMessage,
+} = require('../services/matchFixtureLifecycle');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
 const {
@@ -668,6 +690,17 @@ async function generateShirtSalesForMatch(match, stats) {
       referenceId: match.id,
       relatedEntityType: 'match',
     });
+    await publishNewsItem({
+      title: `${match.home_club_name || 'A club'} sold ${totalQuantity.toLocaleString()} shirts after the match`,
+      body: `Shirt sales after ${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'} brought in ${totalRevenue.toLocaleString()} STC.`,
+      type: 'shirts',
+      category: 'shirts',
+      tags: ['club_news'],
+      club_id: match.home_club_id,
+      club_name: match.home_club_name || null,
+      transfer_fee_stc: totalRevenue,
+      link: match.home_club_id ? `/clubs/${match.home_club_id}` : '',
+    });
   }
 
   return { total_revenue: totalRevenue, total_quantity: totalQuantity };
@@ -842,6 +875,57 @@ async function notifyMatchAdmins(match, title, body) {
   }
 }
 
+async function applyClubMatchRecord(club, result, scored, conceded) {
+  if (!club?.id) return;
+  const parsedForm = parseMaybeJson(club.form, []);
+  const form = [...(Array.isArray(parsedForm) ? parsedForm : [])];
+  const letter = result === 'win' ? 'W' : result === 'loss' ? 'L' : 'D';
+  form.push(letter);
+  await EXECUTESQL(
+    `UPDATE clubs SET
+       wins = IFNULL(wins,0) + ?,
+       losses = IFNULL(losses,0) + ?,
+       draws = IFNULL(draws,0) + ?,
+       goals_scored = IFNULL(goals_scored,0) + ?,
+       goals_conceded = IFNULL(goals_conceded,0) + ?,
+       win_streak = ?,
+       loss_streak = ?,
+       form = ?,
+       updated_date = NOW()
+     WHERE id = ?`,
+    [
+      result === 'win' ? 1 : 0,
+      result === 'loss' ? 1 : 0,
+      result === 'draw' ? 1 : 0,
+      Number(scored || 0),
+      Number(conceded || 0),
+      result === 'win' ? Number(club.win_streak || 0) + 1 : 0,
+      result === 'loss' ? Number(club.loss_streak || 0) + 1 : 0,
+      JSON.stringify(form.slice(-5)),
+      club.id,
+    ]
+  ).catch(() => {});
+}
+
+async function applySoloPlayerRecord(playerId, result) {
+  if (!playerId) return;
+  await EXECUTESQL(
+    `UPDATE players
+       SET matches_played = IFNULL(matches_played,0) + 1,
+           wins_count = IFNULL(wins_count,0) + ?,
+           losses_count = IFNULL(losses_count,0) + ?,
+           draws_count = IFNULL(draws_count,0) + ?,
+           updated_date = NOW()
+     WHERE id = ?`,
+    [
+      result === 'win' ? 1 : 0,
+      result === 'loss' ? 1 : 0,
+      result === 'draw' ? 1 : 0,
+      playerId,
+    ]
+  ).catch(() => {});
+}
+
 async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
@@ -928,6 +1012,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     if (homeClub && awayClub) {
       const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
       const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+      await applyClubMatchRecord(homeClub, homeResult, homeScore, awayScore);
+      await applyClubMatchRecord(awayClub, awayResult, awayScore, homeScore);
       const cfg = await getStadiumConfig();
       const level = Number(homeClub.stadium_level ?? 0);
       const stadium = cfg.find((s) => Number(s.level) === level) || cfg[0];
@@ -950,6 +1036,18 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
           description: `Ticket sales (${attendance.toLocaleString()} fans @ ${ticketPrice} STC)`,
           referenceId: matchId,
           relatedEntityType: 'match',
+        });
+        await publishNewsItem({
+          title: `${homeClub.name} sold ${attendance.toLocaleString()} tickets`,
+          body: `Home gates after ${fresh.home_club_name || 'Home'} vs ${fresh.away_club_name || 'Away'} brought in ${ticketRevenue.toLocaleString()} STC from ${attendance.toLocaleString()} fans.`,
+          type: 'tickets',
+          category: 'tickets',
+          tags: ['club_news'],
+          club_id: homeClub.id,
+          club_name: homeClub.name,
+          club_logo_url: homeClub.logo_url || null,
+          transfer_fee_stc: ticketRevenue,
+          link: `/clubs/${homeClub.id}`,
         });
       }
 
@@ -1018,9 +1116,29 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
             player.id,
           ]
         );
+        if (Number(stat.is_motm || 0)) {
+          await publishNewsItem({
+            title: `${player.gamertag || 'A player'} named man of the match`,
+            body: `${player.gamertag || 'A player'} took the match award in ${fresh.home_club_name || 'Home'} vs ${fresh.away_club_name || 'Away'}${stat.rating ? ` with a ${sanitizeMatchRating(stat.rating)} rating` : ''}.`,
+            type: 'motm',
+            category: 'motm',
+            tags: ['player_news'],
+            player_id: player.id,
+            player_name: player.gamertag || null,
+            player_avatar_url: player.avatar_url || null,
+            club_id: stat.club_id || null,
+            club_name: String(stat.club_id) === String(fresh.home_club_id) ? fresh.home_club_name : fresh.away_club_name,
+            link: `/players/${player.id}`,
+          });
+        }
       }
     }
     await generateShirtSalesForMatch(completed, stats).catch(() => {});
+  } else if (fresh.home_player_id || fresh.away_player_id) {
+    const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
+    const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+    await applySoloPlayerRecord(fresh.home_player_id, homeResult);
+    await applySoloPlayerRecord(fresh.away_player_id, awayResult);
   }
 
   const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
@@ -1427,6 +1545,29 @@ async function retrieveStripeCheckoutSession(sessionId) {
   return res.data;
 }
 
+async function updateStripeSubscription(subscriptionId, fields) {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+  if (!stripeSecret) {
+    throw new Error('Stripe checkout is not configured on the server');
+  }
+  if (!subscriptionId) throw new Error('subscription id required');
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) body.append(key, String(value));
+  }
+  const res = await axios.post(
+    `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    body.toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${stripeSecret}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }
+  );
+  return res.data;
+}
+
 // ── Shared Stripe fulfilment helpers ────────────────────────────────────────
 // Both the client-return handlers (fixCredits / fixSubscription) and the Stripe
 // webhook funnel through these so a payment is fulfilled exactly once, no matter
@@ -1489,6 +1630,7 @@ async function activateStagePlusForSession({ userId, billing, session }) {
         SET subscription = 'stage_plus',
             subscription_billing = ?,
             subscription_expires_at = ${expiresAtExpr},
+            subscription_cancel_at_period_end = 0,
             stripe_subscription_id = COALESCE(?, stripe_subscription_id),
             stripe_customer_id = COALESCE(?, stripe_customer_id),
             updated_date = NOW()
@@ -2877,6 +3019,55 @@ const HANDLERS = {
     };
   },
 
+  // Player-facing cancel: stop Stripe renewals, keep STAGE Plus until period end.
+  // Admin-granted Plus (no Stripe id) just marks the same local cancel flag.
+  async cancelStagePlus({ _auth_user_id }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    const player = await resolvePlayerForUserId(_auth_user_id);
+    if (!player) throw new Error('Player profile not found');
+    if (normalizeSubscriptionTier(player.subscription) !== 'stage_plus') {
+      throw new Error('No active STAGE Plus subscription');
+    }
+    if (Number(player.subscription_cancel_at_period_end) === 1) {
+      return {
+        data: {
+          success: true,
+          already_cancelling: true,
+          cancel_at_period_end: true,
+          expires_at: player.subscription_expires_at || null,
+        },
+      };
+    }
+
+    let expiresAt = player.subscription_expires_at || null;
+    if (player.stripe_subscription_id) {
+      const sub = await updateStripeSubscription(player.stripe_subscription_id, {
+        cancel_at_period_end: true,
+      });
+      if (sub?.current_period_end) {
+        expiresAt = new Date(Number(sub.current_period_end) * 1000);
+      }
+    }
+
+    await EXECUTESQL(
+      `UPDATE players
+          SET subscription_cancel_at_period_end = 1,
+              subscription_expires_at = COALESCE(?, subscription_expires_at),
+              updated_date = NOW()
+        WHERE id = ?`,
+      [expiresAt, player.id]
+    );
+
+    return {
+      data: {
+        success: true,
+        cancel_at_period_end: true,
+        stripe_stopped: Boolean(player.stripe_subscription_id),
+        expires_at: expiresAt,
+      },
+    };
+  },
+
   // Client-return fallback for credit purchases: called on /store?payment=success
   // with the Stripe session id. Grants the credits server-side (idempotently).
   // The webhook is the primary path; this covers users who return to the tab.
@@ -2958,6 +3149,7 @@ const HANDLERS = {
          SET subscription = 'free',
              subscription_billing = NULL,
              subscription_expires_at = NULL,
+             subscription_cancel_at_period_end = 0,
              updated_date = NOW()
          WHERE id = ?`,
         [player_id]
@@ -2991,6 +3183,7 @@ const HANDLERS = {
        SET subscription = 'stage_plus',
            subscription_billing = ?,
            subscription_expires_at = DATE_ADD(NOW(), INTERVAL ? MONTH),
+           subscription_cancel_at_period_end = 0,
            updated_date = NOW()
        WHERE id = ?`,
       [normalizedBilling, grantMonths, player_id]
@@ -3085,11 +3278,30 @@ const HANDLERS = {
         ).catch(() => {});
       }
 
+      const { upsertTransfer } = require('../services/mercatoTransferService');
+      const transfer = await upsertTransfer({
+        player_id,
+        player_name: player?.gamertag,
+        player_avatar_url: player?.avatar_url,
+        from_club_id: target.id,
+        from_club_name: target.name,
+        from_club_logo_url: target.logo_url,
+        to_club_id: source.id,
+        to_club_name: source.name,
+        to_club_logo_url: source.logo_url,
+        deal_type: 'permanent',
+        status: 'official',
+        transfer_fee: fee,
+        source_name: 'STAGE Transfer Desk',
+        reliability: 'high',
+        verification_status: 'official',
+      }).catch(() => null);
+
       await query(
         `INSERT INTO news_items
           (id, title, body, type, category, club_name, club_logo_url,
-           player_name, player_avatar_url, link, is_global, published_at, transfer_fee_stc)
-         VALUES (?, ?, ?, 'contract', 'contracts', ?, ?, ?, ?, ?, 1, NOW(), ?)`,
+           player_name, player_avatar_url, link, is_global, published_at, transfer_fee_stc, tags, transfer_id)
+         VALUES (?, ?, ?, 'contract', 'contracts', ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?)`,
         [
           uuidv4(),
           `${source.name || 'Club'} paid ${fee.toLocaleString()} STC transfer fee for ${playerLabel}`,
@@ -3100,6 +3312,8 @@ const HANDLERS = {
           player?.avatar_url || null,
           player_id ? `/players/${player_id}` : '',
           fee,
+          JSON.stringify(['club_news']),
+          transfer?.id || null,
         ]
       ).catch(() => {});
 
@@ -3304,6 +3518,15 @@ const HANDLERS = {
     const updatedRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
     const updated = updatedRows[0] || { ...tournament, status: 'in_progress', current_round: 1 };
     const notified = await notifyTournamentStarted(updated).catch(() => 0);
+    const facts = await tournamentFieldFacts(updated);
+    await publishTournamentStory(updated, {
+      title: `${updated.name} is underway`,
+      body: tournamentKickoffCopy(updated, {
+        entries: facts.entries,
+        countries: facts.countries,
+        trophyName: facts.trophyName,
+      }),
+    });
 
     await createAuditLog({
       adminUserId: _auth_user_id,
@@ -3640,6 +3863,19 @@ const HANDLERS = {
         console.error('[advanceRound prize distribution]', err.message);
       });
     }
+    const [tournamentRow] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]).catch(() => []);
+    if (tournamentRow && (result.phase || result.created || result.ready_to_officialize)) {
+      const entries = registeredCount(tournamentRow);
+      const roundName = phaseLabel(result.phase || (result.ready_to_officialize ? 'final' : ''));
+      await publishTournamentStory(tournamentRow, {
+        title: result.ready_to_officialize
+          ? `${result.winner?.name || 'A side'} reached the final of ${tournamentRow.name}`
+          : `${tournamentRow.name} moves into ${roundName}`,
+        body: result.ready_to_officialize
+          ? `${result.winner?.name || 'A side'} is through to the final of ${tournamentRow.name}. ${entries} sides are in the field.`
+          : `${tournamentRow.name} has ${entries} participating sides. The draw now heads into ${roundName}.`,
+      });
+    }
     return { data: { success: true, ...result } };
   },
 
@@ -3779,6 +4015,16 @@ const HANDLERS = {
     const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
     for (const match of matches) broadcastMatch(match);
     const [tournament] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    if (tournament && result.winner) {
+      const facts = await tournamentFieldFacts(tournament);
+      const trophy = facts.trophyName ? ` ${facts.trophyName} is the cup.` : '';
+      const countryBit = facts.countries.length ? ` ${facts.countries.length} countries were in the field.` : '';
+      await publishTournamentStory(tournament, {
+        title: `${result.winner.name} won ${tournament.name}`,
+        body: `${result.winner.name} lifted ${tournament.name} after the final.${facts.entries ? ` ${facts.entries} sides entered.` : ''}${countryBit}${trophy}`,
+      });
+      await publishClubTrophyStory(tournament, result.winner);
+    }
     return { data: { success: true, ...result, prizes: prizeResult, tournament } };
   },
 
@@ -4816,6 +5062,63 @@ const HANDLERS = {
     const meta = parseMaybeJson(message.metadata, {});
     const isMatchInvite = message.message_type === 'match_invite';
 
+    if (isMatchInvite && meta.cancel_request) {
+      const existingMatchId = meta.created_match_id || message.related_entity_id;
+      const matchRows = existingMatchId
+        ? await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [existingMatchId])
+        : [];
+      const match = matchRows[0] || null;
+      if (action === 'accepted' && match) {
+        if (Number(match.wager_stc || 0) > 0 && match.wager_status === 'active') {
+          await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id }).catch(() => {});
+        }
+        const patch = applyConfirmedCancelPatch();
+        await EXECUTESQL(
+          'UPDATE matches SET status = ?, cancel_status = ?, cancel_requested_by = ?, updated_date = NOW() WHERE id = ?',
+          [patch.status, patch.cancel_status, patch.cancel_requested_by, match.id]
+        );
+        await broadcastMatchById(match.id);
+        if (message.sender_email) {
+          await createMatchInviteResponseMessage({
+            originalMessage: message,
+            meta,
+            senderEmail: user.email,
+            subject: `Match cancelled: ${meta.challenger_name || 'Home'} vs ${meta.opponent_name || 'Away'}`,
+            body: `${user.email} confirmed the cancel. The fixture has been deleted.`,
+            matchId: match.id,
+          });
+          await createNotificationIfEnabled({
+            recipientEmail: message.sender_email,
+            type: 'match_reminder',
+            title: 'Match cancelled',
+            body: 'Your opponent confirmed the cancel. The fixture was deleted.',
+            link: '/schedule',
+            relatedId: match.id,
+          });
+        }
+        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'cancelled' } };
+      }
+      if (action === 'declined' && match) {
+        const patch = applyDeclinedCancelPatch();
+        await EXECUTESQL(
+          'UPDATE matches SET cancel_status = ?, cancel_requested_by = ?, updated_date = NOW() WHERE id = ?',
+          [patch.cancel_status, patch.cancel_requested_by, match.id]
+        );
+        await broadcastMatchById(match.id);
+        if (message.sender_email) {
+          await createMatchInviteResponseMessage({
+            originalMessage: message,
+            meta,
+            senderEmail: user.email,
+            subject: `Cancel declined: ${meta.challenger_name || 'Home'} vs ${meta.opponent_name || 'Away'}`,
+            body: `${user.email} declined the cancel. The fixture stays scheduled.`,
+            matchId: match.id,
+          });
+        }
+        return { success: true, message: { id: message_id, status: action } };
+      }
+    }
+
     // Accepting a reschedule request confirms date on existing match if available.
     if (action === 'accepted' && isMatchInvite && meta.reschedule_request) {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
@@ -5203,7 +5506,8 @@ const HANDLERS = {
         relatedEntityType: 'player_contract',
       }).catch(() => {});
     }
-    return { success: true, data: { contract_id: id, status } };
+    const transfer = await recordContractMercatoEvent(id, 'offer').catch(() => null);
+    return { success: true, data: { contract_id: id, status, transfer_id: transfer?.id || null } };
   },
 
   async contractManagement({
@@ -5295,7 +5599,8 @@ const HANDLERS = {
         }).catch(() => {});
       }
       const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [id]);
-      return { success: true, data: { contract: rows[0], contract_id: id, status: 'pending' } };
+      const transfer = await recordContractMercatoEvent(id, action).catch(() => null);
+      return { success: true, data: { contract: rows[0], contract_id: id, status: 'pending', transfer_id: transfer?.id || null } };
     }
 
     // ── counter ─────────────────────────────────────────────────────────────
@@ -5304,10 +5609,19 @@ const HANDLERS = {
       const rows = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
       if (!rows.length) throw new Error('Contract not found');
       const contract = rows[0];
-      if (!['pending', 'negotiating'].includes(contract.status)) {
+      const founderPlayerTypes = new Set(['founder_player', 'founder']);
+      const isActiveFounderPlayer = contract.status === 'active'
+        && founderPlayerTypes.has(String(contract.contract_type || '').toLowerCase());
+      if (!['pending', 'negotiating'].includes(contract.status) && !isActiveFounderPlayer) {
         throw new Error(`Cannot counter contract with status: ${contract.status}`);
       }
       const nextWeekly = weekly_salary_stc != null ? weekly_salary_stc : contract.weekly_salary_stc;
+      if (isActiveFounderPlayer) {
+        const founderWage = Number(nextWeekly || 0);
+        if (founderWage < 40000 || founderWage > 500000) {
+          throw new Error('Founder Player wage must be between 40,000 and 500,000 STC per week');
+        }
+      }
       const nextBonus = signing_bonus_stc != null ? signing_bonus_stc : contract.signing_bonus_stc;
       const nextTransfer = transfer_fee_stc != null ? transfer_fee_stc : contract.transfer_fee_stc;
       if ((contract.contract_type || 'squad') !== 'ownership') {
@@ -5320,7 +5634,7 @@ const HANDLERS = {
         });
       }
       const updates = {
-        status: 'negotiating',
+        status: isActiveFounderPlayer ? 'active' : 'negotiating',
         negotiation_round: Number(contract.negotiation_round || 0) + 1,
         last_negotiated_by: last_negotiated_by || offered_by || null,
       };
@@ -5336,7 +5650,8 @@ const HANDLERS = {
       );
       await deliverContractOfferMessage(contract_id).catch(err => console.error('[contract delivery]', err.message));
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      return { success: true, data: { contract: updated[0], status: 'negotiating' } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'counter').catch(() => null);
+      return { success: true, data: { contract: updated[0], status: updated[0]?.status || updates.status, transfer_id: transfer?.id || null } };
     }
 
     // ── reject ──────────────────────────────────────────────────────────────
@@ -5357,7 +5672,8 @@ const HANDLERS = {
         }).catch(() => {});
       }
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      return { success: true, data: { contract: updated[0], status: 'rejected' } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'reject').catch(() => null);
+      return { success: true, data: { contract: updated[0], status: 'rejected', transfer_id: transfer?.id || null } };
     }
 
     // ── mark_pending_window ─────────────────────────────────────────────────
@@ -5381,7 +5697,8 @@ const HANDLERS = {
       await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
       await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      return { success: true, data: { contract: updated[0], status: 'pending_window' } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'mark_pending_window').catch(() => null);
+      return { success: true, data: { contract: updated[0], status: 'pending_window', transfer_id: transfer?.id || null } };
     }
 
     // ── cancel_offer ────────────────────────────────────────────────────────
@@ -5405,7 +5722,8 @@ const HANDLERS = {
         }).catch(() => {});
       }
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
-      return { success: true, data: { contract: updated[0], status: 'cancelled' } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'cancel_offer').catch(() => null);
+      return { success: true, data: { contract: updated[0], status: 'cancelled', transfer_id: transfer?.id || null } };
     }
 
     // ── accept ──────────────────────────────────────────────────────────────
@@ -5519,7 +5837,8 @@ const HANDLERS = {
 
         return { endDate };
       });
-      return { success: true, data: { status: 'active', start_date: today, end_date: result.endDate } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'accept').catch(() => null);
+      return { success: true, data: { status: 'active', start_date: today, end_date: result.endDate, transfer_id: transfer?.id || null } };
     }
 
     // ── terminate ────────────────────────────────────────────────────────────
@@ -5529,6 +5848,8 @@ const HANDLERS = {
         const contracts = await query('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1 FOR UPDATE', [contract_id]);
         if (!contracts.length) throw new Error('Contract not found');
         if (contracts[0].status !== 'active') throw new Error('Can only terminate active contracts');
+        const { assertContractCanBeDeleted } = require('../services/lifecycleOwnedContracts');
+        assertContractCanBeDeleted(contracts[0]);
         await query("UPDATE player_contracts SET status = 'terminated', updated_date = NOW() WHERE id = ?", [contract_id]);
         await releasePlayerFromClubIfUnassigned({
           playerId: contracts[0].user_id,
@@ -5536,7 +5857,8 @@ const HANDLERS = {
           query,
         });
       });
-      return { success: true, data: { status: 'terminated' } };
+      const transfer = await recordContractMercatoEvent(contract_id, 'terminate').catch(() => null);
+      return { success: true, data: { status: 'terminated', transfer_id: transfer?.id || null } };
     }
 
     // ── expire_overdue ───────────────────────────────────────────────────────
@@ -6085,6 +6407,7 @@ const HANDLERS = {
 
   async matchKickoff({
     action, match_id, is_home_team, home_score, away_score,
+    own_score, opponent_score,
     player_stats, goal_events, proof_url, admin_resolve_winner,
     admin_home_score, admin_away_score, _auth_user_id,
   }) {
@@ -6174,9 +6497,25 @@ const HANDLERS = {
           }))
         : null;
 
+      const side = is_home_team ? 'home' : 'away';
+      const declared = fixtureScoreFromSubmission({
+        home_score,
+        away_score,
+        own_score,
+        opponent_score,
+      }, side);
+      const ownScore = own_score != null && own_score !== ''
+        ? Number(own_score)
+        : (is_home_team ? declared.home : declared.away);
+      const opponentScore = opponent_score != null && opponent_score !== ''
+        ? Number(opponent_score)
+        : (is_home_team ? declared.away : declared.home);
+
       const submission = JSON.stringify({
-        home_score:   Number(home_score  ?? 0),
-        away_score:   Number(away_score  ?? 0),
+        home_score:   declared.home,
+        away_score:   declared.away,
+        own_score:    ownScore,
+        opponent_score: opponentScore,
         player_stats: player_stats  || [],
         goal_events:  goal_events   || [],
         proof_url:    proof_url     || null,
@@ -6214,17 +6553,22 @@ const HANDLERS = {
         return { data: { status: 'waiting' } };
       }
 
-      if (Number(homeSub.home_score) !== Number(awaySub.home_score) ||
-          Number(homeSub.away_score) !== Number(awaySub.away_score)) {
+      if (!declaredScoresAgree(homeSub, awaySub)) {
+        const homeClaim = fixtureScoreFromSubmission(homeSub, 'home');
+        const awayClaim = fixtureScoreFromSubmission(awaySub, 'away');
         await EXECUTESQL(
           "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
           [
             JSON.stringify({
               reason: 'submitted_scores_disagree',
-              home_score: Number(homeSub.home_score),
-              away_score: Number(homeSub.away_score),
-              away_submitted_home_score: Number(awaySub.home_score),
-              away_submitted_away_score: Number(awaySub.away_score),
+              home_score: homeClaim.home,
+              away_score: homeClaim.away,
+              away_submitted_home_score: awayClaim.home,
+              away_submitted_away_score: awayClaim.away,
+              home_own_score: homeSub.own_score ?? homeClaim.home,
+              home_opponent_score: homeSub.opponent_score ?? homeClaim.away,
+              away_own_score: awaySub.own_score ?? awayClaim.away,
+              away_opponent_score: awaySub.opponent_score ?? awayClaim.home,
               home_proof_url: homeSub.proof_url || null,
               away_proof_url: awaySub.proof_url || null,
             }),
@@ -6249,43 +6593,8 @@ const HANDLERS = {
         };
       }
 
-      const proofVerification = verifyScoreProofs({
-        homeSubmission: homeSub,
-        awaySubmission: awaySub,
-      });
-      if (proofVerification.status === 'needs_review') {
-        await EXECUTESQL(
-          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
-          [
-            JSON.stringify({
-              reason: proofVerification.reason,
-              proof_verification: proofVerification,
-              home_score: Number(homeSub.home_score),
-              away_score: Number(homeSub.away_score),
-              home_proof_url: homeSub.proof_url || null,
-              away_proof_url: awaySub.proof_url || null,
-            }),
-            match_id,
-          ]
-        );
-        await notifyMatchAdmins(
-          updated,
-          'Match proof needs review',
-          `${updated.home_club_name || updated.home_player_name || 'Home'} vs ${updated.away_club_name || updated.away_player_name || 'Away'} needs proof review.`
-        );
-        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match proof under review', 'Admin is reviewing the submitted screenshots.').catch(() => {});
-        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match proof under review', 'Admin is reviewing the submitted screenshots.').catch(() => {});
-        await broadcastMatchById(match_id);
-        return {
-          data: {
-            status: 'disputed',
-            proof_verification: proofVerification,
-            home_submission: homeSub,
-            away_submission: awaySub,
-          },
-        };
-      }
-
+      // Scores already agree (e.g. 5-2 and 5-2). Close the match and apply
+      // player/club records. Proof stays on the submissions for audit only.
       return processMatchCompletion(updated, homeSub, awaySub);
     }
 
@@ -6313,6 +6622,72 @@ const HANDLERS = {
     }
 
     throw new Error(`Unsupported matchKickoff action: ${action}`);
+  },
+
+  async matchFixtureActions({ action, match_id, new_date, new_time, _auth_user_id }) {
+    if (!match_id || !action) throw new Error('match_id and action required');
+    const { user, player, club } = await getMe(_auth_user_id);
+    const actor = {
+      email: user?.email || player?.email || null,
+      playerId: player?.id || user?.player_id || null,
+      clubId: club?.id || player?.club_id || null,
+      name: player?.gamertag || user?.email || 'Player',
+    };
+    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+    const match = rows[0];
+    if (!match) throw new Error('Match not found');
+
+    if (action === 'request_cancel') {
+      if (!canRequestMatchCancel(match, actor)) throw new Error('You cannot cancel this match');
+      const opponent = resolveMatchOpponent(match, actor);
+      if (!opponent.email) throw new Error('Opponent has no contact email');
+      await sendActionMessage(buildCancelRequestMessage({ match, actor, opponent }));
+      const patch = applyCancelRequestPatch(actor);
+      await EXECUTESQL(
+        'UPDATE matches SET cancel_status = ?, cancel_requested_by = ?, updated_date = NOW() WHERE id = ?',
+        [patch.cancel_status, patch.cancel_requested_by, match.id]
+      );
+      await broadcastMatchById(match.id);
+      return { success: true, data: { _match_patch: patch, pending_confirmation: true } };
+    }
+
+    if (action === 'request_reschedule') {
+      if (!canRequestMatchReschedule(match, actor)) throw new Error('You cannot reschedule this match');
+      const opponent = resolveMatchOpponent(match, actor);
+      if (!opponent.email) throw new Error('Opponent has no contact email');
+      const proposedMysql = (new_date && new_time)
+        ? toMysqlDateTime(`${new_date} ${String(new_time).length === 5 ? `${new_time}:00` : new_time}`)
+        : null;
+      await sendActionMessage(buildRescheduleRequestMessage({ match, actor, opponent, proposedMysql }));
+      return { success: true, data: { pending_confirmation: true } };
+    }
+
+    if (action === 'confirm_cancel') {
+      if (!canConfirmMatchCancel(match, actor)) throw new Error('You cannot confirm this cancel');
+      if (Number(match.wager_stc || 0) > 0 && match.wager_status === 'active') {
+        await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id }).catch(() => {});
+      }
+      const patch = applyConfirmedCancelPatch();
+      await EXECUTESQL(
+        'UPDATE matches SET status = ?, cancel_status = ?, cancel_requested_by = ?, updated_date = NOW() WHERE id = ?',
+        [patch.status, patch.cancel_status, patch.cancel_requested_by, match.id]
+      );
+      await broadcastMatchById(match.id);
+      return { success: true, data: { _match_patch: patch } };
+    }
+
+    if (action === 'decline_cancel') {
+      if (!canConfirmMatchCancel(match, actor)) throw new Error('You cannot decline this cancel');
+      const patch = applyDeclinedCancelPatch();
+      await EXECUTESQL(
+        'UPDATE matches SET cancel_status = ?, cancel_requested_by = ?, updated_date = NOW() WHERE id = ?',
+        [patch.cancel_status, patch.cancel_requested_by, match.id]
+      );
+      await broadcastMatchById(match.id);
+      return { success: true, data: { _match_patch: patch } };
+    }
+
+    throw new Error(`Unknown match fixture action: ${action}`);
   },
 
   async wagerMatchActions({ action, match_id }) {
@@ -6960,6 +7335,17 @@ const HANDLERS = {
         ]
       );
       _stadiumConfigCache = null;
+      await publishNewsItem({
+        title: `${club.name} upgraded to ${next.name}`,
+        body: `${club.name} bought a new stadium. Capacity is now ${Number(next.capacity).toLocaleString()} and the club paid ${cost.toLocaleString()} STC.`,
+        type: 'stadium',
+        category: 'stadium',
+        tags: ['club_news'],
+        club_id,
+        club_name: club.name,
+        transfer_fee_stc: cost,
+        link: `/clubs/${club_id}`,
+      });
       return { success: true, data: { new_level: currentLevel + 1, new_capacity: next.capacity, name: next.name } };
     }
 
@@ -7068,6 +7454,18 @@ const HANDLERS = {
       playerId: player.id, playerEmail: user.email, amount: -price,
       category: 'lifestyle_purchase', source: item.name || 'Lifestyle',
       description: `Bought: ${item.name}`, referenceId: purchaseId,
+    });
+    await publishNewsItem({
+      title: `${player.gamertag || 'A player'} bought ${item.name}`,
+      body: `${player.gamertag || 'A player'} added ${item.name} to their lifestyle for ${price.toLocaleString()} STC.`,
+      type: 'lifestyle',
+      category: 'lifestyle',
+      tags: ['player_news'],
+      player_id: player.id,
+      player_name: player.gamertag || null,
+      player_avatar_url: player.avatar_url || null,
+      transfer_fee_stc: price,
+      link: `/players/${player.id}`,
     });
     return { success: true, data: { new_stc_balance, purchase_id: purchaseId } };
   },

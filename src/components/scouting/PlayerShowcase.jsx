@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
-
-const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
-const MAX_VIDEO_SECONDS = 20;
-const ACCEPTED_VIDEO_EXTENSIONS = [".mp4", ".m4v", ".webm", ".mov", ".ogv"];
-const ACCEPTED_VIDEO_MIME_TYPES = ["video/mp4", "video/x-m4v", "video/webm", "video/quicktime", "video/ogg"];
-const ACCEPTED_VIDEO_INPUT = [...ACCEPTED_VIDEO_MIME_TYPES, ...ACCEPTED_VIDEO_EXTENSIONS].join(",");
+import {
+  ACCEPTED_VIDEO_INPUT,
+  MAX_SHOWCASE_MB,
+  MAX_SHOWCASE_SECONDS,
+  SHOWCASE_POSITIONS,
+  SHOWCASE_UPLOAD_TIMEOUT_MS,
+  isShowcaseVideoTypeAllowed,
+  validateShowcaseDuration,
+  validateShowcaseFileSize,
+} from "@/lib/showcaseClips";
 
 /**
  * A player's showcase: the clips they publish so clubs can see how they play.
@@ -74,26 +78,26 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
     setVideoDuration(null);
     if (!file) return;
 
-    const fileName = String(file.name || "").toLowerCase();
-    const extensionAllowed = ACCEPTED_VIDEO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-    const mimeAllowed = ACCEPTED_VIDEO_MIME_TYPES.includes(file.type);
-    if (!extensionAllowed && !mimeAllowed) {
+    if (!isShowcaseVideoTypeAllowed({ fileName: file.name, mimeType: file.type })) {
       setError(t("commonPages.showcaseVideoTypeError"));
+      return;
+    }
+
+    const sizeCheck = validateShowcaseFileSize(file.size);
+    if (!sizeCheck.ok) {
+      setError(t(`commonPages.${sizeCheck.errorKey}`, { mb: MAX_SHOWCASE_MB }));
       return;
     }
 
     try {
       const duration = await readVideoDuration(file);
-      if (!Number.isFinite(duration)) {
-        setError(t("commonPages.showcaseVideoInvalid"));
-        return;
-      }
-      if (duration > MAX_VIDEO_SECONDS) {
-        setError(t("commonPages.showcaseVideoTooLong"));
+      const durationCheck = validateShowcaseDuration(duration);
+      if (!durationCheck.ok) {
+        setError(t(`commonPages.${durationCheck.errorKey}`, { seconds: MAX_SHOWCASE_SECONDS }));
         return;
       }
       setVideoFile(file);
-      setVideoDuration(Math.round(duration * 100) / 100);
+      setVideoDuration(durationCheck.duration);
     } catch (err) {
       setError(err?.message || t("commonPages.showcaseVideoInvalid"));
     }
@@ -105,7 +109,10 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
     setAdding(true);
     setError(null);
     try {
-      const upload = await stageClient.integrations.Core.UploadFile({ file: videoFile });
+      const upload = await stageClient.integrations.Core.UploadFile({
+        file: videoFile,
+        timeoutMs: SHOWCASE_UPLOAD_TIMEOUT_MS,
+      });
       const uploadedUrl = upload?.file_url || upload?.url;
       if (!uploadedUrl) throw new Error(t("commonPages.showcaseUploadFailed"));
 
@@ -200,7 +207,7 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
               <Select value={position} onValueChange={savePosition}>
                 <SelectTrigger><SelectValue placeholder={t("commonPages.showcasePositionPlaceholder")} /></SelectTrigger>
                 <SelectContent>
-                  {POSITIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  {SHOWCASE_POSITIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             ) : (
@@ -309,7 +316,7 @@ export default function PlayerShowcase({ player, canEdit = false, onChanged }) {
           <p className="text-[11px] text-muted-foreground">
             {videoDuration !== null
               ? t("commonPages.showcaseVideoReady", { seconds: videoDuration.toFixed(1) })
-              : t("commonPages.showcaseVideoHint")}
+              : t("commonPages.showcaseVideoHint", { seconds: MAX_SHOWCASE_SECONDS, mb: MAX_SHOWCASE_MB })}
           </p>
         </div>
       )}

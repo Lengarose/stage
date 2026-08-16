@@ -13,8 +13,8 @@ export default defineConfig(async ({ mode }) => {
   try {
     const { VitePWA } = await import('vite-plugin-pwa');
     pwaPlugin = VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png', 'icons/logo-192.png', 'icons/logo-512.png'],
       devOptions: {
         // Enable SW in dev for easier testing; comment out if it interferes with HMR.
@@ -46,6 +46,7 @@ export default defineConfig(async ({ mode }) => {
         // Don't precache 'em — could explode the cache size — runtime cache instead.
         navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//],
         cleanupOutdatedCaches: true,
+        importScripts: ['https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'],
         runtimeCaching: [
           {
             // GET requests to the REST API — fast network with offline fallback.
@@ -109,11 +110,16 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom'],
+      include: ['react', 'react-dom', 'react-router-dom', 'react-simple-maps'],
     },
     server: {
       proxy: {
         '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: !useLocal,
+        },
+        '/uploads': {
           target: proxyTarget,
           changeOrigin: true,
           secure: !useLocal,

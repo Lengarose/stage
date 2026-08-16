@@ -36,6 +36,7 @@ class NewsItem {
     this.published_at          = toMysqlDateTime(body.published_at);
     this.link                  = body.link;
     this.transfer_fee_stc      = body.transfer_fee_stc;
+    this.transfer_id           = body.transfer_id || null;
     this.tags                  = body.tags
       ? (typeof body.tags === 'string' ? body.tags : JSON.stringify(body.tags))
       : null;
@@ -65,15 +66,15 @@ class NewsItem {
        player_id, player_name, player_avatar_url,
        tournament_id, tournament_name,
        is_featured, is_global, published_at, link, transfer_fee_stc,
-       tags, visible_to_club_ids, visible_to_player_ids)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       tags, visible_to_club_ids, visible_to_player_ids, transfer_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.type, this.category, this.title, this.body, this.image_url,
       this.club_id, this.club_name, this.club_logo_url,
       this.player_id, this.player_name, this.player_avatar_url,
       this.tournament_id, this.tournament_name,
       this.is_featured, this.is_global, this.published_at, this.link, this.transfer_fee_stc,
-      this.tags, this.visible_to_club_ids, this.visible_to_player_ids,
+      this.tags, this.visible_to_club_ids, this.visible_to_player_ids, this.transfer_id,
     ];
     return EXECUTESQL(sql, values);
   }
@@ -85,7 +86,7 @@ class NewsItem {
       player_id=?, player_name=?, player_avatar_url=?,
       tournament_id=?, tournament_name=?,
       is_featured=?, is_global=?, published_at=?, link=?, transfer_fee_stc=?,
-      tags=?, visible_to_club_ids=?, visible_to_player_ids=?
+      tags=?, visible_to_club_ids=?, visible_to_player_ids=?, transfer_id=?
       WHERE id=?`;
     const values = [
       this.type, this.category, this.title, this.body, this.image_url,
@@ -93,7 +94,7 @@ class NewsItem {
       this.player_id, this.player_name, this.player_avatar_url,
       this.tournament_id, this.tournament_name,
       this.is_featured, this.is_global, this.published_at, this.link, this.transfer_fee_stc,
-      this.tags, this.visible_to_club_ids, this.visible_to_player_ids,
+      this.tags, this.visible_to_club_ids, this.visible_to_player_ids, this.transfer_id,
       id,
     ];
     return EXECUTESQL(sql, values);

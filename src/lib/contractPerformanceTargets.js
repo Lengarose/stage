@@ -71,3 +71,41 @@ export function groupStatOptions(options) {
   }
   return groups;
 }
+
+export function formatPerformanceTarget(target) {
+  if (!target?.stat) return "";
+  const statMeta = PERFORMANCE_STAT_OPTIONS.find((s) => s.value === target.stat);
+  const label = statMeta?.label || target.stat;
+  const unit = target.unit || statMeta?.unit || "";
+  const value = target.value ?? 0;
+  if (target.type === "range") return `${label} ${value}–${target.value_max ?? ""}${unit}`;
+  if (target.type === "exact") return `${label} = ${value}${unit}`;
+  return `${label} ≥ ${value}${unit}`;
+}
+
+export function suggestDefaultPerformanceTargets(player, _contractType, maxGames = 0) {
+  const options = getStatOptionsForPosition(player?.position);
+  const games = Number(maxGames) || 0;
+  const picks = [];
+  const matches = options.find((opt) => opt.value === "matches_played");
+  if (matches) {
+    picks.push({
+      stat: "matches_played",
+      type: "min",
+      value: Math.max(1, games ? Math.ceil(games * 0.4) : 10),
+    });
+  }
+  for (const opt of options) {
+    if (picks.length >= 3) break;
+    if (picks.some((row) => row.stat === opt.value)) continue;
+    if (opt.positions.length === 0 && opt.value !== "avg_match_rating") continue;
+    const value = opt.unit === "%" ? 70 : opt.value === "avg_match_rating" ? 6.5 : 5;
+    picks.push({ stat: opt.value, type: "min", value });
+  }
+  for (const opt of options) {
+    if (picks.length >= 3) break;
+    if (picks.some((row) => row.stat === opt.value)) continue;
+    picks.push({ stat: opt.value, type: "min", value: 5 });
+  }
+  return picks;
+}

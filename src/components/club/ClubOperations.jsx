@@ -12,7 +12,6 @@ import {
   FileText,
   History,
   Loader2,
-  Shield,
   UserCog,
   Users,
 } from "lucide-react";
@@ -34,7 +33,10 @@ const PERMISSIONS = [
   "manage_staff",
 ];
 
-const STAFF_ROLES = ["president", "captain", "vice_captain"];
+const STAFF_ROLES = [
+  { id: "captain", labelKey: "commonPages.cdCaptain" },
+  { id: "vice_captain", labelKey: "commonPages.cdViceCaptain" },
+];
 const AVAILABILITY = ["available", "maybe", "unavailable"];
 const AVAILABILITY_LABEL_KEYS = {
   available: "commonPages.coopStatusAvailable",
@@ -67,7 +69,7 @@ function fixtureLabel(fixture, clubId, t) {
 export default function ClubOperations({ club, players = [], currentUser, myPlayer, upcomingFixtures = [], defaultFormation, onStaffRolesChanged }) {
   const { t } = useTranslation();
   const { windowOpen } = useTransferWindowStatus();
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState("applicants");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [applicants, setApplicants] = useState([]);
@@ -79,7 +81,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
   const [selectedStaffPlayer, setSelectedStaffPlayer] = useState("");
-  const [selectedStaffRole, setSelectedStaffRole] = useState("recruiter");
+  const [selectedStaffRole, setSelectedStaffRole] = useState("captain");
   const [offerApplicant, setOfferApplicant] = useState(null);
   const [lineupFixtureId, setLineupFixtureId] = useState("");
   const [lineupForm, setLineupForm] = useState({
@@ -122,6 +124,9 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
   useEffect(() => {
     if (!hasOperationalPower && activeSection !== "availability") {
       setActiveSection("availability");
+    }
+    if (hasOperationalPower && activeSection === "overview") {
+      setActiveSection("applicants");
     }
   }, [activeSection, hasOperationalPower]);
 
@@ -326,7 +331,6 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
 
   const sections = [
     ...(hasOperationalPower ? [
-      ["overview", "coopTabOverview", Shield],
       ["applicants", "coopTabApplicants", ClipboardList],
       ["staff", "coopTabStaff", UserCog],
     ] : []),
@@ -363,6 +367,17 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
           <button type="button" onClick={() => setNotice(null)} className="text-xs font-bold uppercase">{t("commonPages.coopDismiss")}</button>
         </div>
       )}
+      {hasOperationalPower ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {overviewStats.map(([labelKey, value]) => (
+            <div key={labelKey} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-2xl font-heading font-black text-white">{value}</p>
+              <p className="text-xs uppercase tracking-wider text-white/45">{t(`commonPages.${labelKey}`)}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex gap-2 overflow-x-auto pb-1">
         {sections.map(([key, labelKey, Icon]) => (
           <button
@@ -382,23 +397,6 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
       {isClubMember && !hasOperationalPower && (
         <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
           {t("commonPages.coopMemberTip")}
-        </div>
-      )}
-
-      {activeSection === "overview" && (
-        <div className="grid md:grid-cols-3 gap-3">
-          {overviewStats.map(([labelKey, value]) => (
-            <div key={labelKey} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-2xl font-heading font-black text-white">{value}</p>
-              <p className="text-xs uppercase tracking-wider text-white/45">{t(`commonPages.${labelKey}`)}</p>
-            </div>
-          ))}
-          <div className="md:col-span-3 flex gap-2 flex-wrap">
-            <Link to="/scouting"><Button type="button" size="sm">{t("commonPages.coopOpenScouting")}</Button></Link>
-            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("applicants")}>{t("commonPages.coopReviewApplicants")}</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("lineup")}>{t("commonPages.coopEditLineup")}</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("staff")}>{t("commonPages.coopManageStaff")}</Button>
-          </div>
         </div>
       )}
 
@@ -441,7 +439,7 @@ export default function ClubOperations({ club, players = [], currentUser, myPlay
               {players.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
             </select>
             <select value={selectedStaffRole} onChange={(e) => setSelectedStaffRole(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
-              {STAFF_ROLES.map((role) => <option key={role} value={role}>{sourceLabel(role)}</option>)}
+              {STAFF_ROLES.map((role) => <option key={role.id} value={role.id}>{t(role.labelKey)}</option>)}
             </select>
             <Button type="button" onClick={assignStaffRole} disabled={busy === "staff" || !selectedStaffPlayer}>{busy === "staff" ? <Loader2 className="w-4 h-4 animate-spin" /> : t("commonPages.coopAssign")}</Button>
           </div>

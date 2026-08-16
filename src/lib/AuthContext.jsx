@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
+import { initWebOneSignal, loginWebOneSignal, logoutWebOneSignal } from '@/lib/oneSignal';
 
 const AuthContext = createContext(null);
 
@@ -15,7 +16,12 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkUserAuth();
+    initWebOneSignal();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) loginWebOneSignal(user);
+  }, [user?.id]);
 
   const checkUserAuth = useCallback(async () => {
     if (!stageClient.auth.hasToken()) {
@@ -41,6 +47,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = (shouldRedirect = true) => {
+    logoutWebOneSignal();
     setUser(null);
     setIsAuthenticated(false);
     stageClient.auth.logout(shouldRedirect ? '/' : undefined);

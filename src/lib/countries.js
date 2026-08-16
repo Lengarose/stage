@@ -1086,3 +1086,12 @@ export const COUNTRY_REGIONS = {
     "YE"
   ]
 };
+
+export function getRegionForCountryCode(code) {
+  const normalized = String(code || "").toUpperCase();
+  if (!normalized) return null;
+  for (const [region, codes] of Object.entries(COUNTRY_REGIONS)) {
+    if (codes.includes(normalized)) return region;
+  }
+  return null;
+}

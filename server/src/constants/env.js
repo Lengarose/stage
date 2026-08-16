@@ -75,6 +75,12 @@ const ENV = {
   SMTP_USER: 'info@stageleagues.com',   // Gandi mailbox used to send
   SMTP_PASS: '',                        // that mailbox's password — set in env.local.js
   MAIL_FROM: 'STAGE  <info@stageleagues.com>',
+
+  // ── OneSignal push ────────────────────────────────────────────
+  // Same App ID as EXPO_PUBLIC_ONESIGNAL_APP_ID / VITE_ONESIGNAL_APP_ID.
+  // REST API key is a secret → env.local.js
+  ONESIGNAL_APP_ID: '577f63db-851f-491b-8ade-9defb3f569a0',
+  ONESIGNAL_REST_API_KEY: '',
 };
 
 // Local overrides (secrets) — env.local.js is git-ignored and lives only on

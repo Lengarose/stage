@@ -17,6 +17,8 @@ test("contract termination refreshes the released player before removing them fr
   assert.match(contractsTab, /stageClient\.entities\.Player\.get\(playerId\)/);
   assert.match(contractsTab, /String\(releasedPlayer\?\.club_id \|\| ""\) !== String\(club\.id \|\| ""\)/);
   assert.match(contractsTab, /onPlayerReleased\?\.\(playerId,\s*releasedPlayer\)/);
+  assert.match(contractsTab, /clubIsMissingPresidentContract/);
+  assert.match(contractsTab, /stageClient\.clubs\.createFounder/);
   assert.match(clubDetail, /function handlePlayerReleasedFromContract\(playerId\)/);
   assert.match(clubDetail, /setPlayers\(\(prev\) => asObjectArray\(prev\)\.filter\(\(player\) => player\.id !== playerId\)\)/);
   assert.match(clubDetail, /onPlayerReleased=\{handlePlayerReleasedFromContract\}/);

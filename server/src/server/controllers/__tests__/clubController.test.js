@@ -11,6 +11,7 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
   const operationsPath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const membershipPath = path.resolve(__dirname, '../../services/clubMembershipService.js');
   const founderLifecyclePath = path.resolve(__dirname, '../../services/founderContractLifecycleService.js');
+  const leaveLifecyclePath = path.resolve(__dirname, '../../services/leaveClubLifecycleService.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
 
   delete require.cache[controllerPath];
@@ -19,6 +20,7 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
   delete require.cache[lineupModelPath];
   delete require.cache[membershipPath];
   delete require.cache[founderLifecyclePath];
+  delete require.cache[leaveLifecyclePath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
@@ -34,6 +36,10 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
       ROLE_PERMISSIONS: {
         captain: ['review_applicants'],
       },
+      normalizeAssignableStaffRole: (role) => {
+        const normalized = String(role || '').trim().toLowerCase().replace(/-/g, '_');
+        return normalized === 'captain' || normalized === 'vice_captain' ? normalized : null;
+      },
       requireClubPermission: requireClubPermissionMock || (async () => (
         clubPermissionResult || { user: { id: 'manager-user', email: 'manager@example.test' }, access: {} }
       )),
@@ -47,6 +53,21 @@ function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubP
     exports: {
       broadcastClub() {},
       broadcastClubDeleted() {},
+    },
+  };
+  require.cache[leaveLifecyclePath] = {
+    id: leaveLifecyclePath,
+    filename: leaveLifecyclePath,
+    loaded: true,
+    exports: {
+      leaveClubLifecycle: async (payload) => ({
+        player: { id: payload.playerId || 'player-1', club_id: null, role: 'member', status: 'free_agent' },
+        club: { id: payload.clubId, president_player_id: null, president_user_id: null, user_id: null },
+        contracts: [],
+        terminatedContractIds: ['c-player', 'c-owner'],
+        cancelledContractIds: [],
+        detachedPresidency: true,
+      }),
     },
   };
   require.cache[founderLifecyclePath] = {
@@ -193,6 +214,27 @@ test('POST / creates player-president club without creating standalone President
     'president',
     'club_creation',
   ]);
+});
+
+test('POST /:id/leave delegates player-president exit to leave club lifecycle', async () => {
+  const router = loadClubRouterWithDbMock(async () => []);
+  const handle = routeHandler(router, '/:id/leave', 'post');
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      params: { id: 'club-founder' },
+      body: { player_id: 'player-1' },
+      user: { id: 'president-user', email: 'president@example.test' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.player.status, 'free_agent');
+  assert.equal(response.body.player.club_id, null);
+  assert.equal(response.body.detachedPresidency, true);
+  assert.deepEqual(response.body.terminatedContractIds.sort(), ['c-owner', 'c-player']);
 });
 
 test('POST /founder delegates player-president onboarding to founder lifecycle service', async () => {

@@ -8,7 +8,7 @@ import { stageClient } from "@/api/stageClient";
 import { Shield, Search, Plus, ArrowRight, Loader2, Check, Crown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
-import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
+import { COUNTRIES, getRegionForCountryCode } from "@/lib/countries";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -234,7 +234,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comRegion")}</label>
-                <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v, country_code: "" }))}>
+                <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
                   <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -244,12 +244,17 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             </div>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.comCountry")}</label>
-              <Select value={form.country_code} onValueChange={v => setForm(f => ({ ...f, country_code: v }))}>
+              <Select
+                value={form.country_code}
+                onValueChange={(code) => setForm((f) => ({
+                  ...f,
+                  country_code: code,
+                  region: getRegionForCountryCode(code) || f.region,
+                }))}
+              >
                 <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("commonPages.comSelectCountry")} /></SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES
-                    .filter(c => !form.region || (COUNTRY_REGIONS[form.region] || []).includes(c.code))
-                    .map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

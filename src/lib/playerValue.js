@@ -9,6 +9,11 @@
  * Overall rating has minor influence only (~8%).
  */
 
+import {
+  FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
+  FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
+} from "./founderPlayerTerms.js";
+
 const DEFAULT_WEIGHTS = {
   base_per_match:           60_000,
   max_base:              8_000_000,
@@ -90,6 +95,16 @@ export function formatSTC(value) {
  * ~6-18% of market value per week depending on contract tier.
  */
 export function suggestSalaryRange(contractType, overallRating = 70, marketValue = 0) {
+  const type = String(contractType || "").toLowerCase();
+  if (type === "founder_player" || type === "founder") {
+    return {
+      min: FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
+      max: FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
+      label: "Founder Player",
+      based_on_value: false,
+    };
+  }
+
   const mv = Number(marketValue) || 0;
 
   if (mv > 0) {
@@ -100,7 +115,7 @@ export function suggestSalaryRange(contractType, overallRating = 70, marketValue
       important: { pct: 0.020, label: "Important" },
       star:      { pct: 0.035, label: "Star" },
     };
-    const rate = rates[contractType] || rates.squad;
+    const rate = rates[type] || rates.squad;
     const suggested = Math.round(mv * rate.pct);
     const min = Math.max(Math.round(suggested * 0.70 / 10_000) * 10_000, 5_000);
     const max = Math.round(suggested * 1.30 / 10_000) * 10_000;
@@ -117,11 +132,28 @@ export function suggestSalaryRange(contractType, overallRating = 70, marketValue
     important: { min: 100_000, max: 250_000, label: "Important" },
     star:      { min: 250_000, max: 500_000, label: "Star" },
   };
-  const r = ranges[contractType] || ranges.squad;
+  const r = ranges[type] || ranges.squad;
   return {
     min: Math.round(r.min * scale / 10_000) * 10_000 || r.min,
     max: Math.round(r.max * scale / 10_000) * 10_000 || r.max,
     label: r.label,
     based_on_value: false,
   };
+}
+
+export function suggestWeeklySalary(contractType, player) {
+  const range = suggestSalaryRange(
+    contractType,
+    player?.overall_rating,
+    player?.market_value_stc || player?.market_value,
+  );
+  const mid = (Number(range.min) + Number(range.max)) / 2;
+  return Math.max(0, Math.round(mid / 1000) * 1000);
+}
+
+export function suggestSigningBonus(contractType, weeklySalary) {
+  const weeks = { trial: 1, academy: 2, squad: 4, important: 8, star: 12 };
+  const weekly = Math.max(0, Number(weeklySalary) || 0);
+  const type = String(contractType || "").toLowerCase();
+  return Math.round((weekly * (weeks[type] || 4)) / 1000) * 1000;
 }

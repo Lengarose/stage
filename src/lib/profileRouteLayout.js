@@ -24,8 +24,13 @@ export function isTransferMarketFullBleedRoute(pathname = "") {
   return /^\/transfer-market(?:\/|$)/.test(pathname);
 }
 
+export function isNewsFullBleedRoute(pathname = "") {
+  return /^\/news(?:\/|$)/.test(pathname);
+}
+
 export function isFullBleedRoute(pathname = "") {
   return isProfileFullBleedRoute(pathname)
     || isGameDayFullBleedRoute(pathname)
-    || isTransferMarketFullBleedRoute(pathname);
+    || isTransferMarketFullBleedRoute(pathname)
+    || isNewsFullBleedRoute(pathname);
 }

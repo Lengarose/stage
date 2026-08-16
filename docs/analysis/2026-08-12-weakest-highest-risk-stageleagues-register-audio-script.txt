@@ -1,0 +1,15 @@
+StageLeagues weakest and highest risk summary.
+
+The biggest risk is not one screen. It is every lifecycle where one action changes official records: match results, player stats, tournaments, contracts, STC economy, trophies, rankings, and admin overrides.
+
+Priority one is match result and player stats. Score proof, event ledgers, admin review, stat updates, economy, and competition progression must become one backend-owned lifecycle. Club stats must never come from loose totals. They must come from final verified events.
+
+Priority two is competition progression. Slice fourteen added central progression hooks, but StageLeagues still needs a clear competition rulebook with tiebreakers, group advancement, forfeit rules, and tests for UEFA and FIFA style formats.
+
+Priority three is contracts and dual identity. Founder players now need both a long player contract and a president ownership contract. Existing legacy production data may still need safe repair.
+
+Priority four is STC economy. Every balance mutation needs one ledger service, idempotency, reference IDs, and audit. No duplicate revenue, no duplicate wagers, no silent admin money changes.
+
+Priority five is admin power. Admin tools must show the consequence of a change, write audit logs, and use backend action endpoints instead of loose edits.
+
+The recommendation is to do Slice fifteen first: match result proof and club player stats lifecycle. Then harden competition rules, then contract repair, then STC ledger, then admin safety and authenticated smoke.

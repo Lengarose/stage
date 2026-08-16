@@ -21,7 +21,7 @@ test("player-only onboarding completes after player identity instead of showing 
 
   assert.match(source, /writeAccountIntent/);
   assert.match(source, /const handlePlayerComplete = async/);
-  assert.match(source, /if\s*\(\s*intent\s*===\s*"both"\s*\)\s*setStep\("club"\);[\s\S]{0,80}else finishOnboarding\(\)/);
+  assert.match(source, /if\s*\(\s*intent\s*===\s*"both"\s*\)\s*setStep\("founder_terms"\);[\s\S]{0,80}else finishOnboarding\(\)/);
   assert.doesNotMatch(source, /setStep\(intent\s*===\s*"both"\s*\?\s*"owner_club"\s*:\s*"club"\)/);
 });
 
@@ -31,9 +31,15 @@ test("onboarding role flows remove president-only and use player identity for cl
 
   assert.match(onboarding, /clubSetupPhase/);
   assert.match(onboarding, /getStepMeta\(intent,\s*step,\s*clubSetupPhase\)/);
-  assert.match(onboarding, /dual \? 4 : 3/);
+  assert.match(onboarding, /dual \? 6 : 3/);
+  assert.match(onboarding, /FounderPlayerTermsSetup/);
+  assert.match(onboarding, /setStep\("founder_terms"\)/);
+  assert.match(onboarding, /playerContract=\{founderPlayerTerms\}/);
   assert.match(onboarding, /phase === "club"/);
   assert.match(onboarding, /label: "Club Profile"/);
+  assert.match(onboarding, /setStep\("president_contract"\)/);
+  assert.match(onboarding, /PresidentContractSetup/);
+  assert.match(onboarding, /playerContract=\{founderPlayerTerms\}/);
   assert.doesNotMatch(onboarding, /setStep\("owner_club"\)/);
   assert.doesNotMatch(onboarding, /step === "owner_club"/);
   assert.doesNotMatch(onboarding, /setOnboardingIntent\("president"/);
@@ -41,6 +47,7 @@ test("onboarding role flows remove president-only and use player identity for cl
   assert.match(clubSetup, /required \? "club_profile" : "choice"/);
   assert.match(clubSetup, /stageClient\.clubs\.createFounder/);
   assert.match(clubSetup, /player_id:\s*player\.id/);
+  assert.match(clubSetup, /playerContract:\s*playerContract/);
   assert.doesNotMatch(clubSetup, /stageClient\.entities\.Club\.create/);
   assert.doesNotMatch(clubSetup, /toPresidentApiPayload/);
 });
@@ -144,6 +151,9 @@ test("profile page club onboarding prompts are gated by president intent", () =>
   assert.match(source, /!myClub && canPromptForClubOnboarding/);
   assert.match(source, /resolvedPresidentClub\?\.id[\s\S]{0,120}JoinRequest\.filter\(\{ club_id: resolvedPresidentClub\.id/);
   assert.match(source, /\{!player && canUsePlayerProfile && \(/);
+  assert.match(source, /stageClient\.clubs\.leave\(clubId/);
+  assert.match(source, /writeAccountIntent\("player"/);
+  assert.doesNotMatch(source, /entities\.Player\.update\(player\.id, \{ club_id: null/);
 });
 
 test("account intent helper isolates users and never writes global fallback intent", () => {

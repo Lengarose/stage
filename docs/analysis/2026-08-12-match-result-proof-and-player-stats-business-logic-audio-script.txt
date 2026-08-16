@@ -1,0 +1,13 @@
+StageLeagues match result and player stats logic summary.
+
+The current platform already has a strong foundation. The Game Day screen requires screenshot proof, the backend rejects missing proof, both sides submit independently, mismatched scores go to dispute, and proof verification can send suspicious matches to admin review.
+
+The main business issue is club match stat trust. Club stats should not be loose totals. They should come from a structured event ledger: goals, assists, yellow cards, red cards, ratings, clean sheets, and man of the match. A club can only submit events for its own seated players.
+
+For player versus player, keep the flow simple. Both players submit score and proof. If scores match and proof is accepted, the match can become official automatically. If scores or proof do not match, admin reviews both screenshots and submits the final score.
+
+For club versus club, the submitted goal events must equal that side's score. If a team scores eight, it must select eight goal scorers. If one player scored eight and assisted twice, the final official stats must add plus eight goals and plus two assists to that player after confirmation.
+
+The important rule is that no player stats, rankings, economy, or tournament progression should apply from draft submissions. They apply only after the final official result. This can happen automatically for clean matching submissions, or by admin finalization for disputed matches.
+
+Recommended developer slice: create a central match result lifecycle service, separate home and away goal events correctly, add yellow and red card support, harden club event validation, and upgrade admin review so admins can confirm final score and final player events in one trusted operation.

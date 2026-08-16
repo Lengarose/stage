@@ -880,6 +880,166 @@ test('respondInboxMessage sends reschedule proposals through the central action 
   assert.equal(deliveries[0].notification.type, 'match_reminder');
 });
 
+test('respondInboxMessage only cancels an arranged match after the opponent confirms', async () => {
+  const matchUpdates = [];
+  const responseMessages = [];
+  const message = {
+    id: 'cancel-message-1',
+    recipient_email: 'away@example.test',
+    sender_email: 'home@example.test',
+    message_type: 'match_invite',
+    subject: 'Cancel request',
+    related_entity_id: 'match-1',
+    related_entity_type: 'match',
+    metadata: JSON.stringify({
+      cancel_request: true,
+      created_match_id: 'match-1',
+      invitation_type: 'player_vs_player',
+      challenger_name: 'HomeTag',
+      opponent_name: 'AwayTag',
+    }),
+  };
+  const match = {
+    id: 'match-1',
+    status: 'scheduled',
+    mode: 'solo',
+    type: 'ranked',
+    tournament_id: null,
+    source_fixture_type: null,
+    home_player_id: 'player-home',
+    away_player_id: 'player-away',
+    home_player_email: 'home@example.test',
+    away_player_email: 'away@example.test',
+    home_player_name: 'HomeTag',
+    away_player_name: 'AwayTag',
+    cancel_status: 'pending',
+    cancel_requested_by: 'home@example.test',
+    wager_stc: 0,
+    wager_status: null,
+  };
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/FROM club_memberships/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+    if (/UPDATE inbox_messages SET status = \?/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET/.test(sql)) {
+      matchUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{ id: 'player-away', gamertag: 'AwayTag', avatar_url: null, club_id: null }];
+    }
+    if (/SELECT notification_settings FROM players/.test(sql)) return [];
+    if (/SELECT id FROM notifications/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        responseMessages.push(payload);
+        return { success: true, message: { id: 'cancel-response-1' } };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'respondInboxMessage' }, body: { message_id: 'cancel-message-1', action: 'accepted' }, user: { id: 'user-away' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(matchUpdates.some((update) => update.params.includes('cancelled')), true);
+  assert.equal(responseMessages[0]?.recipientEmail, 'home@example.test');
+});
+
+test('matchFixtureActions request_cancel asks the opponent instead of deleting the match', async () => {
+  const matchUpdates = [];
+  const deliveries = [];
+  const match = {
+    id: 'match-1',
+    status: 'scheduled',
+    mode: 'solo',
+    type: 'ranked',
+    tournament_id: null,
+    source_fixture_type: null,
+    home_player_id: 'player-home',
+    away_player_id: 'player-away',
+    home_player_email: 'home@example.test',
+    away_player_email: 'away@example.test',
+    home_player_name: 'HomeTag',
+    away_player_name: 'AwayTag',
+    cancel_status: null,
+    wager_stc: 0,
+  };
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'home@example.test', player_id: 'player-home', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-home', email: 'home@example.test', gamertag: 'HomeTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/FROM club_memberships/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET/.test(sql)) {
+      matchUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => ({ success: true, id: 'notification-1' }),
+      sendActionMessage: async (payload) => {
+        deliveries.push(payload);
+        return { success: true, message: { id: 'cancel-request-1' } };
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    { params: { name: 'matchFixtureActions' }, body: { action: 'request_cancel', match_id: 'match-1' }, user: { id: 'user-home' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(matchUpdates.some((update) => update.params.includes('cancelled')), false);
+  assert.equal(matchUpdates.some((update) => update.params.includes('pending')), true);
+  assert.equal(deliveries[0]?.recipientEmail, 'away@example.test');
+  assert.equal(deliveries[0]?.metadata?.cancel_request, true);
+});
+
 test('sendInboxMessage delegates actionable delivery to the central message service', async () => {
   const deliveries = [];
   const inboxInserts = [];
@@ -2069,6 +2229,58 @@ test('contractManagement terminate releases player club membership when no activ
   assert.equal(queries.some((call) => /UPDATE club_memberships cm/.test(call.sql)), true);
 });
 
+test('contractManagement terminate rejects founder and president lifecycle contracts', async () => {
+  const queries = [];
+  const contract = {
+    id: 'founder-contract-1',
+    team_id: 'club-1',
+    user_id: 'player-1',
+    status: 'active',
+    contract_type: 'ownership',
+  };
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params = []) {
+      queries.push({ sql, params });
+      if (/SELECT \*, user_id AS target_player_id FROM player_contracts WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) {
+        return [[contract], []];
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const pool = {
+    promise() {
+      return { getConnection: async () => connection };
+    },
+  };
+  const router = loadFunctionsRouterWithDbMock(async (sql) => {
+    throw new Error(`Unexpected SQL outside transaction: ${sql}`);
+  }, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'contractManagement' },
+      body: { action: 'terminate', contract_id: 'founder-contract-1' },
+      user: { id: 'admin-user' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.code, 'lifecycle_owned_contract');
+  assert.equal(queries.some((call) => /UPDATE player_contracts SET status = 'terminated'/.test(call.sql)), false);
+});
+
 test('createTournamentEntranceLink stores active token expiring at tournament start', async () => {
   const inserts = [];
   const executesql = async (sql, params = []) => {
@@ -2297,7 +2509,7 @@ test('listTournamentEntranceLinks returns links for a tournament to admin', asyn
   assert.equal(response.body.data.links[0].tournament_id, 'tournament-1');
 });
 
-test('matchKickoff keeps matching scores in review when uploaded proofs do not verify', async () => {
+test('matchKickoff completes when both sides submit the same score even if proofs are unreadable', async () => {
   const updates = [];
   const match = {
     id: 'match-1',
@@ -2309,9 +2521,10 @@ test('matchKickoff keeps matching scores in review when uploaded proofs do not v
     away_club_name: 'Away FC',
     result_home_submitted: 1,
     result_away_submitted: 0,
+    stats_processed: 0,
     home_submission: JSON.stringify({
-      home_score: 2,
-      away_score: 1,
+      home_score: 5,
+      away_score: 2,
       player_stats: [],
       goal_events: [],
       proof_url: '/uploads/home-proof.png',
@@ -2324,6 +2537,101 @@ test('matchKickoff keeps matching scores in review when uploaded proofs do not v
     if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
     if (/UPDATE matches SET away_submission = \?/.test(sql)) {
       updates.push({ sql, params });
+      match.away_submission = params[0];
+      match.result_away_submitted = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET status='completed'/.test(sql)) {
+      updates.push({ sql, params });
+      match.status = 'completed';
+      match.home_score = params[0];
+      match.away_score = params[1];
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE clubs SET/.test(sql)) {
+      updates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: params[0] === 'club-home' ? 'Home FC' : 'Away FC', stadium_level: 0, wins: 0, losses: 0, draws: 0 }];
+    }
+    if (/SELECT \* FROM stadium_config ORDER BY level ASC/.test(sql)) return [];
+    if (/SELECT id FROM stc_transactions WHERE club_id = \? AND category = 'ticket_revenue'/.test(sql)) {
+      return [{ id: 'existing-ticket-revenue' }];
+    }
+    if (/UPDATE matches SET home_ticket_revenue=/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE matches SET stats_processed = 1/.test(sql)) {
+      match.stats_processed = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET wager_status = 'settling'/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM match_player_stats WHERE match_id = \?/.test(sql)) return [];
+    if (/FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    serviceMock: {
+      advanceAfterFinalResult: async () => ({ triggered: true }),
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'submit_result',
+        match_id: 'match-1',
+        is_home_team: false,
+        home_score: 5,
+        away_score: 2,
+        proof_url: '/uploads/away-proof.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'completed');
+  assert.equal(match.status, 'completed');
+  assert.equal(match.home_score, 5);
+  assert.equal(match.away_score, 2);
+  assert.ok(updates.some((call) => /UPDATE clubs SET/.test(call.sql)));
+  assert.ok(!updates.some((call) => /status = 'disputed'/.test(call.sql)));
+});
+
+test('matchKickoff disputes only when the two sides declare different scores', async () => {
+  const updates = [];
+  const match = {
+    id: 'match-disagree',
+    status: 'in_progress',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    result_home_submitted: 1,
+    result_away_submitted: 0,
+    home_submission: JSON.stringify({
+      home_score: 5,
+      away_score: 2,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/home-proof.png',
+    }),
+    away_submission: null,
+  };
+
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET away_submission = \?/.test(sql)) {
       match.away_submission = params[0];
       match.result_away_submitted = 1;
       return { affectedRows: 1 };
@@ -2349,10 +2657,10 @@ test('matchKickoff keeps matching scores in review when uploaded proofs do not v
       params: { name: 'matchKickoff' },
       body: {
         action: 'submit_result',
-        match_id: 'match-1',
+        match_id: 'match-disagree',
         is_home_team: false,
         home_score: 2,
-        away_score: 1,
+        away_score: 5,
         proof_url: '/uploads/away-proof.png',
       },
       user: { id: 'user-1' },
@@ -2362,9 +2670,162 @@ test('matchKickoff keeps matching scores in review when uploaded proofs do not v
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.status, 'disputed');
-  assert.equal(response.body.data.proof_verification.reason, 'proofs_differ_without_readable_score');
+  assert.equal(response.body.data.reason, 'submitted_scores_disagree');
   assert.ok(updates.some((call) => /UPDATE matches SET status = 'disputed'/.test(call.sql)));
-  assert.match(match.away_submission, /away-proof\.png/);
+});
+
+test('matchKickoff completes when away reports the same team goals from their side', async () => {
+  const match = {
+    id: 'match-perspective-agree',
+    status: 'in_progress',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    result_home_submitted: 1,
+    result_away_submitted: 0,
+    stats_processed: 0,
+    home_submission: JSON.stringify({
+      home_score: 5,
+      away_score: 2,
+      own_score: 5,
+      opponent_score: 2,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/home-proof.png',
+    }),
+    away_submission: null,
+  };
+
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET away_submission = \?/.test(sql)) {
+      match.away_submission = params[0];
+      match.result_away_submitted = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET status='completed'/.test(sql)) {
+      match.status = 'completed';
+      match.home_score = params[0];
+      match.away_score = params[1];
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE clubs SET/.test(sql)) return { affectedRows: 1 };
+    if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: params[0] === 'club-home' ? 'Home FC' : 'Away FC', stadium_level: 0, wins: 0, losses: 0, draws: 0 }];
+    }
+    if (/SELECT \* FROM stadium_config ORDER BY level ASC/.test(sql)) return [];
+    if (/SELECT id FROM stc_transactions WHERE club_id = \? AND category = 'ticket_revenue'/.test(sql)) {
+      return [{ id: 'existing-ticket-revenue' }];
+    }
+    if (/UPDATE matches SET home_ticket_revenue=/.test(sql)) return { affectedRows: 1 };
+    if (/UPDATE matches SET stats_processed = 1/.test(sql)) {
+      match.stats_processed = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET wager_status = 'settling'/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT \* FROM match_player_stats WHERE match_id = \?/.test(sql)) return [];
+    if (/FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    serviceMock: { advanceAfterFinalResult: async () => ({ triggered: true }) },
+  });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'submit_result',
+        match_id: 'match-perspective-agree',
+        is_home_team: false,
+        own_score: 2,
+        opponent_score: 5,
+        proof_url: '/uploads/away-proof.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'completed');
+  assert.equal(match.home_score, 5);
+  assert.equal(match.away_score, 2);
+});
+
+test('matchKickoff disputes when home 2-5 and away 2-5 are different team goals', async () => {
+  const match = {
+    id: 'match-perspective-disagree',
+    status: 'in_progress',
+    mode: 'club',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+    result_home_submitted: 1,
+    result_away_submitted: 0,
+    home_submission: JSON.stringify({
+      home_score: 2,
+      away_score: 5,
+      own_score: 2,
+      opponent_score: 5,
+      player_stats: [],
+      goal_events: [],
+      proof_url: '/uploads/home-proof.png',
+    }),
+    away_submission: null,
+  };
+
+  const executesql = async (sql, params = []) => {
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches SET away_submission = \?/.test(sql)) {
+      match.away_submission = params[0];
+      match.result_away_submitted = 1;
+      return { affectedRows: 1 };
+    }
+    if (/UPDATE matches SET status = 'disputed'/.test(sql)) {
+      match.status = 'disputed';
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'matchKickoff' },
+      body: {
+        action: 'submit_result',
+        match_id: 'match-perspective-disagree',
+        is_home_team: false,
+        own_score: 2,
+        opponent_score: 5,
+        proof_url: '/uploads/away-proof.png',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.status, 'disputed');
+  assert.equal(response.body.data.reason, 'submitted_scores_disagree');
 });
 
 test('matchKickoff admin_resolve requires admin and validates manual scores', async () => {
@@ -2415,6 +2876,7 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
       match.stats_processed = 1;
       return { affectedRows: 1 };
     }
+    if (/UPDATE clubs SET/.test(sql)) return { affectedRows: 1 };
     if (/UPDATE matches SET home_ticket_revenue=/.test(sql)) return { affectedRows: 1 };
     if (/UPDATE matches SET stats_processed = 1/.test(sql)) {
       match.stats_processed = 1;

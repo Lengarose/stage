@@ -6,6 +6,7 @@ import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
+import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -59,9 +60,14 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       if (stopped || !fresh?.id || fresh.id !== selectedGame.id) return;
       if (scopedTournamentId && fresh.tournament_id !== scopedTournamentId) return;
 
+      if (!isActiveGameDayMatch(fresh)) {
+        setSelectedGame(null);
+        setGames(prev => prev.filter(g => g.id !== fresh.id));
+        return;
+      }
+
       setSelectedGame(fresh);
       setGames(prev => {
-        if (fresh.status === "forfeit") return prev.filter(g => g.id !== fresh.id);
         if (prev.some(g => g.id === fresh.id)) {
           return prev.map(g => g.id === fresh.id ? fresh : g);
         }
@@ -158,17 +164,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         // When scoped to a tournament, ignore matches from other tournaments
         if (scopedTournamentId && data.tournament_id !== scopedTournamentId) return prev;
 
-        // Drop forfeited matches entirely
-        if (data.status === "forfeit") return prev.filter(m => m.id !== data.id);
-
-        // Drop completed matches older than 24h
-        if (data.status === "completed") {
-          const updatedAt = data.updated_date ? new Date(data.updated_date) : null;
-          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          if (!updatedAt || updatedAt < oneDayAgo) {
-            return prev.filter(m => m.id !== data.id);
-          }
-        }
+        if (!isActiveGameDayMatch(data)) return prev.filter(m => m.id !== data.id);
 
         // Update existing or add new (for in_progress matches that just became live)
         const exists = prev.some(m => m.id === data.id);
@@ -186,10 +182,6 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     // Fetch all scheduled/in_progress matches then filter in JS
     // Fetch from multiple angles to cover both club and player matches
     const fetchPromises = [];
-
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    // Fetch my own matches (home + away) without status filter, then filter in JS
     // This avoids N×status queries and stays within rate limits
     if (clubId) {
       fetchPromises.push(
@@ -247,21 +239,14 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     if (requestedMatchId) {
       const requested = matchMap.get(requestedMatchId)
         || await stageClient.entities.Match.get(requestedMatchId).catch(() => null);
-      if (requested?.id) {
+      if (requested?.id && isActiveGameDayMatch(requested)) {
         matchMap.set(requested.id, requested);
         setSelectedGame(requested);
       }
     }
 
-    // Keep active matches + completed ones updated within last 24h; drop forfeit
-    let relevantGames = Array.from(matchMap.values()).filter(m => {
-      if (m.status === "forfeit") return false;
-      if (m.status === "completed") {
-        const updatedAt = m.updated_date ? new Date(m.updated_date) : null;
-        return updatedAt && updatedAt.toISOString() > oneDayAgo;
-      }
-      return true;
-    });
+    // Keep active matches + completed ones updated within last 24h; drop forfeit/cancelled
+    let relevantGames = Array.from(matchMap.values()).filter(m => isActiveGameDayMatch(m));
 
     // When scoped to a specific tournament, only show matches for that tournament
     if (scopedTournamentId) {
@@ -273,8 +258,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     // Open the next playable match so Kickoff is visible without an extra click.
     if (!requestedMatchId) {
       const nextPlayable = relevantGames.find(m => m.status === "scheduled" || m.status === "in_progress")
-        || relevantGames[0];
-      if (nextPlayable) setSelectedGame(prev => prev || nextPlayable);
+        || relevantGames[0]
+        || null;
+      setSelectedGame(prev => (prev && relevantGames.some(g => g.id === prev.id) ? prev : nextPlayable));
     }
 
     // Build tournament lookup for competition labels — fetch all at once, not one per ID
@@ -304,6 +290,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       myPlayer={myPlayer}
       user={user}
       onGameUpdate={(updated) => {
+        if (!isActiveGameDayMatch(updated)) {
+          setSelectedGame(prev => prev?.id === updated.id ? null : prev);
+          setGames(prev => prev.filter(g => g.id !== updated.id));
+          return;
+        }
         setSelectedGame(updated);
         setGames(prev => prev.map(g => g.id === updated.id ? updated : g));
       }}

@@ -29,3 +29,36 @@ export function canResolveDisputeWithScore(selectedWinner, score) {
     isValidAdminScore(score?.home_score) &&
     isValidAdminScore(score?.away_score);
 }
+
+export const KICKOFF_EARLY_WINDOW_MINUTES = 15;
+
+export function isClubGameDayMatch(game) {
+  if (game?.mode === "club") return true;
+  if (game?.mode === "solo") return false;
+  return Boolean(game?.home_club_id || game?.away_club_id);
+}
+
+export function getKickoffControls({
+  game,
+  isMyMatch,
+  amIHomeTeam,
+  isLive,
+  showResultForm,
+  minutesUntilMatch,
+  isClubMatch,
+  bothClubsReady,
+}) {
+  const isScheduled = game?.status === "scheduled";
+  const showKickoffSection = Boolean(isMyMatch && isScheduled && !isLive && !showResultForm);
+  const tooEarly = minutesUntilMatch != null && minutesUntilMatch > KICKOFF_EARLY_WINDOW_MINUTES;
+  const dressingBlocked = Boolean(isClubMatch && !bothClubsReady);
+
+  return {
+    showKickoffSection,
+    showHomeKickoff: showKickoffSection && Boolean(amIHomeTeam),
+    showAwayWaiting: showKickoffSection && !amIHomeTeam,
+    tooEarly,
+    dressingBlocked,
+    canPressKickoff: showKickoffSection && Boolean(amIHomeTeam) && !tooEarly && !dressingBlocked,
+  };
+}

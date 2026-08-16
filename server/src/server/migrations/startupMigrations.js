@@ -104,6 +104,7 @@ async function runStartupMigrations() {
   await addCol('players', 'subscription_billing', 'VARCHAR(20) NULL');
   await addCol('players', 'stripe_subscription_id', 'VARCHAR(255) NULL');
   await addCol('players', 'stripe_customer_id', 'VARCHAR(255) NULL');
+  await addCol('players', 'subscription_cancel_at_period_end', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addCol('players', 'role', 'VARCHAR(50) NULL');
   await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
   await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
@@ -489,6 +490,8 @@ async function runStartupMigrations() {
   // Where this match came from (league fixture, knockout tie, friendly, …)
   await addCol('matches', 'source_fixture_id',   'VARCHAR(36) NULL');
   await addCol('matches', 'source_fixture_type', 'VARCHAR(50) NULL');
+  await addCol('matches', 'cancel_status', 'VARCHAR(30) NULL');
+  await addCol('matches', 'cancel_requested_by', 'VARCHAR(255) NULL');
 
   // match_player_stats — add player_id and gamertag (schema v2)
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
@@ -2349,6 +2352,166 @@ async function runStartupMigrations() {
     INDEX idx_comp_payout_club (club_id, created_date),
     INDEX idx_comp_payout_player (player_id, created_date)
   )`).catch((err) => console.error('[migration] competition_payouts:', err.message));
+
+  await EXECUTESQL(`
+    INSERT INTO player_contracts (
+      id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id,
+      offered_by_club_id, max_games, max_days, weekly_salary_stc, signing_bonus_stc,
+      transfer_fee_stc, offer_note, captaincy_offered, negotiation_round,
+      start_date, end_date, performance_targets, created_date, updated_date
+    )
+    SELECT
+      UUID(),
+      founder.team_id,
+      founder.user_id,
+      'ownership',
+      'active',
+      COALESCE(c.owner_email, 'Founder'),
+      COALESCE(c.president_user_id, c.user_id),
+      founder.team_id,
+      0,
+      3650,
+      0,
+      0,
+      0,
+      CONCAT(
+        'Founder president contract: ',
+        COALESCE(c.president_user_id, c.user_id, 'user'),
+        ':',
+        founder.user_id,
+        ':',
+        LOWER(TRIM(IFNULL(c.name, '')))
+      ),
+      0,
+      0,
+      COALESCE(founder.start_date, CURDATE()),
+      NULL,
+      JSON_OBJECT('source', 'founder_onboarding', 'founder_contract_kind', 'president', 'backfill', TRUE),
+      NOW(),
+      NOW()
+    FROM (
+      SELECT pc.team_id, pc.user_id, MIN(pc.start_date) AS start_date
+        FROM player_contracts pc
+       WHERE pc.contract_type IN ('founder', 'founder_player')
+         AND pc.status IN ('active', 'pending', 'pending_window', 'negotiating')
+       GROUP BY pc.team_id, pc.user_id
+    ) founder
+    JOIN clubs c ON c.id = founder.team_id
+    LEFT JOIN player_contracts ownership
+      ON ownership.team_id = founder.team_id
+     AND ownership.user_id = founder.user_id
+     AND ownership.contract_type = 'ownership'
+     AND ownership.status IN ('active', 'pending', 'pending_window', 'negotiating')
+    WHERE ownership.id IS NULL
+      AND (
+        c.president_player_id IS NULL
+        OR c.president_player_id = founder.user_id
+      )
+  `).catch((err) => console.error('[migration] backfill_founder_president_contracts:', err.message));
+
+  await addCol('transfer_windows', 'window_kind', "VARCHAR(20) NULL DEFAULT 'custom'");
+  await addCol('transfer_windows', 'country_code', 'VARCHAR(8) NULL');
+  await addCol('transfer_windows', 'competition_id', 'VARCHAR(36) NULL');
+  await addCol('news_items', 'transfer_id', 'VARCHAR(36) NULL');
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS mercato_transfers (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    subject_type VARCHAR(20) NOT NULL DEFAULT 'player',
+    player_id VARCHAR(36) NULL,
+    player_name VARCHAR(120) NULL,
+    player_avatar_url TEXT NULL,
+    player_position VARCHAR(20) NULL,
+    player_nationality VARCHAR(80) NULL,
+    player_value_stc BIGINT NULL DEFAULT 0,
+    from_club_id VARCHAR(36) NULL,
+    from_club_name VARCHAR(120) NULL,
+    from_club_logo_url TEXT NULL,
+    to_club_id VARCHAR(36) NULL,
+    to_club_name VARCHAR(120) NULL,
+    to_club_logo_url TEXT NULL,
+    competition_id VARCHAR(36) NULL,
+    country_code VARCHAR(8) NULL,
+    window_id VARCHAR(36) NULL,
+    window_kind VARCHAR(20) NULL DEFAULT 'custom',
+    deal_type VARCHAR(40) NOT NULL DEFAULT 'permanent',
+    status VARCHAR(30) NOT NULL DEFAULT 'rumour',
+    transfer_fee BIGINT NULL DEFAULT 0,
+    currency VARCHAR(8) NULL DEFAULT 'STC',
+    add_ons_amount BIGINT NULL DEFAULT 0,
+    sell_on_clause DECIMAL(6,2) NULL DEFAULT 0,
+    release_clause BIGINT NULL DEFAULT 0,
+    loan_fee BIGINT NULL DEFAULT 0,
+    option_to_buy BIGINT NULL DEFAULT 0,
+    obligation_to_buy TINYINT(1) NULL DEFAULT 0,
+    contract_years INT NULL DEFAULT 0,
+    contract_start DATE NULL,
+    contract_end DATE NULL,
+    contract_option VARCHAR(120) NULL,
+    weekly_salary_stc BIGINT NULL DEFAULT 0,
+    salary_is_estimate TINYINT(1) NULL DEFAULT 0,
+    fee_is_estimate TINYINT(1) NULL DEFAULT 0,
+    source_name VARCHAR(160) NULL,
+    source_url TEXT NULL,
+    journalist_id VARCHAR(36) NULL,
+    journalist_name VARCHAR(120) NULL,
+    reliability VARCHAR(16) NULL DEFAULT 'medium',
+    verification_status VARCHAR(20) NULL DEFAULT 'unconfirmed',
+    contract_id VARCHAR(36) NULL,
+    staff_role_id VARCHAR(36) NULL,
+    transfer_date DATETIME NULL,
+    add_ons JSON NULL,
+    bonuses JSON NULL,
+    headline VARCHAR(255) NULL,
+    body TEXT NULL,
+    view_count INT NULL DEFAULT 0,
+    published_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_mercato_contract (contract_id),
+    INDEX idx_mercato_player (player_id),
+    INDEX idx_mercato_from (from_club_id),
+    INDEX idx_mercato_to (to_club_id),
+    INDEX idx_mercato_status (status, last_updated_at),
+    INDEX idx_mercato_deal (deal_type),
+    INDEX idx_mercato_country (country_code),
+    INDEX idx_mercato_window (window_kind, window_id)
+  )`).catch((err) => console.error('[migration] mercato_transfers:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS mercato_transfer_events (
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    transfer_id VARCHAR(36) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    title VARCHAR(255) NULL,
+    body TEXT NULL,
+    source_name VARCHAR(160) NULL,
+    created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_mercato_events_transfer (transfer_id, created_at)
+  )`).catch((err) => console.error('[migration] mercato_transfer_events:', err.message));
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_loans (
+    id                       VARCHAR(36) PRIMARY KEY,
+    player_id                VARCHAR(36) NOT NULL,
+    contract_id              VARCHAR(36) NOT NULL,
+    parent_club_id           VARCHAR(36) NOT NULL,
+    loan_club_id             VARCHAR(36) NOT NULL,
+    start_date               DATE NULL,
+    end_date                 DATE NULL,
+    loan_fee_stc             BIGINT DEFAULT 0,
+    parent_wage_percentage   INT NOT NULL,
+    loan_wage_percentage     INT NOT NULL,
+    status                   VARCHAR(30) NOT NULL DEFAULT 'PROPOSED',
+    proposed_by_club_id      VARCHAR(36) NULL,
+    parent_accepted_at       DATETIME NULL,
+    loan_club_accepted_at    DATETIME NULL,
+    player_accepted_at       DATETIME NULL,
+    activated_at             DATETIME NULL,
+    completed_at             DATETIME NULL,
+    created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ploans_player_status (player_id, status),
+    INDEX idx_ploans_parent (parent_club_id),
+    INDEX idx_ploans_loan_club (loan_club_id),
+    INDEX idx_ploans_contract (contract_id)
+  )`).catch((err) => console.error('[migration] player_loans:', err.message));
 }
 
 module.exports = { runStartupMigrations };

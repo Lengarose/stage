@@ -1,42 +1,42 @@
 import { useState, useEffect } from "react";
-import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 import {
-  Newspaper, ArrowRightLeft, FileSignature, Shield,
+  ArrowRightLeft, FileSignature, Shield,
   User, TrendingUp, Trophy, Mic, Megaphone, Star, Zap
 } from "lucide-react";
-import NewsArticleCard from "@/components/news/NewsArticleCard";
-import NewsFeaturedCard from "@/components/news/NewsFeaturedCard";
-import PressArticleCard from "@/components/news/PressArticleCard";
+import AllNewsPaper from "@/components/news/AllNewsPaper";
+import MercatoPaper from "@/components/news/MercatoPaper";
+import NewsBeatDesk from "@/components/news/NewsBeatDesk";
+import WorldNewsDesk from "@/components/news/WorldNewsDesk";
 import { useTranslation } from "@/hooks/useTranslation";
+import {
+  NEWS_SECTION_FILTERS,
+  formatNewspaperDate,
+  newspaperVolume,
+} from "@/lib/newsPaper";
+import "./newsPaper.css";
 
-// ── Category config ────────────────────────────────────────────────────────
 export const CATEGORY_CONFIG = {
   transfers:        { label: "Transfers",       labelKey: "transfers", icon: ArrowRightLeft,  color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
   contracts:        { label: "Contracts",       labelKey: "contracts", icon: FileSignature,   color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
   club_news:        { label: "Club News",       labelKey: "clubNews", icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
   player_news:      { label: "Player News",     labelKey: "playerNews", icon: User,            color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
   market:           { label: "Market",          labelKey: "market", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
-  tournament:       { label: "Tournament",      labelKey: "tournaments", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
-  press_conference: { label: "Press Room",      labelKey: "pressRoom", icon: Mic,             color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
+  tournament:       { label: "Tournaments",     labelKey: "tournaments", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  stadium:          { label: "Stadium",         labelKey: "clubNews", icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  shirts:           { label: "Shirts",          labelKey: "clubNews", icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  tickets:          { label: "Tickets",         labelKey: "clubNews", icon: Shield,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  trophy:           { label: "Trophies",        labelKey: "clubNews", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  lifestyle:        { label: "Lifestyle",       labelKey: "playerNews", icon: User,            color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
+  motm:             { label: "MOTM",            labelKey: "playerNews", icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
+  competitions:     { label: "Competitions",    labelKey: "competitions", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
+  ranking:          { label: "Rankings",        labelKey: "rankings", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
+  press_conference: { label: "Press",           labelKey: "pressRoom", icon: Mic,             color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
   general:          { label: "General",         labelKey: "general", icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
-  // legacy fallbacks
   achievement:      { label: "Achievement",     labelKey: "achievement", icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
   app_update:       { label: "App Update",      labelKey: "appUpdate", icon: Zap,             color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
-  ranking:          { label: "Rankings",        labelKey: "rankings", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
   announcement:     { label: "Announcement",    labelKey: "announcement", icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
 };
-
-const FILTERS = [
-  { id: "all",              labelKey: "all" },
-  { id: "transfers",        labelKey: "transfers" },
-  { id: "contracts",        labelKey: "contracts" },
-  { id: "club_news",        labelKey: "clubNews" },
-  { id: "player_news",      labelKey: "playerNews" },
-  { id: "market",           labelKey: "market" },
-  { id: "tournament",       labelKey: "tournaments" },
-  { id: "press_conference", labelKey: "pressRoom" },
-];
 
 export function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -51,212 +51,62 @@ export function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-/** Resolve category: prefer `category` field, fall back by `type` for old records */
-function resolveCategory(item) {
-  if (item.category && item.category !== "general") return item.category;
-  const typeMap = {
-    transfer: "transfers",
-    contract: "contracts",
-    tournament: "tournament",
-    achievement: "general",
-    app_update: "general",
-    ranking: "general",
-    press_conference: "press_conference",
-    announcement: "general",
-    club_news: "club_news",
-    player_news: "player_news",
-    market: "market",
-  };
-  return typeMap[item.type] || "general";
-}
-
-function mergeAndSort(newsItems, pressArticles) {
-  const fromPress = pressArticles.map(a => ({
-    id: "press_" + a.id,
-    type: "press_conference",
-    category: "press_conference",
-    title: a.headline,
-    body: a.quotes?.[0] ? `"${a.quotes[0].answer}"` : "",
-    club_name: a.club_name,
-    club_logo_url: a.club_logo_url,
-    player_name: a.player_name,
-    player_avatar_url: a.player_avatar_url,
-    photo_url: a.photo_url || null,
-    photo_position: a.photo_position || "50% 50%",
-    photo_zoom: a.photo_zoom || 120,
-    published_at: a.published_at,
-    match_name: a.match_name,
-    tournament_name: a.tournament_name,
-    quotes: a.quotes,
-    is_featured: false,
-    is_global: true,
-    _raw_press: a,
-  }));
-
-  return [...newsItems, ...fromPress]
-    .map(i => ({ ...i, _category: resolveCategory(i) }))
-    .sort((a, b) => new Date(b.published_at || b.created_date || 0) - new Date(a.published_at || a.created_date || 0));
-}
-
-/** Determine if a news item is visible to the current user */
-function isVisible(item, myPlayer, myClub) {
-  // Global items visible to everyone
-  if (item.is_global) return true;
-
-  // Legacy items with no visibility data — show them
-  const hasVisibilityData =
-    (item.visible_to_club_ids?.length > 0) ||
-    (item.visible_to_player_ids?.length > 0);
-  if (!hasVisibilityData) return true;
-
-  // Press conferences always visible
-  if (item._category === "press_conference") return true;
-
-  // Club membership
-  if (myClub && item.visible_to_club_ids?.includes(myClub.id)) return true;
-
-  // Player directly involved
-  if (myPlayer && item.visible_to_player_ids?.includes(myPlayer.id)) return true;
-
-  return false;
-}
-
 export default function News() {
   const { t } = useTranslation();
-  const [allItems, setAllItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [myPlayer, setMyPlayer] = useState(null);
-  const [myClub, setMyClub] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeFilter, setActiveFilter] = useState(searchParams.get("section") || "mercato");
+  const transferId = searchParams.get("transfer") || "";
+  const editionDate = formatNewspaperDate(new Date());
+  const volume = newspaperVolume(new Date());
 
   useEffect(() => {
-    async function load() {
-      let player = null;
-      let club = null;
-
-      try {
-        const resolved = await resolveMyPlayerAndClub();
-        player = resolved.player;
-        club = resolved.club;
-        setMyPlayer(player);
-        setMyClub(club);
-      } catch (_) {}
-
-      const [news, press] = await Promise.all([
-        stageClient.entities.NewsItem.list("-published_at", 100),
-        stageClient.entities.PressArticle.list("-published_at", 30),
-      ]);
-
-      const merged = mergeAndSort(news, press);
-      setAllItems(merged);
-      setLoading(false);
-    }
-    load();
-
-    const unsub1 = stageClient.entities.NewsItem.subscribe(e => {
-      if (e.type === "create") {
-        const item = { ...e.data, _category: resolveCategory(e.data) };
-        setAllItems(prev => [item, ...prev]);
-      }
-    });
-    const unsub2 = stageClient.entities.PressArticle.subscribe(e => {
-      if (e.type === "create") {
-        const a = e.data;
-        const item = {
-          id: "press_" + a.id, type: "press_conference", category: "press_conference",
-          _category: "press_conference",
-          title: a.headline, body: a.quotes?.[0] ? `"${a.quotes[0].answer}"` : "",
-          club_name: a.club_name, club_logo_url: a.club_logo_url,
-          player_name: a.player_name, player_avatar_url: a.player_avatar_url,
-          published_at: a.published_at, quotes: a.quotes, is_global: true,
-        };
-        setAllItems(prev => [item, ...prev]);
-      }
-    });
-    return () => { unsub1(); unsub2(); };
-  }, []);
-
-  const visible = allItems.filter(i => isVisible(i, myPlayer, myClub));
-  const filtered = activeFilter === "all" ? visible : visible.filter(i => i._category === activeFilter);
-
-  const featured = filtered.find(i => i.is_featured) || filtered[0];
-  const rest = filtered.filter(i => i !== featured);
+    const next = searchParams.get("section") || "mercato";
+    setActiveFilter(next);
+  }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Newspaper className="w-6 h-6 text-primary shrink-0" />
-          <div>
-            <h1
-              className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
-              style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-            >
-              {t("commonPages.newsTitle")}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">{t("commonPages.newsSubtitle")}</p>
-          </div>
+    <div className="news-paper-page news-paper-page--viewport">
+      <div className="news-paper-sheet">
+        <header className="news-paper-masthead">
+          <p className="news-paper-kicker">
+            <span className="news-paper-kicker-slug">Stage League</span>
+            <span>Late edition</span>
+          </p>
+          <h1 className="news-paper-title">THE STAGE TIMES</h1>
+        </header>
+        <div className="news-paper-dateline">
+          <span>Vol. {volume} · No. {new Date().getUTCDate()}</span>
+          <span>{editionDate}</span>
+          <span>Matchday</span>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
-          {FILTERS.map(f => (
+        <nav className="news-paper-sections" aria-label="Newspaper sections">
+          {NEWS_SECTION_FILTERS.map(f => (
             <button
               key={f.id}
-              onClick={() => setActiveFilter(f.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider border transition-all",
-                activeFilter === f.id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              )}
+              type="button"
+              onClick={() => {
+                setActiveFilter(f.id);
+                setSearchParams(f.id === "mercato" ? (transferId ? { transfer: transferId } : {}) : { section: f.id });
+              }}
+              aria-pressed={activeFilter === f.id}
             >
               {t(`commonPages.${f.labelKey}`)}
             </button>
           ))}
-        </div>
+        </nav>
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-7 h-7 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && filtered.length === 0 && (
-          <div className="bg-card border border-border rounded-2xl p-12 text-center space-y-3">
-            <Newspaper className="w-12 h-12 text-muted-foreground/20 mx-auto" />
-            <p className="text-foreground font-semibold">{t("commonPages.nothingHere")}</p>
-            <p className="text-sm text-muted-foreground">
-              {t("commonPages.newsEmptyDesc")}
-            </p>
-          </div>
-        )}
-
-        {/* Feed */}
-        {!loading && filtered.length > 0 && (
-          <div className="space-y-8">
-            {/* Featured / Hero */}
-            {featured && (
-              featured._category === "press_conference"
-                ? <PressArticleCard item={featured} />
-                : <NewsFeaturedCard item={featured} />
-            )}
-
-            {/* Rest */}
-            {rest.length > 0 && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rest.map(item =>
-                  item._category === "press_conference"
-                    ? <PressArticleCard key={item.id} item={item} compact />
-                    : <NewsArticleCard key={item.id} item={item} />
-                )}
-              </div>
-            )}
-          </div>
+        {activeFilter === "mercato" ? (
+          <MercatoPaper initialTransferId={transferId} />
+        ) : activeFilter === "all" ? (
+          <AllNewsPaper />
+        ) : activeFilter === "world_news" ? (
+          <WorldNewsDesk
+            initialContinent={searchParams.get("continent") || ""}
+            initialCountry={searchParams.get("country") || ""}
+          />
+        ) : (
+          <NewsBeatDesk section={activeFilter} />
         )}
       </div>
     </div>

@@ -1,36 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  dismissPwaUpdate,
+  isCompetingServiceWorkerUrl,
+  isPwaUpdateDismissed,
+  markPwaReloaded,
+  readLastPwaReloadAt,
+  shouldAllowPwaReload,
+} from '@/lib/pwaUpdate';
 
 /**
- * PWA update prompt — shows a small toast when a new service-worker build is
- * available. Falls back to silent no-op outside of production / when the SW
- * plugin isn't loaded (e.g. dev mode).
+ * PWA update prompt — shows a toast when a new service-worker build is waiting.
+ * Reload is user-driven. Auto-reload on every controllerchange caused an
+ * infinite loop when the app SW and OneSignal both claimed `/`.
  */
 export default function PWAUpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false);
-  const [updateSW, setUpdateSW] = useState(() => () => Promise.resolve());
+  const waitingWorker = useRef(null);
+  const userRequestedReload = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return () => { cancelled = true; };
+    if (isPwaUpdateDismissed()) return () => { cancelled = true; };
 
-    let refreshing = false;
-    const handleControllerChange = () => {
-      if (refreshing) return;
-      refreshing = true;
+    const reloadIfRequested = () => {
+      if (!userRequestedReload.current) return;
+      if (!shouldAllowPwaReload(Date.now(), readLastPwaReloadAt())) return;
+      markPwaReloaded();
       window.location.reload();
     };
 
-    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      if (cancelled) return;
+    navigator.serviceWorker.addEventListener('controllerchange', reloadIfRequested);
+
+    (async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
+      await Promise.all(registrations.map(async (registration) => {
+        const scriptURL = registration.active?.scriptURL
+          || registration.waiting?.scriptURL
+          || registration.installing?.scriptURL
+          || '';
+        if (isCompetingServiceWorkerUrl(scriptURL)) {
+          await registration.unregister().catch(() => {});
+        }
+      }));
+      if (cancelled || isPwaUpdateDismissed()) return;
+
+      const registration = await navigator.serviceWorker.register('/sw.js').catch(() => null);
+      if (cancelled || !registration || isPwaUpdateDismissed()) return;
 
       const showUpdate = (worker) => {
-        if (!worker) return;
+        if (!worker || isPwaUpdateDismissed()) return;
+        waitingWorker.current = worker;
         setNeedRefresh(true);
-        setUpdateSW(() => async (reloadPage = true) => {
-          worker.postMessage({ type: 'SKIP_WAITING' });
-          if (reloadPage && !navigator.serviceWorker.controller) window.location.reload();
-        });
       };
 
       if (registration.waiting) showUpdate(registration.waiting);
@@ -44,22 +65,37 @@ export default function PWAUpdatePrompt() {
           }
         });
       });
-    }).catch(() => {
-      // No SW available or registration blocked — ignore.
-    });
+    })();
 
     return () => {
       cancelled = true;
-      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      navigator.serviceWorker.removeEventListener('controllerchange', reloadIfRequested);
     };
   }, []);
 
-  if (!needRefresh) return null;
+  function hidePrompt() {
+    dismissPwaUpdate();
+    waitingWorker.current = null;
+    setNeedRefresh(false);
+  }
+
+  function reloadNow(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const worker = waitingWorker.current;
+    hidePrompt();
+    userRequestedReload.current = true;
+    worker?.postMessage({ type: 'SKIP_WAITING' });
+    markPwaReloaded();
+    window.location.reload();
+  }
+
+  if (!needRefresh || isPwaUpdateDismissed()) return null;
 
   return (
     <div
       role="status"
-      className="fixed z-[120] left-1/2 -translate-x-1/2 bottom-[calc(var(--mobile-tab-h,0px)+var(--safe-bottom,0px)+1rem)] md:bottom-6"
+      className="fixed z-[220] left-1/2 -translate-x-1/2 top-[calc(var(--safe-top,0px)+0.75rem)] md:top-auto md:bottom-6 pointer-events-auto"
       style={{
         background: 'rgba(8,11,24,0.96)',
         border: '1px solid rgba(0,229,189,0.35)',
@@ -85,7 +121,7 @@ export default function PWAUpdatePrompt() {
       </span>
       <button
         type="button"
-        onClick={() => updateSW(true)}
+        onClick={reloadNow}
         className="text-[11px] uppercase rounded-md px-3 py-1.5"
         style={{
           fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",
@@ -99,7 +135,11 @@ export default function PWAUpdatePrompt() {
       </button>
       <button
         type="button"
-        onClick={() => setNeedRefresh(false)}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          hidePrompt();
+        }}
         className="text-[10px] uppercase rounded-md px-2 py-1.5"
         style={{
           fontFamily: "var(--font-heading,'Barlow Condensed',sans-serif)",

@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut, Globe, Volume2 } from "lucide-react";
+import { Upload, Palette, Trash2, AlertTriangle, Lock, Eye, EyeOff, LogOut, Globe, Volume2, BookOpen } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import NotificationSettings from "@/components/NotificationSettings";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +13,8 @@ import { DISPLAY_LANGUAGES } from "@/lib/languages";
 import SoundIconPicker from "@/components/settings/SoundIconPicker";
 import GamerSettingsSection from "@/components/settings/GamerSettingsSection";
 import AccountRoleUpgradeSection from "@/components/settings/AccountRoleUpgradeSection";
+import TutorialPopup from "@/components/onboarding/TutorialPopup";
+import { readAccountIntent } from "@/lib/accountIntent";
 import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import {
   NOTIFICATION_SOUND_STORAGE_KEY,
@@ -242,6 +244,7 @@ export default function Settings() {
   const [liveDarkFx, setLiveDarkFxState] = useState(() => getLiveDarkFx());
   const [liveDarkUploading, setLiveDarkUploading] = useState(false);
   const [timezone, setTimezone] = useState(() => detectBrowserTimezone());
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -540,6 +543,16 @@ export default function Settings() {
         </header>
 
         <AccountRoleUpgradeSection />
+
+        <GamerSettingsSection
+          title="How STAGE works"
+          description="Replay the onboarding tutorial. Same modal on desktop and phone."
+          icon={BookOpen}
+        >
+          <Button type="button" onClick={() => setTutorialOpen(true)} className="w-full sm:w-auto">
+            Open tutorial
+          </Button>
+        </GamerSettingsSection>
 
         <GamerSettingsSection
           title={t("settingsPage.languageTitle")}
@@ -1171,6 +1184,11 @@ export default function Settings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <TutorialPopup
+        open={tutorialOpen}
+        onClose={() => setTutorialOpen(false)}
+        intent={readAccountIntent(user?.id)}
+      />
     </GamerProfileShell>
   );
 }

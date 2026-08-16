@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useId } from "react";
 import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
-  Shield, Users, Trophy, ArrowLeft,
+  Shield, Users, ArrowLeft,
   Check, X, Send, Loader2, LogOut,
-  Trash2, Swords, Edit2, ClipboardList, Clock, MessageCircle,
+  Trash2, Edit2, ClipboardList, Clock, MessageCircle,
   Bell, BellOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,8 @@ import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
-import ClubPlayerStats from "../components/ClubPlayerStats";
 import ContractsTab from "../components/contracts/ContractsTab";
+import ClubMercatoSummary from "../components/club/ClubMercatoSummary";
 import ClubFinanceTab from "../components/club/ClubFinanceTab";
 import ClubOperations from "@/components/club/ClubOperations";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
@@ -39,11 +39,12 @@ import { useChatChannel } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
-import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
-import { GamerProfileShell, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
+import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
+import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
+import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
 
 const POSITION_OPTIONS = [
   "GK", "RB", "RWB", "CB", "LB", "LWB", "CDM", "CM", "CAM",
@@ -119,7 +120,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
-  const [tournamentMap, setTournamentMap] = useState({});
+  const [, setTournamentMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [joinRequests, setJoinRequests] = useState([]);
@@ -633,39 +634,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }).length;
   const draws = totalGames - wins - losses;
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-
-  const OUTCOME_STYLE = {
-    W: "bg-success/15 text-success border-success/30",
-    L: "bg-destructive/15 text-destructive border-destructive/30",
-    D: "bg-warning/15 text-warning border-warning/30",
-  };
+  const showRequests = (isCaptain || isOwner) && safeJoinRequests.length > 0;
   const tabLabels = {
-    posts: t("commonPages.profTab_posts"),
-    stats: t("commonPages.profTab_stats"),
-    matches: t("commonPages.matches"),
-    chat: t("commonPages.cdChat"),
-    squad: t("nav.squad"),
-    trophies: t("commonPages.profTab_trophies"),
-    history: t("commonPages.cdHistory"),
-    operations: t("commonPages.profOperations"),
+    ...clubTabLabels(t),
     requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
-    stadium: t("commonPages.cdStadium"),
-    contracts: t("commonPages.contracts"),
-    finance: t("commonPages.cdFinance"),
-    shirts: t("commonPages.cdShirts"),
   };
-  const tabGroups = [
-    { label: t("nav.profile"), tabs: ["posts", "stats", "matches", "chat"] },
-    { label: t("nav.squad"), tabs: ["squad", "trophies", "history"] },
-    { label: t("commonPages.profOperations"), tabs: [
-      ...(canOpenOperations ? ["operations"] : []),
-      ...((isCaptain || isOwner) && safeJoinRequests.length > 0 && !limitedTournamentId ? ["requests"] : []),
-    ] },
-    {
-      label: t("commonPages.cdClubOffice"),
-      tabs: isOwner && !limitedTournamentId ? ["stadium", "contracts", "finance", "shirts"] : [],
-    },
-  ].filter(group => group.tabs.length > 0);
+  const tabGroups = buildClubTabGroups({
+    t,
+    canOpenOperations,
+    isOwner,
+    showRequests,
+    limitedTournamentId,
+  });
   function changeClubTab(tab) {
     setActiveTab(tab);
     if (tab === "history") loadHistory();
@@ -915,82 +895,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
             <ClubFeed club={club} currentUser={currentUser} myPlayer={myPlayer} isMember={isMember} />
           </TabsContent>
 
-          {/* Stats */}
-          <TabsContent value="stats" className="pt-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <GamerStatTile label={t("commonPages.profWins")} value={wins} accent="green" />
-                <GamerStatTile label={t("commonPages.cdDraws")} value={draws} accent="gold" />
-                <GamerStatTile label={t("commonPages.profLosses")} value={losses} accent="rose" />
-                <GamerStatTile label={t("commonPages.cdWinRate")} value={`${winRate}%`} accent="cyan" sub={`${totalGames} ${t("commonPages.matches").toLowerCase()}`} />
-                <GamerStatTile label={t("commonPages.cdGoalsScored")} value={club.goals_scored || 0} accent="green" />
-                <GamerStatTile label={t("commonPages.cdGoalsConceded")} value={club.goals_conceded || 0} accent="rose" />
-              </div>
-              <ClubPlayerStats players={safePlayers} clubId={id} />
-            </div>
-          </TabsContent>
-
-          {/* Matches */}
-          <TabsContent value="matches" className="px-4 pt-4">
-            <div className="space-y-6">
-              {safeTournamentMatches.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.homeUpcoming")}</p>
-                  <div className="space-y-2">
-                    {safeTournamentMatches.map(m => {
-                      const isHome = m.home_club_id === id;
-                      const oppName = isHome ? m.away_club_name : m.home_club_name;
-                      const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
-                      const competition = deriveCompetitionLabel(m, tournamentMap, t);
-                      return (
-                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Trophy className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
-                            <p className="text-xs text-white/40">{competition}</p>
-                          </div>
-                          <p className="text-xs text-white/40 shrink-0">{dateStr}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{t("commonPages.cdPastMatches")}</p>
-                {safeMatches.length === 0 ? (
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-                    <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                    <p className="text-sm text-white/40">{t("commonPages.cdNoMatches")}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {safeMatches.map(m => {
-                      const isHome = m.home_club_id === id;
-                      const myScore = isHome ? m.home_score : m.away_score;
-                      const oppScore = isHome ? m.away_score : m.home_score;
-                      const oppName = isHome ? m.away_club_name : m.home_club_name;
-                      const result = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "D";
-                      const competition = deriveCompetitionLabel(m, tournamentMap, t);
-                      return (
-                        <div key={m.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
-                          <span className={cn("text-xs font-bold px-2 py-0.5 rounded border shrink-0", OUTCOME_STYLE[result])}>{result}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
-                            <p className="text-xs text-white/40">{competition}</p>
-                          </div>
-                          <p className="font-bold text-white">{myScore} – {oppScore}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
           <TabsContent value="chat" className="px-4 pt-4">
             <div className="rounded-xl border border-white/10 bg-white/[0.02]">
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
@@ -1105,6 +1009,7 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
           {/* Season History */}
           <TabsContent value="history" className="px-4 pt-4 pb-6">
+            <ClubMercatoSummary clubId={club?.id} />
             {!historyLoaded ? (
               <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdLoadingHistory")}</p>
             ) : safeHistoryRows.length === 0 ? (
@@ -1263,19 +1168,6 @@ ${trialMsg.trim() ? `Additional Message\n${trialMsg.trim()}\n\n` : ""}I am motiv
 
     </GamerProfileShell>
   );
-}
-
-function deriveCompetitionLabel(match, tournamentMap = {}, tr = (k) => k) {
-  const safeMatch = asObject(match);
-  if (!safeMatch?.tournament_id || safeMatch.tournament_id === "ranked") return tr("commonPages.cdRankedMatch");
-  const tour = asObject(tournamentMap[safeMatch.tournament_id]);
-  if (!tour) return tr("commonPages.cdTournament");
-  if (tour.type === "knockout") return `${tour.name} · ${tr("commonPages.cdKnockout")}`;
-  if (tour.type === "league") return `${tour.name} · ${tr("commonPages.homeLeagues")}`;
-  if (tour.type === "group_stage") return `${tour.name} · ${tr("commonPages.cdGroupStage")}`;
-  if (tour.type === "swiss" || tour.type === "swiss_ucl") return `${tour.name} · ${tr("commonPages.cdSwiss")}`;
-  if (tour.type === "double_elimination") return `${tour.name} · ${tr("commonPages.cdDoubleElim")}`;
-  return tour.name || tr("commonPages.cdTournament");
 }
 
 function PlayerCard({ player: rawPlayer, currentUser, myPlayer: _myPlayer, isPresident, onAssignRole }) {

@@ -1,3 +1,5 @@
+export const ASSIGNABLE_CLUB_STAFF_ROLES = ["captain", "vice_captain"];
+
 const ROLE_PRIORITY = [
   "president",
   "captain",

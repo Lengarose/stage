@@ -113,7 +113,7 @@
   "submitMyResult": "Envoyer mon résultat",
   "resultWaitingAway": "Résultat envoyé - attente de l'équipe extérieure.",
   "resultWaitingHome": "Résultat envoyé - attente de l'équipe à domicile.",
-  "resultDisputed": "Résultat contesté - un admin vérifie. Tu seras notifié quand ce sera réglé.",
+  "resultDisputed": "Les deux côtés ont envoyé des scores différents. Un admin choisit un camp ou saisit le score officiel.",
   "dressingRoom": "Vestiaire",
   "pressRoom": "Salle presse",
   "chat": "Chat",
@@ -154,5 +154,11 @@
   "maxGames": "Matchs max",
   "gamesPlayed": "Matchs joués",
   "gamesUnit": "{count} matchs",
-  "daysUnit": "{count} jours"
+  "daysUnit": "{count} jours",
+  "fixtureActions": "Rencontre",
+  "cancelGame": "Annuler le match",
+  "confirmCancel": "Confirmer l'annulation",
+  "keepMatch": "Garder le match",
+  "changeTime": "Changer l'heure",
+  "cancelWaitingOpponent": "En attente de la confirmation d'annulation de l'adversaire."
 }

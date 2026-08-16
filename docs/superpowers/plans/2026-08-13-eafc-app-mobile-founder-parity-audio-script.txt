@@ -1,0 +1,11 @@
+StageLeagues mobile founder parity implementation plan summary.
+
+The first mobile development slice should be M1 plus M2. M1 adds the missing mobile stage client wrappers for backend-owned actions: clubs create founder, posts like toggle, and comments create for post. M2 updates mobile Player plus President onboarding so it calls the backend founder lifecycle instead of generic Club create.
+
+This matters because the web and backend now create founder clubs in one trusted lifecycle. The backend creates the club, attaches the player, writes membership, and creates two active long-term contracts: founder player and ownership. Mobile must not recreate this logic locally, and it must not create standalone President profiles for new onboarding.
+
+The plan also removes President-only as a normal mobile onboarding choice. Mobile should keep Player and Player plus President. Player plus President must create the Player first, then create the club through the founder endpoint.
+
+The tests are source and focused Jest tests in the mobile app. They confirm the wrappers exist, generic Club create is not used for founder onboarding, contract management is not called after club creation, and President-only is not a normal onboarding card.
+
+Later slices will handle President-as-Player profile parity, canonical profile tabs, feed trust and media, mobile match result proof, and competition progression visibility. Transfer Room remains untouched.

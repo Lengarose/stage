@@ -23,4 +23,9 @@ test("GameDay keeps the selected match fresh through targeted realtime and fallb
     /setGames\(prev\s*=>\s*\{[\s\S]*prev\.map\(g\s*=>\s*g\.id\s*===\s*fresh\.id\s*\?\s*fresh\s*:\s*g\)/,
     "selected-match fallback refresh should update the game list used by the detail panel"
   );
+  assert.match(
+    source,
+    /isActiveGameDayMatch/,
+    "GameDay should drop cancelled and forfeited matches from the live list"
+  );
 });

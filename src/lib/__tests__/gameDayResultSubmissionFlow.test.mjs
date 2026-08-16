@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   canResolveDisputeWithScore,
+  getKickoffControls,
   getResultSubmissionControls,
 } from "../gameDayResultFlow.js";
 
@@ -59,6 +60,57 @@ test("admin dispute resolution accepts only finite non-negative integer scores",
   assert.equal(canResolveDisputeWithScore("", { home_score: "2", away_score: "1" }), false);
 });
 
+test("home kickoff stays visible before the 15-minute window but cannot be pressed yet", () => {
+  const controls = getKickoffControls({
+    game: { status: "scheduled" },
+    isMyMatch: true,
+    amIHomeTeam: true,
+    isLive: false,
+    showResultForm: false,
+    minutesUntilMatch: 90,
+    isClubMatch: false,
+    bothClubsReady: true,
+  });
+
+  assert.equal(controls.showHomeKickoff, true);
+  assert.equal(controls.tooEarly, true);
+  assert.equal(controls.canPressKickoff, false);
+});
+
+test("home kickoff can start a scheduled match once the window opens", () => {
+  const controls = getKickoffControls({
+    game: { status: "scheduled" },
+    isMyMatch: true,
+    amIHomeTeam: true,
+    isLive: false,
+    showResultForm: false,
+    minutesUntilMatch: 10,
+    isClubMatch: false,
+    bothClubsReady: true,
+  });
+
+  assert.equal(controls.showHomeKickoff, true);
+  assert.equal(controls.tooEarly, false);
+  assert.equal(controls.canPressKickoff, true);
+});
+
+test("club kickoff stays blocked until both dressing rooms have a seated player", () => {
+  const controls = getKickoffControls({
+    game: { status: "scheduled" },
+    isMyMatch: true,
+    amIHomeTeam: true,
+    isLive: false,
+    showResultForm: false,
+    minutesUntilMatch: 0,
+    isClubMatch: true,
+    bothClubsReady: false,
+  });
+
+  assert.equal(controls.showHomeKickoff, true);
+  assert.equal(controls.dressingBlocked, true);
+  assert.equal(controls.canPressKickoff, false);
+});
+
 test("Game Day and admin pages are wired to the result-flow helpers", () => {
   const gameDaySource = readRepoFile("src/components/gameday/GameDayDetail.jsx");
   const source = readRepoFile("src/pages/Admin.jsx");
@@ -67,6 +119,11 @@ test("Game Day and admin pages are wired to the result-flow helpers", () => {
     gameDaySource,
     /getResultSubmissionControls/,
     "GameDayDetail should use the tested result submission control helper"
+  );
+  assert.match(
+    gameDaySource,
+    /getKickoffControls/,
+    "GameDayDetail should use the tested kickoff control helper"
   );
   assert.match(
     source,

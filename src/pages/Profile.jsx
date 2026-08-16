@@ -3,7 +3,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   User, Shield, Save, Plus, LogOut,
   Loader2, Edit2, Check, X,
-  Swords, Bell, UserCheck, ExternalLink,
+  Bell, UserCheck, ExternalLink,
   ArrowLeft, Settings, Move, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,20 +20,20 @@ import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
+import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
 import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { COUNTRIES } from "../lib/countries";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObject, asObjectArray } from "@/lib/safeData";
-import { isPresidentAccountIntent, readAccountIntent } from "@/lib/accountIntent";
+import { isPresidentAccountIntent, readAccountIntent, writeAccountIntent } from "@/lib/accountIntent";
 import { getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getFootballRoleBadges, getPlayerManagementBadges } from "@/lib/playerProfileStatus";
 import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
-import { buildPlayerProfileStats } from "@/lib/playerProfileStats";
+import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -80,7 +80,7 @@ export default function Profile({
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
-  const [pvpMatches, setPvpMatches] = useState([]);
+  const [, setPvpMatches] = useState([]);
   const [career, setCareer] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [profileTab, setProfileTab] = useState("posts");
@@ -282,13 +282,41 @@ export default function Profile({
   }
 
   async function leaveClub() {
-    if (!player) return;
-    await stageClient.entities.Player.update(player.id, { club_id: null, role: "member", club_roles: ["member"], status: "free_agent" });
-    setPlayer(prev => ({ ...asObject(prev), club_id: null, role: "member", club_roles: ["member"], status: "free_agent" }));
-    // Leaving a squad ends the Player-side membership only. The presided club
-    // (`myClub`) is a management status on this Player and is untouched.
-    setSignedClub(null);
-    setView("profile");
+    const clubId = myClub?.id || signedClub?.id || player?.club_id;
+    if (!player?.id || !clubId) return;
+    if (!window.confirm(t("commonPages.profLeaveClubConfirm"))) return;
+    try {
+      const result = await stageClient.clubs.leave(clubId, { player_id: player.id });
+      const released = asObject(result?.player);
+      setPlayer(prev => ({
+        ...asObject(prev),
+        ...(released || {}),
+        club_id: null,
+        role: "member",
+        club_roles: ["member"],
+        status: "free_agent",
+      }));
+      setPlayerContracts(prev => normalizePlayerContracts(prev).map((contract) => (
+        String(contract.team_id || "") === String(clubId)
+          ? { ...contract, status: contract.status === "active" ? "terminated" : "cancelled" }
+          : contract
+      )));
+      setClubMemberships(prev => asObjectArray(prev).filter((row) => String(row.club_id || "") !== String(clubId)));
+      setSignedClub(null);
+      setMyClub(null);
+      writeAccountIntent("player", user?.id);
+      try {
+        localStorage.removeItem("stage_president_club_id");
+        localStorage.removeItem("stage_owner_id");
+        localStorage.removeItem("stage_president_id");
+      } catch {
+        /* ignore */
+      }
+      setAccountIntent("player");
+      setView("profile");
+    } catch (err) {
+      window.alert(err?.message || t("commonPages.profLeaveClubFailed"));
+    }
   }
 
   async function markNotificationRead(notification) {
@@ -317,7 +345,6 @@ export default function Profile({
   const safeNotifications = asObjectArray(notifications);
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeIdentityClaims = asObjectArray(identityClaims);
-  const safePvpMatches = asObjectArray(pvpMatches);
   const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
@@ -328,17 +355,6 @@ export default function Profile({
     memberships: clubMemberships,
     contracts: playerContracts,
   });
-  const profileStats = buildPlayerProfileStats({
-    player,
-    pvpMatches: safePvpMatches,
-    playerId: player?.id,
-  });
-
-  const OUTCOME_STYLE = {
-    W: "bg-success/15 text-success border-success/30",
-    L: "bg-destructive/15 text-destructive border-destructive/30",
-    D: "bg-warning/15 text-warning border-warning/30",
-  };
 
   // ─── Public Player Profile View ───
   if (view === "profile") {
@@ -462,95 +478,17 @@ export default function Profile({
               ) : null}
 
               {profileTab === "showcase" ? (
-                <div className="pt-2 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                  <GamerSectionCard title={t("commonPages.profTab_showcase")}>
-                    <div className="space-y-3">
-                      <p className="font-heading text-2xl font-black uppercase text-white leading-none">
-                        {player.gamertag || user?.full_name || "Player"}
-                      </p>
-                      {player.bio ? (
-                        <p className="text-sm text-white/60 leading-relaxed">{player.bio}</p>
-                      ) : (
-                        <p className="text-sm text-white/40">{t("commonPages.profBioPlaceholder")}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {profileManagementBadges.map((badge) => (
-                          <span key={badge.id} className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-200">
-                            {badge.label}
-                          </span>
-                        ))}
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/55">
-                          {formatPositions(player)}
-                        </span>
-                      </div>
-                    </div>
-                  </GamerSectionCard>
-                  <GamerSectionCard title={t("commonPages.currentClub")}>
-                    {signedClub || myClub ? (
-                      <Link to={signedClub?.id ? `/clubs/${signedClub.id}` : (myClubHref || `/clubs/${myClub.id}`)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:border-cyan-400/30 transition-colors">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                          {(signedClub || myClub).logo_url ? (
-                            <img src={(signedClub || myClub).logo_url} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <Shield className="h-5 w-5 text-cyan-300/80" />
-                          )}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-bold text-white truncate">{(signedClub || myClub).name}</span>
-                          <span className="block text-xs text-white/40 truncate">{(signedClub || myClub).tag ? `[${(signedClub || myClub).tag}]` : t("commonPages.cdClubOffice")}</span>
-                        </span>
-                      </Link>
-                    ) : (
-                      <p className="text-sm text-white/40">{t("commonPages.profNotClub")}</p>
-                    )}
-                  </GamerSectionCard>
-                </div>
-              ) : null}
-
-              {profileTab === "stats" ? (
                 <div className="pt-2">
-                  <GamerProfileStatsPanel stats={profileStats} t={t} />
+                  <GamerSectionCard>
+                    <PlayerShowcase player={player} canEdit={true} />
+                  </GamerSectionCard>
                 </div>
               ) : null}
 
               {profileTab === "career" ? (
-                <div className="pt-2">
+                <div className="pt-2 space-y-4">
                   <PlayerCareerSummary career={career} loading={careerLoading} />
-                </div>
-              ) : null}
-
-              {profileTab === "matches" ? (
-                <div className="pt-2 space-y-2">
-                  {safePvpMatches.length === 0 ? (
-                    <GamerSectionCard>
-                      <div className="py-8 text-center">
-                        <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                        <p className="text-sm text-white/40">{t("commonPages.profNoPvp")}</p>
-                      </div>
-                    </GamerSectionCard>
-                  ) : (
-                    safePvpMatches.slice(0, 30).map(m => {
-                      const isHome = m.home_player_id === player.id;
-                      const opponent = isHome ? m.away_player_name : m.home_player_name;
-                      const myScore = isHome ? m.home_score : m.away_score;
-                      const theirScore = isHome ? m.away_score : m.home_score;
-                      const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-                      const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
-                      const dateStr = m.updated_date
-                        ? new Date(m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                        : "—";
-                      return (
-                        <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center gap-2 sm:gap-3">
-                          <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">vs {opponent || "Unknown"}</p>
-                            <p className="text-[10px] text-white/40">{dateStr}</p>
-                          </div>
-                          <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
-                        </div>
-                      );
-                    })
-                  )}
+                  <PlayerTransferHistory playerId={player?.id} />
                 </div>
               ) : null}
 

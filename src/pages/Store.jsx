@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { getOwnedClubId } from "@/lib/userIdentityFields";
-import { swalAlert } from "@/lib/swal";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const TYPE_LABEL_KEYS = { credits: "storeTabCredits", subscription: "storeTabSubscriptions" };
@@ -199,6 +199,42 @@ export default function Store() {
     setPurchasing(null);
   }
 
+  async function handleCancelSubscription() {
+    if (!hasStagePlus(player?.subscription)) return;
+    const expiresLabel = player?.subscription_expires_at
+      ? new Date(player.subscription_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+    const confirmed = await swalConfirm(
+      expiresLabel
+        ? t("commonPages.storeCancelConfirm", { date: expiresLabel })
+        : t("commonPages.storeCancelConfirmNoDate"),
+      {
+        title: t("commonPages.storeCancelTitle"),
+        confirmText: t("commonPages.storeCancelConfirmBtn"),
+        cancelText: t("commonPages.cancel"),
+      }
+    );
+    if (!confirmed) return;
+    setPurchasing("cancel_stage_plus");
+    setSubError(null);
+    try {
+      const res = await stageClient.functions.invoke("cancelStagePlus");
+      if (res.data?.success) {
+        setPlayer((prev) => prev ? {
+          ...prev,
+          subscription_cancel_at_period_end: 1,
+          subscription_expires_at: res.data.expires_at || prev.subscription_expires_at,
+        } : prev);
+        showNotif(t("commonPages.storeCancelSuccess"), "success");
+      } else {
+        setSubError(t("commonPages.storeCancelFailed"));
+      }
+    } catch (err) {
+      setSubError(err.message || t("commonPages.storeCancelFailed"));
+    }
+    setPurchasing(null);
+  }
+
 
   function showNotif(msg, type) {
     setNotification({ msg, type });
@@ -369,8 +405,11 @@ export default function Store() {
               {STORE_ITEMS.filter(i => i.type === "subscription").map(item => (
                 <SubCard key={item.id} item={item}
                   purchasing={purchasing === item.id}
+                  cancelling={purchasing === "cancel_stage_plus"}
                   onBuy={handleSubscription}
+                  onCancel={handleCancelSubscription}
                   currentTier={currentTier} billing={subBilling} expiresAt={player?.subscription_expires_at}
+                  cancelAtPeriodEnd={Number(player?.subscription_cancel_at_period_end) === 1}
                   storeConfig={storeConfig}
                 />
               ))}
@@ -445,7 +484,7 @@ function CreditPackCard({ pack, purchasing, onBuy }) {
   );
 }
 
-function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, storeConfig = DEFAULT_STORE_CONFIG }) {
+function SubCard({ item, purchasing, cancelling, onBuy, onCancel, currentTier, billing, expiresAt, cancelAtPeriodEnd = false, storeConfig = DEFAULT_STORE_CONFIG }) {
   const { t } = useTranslation();
   const rarity = RARITY_STYLES[item.rarity];
   const badgeImg = item.id === "sub_stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[item.id];
@@ -507,8 +546,29 @@ function SubCard({ item, purchasing, onBuy, currentTier, billing, expiresAt, sto
         ))}
       </ul>
       {isCurrentTier ? (
-        <div className={cn("flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-xl border", rarity.color, rarity.bg)}>
-          <Check className="w-4 h-4" /> {t("commonPages.storeCurrentPlan")}
+        <div className="space-y-2">
+          <div className={cn("flex items-center gap-2 font-bold text-sm px-4 py-2 rounded-xl border", rarity.color, rarity.bg)}>
+            <Check className="w-4 h-4" /> {t("commonPages.storeCurrentPlan")}
+          </div>
+          {cancelAtPeriodEnd ? (
+            <p className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
+              {expiresAt
+                ? t("commonPages.storeCancelPending", { date: new Date(expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) })
+                : t("commonPages.storeCancelPendingNoDate")}
+            </p>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={cancelling}
+              className="w-full border-destructive/30 text-destructive hover:bg-destructive/10"
+            >
+              {cancelling
+                ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : t("commonPages.storeCancelSubscription")}
+            </Button>
+          )}
         </div>
       ) : hasActiveSub ? (
         <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">

@@ -2,7 +2,7 @@ import { useState, useRef, useId, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera, ChevronLeft } from "lucide-react";
-import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
+import { COUNTRIES, getRegionForCountryCode } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { prepareImageForUpload } from "@/lib/imageUpload";
@@ -15,7 +15,7 @@ const inputCls = "w-full bg-white/10 border border-white/20 text-white placehold
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 const selectCls = "bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40";
 
-export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, required = false }) {
+export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, playerContract = null, required = false }) {
   const { t } = useTranslation();
   const [step, setStep] = useState(required ? "club_profile" : "choice");
   const [name, setName] = useState("");
@@ -98,6 +98,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
           description: "",
           trophies: [],
         },
+        playerContract: playerContract || undefined,
       });
       const club = founderState?.club;
 
@@ -246,7 +247,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
         </div>
         <div>
           <label className={labelCls}>{t("commonPages.obRegion")}</label>
-          <Select value={region} onValueChange={r => { setRegion(r); setCountry(""); }}>
+          <Select value={region} onValueChange={setRegion}>
             <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
             <SelectContent>
               {REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -257,12 +258,19 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
 
       <div>
         <label className={labelCls}>{t("commonPages.obCountry")}</label>
-        <Select value={country} onValueChange={setCountry}>
+        <Select
+          value={country}
+          onValueChange={(code) => {
+            setCountry(code);
+            const nextRegion = getRegionForCountryCode(code);
+            if (nextRegion) setRegion(nextRegion);
+          }}
+        >
           <SelectTrigger className={`${selectCls} ${!country ? "border-red-400/40" : ""}`}>
             <SelectValue placeholder={t("commonPages.obSelectCountry")} />
           </SelectTrigger>
           <SelectContent>
-            {COUNTRIES.filter(c => !region || (COUNTRY_REGIONS[region] || []).includes(c.code)).map(c => (
+            {COUNTRIES.map(c => (
               <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
             ))}
           </SelectContent>

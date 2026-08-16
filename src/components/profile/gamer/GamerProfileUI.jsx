@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { playerAvatarInitials, resolvePlayerAvatarUrl } from "@/lib/playerAvatar";
+import { useEffect, useState } from "react";
 
 const ACCENT = {
   cyan: "from-cyan-400 to-teal-500",
@@ -22,8 +24,6 @@ export function GamerProfileShell({ children, className }) {
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.04]"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
           backgroundSize: "48px 48px",
         }}
       />
@@ -52,11 +52,18 @@ export function GamerPlayerPhotoFrame({
       ? 70
       : Math.round(Number(ovrRaw) * 10) / 10;
   const position = positionLabel || player?.position || "—";
-  const resolvedImageUrl = imageUrl || player?.avatar_url;
+  const resolvedImageUrl = imageUrl || resolvePlayerAvatarUrl(player);
   const resolvedZoom = imageZoom ?? player?.avatar_zoom;
   const resolvedPosition = imagePosition || player?.avatar_position || "50% 20%";
   const resolvedOverall = ovr === 0 ? "0.0" : (Number.isInteger(ovr) ? String(ovr) : ovr.toFixed(1));
   const resolvedShirtNumber = shirtNumber ?? player?.shirt_number;
+  const zoomScale = Number(resolvedZoom);
+  const hasZoom = Number.isFinite(zoomScale) && zoomScale > 0;
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [resolvedImageUrl]);
 
   return (
     <Component
@@ -68,21 +75,24 @@ export function GamerPlayerPhotoFrame({
       )}
       {...props}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[1]" />
-      {resolvedImageUrl ? (
-        <div
-          className="absolute inset-0 bg-cover bg-center"
+      {resolvedImageUrl && !imageFailed ? (
+        <img
+          src={resolvedImageUrl}
+          alt={player?.gamertag || ""}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
           style={{
-            backgroundImage: `url(${resolvedImageUrl})`,
-            backgroundSize: resolvedZoom ? `${resolvedZoom}%` : "cover",
-            backgroundPosition: resolvedPosition,
+            objectPosition: resolvedPosition,
+            transform: hasZoom ? `scale(${zoomScale / 100})` : undefined,
+            transformOrigin: resolvedPosition,
           }}
+          onError={() => setImageFailed(true)}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-white/20 text-4xl font-black">
-          {emptyLabel}
+        <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0d1528] text-4xl font-black text-white/45">
+          {emptyLabel === "?" ? playerAvatarInitials(player) : emptyLabel}
         </div>
       )}
+      <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
       <div className="absolute top-2 right-2 z-[2] min-w-[42px] rounded-lg bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1 text-center shadow-lg">
         <p className="text-[8px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
         <p className="font-heading text-xl font-black text-black leading-none">{resolvedOverall}</p>

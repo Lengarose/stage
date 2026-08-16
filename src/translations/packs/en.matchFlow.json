@@ -113,7 +113,7 @@
   "submitMyResult": "Submit My Result",
   "resultWaitingAway": "Result submitted - waiting for away team.",
   "resultWaitingHome": "Result submitted - waiting for home team.",
-  "resultDisputed": "Result disputed - admin is reviewing. You will be notified when resolved.",
+  "resultDisputed": "The two sides submitted different scores. An admin will pick a side or enter the official score.",
   "dressingRoom": "Dressing Room",
   "pressRoom": "Press Room",
   "chat": "Chat",
@@ -154,5 +154,11 @@
   "maxGames": "Max Games",
   "gamesPlayed": "Games Played",
   "gamesUnit": "{count} games",
-  "daysUnit": "{count} days"
+  "daysUnit": "{count} days",
+  "fixtureActions": "Fixture",
+  "cancelGame": "Cancel game",
+  "confirmCancel": "Confirm cancel",
+  "keepMatch": "Keep match",
+  "changeTime": "Change time",
+  "cancelWaitingOpponent": "Waiting for your opponent to confirm the cancel."
 }

@@ -37,3 +37,14 @@ test("both tutorial covers player and president paths", () => {
   assert.match(blob, /club/i);
   assert.match(blob, /president/i);
 });
+
+test("each tutorial step carries a longer explanation and numbered points", () => {
+  for (const intent of ["player", "president", "both"]) {
+    const steps = getTutorialSteps(intent);
+    for (const step of steps) {
+      assert.ok(String(step.detail || "").length > 40, `${intent} ${step.title} needs detail`);
+      assert.ok(Array.isArray(step.points) && step.points.length >= 3, `${intent} ${step.title} needs points`);
+      assert.ok(step.where, `${intent} ${step.title} needs a where`);
+    }
+  }
+});

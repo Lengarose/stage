@@ -131,7 +131,17 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
           offer_note: params[12],
           captaincy_offered: 0,
           target_player_id: params[2],
+          performance_targets: params[15],
         });
+        return [{ affectedRows: 1 }, []];
+      }
+      if (/UPDATE player_contracts\s+SET weekly_salary_stc/.test(sql)) {
+        const contract = state.contracts.find((row) => row.id === params[3]);
+        if (contract) {
+          contract.weekly_salary_stc = params[0];
+          contract.signing_bonus_stc = params[1];
+          contract.performance_targets = params[2];
+        }
         return [{ affectedRows: 1 }, []];
       }
       if (/UPDATE player_contracts SET status = 'active'/.test(sql)) {
@@ -226,6 +236,44 @@ test('founder lifecycle creates club, active player contract, active president c
   assert.equal(connection.state.clubs.length, 1);
   assert.equal(connection.state.contracts.length, 2);
   assert.equal(connection.state.memberships.length, 1);
+});
+
+test('founder lifecycle stores player wages and performance targets on the founder player contract only', async () => {
+  const connection = makeConnection();
+  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
+
+  const result = await createFounderContractLifecycle({
+    user: { id: 'user-1', email: 'founder@example.test' },
+    playerId: 'player-1',
+    club: { name: 'Founder FC', tag: 'FFC', platform: 'PlayStation', region: 'Europe', country_code: 'BE' },
+    playerContract: {
+      weekly_salary_stc: 40000,
+      signing_bonus_stc: 5000,
+      performance_targets: [{ stat: 'goals', type: 'min', value: 10 }],
+    },
+    idempotencyKey: 'founder-wages-1',
+  });
+
+  assert.equal(result.playerContract.weekly_salary_stc, 40000);
+  assert.equal(result.playerContract.signing_bonus_stc, 5000);
+  assert.equal(result.playerContract.performance_targets, JSON.stringify([{ stat: 'goals', type: 'min', value: 10, value_max: 0 }]));
+  assert.equal(result.presidentContract.weekly_salary_stc, 0);
+  assert.equal(result.presidentContract.signing_bonus_stc, 0);
+});
+
+test('founder lifecycle rejects player wages outside 40k-500k', async () => {
+  const connection = makeConnection();
+  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
+
+  await assert.rejects(
+    () => createFounderContractLifecycle({
+      user: { id: 'user-1', email: 'founder@example.test' },
+      playerId: 'player-1',
+      club: { name: 'Founder FC', tag: 'FFC' },
+      playerContract: { weekly_salary_stc: 25000 },
+    }),
+    /40,000 and 500,000/
+  );
 });
 
 test('founder lifecycle rolls back when contract creation fails before attaching player', async () => {
@@ -378,4 +426,120 @@ test('founder lifecycle retry treats legacy founder contract as player-side foun
   assert.equal(result.playerContract.contract_type, 'founder');
   assert.equal(result.presidentContract.contract_type, 'ownership');
   assert.equal(connection.state.contracts.length, 2);
+});
+
+test('founder lifecycle reuses an existing ownership contract even when the offer note differs', async () => {
+  const existingClub = {
+    id: 'club-existing',
+    user_id: 'user-1',
+    president_user_id: 'user-1',
+    president_player_id: 'player-1',
+    owner_email: 'founder@example.test',
+    name: 'Founder FC',
+  };
+  const connection = makeConnection({
+    existing: {
+      club: existingClub,
+      contracts: [
+        {
+          id: 'contract-player-existing',
+          team_id: 'club-existing',
+          user_id: 'player-1',
+          target_player_id: 'player-1',
+          contract_type: 'founder_player',
+          status: 'active',
+          offer_note: 'Founder player contract: old-key',
+        },
+        {
+          id: 'contract-president-existing',
+          team_id: 'club-existing',
+          user_id: 'player-1',
+          target_player_id: 'player-1',
+          contract_type: 'ownership',
+          status: 'active',
+          offer_note: 'legacy president note',
+        },
+      ],
+      player: {
+        id: 'player-1',
+        user_id: 'user-1',
+        email: 'founder@example.test',
+        club_id: 'club-existing',
+        role: 'president',
+        club_roles: JSON.stringify(['president', 'member']),
+      },
+    },
+  });
+  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
+
+  const result = await createFounderContractLifecycle({
+    user: { id: 'user-1', email: 'founder@example.test' },
+    playerId: 'player-1',
+    club: { name: 'Founder FC', tag: 'FFC' },
+    idempotencyKey: 'new-key',
+  });
+
+  assert.equal(result.playerContract.id, 'contract-player-existing');
+  assert.equal(result.presidentContract.id, 'contract-president-existing');
+  assert.equal(connection.state.contracts.length, 2);
+});
+
+test('founder lifecycle applies onboarding wages when reusing an existing founder_player contract', async () => {
+  const existingClub = {
+    id: 'club-existing',
+    user_id: 'user-1',
+    president_user_id: 'user-1',
+    president_player_id: 'player-1',
+    owner_email: 'founder@example.test',
+    name: 'Founder FC',
+  };
+  const connection = makeConnection({
+    existing: {
+      club: existingClub,
+      contracts: [
+        {
+          id: 'contract-player-existing',
+          team_id: 'club-existing',
+          user_id: 'player-1',
+          target_player_id: 'player-1',
+          contract_type: 'founder_player',
+          status: 'active',
+          weekly_salary_stc: 0,
+          signing_bonus_stc: 0,
+        },
+        {
+          id: 'contract-president-existing',
+          team_id: 'club-existing',
+          user_id: 'player-1',
+          target_player_id: 'player-1',
+          contract_type: 'ownership',
+          status: 'active',
+        },
+      ],
+      player: {
+        id: 'player-1',
+        user_id: 'user-1',
+        email: 'founder@example.test',
+        club_id: 'club-existing',
+        role: 'president',
+        club_roles: JSON.stringify(['president', 'member']),
+      },
+    },
+  });
+  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
+
+  const result = await createFounderContractLifecycle({
+    user: { id: 'user-1', email: 'founder@example.test' },
+    playerId: 'player-1',
+    club: { name: 'Founder FC', tag: 'FFC' },
+    playerContract: {
+      weekly_salary_stc: 40000,
+      signing_bonus_stc: 10000,
+      performance_targets: [{ stat: 'goals', type: 'min', value: 10 }],
+    },
+  });
+
+  assert.equal(result.playerContract.id, 'contract-player-existing');
+  assert.equal(result.playerContract.weekly_salary_stc, 40000);
+  assert.equal(result.playerContract.signing_bonus_stc, 10000);
 });

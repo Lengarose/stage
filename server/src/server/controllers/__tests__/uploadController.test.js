@@ -18,6 +18,10 @@ test('upload accepts browser-compatible showcase video extensions', () => {
   assert.equal(normalizeUploadExtension(file('clip.ogv', 'video/ogg')), '.ogv');
 });
 
+test('upload allows showcase videos up to 20 MB', () => {
+  assert.equal(_internals.MAX_SHOWCASE_VIDEO_BYTES, 20 * 1024 * 1024);
+});
+
 test('upload normalizes compatible MIME types and rejects unsupported video containers', () => {
   const { normalizeUploadExtension } = _internals;
 

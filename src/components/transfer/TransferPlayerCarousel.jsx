@@ -131,6 +131,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
               )}
               style={{
                 transform: `translateX(${x}px) translateZ(${z}px) rotateY(${rot}deg) scale(${scale})`,
+                transformStyle: "flat",
                 zIndex: 20 - Math.abs(offset),
                 opacity: 1 - Math.abs(offset) * 0.18,
               }}

@@ -20,12 +20,36 @@ export const ALL_COUNTRIES = iso3166
       flag: countryCodeToFlag(code),
       region: row.region || null,
       subRegion: row['sub-region'] || null,
+      intermediateRegion: row['intermediate-region'] || null,
+      numeric: String(Number(row['country-code'] || '')),
     };
   })
   .filter((c) => c.code.length === 2)
   .sort((a, b) => a.name.localeCompare(b.name));
 
 const byCode = new Map(ALL_COUNTRIES.map((c) => [c.code, c]));
+const byNumeric = new Map(ALL_COUNTRIES.map((c) => [c.numeric, c.code]));
+
+const MIDDLE_EAST = new Set(["AE", "BH", "IL", "IQ", "IR", "JO", "KW", "LB", "OM", "PS", "QA", "SA", "SY", "TR", "YE"]);
+
+export function isoNumericToAlpha2(id) {
+  return byNumeric.get(String(Number(id))) || "";
+}
+
+export function continentIdFromIso(code) {
+  const normalized = String(code || "").toUpperCase();
+  if (!normalized) return "";
+  if (MIDDLE_EAST.has(normalized)) return "middle_east";
+  const row = byCode.get(normalized);
+  if (!row) return "";
+  if (row.region === "Europe") return "europe";
+  if (row.region === "Africa") return "africa";
+  if (row.region === "Oceania") return "oceania";
+  if (row.intermediateRegion === "South America" || row.subRegion === "South America") return "south_america";
+  if (row.region === "Americas") return "north_america";
+  if (row.region === "Asia") return "asia";
+  return "";
+}
 
 export function getCountryName(code) {
   return byCode.get(String(code || '').toUpperCase())?.name || code;

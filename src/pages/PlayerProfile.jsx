@@ -5,7 +5,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   ArrowLeft, Swords,
   Gamepad2, Settings,
-  Coins, FileText, Clock, TrendingUp,
+  Coins, FileText, Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,14 +18,15 @@ import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSe
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import GamerProfileStatsPanel from "@/components/profile/gamer/GamerProfileStatsPanel";
 import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
+import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
+import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
+import { canShowContractOfferButton, canShowLoanRequestButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
@@ -35,7 +36,6 @@ import { useAuth } from "@/lib/AuthContext";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { getPlayerManagementBadges, getVisibleFootballRole } from "@/lib/playerProfileStatus";
 import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
-import { buildPlayerProfileStats } from "@/lib/playerProfileStats";
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
@@ -61,8 +61,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [loading, setLoading] = useState(true);
   const [myPlayer, setMyPlayer] = useState(null);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
-  const [pvpMatches, setPvpMatches] = useState([]);
-  const [clubStats, setClubStats] = useState(null);
+  const [, setPvpMatches] = useState([]);
+  const [, setClubStats] = useState(null);
   const [career, setCareer] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
@@ -71,6 +71,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [playerContracts, setPlayerContracts] = useState([]);
   const [viewerClub, setViewerClub] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
+  const [loanDialogOpen, setLoanDialogOpen] = useState(false);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
   const visibleClubRole = getVisibleFootballRole(player);
@@ -91,7 +92,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
         const resolved = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPl = asObject(resolved?.player);
-        const myClubResolved = asObject(resolved?.club);
+        const myClubResolved = asObject(resolved?.presidentClub || resolved?.club);
         if (myPl) setMyPlayer(myPl);
 
         const acctMode = localStorage.getItem("stage-account-mode") || "player";
@@ -259,12 +260,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
   const isOwner = currentUser?.email === player.email;
 
-  const OUTCOME_STYLE = {
-    W: "bg-success/15 text-success border-success/30",
-    L: "bg-destructive/15 text-destructive border-destructive/30",
-    D: "bg-warning/15 text-warning border-warning/30",
-  };
-
   // The showcase is editable only by the player it belongs to. Matched on player
   // id rather than user id so an account holding several player rows still only
   // edits the profile actually being viewed.
@@ -275,14 +270,14 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const roleBadges = visibleClubRole ? [visibleClubRole] : [];
   const managementClub = presidedClub || (club?.president_player_id === player?.id ? club : null);
   const managementBadges = getPlayerManagementBadges({ player, club: managementClub, contracts: playerContracts });
-  const profileStats = buildPlayerProfileStats({
-    player,
-    clubStats,
-    pvpMatches,
-    playerId: player.id,
-  });
   const signedClubIdForProfile = getSignedClubIdForPlayer(player, playerContracts);
   const canOfferProfileContract = canCreateContractOffer(windowOpen) && canShowContractOfferButton({
+    player,
+    viewerClub,
+    playerContracts,
+    limitedTournamentId,
+  });
+  const canRequestProfileLoan = canShowLoanRequestButton({
     player,
     viewerClub,
     playerContracts,
@@ -331,6 +326,17 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                         className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
                       >
                         <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
+                      </Button>
+                    ) : null}
+                    {canRequestProfileLoan ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setLoanDialogOpen(true)}
+                        className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> {t("commonPages.requestLoan") || "Request Loan"}
                       </Button>
                     ) : null}
                     {windowOpen === true && signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
@@ -391,61 +397,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           </div>
         ) : null}
 
-        {activeTab === "stats" ? (
-          <div className="pt-2 space-y-4">
-            <div className={cn("rounded-2xl border p-4 flex items-center gap-4", profileStats.valueTier.bg, profileStats.valueTier.border)}>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40 mb-1 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> {t("commonPages.marketValue")}
-                </p>
-                <p className={cn("font-heading text-3xl font-black leading-none", profileStats.valueTier.color)}>{formatSTC(profileStats.marketValue)}</p>
-                <p className={cn("text-xs font-semibold mt-1", profileStats.valueTier.color)}>{profileStats.valueTier.label}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[10px] uppercase tracking-wider text-white/40">OVR</p>
-                <p className="font-heading text-2xl font-black text-cyan-400 leading-none">{player.overall_rating || 70}</p>
-                <p className="text-[10px] text-white/40 mt-1">{player.position}</p>
-              </div>
-            </div>
-
-            <GamerProfileStatsPanel stats={profileStats} t={t} />
-
-            {profileStats.recentForm.length > 0 ? (
-              <GamerSectionCard title={t("commonPages.ppRecentForm", { count: profileStats.recentForm.length })}>
-                <div className="flex gap-1.5 flex-wrap">
-                  {profileStats.recentForm.map((rating, index) => {
-                    const color = rating >= 8 ? "bg-amber-400/80 text-black" : rating >= 7 ? "bg-emerald-500/80 text-black" : rating >= 6 ? "bg-cyan-500/60 text-white" : "bg-white/10 text-white/60";
-                    return (
-                      <span key={`${rating}-${index}`} className={cn("w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black", color)}>
-                        {rating.toFixed(1)}
-                      </span>
-                    );
-                  })}
-                </div>
-              </GamerSectionCard>
-            ) : null}
-
-            {pvpMatches.length > 0 ? (
-              <GamerSectionCard title={t("commonPages.ppPvpRecord")}>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center">
-                    <p className="font-heading text-2xl font-black text-emerald-400">{profileStats.pvpRecord.wins}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profWins")}</p>
-                  </div>
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-center">
-                    <p className="font-heading text-2xl font-black text-amber-400">{profileStats.pvpRecord.draws}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.cdDraws")}</p>
-                  </div>
-                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-center">
-                    <p className="font-heading text-2xl font-black text-rose-400">{profileStats.pvpRecord.losses}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">{t("commonPages.profLosses")}</p>
-                  </div>
-                </div>
-              </GamerSectionCard>
-            ) : null}
-          </div>
-        ) : null}
-
         {activeTab === "career" ? (
           <div className="pt-2 space-y-4">
             {upcomingMatches.length > 0 ? (
@@ -472,47 +423,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
               </GamerSectionCard>
             ) : null}
             <PlayerCareerSummary career={career} loading={careerLoading} />
-          </div>
-        ) : null}
-
-        {activeTab === "matches" ? (
-          <div className="pt-2 space-y-4">
-            {pvpMatches.length > 0 ? (
-              <GamerSectionCard title={t("commonPages.ppPvpHistory")}>
-                <div className="space-y-2">
-                  {pvpMatches.slice(0, 20).map(m => {
-                    const isHome = m.home_player_id === player.id;
-                    const opponent = isHome ? m.away_player_name : m.home_player_name;
-                    const myScore = isHome ? m.home_score : m.away_score;
-                    const theirScore = isHome ? m.away_score : m.home_score;
-                    const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-                    const scoreStr = isHome ? `${m.home_score}–${m.away_score}` : `${m.away_score}–${m.home_score}`;
-                    const dateStr = m.scheduled_date || m.updated_date
-                      ? new Date(m.scheduled_date || m.updated_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                      : "—";
-                    return (
-                      <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center gap-2 sm:gap-3">
-                        <span className={cn("text-xs font-bold px-2 py-1 rounded border shrink-0", OUTCOME_STYLE[outcome])}>{outcome}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">vs {opponent || t("commonPages.homeUnknown")}</p>
-                          <p className="text-[10px] text-white/40">{dateStr}</p>
-                        </div>
-                        <span className="text-sm font-bold text-white shrink-0">{scoreStr}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </GamerSectionCard>
-            ) : null}
-
-            {pvpMatches.length === 0 ? (
-              <GamerSectionCard>
-                <div className="py-10 text-center">
-                  <Swords className="w-10 h-10 text-white/20 mx-auto mb-3" />
-                  <p className="text-sm text-white/40">{t("commonPages.cdNoMatches")}</p>
-                </div>
-              </GamerSectionCard>
-            ) : null}
+            <PlayerTransferHistory playerId={player?.id} />
           </div>
         ) : null}
 
@@ -549,6 +460,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         existingActiveContract={null}
         onOffer={handleOfferContract}
         windowOpen={windowOpen}
+        club={viewerClub}
+      />
+      <RequestLoanDialog
+        open={loanDialogOpen}
+        onClose={() => setLoanDialogOpen(false)}
+        player={player}
         club={viewerClub}
       />
 

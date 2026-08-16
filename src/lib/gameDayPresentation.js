@@ -1,5 +1,20 @@
 import { isClubGameDayMatch } from "./gameDayResultFlow.js";
 
+const HIDDEN_GAME_DAY_STATUSES = new Set(["forfeit", "cancelled", "canceled", "deleted"]);
+const GAME_DAY_COMPLETED_MS = 24 * 60 * 60 * 1000;
+
+export function isActiveGameDayMatch(match, now = Date.now()) {
+  if (!match?.id) return false;
+  const status = String(match.status || "").toLowerCase();
+  if (HIDDEN_GAME_DAY_STATUSES.has(status)) return false;
+  if (status === "completed") {
+    const updatedAt = match.updated_date ? new Date(match.updated_date) : null;
+    if (!updatedAt || Number.isNaN(updatedAt.getTime())) return false;
+    return now - updatedAt.getTime() < GAME_DAY_COMPLETED_MS;
+  }
+  return true;
+}
+
 export function getMatchSideNames(game, fallback = "TBD") {
   const isClub = isClubGameDayMatch(game);
   return {

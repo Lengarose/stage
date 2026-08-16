@@ -35,7 +35,7 @@ import {
   getLiveDarkFx,
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
-import { isProfileFullBleedRoute } from "@/lib/profileRouteLayout";
+import { isFullBleedRoute, isNewsFullBleedRoute } from "@/lib/profileRouteLayout";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import {
   filterTransferWindowNavGroups,
@@ -108,7 +108,7 @@ const THEMES = [
   { id: "theme-custom", label: "Custom",     icon: Palette },
 ];
 
-function getPlayerGroups(t, _clubPath) {
+function getPlayerGroups(t, clubPath) {
   const homeItems = [
     { path: "/",            icon: Home,            label: t("nav.welcome") },
     { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
@@ -116,6 +116,9 @@ function getPlayerGroups(t, _clubPath) {
     { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
   ];
+  if (clubPath && clubPath !== "/clubs") {
+    homeItems.splice(3, 0, { path: clubPath, icon: Shield, label: t("nav.myClub") });
+  }
   return [
     { label: t("nav.home"), items: homeItems },
     {
@@ -188,8 +191,8 @@ function getPresidentGroups(t, clubPath) {
     { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
     { path: "/inbox",       icon: Inbox,           label: t("nav.inbox") },
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
+    { path: clubPath || "/clubs", icon: Shield,    label: t("nav.myClub") },
   ];
-  if (clubPath) homeItems.push({ path: clubPath, icon: Shield, label: t("commonPages.presMyClubMenu") });
   return [
     { label: t("nav.home"), items: homeItems },
     {
@@ -771,6 +774,7 @@ function HeaderIdentityMenu({
   userCredits = null,
   isWhiteTheme = false,
 }) {
+  const { t } = useTranslation();
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
@@ -853,7 +857,7 @@ function HeaderIdentityMenu({
         {canSwitchRole && (
           <>
             <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
-              Account
+              {t("commonPages.accountProfilesLabel")}
             </DropdownMenuLabel>
             <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
               <DropdownMenuRadioItem
@@ -861,19 +865,43 @@ function HeaderIdentityMenu({
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-blue-600/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
-                <User className="h-4 w-4 shrink-0 text-blue-400" /> Player
+                <User className="h-4 w-4 shrink-0 text-blue-400" /> {t("commonPages.playerProfileMenu")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem
                 value="club"
                 className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
                 style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
-                <Crown className="h-4 w-4 shrink-0 text-amber-400" /> President
+                <Crown className="h-4 w-4 shrink-0 text-amber-400" /> {t("commonPages.presMyClubMenu")}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
           </>
         )}
+        {myPlayer ? (
+          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
+            <Link
+              to="/profile"
+              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <User className="h-4 w-4 shrink-0 text-blue-400" />
+              {t("commonPages.playerProfileMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {myClubId ? (
+          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
+            <Link
+              to={`/clubs/${myClubId}`}
+              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              {t("commonPages.presMyClubMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
           <Link
             to="/settings"
@@ -986,7 +1014,7 @@ function getMobileMoreGroupsPresident(clubPath) {
     {
       label: "Club",
       items: [
-        ...(clubPath ? [{ path: clubPath, icon: Shield, label: "My Club" }] : []),
+        { path: clubPath || "/clubs", icon: Shield,      label: "My Club" },
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
         { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
         { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
@@ -1740,7 +1768,8 @@ function MobileThemeButton({ theme, setTheme }) {
   );
 }
 
-function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, accountIntent, accountMode, switchMode }) {
+function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode }) {
+  const { t } = useTranslation();
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && presidentClub?.id);
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
   const displayClub = showAsPresident ? presidentClub : myClub;
@@ -1823,7 +1852,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
           className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
           style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
         >
-          Account
+          {t("commonPages.accountProfilesLabel")}
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
           <DropdownMenuRadioItem
@@ -1831,17 +1860,41 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, myPresidentId, 
             className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-blue-600/20 focus:text-white"
             style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
-            <User className="h-4 w-4 shrink-0 text-blue-400" /> Player
+            <User className="h-4 w-4 shrink-0 text-blue-400" /> {t("commonPages.playerProfileMenu")}
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem
             value="club"
             className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
             style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
           >
-            <Crown className="h-4 w-4 shrink-0 text-amber-400" /> President
+            <Crown className="h-4 w-4 shrink-0 text-amber-400" /> {t("commonPages.presMyClubMenu")}
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
+        {myPlayer ? (
+          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <User className="h-4 w-4 shrink-0 text-blue-400" />
+              {t("commonPages.playerProfileMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {presidentClub?.id ? (
+          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
+            <Link
+              to={`/clubs/${presidentClub.id}`}
+              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
+              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
+              {t("commonPages.presMyClubMenu")}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
           <Link
             to="/settings"
@@ -1994,7 +2047,9 @@ export default function Layout() {
   const [authUser,         setAuthUser]         = useState(null);
   const [currentUserId,    setCurrentUserId]    = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
-  const [myClubId,         setMyClubId]         = useState(null);
+  const [myClubId,         setMyClubId]         = useState(() => {
+    try { return localStorage.getItem("stage_club_id"); } catch { return null; }
+  });
   const [tournamentParticipantType, setTournamentParticipantType] = useState(null);
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayerClub,     setMyPlayerClub]     = useState(null);
@@ -2005,7 +2060,7 @@ export default function Layout() {
   const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
-  const fullBleedProfileRoute = isProfileFullBleedRoute(location.pathname);
+  const fullBleedProfileRoute = isFullBleedRoute(location.pathname);
   const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
   const myPresidentClubId = myClubId;
 
@@ -2066,7 +2121,7 @@ export default function Layout() {
   useEffect(() => {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
-      const { user: u, player: p, club: c, presidentClub } = await resolveMyPlayerAndClub();
+      const { user: u, player: p, club: c, presidentClub, president } = await resolveMyPlayerAndClub();
       if (!u) return;
       setCurrentUserId(u.id || null);
       const activePresidentClub = presidentClub || null;
@@ -2150,7 +2205,10 @@ export default function Layout() {
     isAdmin && adminTakeoverClubId && !showAdminHeader;
   const presidentClubPath = myPresidentClubId ? `/clubs/${myPresidentClubId}` : null;
   const playerClubPath = myPlayerClub?.id ? `/clubs/${myPlayerClub.id}` : null;
-  const clubPath = accountMode === "club" ? presidentClubPath : playerClubPath;
+  const clubPath =
+    (accountMode === "club" ? presidentClubPath : playerClubPath)
+    || presidentClubPath
+    || playerClubPath;
   const mobileClubIdentity = accountMode === "club" ? myClub : (myPlayerClub || myClub);
   const effectiveUser = authContextUser || authUser;
   const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
@@ -2485,6 +2543,10 @@ export default function Layout() {
           {/* Home is full-bleed (hero/footer); other pages keep max-width + bottom pad for mobile tabs */}
           {location.pathname === "/" ? (
             <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-0">
+              <Outlet />
+            </div>
+          ) : isNewsFullBleedRoute(location.pathname) ? (
+            <div className="h-full min-h-0 overflow-hidden">
               <Outlet />
             </div>
           ) : fullBleedProfileRoute ? (

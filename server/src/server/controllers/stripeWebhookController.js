@@ -11,7 +11,8 @@
  * Configure the endpoint in the Stripe dashboard pointing at
  *   https://stageleagues.com/api/stage/stripe/webhook
  * subscribed to: checkout.session.completed, invoice.paid,
- *   customer.subscription.deleted. Put the signing secret (whsec_...) in
+ *   customer.subscription.updated, customer.subscription.deleted.
+ * Put the signing secret (whsec_...) in
  * STRIPE_WEBHOOK_SECRET (env.local.js).
  */
 const express = require('express');
@@ -98,10 +99,27 @@ router.post('/', async (req, res) => {
                     subscription_billing = ?,
                     subscription_expires_at = ${expiresExpr},
                     updated_date = NOW()
-              WHERE stripe_subscription_id = ?`,
+              WHERE stripe_subscription_id = ?
+                AND COALESCE(subscription_cancel_at_period_end, 0) = 0`,
             [billing, String(subId)]
           ).catch((e) => console.error('[stripe-webhook] invoice.paid renew failed:', e.message));
         }
+        break;
+      }
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const cancelAtPeriodEnd = sub.cancel_at_period_end ? 1 : 0;
+        const periodEnd = sub.current_period_end
+          ? new Date(Number(sub.current_period_end) * 1000)
+          : null;
+        await EXECUTESQL(
+          `UPDATE players
+              SET subscription_cancel_at_period_end = ?,
+                  subscription_expires_at = COALESCE(?, subscription_expires_at),
+                  updated_date = NOW()
+            WHERE stripe_subscription_id = ?`,
+          [cancelAtPeriodEnd, periodEnd, String(sub.id)]
+        ).catch((e) => console.error('[stripe-webhook] subscription.updated failed:', e.message));
         break;
       }
       case 'customer.subscription.deleted': {
@@ -111,6 +129,7 @@ router.post('/', async (req, res) => {
               SET subscription = 'free',
                   subscription_billing = NULL,
                   subscription_expires_at = NULL,
+                  subscription_cancel_at_period_end = 0,
                   updated_date = NOW()
             WHERE stripe_subscription_id = ?`,
           [String(sub.id)]
