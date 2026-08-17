@@ -4,8 +4,10 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   Shield, Users, ArrowLeft,
   Check, X, Send, Loader2, LogOut,
-  Trash2, Edit2, MessageCircle,
+  Trash2, Edit2, MessageCircle, ClipboardList,
   Bell, BellOff,
+  MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
+  UserMinus, BadgeX, Target, Footprints, Activity,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import BannerSelector from "../components/BannerSelector";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import ClubFeed from "../components/ClubFeed";
@@ -60,11 +69,41 @@ const CLUB_ROLE_FALLBACK_LABELS = {
   member: "Member",
 };
 
+const CONTRACT_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;
+
 function clubRoleLabel(t, role) {
   const normalized = normalizeClubRole(role) || "member";
   const key = CLUB_ROLE_LABEL_KEYS[normalized] || CLUB_ROLE_LABEL_KEYS.member;
   const translated = t(key);
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
+}
+
+function parseIdList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String);
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getNextFixture(fixtures = []) {
+  const now = Date.now();
+  const scheduled = asObjectArray(fixtures)
+    .filter((fixture) => fixture?.id)
+    .sort((a, b) => new Date(a.scheduled_date || a.match_date || 0) - new Date(b.scheduled_date || b.match_date || 0));
+  return scheduled.find((fixture) => {
+    const time = new Date(fixture.scheduled_date || fixture.match_date || 0).getTime();
+    return Number.isFinite(time) && time >= now;
+  }) || scheduled[0] || null;
+}
+
+function getPlayerContracts(contracts = [], playerId) {
+  return normalizePlayerContracts(contracts).filter((contract) =>
+    String(getContractTargetPlayerId(contract) || "") === String(playerId || "")
+  );
 }
 
 function normalizePresidentPlayer(player) {
@@ -168,6 +207,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
+  const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
+  const [dressingRooms, setDressingRooms] = useState([]);
+  const [clubContracts, setClubContracts] = useState([]);
   const [, setTournamentMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
@@ -231,11 +273,13 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
-        const [clubRecordRaw, initialPlayerRows, staffRoleRows, activeContractRows] = await Promise.all([
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, dressingRoomRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
           stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
           stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
-          stageClient.entities.PlayerContract.filter({ team_id: id, status: "active" }, "-created_date", 200).catch(() => []),
+          stageClient.entities.PlayerContract.filter({ team_id: id }, "-created_date", 200).catch(() => []),
+          stageClient.entities.ClubFixtureAvailability.filter({ club_id: id }, "-updated_date", 300).catch(() => []),
+          stageClient.entities.DressingRoom.filter({ club_id: id }, "-updated_date", 100).catch(() => []),
         ]);
 
         const c = asObject(clubRecordRaw);
@@ -246,7 +290,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         let playerData = asObjectArray(initialPlayerRows).filter((player) => player.id);
         const playerIds = new Set(playerData.map((player) => player.id).filter(Boolean));
 
-        const safeActiveContracts = normalizePlayerContracts(activeContractRows);
+        const safeContractRows = normalizePlayerContracts(contractRows);
+        const safeActiveContracts = safeContractRows.filter((contract) => contract.status === "active");
         const liveOwnershipContracts = safeActiveContracts.filter((contract) =>
           getContractType(contract) === "ownership"
         );
@@ -334,6 +379,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         setClub(c);
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
+        setClubContracts(safeContractRows);
+        setFixtureAvailabilityRows(asObjectArray(availabilityRows));
+        setDressingRooms(asObjectArray(dressingRoomRows));
 
         const allMatches = [...matchesHome, ...matchesAway].sort(
           (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
@@ -482,6 +530,41 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   function handlePlayerReleasedFromContract(playerId) {
     if (!playerId) return;
     setPlayers((prev) => asObjectArray(prev).filter((player) => player.id !== playerId));
+  }
+
+  async function removePlayerRole(targetPlayer) {
+    const target = asObject(targetPlayer);
+    if (!target?.id) return;
+    const confirmMessage = t("commonPages.cdRemoveRoleConfirm");
+    if (!(await swalConfirm(confirmMessage === "commonPages.cdRemoveRoleConfirm" ? "Remove this player's club role?" : confirmMessage))) return;
+    await stageClient.entities.Player.update(target.id, { club_roles: [], role: "member" });
+    setPlayers((prev) => asObjectArray(prev).map((player) => (
+      player.id === target.id ? { ...player, club_roles: [], role: "member" } : player
+    )));
+  }
+
+  async function releaseSquadPlayer(targetPlayer, contract = null) {
+    const target = asObject(targetPlayer);
+    if (!target?.id) return;
+    const confirmMessage = t("commonPages.cdReleasePlayerConfirm");
+    if (!(await swalConfirm(confirmMessage === "commonPages.cdReleasePlayerConfirm" ? "Release this player from the club?" : confirmMessage))) return;
+    if (contract?.id) {
+      await stageClient.functions.invoke("contractManagement", { action: "terminate", contract_id: contract.id });
+    } else {
+      await stageClient.entities.Player.update(target.id, {
+        club_id: null,
+        club_roles: [],
+        role: "member",
+        dressing_room_seat: null,
+        is_ready: false,
+      });
+    }
+    setPlayers((prev) => asObjectArray(prev).filter((player) => player.id !== target.id));
+    if (contract?.id) {
+      setClubContracts((prev) => normalizePlayerContracts(prev).map((row) => (
+        row.id === contract.id ? { ...row, status: "terminated" } : row
+      )));
+    }
   }
 
   async function declineJoinRequest(reqId) {
@@ -742,6 +825,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeClubChatMessages = asObjectArray(clubChatMessages);
   const safeHistoryRows = asObjectArray(historyRows);
+  const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
+  const safeDressingRooms = asObjectArray(dressingRooms);
+  const safeClubContracts = normalizePlayerContracts(clubContracts);
+  const nextFixture = getNextFixture(safeTournamentMatches);
+  const nextFixtureAvailabilityRows = nextFixture
+    ? safeFixtureAvailabilityRows.filter((row) => String(row.fixture_id) === String(nextFixture.id))
+    : [];
+  const availabilityByPlayerId = new Map(nextFixtureAvailabilityRows.map((row) => [String(row.player_id), row]));
+  const nextDressingRoom = nextFixture
+    ? safeDressingRooms.find((row) => String(row.match_id) === String(nextFixture.id) && String(row.club_id) === String(id))
+    : null;
+  const seatedPlayerIds = new Set(parseIdList(nextDressingRoom?.seated_players));
   const confirmedMatches = safeMatches.filter(m => m.status === "completed");
   const totalGames = confirmedMatches.length;
   const wins = confirmedMatches.filter(m => {
@@ -980,7 +1075,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid sm:grid-cols-2 gap-3">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {selectablePlayers.map(p => (
                     <PlayerCard
                       key={p.id}
@@ -988,7 +1083,17 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       currentUser={currentUser}
                       myPlayer={myPlayer}
                       isPresident={isPresident}
+                      isOwner={isOwner}
+                      isClubMember={isMember}
+                      isCaptain={isCaptain || isViceCaptain}
+                      isStaff={operationStaffRoles.length > 0}
+                      nextFixture={nextFixture}
+                      availability={availabilityByPlayerId.get(String(p.id))}
+                      isSeated={seatedPlayerIds.has(String(p.id))}
+                      contracts={getPlayerContracts(safeClubContracts, p.id)}
                       onAssignRole={assignRole}
+                      onRemoveRole={removePlayerRole}
+                      onRelease={releaseSquadPlayer}
                       canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
                         status: "ACTIVE",
                         parent_club_id: p.loan_from_club_id,
@@ -1021,7 +1126,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                 {onLoanPlayers.length ? (
                   <div className="space-y-3">
                     <p className="text-xs uppercase tracking-wider text-white/40">{t("commonPages.onLoan") || "On loan"}</p>
-                    <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {onLoanPlayers.map(p => (
                         <PlayerCard
                           key={p.id}
@@ -1029,7 +1134,17 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           currentUser={currentUser}
                           myPlayer={myPlayer}
                           isPresident={isPresident}
+                          isOwner={isOwner}
+                          isClubMember={isMember}
+                          isCaptain={isCaptain || isViceCaptain}
+                          isStaff={operationStaffRoles.length > 0}
+                          nextFixture={nextFixture}
+                          availability={availabilityByPlayerId.get(String(p.id))}
+                          isSeated={seatedPlayerIds.has(String(p.id))}
+                          contracts={getPlayerContracts(safeClubContracts, p.id)}
                           onAssignRole={assignRole}
+                          onRemoveRole={removePlayerRole}
+                          onRelease={releaseSquadPlayer}
                           canRecallLoan={(isPresident || isOwner) && Boolean(p.loan_id) && isLoanRecallable({
                             status: "ACTIVE",
                             recall_allowed: p.recall_allowed,
@@ -1244,12 +1359,123 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   );
 }
 
+function formatRating(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating) || rating <= 0) return "--";
+  return rating.toFixed(1);
+}
+
+function rolePillClass(role) {
+  const normalized = normalizeClubRole(role);
+  if (normalized === "president") return "border-blue-300/40 bg-blue-400/10 text-blue-200";
+  if (normalized === "captain") return "border-amber-300/40 bg-amber-400/10 text-amber-200";
+  if (normalized === "vice_captain") return "border-[#00e5ff]/35 bg-[#00e5ff]/10 text-[#7defff]";
+  if (["recruiter", "finance_manager", "match_coordinator"].includes(normalized)) {
+    return "border-cyan-300/30 bg-cyan-400/10 text-cyan-200";
+  }
+  return "border-white/10 bg-white/5 text-white/55";
+}
+
+function isContractExpiringSoon(contract) {
+  if (!contract?.end_date) return false;
+  const end = new Date(contract.end_date).getTime();
+  return Number.isFinite(end) && end >= Date.now() && end <= Date.now() + CONTRACT_EXPIRING_SOON_MS;
+}
+
+function getSquadContractSummary(contracts = []) {
+  const safeContracts = normalizePlayerContracts(contracts);
+  const active = safeContracts.find((contract) => contract.status === "active");
+  if (active) {
+    if (getContractType(active) === "trial") return { key: "trial", label: "Trial", className: "border-cyan-300/35 bg-cyan-400/10 text-cyan-200" };
+    if (isContractExpiringSoon(active)) return { key: "expiring", label: "Expiring Soon", className: "border-amber-300/35 bg-amber-400/10 text-amber-200" };
+    return { key: "active", label: "Active Contract", className: "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" };
+  }
+  const pending = safeContracts.find((contract) => ["pending", "pending_window", "negotiating"].includes(contract.status));
+  if (pending) {
+    if (getContractType(pending) === "trial") return { key: "trial", label: "Trial", className: "border-cyan-300/35 bg-cyan-400/10 text-cyan-200" };
+    return { key: "pending", label: "Pending Offer", className: "border-[#f5c542]/35 bg-[#f5c542]/10 text-[#f5c542]" };
+  }
+  return { key: "none", label: "No Contract", className: "border-white/10 bg-white/5 text-white/50" };
+}
+
+function getSquadAvailabilitySummary(row, nextFixture) {
+  if (!nextFixture?.id) {
+    return { key: "no_match", label: "No match scheduled", className: "border-white/10 bg-white/5 text-white/45" };
+  }
+  const status = String(row?.status || "no_response").toLowerCase();
+  if (status === "available") return { key: "available", label: "Available", className: "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" };
+  if (status === "maybe") return { key: "maybe", label: "Maybe", className: "border-amber-300/35 bg-amber-400/10 text-amber-200" };
+  if (status === "unavailable") return { key: "unavailable", label: "Unavailable", className: "border-red-300/35 bg-red-400/10 text-red-200" };
+  return { key: "no_response", label: "No Response", className: "border-white/10 bg-white/5 text-white/50" };
+}
+
+function getSquadDressingSummary(availabilityKey, isSeated, nextFixture) {
+  if (!nextFixture?.id) {
+    return { key: "no_match", label: "No match scheduled", className: "border-white/10 bg-white/5 text-white/45" };
+  }
+  if (availabilityKey === "available" && isSeated) {
+    return { key: "seated", label: "Seat Taken", className: "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" };
+  }
+  if (availabilityKey === "available") {
+    return { key: "not_seated", label: "Not Seated", className: "border-amber-300/35 bg-amber-400/10 text-amber-200" };
+  }
+  return { key: "locked", label: "Locked until Available", className: "border-white/10 bg-white/5 text-white/45" };
+}
+
+function StatusPill({ className, children }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em]", className)}>
+      {children}
+    </span>
+  );
+}
+
+function StatusRow({ label, summary }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">{label}</span>
+      <StatusPill className={summary.className}>{summary.label}</StatusPill>
+    </div>
+  );
+}
+
+function InfoTile({ icon: Icon, label, value }) {
+  return (
+    <div className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">
+        {Icon ? <Icon className="h-3 w-3" /> : null}
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1 truncate font-heading text-sm font-black uppercase text-white">{value ?? "--"}</p>
+    </div>
+  );
+}
+
+function StatCell({ label, value }) {
+  return (
+    <div className="border-r border-white/10 px-2 py-2 text-center last:border-r-0">
+      <p className="font-heading text-lg font-black leading-none text-white">{value ?? "--"}</p>
+      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
+    </div>
+  );
+}
+
 function PlayerCard({
   player: rawPlayer,
   currentUser,
   myPlayer: _myPlayer,
   isPresident,
+  isOwner = false,
+  isClubMember = false,
+  isCaptain = false,
+  isStaff = false,
+  nextFixture = null,
+  availability = null,
+  isSeated = false,
+  contracts = [],
   onAssignRole,
+  onRemoveRole,
+  onRelease,
   canRecallLoan = false,
   onRecallLoan,
   canRequestReturn = false,
@@ -1262,6 +1488,9 @@ function PlayerCard({
   onExerciseOption,
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const player = asObject(rawPlayer);
   if (!player?.id) return null;
   const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
@@ -1271,139 +1500,259 @@ function PlayerCard({
   const isViceCaptainRole = primaryRole === "vice_captain";
   const isStaffRole = ["recruiter", "finance_manager", "match_coordinator"].includes(primaryRole);
   const roleLabel = clubRoleLabel(t, primaryRole);
+  const playerContracts = normalizePlayerContracts(contracts);
+  const contractSummary = getSquadContractSummary(playerContracts);
+  const availabilitySummary = getSquadAvailabilitySummary(availability, nextFixture);
+  const dressingSummary = getSquadDressingSummary(availabilitySummary.key, isSeated, nextFixture);
+  const canManageRoles = isPresident || isOwner || isCaptain || isStaff;
+  const canReleaseOrRemove = (isPresident || isOwner) && currentUser?.email !== player.email && !isPresidentRole;
+  const canMakeCaptain = canManageRoles && !isPresidentRole && !isCaptainRole;
+  const canMakeViceCaptain = canManageRoles && !isPresidentRole && !isViceCaptainRole;
+  const canRemoveRole = canReleaseOrRemove && primaryRole !== "member";
+  const canViewStats = isClubMember || canManageRoles || isOwner;
+  const activeContract = playerContracts.find((contract) => contract.status === "active") || null;
+  const profilePath = `/players/${player.id}`;
+  const clubAverageRating = formatRating(
+    player.avg_match_rating ?? player.club_avg_rating ?? player.average_rating ?? player.ranking_avg_rating
+  );
+  const clubGoals = Number(player.goals_player ?? player.club_goals ?? player.goals ?? 0);
+  const clubAssists = Number(player.club_assists ?? player.assists ?? 0);
+  const clubMatches = Number(player.matches_played_club ?? player.club_matches_played ?? player.matches_played ?? 0);
+  const initials = String(player.gamertag || player.email || "?").slice(0, 2).toUpperCase();
+  const menuItemClass = "cursor-pointer text-xs font-semibold";
+  const dangerItemClass = "cursor-pointer text-xs font-semibold text-red-300 focus:bg-red-500/10 focus:text-red-200";
+  const stopCardClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const openProfile = () => navigate(profilePath);
+
+  function onCardKeyDown(event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openProfile();
+  }
+
+  function handleMenuSelect(event, callback) {
+    event.preventDefault();
+    event.stopPropagation();
+    callback?.();
+  }
 
   return (
-    <Link to={`/players/${player.id}`} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-blue-400/30 transition-all block">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-          {player.avatar_url
-            ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" />
-            : <span className="font-bold text-sm text-primary">{player.position}</span>
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-white truncate">{player.gamertag}</p>
-          {player.loan_badge === "LOAN" ? (
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">LOAN</p>
-          ) : null}
-          {player.loan_status === "loaned_out" ? (
-            <p className="text-[10px] text-white/45">
-              {t("commonPages.onLoanAt") || "On loan at"} {player.on_loan_club_name || player.on_loan_club_id}
-              {player.loan_end_date ? ` · ${player.loan_end_date}` : ""}
-            </p>
-          ) : null}
-          <div className="mt-1 flex items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em]",
-                isPresidentRole
-                  ? "border border-blue-300/40 bg-blue-400/10 text-blue-200"
-                  : isCaptainRole
-                    ? "border border-amber-300/40 bg-amber-400/10 text-amber-200"
-                    : isViceCaptainRole
-                      ? "border border-primary/30 bg-primary/10 text-primary"
-                      : isStaffRole
-                        ? "border border-cyan-300/30 bg-cyan-400/10 text-cyan-200"
-                        : "text-white/40"
+    <>
+      <article
+        role="button"
+        tabIndex={0}
+        onClick={openProfile}
+        onKeyDown={onCardKeyDown}
+        className="group relative min-h-[310px] cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-[#071018] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50"
+      >
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-70"
+          style={{
+            background: [
+              "linear-gradient(145deg, rgba(245,197,66,0.18), transparent 34%)",
+              "radial-gradient(circle at 78% 0%, rgba(0,229,255,0.18), transparent 28%)",
+              "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 52%)",
+            ].join(", "),
+          }}
+        />
+        <div className="relative z-[1] flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-md border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+              {player.avatar_url ? (
+                <img
+                  src={player.avatar_url}
+                  alt={player.gamertag}
+                  className="h-full w-full object-cover"
+                  style={{ objectPosition: player.avatar_position || "50% 50%" }}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-xl font-black text-[#f5c542]">
+                  {initials}
+                </div>
               )}
-            >
-              {isPresidentRole && <Shield className="h-3 w-3" />}
-              {roleLabel}
-            </span>
+              <div className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1.5 py-0.5 text-[10px] font-black text-[#f5c542]">
+                {player.position || "--"}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-heading text-xl font-black uppercase leading-tight text-white">
+                {player.gamertag || "Player"}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <StatusPill className={rolePillClass(primaryRole)}>
+                  {isPresidentRole ? <Shield className="h-3 w-3" /> : null}
+                  {roleLabel}
+                </StatusPill>
+                {player.loan_badge === "LOAN" ? (
+                  <StatusPill className="border-amber-300/35 bg-amber-400/10 text-amber-200">Loan</StatusPill>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-start gap-2">
+            <div className="rounded-md border border-[#f5c542]/35 bg-black/45 px-2.5 py-1.5 text-center">
+              <p className="font-heading text-2xl font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
+              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">OVR</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={stopCardClick}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  aria-label="Player actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(event) => event.stopPropagation()}
+                className="border-white/10 bg-[#071018] text-white"
+              >
+                <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, openProfile)}>
+                  <Eye className="h-4 w-4" /> View profile
+                </DropdownMenuItem>
+                {canViewStats ? (
+                  <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setStatsOpen(true))}>
+                    <BarChart3 className="h-4 w-4" /> View club stats
+                  </DropdownMenuItem>
+                ) : null}
+                {canManageRoles ? (
+                  <>
+                    <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setContractOpen(true))}>
+                      <FileText className="h-4 w-4" /> View contract
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    {canMakeCaptain ? (
+                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => onAssignRole?.(player, "captain"))}>
+                        <UserCheck className="h-4 w-4" /> Make captain
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canMakeViceCaptain ? (
+                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => onAssignRole?.(player, "vice-captain"))}>
+                        <UserCheck className="h-4 w-4" /> Make vice-captain
+                      </DropdownMenuItem>
+                    ) : null}
+                  </>
+                ) : null}
+                {canReleaseOrRemove ? (
+                  <>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    <DropdownMenuItem className={dangerItemClass} disabled={!activeContract && contractSummary.key !== "none"} onSelect={(event) => handleMenuSelect(event, () => onRelease?.(player, activeContract))}>
+                      <UserMinus className="h-4 w-4" /> Release player
+                    </DropdownMenuItem>
+                    {canRemoveRole ? (
+                      <DropdownMenuItem className={dangerItemClass} onSelect={(event) => handleMenuSelect(event, () => onRemoveRole?.(player))}>
+                        <BadgeX className="h-4 w-4" /> Remove role
+                      </DropdownMenuItem>
+                    ) : null}
+                  </>
+                ) : null}
+                {(canExerciseOption || canRecallLoan || canRequestReturn || canRespondToReturn || purchaseAwaitingPlayer) ? (
+                  <>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    {canExerciseOption ? (
+                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onExerciseOption)}>
+                        <FileText className="h-4 w-4" /> {t("commonPages.exerciseOption") || "Exercise option to buy"}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canRecallLoan ? (
+                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRecallLoan)}>
+                        <UserMinus className="h-4 w-4" /> {t("commonPages.recallPlayer") || "Recall"}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canRequestReturn ? (
+                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRequestReturn)}>
+                        <UserMinus className="h-4 w-4" /> {t("commonPages.requestReturn") || "Request return"}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canRespondToReturn ? (
+                      <>
+                        <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onAcceptReturn)}>
+                          <Check className="h-4 w-4" /> {t("commonPages.acceptReturn") || "Accept return"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRejectReturn)}>
+                          <X className="h-4 w-4" /> {t("commonPages.rejectReturn") || "Reject"}
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-lg text-primary">{player.overall_rating}</p>
-          <p className="text-[10px] text-white/40 uppercase">OVR</p>
+
+        <div className="relative z-[1] mt-4 grid grid-cols-2 gap-2">
+          <InfoTile icon={Footprints} label="Primary" value={player.position || "--"} />
+          <InfoTile icon={Target} label="Secondary" value={player.secondary_position || "--"} />
         </div>
-      </div>
-      <div className="flex items-center gap-4 mt-3 text-xs text-white/40">
-        <span>{player.goals || 0} {t("commonPages.goals").toLowerCase()}</span>
-        <span>{player.assists || 0} {t("commonPages.assists").toLowerCase()}</span>
-        <span>{player.matches_played || 0} {t("commonPages.matches").toLowerCase()}</span>
-      </div>
-      {canExerciseOption ? (
-        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-          <button
-            type="button"
-            onClick={onExerciseOption}
-            className="w-full text-xs py-1.5 rounded-lg border border-emerald-300/40 text-emerald-200 hover:bg-emerald-400/10 transition-all"
-          >
-            {t("commonPages.exerciseOption") || "Exercise option to buy"}
-          </button>
+
+        <div className="relative z-[1] mt-3 grid gap-2">
+          <StatusRow label="Contract" summary={contractSummary} />
+          <StatusRow label="Next match" summary={availabilitySummary} />
+          <StatusRow label="Dressing room" summary={dressingSummary} />
         </div>
-      ) : null}
-      {purchaseAwaitingPlayer ? (
-        <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-emerald-200/70">
-          {t("commonPages.purchaseAwaitingPlayer") || "Awaiting player response"}
-        </p>
-      ) : null}
-      {canRecallLoan ? (
-        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-          <button
-            type="button"
-            onClick={onRecallLoan}
-            className="w-full text-xs py-1.5 rounded-lg border border-amber-300/40 text-amber-200 hover:bg-amber-400/10 transition-all"
-          >
-            {t("commonPages.recallPlayer") || "Recall"}
-          </button>
+
+        <div className="relative z-[1] mt-4 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
+          <StatCell label="AVG" value={clubAverageRating} />
+          <StatCell label="G" value={clubGoals} />
+          <StatCell label="A" value={clubAssists} />
+          <StatCell label="MP" value={clubMatches} />
         </div>
-      ) : null}
-      {canRequestReturn ? (
-        <div className="mt-3" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-          <button
-            type="button"
-            onClick={onRequestReturn}
-            className="w-full text-xs py-1.5 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition-all"
-          >
-            {t("commonPages.requestReturn") || "Request return"}
-          </button>
-        </div>
-      ) : null}
-      {canRespondToReturn ? (
-        <div className="mt-3 flex gap-2" onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-          <button
-            type="button"
-            onClick={onAcceptReturn}
-            className="flex-1 text-xs py-1.5 rounded-lg border border-emerald-300/40 text-emerald-200 hover:bg-emerald-400/10 transition-all"
-          >
-            {t("commonPages.acceptReturn") || "Accept return"}
-          </button>
-          <button
-            type="button"
-            onClick={onRejectReturn}
-            className="flex-1 text-xs py-1.5 rounded-lg border border-white/20 text-white/70 hover:bg-white/10 transition-all"
-          >
-            {t("commonPages.rejectReturn") || "Reject"}
-          </button>
-        </div>
-      ) : null}
-      {isPresident && currentUser?.email !== player.email && !playerRoles.includes("president") && (
-        <div className="mt-3 flex gap-2" onClick={e => e.preventDefault()}>
-          <button
-            onClick={() => onAssignRole(player, "captain")}
-            disabled={playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain"}
-            className={cn("flex-1 text-xs py-1.5 rounded-lg border transition-all",
-              playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain"
-                ? "border-warning/30 bg-warning/10 text-warning cursor-default"
-                : "border-warning/30 text-warning hover:bg-warning/10"
+
+        {player.loan_status === "loaned_out" ? (
+          <p className="relative z-[1] mt-3 truncate text-[10px] text-white/45">
+            {t("commonPages.onLoanAt") || "On loan at"} {player.on_loan_club_name || player.on_loan_club_id}
+            {player.loan_end_date ? ` · ${player.loan_end_date}` : ""}
+          </p>
+        ) : null}
+        {purchaseAwaitingPlayer ? (
+          <p className="relative z-[1] mt-3 text-[10px] uppercase tracking-[0.16em] text-emerald-200/70">
+            {t("commonPages.purchaseAwaitingPlayer") || "Awaiting player response"}
+          </p>
+        ) : null}
+      </article>
+
+      <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
+        <DialogContent className="max-w-sm border-white/10 bg-[#071018] text-white">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              Club stats
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <InfoTile icon={Activity} label="Avg rating" value={clubAverageRating} />
+            <InfoTile icon={Target} label="Goals" value={clubGoals} />
+            <InfoTile icon={Footprints} label="Assists" value={clubAssists} />
+            <InfoTile icon={ClipboardList} label="Matches" value={clubMatches} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={contractOpen} onOpenChange={setContractOpen}>
+        <DialogContent className="max-w-sm border-white/10 bg-[#071018] text-white">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              Contract
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <StatusRow label="Status" summary={contractSummary} />
+            {activeContract?.end_date ? (
+              <p className="text-xs text-white/55">Ends {activeContract.end_date}</p>
+            ) : (
+              <p className="text-xs text-white/45">No financial terms are shown on squad cards.</p>
             )}
-          >
-            {playerRoles.includes("captain") || normalizeClubRole(player.role) === "captain" ? t("commonPages.cdCaptain") : t("commonPages.cdMakeCaptain")}
-          </button>
-          <button
-            onClick={() => onAssignRole(player, "vice-captain")}
-            disabled={playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain"}
-            className={cn("flex-1 text-xs py-1.5 rounded-lg border transition-all",
-              playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain"
-                ? "border-primary/30 bg-primary/10 text-primary cursor-default"
-                : "border-primary/30 text-primary hover:bg-primary/10"
-            )}
-          >
-            {playerRoles.includes("vice_captain") || normalizeClubRole(player.role) === "vice_captain" ? t("commonPages.cdViceCaptain") : t("commonPages.cdMakeViceCaptain")}
-          </button>
-        </div>
-      )}
-    </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
