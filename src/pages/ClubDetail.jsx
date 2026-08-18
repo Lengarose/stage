@@ -1569,6 +1569,25 @@ function StatCell({ label, value }) {
   );
 }
 
+function BackgroundSlider({ label, value, min, max, onChange }) {
+  return (
+    <label className="block">
+      <div className="mb-1 flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/45">
+        <span>{label}</span>
+        <span>{value}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-1.5 w-full accent-[#f5c542]"
+      />
+    </label>
+  );
+}
+
 function getPlayerCardBackgroundUrl(player) {
   const type = String(player?.player_card_background_type || "default").toLowerCase();
   if (type === "default") return "";
@@ -2142,6 +2161,10 @@ function PlayerCard({
   const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [backgroundSaving, setBackgroundSaving] = useState(null);
   const [customBackgroundFile, setCustomBackgroundFile] = useState(null);
+  const [customBackgroundPreview, setCustomBackgroundPreview] = useState("");
+  const [customBackgroundX, setCustomBackgroundX] = useState(50);
+  const [customBackgroundY, setCustomBackgroundY] = useState(50);
+  const [customBackgroundZoom, setCustomBackgroundZoom] = useState(120);
   const [backgroundError, setBackgroundError] = useState("");
   const player = asObject(rawPlayer);
   const primaryRole = getPrimaryClubRole(player);
@@ -2161,6 +2184,11 @@ function PlayerCard({
   const activeContract = playerContracts.find((contract) => contract.status === "active") || null;
   const profilePath = `/players/${player.id}`;
   const cardBackgroundUrl = getPlayerCardBackgroundUrl(player);
+  const cardBackgroundPosition = player.player_card_background_position || "50% 50%";
+  const savedCardBackgroundZoom = Number(player.player_card_background_zoom);
+  const cardBackgroundZoom = Number.isFinite(savedCardBackgroundZoom) && savedCardBackgroundZoom > 0
+    ? savedCardBackgroundZoom
+    : 120;
   const canChangeOwnBackground = String(_myPlayer?.id || "") === String(player.id || "");
   const canUseCardBackgrounds = hasStagePlus(player.subscription || _myPlayer?.subscription);
   const clubAverageRating = formatRating(clubStats?.avgRating);
@@ -2194,6 +2222,19 @@ function PlayerCard({
     return () => { cancelled = true; };
   }, [backgroundOpen, canUseCardBackgrounds]);
 
+  useEffect(() => {
+    if (!customBackgroundFile) {
+      setCustomBackgroundPreview("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(customBackgroundFile);
+    setCustomBackgroundPreview(url);
+    setCustomBackgroundX(50);
+    setCustomBackgroundY(50);
+    setCustomBackgroundZoom(120);
+    return () => URL.revokeObjectURL(url);
+  }, [customBackgroundFile]);
+
   function onCardKeyDown(event) {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -2212,8 +2253,15 @@ function PlayerCard({
     setBackgroundError("");
     try {
       const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, payload);
-      onCardBackgroundChanged?.(updated);
+      onCardBackgroundChanged?.({
+        ...updated,
+        player_card_background_type: payload.type || updated.player_card_background_type || "default",
+        player_card_background_id: payload.type === "official" ? payload.background_id : null,
+        player_card_background_position: payload.position || updated.player_card_background_position || "50% 50%",
+        player_card_background_zoom: payload.zoom || updated.player_card_background_zoom || 120,
+      });
       setCustomBackgroundFile(null);
+      setCustomBackgroundPreview("");
       setBackgroundOpen(false);
     } catch (err) {
       setBackgroundError(err?.message || "Could not update player card background.");
@@ -2231,12 +2279,23 @@ function PlayerCard({
     setBackgroundError("");
     try {
       const uploaded = await stageClient.integrations.Core.UploadFile({ file: customBackgroundFile });
-      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, {
+      const payload = {
         type: "custom",
         image_url: uploaded.file_url,
+        position: `${customBackgroundX}% ${customBackgroundY}%`,
+        zoom: customBackgroundZoom,
+      };
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, payload);
+      onCardBackgroundChanged?.({
+        ...updated,
+        player_card_background_type: "custom",
+        player_card_background_id: null,
+        player_card_background_url: uploaded.file_url,
+        player_card_background_position: payload.position,
+        player_card_background_zoom: payload.zoom,
       });
-      onCardBackgroundChanged?.(updated);
       setCustomBackgroundFile(null);
+      setCustomBackgroundPreview("");
       setBackgroundOpen(false);
     } catch (err) {
       setBackgroundError(err?.message || "Could not upload player card background.");
@@ -2260,8 +2319,12 @@ function PlayerCard({
         {cardBackgroundUrl ? (
           <div
             aria-hidden
-            className="absolute inset-0 bg-cover bg-center opacity-55 transition-opacity group-hover:opacity-65"
-            style={{ backgroundImage: `url(${cardBackgroundUrl})` }}
+            className="absolute inset-0 bg-no-repeat opacity-55 transition-opacity group-hover:opacity-65"
+            style={{
+              backgroundImage: `url(${cardBackgroundUrl})`,
+              backgroundPosition: cardBackgroundPosition,
+              backgroundSize: `${cardBackgroundZoom}%`,
+            }}
           />
         ) : null}
         {cardBackgroundUrl ? <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-black/75" /> : null}
@@ -2476,12 +2539,12 @@ function PlayerCard({
 
       <Dialog open={backgroundOpen} onOpenChange={setBackgroundOpen}>
         <DialogContent
-          className="max-w-2xl border-white/10 bg-[#071018] text-white"
+          className="max-h-[82vh] max-w-lg overflow-y-auto border-white/10 bg-[#071018] p-4 text-white sm:p-5"
           onClick={(event) => event.stopPropagation()}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
-              <ImageIcon className="h-4 w-4" /> Change card background
+            <DialogTitle className="flex items-center gap-2 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              <ImageIcon className="h-3.5 w-3.5" /> Change card background
             </DialogTitle>
           </DialogHeader>
           {!canUseCardBackgrounds ? (
@@ -2502,36 +2565,37 @@ function PlayerCard({
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {backgroundError ? (
                 <div className="rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                   {backgroundError}
                 </div>
               ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                 <div>
-                  <p className="font-heading text-sm font-black uppercase text-white">Current card</p>
+                  <p className="font-heading text-xs font-black uppercase text-white">Current card</p>
                   <p className="text-xs text-white/45">Images render under a dark game-card overlay for readability.</p>
                 </div>
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   disabled={Boolean(backgroundSaving)}
                   onClick={() => saveCardBackground({ type: "default" }, "default")}
-                  className="gap-2 border-white/15 bg-black/20 text-white hover:bg-white/10"
+                  className="h-8 gap-1.5 border-white/15 bg-black/20 text-xs text-white hover:bg-white/10"
                 >
-                  <RotateCcw className="h-4 w-4" /> Reset default
+                  <RotateCcw className="h-3.5 w-3.5" /> Reset
                 </Button>
               </div>
 
               <div>
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
                 {backgroundLoading ? (
-                  <div className="flex items-center justify-center rounded-lg border border-white/10 py-10">
+                  <div className="flex items-center justify-center rounded-lg border border-white/10 py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
                   </div>
                 ) : backgrounds.length ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
                     {backgrounds.map((bg) => {
                       const selected = player.player_card_background_type === "official" && player.player_card_background_id === bg.id;
           return (
@@ -2541,15 +2605,15 @@ function PlayerCard({
                           disabled={Boolean(backgroundSaving)}
                           onClick={() => saveCardBackground({ type: "official", background_id: bg.id }, bg.id)}
                           className={cn(
-                            "overflow-hidden rounded-lg border bg-black/30 text-left transition hover:border-[#f5c542]/50",
+                            "overflow-hidden rounded-md border bg-black/30 text-left transition hover:border-[#f5c542]/50",
                             selected ? "border-[#f5c542]/70" : "border-white/10",
                           )}
                         >
                           <div className="aspect-[16/9] bg-black">
                             <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
               </div>
-                          <div className="flex items-center justify-between gap-2 p-2">
-                            <span className="truncate text-xs font-bold text-white">{bg.name}</span>
+                          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                            <span className="truncate text-[11px] font-bold text-white">{bg.name}</span>
                             {backgroundSaving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c542]" /> : null}
                           </div>
             </button>
@@ -2565,8 +2629,43 @@ function PlayerCard({
 
               <div className="rounded-lg border border-white/10 bg-black/20 p-3">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#f5c542]/35 bg-[#f5c542]/10 px-3 py-2 text-xs font-bold text-[#f5c542]">
+                <div className="flex flex-col gap-3">
+                  {customBackgroundPreview ? (
+                    <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                      <div
+                        className="relative h-[116px] cursor-grab overflow-hidden border border-[#f5c542]/35 bg-black active:cursor-grabbing"
+                        style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
+                      >
+                        <div
+                          aria-hidden
+                          className="absolute inset-0 bg-no-repeat"
+                          style={{
+                            backgroundImage: `url(${customBackgroundPreview})`,
+                            backgroundPosition: `${customBackgroundX}% ${customBackgroundY}%`,
+                            backgroundSize: `${customBackgroundZoom}%`,
+                          }}
+                        />
+                        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/45 to-black/70" />
+                        <div className="relative z-[1] flex h-full flex-col justify-between p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-heading text-sm font-black uppercase text-white">{player.gamertag || "Player"}</p>
+                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f5c542]">{player.position || "--"}</p>
+                            </div>
+                            <p className="font-heading text-lg font-black text-[#f5c542]">{player.overall_rating || "--"}</p>
+                          </div>
+                          <p className="text-[9px] uppercase tracking-[0.16em] text-white/45">Card frame preview</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <BackgroundSlider label="Zoom" value={customBackgroundZoom} min={100} max={260} onChange={setCustomBackgroundZoom} />
+                        <BackgroundSlider label="Horizontal" value={customBackgroundX} min={0} max={100} onChange={setCustomBackgroundX} />
+                        <BackgroundSlider label="Vertical" value={customBackgroundY} min={0} max={100} onChange={setCustomBackgroundY} />
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#f5c542]/35 bg-[#f5c542]/10 px-3 py-2 text-xs font-bold text-[#f5c542]">
                     <Upload className="h-4 w-4" />
                     <span className="truncate">{customBackgroundFile ? customBackgroundFile.name : "Choose image"}</span>
                     <input
@@ -2578,13 +2677,15 @@ function PlayerCard({
                   </label>
                   <Button
                     type="button"
+                    size="sm"
                     disabled={!customBackgroundFile || Boolean(backgroundSaving)}
                     onClick={uploadCustomBackground}
-                    className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]"
+                    className="h-10 gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]"
                   >
                     {backgroundSaving === "custom" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    Upload
+                    Save
                   </Button>
+                  </div>
                 </div>
               </div>
             </div>

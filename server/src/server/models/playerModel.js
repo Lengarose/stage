@@ -19,6 +19,8 @@ class Player {
     this.player_card_background_type = body.player_card_background_type;
     this.player_card_background_id   = body.player_card_background_id;
     this.player_card_background_url  = body.player_card_background_url;
+    this.player_card_background_position = body.player_card_background_position;
+    this.player_card_background_zoom = body.player_card_background_zoom;
     this.shirt_number            = body.shirt_number;
     this.overall_rating          = body.overall_rating;
     this.goals                   = body.goals;
@@ -96,6 +98,7 @@ class Player {
       (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
        avatar_url, avatar_zoom, avatar_position,
        player_card_background_type, player_card_background_id, player_card_background_url,
+       player_card_background_position, player_card_background_zoom,
        shirt_number, overall_rating,
        goals, goals_player, assists,
        matches_played, matches_played_club,
@@ -107,12 +110,13 @@ class Player {
        role, status, dressing_room_seat, is_ready,
        club_id, notification_settings, club_roles,
        banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
       this.avatar_url, this.avatar_zoom, this.avatar_position,
       this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
+      this.player_card_background_position || '50% 50%', this.player_card_background_zoom || 120,
       this.shirt_number,
       this.overall_rating,
       this.goals, this.goals_player, this.assists,
@@ -132,8 +136,10 @@ class Player {
   update(id) {
     const sql = `UPDATE players SET
       user_id=?, email=?, gamertag=?, position=?, secondary_position=?, platform=?, country=?, country_code=?,
-      bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, shirt_number=?,
+      bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?,
       player_card_background_type=?, player_card_background_id=?, player_card_background_url=?,
+      player_card_background_position=?, player_card_background_zoom=?,
+      shirt_number=?,
       overall_rating=?,
       goals=?, goals_player=?, assists=?,
       matches_played=?, matches_played_club=?,
@@ -150,8 +156,10 @@ class Player {
     const values = [
       this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
-      this.avatar_url, this.avatar_zoom, this.avatar_position, this.shirt_number,
+      this.avatar_url, this.avatar_zoom, this.avatar_position,
       this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
+      this.player_card_background_position || '50% 50%', this.player_card_background_zoom || 120,
+      this.shirt_number,
       this.overall_rating,
       this.goals, this.goals_player, this.assists,
       this.matches_played, this.matches_played_club,

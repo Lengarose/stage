@@ -83,6 +83,21 @@ function normalizeCardBackgroundUrl(url) {
   }
 }
 
+function normalizeCardBackgroundPosition(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%$/);
+  if (!match) return '50% 50%';
+  const x = Math.max(0, Math.min(100, Number(match[1])));
+  const y = Math.max(0, Math.min(100, Number(match[2])));
+  return `${Math.round(x)}% ${Math.round(y)}%`;
+}
+
+function normalizeCardBackgroundZoom(value) {
+  const zoom = Number(value);
+  if (!Number.isFinite(zoom)) return 120;
+  return Math.max(100, Math.min(260, Math.round(zoom)));
+}
+
 async function ensureSecondaryPositionColumn() {
   if (!secondaryPositionColumnReady) {
     secondaryPositionColumnReady = (async () => {
@@ -260,6 +275,8 @@ router.patch('/:id/card-background', async (req, res) => {
     const type = String(req.body?.type || 'default').toLowerCase();
     let backgroundId = null;
     let backgroundUrl = null;
+    let backgroundPosition = '50% 50%';
+    let backgroundZoom = 120;
     if (type === 'default') {
       // Reset to the standard card.
     } else if (type === 'official') {
@@ -274,6 +291,8 @@ router.patch('/:id/card-background', async (req, res) => {
     } else if (type === 'custom') {
       backgroundUrl = normalizeCardBackgroundUrl(req.body?.image_url);
       if (!backgroundUrl) return res.status(400).json({ error: 'A valid uploaded image URL is required' });
+      backgroundPosition = normalizeCardBackgroundPosition(req.body?.position);
+      backgroundZoom = normalizeCardBackgroundZoom(req.body?.zoom);
     } else {
       return res.status(400).json({ error: 'Invalid background type' });
     }
@@ -283,9 +302,11 @@ router.patch('/:id/card-background', async (req, res) => {
        SET player_card_background_type = ?,
            player_card_background_id = ?,
            player_card_background_url = ?,
+           player_card_background_position = ?,
+           player_card_background_zoom = ?,
            updated_date = NOW()
        WHERE id = ?`,
-      [type, backgroundId, backgroundUrl, id],
+      [type, backgroundId, backgroundUrl, backgroundPosition, backgroundZoom, id],
     );
     const updated = (await new Player().selectOne(id))[0];
     broadcastPlayer(updated);
