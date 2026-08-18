@@ -29,11 +29,10 @@ test("club office is a single top-level group", () => {
   assert.equal(groups.some((group) => group.tabs.length === 1 && group.tabs[0] === "operations"), false);
 });
 
-test("club office and availability are hidden without permission", () => {
+test("club office is hidden without permission", () => {
   const groups = buildClubTabGroups({
     t,
     canOpenClubOffice: false,
-    canSeeAvailability: false,
   });
   assert.equal(groups.some((group) => group.tabs.includes("club-office")), false);
   assert.equal(groups.some((group) => group.tabs.includes("availability")), false);
@@ -46,17 +45,11 @@ test("chat tab is only included for squad players", () => {
   assert.equal(visible.some((group) => group.tabs.includes("chat")), true);
 });
 
-test("availability tab is only included for club members", () => {
-  const hidden = buildClubTabGroups({ t, canSeeAvailability: false });
-  const visible = buildClubTabGroups({ t, canSeeAvailability: true });
-  assert.equal(hidden.some((group) => group.tabs.includes("availability")), false);
-  assert.equal(visible.some((group) => group.tabs.includes("availability")), true);
-});
-
 test("club detail uses grouped Office navigation", () => {
   const source = readFileSync(resolve(root, "src/pages/ClubDetail.jsx"), "utf8");
   assert.match(source, /GamerClubTabNav/);
   assert.match(source, /buildClubTabGroups/);
+  assert.doesNotMatch(source, /value="availability"/);
   assert.doesNotMatch(source, /value="operations"/);
   assert.doesNotMatch(source, /value="contracts"/);
 });

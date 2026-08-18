@@ -1,6 +1,5 @@
 export function buildClubTabGroups({
   t,
-  canSeeAvailability = false,
   canOpenClubOffice = false,
   showChat = false,
 } = {}) {
@@ -14,10 +13,6 @@ export function buildClubTabGroups({
 
   if (showChat) {
     groups.push({ label: t("commonPages.cdChat"), tabs: ["chat"] });
-  }
-
-  if (canSeeAvailability) {
-    groups.push({ label: "Availability", tabs: ["availability"] });
   }
 
   if (canOpenClubOffice) {
@@ -37,7 +32,6 @@ export function clubTabLabels(t) {
     stats: "Stats",
     fixtures: "Fixtures",
     chat: t("commonPages.cdChat"),
-    availability: "Availability",
     "club-office": "Club Office",
     trophies: t("commonPages.profTab_trophies"),
     history: t("commonPages.cdHistory"),

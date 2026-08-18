@@ -30,7 +30,6 @@ import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
 import ContractsTab from "../components/contracts/ContractsTab";
 import ClubFinanceTab from "../components/club/ClubFinanceTab";
-import ClubAvailabilityTab from "@/components/club/ClubAvailabilityTab";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
@@ -827,17 +826,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
   };
   const canSeeClubChat = isMember || safePlayers.some((player) => player.id && player.id === myPlayer?.id);
-  const canSeeAvailability = canSeeClubChat;
   const canOpenClubOffice = canOpenOperations && (isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover);
   const tabGroups = buildClubTabGroups({
     t,
-    canSeeAvailability,
     canOpenClubOffice,
     showChat: canSeeClubChat,
   });
   function changeClubTab(tab) {
     if (tab === "chat" && !canSeeClubChat) return;
-    if (tab === "availability" && !canSeeAvailability) return;
     if (tab === "club-office" && !canOpenClubOffice) return;
     setActiveTab(tab);
   }
@@ -1152,17 +1148,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             </div>
           </TabsContent>
 
-          {/* Availability — club members only */}
-          {canSeeAvailability ? (
-            <TabsContent value="availability" className="px-4 pt-4 pb-6">
-              <ClubAvailabilityTab
-                club={club}
-                myPlayer={myPlayer}
-                upcomingFixtures={safeTournamentMatches}
-              />
-            </TabsContent>
-          ) : null}
-
           {/* Stats */}
           <TabsContent value="stats" className="px-4 pt-4 pb-6">
             <ClubStatsTables players={safePlayers} clubPlayerStatsById={clubPlayerStatsById} />
@@ -1172,6 +1157,12 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           <TabsContent value="fixtures" className="px-4 pt-4 pb-6">
             <ClubFixturesPanel
               clubId={id}
+              clubPlayers={safePlayers}
+              myPlayer={myPlayer}
+              canSetAvailability={isMember}
+              canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
+              availabilityRows={safeFixtureAvailabilityRows}
+              onAvailabilityRowsChange={setFixtureAvailabilityRows}
               matches={safeMatches}
               tournamentMatches={safeTournamentMatches}
               t={t}
@@ -1595,7 +1586,28 @@ function ClubLeaderboardTable({ title, stat, label, rows }) {
   );
 }
 
-function ClubFixturesPanel({ clubId, matches = [], tournamentMatches = [], t }) {
+const FIXTURE_AVAILABILITY_LABELS = {
+  available: "Available",
+  unavailable: "Unavailable",
+  maybe: "Maybe",
+  no_response: "No Response",
+};
+
+function ClubFixturesPanel({
+  clubId,
+  clubPlayers = [],
+  myPlayer,
+  canSetAvailability = false,
+  canViewTeamAvailability = false,
+  availabilityRows = [],
+  onAvailabilityRowsChange,
+  matches = [],
+  tournamentMatches = [],
+  t,
+}) {
+  const [busyAvailability, setBusyAvailability] = useState(null);
+  const [expandedResponses, setExpandedResponses] = useState({});
+  const [availabilityError, setAvailabilityError] = useState(null);
   const fixturesById = new Map();
   for (const fixture of [...asObjectArray(matches), ...asObjectArray(tournamentMatches)]) {
     if (!fixture?.id) continue;
@@ -1604,18 +1616,83 @@ function ClubFixturesPanel({ clubId, matches = [], tournamentMatches = [], t }) 
     fixturesById.set(fixture.id, { ...existing, ...fixture });
   }
   const grouped = groupClubFixtures([...fixturesById.values()]);
+  const availabilityByFixture = buildAvailabilityByFixture(availabilityRows);
+  const playerById = new Map(asObjectArray(clubPlayers).filter((player) => player?.id).map((player) => [String(player.id), player]));
+
+  async function setMyFixtureAvailability(fixture, status) {
+    if (!myPlayer?.id || !fixtureCanSetAvailability(fixture)) return;
+    const busyKey = `${fixture.id}:${status}`;
+    setBusyAvailability(busyKey);
+    setAvailabilityError(null);
+    const existing = (availabilityByFixture.get(String(fixture.id)) || [])
+      .find((row) => String(row.player_id) === String(myPlayer.id));
+    const body = {
+      club_id: clubId,
+      fixture_id: fixture.id,
+      fixture_type: fixture._fixtureType || fixture.fixture_type || "match",
+      player_id: myPlayer.id,
+      status,
+    };
+    try {
+      const saved = existing
+        ? await stageClient.http.patch(`/club-fixture-availabilities/${existing.id}`, body)
+        : await stageClient.http.post("/club-fixture-availabilities", body);
+      if (saved?.id) {
+        onAvailabilityRowsChange?.((prev) => {
+          const rows = asObjectArray(prev).filter((row) => row.id !== saved.id);
+          return [saved, ...rows];
+        });
+      }
+    } catch (err) {
+      setAvailabilityError(err?.message || "Could not update availability.");
+    } finally {
+      setBusyAvailability(null);
+    }
+  }
 
   return (
     <div className="space-y-5">
+      {availabilityError ? (
+        <div className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {availabilityError}
+        </div>
+      ) : null}
       {grouped.length === 0 ? (
         <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
           <p className="text-sm text-white/45">No fixtures found.</p>
         </section>
       ) : grouped.map((group) => (
-        <FixtureGroup key={group.key} group={group} clubId={clubId} t={t} />
+        <FixtureGroup
+          key={group.key}
+          group={group}
+          clubId={clubId}
+          clubPlayers={clubPlayers}
+          myPlayer={myPlayer}
+          canSetAvailability={canSetAvailability}
+          canViewTeamAvailability={canViewTeamAvailability}
+          availabilityByFixture={availabilityByFixture}
+          playerById={playerById}
+          expandedResponses={expandedResponses}
+          onToggleResponses={(fixtureId) => setExpandedResponses((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
+          busyAvailability={busyAvailability}
+          onSetAvailability={setMyFixtureAvailability}
+          t={t}
+        />
       ))}
     </div>
   );
+}
+
+function buildAvailabilityByFixture(rows) {
+  const map = new Map();
+  for (const row of asObjectArray(rows)) {
+    if (!row?.fixture_id) continue;
+    const key = String(row.fixture_id);
+    const current = map.get(key) || [];
+    current.push(row);
+    map.set(key, current);
+  }
+  return map;
 }
 
 const CLUB_FIXTURE_GROUPS = [
@@ -1660,6 +1737,15 @@ function fixtureIsCompleted(fixture) {
   return fixture.status === "completed" || (fixture.home_score != null && fixture.away_score != null);
 }
 
+function fixtureIsTerminal(fixture) {
+  return ["completed", "cancelled", "canceled", "forfeited", "forfeit"].includes(String(fixture.status || "").toLowerCase())
+    || fixtureIsCompleted(fixture);
+}
+
+function fixtureCanSetAvailability(fixture) {
+  return Boolean(fixture?.id) && !fixtureIsTerminal(fixture);
+}
+
 function sortClubFixtures(fixtures) {
   const now = Date.now();
   return fixtures.sort((a, b) => {
@@ -1700,7 +1786,21 @@ function fixtureDateLabel(fixture) {
   return parsed.toLocaleString();
 }
 
-function FixtureGroup({ group, clubId, t }) {
+function FixtureGroup({
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityByFixture,
+  playerById,
+  expandedResponses,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  t,
+}) {
   return (
     <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
       <div className="border-b border-white/10 px-4 py-3">
@@ -1711,54 +1811,214 @@ function FixtureGroup({ group, clubId, t }) {
       </div>
       <div className="divide-y divide-white/5">
         {group.fixtures.map((fixture) => (
-          <FixtureRow key={fixture.id} fixture={fixture} group={group} clubId={clubId} t={t} />
+          <FixtureRow
+            key={fixture.id}
+            fixture={fixture}
+            group={group}
+            clubId={clubId}
+            clubPlayers={clubPlayers}
+            myPlayer={myPlayer}
+            canSetAvailability={canSetAvailability}
+            canViewTeamAvailability={canViewTeamAvailability}
+            availabilityRows={availabilityByFixture.get(String(fixture.id)) || []}
+            playerById={playerById}
+            responsesOpen={Boolean(expandedResponses[fixture.id])}
+            onToggleResponses={() => onToggleResponses(fixture.id)}
+            busyAvailability={busyAvailability}
+            onSetAvailability={onSetAvailability}
+            t={t}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function FixtureRow({ fixture, group, clubId, t }) {
+function FixtureRow({
+  fixture,
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityRows,
+  playerById,
+  responsesOpen,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  t,
+}) {
   const isHome = fixture.home_club_id === clubId;
   const opponent = isHome ? fixture.away_club_name : fixture.home_club_name;
   const mine = isHome ? fixture.home_score : fixture.away_score;
   const theirs = isHome ? fixture.away_score : fixture.home_score;
   const hasScore = mine != null && theirs != null;
   const completed = fixtureIsCompleted(fixture);
+  const canManageAvailability = fixtureCanSetAvailability(fixture);
+  const myAvailability = availabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
+  const myStatus = myAvailability?.status || "no_response";
+  const counts = getFixtureAvailabilityCounts(availabilityRows, clubPlayers);
+  const responseRows = buildFixtureResponseRows(availabilityRows, clubPlayers, playerById);
+  const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability;
+  const showTeamSummary = canViewTeamAvailability && canManageAvailability;
 
   return (
-    <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-sm border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
-            {isHome ? "Home" : "Away"}
-          </span>
-          <p className="truncate font-semibold text-white">
-            {isHome ? "vs" : "at"} {opponent || t("commonPages.cdCompetition")}
-          </p>
+    <div className="px-4 py-3">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-sm border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
+              {isHome ? "Home" : "Away"}
+            </span>
+            <p className="truncate font-semibold text-white">
+              {isHome ? "vs" : "at"} {opponent || t("commonPages.cdCompetition")}
+            </p>
+          </div>
+          <p className="mt-1 truncate text-[11px] text-white/40">{fixtureEventName(fixture, group)}</p>
         </div>
-        <p className="mt-1 truncate text-[11px] text-white/40">{fixtureEventName(fixture, group)}</p>
+
+        <div className="min-w-0 text-xs text-white/50">
+          <p>{fixtureDateLabel(fixture)}</p>
+          <p className="mt-1 capitalize text-white/35">{fixture.status || "scheduled"}</p>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <span className={cn(
+            "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
+            completed
+              ? "border-[#f5c542]/35 bg-[#f5c542]/10 text-[#f5c542]"
+              : "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
+          )}>
+            {completed ? "Completed" : fixture.status || "Scheduled"}
+          </span>
+          <span className="min-w-14 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center font-heading text-sm font-black text-white">
+            {hasScore ? `${mine}-${theirs}` : "TBD"}
+          </span>
+        </div>
       </div>
 
-      <div className="min-w-0 text-xs text-white/50">
-        <p>{fixtureDateLabel(fixture)}</p>
-        <p className="mt-1 capitalize text-white/35">{fixture.status || "scheduled"}</p>
-      </div>
+      {(showMemberControls || showTeamSummary) ? (
+        <div className="mt-3 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          {showMemberControls ? (
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">My availability</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={cn("rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]", fixtureAvailabilityClass(myStatus))}>
+                  {FIXTURE_AVAILABILITY_LABELS[myStatus] || myStatus}
+                </span>
+                <Button
+                  type="button"
+                  disabled={busyAvailability === `${fixture.id}:available`}
+                  onClick={() => onSetAvailability(fixture, "available")}
+                  className={cn(
+                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    myStatus === "available"
+                      ? "bg-emerald-400 text-black hover:bg-emerald-300"
+                      : "border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20"
+                  )}
+                >
+                  {busyAvailability === `${fixture.id}:available` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Available
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busyAvailability === `${fixture.id}:unavailable`}
+                  onClick={() => onSetAvailability(fixture, "unavailable")}
+                  className={cn(
+                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    myStatus === "unavailable"
+                      ? "bg-red-400 text-black hover:bg-red-300"
+                      : "border border-red-300/35 bg-red-400/10 text-red-200 hover:bg-red-400/20"
+                  )}
+                >
+                  {busyAvailability === `${fixture.id}:unavailable` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                  Unavailable
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <span className={cn(
-          "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
-          completed
-            ? "border-[#f5c542]/35 bg-[#f5c542]/10 text-[#f5c542]"
-            : "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
-        )}>
-          {completed ? "Completed" : fixture.status || "Scheduled"}
-        </span>
-        <span className="min-w-14 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center font-heading text-sm font-black text-white">
-          {hasScore ? `${mine}-${theirs}` : "TBD"}
-        </span>
-      </div>
+          {showTeamSummary ? (
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <AvailabilityCount label="Available" value={counts.available} className="text-emerald-200" />
+                <AvailabilityCount label="Unavailable" value={counts.unavailable} className="text-red-200" />
+                <AvailabilityCount label="No Response" value={counts.no_response} className="text-white/55" />
+                {counts.maybe > 0 ? <AvailabilityCount label="Maybe" value={counts.maybe} className="text-amber-200" /> : null}
+              </div>
+              {responseRows.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={onToggleResponses}
+                  className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#00e5ff] hover:text-[#7defff]"
+                >
+                  {responsesOpen ? "Hide responses" : "View responses"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showTeamSummary && responsesOpen ? (
+        <div className="mt-2 grid gap-1.5 rounded-lg border border-white/10 bg-black/20 p-3 sm:grid-cols-2">
+          {responseRows.map((row) => (
+            <div key={row.player.id} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs">
+              <span className="truncate text-white/75">{row.player.gamertag || row.player.email || "Player"}</span>
+              <span className={cn("shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]", fixtureAvailabilityClass(row.status))}>
+                {FIXTURE_AVAILABILITY_LABELS[row.status] || row.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function fixtureAvailabilityClass(status) {
+  if (status === "available") return "border-emerald-300/40 bg-emerald-400/10 text-emerald-200";
+  if (status === "unavailable") return "border-red-300/40 bg-red-400/10 text-red-200";
+  if (status === "maybe") return "border-amber-300/40 bg-amber-400/10 text-amber-200";
+  return "border-white/10 bg-white/5 text-white/45";
+}
+
+function getFixtureAvailabilityCounts(rows, players) {
+  const responded = new Set();
+  const counts = { available: 0, unavailable: 0, maybe: 0, no_response: 0 };
+  for (const row of asObjectArray(rows)) {
+    if (!row?.player_id) continue;
+    const status = String(row.status || "no_response").toLowerCase();
+    if (status === "available" || status === "unavailable" || status === "maybe") {
+      counts[status] += 1;
+      responded.add(String(row.player_id));
+    }
+  }
+  counts.no_response = Math.max(0, asObjectArray(players).filter((player) => player?.id && !responded.has(String(player.id))).length);
+  return counts;
+}
+
+function buildFixtureResponseRows(rows, players, playerById) {
+  const rowsByPlayer = new Map(asObjectArray(rows).filter((row) => row?.player_id).map((row) => [String(row.player_id), row]));
+  return asObjectArray(players)
+    .filter((player) => player?.id)
+    .map((player) => {
+      const row = rowsByPlayer.get(String(player.id));
+      return {
+        player: playerById.get(String(player.id)) || player,
+        status: row?.status || "no_response",
+      };
+    })
+    .sort((a, b) => String(a.player.gamertag || "").localeCompare(String(b.player.gamertag || "")));
+}
+
+function AvailabilityCount({ label, value, className }) {
+  return (
+    <span className={cn("rounded-sm border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em]", className)}>
+      {value} {label}
+    </span>
   );
 }
 
