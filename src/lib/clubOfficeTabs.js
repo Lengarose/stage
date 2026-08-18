@@ -1,37 +1,24 @@
 export function buildClubTabGroups({
   t,
-  canOpenOperations = false,
-  isOwner = false,
-  showRequests = false,
+  canOpenClubOffice = false,
   showChat = false,
-  limitedTournamentId = null,
 } = {}) {
   const groups = [
     { label: t("commonPages.profTab_posts"), tabs: ["posts"] },
     { label: t("nav.squad"), tabs: ["squad"] },
+    { label: "Stats", tabs: ["stats"] },
+    { label: "Fixtures", tabs: ["fixtures"] },
+    { label: t("commonPages.profTab_trophies"), tabs: ["trophies"] },
   ];
 
   if (showChat) {
     groups.push({ label: t("commonPages.cdChat"), tabs: ["chat"] });
   }
 
-  groups.push(
-    { label: t("commonPages.profTab_trophies"), tabs: ["trophies"] },
-    { label: t("commonPages.cdHistory"), tabs: ["history"] },
-  );
-
-  if (canOpenOperations) {
-    groups.push({ label: t("commonPages.profOperations"), tabs: ["operations"] });
-  }
-
-  if (showRequests && !limitedTournamentId) {
-    groups.push({ label: t("commonPages.profJoinRequests"), tabs: ["requests"] });
-  }
-
-  if (isOwner && !limitedTournamentId) {
+  if (canOpenClubOffice) {
     groups.push({
-      label: t("commonPages.cdClubOffice"),
-      tabs: ["stadium", "contracts", "finance", "shirts"],
+      label: "Club Office",
+      tabs: ["club-office"],
     });
   }
 
@@ -42,7 +29,10 @@ export function clubTabLabels(t) {
   return {
     posts: t("commonPages.profTab_posts"),
     squad: t("nav.squad"),
+    stats: "Stats",
+    fixtures: "Fixtures",
     chat: t("commonPages.cdChat"),
+    "club-office": "Club Office",
     trophies: t("commonPages.profTab_trophies"),
     history: t("commonPages.cdHistory"),
     operations: t("commonPages.profOperations"),

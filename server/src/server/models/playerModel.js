@@ -16,6 +16,9 @@ class Player {
     this.avatar_url              = body.avatar_url;
     this.avatar_zoom             = body.avatar_zoom;
     this.avatar_position         = body.avatar_position;
+    this.player_card_background_type = body.player_card_background_type;
+    this.player_card_background_id   = body.player_card_background_id;
+    this.player_card_background_url  = body.player_card_background_url;
     this.shirt_number            = body.shirt_number;
     this.overall_rating          = body.overall_rating;
     this.goals                   = body.goals;
@@ -91,7 +94,9 @@ class Player {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO players
       (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
-       avatar_url, avatar_zoom, avatar_position, shirt_number, overall_rating,
+       avatar_url, avatar_zoom, avatar_position,
+       player_card_background_type, player_card_background_id, player_card_background_url,
+       shirt_number, overall_rating,
        goals, goals_player, assists,
        matches_played, matches_played_club,
        wins_count, wins_club, losses_count, losses_club,
@@ -102,11 +107,13 @@ class Player {
        role, status, dressing_room_seat, is_ready,
        club_id, notification_settings, club_roles,
        banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
-      this.avatar_url, this.avatar_zoom, this.avatar_position, this.shirt_number,
+      this.avatar_url, this.avatar_zoom, this.avatar_position,
+      this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
+      this.shirt_number,
       this.overall_rating,
       this.goals, this.goals_player, this.assists,
       this.matches_played, this.matches_played_club,
@@ -126,6 +133,7 @@ class Player {
     const sql = `UPDATE players SET
       user_id=?, email=?, gamertag=?, position=?, secondary_position=?, platform=?, country=?, country_code=?,
       bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, shirt_number=?,
+      player_card_background_type=?, player_card_background_id=?, player_card_background_url=?,
       overall_rating=?,
       goals=?, goals_player=?, assists=?,
       matches_played=?, matches_played_club=?,
@@ -143,6 +151,7 @@ class Player {
       this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
       this.avatar_url, this.avatar_zoom, this.avatar_position, this.shirt_number,
+      this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
       this.overall_rating,
       this.goals, this.goals_player, this.assists,
       this.matches_played, this.matches_played_club,

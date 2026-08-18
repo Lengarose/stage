@@ -83,6 +83,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/reward-configs', verifyToken, require('../controllers/rewardConfigController'));
   app.use('/api/stage/club-achievements', verifyToken, require('../controllers/clubAchievementController'));
   app.use('/api/stage/player-achievements', verifyToken, require('../controllers/playerAchievementController'));
+  app.use('/api/stage/player-card-backgrounds', verifyToken, require('../controllers/playerCardBackgroundController'));
   app.use('/api/stage/player-stc-transactions', verifyToken, require('../controllers/playerStcTransactionController'));
   app.use('/api/stage/player-identity-claims', verifyToken, require('../controllers/playerIdentityClaimController'));
   app.use('/api/stage/player-showcase-videos', verifyToken, require('../controllers/playerShowcaseVideoController'));

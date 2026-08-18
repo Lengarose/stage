@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS players (
   avatar_url            TEXT,
   avatar_zoom           INT          DEFAULT 150,
   avatar_position       VARCHAR(50)  DEFAULT '50% 50%',
+  player_card_background_type VARCHAR(20) DEFAULT 'default',
+  player_card_background_id   VARCHAR(36) NULL,
+  player_card_background_url  TEXT NULL,
   shirt_number          INT,
   overall_rating        DECIMAL(4,1) DEFAULT 0,
   goals                 INT          DEFAULT 0,
@@ -106,6 +109,22 @@ CREATE TABLE IF NOT EXISTS players (
   oauth_id              VARCHAR(255) NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ── player_card_backgrounds ───────────────────────────────────
+-- Admin-managed STAGE Plus preset backgrounds for player cards.
+CREATE TABLE IF NOT EXISTS player_card_backgrounds (
+  id            VARCHAR(36) PRIMARY KEY,
+  name          VARCHAR(120) NOT NULL,
+  description   TEXT NULL,
+  image_url     TEXT NOT NULL,
+  is_active     TINYINT(1) DEFAULT 1,
+  is_stage_plus TINYINT(1) DEFAULT 1,
+  sort_order    INT DEFAULT 0,
+  created_by    VARCHAR(36) NULL,
+  created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_player_card_backgrounds_active_sort (is_active, sort_order)
 );
 
 -- ── presidents ────────────────────────────────────────────────
@@ -474,6 +493,7 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   position       VARCHAR(50),
   goals          INT          DEFAULT 0,
   assists        INT          DEFAULT 0,
+  own_goals      INT          DEFAULT 0,
   clean_sheet    TINYINT(1)   DEFAULT 0,
   is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
@@ -1564,6 +1584,9 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='subscription_billing'),'SELECT 1','ALTER TABLE players ADD COLUMN subscription_billing VARCHAR(20) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stripe_subscription_id'),'SELECT 1','ALTER TABLE players ADD COLUMN stripe_subscription_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stripe_customer_id'),'SELECT 1','ALTER TABLE players ADD COLUMN stripe_customer_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_type'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_type VARCHAR(20) NULL DEFAULT ''default''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_id'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_url'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='clubs';
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='logo_frame_id'),'SELECT 1','ALTER TABLE clubs ADD COLUMN logo_frame_id VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE clubs ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;

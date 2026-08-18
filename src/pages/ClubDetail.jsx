@@ -7,7 +7,8 @@ import {
   Trash2, Edit2, MessageCircle, ClipboardList,
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
-  UserMinus, BadgeX, Target, Footprints, Activity,
+  UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,9 +30,7 @@ import ImagePositionEditor from "../components/ImagePositionEditor";
 import ClubFeed from "../components/ClubFeed";
 import ClubForm from "../components/ClubForm";
 import ContractsTab from "../components/contracts/ContractsTab";
-import ClubMercatoSummary from "../components/club/ClubMercatoSummary";
 import ClubFinanceTab from "../components/club/ClubFinanceTab";
-import ClubOperations from "@/components/club/ClubOperations";
 import ShirtSalesPanel from "../components/ShirtSalesPanel";
 import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
@@ -40,6 +39,7 @@ import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
 import { applyLoanAnnotations, canExercisePurchaseOption, canProposeEarlyEnd, isEarlyEndWaitingOnClub, isLoanRecallable, isPurchaseAwaitingPlayer, splitSquadByLoan } from "@/lib/playerLoanDisplay";
 import { isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
+import { buildClubPlayerStatMap, formatClubRating, getClubPlayerStats, getClubStatValue } from "@/lib/clubPlayerStats";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
@@ -54,6 +54,7 @@ import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -76,17 +77,6 @@ function clubRoleLabel(t, role) {
   const key = CLUB_ROLE_LABEL_KEYS[normalized] || CLUB_ROLE_LABEL_KEYS.member;
   const translated = t(key);
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
-}
-
-function parseIdList(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.map(String);
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
 }
 
 function getNextFixture(fixtures = []) {
@@ -208,8 +198,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
   const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
-  const [dressingRooms, setDressingRooms] = useState([]);
   const [clubContracts, setClubContracts] = useState([]);
+  const [clubPlayerStatRows, setClubPlayerStatRows] = useState([]);
   const [, setTournamentMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
@@ -223,8 +213,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("posts");
-  const [historyRows,   setHistoryRows]   = useState([]);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editClubOpen, setEditClubOpen] = useState(false);
   const [clubChatMessages, setClubChatMessages] = useState([]);
   const [clubChatInput, setClubChatInput] = useState("");
@@ -273,13 +261,13 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
-        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, dressingRoomRows] = await Promise.all([
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, playerStatRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
           stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
           stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.PlayerContract.filter({ team_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.ClubFixtureAvailability.filter({ club_id: id }, "-updated_date", 300).catch(() => []),
-          stageClient.entities.DressingRoom.filter({ club_id: id }, "-updated_date", 100).catch(() => []),
+          stageClient.entities.MatchPlayerStat.filter({ club_id: id }, "-created_date", 1000).catch(() => []),
         ]);
 
         const c = asObject(clubRecordRaw);
@@ -381,7 +369,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
         setClubContracts(safeContractRows);
         setFixtureAvailabilityRows(asObjectArray(availabilityRows));
-        setDressingRooms(asObjectArray(dressingRoomRows));
+        setClubPlayerStatRows(asObjectArray(playerStatRows));
 
         const allMatches = [...matchesHome, ...matchesAway].sort(
           (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
@@ -532,6 +520,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     setPlayers((prev) => asObjectArray(prev).filter((player) => player.id !== playerId));
   }
 
+  function handlePlayerCardBackgroundChanged(updatedPlayer) {
+    const updated = asObject(updatedPlayer);
+    if (!updated?.id) return;
+    setPlayers((prev) => asObjectArray(prev).map((player) => (
+      player.id === updated.id ? { ...player, ...updated } : player
+    )));
+    if (myPlayer?.id === updated.id) setMyPlayer((prev) => ({ ...prev, ...updated }));
+  }
+
   async function removePlayerRole(targetPlayer) {
     const target = asObject(targetPlayer);
     if (!target?.id) return;
@@ -581,39 +578,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     const localUrl = URL.createObjectURL(file);
     setPendingLogo(localUrl);
     e.target.value = "";
-  }
-
-  async function loadHistory() {
-    if (historyLoaded) return;
-    const [compRows, leagueRows] = await Promise.all([
-      (stageClient.entities.CompetitionStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
-      (stageClient.entities.RegionalLeagueStanding?.filter({ club_id: id }, null, 100) ?? Promise.resolve([])).catch(() => []),
-    ]);
-    const comp = asObjectArray(compRows).map(r => ({
-      type: "competition",
-      name: r.competition_name || "Competition",
-      season: r.season_number || 0,
-      pos: r.final_position || r.position || null,
-      w: r.wins || 0, d: r.draws || 0, l: r.losses || 0,
-      pts: r.points || 0,
-      winner: r.final_position === 1,
-      promoted: r.is_promoted || false,
-      relegated: r.is_relegated || false,
-    }));
-    const league = asObjectArray(leagueRows).map(r => ({
-      type: "league",
-      name: r.league_name || "League",
-      season: r.season_number || 0,
-      pos: r.final_position || r.position || null,
-      w: r.wins || 0, d: r.draws || 0, l: r.losses || 0,
-      pts: r.points || 0,
-      winner: r.final_position === 1,
-      promoted: r.is_promoted || false,
-      relegated: r.is_relegated || false,
-    }));
-    const merged = [...comp, ...league].sort((a, b) => b.season - a.season);
-    setHistoryRows(merged);
-    setHistoryLoaded(true);
   }
 
   async function handleDeleteClub() {
@@ -824,19 +788,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const safeTournamentMatches = asObjectArray(tournamentMatches);
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeClubChatMessages = asObjectArray(clubChatMessages);
-  const safeHistoryRows = asObjectArray(historyRows);
   const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
-  const safeDressingRooms = asObjectArray(dressingRooms);
   const safeClubContracts = normalizePlayerContracts(clubContracts);
+  const safeClubPlayerStatRows = asObjectArray(clubPlayerStatRows);
+  const clubPlayerStatsById = buildClubPlayerStatMap(safePlayers, safeClubPlayerStatRows, id);
   const nextFixture = getNextFixture(safeTournamentMatches);
   const nextFixtureAvailabilityRows = nextFixture
     ? safeFixtureAvailabilityRows.filter((row) => String(row.fixture_id) === String(nextFixture.id))
     : [];
   const availabilityByPlayerId = new Map(nextFixtureAvailabilityRows.map((row) => [String(row.player_id), row]));
-  const nextDressingRoom = nextFixture
-    ? safeDressingRooms.find((row) => String(row.match_id) === String(nextFixture.id) && String(row.club_id) === String(id))
-    : null;
-  const seatedPlayerIds = new Set(parseIdList(nextDressingRoom?.seated_players));
   const confirmedMatches = safeMatches.filter(m => m.status === "completed");
   const totalGames = confirmedMatches.length;
   const wins = confirmedMatches.filter(m => {
@@ -853,24 +813,21 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }).length;
   const draws = totalGames - wins - losses;
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-  const showRequests = (isCaptain || isOwner) && safeJoinRequests.length > 0;
   const tabLabels = {
     ...clubTabLabels(t),
     requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
   };
   const canSeeClubChat = isMember || safePlayers.some((player) => player.id && player.id === myPlayer?.id);
+  const canOpenClubOffice = canOpenOperations && (isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover);
   const tabGroups = buildClubTabGroups({
     t,
-    canOpenOperations,
-    isOwner,
-    showRequests,
+    canOpenClubOffice,
     showChat: canSeeClubChat,
-    limitedTournamentId,
   });
   function changeClubTab(tab) {
     if (tab === "chat" && !canSeeClubChat) return;
+    if (tab === "club-office" && !canOpenClubOffice) return;
     setActiveTab(tab);
-    if (tab === "history") loadHistory();
   }
 
   if (editClubOpen && club) {
@@ -1089,8 +1046,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       isStaff={operationStaffRoles.length > 0}
                       nextFixture={nextFixture}
                       availability={availabilityByPlayerId.get(String(p.id))}
-                      isSeated={seatedPlayerIds.has(String(p.id))}
                       contracts={getPlayerContracts(safeClubContracts, p.id)}
+                      clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                       onAssignRole={assignRole}
                       onRemoveRole={removePlayerRole}
                       onRelease={releaseSquadPlayer}
@@ -1120,6 +1077,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                         purchase_offer_status: p.purchase_offer_status,
                       })}
                       onExerciseOption={() => handleExerciseOption(p)}
+                      onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
                     />
                   ))}
                 </div>
@@ -1140,8 +1098,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           isStaff={operationStaffRoles.length > 0}
                           nextFixture={nextFixture}
                           availability={availabilityByPlayerId.get(String(p.id))}
-                          isSeated={seatedPlayerIds.has(String(p.id))}
                           contracts={getPlayerContracts(safeClubContracts, p.id)}
+                          clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                           onAssignRole={assignRole}
                           onRemoveRole={removePlayerRole}
                           onRelease={releaseSquadPlayer}
@@ -1164,6 +1122,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           onRequestReturn={() => handleProposeEarlyEnd(p)}
                           onAcceptReturn={() => handleAcceptEarlyEnd(p)}
                           onRejectReturn={() => handleRejectEarlyEnd(p)}
+                          onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
                         />
                       ))}
                     </div>
@@ -1181,127 +1140,40 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             </div>
           </TabsContent>
 
-          {/* Club Operations — private staff workspace */}
-          {canOpenOperations && (
-            <TabsContent value="operations" className="px-4 pt-4 pb-6">
-              <ClubOperations
-                club={club}
-                players={safePlayers}
-                currentUser={currentUser}
-                myPlayer={myPlayer}
-                upcomingFixtures={safeTournamentMatches}
-                defaultFormation={club.formation}
-                onStaffRolesChanged={handleStaffRolesChanged}
-              />
-            </TabsContent>
-          )}
-
-          {/* Season History */}
-          <TabsContent value="history" className="px-4 pt-4 pb-6">
-            <ClubMercatoSummary clubId={club?.id} />
-            {!historyLoaded ? (
-              <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdLoadingHistory")}</p>
-            ) : safeHistoryRows.length === 0 ? (
-              <p className="text-xs text-white/40 py-8 text-center">{t("commonPages.cdNoHistory")}</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-white/40 uppercase tracking-widest border-b border-white/10">
-                      <th className="text-left py-2 pr-3 font-semibold">{t("commonPages.cdCompetition")}</th>
-                      <th className="text-left py-2 pr-3 font-semibold">{t("commonPages.cdSeason")}</th>
-                      <th className="text-center py-2 px-2 font-semibold">{t("commonPages.cdPos")}</th>
-                      <th className="text-center py-2 px-2 font-semibold">W</th>
-                      <th className="text-center py-2 px-2 font-semibold">D</th>
-                      <th className="text-center py-2 px-2 font-semibold">L</th>
-                      <th className="text-center py-2 px-2 font-semibold">Pts</th>
-                      <th className="text-center py-2 pl-2 font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {safeHistoryRows.map((r, i) => (
-                      <tr key={i} className="text-white/70 hover:bg-white/5 transition-colors">
-                        <td className="py-2 pr-3 font-medium text-white">{r.name}</td>
-                        <td className="py-2 pr-3 text-white/50">S{r.season}</td>
-                        <td className="py-2 px-2 text-center font-bold">{r.pos ?? "—"}</td>
-                        <td className="py-2 px-2 text-center text-emerald-400">{r.w}</td>
-                        <td className="py-2 px-2 text-center">{r.d}</td>
-                        <td className="py-2 px-2 text-center text-red-400">{r.l}</td>
-                        <td className="py-2 px-2 text-center font-bold">{r.pts}</td>
-                        <td className="py-2 pl-2 text-center">
-                          {r.winner && <span className="text-[9px] px-1 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold">W</span>}
-                          {r.promoted && <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold ml-0.5">↑</span>}
-                          {r.relegated && <span className="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-400 font-bold ml-0.5">↓</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          {/* Stats */}
+          <TabsContent value="stats" className="px-4 pt-4 pb-6">
+            <ClubStatsTables players={safePlayers} clubPlayerStatsById={clubPlayerStatsById} />
           </TabsContent>
 
-          {/* Contracts — president only */}
-          {isOwner && (
-            <TabsContent value="contracts" className="px-4 pt-4">
-              <ContractsTab
+          {/* Fixtures */}
+          <TabsContent value="fixtures" className="px-4 pt-4 pb-6">
+            <ClubFixturesPanel
+              clubId={id}
+              clubPlayers={safePlayers}
+              myPlayer={myPlayer}
+              canSetAvailability={isMember}
+              canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
+              availabilityRows={safeFixtureAvailabilityRows}
+              onAvailabilityRowsChange={setFixtureAvailabilityRows}
+              matches={safeMatches}
+              tournamentMatches={safeTournamentMatches}
+              t={t}
+            />
+          </TabsContent>
+
+          {/* Club Office — president/captain only */}
+          {canOpenClubOffice ? (
+            <TabsContent value="club-office" className="px-4 pt-4 pb-6">
+              <ClubOfficePanel
                 club={club}
                 players={safePlayers}
                 myPlayer={myPlayer}
-                canManage={true}
+                isOwner={isOwner}
                 onPlayerReleased={handlePlayerReleasedFromContract}
+                onClubUpdate={(updates) => setClub(prev => ({ ...prev, ...updates }))}
               />
             </TabsContent>
-          )}
-
-          {/* Stadium — president only */}
-          {isOwner && (
-            <TabsContent value="stadium" className="px-4 pt-4">
-              <StadiumUpgrade
-                club={club}
-                canEdit={isOwner}
-                onUpdate={(updates) => setClub(prev => ({ ...prev, ...updates }))}
-              />
-            </TabsContent>
-          )}
-
-          {/* Finance + Shirts — president only */}
-          {isOwner && (
-            <>
-              <TabsContent value="finance" className="px-4 pt-4">
-                <ClubFinanceTab club={club} />
-              </TabsContent>
-              <TabsContent value="shirts" className="px-4 pt-4 pb-6">
-                <ShirtSalesPanel club={club} players={safePlayers} />
-              </TabsContent>
-            </>
-          )}
-
-          {/* Join Requests */}
-          {(isCaptain || isOwner) && (
-            <TabsContent value="requests" className="px-4 pt-4">
-              <div className="space-y-3">
-                {safeJoinRequests.map(req => (
-                  <div key={req.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex-1">
-                      <p className="font-bold text-white">{req.player_gamertag}</p>
-                      <p className="text-xs text-white/40">{req.player_email}</p>
-                      {req.message && <p className="text-sm text-white/40 mt-2 italic">"{req.message}"</p>}
-                      <p className="text-xs text-primary/80 mt-2">{t("commonPages.cdApprovalsNote")}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => setActiveTab("operations")} className="bg-success/20 text-success hover:bg-success/30 border-0">
-                        <Check className="w-4 h-4 mr-1" /> {t("commonPages.cdOpenOperations")}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => declineJoinRequest(req.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10">
-                        <X className="w-4 h-4 mr-1" /> {t("commonPages.profDecline")}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-          )}
+          ) : null}
         </Tabs>
       </div>
 
@@ -1359,10 +1231,162 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   );
 }
 
+const CLUB_OFFICE_SECTIONS = [
+  { id: "contracts", label: "Contracts", icon: FileText },
+  { id: "finance", label: "Finance", icon: BarChart3 },
+  { id: "stadium", label: "Stadium", icon: Shield },
+  { id: "shirts", label: "Shirts", icon: Users },
+  { id: "audit", label: "Audit Log", icon: History },
+];
+
+function ClubOfficePanel({ club, players, myPlayer, isOwner, onPlayerReleased, onClubUpdate }) {
+  const { t } = useTranslation();
+  const [activeSection, setActiveSection] = useState("contracts");
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(null);
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (activeSection !== "audit" || !club?.id) return;
+    let alive = true;
+    async function loadAudit() {
+      setAuditLoading(true);
+      setAuditError(null);
+      try {
+        const rows = await stageClient.entities.ClubOperationAuditLog
+          .filter({ club_id: club.id }, "-created_date", 100)
+          .catch(() => []);
+        if (alive) setAuditLogs(asObjectArray(rows));
+      } catch (err) {
+        if (alive) setAuditError(err?.message || "Could not load audit log.");
+      } finally {
+        if (alive) setAuditLoading(false);
+      }
+    }
+    loadAudit();
+    return () => { alive = false; };
+  }, [activeSection, club?.id, auditRefreshKey]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {CLUB_OFFICE_SECTIONS.map(({ id: sectionId, label, icon: Icon }) => (
+          <button
+            key={sectionId}
+            type="button"
+            onClick={() => setActiveSection(sectionId)}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors",
+              activeSection === sectionId
+                ? "border-[#f5c542]/45 bg-[#f5c542]/10 text-[#f5c542]"
+                : "border-white/10 bg-white/[0.03] text-white/45 hover:border-white/20 hover:text-white/70"
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === "contracts" ? (
+        isOwner ? (
+          <ContractsTab
+            club={club}
+            players={players}
+            myPlayer={myPlayer}
+            canManage={true}
+            onPlayerReleased={onPlayerReleased}
+          />
+        ) : (
+          <OfficeLockedSection title="Contracts" />
+        )
+      ) : null}
+
+      {activeSection === "finance" ? (
+        isOwner ? <ClubFinanceTab club={club} /> : <OfficeLockedSection title="Finance" />
+      ) : null}
+
+      {activeSection === "stadium" ? (
+        isOwner ? (
+          <StadiumUpgrade
+            club={club}
+            canEdit={true}
+            onUpdate={onClubUpdate}
+          />
+        ) : (
+          <OfficeLockedSection title="Stadium" />
+        )
+      ) : null}
+
+      {activeSection === "shirts" ? (
+        isOwner ? <ShirtSalesPanel club={club} players={players} /> : <OfficeLockedSection title="Shirts" />
+      ) : null}
+
+      {activeSection === "audit" ? (
+        <ClubOfficeAuditLog
+          logs={auditLogs}
+          loading={auditLoading}
+          error={auditError}
+          onRefresh={() => setAuditRefreshKey((value) => value + 1)}
+          t={t}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function OfficeLockedSection({ title }) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
+      <Lock className="mx-auto h-8 w-8 text-white/25" />
+      <h3 className="mt-3 font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{title}</h3>
+      <p className="mt-2 text-sm text-white/45">
+        This section contains president-only actions and financial controls.
+      </p>
+    </section>
+  );
+}
+
+function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div>
+          <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">Audit Log</h3>
+          <p className="mt-1 text-xs text-white/40">Recent office and club operation changes.</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={onRefresh} className="text-xs">
+          {t("commonPages.coopRefreshAudit") || "Refresh"}
+        </Button>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+        </div>
+      ) : error ? (
+        <p className="px-4 py-8 text-center text-sm text-destructive">{error}</p>
+      ) : logs.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-white/45">{t("commonPages.coopNoAuditHistory") || "No audit history yet."}</p>
+      ) : (
+        <div className="divide-y divide-white/5">
+          {logs.map((log) => (
+            <div key={log.id} className="px-4 py-3">
+              <p className="text-sm font-semibold capitalize text-white">{String(log.action || "update").replace(/_/g, " ")}</p>
+              <p className="mt-1 text-xs text-white/45">
+                {log.actor_email || t("commonPages.coopSystem") || "System"} · {log.created_date ? new Date(log.created_date).toLocaleString() : ""}
+              </p>
+              {log.reason ? <p className="mt-1 text-xs text-white/45">{log.reason}</p> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function formatRating(value) {
-  const rating = Number(value);
-  if (!Number.isFinite(rating) || rating <= 0) return "--";
-  return rating.toFixed(1);
+  return formatClubRating(value);
 }
 
 function rolePillClass(role) {
@@ -1409,30 +1433,115 @@ function getSquadAvailabilitySummary(row, nextFixture) {
   return { key: "no_response", label: "No Response", className: "border-white/10 bg-white/5 text-white/50" };
 }
 
-function getSquadDressingSummary(availabilityKey, isSeated, nextFixture) {
-  if (!nextFixture?.id) {
-    return { key: "no_match", label: "No match scheduled", className: "border-white/10 bg-white/5 text-white/45" };
-  }
-  if (availabilityKey === "available" && isSeated) {
-    return { key: "seated", label: "Seat Taken", className: "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" };
-  }
-  if (availabilityKey === "available") {
-    return { key: "not_seated", label: "Not Seated", className: "border-amber-300/35 bg-amber-400/10 text-amber-200" };
-  }
-  return { key: "locked", label: "Locked until Available", className: "border-white/10 bg-white/5 text-white/45" };
-}
-
 function StatusPill({ className, children }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em]", className)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.11em]", className)}>
       {children}
     </span>
   );
 }
 
+const COUNTRY_FLAG_PALETTES = {
+  BE: ["#050505", "#f5d547", "#d72638"],
+  BR: ["#009b3a", "#ffdf00", "#002776"],
+  CA: ["#d52b1e", "#f7f7f7", "#d52b1e"],
+  DE: ["#050505", "#dd0000", "#ffce00"],
+  FR: ["#123c8c", "#f7f7f7", "#d72638"],
+  CD: ["#19a7e0", "#f5d547", "#d72638"],
+  ES: ["#aa151b", "#f1bf00", "#aa151b"],
+  IT: ["#008c45", "#f7f7f7", "#cd212a"],
+  NL: ["#ae1c28", "#f7f7f7", "#21468b"],
+  PT: ["#006600", "#ffcc00", "#ff0000"],
+  US: ["#3c3b6e", "#f7f7f7", "#b22234"],
+  GB: ["#f7f7f7", "#c8102e", "#012169"],
+  ENG: ["#f7f7f7", "#c8102e", "#f7f7f7"],
+  EN: ["#f7f7f7", "#c8102e", "#f7f7f7"],
+};
+
+const COUNTRY_CODE_ALIASES = {
+  BEL: "BE",
+  CAN: "CA",
+  COD: "CD",
+  COG: "CD",
+  DEU: "DE",
+  DRC: "CD",
+  ESP: "ES",
+  FRA: "FR",
+  GBR: "GB",
+  GER: "DE",
+  ITA: "IT",
+  NED: "NL",
+  NLD: "NL",
+  POR: "PT",
+  USA: "US",
+};
+
+function normalizeCountryCode(code, country) {
+  const raw = String(code || "").trim().toUpperCase();
+  if (raw && (raw.length <= 3 || COUNTRY_CODE_ALIASES[raw])) return COUNTRY_CODE_ALIASES[raw] || raw;
+  const name = String(raw || country || "").trim().toLowerCase();
+  if (name.includes("belg")) return "BE";
+  if (name.includes("brazil")) return "BR";
+  if (name.includes("canada")) return "CA";
+  if (name.includes("german")) return "DE";
+  if (name.includes("france") || name.includes("french")) return "FR";
+  if (name.includes("congo")) return "CD";
+  if (name.includes("spain") || name.includes("spanish")) return "ES";
+  if (name.includes("ital")) return "IT";
+  if (name.includes("netherlands") || name.includes("holland") || name.includes("dutch")) return "NL";
+  if (name.includes("portugal") || name.includes("portugu")) return "PT";
+  if (name.includes("united states") || name.includes("america")) return "US";
+  if (name.includes("england")) return "ENG";
+  if (name.includes("united kingdom") || name.includes("great britain")) return "GB";
+  return "";
+}
+
+function getPlayerNationality(player) {
+  const code = normalizeCountryCode(player?.country_code, player?.country);
+  const countryCode = String(player?.country_code || "").trim();
+  const country = String(player?.country || "").trim();
+  const label = countryCode || country || "Unknown";
+  return {
+    code,
+    label,
+  };
+}
+
+function getCountryFlagStyle(code) {
+  const colors = COUNTRY_FLAG_PALETTES[normalizeCountryCode(code)];
+  if (!colors) {
+    return {
+      background: "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,229,255,0.07))",
+    };
+  }
+  return {
+    background: [
+      `linear-gradient(120deg, ${colors[0]}33 0%, ${colors[0]}33 29%, transparent 29%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 35%, ${colors[1]}2e 35%, ${colors[1]}2e 64%, transparent 64%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 70%, ${colors[2]}33 70%, ${colors[2]}33 100%)`,
+      "rgba(0,0,0,0.24)",
+    ].join(", "),
+  };
+}
+
+function NationalityRow({ player }) {
+  const nationality = getPlayerNationality(player);
+  return (
+    <div
+      className="flex items-center justify-between gap-2 overflow-hidden border border-white/10 px-3 py-1.5"
+      style={getCountryFlagStyle(nationality.code)}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Nationality</span>
+      <span className="flex min-w-0 items-center border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
+        <span className="truncate">{nationality.label}</span>
+      </span>
+    </div>
+  );
+}
+
 function StatusRow({ label, summary }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+    <div className="flex items-center justify-between gap-2 border border-white/10 bg-black/20 px-3 py-1.5">
       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">{label}</span>
       <StatusPill className={summary.className}>{summary.label}</StatusPill>
     </div>
@@ -1441,22 +1550,558 @@ function StatusRow({ label, summary }) {
 
 function InfoTile({ icon: Icon, label, value }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+    <div className="min-w-0 border border-white/10 bg-black/20 px-3 py-1.5">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">
         {Icon ? <Icon className="h-3 w-3" /> : null}
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 truncate font-heading text-sm font-black uppercase text-white">{value ?? "--"}</p>
+      <p className="mt-0.5 truncate font-heading text-xs font-black uppercase text-white">{value ?? "--"}</p>
     </div>
   );
 }
 
 function StatCell({ label, value }) {
   return (
-    <div className="border-r border-white/10 px-2 py-2 text-center last:border-r-0">
-      <p className="font-heading text-lg font-black leading-none text-white">{value ?? "--"}</p>
-      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
+    <div className="border-r border-white/10 px-2 py-1.5 text-center last:border-r-0">
+      <p className="font-heading text-base font-black leading-none text-white">{value ?? "--"}</p>
+      <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
     </div>
+  );
+}
+
+function getPlayerCardBackgroundUrl(player) {
+  const type = String(player?.player_card_background_type || "default").toLowerCase();
+  if (type === "default") return "";
+  return String(player?.player_card_background_url || "").trim();
+}
+
+function formatClubStatValue(value, stat) {
+  if (stat === "rating") return formatRating(value);
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function buildClubLeaderboard(players, stat, clubPlayerStatsById) {
+  return asObjectArray(players)
+    .filter((player) => player?.id)
+    .map((player) => ({ player, value: getClubStatValue(player, stat, clubPlayerStatsById) }))
+    .sort((a, b) => {
+      if (b.value !== a.value) return b.value - a.value;
+      return String(a.player.gamertag || "").localeCompare(String(b.player.gamertag || ""));
+    })
+    .slice(0, 10);
+}
+
+function ClubStatsTables({ players = [], clubPlayerStatsById }) {
+  const tables = [
+    { title: "Top Scorers", stat: "goals", label: "G" },
+    { title: "Top Assists", stat: "assists", label: "A" },
+    { title: "Best Average Rating", stat: "rating", label: "AVG" },
+    { title: "Most Appearances", stat: "matches", label: "MP" },
+  ];
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {tables.map((table) => (
+        <ClubLeaderboardTable
+          key={table.stat}
+          title={table.title}
+          stat={table.stat}
+          label={table.label}
+          rows={buildClubLeaderboard(players, table.stat, clubPlayerStatsById)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ClubLeaderboardTable({ title, stat, label, rows }) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{title}</h3>
+        <span className="rounded-sm border border-[#f5c542]/30 bg-[#f5c542]/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5c542]">
+          {label}
+        </span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-white/40">No player stats yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[320px] text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <th className="w-12 px-4 py-2 text-left font-black">#</th>
+                <th className="px-2 py-2 text-left font-black">Player</th>
+                <th className="w-20 px-4 py-2 text-right font-black">{label}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {rows.map(({ player, value }, index) => (
+                <tr key={player.id} className="text-white/75">
+                  <td className="px-4 py-3 font-heading text-xs font-black text-white/40">{index + 1}</td>
+                  <td className="min-w-0 px-2 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/10 bg-black/30">
+                        {player.avatar_url ? (
+                          <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                        ) : (
+                          <span className="font-heading text-xs font-black text-[#f5c542]">
+                            {String(player.gamertag || "?").slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-white">{player.gamertag || "Player"}</p>
+                        <p className="text-[11px] text-white/35">{[player.position, player.secondary_position].filter(Boolean).join(" / ") || "--"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-heading text-base font-black text-[#f5c542]">
+                    {formatClubStatValue(value, stat)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const FIXTURE_AVAILABILITY_LABELS = {
+  available: "Available",
+  unavailable: "Unavailable",
+  maybe: "Maybe",
+  no_response: "No Response",
+};
+
+function ClubFixturesPanel({
+  clubId,
+  clubPlayers = [],
+  myPlayer,
+  canSetAvailability = false,
+  canViewTeamAvailability = false,
+  availabilityRows = [],
+  onAvailabilityRowsChange,
+  matches = [],
+  tournamentMatches = [],
+  t,
+}) {
+  const [busyAvailability, setBusyAvailability] = useState(null);
+  const [expandedResponses, setExpandedResponses] = useState({});
+  const [availabilityError, setAvailabilityError] = useState(null);
+  const fixturesById = new Map();
+  for (const fixture of [...asObjectArray(matches), ...asObjectArray(tournamentMatches)]) {
+    if (!fixture?.id) continue;
+    if (fixture.home_club_id !== clubId && fixture.away_club_id !== clubId) continue;
+    const existing = fixturesById.get(fixture.id) || {};
+    fixturesById.set(fixture.id, { ...existing, ...fixture });
+  }
+  const grouped = groupClubFixtures([...fixturesById.values()]);
+  const availabilityByFixture = buildAvailabilityByFixture(availabilityRows);
+  const playerById = new Map(asObjectArray(clubPlayers).filter((player) => player?.id).map((player) => [String(player.id), player]));
+
+  async function setMyFixtureAvailability(fixture, status) {
+    if (!myPlayer?.id || !fixtureCanSetAvailability(fixture)) return;
+    const busyKey = `${fixture.id}:${status}`;
+    setBusyAvailability(busyKey);
+    setAvailabilityError(null);
+    const existing = (availabilityByFixture.get(String(fixture.id)) || [])
+      .find((row) => String(row.player_id) === String(myPlayer.id));
+    const body = {
+      club_id: clubId,
+      fixture_id: fixture.id,
+      fixture_type: fixture._fixtureType || fixture.fixture_type || "match",
+      player_id: myPlayer.id,
+      status,
+    };
+    try {
+      const saved = existing
+        ? await stageClient.http.patch(`/club-fixture-availabilities/${existing.id}`, body)
+        : await stageClient.http.post("/club-fixture-availabilities", body);
+      if (saved?.id) {
+        onAvailabilityRowsChange?.((prev) => {
+          const rows = asObjectArray(prev).filter((row) => row.id !== saved.id);
+          return [saved, ...rows];
+        });
+      }
+    } catch (err) {
+      setAvailabilityError(err?.message || "Could not update availability.");
+    } finally {
+      setBusyAvailability(null);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {availabilityError ? (
+        <div className="rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {availabilityError}
+        </div>
+      ) : null}
+      {grouped.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+          <p className="text-sm text-white/45">No fixtures found.</p>
+        </section>
+      ) : grouped.map((group) => (
+        <FixtureGroup
+          key={group.key}
+          group={group}
+          clubId={clubId}
+          clubPlayers={clubPlayers}
+          myPlayer={myPlayer}
+          canSetAvailability={canSetAvailability}
+          canViewTeamAvailability={canViewTeamAvailability}
+          availabilityByFixture={availabilityByFixture}
+          playerById={playerById}
+          expandedResponses={expandedResponses}
+          onToggleResponses={(fixtureId) => setExpandedResponses((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
+          busyAvailability={busyAvailability}
+          onSetAvailability={setMyFixtureAvailability}
+          t={t}
+        />
+      ))}
+    </div>
+  );
+}
+
+function buildAvailabilityByFixture(rows) {
+  const map = new Map();
+  for (const row of asObjectArray(rows)) {
+    if (!row?.fixture_id) continue;
+    const key = String(row.fixture_id);
+    const current = map.get(key) || [];
+    current.push(row);
+    map.set(key, current);
+  }
+  return map;
+}
+
+const CLUB_FIXTURE_GROUPS = [
+  { key: "regional", title: "Regional League fixtures" },
+  { key: "supreme", title: "Supreme League", parent: "Competitions" },
+  { key: "elite", title: "Elite League", parent: "Competitions" },
+  { key: "challenger", title: "Challenger League", parent: "Competitions" },
+  { key: "tournament", title: "Tournaments" },
+  { key: "gameday", title: "Arrange Game / Game Day" },
+];
+
+function fixtureText(fixture) {
+  return [
+    fixture.event_type,
+    fixture.fixture_type,
+    fixture._fixtureType,
+    fixture.competition_type,
+    fixture.competition_name,
+    fixture.tournament_name,
+    fixture.league_name,
+    fixture.name,
+    fixture.title,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function fixtureGroupKey(fixture) {
+  const text = fixtureText(fixture);
+  if (text.includes("regional")) return "regional";
+  if (text.includes("supreme league")) return "supreme";
+  if (text.includes("elite league")) return "elite";
+  if (text.includes("challenger league")) return "challenger";
+  if (text.includes("tournament") || (fixture.tournament_id && fixture.tournament_id !== "ranked")) return "tournament";
+  return "gameday";
+}
+
+function fixtureDateValue(fixture) {
+  const value = new Date(fixture.scheduled_date || fixture.match_date || fixture.created_date || fixture.updated_date || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function fixtureIsCompleted(fixture) {
+  return fixture.status === "completed" || (fixture.home_score != null && fixture.away_score != null);
+}
+
+function fixtureIsTerminal(fixture) {
+  return ["completed", "cancelled", "canceled", "forfeited", "forfeit"].includes(String(fixture.status || "").toLowerCase())
+    || fixtureIsCompleted(fixture);
+}
+
+function fixtureCanSetAvailability(fixture) {
+  return Boolean(fixture?.id) && !fixtureIsTerminal(fixture);
+}
+
+function sortClubFixtures(fixtures) {
+  const now = Date.now();
+  return fixtures.sort((a, b) => {
+    const aDone = fixtureIsCompleted(a);
+    const bDone = fixtureIsCompleted(b);
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    const aDate = fixtureDateValue(a);
+    const bDate = fixtureDateValue(b);
+    if (!aDone) return (aDate || now) - (bDate || now);
+    return bDate - aDate;
+  });
+}
+
+function groupClubFixtures(fixtures) {
+  const byGroup = new Map(CLUB_FIXTURE_GROUPS.map((group) => [group.key, { ...group, fixtures: [] }]));
+  for (const fixture of fixtures) {
+    byGroup.get(fixtureGroupKey(fixture)).fixtures.push(fixture);
+  }
+  return CLUB_FIXTURE_GROUPS
+    .map((group) => ({ ...byGroup.get(group.key), fixtures: sortClubFixtures(byGroup.get(group.key).fixtures) }))
+    .filter((group) => group.fixtures.length > 0);
+}
+
+function fixtureEventName(fixture, group) {
+  return fixture.competition_name
+    || fixture.tournament_name
+    || fixture.league_name
+    || fixture.event_name
+    || fixture.name
+    || group.title;
+}
+
+function fixtureDateLabel(fixture) {
+  const raw = fixture.scheduled_date || fixture.match_date || fixture.created_date;
+  if (!raw) return "TBD";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleString();
+}
+
+function FixtureGroup({
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityByFixture,
+  playerById,
+  expandedResponses,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  t,
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="border-b border-white/10 px-4 py-3">
+        {group.parent ? (
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#00e5ff]/65">{group.parent}</p>
+        ) : null}
+        <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{group.title}</h3>
+      </div>
+      <div className="divide-y divide-white/5">
+        {group.fixtures.map((fixture) => (
+          <FixtureRow
+            key={fixture.id}
+            fixture={fixture}
+            group={group}
+            clubId={clubId}
+            clubPlayers={clubPlayers}
+            myPlayer={myPlayer}
+            canSetAvailability={canSetAvailability}
+            canViewTeamAvailability={canViewTeamAvailability}
+            availabilityRows={availabilityByFixture.get(String(fixture.id)) || []}
+            playerById={playerById}
+            responsesOpen={Boolean(expandedResponses[fixture.id])}
+            onToggleResponses={() => onToggleResponses(fixture.id)}
+            busyAvailability={busyAvailability}
+            onSetAvailability={onSetAvailability}
+            t={t}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FixtureRow({
+  fixture,
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityRows,
+  playerById,
+  responsesOpen,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  t,
+}) {
+  const isHome = fixture.home_club_id === clubId;
+  const opponent = isHome ? fixture.away_club_name : fixture.home_club_name;
+  const mine = isHome ? fixture.home_score : fixture.away_score;
+  const theirs = isHome ? fixture.away_score : fixture.home_score;
+  const hasScore = mine != null && theirs != null;
+  const completed = fixtureIsCompleted(fixture);
+  const canManageAvailability = fixtureCanSetAvailability(fixture);
+  const myAvailability = availabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
+  const myStatus = myAvailability?.status || "no_response";
+  const counts = getFixtureAvailabilityCounts(availabilityRows, clubPlayers);
+  const responseRows = buildFixtureResponseRows(availabilityRows, clubPlayers, playerById);
+  const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability;
+  const showTeamSummary = canViewTeamAvailability && canManageAvailability;
+
+  return (
+    <div className="px-4 py-3">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-sm border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
+              {isHome ? "Home" : "Away"}
+            </span>
+            <p className="truncate font-semibold text-white">
+              {isHome ? "vs" : "at"} {opponent || t("commonPages.cdCompetition")}
+            </p>
+          </div>
+          <p className="mt-1 truncate text-[11px] text-white/40">{fixtureEventName(fixture, group)}</p>
+        </div>
+
+        <div className="min-w-0 text-xs text-white/50">
+          <p>{fixtureDateLabel(fixture)}</p>
+          <p className="mt-1 capitalize text-white/35">{fixture.status || "scheduled"}</p>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <span className={cn(
+            "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
+            completed
+              ? "border-[#f5c542]/35 bg-[#f5c542]/10 text-[#f5c542]"
+              : "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
+          )}>
+            {completed ? "Completed" : fixture.status || "Scheduled"}
+          </span>
+          <span className="min-w-14 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center font-heading text-sm font-black text-white">
+            {hasScore ? `${mine}-${theirs}` : "TBD"}
+          </span>
+        </div>
+      </div>
+
+      {(showMemberControls || showTeamSummary) ? (
+        <div className="mt-3 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          {showMemberControls ? (
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">My availability</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={cn("rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]", fixtureAvailabilityClass(myStatus))}>
+                  {FIXTURE_AVAILABILITY_LABELS[myStatus] || myStatus}
+                </span>
+                <Button
+                  type="button"
+                  disabled={busyAvailability === `${fixture.id}:available`}
+                  onClick={() => onSetAvailability(fixture, "available")}
+                  className={cn(
+                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    myStatus === "available"
+                      ? "bg-emerald-400 text-black hover:bg-emerald-300"
+                      : "border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20"
+                  )}
+                >
+                  {busyAvailability === `${fixture.id}:available` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Available
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busyAvailability === `${fixture.id}:unavailable`}
+                  onClick={() => onSetAvailability(fixture, "unavailable")}
+                  className={cn(
+                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    myStatus === "unavailable"
+                      ? "bg-red-400 text-black hover:bg-red-300"
+                      : "border border-red-300/35 bg-red-400/10 text-red-200 hover:bg-red-400/20"
+                  )}
+                >
+                  {busyAvailability === `${fixture.id}:unavailable` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                  Unavailable
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {showTeamSummary ? (
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <AvailabilityCount label="Available" value={counts.available} className="text-emerald-200" />
+                <AvailabilityCount label="Unavailable" value={counts.unavailable} className="text-red-200" />
+                <AvailabilityCount label="No Response" value={counts.no_response} className="text-white/55" />
+                {counts.maybe > 0 ? <AvailabilityCount label="Maybe" value={counts.maybe} className="text-amber-200" /> : null}
+              </div>
+              {responseRows.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={onToggleResponses}
+                  className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#00e5ff] hover:text-[#7defff]"
+                >
+                  {responsesOpen ? "Hide responses" : "View responses"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showTeamSummary && responsesOpen ? (
+        <div className="mt-2 grid gap-1.5 rounded-lg border border-white/10 bg-black/20 p-3 sm:grid-cols-2">
+          {responseRows.map((row) => (
+            <div key={row.player.id} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs">
+              <span className="truncate text-white/75">{row.player.gamertag || row.player.email || "Player"}</span>
+              <span className={cn("shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]", fixtureAvailabilityClass(row.status))}>
+                {FIXTURE_AVAILABILITY_LABELS[row.status] || row.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function fixtureAvailabilityClass(status) {
+  if (status === "available") return "border-emerald-300/40 bg-emerald-400/10 text-emerald-200";
+  if (status === "unavailable") return "border-red-300/40 bg-red-400/10 text-red-200";
+  if (status === "maybe") return "border-amber-300/40 bg-amber-400/10 text-amber-200";
+  return "border-white/10 bg-white/5 text-white/45";
+}
+
+function getFixtureAvailabilityCounts(rows, players) {
+  const responded = new Set();
+  const counts = { available: 0, unavailable: 0, maybe: 0, no_response: 0 };
+  for (const row of asObjectArray(rows)) {
+    if (!row?.player_id) continue;
+    const status = String(row.status || "no_response").toLowerCase();
+    if (status === "available" || status === "unavailable" || status === "maybe") {
+      counts[status] += 1;
+      responded.add(String(row.player_id));
+    }
+  }
+  counts.no_response = Math.max(0, asObjectArray(players).filter((player) => player?.id && !responded.has(String(player.id))).length);
+  return counts;
+}
+
+function buildFixtureResponseRows(rows, players, playerById) {
+  const rowsByPlayer = new Map(asObjectArray(rows).filter((row) => row?.player_id).map((row) => [String(row.player_id), row]));
+  return asObjectArray(players)
+    .filter((player) => player?.id)
+    .map((player) => {
+      const row = rowsByPlayer.get(String(player.id));
+      return {
+        player: playerById.get(String(player.id)) || player,
+        status: row?.status || "no_response",
+      };
+    })
+    .sort((a, b) => String(a.player.gamertag || "").localeCompare(String(b.player.gamertag || "")));
+}
+
+function AvailabilityCount({ label, value, className }) {
+  return (
+    <span className={cn("rounded-sm border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em]", className)}>
+      {value} {label}
+    </span>
   );
 }
 
@@ -1471,7 +2116,6 @@ function PlayerCard({
   isStaff = false,
   nextFixture = null,
   availability = null,
-  isSeated = false,
   contracts = [],
   onAssignRole,
   onRemoveRole,
@@ -1486,24 +2130,28 @@ function PlayerCard({
   canExerciseOption = false,
   purchaseAwaitingPlayer = false,
   onExerciseOption,
+  clubStats,
+  onCardBackgroundChanged,
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [statsOpen, setStatsOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
+  const [backgrounds, setBackgrounds] = useState([]);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [backgroundSaving, setBackgroundSaving] = useState(null);
+  const [customBackgroundFile, setCustomBackgroundFile] = useState(null);
+  const [backgroundError, setBackgroundError] = useState("");
   const player = asObject(rawPlayer);
-  if (!player?.id) return null;
-  const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
   const primaryRole = getPrimaryClubRole(player);
   const isPresidentRole = primaryRole === "president";
   const isCaptainRole = primaryRole === "captain";
   const isViceCaptainRole = primaryRole === "vice_captain";
-  const isStaffRole = ["recruiter", "finance_manager", "match_coordinator"].includes(primaryRole);
   const roleLabel = clubRoleLabel(t, primaryRole);
   const playerContracts = normalizePlayerContracts(contracts);
   const contractSummary = getSquadContractSummary(playerContracts);
   const availabilitySummary = getSquadAvailabilitySummary(availability, nextFixture);
-  const dressingSummary = getSquadDressingSummary(availabilitySummary.key, isSeated, nextFixture);
   const canManageRoles = isPresident || isOwner || isCaptain || isStaff;
   const canReleaseOrRemove = (isPresident || isOwner) && currentUser?.email !== player.email && !isPresidentRole;
   const canMakeCaptain = canManageRoles && !isPresidentRole && !isCaptainRole;
@@ -1512,12 +2160,13 @@ function PlayerCard({
   const canViewStats = isClubMember || canManageRoles || isOwner;
   const activeContract = playerContracts.find((contract) => contract.status === "active") || null;
   const profilePath = `/players/${player.id}`;
-  const clubAverageRating = formatRating(
-    player.avg_match_rating ?? player.club_avg_rating ?? player.average_rating ?? player.ranking_avg_rating
-  );
-  const clubGoals = Number(player.goals_player ?? player.club_goals ?? player.goals ?? 0);
-  const clubAssists = Number(player.club_assists ?? player.assists ?? 0);
-  const clubMatches = Number(player.matches_played_club ?? player.club_matches_played ?? player.matches_played ?? 0);
+  const cardBackgroundUrl = getPlayerCardBackgroundUrl(player);
+  const canChangeOwnBackground = String(_myPlayer?.id || "") === String(player.id || "");
+  const canUseCardBackgrounds = hasStagePlus(player.subscription || _myPlayer?.subscription);
+  const clubAverageRating = formatRating(clubStats?.avgRating);
+  const clubGoals = Number(clubStats?.goals || 0);
+  const clubAssists = Number(clubStats?.assists || 0);
+  const clubMatches = Number(clubStats?.matches || 0);
   const initials = String(player.gamertag || player.email || "?").slice(0, 2).toUpperCase();
   const menuItemClass = "cursor-pointer text-xs font-semibold";
   const dangerItemClass = "cursor-pointer text-xs font-semibold text-red-300 focus:bg-red-500/10 focus:text-red-200";
@@ -1526,6 +2175,24 @@ function PlayerCard({
     event.stopPropagation();
   };
   const openProfile = () => navigate(profilePath);
+
+  useEffect(() => {
+    if (!backgroundOpen || !canUseCardBackgrounds) return;
+    let cancelled = false;
+    setBackgroundLoading(true);
+    stageClient.entities.PlayerCardBackground
+      .filter({}, "sort_order", 100)
+      .then((rows) => {
+        if (!cancelled) setBackgrounds(asObjectArray(rows));
+      })
+      .catch(() => {
+        if (!cancelled) setBackgrounds([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBackgroundLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [backgroundOpen, canUseCardBackgrounds]);
 
   function onCardKeyDown(event) {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -1539,6 +2206,47 @@ function PlayerCard({
     callback?.();
   }
 
+  async function saveCardBackground(payload, busyKey) {
+    if (!canChangeOwnBackground) return;
+    setBackgroundSaving(busyKey);
+    setBackgroundError("");
+    try {
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, payload);
+      onCardBackgroundChanged?.(updated);
+      setCustomBackgroundFile(null);
+      setBackgroundOpen(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not update player card background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  async function uploadCustomBackground() {
+    if (!customBackgroundFile) {
+      setBackgroundError("Choose an image first.");
+      return;
+    }
+    setBackgroundSaving("custom");
+    setBackgroundError("");
+    try {
+      const uploaded = await stageClient.integrations.Core.UploadFile({ file: customBackgroundFile });
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, {
+        type: "custom",
+        image_url: uploaded.file_url,
+      });
+      onCardBackgroundChanged?.(updated);
+      setCustomBackgroundFile(null);
+      setBackgroundOpen(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not upload player card background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  if (!player?.id) return null;
+
   return (
     <>
       <article
@@ -1546,8 +2254,17 @@ function PlayerCard({
         tabIndex={0}
         onClick={openProfile}
         onKeyDown={onCardKeyDown}
-        className="group relative min-h-[310px] cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-[#071018] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50"
+        className="group relative min-h-[248px] cursor-pointer overflow-hidden border border-white/10 bg-[#071018] px-4 py-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50 sm:px-5"
+        style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
       >
+        {cardBackgroundUrl ? (
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-cover bg-center opacity-55 transition-opacity group-hover:opacity-65"
+            style={{ backgroundImage: `url(${cardBackgroundUrl})` }}
+          />
+        ) : null}
+        {cardBackgroundUrl ? <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-black/75" /> : null}
         <div
           aria-hidden
           className="absolute inset-0 opacity-70"
@@ -1559,9 +2276,17 @@ function PlayerCard({
             ].join(", "),
           }}
         />
-        <div className="relative z-[1] flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-md border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+        <div
+          aria-hidden
+          className="absolute inset-[1px] border border-[#f5c542]/10 opacity-70"
+          style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
+        />
+        <div className="relative z-[1] flex items-start justify-between gap-2 pl-1 pr-2 sm:pl-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div
+              className="relative h-[58px] w-[58px] shrink-0 overflow-hidden border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+              style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+            >
               {player.avatar_url ? (
                 <img
                   src={player.avatar_url}
@@ -1570,21 +2295,21 @@ function PlayerCard({
                   style={{ objectPosition: player.avatar_position || "50% 50%" }}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-xl font-black text-[#f5c542]">
+                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-base font-black text-[#f5c542]">
                   {initials}
                 </div>
               )}
-              <div className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1.5 py-0.5 text-[10px] font-black text-[#f5c542]">
+              <div className="absolute bottom-1 right-1 bg-black/75 px-1 py-0.5 text-[8px] font-black text-[#f5c542]">
                 {player.position || "--"}
               </div>
             </div>
-            <div className="min-w-0">
-              <p className="truncate font-heading text-xl font-black uppercase leading-tight text-white">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-heading text-[17px] font-black uppercase leading-tight text-white">
                 {player.gamertag || "Player"}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="mt-1 flex flex-wrap items-center gap-1">
                 <StatusPill className={rolePillClass(primaryRole)}>
-                  {isPresidentRole ? <Shield className="h-3 w-3" /> : null}
+                  {isPresidentRole ? <Shield className="h-2.5 w-2.5" /> : null}
                   {roleLabel}
                 </StatusPill>
                 {player.loan_badge === "LOAN" ? (
@@ -1594,17 +2319,21 @@ function PlayerCard({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-start gap-2">
-            <div className="rounded-md border border-[#f5c542]/35 bg-black/45 px-2.5 py-1.5 text-center">
-              <p className="font-heading text-2xl font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
-              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">OVR</p>
+          <div className="flex shrink-0 items-start gap-1">
+            <div
+              className="min-w-10 border border-[#f5c542]/35 bg-black/45 px-1.5 py-1 text-center"
+              style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)" }}
+            >
+              <p className="font-heading text-lg font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
+              <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/45">OVR</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   onClick={stopCardClick}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  className="flex h-7 w-7 items-center justify-center border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   aria-label="Player actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -1621,6 +2350,12 @@ function PlayerCard({
                 {canViewStats ? (
                   <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setStatsOpen(true))}>
                     <BarChart3 className="h-4 w-4" /> View club stats
+                  </DropdownMenuItem>
+                ) : null}
+                {canChangeOwnBackground ? (
+                  <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setBackgroundOpen(true))}>
+                    {canUseCardBackgrounds ? <ImageIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                    Change background
                   </DropdownMenuItem>
                 ) : null}
                 {canManageRoles ? (
@@ -1689,18 +2424,21 @@ function PlayerCard({
           </div>
         </div>
 
-        <div className="relative z-[1] mt-4 grid grid-cols-2 gap-2">
+        <div className="relative z-[1] mt-2.5 grid grid-cols-2 gap-1.5 pl-1 pr-2 sm:pl-2">
           <InfoTile icon={Footprints} label="Primary" value={player.position || "--"} />
           <InfoTile icon={Target} label="Secondary" value={player.secondary_position || "--"} />
         </div>
 
-        <div className="relative z-[1] mt-3 grid gap-2">
+        <div className="relative z-[1] mt-2 grid gap-1.5 pl-1 pr-2 sm:pl-2">
           <StatusRow label="Contract" summary={contractSummary} />
           <StatusRow label="Next match" summary={availabilitySummary} />
-          <StatusRow label="Dressing room" summary={dressingSummary} />
+          <NationalityRow player={player} />
         </div>
 
-        <div className="relative z-[1] mt-4 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
+        <div
+          className="relative z-[1] mt-2.5 grid grid-cols-4 overflow-hidden border border-white/10 bg-black/25"
+          style={{ clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" }}
+        >
           <StatCell label="AVG" value={clubAverageRating} />
           <StatCell label="G" value={clubGoals} />
           <StatCell label="A" value={clubAssists} />
@@ -1733,6 +2471,124 @@ function PlayerCard({
             <InfoTile icon={Footprints} label="Assists" value={clubAssists} />
             <InfoTile icon={ClipboardList} label="Matches" value={clubMatches} />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={backgroundOpen} onOpenChange={setBackgroundOpen}>
+        <DialogContent
+          className="max-w-2xl border-white/10 bg-[#071018] text-white"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              <ImageIcon className="h-4 w-4" /> Change card background
+            </DialogTitle>
+          </DialogHeader>
+          {!canUseCardBackgrounds ? (
+            <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+              <div className="mb-3 flex items-start gap-3">
+                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
+                <div>
+                  <p className="font-heading text-base font-black uppercase text-white">STAGE Plus feature</p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Custom player card backgrounds, personal uploads, and exclusive official designs are included with STAGE Plus.
+                  </p>
+                </div>
+              </div>
+              <Link to="/store" onClick={(event) => event.stopPropagation()}>
+                <Button type="button" className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]">
+                  <Sparkles className="h-4 w-4" /> View STAGE Plus
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {backgroundError ? (
+                <div className="rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {backgroundError}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div>
+                  <p className="font-heading text-sm font-black uppercase text-white">Current card</p>
+                  <p className="text-xs text-white/45">Images render under a dark game-card overlay for readability.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={Boolean(backgroundSaving)}
+                  onClick={() => saveCardBackground({ type: "default" }, "default")}
+                  className="gap-2 border-white/15 bg-black/20 text-white hover:bg-white/10"
+                >
+                  <RotateCcw className="h-4 w-4" /> Reset default
+                </Button>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
+                {backgroundLoading ? (
+                  <div className="flex items-center justify-center rounded-lg border border-white/10 py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
+                  </div>
+                ) : backgrounds.length ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {backgrounds.map((bg) => {
+                      const selected = player.player_card_background_type === "official" && player.player_card_background_id === bg.id;
+                      return (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          disabled={Boolean(backgroundSaving)}
+                          onClick={() => saveCardBackground({ type: "official", background_id: bg.id }, bg.id)}
+                          className={cn(
+                            "overflow-hidden rounded-lg border bg-black/30 text-left transition hover:border-[#f5c542]/50",
+                            selected ? "border-[#f5c542]/70" : "border-white/10",
+                          )}
+                        >
+                          <div className="aspect-[16/9] bg-black">
+                            <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="flex items-center justify-between gap-2 p-2">
+                            <span className="truncate text-xs font-bold text-white">{bg.name}</span>
+                            {backgroundSaving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c542]" /> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
+                    No official backgrounds are available yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#f5c542]/35 bg-[#f5c542]/10 px-3 py-2 text-xs font-bold text-[#f5c542]">
+                    <Upload className="h-4 w-4" />
+                    <span className="truncate">{customBackgroundFile ? customBackgroundFile.name : "Choose image"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(event) => setCustomBackgroundFile(event.target.files?.[0] || null)}
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    disabled={!customBackgroundFile || Boolean(backgroundSaving)}
+                    onClick={uploadCustomBackground}
+                    className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]"
+                  >
+                    {backgroundSaving === "custom" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Upload
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

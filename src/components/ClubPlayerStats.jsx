@@ -8,6 +8,7 @@ import { User, Target, TrendingUp, Star, Trophy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { buildClubPlayerStatMap, getClubPlayerStats } from "@/lib/clubPlayerStats";
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -49,18 +50,21 @@ export default function ClubPlayerStats({ players, clubId }) {
     return <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   }
 
-  // Aggregate per player — use Player entity fields directly
+  const clubPlayerStatsById = buildClubPlayerStatMap(players, stats, clubId);
+
+  // Aggregate per player from club match-player stat rows only.
   const playerAgg = players.map(p => {
-    const matches = p.matches_played_club || 0;
-    const goals = p.goals || 0;
-    const assists = p.assists || 0;
-    const avgRating = matches > 0 ? parseFloat((p.avg_match_rating || 6).toFixed(1)) : 0;
+    const clubStats = getClubPlayerStats(clubPlayerStatsById, p);
+    const matches = clubStats.matches;
+    const goals = clubStats.goals;
+    const assists = clubStats.assists;
+    const avgRating = clubStats.avgRating ? parseFloat(clubStats.avgRating.toFixed(1)) : 0;
     return { name: p.gamertag || p.email, email: p.email, matches, goals, assists, avgRating, position: p.position };
   }).sort((a, b) => b.goals - a.goals);
 
   function getPlayerTimeline(email) {
     return stats
-      .filter(s => s.player_email === email)
+      .filter(s => String(s.club_id || "") === String(clubId || "") && s.player_email === email)
       .map((s, i) => ({
         match: `M${i + 1}`,
         goals: s.goals || 0,
@@ -73,7 +77,7 @@ export default function ClubPlayerStats({ players, clubId }) {
   const timeline = selectedPlayer !== "all" ? getPlayerTimeline(selectedPlayer) : [];
 
   const radarData = selectedPlayerData ? (() => {
-    const ps = stats.filter(s => s.player_email === selectedPlayer);
+    const ps = stats.filter(s => String(s.club_id || "") === String(clubId || "") && s.player_email === selectedPlayer);
     const matches = ps.length || 1;
     const goals = ps.reduce((a, s) => a + (s.goals || 0), 0);
     const assists = ps.reduce((a, s) => a + (s.assists || 0), 0);

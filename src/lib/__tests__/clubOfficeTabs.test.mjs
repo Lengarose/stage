@@ -8,42 +8,34 @@ import { buildClubTabGroups } from "../clubOfficeTabs.js";
 const root = resolve(import.meta.dirname, "../../..");
 const t = (key) => key;
 
-test("owner club nav keeps Office as a group with management subtabs", () => {
+test("club nav exposes the simplified public tabs", () => {
+  const groups = buildClubTabGroups({ t });
+  assert.deepEqual(
+    groups.map((group) => group.tabs[0]),
+    ["posts", "squad", "stats", "fixtures", "trophies"],
+  );
+});
+
+test("club office is a single top-level group", () => {
   const groups = buildClubTabGroups({
     t,
-    canOpenOperations: true,
-    isOwner: true,
-    showRequests: false,
-    limitedTournamentId: null,
+    canOpenClubOffice: true,
   });
-  const office = groups.find((group) => group.tabs.includes("stadium"));
+  const office = groups.find((group) => group.tabs.includes("club-office"));
   assert.ok(office);
-  assert.equal(office.label, "commonPages.cdClubOffice");
-  assert.deepEqual(office.tabs, ["stadium", "contracts", "finance", "shirts"]);
+  assert.equal(office.label, "Club Office");
+  assert.deepEqual(office.tabs, ["club-office"]);
   assert.equal(groups.some((group) => group.tabs.length === 1 && group.tabs[0] === "finance"), false);
+  assert.equal(groups.some((group) => group.tabs.length === 1 && group.tabs[0] === "operations"), false);
 });
 
-test("non-owners do not see Office tools", () => {
+test("club office is hidden without permission", () => {
   const groups = buildClubTabGroups({
     t,
-    canOpenOperations: true,
-    isOwner: false,
-    showRequests: false,
-    limitedTournamentId: null,
+    canOpenClubOffice: false,
   });
-  assert.equal(groups.some((group) => group.tabs.includes("stadium")), false);
-});
-
-test("limited tournament clubs do not expose Office tools", () => {
-  const groups = buildClubTabGroups({
-    t,
-    canOpenOperations: true,
-    isOwner: true,
-    showRequests: true,
-    limitedTournamentId: "tour-1",
-  });
-  assert.equal(groups.some((group) => group.tabs.includes("stadium")), false);
-  assert.equal(groups.some((group) => group.tabs.includes("requests")), false);
+  assert.equal(groups.some((group) => group.tabs.includes("club-office")), false);
+  assert.equal(groups.some((group) => group.tabs.includes("availability")), false);
 });
 
 test("chat tab is only included for squad players", () => {
@@ -57,4 +49,7 @@ test("club detail uses grouped Office navigation", () => {
   const source = readFileSync(resolve(root, "src/pages/ClubDetail.jsx"), "utf8");
   assert.match(source, /GamerClubTabNav/);
   assert.match(source, /buildClubTabGroups/);
+  assert.doesNotMatch(source, /value="availability"/);
+  assert.doesNotMatch(source, /value="operations"/);
+  assert.doesNotMatch(source, /value="contracts"/);
 });

@@ -34,6 +34,9 @@ const DEFAULT_STORE_SETTINGS = {
     'Full rankings and position rankings',
     'Full player and club stats',
     'Advanced recruitment and search filters',
+    'Custom player card backgrounds',
+    'Upload your own player card background',
+    'Choose exclusive STAGE Plus card background designs',
   ],
 };
 

@@ -38,6 +38,10 @@ function isAdmin(user) {
   return [0, 2].includes(Number(user?.role_id));
 }
 
+function hasStagePlus(subscription) {
+  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
+}
+
 async function getUser(req) {
   const rows = await EXECUTESQL(
     'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
@@ -64,6 +68,19 @@ function normalizePlayerPayload(body = {}) {
     }
   }
   return payload;
+}
+
+function normalizeCardBackgroundUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  const isImagePath = (pathname) => /\.(jpe?g|png|webp|gif)$/i.test(String(pathname || '').split('?')[0]);
+  if ((value.startsWith('/uploads/') || value.startsWith('uploads/')) && isImagePath(value)) return value;
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname.startsWith('/uploads/') && isImagePath(parsed.pathname) ? value : '';
+  } catch {
+    return '';
+  }
 }
 
 async function ensureSecondaryPositionColumn() {
@@ -221,6 +238,61 @@ router.patch('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// PATCH /:id/card-background
+router.patch('/:id/card-background', async (req, res) => {
+  try {
+    await ensureSecondaryPositionColumn();
+    const { id } = req.params;
+    const existing = (await new Player().selectOne(id))[0];
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const ownsPlayer = String(existing.user_id || '') === String(req.user?.id || '')
+      || String(existing.email || '').toLowerCase() === String(req.user?.email || '').toLowerCase();
+    if (!ownsPlayer) {
+      return res.status(403).json({ error: 'You can only change your own player card background' });
+    }
+    if (!hasStagePlus(existing.subscription)) {
+      return res.status(403).json({ error: 'STAGE Plus is required to customize player card backgrounds' });
+    }
+
+    const type = String(req.body?.type || 'default').toLowerCase();
+    let backgroundId = null;
+    let backgroundUrl = null;
+    if (type === 'default') {
+      // Reset to the standard card.
+    } else if (type === 'official') {
+      backgroundId = String(req.body?.background_id || '').trim();
+      if (!backgroundId) return res.status(400).json({ error: 'background_id is required' });
+      const preset = (await EXECUTESQL(
+        'SELECT id, image_url FROM player_card_backgrounds WHERE id = ? AND is_active = 1 LIMIT 1',
+        [backgroundId],
+      ))[0];
+      if (!preset) return res.status(404).json({ error: 'Background not found' });
+      backgroundUrl = preset.image_url;
+    } else if (type === 'custom') {
+      backgroundUrl = normalizeCardBackgroundUrl(req.body?.image_url);
+      if (!backgroundUrl) return res.status(400).json({ error: 'A valid uploaded image URL is required' });
+    } else {
+      return res.status(400).json({ error: 'Invalid background type' });
+    }
+
+    await EXECUTESQL(
+      `UPDATE players
+       SET player_card_background_type = ?,
+           player_card_background_id = ?,
+           player_card_background_url = ?,
+           updated_date = NOW()
+       WHERE id = ?`,
+      [type, backgroundId, backgroundUrl, id],
+    );
+    const updated = (await new Player().selectOne(id))[0];
+    broadcastPlayer(updated);
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
 

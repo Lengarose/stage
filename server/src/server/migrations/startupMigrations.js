@@ -105,6 +105,9 @@ async function runStartupMigrations() {
   await addCol('players', 'stripe_subscription_id', 'VARCHAR(255) NULL');
   await addCol('players', 'stripe_customer_id', 'VARCHAR(255) NULL');
   await addCol('players', 'subscription_cancel_at_period_end', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('players', 'player_card_background_type', "VARCHAR(20) NULL DEFAULT 'default'");
+  await addCol('players', 'player_card_background_id', 'VARCHAR(36) NULL');
+  await addCol('players', 'player_card_background_url', 'TEXT NULL');
   await addCol('players', 'role', 'VARCHAR(50) NULL');
   await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
   await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
@@ -121,6 +124,19 @@ async function runStartupMigrations() {
   await EXECUTESQL(
     'ALTER TABLE players MODIFY COLUMN club_id VARCHAR(36) NULL'
   ).catch((err) => console.error('[migration] players.club_id nullable:', err.message));
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_card_backgrounds (
+    id            VARCHAR(36) PRIMARY KEY,
+    name          VARCHAR(120) NOT NULL,
+    description   TEXT NULL,
+    image_url     TEXT NOT NULL,
+    is_active     TINYINT(1) DEFAULT 1,
+    is_stage_plus TINYINT(1) DEFAULT 1,
+    sort_order    INT DEFAULT 0,
+    created_by    VARCHAR(36) NULL,
+    created_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_date  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_player_card_backgrounds_active_sort (is_active, sort_order)
+  )`).catch((err) => console.error('[migration] player_card_backgrounds:', err.message));
   await addCol('users', 'access_mode', "VARCHAR(32) NULL DEFAULT 'standard'");
   await addCol('users', 'limited_tournament_id', 'VARCHAR(36) NULL');
   await addCol('users', 'limited_mode_expires_at', 'DATETIME NULL');
@@ -497,6 +513,7 @@ async function runStartupMigrations() {
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
   await addCol('match_player_stats', 'player_gamertag', 'VARCHAR(255) NULL');
   await addCol('match_player_stats', 'position', 'VARCHAR(50) NULL');
+  await addCol('match_player_stats', 'own_goals', 'INT DEFAULT 0');
   await addCol('match_player_stats', 'clean_sheet', 'TINYINT(1) DEFAULT 0');
   await addCol('match_player_stats', 'is_motm', 'TINYINT(1) DEFAULT 0');
 
