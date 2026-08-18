@@ -41,7 +41,7 @@ export default function FounderPlayerTermsSetup({ player, initialTerms = null, o
     setTargets((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  const wageError = weeklySalary === "" ? t("commonPages.founderWageRequired") : founderPlayerWageError(weeklySalary);
+  const wageError = founderPlayerWageError(weeklySalary);
 
   function handleContinue() {
     if (!isFounderPlayerWageAllowed(weeklySalary)) return;
@@ -76,12 +76,11 @@ export default function FounderPlayerTermsSetup({ player, initialTerms = null, o
             max={FOUNDER_PLAYER_WEEKLY_SALARY_MAX}
             value={weeklySalary}
             onChange={(e) => setWeeklySalary(e.target.value)}
-            placeholder="e.g. 40000"
+            placeholder="e.g. 0"
             className={inputCls}
           />
           <p className="text-[10px] text-white/40 mt-1">
             {t("commonPages.founderWageRange", {
-              min: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MIN),
               max: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MAX),
             })}
           </p>
@@ -178,8 +177,7 @@ export default function FounderPlayerTermsSetup({ player, initialTerms = null, o
       </div>
 
       {wageError ? (
-        <p className="text-xs text-red-300">{wageError === t("commonPages.founderWageRequired") ? wageError : t("commonPages.founderWageRange", {
-          min: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MIN),
+        <p className="text-xs text-red-300">{t("commonPages.founderWageRequired", {
           max: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MAX),
         })}</p>
       ) : null}

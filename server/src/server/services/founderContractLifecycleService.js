@@ -24,15 +24,15 @@ const FOUNDER_PRESIDENT_CONTRACT_TYPE = 'ownership';
 const LEGACY_FOUNDER_CONTRACT_TYPE = 'founder';
 const FOUNDER_CONTRACT_DAYS = 3650;
 const FOUNDER_TARGET_TYPES = new Set(['min', 'exact', 'range']);
-const FOUNDER_PLAYER_WEEKLY_SALARY_MIN = 40000;
-const FOUNDER_PLAYER_WEEKLY_SALARY_MAX = 500000;
+const FOUNDER_PLAYER_WEEKLY_SALARY_MIN = 0;
+const FOUNDER_PLAYER_WEEKLY_SALARY_MAX = STARTER_CLUB.wage_budget_stc;
 
 function sanitizeFounderPlayerTerms(terms = {}) {
   const weekly = Math.max(0, Number(terms.weekly_salary_stc) || 0);
   const hasWageInput = terms.weekly_salary_stc != null && String(terms.weekly_salary_stc) !== '';
   if (hasWageInput && (weekly < FOUNDER_PLAYER_WEEKLY_SALARY_MIN || weekly > FOUNDER_PLAYER_WEEKLY_SALARY_MAX)) {
     throw httpError(
-      `Founder Player wage must be between ${FOUNDER_PLAYER_WEEKLY_SALARY_MIN.toLocaleString()} and ${FOUNDER_PLAYER_WEEKLY_SALARY_MAX.toLocaleString()} STC per week`,
+      `A starting club has only ${FOUNDER_PLAYER_WEEKLY_SALARY_MAX.toLocaleString()} STC wage budget per week. A higher Founder Player wage is not possible yet.`,
       400,
       'founder_wage_range'
     );

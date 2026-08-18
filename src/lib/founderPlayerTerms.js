@@ -1,6 +1,6 @@
 const TARGET_TYPES = new Set(["min", "exact", "range"]);
 
-export const FOUNDER_PLAYER_WEEKLY_SALARY_MIN = 40_000;
+export const FOUNDER_PLAYER_WEEKLY_SALARY_MIN = 0;
 export const FOUNDER_PLAYER_WEEKLY_SALARY_MAX = 250_000; // 250K STC
 
 export function isFounderPlayerWageAllowed(weeklySalary) {
@@ -12,7 +12,7 @@ export function isFounderPlayerWageAllowed(weeklySalary) {
 
 export function founderPlayerWageError(weeklySalary) {
   if (isFounderPlayerWageAllowed(weeklySalary)) return null;
-  return `Founder Player wage must be between ${FOUNDER_PLAYER_WEEKLY_SALARY_MIN.toLocaleString()} and ${FOUNDER_PLAYER_WEEKLY_SALARY_MAX.toLocaleString()} STC per week`;
+  return `A starting club has only ${FOUNDER_PLAYER_WEEKLY_SALARY_MAX.toLocaleString()} STC wage budget per week. A higher Founder Player wage is not possible yet.`;
 }
 
 export function normalizePerformanceTargets(value) {

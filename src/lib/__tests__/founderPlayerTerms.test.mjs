@@ -36,16 +36,16 @@ test("performance target metadata objects do not count as targets", () => {
   ]);
 });
 
-test("founder player wages are 40k to 500k", () => {
-  assert.equal(FOUNDER_PLAYER_WEEKLY_SALARY_MIN, 40_000);
-  assert.equal(FOUNDER_PLAYER_WEEKLY_SALARY_MAX, 500_000);
-  assert.equal(isFounderPlayerWageAllowed(40_000), true);
-  assert.equal(isFounderPlayerWageAllowed(500_000), true);
-  assert.equal(isFounderPlayerWageAllowed(25_000), false);
-  assert.equal(isFounderPlayerWageAllowed(500_001), false);
+test("founder player wages can be 0 but cannot pass the starter club wage budget", () => {
+  assert.equal(FOUNDER_PLAYER_WEEKLY_SALARY_MIN, 0);
+  assert.equal(FOUNDER_PLAYER_WEEKLY_SALARY_MAX, 250_000);
+  assert.equal(isFounderPlayerWageAllowed(0), true);
+  assert.equal(isFounderPlayerWageAllowed(18_500), true);
+  assert.equal(isFounderPlayerWageAllowed(250_000), true);
+  assert.equal(isFounderPlayerWageAllowed(250_001), false);
   assert.deepEqual(suggestSalaryRange("founder_player", 86), {
-    min: 40_000,
-    max: 500_000,
+    min: 0,
+    max: 250_000,
     label: "Founder Player",
     based_on_value: false,
   });

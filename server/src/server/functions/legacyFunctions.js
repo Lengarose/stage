@@ -5718,8 +5718,8 @@ const HANDLERS = {
       const nextWeekly = weekly_salary_stc != null ? weekly_salary_stc : contract.weekly_salary_stc;
       if (isActiveFounderPlayer) {
         const founderWage = Number(nextWeekly || 0);
-        if (founderWage < 40000 || founderWage > 500000) {
-          throw new Error('Founder Player wage must be between 40,000 and 500,000 STC per week');
+        if (founderWage < 0 || founderWage > 250000) {
+          throw new Error('A starting club has only 250,000 STC wage budget per week. A higher Founder Player wage is not possible yet.');
         }
       }
       const nextBonus = signing_bonus_stc != null ? signing_bonus_stc : contract.signing_bonus_stc;

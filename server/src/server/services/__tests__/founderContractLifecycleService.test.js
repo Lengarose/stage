@@ -247,21 +247,21 @@ test('founder lifecycle stores player wages and performance targets on the found
     playerId: 'player-1',
     club: { name: 'Founder FC', tag: 'FFC', platform: 'PlayStation', region: 'Europe', country_code: 'BE' },
     playerContract: {
-      weekly_salary_stc: 40000,
+      weekly_salary_stc: 18500,
       signing_bonus_stc: 5000,
       performance_targets: [{ stat: 'goals', type: 'min', value: 10 }],
     },
     idempotencyKey: 'founder-wages-1',
   });
 
-  assert.equal(result.playerContract.weekly_salary_stc, 40000);
+  assert.equal(result.playerContract.weekly_salary_stc, 18500);
   assert.equal(result.playerContract.signing_bonus_stc, 5000);
   assert.equal(result.playerContract.performance_targets, JSON.stringify([{ stat: 'goals', type: 'min', value: 10, value_max: 0 }]));
   assert.equal(result.presidentContract.weekly_salary_stc, 0);
   assert.equal(result.presidentContract.signing_bonus_stc, 0);
 });
 
-test('founder lifecycle rejects player wages outside 40k-500k', async () => {
+test('founder lifecycle rejects player wages above the starter club weekly wage budget', async () => {
   const connection = makeConnection();
   const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
 
@@ -270,9 +270,9 @@ test('founder lifecycle rejects player wages outside 40k-500k', async () => {
       user: { id: 'user-1', email: 'founder@example.test' },
       playerId: 'player-1',
       club: { name: 'Founder FC', tag: 'FFC' },
-      playerContract: { weekly_salary_stc: 25000 },
+      playerContract: { weekly_salary_stc: 250001 },
     }),
-    /40,000 and 500,000/
+    /250,000 STC wage budget/
   );
 });
 

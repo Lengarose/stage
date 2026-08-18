@@ -7,6 +7,8 @@ import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { isPersistableMediaUrl } from "@/lib/mediaUrls";
+import { FOUNDER_PLAYER_WEEKLY_SALARY_MAX } from "@/lib/founderPlayerTerms";
+import { formatSTC } from "@/lib/playerValue";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +85,12 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
     setError(null);
     try {
       if (!player?.id) throw new Error("Create your Player profile before founding a club.");
+      const founderWeeklySalary = Number(playerContract?.weekly_salary_stc || 0);
+      if (founderWeeklySalary > FOUNDER_PLAYER_WEEKLY_SALARY_MAX) {
+        throw new Error(t("commonPages.founderWageRequired", {
+          max: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MAX),
+        }));
+      }
       const founderState = await stageClient.clubs.createFounder({
         player_id: player.id,
         idempotency_key: `${user?.id || user?.email || "user"}:${player.id}:${name.trim().toLowerCase()}`,
@@ -109,7 +117,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
       onComplete(club, founderState);
     } catch (err) {
       console.error("Failed to create club:", err);
-      setError(err?.message || JSON.stringify(err) || "Unknown error — check console");
+      setError(err?.data?.error || err?.data?.message || err?.message || JSON.stringify(err) || "Unknown error — check console");
       setSaving(false);
     }
   }
