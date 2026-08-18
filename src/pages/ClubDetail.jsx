@@ -1528,11 +1528,11 @@ function NationalityRow({ player }) {
   const nationality = getPlayerNationality(player);
   return (
     <div
-      className="flex items-center justify-between gap-2 overflow-hidden rounded-md border border-white/10 px-2.5 py-1.5"
+      className="flex items-center justify-between gap-2 overflow-hidden border border-white/10 px-3 py-1.5"
       style={getCountryFlagStyle(nationality.code)}
     >
       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Nationality</span>
-      <span className="flex min-w-0 items-center rounded-sm border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
+      <span className="flex min-w-0 items-center border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
         <span className="truncate">{nationality.label}</span>
       </span>
     </div>
@@ -1541,7 +1541,7 @@ function NationalityRow({ player }) {
 
 function StatusRow({ label, summary }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5">
+    <div className="flex items-center justify-between gap-2 border border-white/10 bg-black/20 px-3 py-1.5">
       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">{label}</span>
       <StatusPill className={summary.className}>{summary.label}</StatusPill>
     </div>
@@ -1550,12 +1550,12 @@ function StatusRow({ label, summary }) {
 
 function InfoTile({ icon: Icon, label, value }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5">
+    <div className="min-w-0 border border-white/10 bg-black/20 px-3 py-1.5">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">
         {Icon ? <Icon className="h-3 w-3" /> : null}
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-0.5 truncate font-heading text-[13px] font-black uppercase text-white">{value ?? "--"}</p>
+      <p className="mt-0.5 truncate font-heading text-xs font-black uppercase text-white">{value ?? "--"}</p>
     </div>
   );
 }
@@ -2254,7 +2254,8 @@ function PlayerCard({
         tabIndex={0}
         onClick={openProfile}
         onKeyDown={onCardKeyDown}
-        className="group relative min-h-[270px] cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-[#071018] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50"
+        className="group relative min-h-[248px] cursor-pointer overflow-hidden border border-white/10 bg-[#071018] px-4 py-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50 sm:px-5"
+        style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
       >
         {cardBackgroundUrl ? (
           <div
@@ -2275,9 +2276,17 @@ function PlayerCard({
             ].join(", "),
           }}
         />
-        <div className="relative z-[1] flex items-start justify-between gap-2.5">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+        <div
+          aria-hidden
+          className="absolute inset-[1px] border border-[#f5c542]/10 opacity-70"
+          style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
+        />
+        <div className="relative z-[1] flex items-start justify-between gap-2 pl-1 pr-2 sm:pl-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div
+              className="relative h-[58px] w-[58px] shrink-0 overflow-hidden border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+              style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+            >
               {player.avatar_url ? (
                 <img
                   src={player.avatar_url}
@@ -2286,19 +2295,19 @@ function PlayerCard({
                   style={{ objectPosition: player.avatar_position || "50% 50%" }}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-lg font-black text-[#f5c542]">
+                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-base font-black text-[#f5c542]">
                   {initials}
                 </div>
               )}
-              <div className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1 py-0.5 text-[9px] font-black text-[#f5c542]">
+              <div className="absolute bottom-1 right-1 bg-black/75 px-1 py-0.5 text-[8px] font-black text-[#f5c542]">
                 {player.position || "--"}
               </div>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-heading text-lg font-black uppercase leading-tight text-white">
+              <p className="truncate font-heading text-[17px] font-black uppercase leading-tight text-white">
                 {player.gamertag || "Player"}
               </p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              <div className="mt-1 flex flex-wrap items-center gap-1">
                 <StatusPill className={rolePillClass(primaryRole)}>
                   {isPresidentRole ? <Shield className="h-2.5 w-2.5" /> : null}
                   {roleLabel}
@@ -2310,9 +2319,12 @@ function PlayerCard({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-start gap-1.5">
-            <div className="min-w-11 rounded-md border border-[#f5c542]/35 bg-black/45 px-2 py-1 text-center">
-              <p className="font-heading text-xl font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
+          <div className="flex shrink-0 items-start gap-1">
+            <div
+              className="min-w-10 border border-[#f5c542]/35 bg-black/45 px-1.5 py-1 text-center"
+              style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)" }}
+            >
+              <p className="font-heading text-lg font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
               <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/45">OVR</p>
             </div>
             <DropdownMenu>
@@ -2320,7 +2332,8 @@ function PlayerCard({
                 <button
                   type="button"
                   onClick={stopCardClick}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  className="flex h-7 w-7 items-center justify-center border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   aria-label="Player actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -2411,18 +2424,21 @@ function PlayerCard({
           </div>
         </div>
 
-        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-2">
+        <div className="relative z-[1] mt-2.5 grid grid-cols-2 gap-1.5 pl-1 pr-2 sm:pl-2">
           <InfoTile icon={Footprints} label="Primary" value={player.position || "--"} />
           <InfoTile icon={Target} label="Secondary" value={player.secondary_position || "--"} />
         </div>
 
-        <div className="relative z-[1] mt-3 grid gap-2">
+        <div className="relative z-[1] mt-2 grid gap-1.5 pl-1 pr-2 sm:pl-2">
           <StatusRow label="Contract" summary={contractSummary} />
           <StatusRow label="Next match" summary={availabilitySummary} />
           <NationalityRow player={player} />
         </div>
 
-        <div className="relative z-[1] mt-3 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
+        <div
+          className="relative z-[1] mt-2.5 grid grid-cols-4 overflow-hidden border border-white/10 bg-black/25"
+          style={{ clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" }}
+        >
           <StatCell label="AVG" value={clubAverageRating} />
           <StatCell label="G" value={clubGoals} />
           <StatCell label="A" value={clubAssists} />
