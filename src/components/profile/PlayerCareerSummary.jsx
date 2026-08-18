@@ -95,9 +95,9 @@ function HistoryRows({ history, playerCareer = false, t }) {
 
 function CareerSection({ title, stats, history, playerCareer = false, t }) {
   return (
-    <GamerSectionCard title={title}>
+    <GamerSectionCard title={title} shape="rounded">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {stats.map((stat) => <GamerStatTile key={stat.label} {...stat} />)}
+        {stats.map((stat) => <GamerStatTile key={stat.label} {...stat} shape="rounded" />)}
       </div>
       <HistoryRows history={history} playerCareer={playerCareer} t={t} />
     </GamerSectionCard>
@@ -108,7 +108,7 @@ export default function PlayerCareerSummary({ career, loading }) {
   const { t } = useTranslation();
 
   if (loading) {
-    return <GamerSectionCard><div className="py-10 text-center text-sm text-white/40">{text(t, "ppCareerLoading")}</div></GamerSectionCard>;
+    return <GamerSectionCard shape="rounded"><div className="py-10 text-center text-sm text-white/40">{text(t, "ppCareerLoading")}</div></GamerSectionCard>;
   }
 
   const club = career?.club_career || {};

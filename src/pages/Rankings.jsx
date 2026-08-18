@@ -255,16 +255,19 @@ export default function Rankings() {
 
 function Segment({ value, onChange, items }) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-2">
       {items.map(({ value: itemValue, label, icon: Icon }) => (
         <button
           key={itemValue}
           type="button"
           onClick={() => onChange(itemValue)}
           className={cn(
-            "flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-            value === itemValue ? "border-cyan-300 text-cyan-300" : "border-transparent text-white/35 hover:text-white/70"
+            "flex items-center gap-2 border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all",
+            value === itemValue
+              ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_22px_-10px_rgba(0,229,255,0.95)]"
+              : "border-cyan-300/15 bg-[#06111d]/75 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50"
           )}
+          style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
         >
           <Icon className="h-4 w-4" />
           {label}

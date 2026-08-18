@@ -157,7 +157,10 @@ export default function PresidentProfile() {
     return (
       <GamerProfileShell>
         <div className="min-h-[60vh] flex items-center justify-center px-6">
-          <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center">
+          <section
+            className="w-full max-w-xl border border-cyan-300/15 bg-white/[0.04] p-7 text-center"
+            style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
+          >
             <Shield className="w-10 h-10 text-amber-300/80 mx-auto mb-4" />
             <h1 className="font-heading text-2xl font-black uppercase text-white">
               {t("commonPages.presProfileMenu")}
@@ -211,7 +214,8 @@ export default function PresidentProfile() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 border border-cyan-300/20 bg-black/35 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md transition-colors hover:border-cyan-200/45 hover:bg-cyan-300/10 hover:text-white"
+            style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
           >
             <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
           </button>
@@ -220,7 +224,8 @@ export default function PresidentProfile() {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider"
+            className="flex items-center gap-1.5 border border-cyan-300/20 bg-black/35 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/80 backdrop-blur-md hover:border-cyan-200/45 hover:bg-cyan-300/10"
+            style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
           >
             <Pencil className="w-4 h-4" /> {t("commonPages.profEditProfile")}
           </button>
@@ -234,7 +239,8 @@ export default function PresidentProfile() {
                 href={isSafeUrl(link.url) ? link.url : "#"}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center rounded-lg border border-white/10 px-2.5 py-1 hover:text-white hover:border-white/25"
+                className="inline-flex items-center border border-white/10 px-3 py-1 hover:border-white/25 hover:text-white"
+                style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
               >
                 {link.label}
               </a>
@@ -244,18 +250,23 @@ export default function PresidentProfile() {
       </GamerPresidentProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
-        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+        <section
+          className="border border-cyan-300/15 bg-white/[0.04] p-5 sm:p-6"
+          style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
+        >
           <Tabs value={mainTab} onValueChange={setMainTab}>
-            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+            <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-2 rounded-none bg-transparent p-0">
               <TabsTrigger
                 value="history"
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/55 data-[state=active]:border-amber-300/35 data-[state=active]:bg-amber-300/10 data-[state=active]:text-amber-100"
+                className="rounded-none border border-cyan-300/15 bg-[#06111d]/80 px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-cyan-100/45 data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+                style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
               >
                 {t("commonPages.presTabHistory")}
               </TabsTrigger>
               <TabsTrigger
                 value="contracts"
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/55 data-[state=active]:border-amber-300/35 data-[state=active]:bg-amber-300/10 data-[state=active]:text-amber-100"
+                className="rounded-none border border-cyan-300/15 bg-[#06111d]/80 px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-cyan-100/45 data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+                style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
               >
                 {canEdit ? t("commonPages.presTabContracts") : t("commonPages.presTabPlayersSigned")}
               </TabsTrigger>
@@ -275,19 +286,24 @@ export default function PresidentProfile() {
                     return (
                       <li
                         key={tenure.id}
-                        className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3"
+                        className="flex items-center gap-3 border border-white/10 bg-black/20 px-5 py-3"
+                        style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
                       >
                         {tenure.club_logo_url ? (
                           <span
-                            className="w-10 h-10 rounded-lg border border-white/15 shrink-0"
+                            className="h-10 w-10 shrink-0 border border-white/15"
                             style={{
+                              clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)",
                               backgroundImage: `url(${tenure.club_logo_url})`,
                               backgroundSize: "cover",
                               backgroundPosition: "center",
                             }}
                           />
                         ) : (
-                          <span className="w-10 h-10 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center shrink-0">
+                          <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/15 bg-white/5"
+                            style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+                          >
                             <Shield className="w-4 h-4 text-white/40" />
                           </span>
                         )}

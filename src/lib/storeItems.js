@@ -150,6 +150,8 @@ export const STORE_ITEMS = [
       "Custom player card backgrounds",
       "Upload your own player card background",
       "Choose exclusive STAGE Plus card background designs",
+      "Custom Club Profile stats tile backgrounds",
+      "Upload your own club stats tile background",
     ],
   },
 ];

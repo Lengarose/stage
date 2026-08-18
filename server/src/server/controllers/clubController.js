@@ -96,6 +96,52 @@ function hasLegacyCaptainProfileAccess(access) {
   return Boolean(access?.roles?.some((role) => ['captain', 'vice_captain', 'vice-captain'].includes(role)));
 }
 
+function hasStagePlus(subscription) {
+  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
+}
+
+function normalizeStatsTileBackgroundUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  const isImagePath = (pathname) => /\.(jpe?g|png|webp|gif)$/i.test(String(pathname || '').split('?')[0]);
+  if (value.startsWith('/uploads/') && isImagePath(value)) return value;
+  if (value.startsWith('uploads/') && isImagePath(value)) return `/${value}`;
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname.startsWith('/uploads/') && isImagePath(parsed.pathname) ? value : '';
+  } catch {
+    return '';
+  }
+}
+
+function normalizeStatsTileBackgroundPosition(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%$/);
+  if (!match) return '50% 50%';
+  const x = Math.max(0, Math.min(100, Number(match[1])));
+  const y = Math.max(0, Math.min(100, Number(match[2])));
+  return `${Math.round(x)}% ${Math.round(y)}%`;
+}
+
+function normalizeStatsTileBackgroundZoom(value) {
+  const zoom = Number(value);
+  if (!Number.isFinite(zoom)) return 120;
+  return Math.max(100, Math.min(260, Math.round(zoom)));
+}
+
+const STATS_TILE_KEYS = new Set(['goals', 'assists', 'rating', 'matches']);
+
+function parseStatsTileBackgrounds(value) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function assertClubPatchAllowed(access, fields) {
   if (access?.admin) return;
   const restricted = fields.filter((field) => (
@@ -119,6 +165,18 @@ function assertClubPatchAllowed(access, fields) {
     err.status = 403;
     throw err;
   }
+}
+
+async function resolveCurrentPlayerForUser(req, clubId) {
+  const rows = await EXECUTESQL(
+    `SELECT id, user_id, email, subscription
+     FROM players
+     WHERE club_id = ?
+       AND (user_id = ? OR LOWER(email) = LOWER(?))
+     LIMIT 1`,
+    [clubId, req.user?.id || '', req.user?.email || '']
+  ).catch(() => []);
+  return rows[0] || null;
 }
 
 async function resolveClubUserId(req, body = {}) {
@@ -491,6 +549,95 @@ router.patch('/:id', async (req, res) => {
     }
     broadcastClub(record);
     res.json(record);
+  } catch (err) {
+    console.error(err);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// PATCH /:id/stats-tile-background — STAGE Plus club stats tile personalization.
+router.patch('/:id/stats-tile-background', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { access, user } = await requireClubPermission(req, id, null);
+    const existing = await new Club().selectOne(id);
+    if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    const canCustomize = access?.admin
+      || hasClubPermission(access, 'edit_club_profile')
+      || hasLegacyCaptainProfileAccess(access);
+    if (!canCustomize) return res.status(403).json({ error: 'Forbidden' });
+
+    if (!access?.admin) {
+      const currentPlayer = await resolveCurrentPlayerForUser(req, id);
+      if (!hasStagePlus(currentPlayer?.subscription)) {
+        return res.status(403).json({ error: 'STAGE Plus is required to customize club stats tile backgrounds' });
+      }
+    }
+
+    const statKey = String(req.body?.stat_key || '').toLowerCase();
+    if (!STATS_TILE_KEYS.has(statKey)) {
+      return res.status(400).json({ error: 'Valid stat_key is required' });
+    }
+
+    const type = String(req.body?.type || 'default').toLowerCase();
+    let backgroundId = null;
+    let backgroundUrl = null;
+    let backgroundPosition = '50% 50%';
+    let backgroundZoom = 120;
+    if (type === 'default') {
+      // Reset to the standard stats tile style.
+    } else if (type === 'official') {
+      backgroundId = String(req.body?.background_id || '').trim();
+      if (!backgroundId) return res.status(400).json({ error: 'background_id is required' });
+      const preset = (await EXECUTESQL(
+        'SELECT id, image_url FROM player_card_backgrounds WHERE id = ? AND is_active = 1 LIMIT 1',
+        [backgroundId],
+      ))[0];
+      if (!preset) return res.status(404).json({ error: 'Background not found' });
+      backgroundUrl = preset.image_url;
+    } else if (type === 'custom') {
+      backgroundUrl = normalizeStatsTileBackgroundUrl(req.body?.image_url);
+      if (!backgroundUrl) return res.status(400).json({ error: 'A valid uploaded image URL is required' });
+      backgroundPosition = normalizeStatsTileBackgroundPosition(req.body?.position);
+      backgroundZoom = normalizeStatsTileBackgroundZoom(req.body?.zoom);
+      assertPersistableMediaFields({ stats_tile_background_url: backgroundUrl }, ['stats_tile_background_url']);
+    } else {
+      return res.status(400).json({ error: 'Invalid background type' });
+    }
+
+    const backgrounds = parseStatsTileBackgrounds(existing[0].stats_tile_backgrounds);
+    const oldTileBackground = backgrounds[statKey] || null;
+    if (type === 'default') {
+      delete backgrounds[statKey];
+    } else {
+      backgrounds[statKey] = {
+        type,
+        background_id: backgroundId,
+        url: backgroundUrl,
+        position: backgroundPosition,
+        zoom: backgroundZoom,
+      };
+    }
+
+    await EXECUTESQL(
+      `UPDATE clubs
+       SET stats_tile_backgrounds = ?,
+           updated_date = NOW()
+       WHERE id = ?`,
+      [JSON.stringify(backgrounds), id],
+    );
+    const updated = (await new Club().selectOne(id))[0];
+    await writeClubAudit({
+      clubId: id,
+      user,
+      action: 'stats_tile_background_changed',
+      entityType: 'club',
+      entityId: id,
+      oldValue: { stat_key: statKey, background: oldTileBackground },
+      newValue: { stat_key: statKey, background: backgrounds[statKey] || null },
+    }).catch((err) => console.error('[club stats tile background audit]', err.message));
+    broadcastClub(updated);
+    res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

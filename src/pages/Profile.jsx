@@ -479,7 +479,7 @@ export default function Profile({
 
               {profileTab === "showcase" ? (
                 <div className="pt-2">
-                  <GamerSectionCard>
+                  <GamerSectionCard shape="rounded">
                     <PlayerShowcase player={player} canEdit={true} />
                   </GamerSectionCard>
                 </div>

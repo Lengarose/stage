@@ -16,15 +16,19 @@ export default function GamerClubTabNav({ groups, activeTab, tabLabels, onChange
               type="button"
               onClick={() => onChange(group.tabs[0])}
               className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] transition-all",
+                "shrink-0 border px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] transition-all sm:text-xs",
                 isActive
-                  ? "bg-gradient-to-r from-cyan-500/25 to-teal-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_20px_-6px_rgba(0,229,255,0.8)]"
-                  : "bg-white/[0.03] text-white/40 border border-white/10 hover:text-white/70 hover:border-white/20"
+                  ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_24px_-8px_rgba(0,229,255,0.95)]"
+                  : "border-cyan-300/15 bg-[#06111d]/80 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50"
               )}
+              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
             >
               {group.label}
               {badge ? (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-black text-[9px] font-black normal-case tracking-normal">
+                <span
+                  className="ml-1.5 inline-flex h-[18px] min-w-[22px] items-center justify-center bg-cyan-300 px-1 text-[9px] font-black normal-case tracking-normal text-black"
+                  style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)" }}
+                >
                   {badge}
                 </span>
               ) : null}

@@ -43,9 +43,15 @@ const CLUB_COLUMNS = [
   'banner_url',
   'banner_position',
   'banner_zoom',
+  'stats_tile_background_type',
+  'stats_tile_background_id',
+  'stats_tile_background_url',
+  'stats_tile_background_position',
+  'stats_tile_background_zoom',
+  'stats_tile_backgrounds',
 ];
 
-const JSON_FIELDS = new Set(['lineup', 'trophies']);
+const JSON_FIELDS = new Set(['lineup', 'trophies', 'stats_tile_backgrounds']);
 
 function normalizeFieldValue(field, value) {
   if (!JSON_FIELDS.has(field)) return value;

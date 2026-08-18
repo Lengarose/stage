@@ -108,6 +108,8 @@ async function runStartupMigrations() {
   await addCol('players', 'player_card_background_type', "VARCHAR(20) NULL DEFAULT 'default'");
   await addCol('players', 'player_card_background_id', 'VARCHAR(36) NULL');
   await addCol('players', 'player_card_background_url', 'TEXT NULL');
+  await addCol('players', 'player_card_background_position', "VARCHAR(50) NULL DEFAULT '50% 50%'");
+  await addCol('players', 'player_card_background_zoom', 'INT NULL DEFAULT 120');
   await addCol('players', 'role', 'VARCHAR(50) NULL');
   await addCol('players', 'secondary_position', 'VARCHAR(50) NULL');
   await addCol('players', 'is_verified', 'TINYINT(1) DEFAULT 0');
@@ -519,6 +521,12 @@ async function runStartupMigrations() {
 
   // Official STAGE rankings — rebuilt from competition/tournament fixtures only.
   await addCol('clubs', 'logo_zoom', 'INT NULL');
+  await addCol('clubs', 'stats_tile_background_type', "VARCHAR(20) NULL DEFAULT 'default'");
+  await addCol('clubs', 'stats_tile_background_id', 'VARCHAR(36) NULL');
+  await addCol('clubs', 'stats_tile_background_url', 'TEXT NULL');
+  await addCol('clubs', 'stats_tile_background_position', "VARCHAR(50) NULL DEFAULT '50% 50%'");
+  await addCol('clubs', 'stats_tile_background_zoom', 'INT NULL DEFAULT 120');
+  await addCol('clubs', 'stats_tile_backgrounds', 'JSON NULL');
   await addCol('clubs', 'country_rank', 'INT NULL');
   await addCol('players', 'ranking_points', 'INT DEFAULT 0');
   await addCol('players', 'global_rank', 'INT NULL');

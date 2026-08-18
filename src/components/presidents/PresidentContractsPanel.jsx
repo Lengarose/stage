@@ -28,13 +28,17 @@ function SignedPlayerRow({ contract, player }) {
     <Link
       to={player?.id ? `/players/${player.id}` : "#"}
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors",
+        "flex items-center gap-3 border px-5 py-3 transition-colors",
         meta.bg,
         meta.border,
         "hover:border-amber-300/35"
       )}
+      style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
     >
-      <span className="w-10 h-10 rounded-full border border-white/15 bg-white/5 overflow-hidden shrink-0 flex items-center justify-center">
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-white/5"
+        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+      >
         {player?.avatar_url ? (
           <span
             className="w-full h-full block"
@@ -55,7 +59,10 @@ function SignedPlayerRow({ contract, player }) {
           {[player?.position, player?.platform].filter(Boolean).join(" · ") || meta.label}
         </p>
       </div>
-      <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider shrink-0", meta.badge)}>
+      <span
+        className={cn("shrink-0 border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", meta.badge)}
+        style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
+      >
         {meta.label}
       </span>
     </Link>

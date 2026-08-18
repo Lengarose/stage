@@ -132,7 +132,8 @@ export default function Clubs({ tournamentId } = {}) {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -143,18 +144,20 @@ export default function Clubs({ tournamentId } = {}) {
                     key={n}
                     onClick={() => setPage(n)}
                     className={cn(
-                      "w-9 h-9 rounded-xl text-sm font-bold border transition-all",
+                      "h-9 w-9 border text-sm font-bold transition-all",
                       n === page
                         ? "bg-[hsl(189,100%,52%)] text-black border-[hsl(189,100%,52%)] shadow-[0_0_14px_hsl(189_100%_52%/0.45)]"
                         : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/25"
                     )}
+                    style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   >{n}</button>
                 );
               })}
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

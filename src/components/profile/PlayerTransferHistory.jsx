@@ -18,7 +18,7 @@ export default function PlayerTransferHistory({ playerId }) {
   if (!playerId || rows.length === 0) return null;
 
   return (
-    <GamerSectionCard title="Transfer History">
+    <GamerSectionCard title="Transfer History" shape="rounded">
       <ol className="space-y-2">
         {rows.map((row) => (
           <li key={row.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">

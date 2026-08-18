@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray } from "@/lib/safeData";
 import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
+import { getCountryDisplayName } from "@/lib/countryDisplay";
 
 const PAGE_SIZE = 15;
 
@@ -97,7 +98,10 @@ export default function Presidents() {
 
               return (
                 <Link key={`${president.club_id}-${president.player_id}`} to={`/players/${president.player_id}`} className="block group">
-                  <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>
+                  <div
+                    className="relative overflow-hidden"
+                    style={{ minHeight: "80px", clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
+                  >
                     {president.banner_url ? (
                       <div
                         className="absolute inset-0 scale-105 group-hover:scale-110 transition-transform duration-700"
@@ -111,18 +115,18 @@ export default function Presidents() {
                       <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-amber-950/40 to-slate-800" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-400/0 group-hover:bg-amber-400/80 transition-all duration-300 rounded-l-2xl" />
-                    <div className="absolute inset-0 rounded-2xl border border-white/8 group-hover:border-amber-400/35 transition-colors duration-300" />
+                    <div className="absolute bottom-0 left-0 top-0 w-[4px] bg-amber-400/0 transition-all duration-300 group-hover:bg-amber-400/80" />
+                    <div className="absolute inset-0 border border-white/8 transition-colors duration-300 group-hover:border-amber-400/35" />
 
-                    <div className="relative z-10 flex items-center gap-4 px-5 py-4">
+                    <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
                       <div
-                        className="w-11 h-11 rounded-xl overflow-hidden border-2 border-white/15 shrink-0 bg-black/40 group-hover:border-amber-300/40 transition-colors"
-                        style={president.avatar_url ? {
+                        className="h-11 w-11 shrink-0 overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-amber-300/40"
+                        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)", ...(president.avatar_url ? {
                           backgroundImage: `url(${president.avatar_url})`,
                           backgroundSize: `${president.avatar_zoom || 150}%`,
                           backgroundPosition: president.avatar_position || "50% 50%",
                           backgroundRepeat: "no-repeat",
-                        } : undefined}
+                        } : {}) }}
                       >
                         {!president.avatar_url ? (
                           <div className="w-full h-full flex items-center justify-center text-amber-300/70">
@@ -137,13 +141,16 @@ export default function Presidents() {
                             {president.display_name || t("commonPages.cdPresident")}
                           </span>
                           {president.role_title ? (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-200 border border-amber-400/25 uppercase tracking-wider shrink-0">
+                            <span
+                              className="shrink-0 border border-amber-400/25 bg-amber-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-200"
+                              style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
+                            >
                               {president.role_title}
                             </span>
                           ) : null}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
-                          {president.country_code ? <span>{president.country_code}</span> : null}
+                          {president.country_code ? <span>{getCountryDisplayName(president.country_code)}</span> : null}
                           {president.management_style ? (
                             <>
                               {president.country_code ? <span>·</span> : null}
@@ -178,7 +185,8 @@ export default function Presidents() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -190,11 +198,12 @@ export default function Presidents() {
                     key={n}
                     onClick={() => setPage(n)}
                     className={cn(
-                      "w-9 h-9 rounded-xl text-sm font-bold border transition-all",
+                      "h-9 w-9 border text-sm font-bold transition-all",
                       n === page
                         ? "bg-amber-400 text-black border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.45)]"
                         : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/25"
                     )}
+                    style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   >
                     {n}
                   </button>
@@ -204,7 +213,8 @@ export default function Presidents() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

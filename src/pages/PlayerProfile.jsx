@@ -454,7 +454,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
         {activeTab === "showcase" ? (
           <div className="pt-2">
-            <GamerSectionCard>
+            <GamerSectionCard shape="rounded">
               {/* Editable only on your own profile. The server checks the same
                   thing independently — this just decides which UI to show. */}
               <PlayerShowcase player={player} canEdit={isOwnProfile} />
