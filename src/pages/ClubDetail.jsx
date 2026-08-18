@@ -39,6 +39,7 @@ import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
 import { applyLoanAnnotations, canExercisePurchaseOption, canProposeEarlyEnd, isEarlyEndWaitingOnClub, isLoanRecallable, isPurchaseAwaitingPlayer, splitSquadByLoan } from "@/lib/playerLoanDisplay";
 import { isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
+import { buildClubPlayerStatMap, formatClubRating, getClubPlayerStats, getClubStatValue } from "@/lib/clubPlayerStats";
 import { useNavigate } from "react-router-dom";
 import { ClubTrophyCabinetDisplay } from "@/components/profile/PlayerTrophyCabinet";
 import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
@@ -209,6 +210,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
   const [dressingRooms, setDressingRooms] = useState([]);
   const [clubContracts, setClubContracts] = useState([]);
+  const [clubPlayerStatRows, setClubPlayerStatRows] = useState([]);
   const [, setTournamentMap] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
@@ -270,13 +272,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
-        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, dressingRoomRows] = await Promise.all([
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, dressingRoomRows, playerStatRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
           stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
           stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.PlayerContract.filter({ team_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.ClubFixtureAvailability.filter({ club_id: id }, "-updated_date", 300).catch(() => []),
           stageClient.entities.DressingRoom.filter({ club_id: id }, "-updated_date", 100).catch(() => []),
+          stageClient.entities.MatchPlayerStat.filter({ club_id: id }, "-created_date", 1000).catch(() => []),
         ]);
 
         const c = asObject(clubRecordRaw);
@@ -379,6 +382,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         setClubContracts(safeContractRows);
         setFixtureAvailabilityRows(asObjectArray(availabilityRows));
         setDressingRooms(asObjectArray(dressingRoomRows));
+        setClubPlayerStatRows(asObjectArray(playerStatRows));
 
         const allMatches = [...matchesHome, ...matchesAway].sort(
           (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
@@ -791,6 +795,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
   const safeDressingRooms = asObjectArray(dressingRooms);
   const safeClubContracts = normalizePlayerContracts(clubContracts);
+  const safeClubPlayerStatRows = asObjectArray(clubPlayerStatRows);
+  const clubPlayerStatsById = buildClubPlayerStatMap(safePlayers, safeClubPlayerStatRows, id);
   const nextFixture = getNextFixture(safeTournamentMatches);
   const nextFixtureAvailabilityRows = nextFixture
     ? safeFixtureAvailabilityRows.filter((row) => String(row.fixture_id) === String(nextFixture.id))
@@ -1054,6 +1060,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       availability={availabilityByPlayerId.get(String(p.id))}
                       isSeated={seatedPlayerIds.has(String(p.id))}
                       contracts={getPlayerContracts(safeClubContracts, p.id)}
+                      clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                       onAssignRole={assignRole}
                       onRemoveRole={removePlayerRole}
                       onRelease={releaseSquadPlayer}
@@ -1105,6 +1112,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           availability={availabilityByPlayerId.get(String(p.id))}
                           isSeated={seatedPlayerIds.has(String(p.id))}
                           contracts={getPlayerContracts(safeClubContracts, p.id)}
+                          clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                           onAssignRole={assignRole}
                           onRemoveRole={removePlayerRole}
                           onRelease={releaseSquadPlayer}
@@ -1157,7 +1165,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
           {/* Stats */}
           <TabsContent value="stats" className="px-4 pt-4 pb-6">
-            <ClubStatsTables players={safePlayers} />
+            <ClubStatsTables players={safePlayers} clubPlayerStatsById={clubPlayerStatsById} />
           </TabsContent>
 
           {/* Fixtures */}
@@ -1395,9 +1403,7 @@ function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
 }
 
 function formatRating(value) {
-  const rating = Number(value);
-  if (!Number.isFinite(rating) || rating <= 0) return "--";
-  return rating.toFixed(1);
+  return formatClubRating(value);
 }
 
 function rolePillClass(role) {
@@ -1495,26 +1501,15 @@ function StatCell({ label, value }) {
   );
 }
 
-function getClubStatValue(player, stat) {
-  if (stat === "goals") return Number(player.goals_player ?? player.club_goals ?? player.goals ?? 0);
-  if (stat === "assists") return Number(player.club_assists ?? player.assists ?? 0);
-  if (stat === "matches") return Number(player.matches_played_club ?? player.club_matches_played ?? player.matches_played ?? 0);
-  if (stat === "rating") {
-    const rating = Number(player.avg_match_rating ?? player.club_avg_rating ?? player.average_rating ?? player.ranking_avg_rating ?? 0);
-    return Number.isFinite(rating) ? rating : 0;
-  }
-  return 0;
-}
-
 function formatClubStatValue(value, stat) {
   if (stat === "rating") return formatRating(value);
   return Number.isFinite(Number(value)) ? Number(value) : 0;
 }
 
-function buildClubLeaderboard(players, stat) {
+function buildClubLeaderboard(players, stat, clubPlayerStatsById) {
   return asObjectArray(players)
     .filter((player) => player?.id)
-    .map((player) => ({ player, value: getClubStatValue(player, stat) }))
+    .map((player) => ({ player, value: getClubStatValue(player, stat, clubPlayerStatsById) }))
     .sort((a, b) => {
       if (b.value !== a.value) return b.value - a.value;
       return String(a.player.gamertag || "").localeCompare(String(b.player.gamertag || ""));
@@ -1522,7 +1517,7 @@ function buildClubLeaderboard(players, stat) {
     .slice(0, 10);
 }
 
-function ClubStatsTables({ players = [] }) {
+function ClubStatsTables({ players = [], clubPlayerStatsById }) {
   const tables = [
     { title: "Top Scorers", stat: "goals", label: "G" },
     { title: "Top Assists", stat: "assists", label: "A" },
@@ -1538,7 +1533,7 @@ function ClubStatsTables({ players = [] }) {
           title={table.title}
           stat={table.stat}
           label={table.label}
-          rows={buildClubLeaderboard(players, table.stat)}
+          rows={buildClubLeaderboard(players, table.stat, clubPlayerStatsById)}
         />
       ))}
     </div>
@@ -1793,6 +1788,7 @@ function PlayerCard({
   canExerciseOption = false,
   purchaseAwaitingPlayer = false,
   onExerciseOption,
+  clubStats,
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1819,12 +1815,10 @@ function PlayerCard({
   const canViewStats = isClubMember || canManageRoles || isOwner;
   const activeContract = playerContracts.find((contract) => contract.status === "active") || null;
   const profilePath = `/players/${player.id}`;
-  const clubAverageRating = formatRating(
-    player.avg_match_rating ?? player.club_avg_rating ?? player.average_rating ?? player.ranking_avg_rating
-  );
-  const clubGoals = Number(player.goals_player ?? player.club_goals ?? player.goals ?? 0);
-  const clubAssists = Number(player.club_assists ?? player.assists ?? 0);
-  const clubMatches = Number(player.matches_played_club ?? player.club_matches_played ?? player.matches_played ?? 0);
+  const clubAverageRating = formatRating(clubStats?.avgRating);
+  const clubGoals = Number(clubStats?.goals || 0);
+  const clubAssists = Number(clubStats?.assists || 0);
+  const clubMatches = Number(clubStats?.matches || 0);
   const initials = String(player.gamertag || player.email || "?").slice(0, 2).toUpperCase();
   const menuItemClass = "cursor-pointer text-xs font-semibold";
   const dangerItemClass = "cursor-pointer text-xs font-semibold text-red-300 focus:bg-red-500/10 focus:text-red-200";

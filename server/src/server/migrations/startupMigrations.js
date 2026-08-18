@@ -497,6 +497,7 @@ async function runStartupMigrations() {
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');
   await addCol('match_player_stats', 'player_gamertag', 'VARCHAR(255) NULL');
   await addCol('match_player_stats', 'position', 'VARCHAR(50) NULL');
+  await addCol('match_player_stats', 'own_goals', 'INT DEFAULT 0');
   await addCol('match_player_stats', 'clean_sheet', 'TINYINT(1) DEFAULT 0');
   await addCol('match_player_stats', 'is_motm', 'TINYINT(1) DEFAULT 0');
 

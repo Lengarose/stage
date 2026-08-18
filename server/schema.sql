@@ -474,6 +474,7 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   position       VARCHAR(50),
   goals          INT          DEFAULT 0,
   assists        INT          DEFAULT 0,
+  own_goals      INT          DEFAULT 0,
   clean_sheet    TINYINT(1)   DEFAULT 0,
   is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
