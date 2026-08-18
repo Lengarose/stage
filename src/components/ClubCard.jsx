@@ -10,7 +10,10 @@ export default function ClubCard({ club: rawClub }) {
 
   return (
     <Link to={`/clubs/${club.id}`} className="block group">
-      <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>
+      <div
+        className="relative overflow-hidden"
+        style={{ minHeight: "80px", clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
+      >
 
         {/* Banner background */}
         {club.banner_url ? (
@@ -29,16 +32,19 @@ export default function ClubCard({ club: rawClub }) {
         {/* Dark overlay for readability */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
         {/* Left accent line */}
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[hsl(189,100%,52%)]/0 group-hover:bg-[hsl(189,100%,52%)]/80 transition-all duration-300 rounded-l-2xl" />
+        <div className="absolute bottom-0 left-0 top-0 w-[4px] bg-[hsl(189,100%,52%)]/0 transition-all duration-300 group-hover:bg-[hsl(189,100%,52%)]/80" />
         {/* Border */}
-        <div className="absolute inset-0 rounded-2xl border border-white/8 group-hover:border-[hsl(189,100%,52%)]/35 transition-colors duration-300" />
+        <div className="absolute inset-0 border border-white/8 transition-colors duration-300 group-hover:border-[hsl(189,100%,52%)]/35" />
 
         {/* Content */}
-        <div className="relative z-10 flex items-center gap-4 px-5 py-4">
+        <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
           {/* Logo */}
-          <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/15 shrink-0 bg-black/40 flex items-center justify-center group-hover:border-white/30 transition-colors">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
+            style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+          >
             {club.logo_url ? (
-              <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover rounded-full" />
+              <img src={club.logo_url} alt={club.name} className="h-full w-full object-cover" />
             ) : (
               <Users className="w-5 h-5 text-white/30" />
             )}
@@ -51,7 +57,10 @@ export default function ClubCard({ club: rawClub }) {
                 {club.name}
               </span>
               {club.tag && (
-                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[hsl(189,100%,52%)]/15 text-[hsl(189,100%,52%)] border border-[hsl(189,100%,52%)]/25 uppercase tracking-wider shrink-0 font-mono">
+                <span
+                  className="shrink-0 border border-[hsl(189,100%,52%)]/25 bg-[hsl(189,100%,52%)]/15 px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider text-[hsl(189,100%,52%)]"
+                  style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
+                >
                   [{club.tag}]
                 </span>
               )}

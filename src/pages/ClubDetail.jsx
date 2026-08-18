@@ -55,6 +55,7 @@ import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
+import { getPlayerNationality, normalizeCountryCode } from "@/lib/countryDisplay";
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -160,22 +161,23 @@ function ClubPresidentChip({ club, president }) {
   return (
     <Link
       to={profilePath}
-      className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/45 backdrop-blur-md px-2.5 py-1.5 hover:bg-black/60 hover:border-amber-300/30 transition-colors max-w-[220px]"
+      className="inline-flex max-w-[240px] items-center gap-3 border border-cyan-200/25 bg-black/24 px-4 py-2 text-cyan-50/95 backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]"
+      style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
       title={t("commonPages.presProfileMenu")}
     >
       <span
-        className="w-8 h-8 rounded-full border border-white/20 bg-[#101827] overflow-hidden shrink-0 flex items-center justify-center"
-        style={president?.avatar_url ? {
+        className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-[#101827]"
+        style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)", ...(president?.avatar_url ? {
           backgroundImage: `url(${president.avatar_url})`,
           backgroundSize: `${president.avatar_zoom || 150}%`,
           backgroundPosition: president.avatar_position || "50% 50%",
           backgroundRepeat: "no-repeat",
-        } : undefined}
+        } : {}) }}
         aria-hidden
       >
         {!president?.avatar_url ? <Shield className="w-3.5 h-3.5 text-amber-300/80" /> : null}
       </span>
-      <span className="font-heading text-sm font-black uppercase tracking-wide text-white truncate">
+      <span className="truncate font-heading text-sm font-black uppercase tracking-[0.08em] text-white">
         {name}
       </span>
     </Link>
@@ -1456,84 +1458,51 @@ function StatusPill({ className, children }) {
 }
 
 const COUNTRY_FLAG_PALETTES = {
+  AR: ["#74acdf", "#ffffff", "#f6b40e"],
+  AT: ["#ed2939", "#ffffff", "#ed2939"],
+  AU: ["#012169", "#ffffff", "#e4002b"],
   BE: ["#050505", "#f5d547", "#d72638"],
   BR: ["#009b3a", "#ffdf00", "#002776"],
   CA: ["#d52b1e", "#f7f7f7", "#d52b1e"],
+  CH: ["#ff0000", "#ffffff", "#ff0000"],
+  CI: ["#f77f00", "#ffffff", "#009e60"],
+  CM: ["#007a5e", "#fcd116", "#ce1126"],
   DE: ["#050505", "#dd0000", "#ffce00"],
   FR: ["#123c8c", "#f7f7f7", "#d72638"],
   CD: ["#19a7e0", "#f5d547", "#d72638"],
+  CG: ["#009543", "#fbd116", "#dc241f"],
+  CO: ["#fcd116", "#003893", "#ce1126"],
   ES: ["#aa151b", "#f1bf00", "#aa151b"],
+  GH: ["#ce1126", "#fcd116", "#006b3f"],
   IT: ["#008c45", "#f7f7f7", "#cd212a"],
+  MA: ["#c1272d", "#006233", "#c1272d"],
+  MX: ["#006847", "#ffffff", "#ce1126"],
   NL: ["#ae1c28", "#f7f7f7", "#21468b"],
+  NG: ["#008751", "#ffffff", "#008751"],
+  PL: ["#ffffff", "#dc143c", "#dc143c"],
   PT: ["#006600", "#ffcc00", "#ff0000"],
+  SN: ["#00853f", "#fdef42", "#e31b23"],
   US: ["#3c3b6e", "#f7f7f7", "#b22234"],
   GB: ["#f7f7f7", "#c8102e", "#012169"],
   ENG: ["#f7f7f7", "#c8102e", "#f7f7f7"],
-  EN: ["#f7f7f7", "#c8102e", "#f7f7f7"],
+  SCO: ["#005eb8", "#ffffff", "#005eb8"],
+  WAL: ["#ffffff", "#00a650", "#c8102e"],
+  NIR: ["#ffffff", "#c8102e", "#ffffff"],
 };
-
-const COUNTRY_CODE_ALIASES = {
-  BEL: "BE",
-  CAN: "CA",
-  COD: "CD",
-  COG: "CD",
-  DEU: "DE",
-  DRC: "CD",
-  ESP: "ES",
-  FRA: "FR",
-  GBR: "GB",
-  GER: "DE",
-  ITA: "IT",
-  NED: "NL",
-  NLD: "NL",
-  POR: "PT",
-  USA: "US",
-};
-
-function normalizeCountryCode(code, country) {
-  const raw = String(code || "").trim().toUpperCase();
-  if (raw && (raw.length <= 3 || COUNTRY_CODE_ALIASES[raw])) return COUNTRY_CODE_ALIASES[raw] || raw;
-  const name = String(raw || country || "").trim().toLowerCase();
-  if (name.includes("belg")) return "BE";
-  if (name.includes("brazil")) return "BR";
-  if (name.includes("canada")) return "CA";
-  if (name.includes("german")) return "DE";
-  if (name.includes("france") || name.includes("french")) return "FR";
-  if (name.includes("congo")) return "CD";
-  if (name.includes("spain") || name.includes("spanish")) return "ES";
-  if (name.includes("ital")) return "IT";
-  if (name.includes("netherlands") || name.includes("holland") || name.includes("dutch")) return "NL";
-  if (name.includes("portugal") || name.includes("portugu")) return "PT";
-  if (name.includes("united states") || name.includes("america")) return "US";
-  if (name.includes("england")) return "ENG";
-  if (name.includes("united kingdom") || name.includes("great britain")) return "GB";
-  return "";
-}
-
-function getPlayerNationality(player) {
-  const code = normalizeCountryCode(player?.country_code, player?.country);
-  const countryCode = String(player?.country_code || "").trim();
-  const country = String(player?.country || "").trim();
-  const label = countryCode || country || "Unknown";
-  return {
-    code,
-    label,
-  };
-}
 
 function getCountryFlagStyle(code) {
   const colors = COUNTRY_FLAG_PALETTES[normalizeCountryCode(code)];
   if (!colors) {
     return {
-      background: "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,229,255,0.07))",
+      background: "linear-gradient(135deg, rgba(0,229,255,0.18), rgba(255,255,255,0.08) 48%, rgba(245,197,66,0.12))",
     };
   }
   return {
     background: [
-      `linear-gradient(120deg, ${colors[0]}33 0%, ${colors[0]}33 29%, transparent 29%)`,
-      `linear-gradient(120deg, transparent 0%, transparent 35%, ${colors[1]}2e 35%, ${colors[1]}2e 64%, transparent 64%)`,
-      `linear-gradient(120deg, transparent 0%, transparent 70%, ${colors[2]}33 70%, ${colors[2]}33 100%)`,
-      "rgba(0,0,0,0.24)",
+      `linear-gradient(120deg, ${colors[0]}88 0%, ${colors[0]}88 30%, transparent 30%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 34%, ${colors[1]}78 34%, ${colors[1]}78 64%, transparent 64%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 70%, ${colors[2]}88 70%, ${colors[2]}88 100%)`,
+      "linear-gradient(90deg, rgba(0,0,0,0.64), rgba(0,0,0,0.28), rgba(0,0,0,0.64))",
     ].join(", "),
   };
 }
@@ -1545,8 +1514,8 @@ function NationalityRow({ player }) {
       className="flex items-center justify-between gap-2 overflow-hidden border border-white/10 px-3 py-1.5"
       style={getCountryFlagStyle(nationality.code)}
     >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Nationality</span>
-      <span className="flex min-w-0 items-center border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
+      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/82 drop-shadow">Nationality</span>
+      <span className="flex min-w-0 items-center border border-white/15 bg-black/55 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-[0_0_18px_rgba(0,0,0,0.28)]">
         <span className="truncate">{nationality.label}</span>
       </span>
           </div>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray, parseJsonArray } from "@/lib/safeData";
 import { filterPublicPlayerProfiles } from "@/lib/playerDirectory";
+import { getCountryDisplayName } from "@/lib/countryDisplay";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
@@ -65,8 +66,8 @@ export default function Players({ tournamentId } = {}) {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[hsl(189,100%,52%)]/50 focus:bg-white/8 transition-all";
-  const selectCls = "bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none cursor-pointer appearance-none min-w-[150px]";
+  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 px-5 py-2.5 text-sm focus:outline-none focus:border-[hsl(189,100%,52%)]/50 focus:bg-white/8 transition-all";
+  const selectCls = "bg-white/5 border border-white/10 text-white px-5 py-2.5 text-sm outline-none cursor-pointer appearance-none min-w-[150px]";
 
   return (
     <div className="min-h-screen p-6 lg:p-10 max-w-7xl mx-auto">
@@ -87,7 +88,7 @@ export default function Players({ tournamentId } = {}) {
 
       {/* ── Filters ── */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
-        <div className="relative flex-1">
+        <div className="relative flex-1" style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}>
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
           <input
             type="text"
@@ -97,10 +98,10 @@ export default function Players({ tournamentId } = {}) {
             className={cn(inputCls, "pl-10 w-full")}
           />
         </div>
-        <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls}>
+        <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls} style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
           {PLATFORMS.map(p => <option key={p} value={p}>{p === "All Platforms" ? t("competitionFlow.allPlatforms") : p}</option>)}
         </select>
-        <select value={position} onChange={e => { setPosition(e.target.value); setPage(1); }} className={selectCls}>
+        <select value={position} onChange={e => { setPosition(e.target.value); setPage(1); }} className={selectCls} style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
           {POSITIONS.map(p => <option key={p} value={p}>{p === "All Positions" ? t("competitionFlow.allPositions") : p}</option>)}
         </select>
       </div>
@@ -127,7 +128,10 @@ export default function Players({ tournamentId } = {}) {
 
               return (
                 <Link key={player.id} to={`/players/${player.id}`} className="block group">
-                  <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: "80px" }}>
+                  <div
+                    className="relative overflow-hidden"
+                    style={{ minHeight: "80px", clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
+                  >
 
                     {/* Banner background */}
                     {player.banner_url ? (
@@ -146,17 +150,20 @@ export default function Players({ tournamentId } = {}) {
                     {/* Dark overlay for readability — min 50% opacity on the right where stats sit */}
                     <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/15 to-black/90" />
                     {/* Subtle left accent line */}
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[hsl(189,100%,52%)]/0 group-hover:bg-[hsl(189,100%,52%)]/80 transition-all duration-300 rounded-l-2xl" />
+                    <div className="absolute bottom-0 left-0 top-0 w-[4px] bg-[hsl(189,100%,52%)]/0 transition-all duration-300 group-hover:bg-[hsl(189,100%,52%)]/80" />
                     {/* Border */}
-                    <div className="absolute inset-0 rounded-2xl border border-white/8 group-hover:border-[hsl(189,100%,52%)]/35 transition-colors duration-300" />
+                    <div className="absolute inset-0 border border-white/8 transition-colors duration-300 group-hover:border-[hsl(189,100%,52%)]/35" />
                     {/* Glow on hover */}
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       style={{ boxShadow: "inset 0 0 40px hsl(189 100% 52% / 0.05)" }} />
 
                     {/* Content */}
-                    <div className="relative z-10 flex items-center gap-4 px-5 py-4">
+                    <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
                       {/* Avatar */}
-                      <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/15 shrink-0 bg-black/40 group-hover:border-white/30 transition-colors">
+                      <div
+                        className="h-11 w-11 shrink-0 overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
+                        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+                      >
                         {player.avatar_url ? (
                           <img
                             src={player.avatar_url}
@@ -178,13 +185,16 @@ export default function Players({ tournamentId } = {}) {
                             {player.gamertag}
                           </span>
                           {(player.position || player.secondary_position) && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[hsl(189,100%,52%)]/15 text-[hsl(189,100%,52%)] border border-[hsl(189,100%,52%)]/25 uppercase tracking-wider shrink-0">
+                            <span
+                              className="shrink-0 border border-[hsl(189,100%,52%)]/25 bg-[hsl(189,100%,52%)]/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[hsl(189,100%,52%)]"
+                              style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
+                            >
                               {[player.position, player.secondary_position].filter(Boolean).join(" / ")}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
-                          {player.country && <span>{player.country}</span>}
+                          {(player.country || player.country_code) && <span>{getCountryDisplayName(player.country_code, player.country)}</span>}
                           {player.platform && <><span>·</span><span>{player.platform}</span></>}
                           {club && (
                             <>
@@ -214,7 +224,8 @@ export default function Players({ tournamentId } = {}) {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -225,18 +236,20 @@ export default function Players({ tournamentId } = {}) {
                     key={n}
                     onClick={() => setPage(n)}
                     className={cn(
-                      "w-9 h-9 rounded-xl text-sm font-bold border transition-all",
+                      "h-9 w-9 border text-sm font-bold transition-all",
                       n === page
                         ? "bg-[hsl(189,100%,52%)] text-black border-[hsl(189,100%,52%)] shadow-[0_0_14px_hsl(189_100%_52%/0.45)]"
                         : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/25"
                     )}
+                    style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   >{n}</button>
                 );
               })}
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:bg-white/10 hover:border-white/25 disabled:opacity-30 transition-all"
+                className="flex h-9 w-9 items-center justify-center border border-white/10 bg-white/5 text-white/50 transition-all hover:border-white/25 hover:bg-white/10 disabled:opacity-30"
+                style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
