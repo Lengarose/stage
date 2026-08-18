@@ -77,17 +77,6 @@ function clubRoleLabel(t, role) {
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;
 }
 
-function parseIdList(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.map(String);
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
-}
-
 function getNextFixture(fixtures = []) {
   const now = Date.now();
   const scheduled = asObjectArray(fixtures)
@@ -207,7 +196,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
   const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
-  const [dressingRooms, setDressingRooms] = useState([]);
   const [clubContracts, setClubContracts] = useState([]);
   const [clubPlayerStatRows, setClubPlayerStatRows] = useState([]);
   const [, setTournamentMap] = useState({});
@@ -271,13 +259,12 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
-        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, dressingRoomRows, playerStatRows] = await Promise.all([
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, playerStatRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
           stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
           stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.PlayerContract.filter({ team_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.ClubFixtureAvailability.filter({ club_id: id }, "-updated_date", 300).catch(() => []),
-          stageClient.entities.DressingRoom.filter({ club_id: id }, "-updated_date", 100).catch(() => []),
           stageClient.entities.MatchPlayerStat.filter({ club_id: id }, "-created_date", 1000).catch(() => []),
         ]);
 
@@ -380,7 +367,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
         setClubContracts(safeContractRows);
         setFixtureAvailabilityRows(asObjectArray(availabilityRows));
-        setDressingRooms(asObjectArray(dressingRoomRows));
         setClubPlayerStatRows(asObjectArray(playerStatRows));
 
         const allMatches = [...matchesHome, ...matchesAway].sort(
@@ -792,7 +778,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeClubChatMessages = asObjectArray(clubChatMessages);
   const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
-  const safeDressingRooms = asObjectArray(dressingRooms);
   const safeClubContracts = normalizePlayerContracts(clubContracts);
   const safeClubPlayerStatRows = asObjectArray(clubPlayerStatRows);
   const clubPlayerStatsById = buildClubPlayerStatMap(safePlayers, safeClubPlayerStatRows, id);
@@ -801,10 +786,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     ? safeFixtureAvailabilityRows.filter((row) => String(row.fixture_id) === String(nextFixture.id))
     : [];
   const availabilityByPlayerId = new Map(nextFixtureAvailabilityRows.map((row) => [String(row.player_id), row]));
-  const nextDressingRoom = nextFixture
-    ? safeDressingRooms.find((row) => String(row.match_id) === String(nextFixture.id) && String(row.club_id) === String(id))
-    : null;
-  const seatedPlayerIds = new Set(parseIdList(nextDressingRoom?.seated_players));
   const confirmedMatches = safeMatches.filter(m => m.status === "completed");
   const totalGames = confirmedMatches.length;
   const wins = confirmedMatches.filter(m => {
@@ -1054,7 +1035,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       isStaff={operationStaffRoles.length > 0}
                       nextFixture={nextFixture}
                       availability={availabilityByPlayerId.get(String(p.id))}
-                      isSeated={seatedPlayerIds.has(String(p.id))}
                       contracts={getPlayerContracts(safeClubContracts, p.id)}
                       clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                       onAssignRole={assignRole}
@@ -1106,7 +1086,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           isStaff={operationStaffRoles.length > 0}
                           nextFixture={nextFixture}
                           availability={availabilityByPlayerId.get(String(p.id))}
-                          isSeated={seatedPlayerIds.has(String(p.id))}
                           contracts={getPlayerContracts(safeClubContracts, p.id)}
                           clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
                           onAssignRole={assignRole}
@@ -1441,24 +1420,85 @@ function getSquadAvailabilitySummary(row, nextFixture) {
   return { key: "no_response", label: "No Response", className: "border-white/10 bg-white/5 text-white/50" };
 }
 
-function getSquadDressingSummary(availabilityKey, isSeated, nextFixture) {
-  if (!nextFixture?.id) {
-    return { key: "no_match", label: "No match scheduled", className: "border-white/10 bg-white/5 text-white/45" };
-  }
-  if (availabilityKey === "available" && isSeated) {
-    return { key: "seated", label: "Seat Taken", className: "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" };
-  }
-  if (availabilityKey === "available") {
-    return { key: "not_seated", label: "Not Seated", className: "border-amber-300/35 bg-amber-400/10 text-amber-200" };
-  }
-  return { key: "locked", label: "Locked until Available", className: "border-white/10 bg-white/5 text-white/45" };
-}
-
 function StatusPill({ className, children }) {
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em]", className)}>
       {children}
     </span>
+  );
+}
+
+const COUNTRY_FLAG_PALETTES = {
+  BE: ["#050505", "#f5d547", "#d72638"],
+  FR: ["#123c8c", "#f7f7f7", "#d72638"],
+  CD: ["#19a7e0", "#f5d547", "#d72638"],
+  NL: ["#ae1c28", "#f7f7f7", "#21468b"],
+  GB: ["#f7f7f7", "#c8102e", "#012169"],
+  ENG: ["#f7f7f7", "#c8102e", "#f7f7f7"],
+  EN: ["#f7f7f7", "#c8102e", "#f7f7f7"],
+};
+
+function normalizeCountryCode(code, country) {
+  const raw = String(code || "").trim().toUpperCase();
+  if (raw) return raw;
+  const name = String(country || "").trim().toLowerCase();
+  if (name.includes("belg")) return "BE";
+  if (name.includes("france") || name.includes("french")) return "FR";
+  if (name.includes("congo")) return "CD";
+  if (name.includes("netherlands") || name.includes("holland") || name.includes("dutch")) return "NL";
+  if (name.includes("england")) return "ENG";
+  if (name.includes("united kingdom") || name.includes("great britain")) return "GB";
+  return "";
+}
+
+function getCountryFlagEmoji(code) {
+  const normalized = normalizeCountryCode(code);
+  if (normalized === "ENG" || normalized === "EN") return "🏴";
+  if (normalized.length !== 2 || !/^[A-Z]{2}$/.test(normalized)) return "";
+  return String.fromCodePoint(...[...normalized].map((char) => 127397 + char.charCodeAt(0)));
+}
+
+function getPlayerNationality(player) {
+  const code = normalizeCountryCode(player?.country_code, player?.country);
+  const country = String(player?.country || "").trim();
+  const label = country || code || "Unknown";
+  return {
+    code,
+    label,
+    flag: getCountryFlagEmoji(code),
+  };
+}
+
+function getCountryFlagStyle(code) {
+  const colors = COUNTRY_FLAG_PALETTES[normalizeCountryCode(code)];
+  if (!colors) {
+    return {
+      background: "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,229,255,0.07))",
+    };
+  }
+  return {
+    background: [
+      `linear-gradient(120deg, ${colors[0]}33 0%, ${colors[0]}33 29%, transparent 29%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 35%, ${colors[1]}2e 35%, ${colors[1]}2e 64%, transparent 64%)`,
+      `linear-gradient(120deg, transparent 0%, transparent 70%, ${colors[2]}33 70%, ${colors[2]}33 100%)`,
+      "rgba(0,0,0,0.24)",
+    ].join(", "),
+  };
+}
+
+function NationalityRow({ player }) {
+  const nationality = getPlayerNationality(player);
+  return (
+    <div
+      className="flex items-center justify-between gap-2 overflow-hidden rounded-md border border-white/10 px-2.5 py-2"
+      style={getCountryFlagStyle(nationality.code)}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Nationality</span>
+      <span className="flex min-w-0 items-center gap-1.5 rounded-sm border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
+        {nationality.flag ? <span className="text-sm leading-none">{nationality.flag}</span> : null}
+        <span className="truncate">{nationality.label}</span>
+      </span>
+    </div>
   );
 }
 
@@ -2033,7 +2073,6 @@ function PlayerCard({
   isStaff = false,
   nextFixture = null,
   availability = null,
-  isSeated = false,
   contracts = [],
   onAssignRole,
   onRemoveRole,
@@ -2066,7 +2105,6 @@ function PlayerCard({
   const playerContracts = normalizePlayerContracts(contracts);
   const contractSummary = getSquadContractSummary(playerContracts);
   const availabilitySummary = getSquadAvailabilitySummary(availability, nextFixture);
-  const dressingSummary = getSquadDressingSummary(availabilitySummary.key, isSeated, nextFixture);
   const canManageRoles = isPresident || isOwner || isCaptain || isStaff;
   const canReleaseOrRemove = (isPresident || isOwner) && currentUser?.email !== player.email && !isPresidentRole;
   const canMakeCaptain = canManageRoles && !isPresidentRole && !isCaptainRole;
@@ -2258,7 +2296,7 @@ function PlayerCard({
         <div className="relative z-[1] mt-3 grid gap-2">
           <StatusRow label="Contract" summary={contractSummary} />
           <StatusRow label="Next match" summary={availabilitySummary} />
-          <StatusRow label="Dressing room" summary={dressingSummary} />
+          <NationalityRow player={player} />
         </div>
 
         <div className="relative z-[1] mt-4 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
