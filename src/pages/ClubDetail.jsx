@@ -8,6 +8,7 @@ import {
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
   UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,6 +54,7 @@ import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -516,6 +518,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   function handlePlayerReleasedFromContract(playerId) {
     if (!playerId) return;
     setPlayers((prev) => asObjectArray(prev).filter((player) => player.id !== playerId));
+  }
+
+  function handlePlayerCardBackgroundChanged(updatedPlayer) {
+    const updated = asObject(updatedPlayer);
+    if (!updated?.id) return;
+    setPlayers((prev) => asObjectArray(prev).map((player) => (
+      player.id === updated.id ? { ...player, ...updated } : player
+    )));
+    if (myPlayer?.id === updated.id) setMyPlayer((prev) => ({ ...prev, ...updated }));
   }
 
   async function removePlayerRole(targetPlayer) {
@@ -1066,6 +1077,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                         purchase_offer_status: p.purchase_offer_status,
                       })}
                       onExerciseOption={() => handleExerciseOption(p)}
+                      onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
                     />
                   ))}
                 </div>
@@ -1110,6 +1122,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                           onRequestReturn={() => handleProposeEarlyEnd(p)}
                           onAcceptReturn={() => handleAcceptEarlyEnd(p)}
                           onRejectReturn={() => handleRejectEarlyEnd(p)}
+                          onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
                         />
                       ))}
                     </div>
@@ -1422,7 +1435,7 @@ function getSquadAvailabilitySummary(row, nextFixture) {
 
 function StatusPill({ className, children }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em]", className)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.11em]", className)}>
       {children}
     </span>
   );
@@ -1430,42 +1443,67 @@ function StatusPill({ className, children }) {
 
 const COUNTRY_FLAG_PALETTES = {
   BE: ["#050505", "#f5d547", "#d72638"],
+  BR: ["#009b3a", "#ffdf00", "#002776"],
+  CA: ["#d52b1e", "#f7f7f7", "#d52b1e"],
+  DE: ["#050505", "#dd0000", "#ffce00"],
   FR: ["#123c8c", "#f7f7f7", "#d72638"],
   CD: ["#19a7e0", "#f5d547", "#d72638"],
+  ES: ["#aa151b", "#f1bf00", "#aa151b"],
+  IT: ["#008c45", "#f7f7f7", "#cd212a"],
   NL: ["#ae1c28", "#f7f7f7", "#21468b"],
+  PT: ["#006600", "#ffcc00", "#ff0000"],
+  US: ["#3c3b6e", "#f7f7f7", "#b22234"],
   GB: ["#f7f7f7", "#c8102e", "#012169"],
   ENG: ["#f7f7f7", "#c8102e", "#f7f7f7"],
   EN: ["#f7f7f7", "#c8102e", "#f7f7f7"],
 };
 
+const COUNTRY_CODE_ALIASES = {
+  BEL: "BE",
+  CAN: "CA",
+  COD: "CD",
+  COG: "CD",
+  DEU: "DE",
+  DRC: "CD",
+  ESP: "ES",
+  FRA: "FR",
+  GBR: "GB",
+  GER: "DE",
+  ITA: "IT",
+  NED: "NL",
+  NLD: "NL",
+  POR: "PT",
+  USA: "US",
+};
+
 function normalizeCountryCode(code, country) {
   const raw = String(code || "").trim().toUpperCase();
-  if (raw) return raw;
-  const name = String(country || "").trim().toLowerCase();
+  if (raw && (raw.length <= 3 || COUNTRY_CODE_ALIASES[raw])) return COUNTRY_CODE_ALIASES[raw] || raw;
+  const name = String(raw || country || "").trim().toLowerCase();
   if (name.includes("belg")) return "BE";
+  if (name.includes("brazil")) return "BR";
+  if (name.includes("canada")) return "CA";
+  if (name.includes("german")) return "DE";
   if (name.includes("france") || name.includes("french")) return "FR";
   if (name.includes("congo")) return "CD";
+  if (name.includes("spain") || name.includes("spanish")) return "ES";
+  if (name.includes("ital")) return "IT";
   if (name.includes("netherlands") || name.includes("holland") || name.includes("dutch")) return "NL";
+  if (name.includes("portugal") || name.includes("portugu")) return "PT";
+  if (name.includes("united states") || name.includes("america")) return "US";
   if (name.includes("england")) return "ENG";
   if (name.includes("united kingdom") || name.includes("great britain")) return "GB";
   return "";
 }
 
-function getCountryFlagEmoji(code) {
-  const normalized = normalizeCountryCode(code);
-  if (normalized === "ENG" || normalized === "EN") return "🏴";
-  if (normalized.length !== 2 || !/^[A-Z]{2}$/.test(normalized)) return "";
-  return String.fromCodePoint(...[...normalized].map((char) => 127397 + char.charCodeAt(0)));
-}
-
 function getPlayerNationality(player) {
   const code = normalizeCountryCode(player?.country_code, player?.country);
+  const countryCode = String(player?.country_code || "").trim();
   const country = String(player?.country || "").trim();
-  const label = country || code || "Unknown";
+  const label = countryCode || country || "Unknown";
   return {
     code,
     label,
-    flag: getCountryFlagEmoji(code),
   };
 }
 
@@ -1490,12 +1528,11 @@ function NationalityRow({ player }) {
   const nationality = getPlayerNationality(player);
   return (
     <div
-      className="flex items-center justify-between gap-2 overflow-hidden rounded-md border border-white/10 px-2.5 py-2"
+      className="flex items-center justify-between gap-2 overflow-hidden rounded-md border border-white/10 px-2.5 py-1.5"
       style={getCountryFlagStyle(nationality.code)}
     >
       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Nationality</span>
-      <span className="flex min-w-0 items-center gap-1.5 rounded-sm border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
-        {nationality.flag ? <span className="text-sm leading-none">{nationality.flag}</span> : null}
+      <span className="flex min-w-0 items-center rounded-sm border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
         <span className="truncate">{nationality.label}</span>
       </span>
     </div>
@@ -1504,7 +1541,7 @@ function NationalityRow({ player }) {
 
 function StatusRow({ label, summary }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+    <div className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5">
       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">{label}</span>
       <StatusPill className={summary.className}>{summary.label}</StatusPill>
     </div>
@@ -1513,23 +1550,29 @@ function StatusRow({ label, summary }) {
 
 function InfoTile({ icon: Icon, label, value }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2.5 py-2">
+    <div className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/38">
         {Icon ? <Icon className="h-3 w-3" /> : null}
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 truncate font-heading text-sm font-black uppercase text-white">{value ?? "--"}</p>
+      <p className="mt-0.5 truncate font-heading text-[13px] font-black uppercase text-white">{value ?? "--"}</p>
     </div>
   );
 }
 
 function StatCell({ label, value }) {
   return (
-    <div className="border-r border-white/10 px-2 py-2 text-center last:border-r-0">
-      <p className="font-heading text-lg font-black leading-none text-white">{value ?? "--"}</p>
-      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
+    <div className="border-r border-white/10 px-2 py-1.5 text-center last:border-r-0">
+      <p className="font-heading text-base font-black leading-none text-white">{value ?? "--"}</p>
+      <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
     </div>
   );
+}
+
+function getPlayerCardBackgroundUrl(player) {
+  const type = String(player?.player_card_background_type || "default").toLowerCase();
+  if (type === "default") return "";
+  return String(player?.player_card_background_url || "").trim();
 }
 
 function formatClubStatValue(value, stat) {
@@ -2088,19 +2131,23 @@ function PlayerCard({
   purchaseAwaitingPlayer = false,
   onExerciseOption,
   clubStats,
+  onCardBackgroundChanged,
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [statsOpen, setStatsOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
+  const [backgrounds, setBackgrounds] = useState([]);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [backgroundSaving, setBackgroundSaving] = useState(null);
+  const [customBackgroundFile, setCustomBackgroundFile] = useState(null);
+  const [backgroundError, setBackgroundError] = useState("");
   const player = asObject(rawPlayer);
-  if (!player?.id) return null;
-  const playerRoles = Array.isArray(player.club_roles) ? player.club_roles.map(normalizeClubRole) : [];
   const primaryRole = getPrimaryClubRole(player);
   const isPresidentRole = primaryRole === "president";
   const isCaptainRole = primaryRole === "captain";
   const isViceCaptainRole = primaryRole === "vice_captain";
-  const isStaffRole = ["recruiter", "finance_manager", "match_coordinator"].includes(primaryRole);
   const roleLabel = clubRoleLabel(t, primaryRole);
   const playerContracts = normalizePlayerContracts(contracts);
   const contractSummary = getSquadContractSummary(playerContracts);
@@ -2113,6 +2160,9 @@ function PlayerCard({
   const canViewStats = isClubMember || canManageRoles || isOwner;
   const activeContract = playerContracts.find((contract) => contract.status === "active") || null;
   const profilePath = `/players/${player.id}`;
+  const cardBackgroundUrl = getPlayerCardBackgroundUrl(player);
+  const canChangeOwnBackground = String(_myPlayer?.id || "") === String(player.id || "");
+  const canUseCardBackgrounds = hasStagePlus(player.subscription || _myPlayer?.subscription);
   const clubAverageRating = formatRating(clubStats?.avgRating);
   const clubGoals = Number(clubStats?.goals || 0);
   const clubAssists = Number(clubStats?.assists || 0);
@@ -2126,6 +2176,24 @@ function PlayerCard({
   };
   const openProfile = () => navigate(profilePath);
 
+  useEffect(() => {
+    if (!backgroundOpen || !canUseCardBackgrounds) return;
+    let cancelled = false;
+    setBackgroundLoading(true);
+    stageClient.entities.PlayerCardBackground
+      .filter({}, "sort_order", 100)
+      .then((rows) => {
+        if (!cancelled) setBackgrounds(asObjectArray(rows));
+      })
+      .catch(() => {
+        if (!cancelled) setBackgrounds([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBackgroundLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [backgroundOpen, canUseCardBackgrounds]);
+
   function onCardKeyDown(event) {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -2138,6 +2206,47 @@ function PlayerCard({
     callback?.();
   }
 
+  async function saveCardBackground(payload, busyKey) {
+    if (!canChangeOwnBackground) return;
+    setBackgroundSaving(busyKey);
+    setBackgroundError("");
+    try {
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, payload);
+      onCardBackgroundChanged?.(updated);
+      setCustomBackgroundFile(null);
+      setBackgroundOpen(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not update player card background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  async function uploadCustomBackground() {
+    if (!customBackgroundFile) {
+      setBackgroundError("Choose an image first.");
+      return;
+    }
+    setBackgroundSaving("custom");
+    setBackgroundError("");
+    try {
+      const uploaded = await stageClient.integrations.Core.UploadFile({ file: customBackgroundFile });
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/card-background`, {
+        type: "custom",
+        image_url: uploaded.file_url,
+      });
+      onCardBackgroundChanged?.(updated);
+      setCustomBackgroundFile(null);
+      setBackgroundOpen(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not upload player card background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  if (!player?.id) return null;
+
   return (
     <>
       <article
@@ -2145,8 +2254,16 @@ function PlayerCard({
         tabIndex={0}
         onClick={openProfile}
         onKeyDown={onCardKeyDown}
-        className="group relative min-h-[310px] cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-[#071018] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50"
+        className="group relative min-h-[270px] cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-[#071018] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:border-[#f5c542]/45 hover:shadow-[0_22px_60px_rgba(245,197,66,0.12)] focus:outline-none focus:ring-2 focus:ring-[#f5c542]/50"
       >
+        {cardBackgroundUrl ? (
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-cover bg-center opacity-55 transition-opacity group-hover:opacity-65"
+            style={{ backgroundImage: `url(${cardBackgroundUrl})` }}
+          />
+        ) : null}
+        {cardBackgroundUrl ? <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-black/75" /> : null}
         <div
           aria-hidden
           className="absolute inset-0 opacity-70"
@@ -2158,9 +2275,9 @@ function PlayerCard({
             ].join(", "),
           }}
         />
-        <div className="relative z-[1] flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-md border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+        <div className="relative z-[1] flex items-start justify-between gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
               {player.avatar_url ? (
                 <img
                   src={player.avatar_url}
@@ -2169,21 +2286,21 @@ function PlayerCard({
                   style={{ objectPosition: player.avatar_position || "50% 50%" }}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-xl font-black text-[#f5c542]">
+                <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-lg font-black text-[#f5c542]">
                   {initials}
                 </div>
               )}
-              <div className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1.5 py-0.5 text-[10px] font-black text-[#f5c542]">
+              <div className="absolute bottom-1 right-1 rounded-sm bg-black/75 px-1 py-0.5 text-[9px] font-black text-[#f5c542]">
                 {player.position || "--"}
               </div>
             </div>
-            <div className="min-w-0">
-              <p className="truncate font-heading text-xl font-black uppercase leading-tight text-white">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-heading text-lg font-black uppercase leading-tight text-white">
                 {player.gamertag || "Player"}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 <StatusPill className={rolePillClass(primaryRole)}>
-                  {isPresidentRole ? <Shield className="h-3 w-3" /> : null}
+                  {isPresidentRole ? <Shield className="h-2.5 w-2.5" /> : null}
                   {roleLabel}
                 </StatusPill>
                 {player.loan_badge === "LOAN" ? (
@@ -2193,17 +2310,17 @@ function PlayerCard({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-start gap-2">
-            <div className="rounded-md border border-[#f5c542]/35 bg-black/45 px-2.5 py-1.5 text-center">
-              <p className="font-heading text-2xl font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
-              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">OVR</p>
+          <div className="flex shrink-0 items-start gap-1.5">
+            <div className="min-w-11 rounded-md border border-[#f5c542]/35 bg-black/45 px-2 py-1 text-center">
+              <p className="font-heading text-xl font-black leading-none text-[#f5c542]">{player.overall_rating || "--"}</p>
+              <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/45">OVR</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   onClick={stopCardClick}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-black/35 text-white/70 transition-colors hover:border-[#f5c542]/35 hover:text-[#f5c542]"
                   aria-label="Player actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -2220,6 +2337,12 @@ function PlayerCard({
                 {canViewStats ? (
                   <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setStatsOpen(true))}>
                     <BarChart3 className="h-4 w-4" /> View club stats
+                  </DropdownMenuItem>
+                ) : null}
+                {canChangeOwnBackground ? (
+                  <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, () => setBackgroundOpen(true))}>
+                    {canUseCardBackgrounds ? <ImageIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                    Change background
                   </DropdownMenuItem>
                 ) : null}
                 {canManageRoles ? (
@@ -2288,7 +2411,7 @@ function PlayerCard({
           </div>
         </div>
 
-        <div className="relative z-[1] mt-4 grid grid-cols-2 gap-2">
+        <div className="relative z-[1] mt-3 grid grid-cols-2 gap-2">
           <InfoTile icon={Footprints} label="Primary" value={player.position || "--"} />
           <InfoTile icon={Target} label="Secondary" value={player.secondary_position || "--"} />
         </div>
@@ -2299,7 +2422,7 @@ function PlayerCard({
           <NationalityRow player={player} />
         </div>
 
-        <div className="relative z-[1] mt-4 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
+        <div className="relative z-[1] mt-3 grid grid-cols-4 overflow-hidden rounded-md border border-white/10 bg-black/25">
           <StatCell label="AVG" value={clubAverageRating} />
           <StatCell label="G" value={clubGoals} />
           <StatCell label="A" value={clubAssists} />
@@ -2332,6 +2455,124 @@ function PlayerCard({
             <InfoTile icon={Footprints} label="Assists" value={clubAssists} />
             <InfoTile icon={ClipboardList} label="Matches" value={clubMatches} />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={backgroundOpen} onOpenChange={setBackgroundOpen}>
+        <DialogContent
+          className="max-w-2xl border-white/10 bg-[#071018] text-white"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+              <ImageIcon className="h-4 w-4" /> Change card background
+            </DialogTitle>
+          </DialogHeader>
+          {!canUseCardBackgrounds ? (
+            <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+              <div className="mb-3 flex items-start gap-3">
+                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
+                <div>
+                  <p className="font-heading text-base font-black uppercase text-white">STAGE Plus feature</p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Custom player card backgrounds, personal uploads, and exclusive official designs are included with STAGE Plus.
+                  </p>
+                </div>
+              </div>
+              <Link to="/store" onClick={(event) => event.stopPropagation()}>
+                <Button type="button" className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]">
+                  <Sparkles className="h-4 w-4" /> View STAGE Plus
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {backgroundError ? (
+                <div className="rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                  {backgroundError}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div>
+                  <p className="font-heading text-sm font-black uppercase text-white">Current card</p>
+                  <p className="text-xs text-white/45">Images render under a dark game-card overlay for readability.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={Boolean(backgroundSaving)}
+                  onClick={() => saveCardBackground({ type: "default" }, "default")}
+                  className="gap-2 border-white/15 bg-black/20 text-white hover:bg-white/10"
+                >
+                  <RotateCcw className="h-4 w-4" /> Reset default
+                </Button>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
+                {backgroundLoading ? (
+                  <div className="flex items-center justify-center rounded-lg border border-white/10 py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
+                  </div>
+                ) : backgrounds.length ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {backgrounds.map((bg) => {
+                      const selected = player.player_card_background_type === "official" && player.player_card_background_id === bg.id;
+                      return (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          disabled={Boolean(backgroundSaving)}
+                          onClick={() => saveCardBackground({ type: "official", background_id: bg.id }, bg.id)}
+                          className={cn(
+                            "overflow-hidden rounded-lg border bg-black/30 text-left transition hover:border-[#f5c542]/50",
+                            selected ? "border-[#f5c542]/70" : "border-white/10",
+                          )}
+                        >
+                          <div className="aspect-[16/9] bg-black">
+                            <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="flex items-center justify-between gap-2 p-2">
+                            <span className="truncate text-xs font-bold text-white">{bg.name}</span>
+                            {backgroundSaving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c542]" /> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
+                    No official backgrounds are available yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#f5c542]/35 bg-[#f5c542]/10 px-3 py-2 text-xs font-bold text-[#f5c542]">
+                    <Upload className="h-4 w-4" />
+                    <span className="truncate">{customBackgroundFile ? customBackgroundFile.name : "Choose image"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(event) => setCustomBackgroundFile(event.target.files?.[0] || null)}
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    disabled={!customBackgroundFile || Boolean(backgroundSaving)}
+                    onClick={uploadCustomBackground}
+                    className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]"
+                  >
+                    {backgroundSaving === "custom" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Upload
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -412,7 +412,7 @@ const ENTITY_NAMES = [
   'CompetitionInstance', 'CompetitionParticipant', 'CompetitionScheduleProposal',
   'CompetitionResultSubmission', 'CompetitionPhaseState', 'CompetitionPayout',
   // New reward/achievement entities
-  'RewardConfig', 'ClubAchievement', 'PlayerAchievement',
+  'RewardConfig', 'ClubAchievement', 'PlayerAchievement', 'PlayerCardBackground',
   // Pre-login landing page config
   'LandingConfig', 'StoreConfig',
   // Legacy/compat entities used in some screens

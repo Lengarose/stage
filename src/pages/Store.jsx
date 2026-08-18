@@ -32,7 +32,16 @@ const DEFAULT_STORE_CONFIG = {
   headline: "One membership for serious competitors",
   description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.",
   badge_image_url: "/uploads/stage-plus-badge.png",
-  perks: [],
+  perks: [
+    "150 credits refreshed every month",
+    "Enter official STAGE competitions and regional leagues",
+    "Create community tournaments",
+    "Full rankings and position rankings",
+    "Full player and club stats",
+    "Custom player card backgrounds",
+    "Upload your own player card background",
+    "Choose exclusive STAGE Plus card background designs",
+  ],
 };
 
 function normalizeStoreConfig(row = {}) {
