@@ -8,7 +8,7 @@ const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
 const { get } = require('../../constants/env');
-const { notifyLogin } = require('../services/notifications');
+const { notifySignup } = require('../services/notifications');
 const FRONTEND_URL = get('FRONTEND_URL') || 'http://localhost:3000';
 const SERVER_URL   = get('SERVER_URL')   || 'http://localhost:8080';
 const MOBILE_DEEP_LINK = get('MOBILE_OAUTH_CALLBACK') || 'stage://auth/callback';
@@ -227,11 +227,12 @@ async function issueAndRedirect(res, player, req = null) {
     }
   }
 
-  notifyLogin({
-    to: player.email,
-    name: player.gamertag || (player.email ? player.email.split('@')[0] : 'there'),
-    when: new Date(),
-  });
+  if (player.__isNewUser) {
+    notifySignup({
+      to: player.email,
+      name: player.gamertag || (player.email ? player.email.split('@')[0] : 'there'),
+    });
+  }
 
   const params = new URLSearchParams({
     accessToken,

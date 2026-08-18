@@ -4,7 +4,7 @@
  * lazy-require it and the mailer stays fire-and-forget.
  */
 const { EXECUTESQL } = require('../db/database');
-const { notifyTournamentAssigned, notifyTournamentUnassigned } = require('./notifications');
+const { createNotificationIfEnabled } = require('./messageDeliveryService');
 const { resolveClubPresidentContact } = require('./clubContactService');
 
 async function resolveRecipientAndTournament(row) {
@@ -35,12 +35,30 @@ async function resolveRecipientAndTournament(row) {
 
 async function participantAssigned(row) {
   const { email, name, tournament } = await resolveRecipientAndTournament(row);
-  if (email) notifyTournamentAssigned({ to: email, name, tournament });
+  if (!email) return;
+  const comp = tournament || 'a competition';
+  await createNotificationIfEnabled({
+    recipientEmail: email,
+    type: 'tournament_start',
+    title: `You've been added to ${comp}`,
+    body: `${name || 'You'} have been assigned to ${comp}. Check your fixtures and get ready to compete.`,
+    link: '/competitions',
+    relatedId: row.id || row.competition_instance_id || null,
+  });
 }
 
 async function participantUnassigned(row) {
   const { email, name, tournament } = await resolveRecipientAndTournament(row);
-  if (email) notifyTournamentUnassigned({ to: email, name, tournament });
+  if (!email) return;
+  const comp = tournament || 'a competition';
+  await createNotificationIfEnabled({
+    recipientEmail: email,
+    type: 'tournament_complete',
+    title: `You've been removed from ${comp}`,
+    body: `${name || 'You'} are no longer assigned to ${comp}. If you think this is a mistake, contact an admin.`,
+    link: '/competitions',
+    relatedId: row.id || row.competition_instance_id || null,
+  });
 }
 
 module.exports = { participantAssigned, participantUnassigned };

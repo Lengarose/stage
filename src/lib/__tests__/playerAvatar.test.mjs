@@ -8,6 +8,7 @@ import { resolvePlayerAvatarUrl } from "../playerAvatar.js";
 test("player avatar resolver prefers avatar_url and ignores blanks", () => {
   assert.equal(resolvePlayerAvatarUrl({ avatar_url: "https://cdn.example/a.jpg" }), "https://cdn.example/a.jpg");
   assert.equal(resolvePlayerAvatarUrl({ avatar: "/uploads/b.png" }), "/uploads/b.png");
+  assert.equal(resolvePlayerAvatarUrl({ avatar_url: "file:///tmp/a.jpg" }), "");
   assert.equal(resolvePlayerAvatarUrl({ avatar_url: "  " }), "");
   assert.equal(resolvePlayerAvatarUrl(null), "");
 });

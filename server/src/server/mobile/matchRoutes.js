@@ -2,7 +2,9 @@ const express = require('express');
 const Match = require('../models/matchModel');
 const ChatMessage = require('../models/chatMessageModel');
 const { EXECUTESQL } = require('../db/database');
-const { ok, fail, mapMatch, resolveCallerContext } = require('./helpers');
+const { ok, fail, mapMatch, mapChatMessage, resolveCallerContext } = require('./helpers');
+const { broadcastChatMessage } = require('../utils/socketBroadcast');
+const { notifyLiveChatIfEnabled } = require('../services/messageDeliveryService');
 
 const router = express.Router();
 
@@ -93,7 +95,7 @@ router.post('/:id/chat/read', async (req, res) => {
 router.get('/:id/chat', async (req, res) => {
   try {
     const rows = await new ChatMessage().selectByMatch(req.params.id);
-    return ok(res, rows || []);
+    return ok(res, (rows || []).map(mapChatMessage));
   } catch (err) {
     return fail(res, 500, err.message);
   }
@@ -102,18 +104,20 @@ router.get('/:id/chat', async (req, res) => {
 router.post('/:id/chat', async (req, res) => {
   try {
     const ctx = await resolveCallerContext(req.user);
+    const senderEmail = ctx?.player?.email || ctx?.user?.email || req.body?.sender_email || null;
     const cm = new ChatMessage({
       match_id: req.params.id,
-      sender_id: ctx?.player?.id || req.user.id,
-      sender_gamertag: ctx?.player?.gamertag || req.body?.gamer_tag || null,
-      sender_avatar_url: ctx?.player?.avatar_url || null,
+      sender_email: senderEmail,
+      sender_name: ctx?.player?.gamertag || req.body?.gamer_tag || req.body?.sender_name || null,
+      sender_avatar: ctx?.player?.avatar_url || req.body?.sender_avatar || null,
       content: req.body?.content || req.body?.message || '',
-      media_url: req.body?.media_url || null,
       channel: 'match',
     });
     await cm.create();
     const created = (await cm.selectOne(cm.id))[0];
-    return ok(res, created, 201);
+    broadcastChatMessage(created);
+    notifyLiveChatIfEnabled(created).catch(() => {});
+    return ok(res, mapChatMessage(created), 201);
   } catch (err) {
     return fail(res, 500, err.message);
   }

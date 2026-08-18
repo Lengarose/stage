@@ -24,6 +24,10 @@ async function findOrCreateOAuthPlayer({ oauthId, provider, email, fullName, ava
       'UPDATE players SET user_id = (SELECT id FROM users WHERE email = ? LIMIT 1) WHERE id = ?',
       [linkEmail, player.id]
     );
+    await EXECUTESQL(
+      'UPDATE users SET player_id = COALESCE(player_id, ?), updated_date = NOW() WHERE LOWER(email) = LOWER(?)',
+      [player.id, linkEmail]
+    );
     const refreshed = await EXECUTESQL('SELECT * FROM players WHERE id = ?', [player.id]);
     return refreshed[0] || player;
   }

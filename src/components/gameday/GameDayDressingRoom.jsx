@@ -57,7 +57,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
   // Subscribe to real-time dressing room updates
   useEffect(() => {
     const unsub = stageClient.entities.DressingRoom.subscribe((event) => {
-      if (event.data?.match_id === game.id && event.data?.club_id === myClub?.id) {
+      if (String(event.data?.match_id) === String(game.id) && String(event.data?.club_id) === String(myClub?.id)) {
         setSeatedPlayerIds(parseIds(event.data.seated_players).filter((id) => availablePlayerIds.has(id)));
         if (event.data.id) setDressingRoomId(event.data.id);
       }

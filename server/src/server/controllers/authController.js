@@ -7,7 +7,7 @@ const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { validate, rules } = require('../middleware/validate');
-const { notifyLogin } = require('../services/notifications');
+const { notifySignup } = require('../services/notifications');
 
 function isValidTimeZone(value) {
   if (!value || typeof value !== 'string' || value.length > 80) return false;
@@ -108,6 +108,11 @@ router.post('/register', validate({
       [uuidv4(), email, refreshToken]
     );
 
+    notifySignup({
+      to: email,
+      name: email.split('@')[0],
+    });
+
     res.status(201).json({ accessToken, refreshToken, userId, playerId: null, ownerId: null, ownedClubId: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -159,14 +164,6 @@ router.post('/login', validate({
       [user.id, user.id, user.email, user.id, user.id]
     );
     const presidentClubId = clubs[0]?.president_user_id === user.id ? clubs[0]?.id : clubs[0]?.id || null;
-    // Fire-and-forget sign-in notification (skips the OAuth placeholder addrs).
-    notifyLogin({
-      to: user.email,
-      name: user.email ? user.email.split('@')[0] : 'there',
-      when: new Date(),
-      ip: req.headers['x-forwarded-for'] || req.ip,
-      userAgent: req.headers['user-agent'],
-    });
 
     res.json({
       accessToken,

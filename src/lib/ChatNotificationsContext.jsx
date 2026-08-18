@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { playChatNotificationSound, primeAudioOnUserGesture } from "@/lib/chatNotificationSound";
+import { toast } from "@/components/ui/use-toast";
+import { isNotificationEnabled } from "@/lib/notificationTypes";
 
 // ChatNotificationsProvider
 //
@@ -54,6 +56,7 @@ export function ChatNotificationsProvider({ children }) {
   const [openChannels, setOpenChannels] = useState(new Set()); // channels currently on screen
   const [globalMuted, setGlobalMutedState] = useState(() => readLocalBool(GLOBAL_MUTE_KEY, false));
   const [channelMutes, setChannelMutesState] = useState(() => readLocalChannelMutes());
+  const [messagesEnabled, setMessagesEnabled] = useState(true);
 
   // refs so the socket callback always sees the latest state without
   // re-subscribing on every render.
@@ -61,10 +64,37 @@ export function ChatNotificationsProvider({ children }) {
   const globalMutedRef  = useRef(globalMuted);
   const channelMutesRef = useRef(channelMutes);
   const userEmailRef    = useRef(userEmail);
+  const messagesEnabledRef = useRef(messagesEnabled);
   useEffect(() => { openChannelsRef.current = openChannels; }, [openChannels]);
   useEffect(() => { globalMutedRef.current  = globalMuted; }, [globalMuted]);
   useEffect(() => { channelMutesRef.current = channelMutes; }, [channelMutes]);
   useEffect(() => { userEmailRef.current    = userEmail; }, [userEmail]);
+  useEffect(() => { messagesEnabledRef.current = messagesEnabled; }, [messagesEnabled]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userEmail) {
+      setMessagesEnabled(true);
+      return undefined;
+    }
+    let cancelled = false;
+    let unsub = () => {};
+    (async () => {
+      const { player } = await resolveMyPlayerAndClub().catch(() => ({}));
+      if (cancelled) return;
+      setMessagesEnabled(isNotificationEnabled("message", player?.notification_settings, "web"));
+      if (!player?.id) return;
+      unsub = stageClient.entities.Player.subscribe((event) => {
+        const payload = event?.data;
+        if (!payload || String(payload.id) !== String(player.id)) return;
+        if (payload.notification_settings == null) return;
+        setMessagesEnabled(isNotificationEnabled("message", payload.notification_settings, "web"));
+      }, { id: player.id });
+    })();
+    return () => {
+      cancelled = true;
+      try { unsub(); } catch { /* ignore */ }
+    };
+  }, [isAuthenticated, userEmail]);
 
   // Track the set of channels the provider has discovered, plus per-channel
   // socket unsubscribers.
@@ -109,12 +139,22 @@ export function ChatNotificationsProvider({ children }) {
 
       const isOpen     = openChannelsRef.current.has(channelId);
       const isMuted    = globalMutedRef.current || channelMutesRef.current.has(channelId);
+      const alertsOn   = messagesEnabledRef.current;
 
       // Always increment server-tracked count display IF the channel is not
-      // currently in view. Sound only if not muted AND not open.
+      // currently in view. Sound + toast follow the Messages settings switch
+      // (and per-channel mute).
       if (!isOpen) {
         setUnreadCounts((prev) => ({ ...prev, [channelId]: (prev[channelId] || 0) + 1 }));
-        if (!isMuted) playChatNotificationSound();
+        if (alertsOn && !isMuted) {
+          playChatNotificationSound();
+          const sender = payload.sender_name || payload.sender_email || "Chat";
+          const body = String(payload.content || "").trim();
+          toast({
+            title: sender,
+            description: body || "New chat message",
+          });
+        }
       }
     }, { match_id: channelId });
     unsubByChannelRef.current.set(channelId, unsub);

@@ -6,9 +6,38 @@ const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadc
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
-const { notifyMatchResultPlayer, notifyMatchResultAdmin, notifyMatchDay } = require('../services/notifications');
+const { notifyMatchResultAdmin } = require('../services/notifications');
+const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 
-// Emails both participants that a match has been scheduled. Fire-and-forget.
+function formatKickoff(kickoff) {
+  if (!kickoff) return 'today';
+  const date = new Date(kickoff);
+  return Number.isNaN(date.getTime()) ? String(kickoff) : date.toUTCString();
+}
+
+function matchSideNotice(record, { opponent, competition, kickoff }) {
+  const when = formatKickoff(kickoff);
+  const vs = opponent ? ` against ${opponent}` : '';
+  const comp = competition ? ` in ${competition}` : '';
+  return {
+    title: opponent ? `Match day vs ${opponent}` : 'Match day',
+    body: `You have a match coming up${vs}${comp}. Kick-off: ${when}`,
+    link: record?.id ? `/game-day?match=${encodeURIComponent(record.id)}` : '/game-day',
+  };
+}
+
+function matchResultNotice({ isWinner, isDraw, yourScore, oppScore, opponent, competition }) {
+  const outcome = isDraw ? 'Draw' : (isWinner ? 'Victory' : 'Defeat');
+  const vs = opponent ? ` against ${opponent}` : '';
+  const comp = competition ? ` in ${competition}` : '';
+  return {
+    title: `Match result: ${outcome}`,
+    body: `Your match${vs}${comp} is over. Final score: ${yourScore ?? '-'} – ${oppScore ?? '-'}`,
+    link: '/rankings',
+  };
+}
+
+// Same people as in-app / mobile: player email, else club owner email.
 async function sendMatchDayEmails(record) {
   try {
     if (!record) return;
@@ -25,22 +54,41 @@ async function sendMatchDayEmails(record) {
     ]);
     const homeEmail = homeP[0]?.email || homeC[0]?.owner_email || record.home_owner_email || null;
     const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
-    if (homeEmail) notifyMatchDay({ to: homeEmail, name: homeP[0]?.gamertag || homeName, opponent: awayName, competition, kickoff });
-    if (awayEmail) notifyMatchDay({ to: awayEmail, name: awayP[0]?.gamertag || awayName, opponent: homeName, competition, kickoff });
+    if (homeEmail) {
+      const notice = matchSideNotice(record, { opponent: awayName, competition, kickoff });
+      await createNotificationIfEnabled({
+        recipientEmail: homeEmail,
+        type: 'match_reminder',
+        title: notice.title,
+        body: notice.body,
+        link: notice.link,
+        relatedId: record.id,
+      });
+    }
+    if (awayEmail) {
+      const notice = matchSideNotice(record, { opponent: homeName, competition, kickoff });
+      await createNotificationIfEnabled({
+        recipientEmail: awayEmail,
+        type: 'match_reminder',
+        title: notice.title,
+        body: notice.body,
+        link: notice.link,
+        relatedId: record.id,
+      });
+    }
   } catch (err) {
     console.error('[matchController] match-day emails failed:', err.message);
   }
 }
 
-// Emails both players their result/points and notifies admins of the winner.
-// Fire-and-forget: never blocks or throws into the match-processing path.
+// Players get the same in-app / email / push path as the rest of STAGE.
+// Admins still get the dedicated match-completed table email.
 async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore }) {
   try {
     const homeName = record.home_player_name || record.home_club_name || 'Home';
     const awayName = record.away_player_name || record.away_club_name || 'Away';
     const competition = record.competition_name || record.competition_type || null;
 
-    // Resolve recipient emails (player email first, else club owner email).
     const [homeP, awayP, homeC, awayC] = await Promise.all([
       record.home_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.home_player_id]) : [],
       record.away_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.away_player_id]) : [],
@@ -51,22 +99,43 @@ async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore 
     const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
 
     if (homeEmail) {
-      notifyMatchResultPlayer({
-        to: homeEmail, name: homeP[0]?.gamertag || homeName,
-        isWinner: homeResult === 'win', isDraw: homeResult === 'draw',
-        yourScore: homeScore, oppScore: awayScore, opponent: awayName, competition,
+      const notice = matchResultNotice({
+        isWinner: homeResult === 'win',
+        isDraw: homeResult === 'draw',
+        yourScore: homeScore,
+        oppScore: awayScore,
+        opponent: awayName,
+        competition,
+      });
+      await createNotificationIfEnabled({
+        recipientEmail: homeEmail,
+        type: 'match_result',
+        title: notice.title,
+        body: notice.body,
+        link: notice.link,
+        relatedId: record.id,
       });
     }
     if (awayEmail) {
       const awayResult = homeResult === 'win' ? 'loss' : (homeResult === 'loss' ? 'win' : 'draw');
-      notifyMatchResultPlayer({
-        to: awayEmail, name: awayP[0]?.gamertag || awayName,
-        isWinner: awayResult === 'win', isDraw: awayResult === 'draw',
-        yourScore: awayScore, oppScore: homeScore, opponent: homeName, competition,
+      const notice = matchResultNotice({
+        isWinner: awayResult === 'win',
+        isDraw: awayResult === 'draw',
+        yourScore: awayScore,
+        oppScore: homeScore,
+        opponent: homeName,
+        competition,
+      });
+      await createNotificationIfEnabled({
+        recipientEmail: awayEmail,
+        type: 'match_result',
+        title: notice.title,
+        body: notice.body,
+        link: notice.link,
+        relatedId: record.id,
       });
     }
 
-    // Admin result notification (formatted table).
     const isDraw = homeResult === 'draw';
     const winner = isDraw ? null : (homeResult === 'win' ? homeName : awayName);
     const admins = await EXECUTESQL("SELECT email FROM users WHERE role_id IN (0, 2) AND email IS NOT NULL LIMIT 50");

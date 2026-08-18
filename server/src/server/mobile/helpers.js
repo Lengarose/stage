@@ -124,6 +124,17 @@ function mapJoinRequest(row = {}) {
   };
 }
 
+function mapChatMessage(row = {}) {
+  if (!row) return null;
+  return {
+    ...row,
+    user_id: row.sender_email || row.user_id || null,
+    gamer_tag: row.sender_name || row.gamer_tag || null,
+    created_at: row.created_date || row.created_at || null,
+    message_type: row.message_type || 'text',
+  };
+}
+
 async function resolveCallerContext(user) {
   if (!user?.id && !user?.email) return null;
   const users = await EXECUTESQL(
@@ -190,6 +201,7 @@ module.exports = {
   mapPost,
   mapComment,
   mapJoinRequest,
+  mapChatMessage,
   resolveCallerContext,
   buildMePayload,
   splitName,

@@ -6,6 +6,7 @@ import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import { COUNTRIES } from "@/lib/countries";
 import { prepareImageForUpload } from "@/lib/imageUpload";
+import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -162,7 +163,7 @@ export default function PresidentSetup({
     try {
       const uploadFile = await prepareImageForUpload(file, { fallbackName: "president-avatar.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
-      if (!file_url) throw new Error(t("commonPages.obErrUpload"));
+      if (!isPersistableMediaUrl(file_url)) throw new Error(t("commonPages.obErrUpload"));
       setPendingAvatar(file_url);
     } catch (err) {
       console.error("Failed to upload president avatar:", err);

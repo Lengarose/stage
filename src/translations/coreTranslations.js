@@ -11,38 +11,17 @@ import {
 import { getAdminTranslations } from "./adminTranslations.js";
 import { mergeAdminExtras } from "./adminTranslationExtras.js";
 import { applySectionPacks, applySettingsPacks } from "./localePacks.js";
+import { PAGE_GUIDE_STEPS_EN } from "../lib/pageWalkthroughCopy.js";
+
+function resolveGuideSteps(language, key) {
+  const local = pageGuides[language]?.[key];
+  const en = pageGuides.en[key] || [];
+  if (Array.isArray(local) && local.length >= 6) return local;
+  return en;
+}
 
 const pageGuides = {
-  en: {
-    "tournamentMatch": ["Use this screen for tournament fixtures that need to be played or confirmed.", "Open a match to see opponent, rules, deadline and result actions.", "Submit results carefully because tournament standings depend on this flow."],
-    "tournamentSchedule": ["Check tournament fixtures, rounds and deadlines here.", "Use this before match day to understand what is coming next.", "If timing needs coordination, continue through Inbox or the match detail."],
-    "tournamentInbox": ["Tournament invites, match messages and admin decisions arrive here.", "Open each item to accept, respond, or continue the tournament flow.", "Unread items usually mean your tournament progress needs attention."],
-    "tournamentPlayers": ["Review registered players and tournament participants here.", "Open profiles to inspect identity, eligibility and performance context.", "Use this page before matches to understand who is active in the bracket or league."],
-    "tournamentClubs": ["Review registered clubs and tournament teams here.", "Open club profiles to inspect squad, president and tournament context.", "Use this page before matches to understand opponents and participants."],
-    "matches": ["Start here when you have a fixture to play, confirm, or follow live.", "Open the match card to see opponent, deadline, chat, stream and result actions.", "After the game, submit the result and keep evidence ready if there is a dispute."],
-    "compete": ["Use this page to choose what kind of competition you want to enter.", "Open a competition to see format, entry rules, standings and available actions.", "If you are not sure where to start, go from Competitions to Register or Tournaments."],
-    "club": ["Find clubs, open your club profile, or inspect another team before a match.", "Club presidents manage identity, squad, finance and operations from the club detail page.", "Players can use club pages to understand rosters, activity and recruitment fit."],
-    "schedule": ["Check upcoming fixtures and deadlines here before going to Match Day.", "Use filters or calendar views to find the match that needs attention.", "If a time needs to be arranged, use the match details or inbox proposal flow."],
-    "inbox": ["This is where match proposals, contract offers, club messages and requests arrive.", "Open a message to accept, decline, reply, or continue the related action.", "Unread items usually mean something needs a decision before you continue."],
-    "tournaments": ["Browse available tournaments and open one to inspect rules, teams and schedule.", "Admins and eligible club presidents can create or manage tournaments from tournament controls.", "Players should check registration status and deadlines before match day starts."],
-    "international": ["Use this area for national competitions and international tournament formats.", "Open a tournament card to see eligibility, squad rules and current phase.", "Follow the page prompts to register, vote, build squads, or track progress."],
-    "register": ["Start registration here when a league or season opens.", "Check the requirements, choose your club or player entry, then submit before the deadline.", "After registering, use Schedule and Inbox to follow next steps."],
-    "rankings": ["Compare players, clubs and competition performance here.", "Use ranking context to understand form, activity and who is moving up.", "Open profiles from rankings when you want deeper stats or scouting context."],
-    "players": ["Search the player pool and open profiles to inspect stats, role and activity.", "Club presidents can use this page as a scouting starting point.", "Players can compare themselves and discover potential teammates or rivals."],
-    "presidents": ["Browse club presidents and open their public profiles.", "Check success level, management style and the club they run.", "Use this directory to discover presidents separately from the player list."],
-    "freeAgents": ["Find players who are available for clubs or looking for opportunities.", "Open a player profile before contacting or recruiting them.", "Use Scouting or Inbox when you are ready to move from interest to action."],
-    "scouting": ["File a report on any player your club should look at, backed by video links.", "The squad can vote on a report once the president opens a vote — it is advisory.", "The president decides: send a contract offer from the report, or shelve it."],
-    "transfers": ["Browse players and transfer opportunities across the market.", "Use filters to narrow by role, value, availability or club context.", "Open a transfer detail before making a move so the terms are clear."],
-    "wallet": ["Track your balance, rewards and financial activity here.", "Check recent movements before making club, contract or store decisions.", "If something looks wrong, keep the transaction visible before contacting an admin."],
-    "feed": ["Use the feed to follow community updates, club moments and player activity.", "Post or react when the page offers social actions.", "Open profiles, clubs or news items from the feed when something needs context."],
-    "discord": ["This page connects the app community and Discord-style coordination.", "Use it when you need broader discussion, announcements or community links.", "For private match or contract actions, use Inbox instead."],
-    "followBack": ["See who follows you and decide who to follow back.", "Use this to build a useful player and club network without searching manually.", "Open profiles first when you want to check who someone is before following."],
-    "profile": ["This is your player identity: stats, reputation, trophies and public information.", "Keep your profile complete so clubs and tournament admins can understand your role.", "Use club links, trophy sections and activity to move into deeper details."],
-    "search": ["Search across players, clubs and key app content from one place.", "Use precise names when you know them, or broad terms when discovering.", "Open a result to continue into the correct page flow."],
-    "lifestyle": ["Browse lifestyle items and identity upgrades for your STAGE presence.", "Open an item to understand its price, effect and availability.", "Check Wallet first if you are planning purchases or rewards spending."],
-    "store": ["Use the store for purchasable items, upgrades and unlocks.", "Open an item before buying so you understand cost and ownership.", "Wallet shows your balance and recent transactions after store activity."],
-    "news": ["Read announcements, competition updates and platform news here.", "Open articles when you need the full context behind a change or event.", "Important news may affect registration windows, schedules or admin decisions."],
-  },
+  en: PAGE_GUIDE_STEPS_EN,
   fr: {
     "tournamentMatch": ["Utilise cet écran pour les matchs de tournoi à jouer ou confirmer.", "Ouvre un match pour voir l’adversaire, les règles, la deadline et les actions de résultat.", "Soumets les résultats avec attention: le classement du tournoi en dépend."],
     "tournamentSchedule": ["Consulte ici les matchs, tours et deadlines du tournoi.", "Passe par cette page avant Match Day pour voir ce qui arrive.", "Si l’heure doit être coordonnée, continue via Inbox ou le détail du match."],
@@ -120,6 +99,8 @@ const guideTitles = {
     lifestyle: ["Lifestyle", "Lifestyle"],
     store: ["Store", "Store"],
     news: ["News", "News"],
+    dashboard: ["Home", "Home"],
+    contracts: ["Contracts", "Contracts"],
   },
   fr: {
     tournamentMatch: ["Match tournoi", "Match de tournoi"],
@@ -1381,7 +1362,7 @@ export function getCoreTranslations(language) {
         {
           label: titlePair[0],
           title: titlePair[1],
-          steps: pageGuides[language]?.[key] || pageGuides.en[key],
+          steps: resolveGuideSteps(language, key),
         },
       ];
     })

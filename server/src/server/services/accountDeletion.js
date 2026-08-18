@@ -81,6 +81,7 @@ async function clearAuxiliaryUserReferences(exec, userId) {
     ['UPDATE club_operation_audit_logs SET actor_user_id = NULL WHERE actor_user_id = ?', [userId]],
     ['UPDATE admin_audit_log SET admin_user_id = NULL WHERE admin_user_id = ?', [userId]],
     ['UPDATE fixture_admin_actions SET performed_by = NULL WHERE performed_by = ?', [userId]],
+    ['DELETE FROM follows WHERE follower_id = ?', [userId]],
   ];
   for (const [sql, params] of stmts) {
     await exec(sql, params);
@@ -114,6 +115,7 @@ async function purgeEmailFingerprints(exec, userId, emailsRaw) {
     'DELETE FROM notifications WHERE LOWER(TRIM(recipient_email)) IN ',
     'DELETE FROM chat_messages WHERE LOWER(TRIM(sender_email)) IN ',
     'DELETE FROM join_requests WHERE LOWER(TRIM(player_email)) IN ',
+    'DELETE FROM follows WHERE LOWER(TRIM(follower_email)) IN ',
     'DELETE FROM comments WHERE LOWER(TRIM(author_email)) IN ',
     'DELETE FROM posts WHERE LOWER(TRIM(author_email)) IN ',
     'DELETE FROM match_player_stats WHERE LOWER(TRIM(player_email)) IN ',
@@ -191,6 +193,8 @@ async function purgeReferencesForPlayerIds(exec, playerIdsRaw) {
   const p = [...ids];
 
   await exec(`DELETE FROM join_requests WHERE player_id IN ${IN_IDS}`, p);
+  await exec(`DELETE FROM follows WHERE follower_player_id IN ${IN_IDS}`, p);
+  await exec(`DELETE FROM follows WHERE target_type = 'player' AND target_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM lifestyle_purchases WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM player_stc_transactions WHERE player_id IN ${IN_IDS}`, p);
   await exec(`DELETE FROM objective_progress WHERE player_id IN ${IN_IDS}`, p);

@@ -2,6 +2,7 @@ const express     = require('express');
 const router      = express.Router();
 const ChatMessage = require('../models/chatMessageModel');
 const { broadcastChatMessage, broadcastChatMessageDeleted } = require('../utils/socketBroadcast');
+const { notifyLiveChatIfEnabled } = require('../services/messageDeliveryService');
 
 // GET /
 router.get('/', async (req, res) => {
@@ -40,6 +41,7 @@ router.post('/', async (req, res) => {
     const created = await cm.selectOne(cm.id);
     const record  = created[0];
     broadcastChatMessage(record);
+    notifyLiveChatIfEnabled(record).catch(() => {});
     res.status(201).json(record);
   } catch (err) {
     console.error(err);

@@ -52,11 +52,52 @@ export async function loginWebOneSignal(user) {
 }
 
 export async function logoutWebOneSignal() {
-  if (!isOneSignalConfigured() || typeof window === 'undefined') return false;
+  if (!isOneSignalConfigured() || typeof window === "undefined") return false;
   try {
     await OneSignal.logout();
     return true;
   } catch {
     return false;
   }
+}
+
+export async function getWebPushStatus() {
+  if (!isOneSignalConfigured() || typeof window === "undefined") {
+    return { configured: false, permission: false, optedIn: false };
+  }
+  await initWebOneSignal();
+  let permission = false;
+  try {
+    permission = Boolean(OneSignal.Notifications?.permission);
+  } catch {
+    permission = false;
+  }
+  let optedIn = permission;
+  try {
+    const subscription = OneSignal.User?.PushSubscription;
+    if (typeof subscription?.optedIn === "boolean") optedIn = subscription.optedIn;
+  } catch {
+    optedIn = permission;
+  }
+  return { configured: true, permission, optedIn };
+}
+
+export async function setWebPushEnabled(enabled) {
+  const ready = await initWebOneSignal();
+  if (!ready) return { ok: false, configured: false, permission: false, optedIn: false };
+  if (enabled) {
+    await promptWebPushIfNeeded();
+    try {
+      OneSignal.User?.PushSubscription?.optIn?.();
+    } catch {
+      /* ignore */
+    }
+  } else {
+    try {
+      OneSignal.User?.PushSubscription?.optOut?.();
+    } catch {
+      /* ignore */
+    }
+  }
+  return { ok: true, ...(await getWebPushStatus()) };
 }

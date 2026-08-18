@@ -25,6 +25,8 @@ test('upload allows showcase videos up to 20 MB', () => {
 test('upload normalizes compatible MIME types and rejects unsupported video containers', () => {
   const { normalizeUploadExtension } = _internals;
 
+  assert.equal(normalizeUploadExtension(file('photo.jpg', 'image/jpeg')), '.jpg');
+  assert.equal(normalizeUploadExtension(file('photo.jpg', 'image/jpg')), '.jpg');
   assert.equal(normalizeUploadExtension(file('phone-video', 'video/quicktime')), '.mov');
   assert.equal(normalizeUploadExtension(file('clip.avi', 'video/x-msvideo')), null);
   assert.equal(normalizeUploadExtension(file('clip.mkv', 'video/x-matroska')), null);

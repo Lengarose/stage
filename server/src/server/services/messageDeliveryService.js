@@ -3,12 +3,8 @@ const { EXECUTESQL } = require('../db/database');
 const { broadcastInbox, broadcastNotification } = require('../utils/socketBroadcast');
 const { resolveClubPresidentContact } = require('./clubContactService');
 const { queueOneSignalPush } = require('./oneSignalService');
-
-function parseMaybeJson(value, fallback = {}) {
-  if (value == null) return fallback;
-  if (typeof value === 'object') return value;
-  try { return JSON.parse(String(value)); } catch { return fallback; }
-}
+const { parseMaybeJson, resolveDelivery } = require('./notificationPreferenceService');
+const { sendEventEmail } = require('./notifications');
 
 function formatContractTypeForSentence(type) {
   if (type === 'ownership') return 'president';
@@ -146,8 +142,9 @@ async function createNotificationIfEnabled({
   const playerRows = await EXECUTESQL('SELECT notification_settings FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1', [recipientEmail]);
   const settings = parseMaybeJson(playerRows[0]?.notification_settings, {});
   const settingKey = getNotificationSettingKey(type);
-  const enabled = settingKey ? (settings[settingKey] === undefined ? true : settings[settingKey] === true) : true;
-  if (!enabled) return { skipped: true, reason: 'disabled in settings' };
+  const delivery = resolveDelivery(settings, settingKey);
+  const email = Boolean(delivery.email && settingKey);
+  if (!delivery.inApp && !delivery.push && !email) return { skipped: true, reason: 'disabled in settings' };
   if (idempotencyKey) {
     const existing = await EXECUTESQL(
       'SELECT id FROM notifications WHERE idempotency_key = ? LIMIT 1',
@@ -164,31 +161,220 @@ async function createNotificationIfEnabled({
     );
     if (existing.length) return { success: true, id: existing[0].id, reused: true };
   }
-  const id = uuidv4();
-  await EXECUTESQL(
-    'INSERT INTO notifications (id, recipient_email, type, title, body, `read`, link, related_id, idempotency_key, created_date) VALUES (?,?,?,?,?,?,?,?,?, NOW())',
-    [id, recipientEmail, type, title, body, 0, link || '', relatedId, idempotencyKey]
-  );
-  broadcastNotification({
-    id,
-    recipient_email: recipientEmail,
-    type,
-    title,
-    body,
-    read: 0,
-    link: link || '',
-    related_id: relatedId,
-    idempotency_key: idempotencyKey,
-  });
-  queueOneSignalPush({
-    recipientEmail,
-    title,
-    body,
-    link,
-    type,
-    notificationId: id,
-  });
-  return { success: true, id };
+  let id = null;
+  if (delivery.inApp) {
+    id = uuidv4();
+    await EXECUTESQL(
+      'INSERT INTO notifications (id, recipient_email, type, title, body, `read`, link, related_id, idempotency_key, created_date) VALUES (?,?,?,?,?,?,?,?,?, NOW())',
+      [id, recipientEmail, type, title, body, 0, link || '', relatedId, idempotencyKey]
+    );
+    broadcastNotification({
+      id,
+      recipient_email: recipientEmail,
+      type,
+      title,
+      body,
+      read: 0,
+      link: link || '',
+      related_id: relatedId,
+      idempotency_key: idempotencyKey,
+    });
+  }
+  if (delivery.push) {
+    queueOneSignalPush({
+      recipientEmail,
+      title,
+      body,
+      link,
+      type,
+      notificationId: id,
+    });
+  }
+  if (email) {
+    sendEventEmail({ to: recipientEmail, title, body, url: link });
+  }
+  return { success: true, id, inApp: delivery.inApp, push: delivery.push, email };
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function liveChatSnippet(text, max = 140) {
+  const snippet = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!snippet) return 'Sent a message';
+  return snippet.length > max ? `${snippet.slice(0, max - 1)}…` : snippet;
+}
+
+function liveChatChannelMeta(record) {
+  const channelId = String(record?.match_id || '').trim();
+  const clubMatch = channelId.match(/^club:(.+)$/i);
+  if (clubMatch) {
+    const clubId = clubMatch[1];
+    return {
+      channelId,
+      kind: 'club',
+      clubId,
+      link: `/clubs/${clubId}`,
+      titleSuffix: 'club chat',
+    };
+  }
+  return {
+    channelId,
+    kind: 'match',
+    matchId: channelId,
+    link: channelId ? `/game-day?match=${encodeURIComponent(channelId)}` : '/game-day',
+    titleSuffix: 'match chat',
+  };
+}
+
+async function resolveLiveChatRecipientEmails(record) {
+  const meta = liveChatChannelMeta(record);
+  const sender = normalizeEmail(record?.sender_email);
+  const emails = new Set();
+
+  if (meta.kind === 'club' && meta.clubId) {
+    const squad = await EXECUTESQL(
+      'SELECT email FROM players WHERE club_id = ? AND email IS NOT NULL AND TRIM(email) != ""',
+      [meta.clubId]
+    ).catch(() => []);
+    const owner = await EXECUTESQL(
+      'SELECT owner_email FROM clubs WHERE id = ? LIMIT 1',
+      [meta.clubId]
+    ).catch(() => []);
+    for (const row of squad || []) emails.add(normalizeEmail(row.email));
+    if (owner?.[0]?.owner_email) emails.add(normalizeEmail(owner[0].owner_email));
+  } else if (meta.matchId) {
+    const matches = await EXECUTESQL(
+      `SELECT home_player_email, away_player_email, home_owner_email, away_owner_email,
+              home_player_id, away_player_id, home_club_id, away_club_id
+         FROM matches WHERE id = ? LIMIT 1`,
+      [meta.matchId]
+    ).catch(() => []);
+    const match = matches?.[0];
+    if (match) {
+      for (const key of ['home_player_email', 'away_player_email', 'home_owner_email', 'away_owner_email']) {
+        if (match[key]) emails.add(normalizeEmail(match[key]));
+      }
+      const playerIds = [match.home_player_id, match.away_player_id].filter(Boolean);
+      if (playerIds.length) {
+        const placeholders = playerIds.map(() => '?').join(',');
+        const players = await EXECUTESQL(
+          `SELECT email FROM players WHERE id IN (${placeholders}) AND email IS NOT NULL AND TRIM(email) != ""`,
+          playerIds
+        ).catch(() => []);
+        for (const row of players || []) emails.add(normalizeEmail(row.email));
+      }
+      const clubIds = [match.home_club_id, match.away_club_id].filter(Boolean);
+      if (clubIds.length) {
+        const placeholders = clubIds.map(() => '?').join(',');
+        const squad = await EXECUTESQL(
+          `SELECT email FROM players WHERE club_id IN (${placeholders}) AND email IS NOT NULL AND TRIM(email) != ""`,
+          clubIds
+        ).catch(() => []);
+        for (const row of squad || []) emails.add(normalizeEmail(row.email));
+      }
+    }
+  }
+
+  emails.delete(sender);
+  emails.delete('');
+  return [...emails];
+}
+
+async function notifyLiveChatIfEnabled(record) {
+  if (!record?.match_id) return { skipped: true, reason: 'channel missing' };
+  const meta = liveChatChannelMeta(record);
+  const recipients = await resolveLiveChatRecipientEmails(record);
+  const senderName = String(record.sender_name || record.sender_email || 'Someone').trim() || 'Someone';
+  const title = `${senderName} · ${meta.titleSuffix}`;
+  const body = liveChatSnippet(record.content);
+  const relatedId = `live_chat:${meta.channelId}`;
+  const results = [];
+
+  for (const recipientEmail of recipients) {
+    const playerRows = await EXECUTESQL(
+      'SELECT notification_settings FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1',
+      [recipientEmail]
+    ).catch(() => []);
+    const settings = parseMaybeJson(playerRows[0]?.notification_settings, {});
+    const delivery = resolveDelivery(settings, 'messages');
+    if (!delivery.inApp && !delivery.push && !delivery.email) {
+      results.push({ recipientEmail, skipped: true, reason: 'disabled in settings' });
+      continue;
+    }
+
+    const unread = delivery.inApp ? await EXECUTESQL(
+      'SELECT id FROM notifications WHERE recipient_email = ? AND type = ? AND related_id = ? AND `read` = 0 LIMIT 1',
+      [recipientEmail, 'message', relatedId]
+    ).catch(() => []) : [];
+
+    if (unread[0]?.id) {
+      await EXECUTESQL(
+        'UPDATE notifications SET title = ?, body = ?, link = ?, updated_date = NOW() WHERE id = ?',
+        [title, body, meta.link, unread[0].id]
+      ).catch(() => {});
+      const payload = {
+        id: unread[0].id,
+        recipient_email: recipientEmail,
+        type: 'message',
+        title,
+        body,
+        read: 0,
+        link: meta.link,
+        related_id: relatedId,
+      };
+      broadcastNotification(payload);
+      if (delivery.push) {
+        queueOneSignalPush({
+          recipientEmail,
+          title,
+          body,
+          link: meta.link,
+          type: 'message',
+          notificationId: unread[0].id,
+        });
+      }
+      results.push({ recipientEmail, success: true, reused: true, id: unread[0].id, push: delivery.push, email: false });
+      continue;
+    }
+
+    let id = null;
+    if (delivery.inApp) {
+      id = uuidv4();
+      await EXECUTESQL(
+        'INSERT INTO notifications (id, recipient_email, type, title, body, `read`, link, related_id, created_date) VALUES (?,?,?,?,?,?,?,?, NOW())',
+        [id, recipientEmail, 'message', title, body, 0, meta.link, relatedId]
+      );
+      const payload = {
+        id,
+        recipient_email: recipientEmail,
+        type: 'message',
+        title,
+        body,
+        read: 0,
+        link: meta.link,
+        related_id: relatedId,
+      };
+      broadcastNotification(payload);
+    }
+    if (delivery.push) {
+      queueOneSignalPush({
+        recipientEmail,
+        title,
+        body,
+        link: meta.link,
+        type: 'message',
+        notificationId: id,
+      });
+    }
+    if (delivery.email) {
+      sendEventEmail({ to: recipientEmail, title, body, url: meta.link });
+    }
+    results.push({ recipientEmail, success: true, id, inApp: delivery.inApp, push: delivery.push, email: delivery.email });
+  }
+
+  return { success: true, notified: results.filter((row) => row.success).length, results };
 }
 
 async function sendActionMessage({
@@ -910,4 +1096,7 @@ module.exports = {
   messageTypeToNotificationType,
   resolveContractOfferRecipient,
   sendActionMessage,
+  liveChatChannelMeta,
+  resolveLiveChatRecipientEmails,
+  notifyLiveChatIfEnabled,
 };

@@ -130,7 +130,7 @@ export default function TutorialPopup({ open, onClose, intent = "player" }) {
 
               <div className="bg-secondary/50 border border-border rounded-xl p-4 space-y-3">
                 <p className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Each point
+                  Your path
                 </p>
                 <ol className="space-y-2.5">
                   {points.map((point, i) => (

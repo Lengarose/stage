@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  ChevronLeft, ChevronRight, X, LayoutDashboard, UserCog, Binoculars, Archive,
+  X, LayoutDashboard, UserCog, Binoculars, Archive,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -36,6 +36,7 @@ import {
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
 import { isFullBleedRoute, isNewsFullBleedRoute, isTransferMarketFullBleedRoute } from "@/lib/profileRouteLayout";
+import { PAGE_GUIDE_STEPS_EN } from "@/lib/pageWalkthroughCopy";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import {
   filterTransferWindowNavGroups,
@@ -547,6 +548,18 @@ const MOBILE_WALKTHROUGHS = [
       "Important news may affect registration windows, schedules or admin decisions.",
     ],
   },
+  {
+    path: "/dashboard",
+    label: "Home",
+    title: "Home",
+    steps: PAGE_GUIDE_STEPS_EN.dashboard,
+  },
+  {
+    path: "/contracts",
+    label: "Contracts",
+    title: "Contracts",
+    steps: PAGE_GUIDE_STEPS_EN.contracts,
+  },
 ];
 
 const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
@@ -577,6 +590,8 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/lifestyle": "lifestyle",
   "/store": "store",
   "/news": "news",
+  "/dashboard": "dashboard",
+  "/contracts": "contracts",
 };
 
 const NAV_LABEL_KEYS = {
@@ -1159,23 +1174,17 @@ function MobileWalkthrough({ pathname }) {
   const { t } = useTranslation();
   const guide = getMobileWalkthrough(pathname);
   const [open, setOpen] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
   const translatedGuide = guide?.i18nKey ? t(`walkthrough.${guide.i18nKey}`) : null;
   const translatedSteps = Array.isArray(translatedGuide?.steps) ? translatedGuide.steps : guide?.steps;
   const guideLabel = translatedGuide?.label || guide?.label;
   const guideTitle = translatedGuide?.title || guide?.title;
   const totalSteps = translatedSteps?.length || 0;
-  const activeStep = translatedSteps?.[stepIndex] || "";
 
   useEffect(() => {
     setOpen(false);
-    setStepIndex(0);
   }, [pathname]);
 
   if (!guide) return null;
-
-  const canGoBack = stepIndex > 0;
-  const canGoNext = stepIndex < totalSteps - 1;
 
   return (
     <>
@@ -1229,46 +1238,27 @@ function MobileWalkthrough({ pathname }) {
             </button>
           </div>
 
-          <div className="mobile-guide-card mt-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="mobile-guide-step-label">{t("mobile.stepCount", { current: stepIndex + 1, total: totalSteps })}</span>
-              <div className="flex gap-1">
-                {guide.steps.map((_, index) => (
-                  <span
-                    key={index}
-                    className={cn("mobile-guide-dot", index === stepIndex && "is-active")}
-                  />
-                ))}
-              </div>
-            </div>
-            <p className="mobile-guide-copy">{activeStep}</p>
+          <div className="mobile-guide-card mt-4 max-h-[50vh] overflow-y-auto">
+            <p className="mobile-guide-step-label mb-3">{t("mobile.stepCount", { current: totalSteps, total: totalSteps })}</p>
+            <ol className="space-y-3">
+              {(translatedSteps || []).map((step, index) => (
+                <li key={`${guide.path}-${index}`} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-black text-primary">
+                    {index + 1}
+                  </span>
+                  <p className="mobile-guide-copy">{step}</p>
+                </li>
+              ))}
+            </ol>
           </div>
 
-          <div className="mt-4 grid grid-cols-[44px_1fr_44px] gap-3">
+          <div className="mt-4">
             <button
               type="button"
-              className="mobile-guide-icon-button rounded-2xl disabled:opacity-35"
-              onClick={() => setStepIndex((v) => Math.max(0, v - 1))}
-              disabled={!canGoBack}
-              aria-label={t("mobile.previousStep")}
+              className="mobile-guide-primary w-full rounded-2xl"
+              onClick={() => setOpen(false)}
             >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              className="mobile-guide-primary rounded-2xl"
-              onClick={() => (canGoNext ? setStepIndex((v) => v + 1) : setOpen(false))}
-            >
-              {canGoNext ? t("mobile.next") : t("mobile.done")}
-            </button>
-            <button
-              type="button"
-              className="mobile-guide-icon-button rounded-2xl disabled:opacity-35"
-              onClick={() => setStepIndex((v) => Math.min(totalSteps - 1, v + 1))}
-              disabled={!canGoNext}
-              aria-label={t("mobile.nextStep")}
-            >
-              <ChevronRight className="h-5 w-5" />
+              {t("mobile.done")}
             </button>
           </div>
         </div>

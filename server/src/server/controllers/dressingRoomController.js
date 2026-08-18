@@ -99,6 +99,7 @@ router.post('/', async (req, res) => {
     const record  = created[0];
     broadcastDressingRoom(record);
     await maybeApplyStream(record);
+    if (record?.match_id) await broadcastMatchById(record.match_id).catch(() => {});
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
@@ -124,6 +125,7 @@ router.patch('/:id', async (req, res) => {
     const record  = updated[0];
     broadcastDressingRoom(record);
     await maybeApplyStream(record);
+    if (record?.match_id) await broadcastMatchById(record.match_id).catch(() => {});
     res.json(record);
   } catch (err) {
     console.error(err);

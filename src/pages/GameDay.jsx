@@ -8,6 +8,7 @@ import GameDayDetail from "@/components/gameday/GameDayDetail";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
+import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -53,7 +54,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   // the "Submit Result" form unlock when the home side submits.
   useEffect(() => {
     if (!selectedGame?.id) return;
-    const fresh = games.find((g) => g.id === selectedGame.id);
+    const fresh = games.find((g) => sameRecordId(g.id, selectedGame.id));
     if (fresh && fresh !== selectedGame) setSelectedGame(fresh);
   }, [games, selectedGame]);
 
@@ -67,31 +68,34 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     let stopped = false;
 
     const applyFreshMatch = (fresh) => {
-      if (stopped || !fresh?.id || fresh.id !== selectedGame.id) return;
+      if (stopped || !fresh?.id || !sameRecordId(fresh.id, selectedGame.id)) return;
+      if (!isGameDayMatchSocketPayload(fresh) && !fresh.status) return;
       if (scopedTournamentId && fresh.tournament_id !== scopedTournamentId) return;
 
       if (!isActiveGameDayMatch(fresh)) {
         setSelectedGame(null);
-        setGames(prev => prev.filter(g => g.id !== fresh.id));
+        setGames(prev => prev.filter(g => !sameRecordId(g.id, fresh.id)));
         return;
       }
 
-      setSelectedGame(fresh);
+      setSelectedGame((prev) => (prev && sameRecordId(prev.id, fresh.id) ? { ...prev, ...fresh } : fresh));
       setGames(prev => {
-        if (prev.some(g => g.id === fresh.id)) {
-          return prev.map(g => g.id === fresh.id ? fresh : g);
+        if (prev.some(g => sameRecordId(g.id, fresh.id))) {
+          return prev.map(g => sameRecordId(g.id, fresh.id) ? { ...g, ...fresh } : g);
         }
         return [fresh, ...prev];
       });
     };
 
     const unsubSelectedMatch = stageClient.entities.Match.subscribe((event) => {
-      if (event?.type === "delete" && event.id === selectedGame.id) {
+      if (event?.type === "delete" && sameRecordId(event.id, selectedGame.id)) {
         setSelectedGame(null);
-        setGames(prev => prev.filter(g => g.id !== selectedGame.id));
+        setGames(prev => prev.filter(g => !sameRecordId(g.id, selectedGame.id)));
         return;
       }
-      applyFreshMatch(event?.data);
+      if (isGameDayMatchSocketPayload(event?.data) || event?.data?.status) {
+        applyFreshMatch(event.data);
+      }
     }, { id: selectedGame.id });
 
     async function refreshSelectedMatch() {
@@ -166,20 +170,20 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       if (!userEmail) return;
       setGames(prev => {
         if (event.type === "delete") {
-          return prev.filter(m => m.id !== event.id);
+          return prev.filter(m => !sameRecordId(m.id, event.id));
         }
         const data = event.data;
-        if (!data) return prev;
+        if (!isGameDayMatchSocketPayload(data)) return prev;
 
         // When scoped to a tournament, ignore matches from other tournaments
         if (scopedTournamentId && data.tournament_id !== scopedTournamentId) return prev;
 
-        if (!isActiveGameDayMatch(data)) return prev.filter(m => m.id !== data.id);
+        if (!isActiveGameDayMatch(data)) return prev.filter(m => !sameRecordId(m.id, data.id));
 
         // Update existing or add new (for in_progress matches that just became live)
-        const exists = prev.some(m => m.id === data.id);
+        const exists = prev.some(m => sameRecordId(m.id, data.id));
         if (exists) {
-          return prev.map(m => m.id === data.id ? data : m);
+          return prev.map(m => sameRecordId(m.id, data.id) ? { ...m, ...data } : m);
         }
         return [data, ...prev];
       });
@@ -305,12 +309,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       onChatOpenChange={setChatOpen}
       onGameUpdate={(updated) => {
         if (!isActiveGameDayMatch(updated)) {
-          setSelectedGame(prev => prev?.id === updated.id ? null : prev);
-          setGames(prev => prev.filter(g => g.id !== updated.id));
+          setSelectedGame(prev => sameRecordId(prev?.id, updated.id) ? null : prev);
+          setGames(prev => prev.filter(g => !sameRecordId(g.id, updated.id)));
           return;
         }
         setSelectedGame(updated);
-        setGames(prev => prev.map(g => g.id === updated.id ? updated : g));
+        setGames(prev => prev.map(g => sameRecordId(g.id, updated.id) ? { ...g, ...updated } : g));
       }}
     />
   ) : (

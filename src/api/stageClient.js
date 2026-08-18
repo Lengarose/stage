@@ -148,9 +148,15 @@ function syncSessionFromMe(me) {
 // ── Core fetch with auto token-refresh ────────────────────────────────────────
 let _refreshPromise = null;
 
+function isFormDataBody(body) {
+  if (!body || typeof body !== 'object') return false;
+  if (typeof FormData !== 'undefined' && body instanceof FormData) return true;
+  return typeof body.append === 'function';
+}
+
 async function apiFetch(path, opts = {}, _isRetry = false) {
   const token      = localStorage.getItem(ACCESS_KEY);
-  const isFormData = opts.body instanceof FormData;
+  const isFormData = isFormDataBody(opts.body);
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
@@ -401,7 +407,7 @@ const ENTITY_NAMES = [
   'MatchPlayerStat', 'Notification', 'PlayerContract', 'PlayerLoan', 'InboxMessage',
   'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
-  'JoinRequest', 'LifestyleItem', 'LifestylePurchase',
+  'JoinRequest', 'Follow', 'LifestyleItem', 'LifestylePurchase',
   'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage', 'ChatRead',
   'NewsItem', 'LiveMatch',
   // Competition & league stack used by frontend pages
@@ -510,6 +516,7 @@ const auth = {
       const data = await res.json();
       if (!res.ok) throw data;
       storeTokens(data);
+      if (data.userId) markNeedsOnboarding(data.userId);
       return { access_token: data.accessToken };
     } catch (err) {
       if (err.name === 'AbortError') throw { message: 'Request timed out. Please check your connection and try again.' };
@@ -626,16 +633,19 @@ const integrations = {
       const form = new FormData();
       form.append('file', file);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+      const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
       try {
-        return await apiFetch('/upload', { method: 'POST', body: form, signal: controller.signal });
+        const result = await apiFetch('/upload', { method: 'POST', body: form, signal: controller.signal });
+        const fileUrl = result?.file_url || result?.url;
+        if (!fileUrl) throw { message: 'Upload succeeded but no image URL was returned.' };
+        return { ...result, file_url: fileUrl };
       } catch (err) {
         if (err?.name === 'AbortError') {
           throw { message: 'Upload timed out. Try a smaller image or check your connection.' };
         }
         throw err;
       } finally {
-        window.clearTimeout(timeout);
+        globalThis.clearTimeout(timeout);
       }
       // returns { file_url: 'https://stageleagues.com/uploads/...' }
     },

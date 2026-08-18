@@ -82,3 +82,55 @@ test('legacy function handlers delegate message delivery to a service module', (
   assert.match(messageDeliveryService, /async function deliverContractOfferMessage/);
   assert.match(messageDeliveryService, /function messageTypeToNotificationType/);
 });
+
+test('live match and club chat honor the Messages notification switch', () => {
+  const chatMessageController = readRepoFile('server/src/server/controllers/chatMessageController.js');
+  const matchRoutes = readRepoFile('server/src/server/mobile/matchRoutes.js');
+  const teamRoutes = readRepoFile('server/src/server/mobile/teamRoutes.js');
+  const messageDeliveryService = readRepoFile('server/src/server/services/messageDeliveryService.js');
+  const chatNotifications = readRepoFile('src/lib/ChatNotificationsContext.jsx');
+
+  assert.match(chatMessageController, /notifyLiveChatIfEnabled\(record\)/);
+  assert.match(matchRoutes, /notifyLiveChatIfEnabled\(created\)/);
+  assert.match(teamRoutes, /notifyLiveChatIfEnabled\(created\)/);
+  assert.match(messageDeliveryService, /async function notifyLiveChatIfEnabled/);
+  assert.match(messageDeliveryService, /resolveDelivery\(settings, 'messages'\)/);
+  assert.match(messageDeliveryService, /live_chat:\$\{meta\.channelId\}/);
+  assert.match(chatNotifications, /isNotificationEnabled\("message"/);
+  assert.match(chatNotifications, /messagesEnabledRef/);
+  const notificationSettings = readRepoFile('src/components/NotificationSettings.jsx');
+  const notificationTypes = readRepoFile('src/lib/notificationTypes.js');
+  assert.match(notificationSettings, /useIsPhoneOrPwa/);
+  assert.match(notificationSettings, /Web notifications/);
+  assert.match(notificationSettings, /NOTIFICATION_CHANNELS/);
+  assert.match(notificationTypes, /Email notifications/);
+  assert.match(notificationTypes, /Mobile notifications/);
+  assert.match(notificationTypes, /Push notifications/);
+});
+
+test('auth sends a welcome email on sign-up and never on sign-in', () => {
+  const authController = readRepoFile('server/src/server/controllers/authController.js');
+  const oauthController = readRepoFile('server/src/server/controllers/oauthController.js');
+  const mobileAuth = readRepoFile('server/src/server/mobile/authRoutes.js');
+  const notifications = readRepoFile('server/src/server/services/notifications.js');
+  const messageDeliveryService = readRepoFile('server/src/server/services/messageDeliveryService.js');
+  const matchController = readRepoFile('server/src/server/controllers/matchController.js');
+  const notifyParticipant = readRepoFile('server/src/server/services/notify-participant.js');
+
+  assert.doesNotMatch(notifications, /function notifyLogin/);
+  assert.match(notifications, /function notifySignup/);
+  assert.match(notifications, /function sendEventEmail/);
+  assert.doesNotMatch(authController, /notifyLogin/);
+  assert.match(authController, /notifySignup/);
+  assert.match(authController, /router\.post\('\/register'/);
+  assert.doesNotMatch(oauthController, /notifyLogin/);
+  assert.match(oauthController, /player\.__isNewUser/);
+  assert.match(oauthController, /notifySignup/);
+  assert.match(mobileAuth, /notifySignup/);
+  assert.match(messageDeliveryService, /sendEventEmail\(\{ to: recipientEmail/);
+  assert.match(matchController, /createNotificationIfEnabled/);
+  assert.doesNotMatch(matchController, /notifyMatchDay/);
+  assert.doesNotMatch(matchController, /notifyMatchResultPlayer/);
+  assert.match(notifyParticipant, /createNotificationIfEnabled/);
+  assert.doesNotMatch(notifyParticipant, /notifyTournamentAssigned/);
+});

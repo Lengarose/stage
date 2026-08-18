@@ -256,7 +256,7 @@ const AuthenticatedApp = () => {
     if (userNeedsOnboarding(user.id)) return false;
     const userScopedKey = `stage_onboarding_completed_${user.id}`;
     if (localStorage.getItem(userScopedKey) === '1') return true;
-    if (user.player_id) return true;
+    // OAuth stubs have player_id immediately. That is not onboarding complete.
     if (getOwnedClubId(user) && !user.player_id) return true;
     return false;
   }, [user]);

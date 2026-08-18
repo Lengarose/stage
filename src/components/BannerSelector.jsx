@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useId } from "react";
 import BannerPreviewEditor from "./BannerPreviewEditor";
 import { stageClient } from "@/api/stageClient";
+import { prepareImageForUpload } from "@/lib/imageUpload";
+import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Move } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,7 +24,7 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
     }
   }, [open]);
 
-  const currentIsUrl = typeof currentBannerId === "string" && currentBannerId.startsWith("http");
+  const currentIsUrl = isPersistableMediaUrl(currentBannerId);
 
   async function handleUpload(e) {
     const file = e.target.files?.[0];
@@ -39,11 +41,12 @@ export default function BannerSelector({ open, onClose, currentBannerId, onSelec
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Upload timed out. Please try again.")), 20000)
       );
+      const uploadFile = await prepareImageForUpload(file, { fallbackName: "banner.jpg" });
       const result = await Promise.race([
-        stageClient.integrations.Core.UploadFile({ file }),
+        stageClient.integrations.Core.UploadFile({ file: uploadFile }),
         timeout,
       ]);
-      if (!result?.file_url) throw new Error("Upload failed — no URL returned.");
+      if (!isPersistableMediaUrl(result?.file_url)) throw new Error("Upload failed — no URL returned.");
       setPendingUrl(result.file_url);
     } catch (err) {
       setUploadError(err?.message || "Upload failed. Please try again.");

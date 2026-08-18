@@ -6,6 +6,7 @@ import { COUNTRIES, getRegionForCountryCode } from "@/lib/countries";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { prepareImageForUpload } from "@/lib/imageUpload";
+import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
     try {
       const uploadFile = await prepareImageForUpload(file, { fallbackName: "club-logo.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
-      if (!file_url) throw new Error(t("commonPages.obErrLogoUpload"));
+      if (!isPersistableMediaUrl(file_url)) throw new Error(t("commonPages.obErrLogoUpload"));
       setPendingLogo(file_url);
     } catch (err) {
       console.error("Failed to upload club logo:", err);

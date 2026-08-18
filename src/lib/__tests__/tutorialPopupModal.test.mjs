@@ -9,6 +9,6 @@ test("web tutorial stays a centered dialog modal on desktop and phone", () => {
   assert.match(source, /<Dialog /);
   assert.match(source, /lg:max-w-4xl/);
   assert.match(source, /hidden lg:flex/);
-  assert.match(source, /Each point/);
+  assert.match(source, /Your path/);
   assert.doesNotMatch(source, /bottom-0|sheet|drawer/i);
 });

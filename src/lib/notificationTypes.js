@@ -1,13 +1,18 @@
 /**
- * Central registry of all notification types.
- * To add a new type: add an entry here and add it to the Notification entity enum.
+ * Central registry of all notification types and delivery channels.
+ * settingKey maps to the key stored in player's notification_settings.
  *
- * settingKey: maps to the key stored in user's notification_settings object.
- * group: display grouping in settings UI.
+ * Stored shape (legacy flat keys still work as a fallback for every channel):
+ * {
+ *   messages: true,
+ *   web: { messages: true, ... },
+ *   email: { messages: true, ... },
+ *   mobile: { messages: true, ... },
+ *   push: { messages: true, ... },
+ * }
  */
 
 export const NOTIFICATION_TYPES = {
-  // Contracts
   contract_offer:      { label: "Contract offers",     settingKey: "contract_offers",   group: "Contracts" },
   contract_accepted:   { label: "Contract accepted",   settingKey: "contract_updates",  group: "Contracts" },
   contract_rejected:   { label: "Contract rejected",   settingKey: "contract_updates",  group: "Contracts" },
@@ -16,37 +21,28 @@ export const NOTIFICATION_TYPES = {
   contract_completed:  { label: "Contract completed",  settingKey: "contract_updates",  group: "Contracts" },
   loan_offer:          { label: "Loan offers",         settingKey: "club_updates",      group: "Club" },
 
-  // Matches
   match_scheduled:     { label: "Match scheduled",     settingKey: "match_reminders",   group: "Matches" },
   match_result:        { label: "Match results",       settingKey: "match_results",     group: "Matches" },
   match_reminder:      { label: "Match reminders",     settingKey: "match_reminders",   group: "Matches" },
   result_submitted:    { label: "Result submitted",    settingKey: "match_results",     group: "Matches" },
   result_confirmed:    { label: "Result confirmed",    settingKey: "match_results",     group: "Matches" },
 
-  // Club
   join_request:        { label: "Join requests",       settingKey: "club_updates",      group: "Club" },
   join_approved:       { label: "Join approved",       settingKey: "club_updates",      group: "Club" },
   join_rejected:       { label: "Join rejected",       settingKey: "club_updates",      group: "Club" },
   club_update:         { label: "Club updates",        settingKey: "club_updates",      group: "Club" },
   invite:              { label: "Club invites",        settingKey: "club_updates",      group: "Club" },
 
-  // Messages
   message:             { label: "Messages",            settingKey: "messages",          group: "Social" },
 
-  // Tournaments
   tournament_start:    { label: "Tournament starts",   settingKey: "tournament_updates", group: "Tournaments" },
   tournament_complete: { label: "Tournament results",  settingKey: "tournament_updates", group: "Tournaments" },
 
-  // General
   announcement:        { label: "Announcements",       settingKey: "announcements",     group: "General" },
 };
 
-/**
- * The user-level notification settings keys with labels shown in settings UI.
- * Default = true (all on).
- */
 export const NOTIFICATION_SETTINGS = [
-  { key: "messages",           label: "Messages",            description: "Direct messages from other players" },
+  { key: "messages",           label: "Messages",            description: "Direct messages, match chat, and club chat" },
   { key: "contract_offers",    label: "Contract offers",     description: "When someone offers you a contract" },
   { key: "contract_updates",   label: "Contract updates",    description: "Accepted, rejected, terminated contracts" },
   { key: "match_reminders",    label: "Match reminders",     description: "Upcoming scheduled matches" },
@@ -56,23 +52,95 @@ export const NOTIFICATION_SETTINGS = [
   { key: "announcements",      label: "Announcements",       description: "Platform news and announcements" },
 ];
 
-/**
- * Get the default notification settings object (all ON).
- */
-export function getDefaultNotificationSettings() {
-  const defaults = {};
-  NOTIFICATION_SETTINGS.forEach(s => { defaults[s.key] = true; });
-  return defaults;
+export const NOTIFICATION_SETTING_GROUPS = [
+  { label: "Social",      keys: ["messages"] },
+  { label: "Contracts",   keys: ["contract_offers", "contract_updates"] },
+  { label: "Matches",     keys: ["match_reminders", "match_results"] },
+  { label: "Club",        keys: ["club_updates"] },
+  { label: "Tournaments", keys: ["tournament_updates"] },
+  { label: "General",     keys: ["announcements"] },
+];
+
+export const NOTIFICATION_CHANNEL_KEYS = ["web", "email", "mobile", "push"];
+
+export const NOTIFICATION_CHANNELS = [
+  {
+    key: "email",
+    label: "Email notifications",
+    description: "Sent to your account email.",
+  },
+  {
+    key: "mobile",
+    label: "Mobile notifications",
+    description: "In-app toasts and the notification list on your phone.",
+  },
+  {
+    key: "push",
+    label: "Push notifications",
+    description: "Lock screen and banner alerts on this device.",
+  },
+];
+
+export function parseNotificationSettings(raw) {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
-/**
- * Check if a notification type is enabled for a given settings object.
- * Defaults to true if the setting has never been set.
- */
-export function isNotificationEnabled(notificationType, userSettings) {
+export function isSettingOn(settings, key) {
+  const val = settings?.[key];
+  if (val === undefined || val === null) return true;
+  return val === true || val === 1 || val === "true" || val === "1";
+}
+
+export function isChannelCategoryOn(settings, channel, categoryKey) {
+  const parsed = parseNotificationSettings(settings);
+  const nested = parsed?.[channel];
+  if (nested && typeof nested === "object" && !Array.isArray(nested) && Object.prototype.hasOwnProperty.call(nested, categoryKey)) {
+    return isSettingOn(nested, categoryKey);
+  }
+  return isSettingOn(parsed, categoryKey);
+}
+
+export function materializeNotificationSettings(raw) {
+  const parsed = parseNotificationSettings(raw);
+  const next = { ...parsed };
+  for (const channel of NOTIFICATION_CHANNEL_KEYS) {
+    const nested = {};
+    for (const row of NOTIFICATION_SETTINGS) {
+      nested[row.key] = isChannelCategoryOn(parsed, channel, row.key);
+    }
+    next[channel] = nested;
+  }
+  for (const row of NOTIFICATION_SETTINGS) {
+    next[row.key] = next.web[row.key];
+  }
+  return next;
+}
+
+export function getDefaultNotificationSettings() {
+  const categories = {};
+  NOTIFICATION_SETTINGS.forEach((row) => { categories[row.key] = true; });
+  return materializeNotificationSettings(categories);
+}
+
+export function setChannelCategory(settings, channel, categoryKey, value) {
+  const current = materializeNotificationSettings(settings);
+  const nested = { ...(current[channel] || {}), [categoryKey]: Boolean(value) };
+  const next = { ...current, [channel]: nested };
+  if (channel === "web") next[categoryKey] = Boolean(value);
+  return next;
+}
+
+export function isNotificationEnabled(notificationType, userSettings, channel = "web") {
   const meta = NOTIFICATION_TYPES[notificationType];
-  if (!meta) return true; // unknown type → always send
-  const settings = userSettings || {};
-  const val = settings[meta.settingKey];
-  return val === undefined ? true : val === true;
+  if (!meta) return true;
+  return isChannelCategoryOn(userSettings, channel, meta.settingKey);
 }

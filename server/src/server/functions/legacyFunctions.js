@@ -6935,6 +6935,7 @@ const HANDLERS = {
         "UPDATE matches SET wager_away_locked = 1, wager_home_locked = 1, wager_status = 'active', updated_date = NOW() WHERE id = ?",
         [match_id]
       );
+      await broadcastMatchById(match_id);
       return { success: true, data: { _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
     }
 
@@ -6943,6 +6944,7 @@ const HANDLERS = {
         "UPDATE matches SET wager_status = 'declined', wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
         [match_id]
       );
+      await broadcastMatchById(match_id);
       return { success: true, data: { _match_patch: { wager_status: 'declined', wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
     }
 
@@ -6968,6 +6970,7 @@ const HANDLERS = {
         "UPDATE matches SET wager_status = ?, wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
         [nextStatus, match_id]
       );
+      await broadcastMatchById(match_id);
       return { success: true, data: { _match_patch: { wager_status: nextStatus, wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
     }
     throw new Error(`Unknown wager action: ${action}`);

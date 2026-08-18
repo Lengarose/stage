@@ -6,6 +6,7 @@
  * All helpers are safe no-ops when SMTP is not configured.
  */
 const { sendMailSafe, isConfigured } = require('./mailer');
+const { isEmailCategoryEnabled } = require('./notificationPreferenceService');
 
 const BRAND = 'STAGE League';
 const SITE_URL = process.env.FRONTEND_URL || 'https://stageleagues.com';
@@ -39,22 +40,41 @@ function layout(title, bodyHtml, cta) {
 
 function row(text) { return `<tr><td style="padding:4px 0">${text}</td></tr>`; }
 
+function absoluteUrl(link) {
+  if (!link) return SITE_URL;
+  if (/^https?:\/\//i.test(String(link))) return String(link);
+  return `${SITE_URL}${String(link).startsWith('/') ? '' : '/'}${link}`;
+}
+
+function sendIfEmailEnabled(to, categoryKey, send) {
+  if (!to) return;
+  isEmailCategoryEnabled(to, categoryKey)
+    .then((ok) => { if (ok) send(); })
+    .catch(() => send());
+}
+
 // ── Individual notifications ────────────────────────────────────────────────
 
-function notifyLogin({ to, name, when = new Date(), ip, userAgent } = {}) {
+function notifySignup({ to, name } = {}) {
   if (!to) return;
-  const time = new Date(when).toUTCString();
   const html = layout(
-    'New sign-in to your account',
+    `Welcome to ${BRAND}`,
     row(`Hi ${name || 'there'},`) +
-    row(`We noticed a sign-in to your ${BRAND} account.`) +
-    row(`<strong>Time:</strong> ${time}`) +
-    (ip ? row(`<strong>IP:</strong> ${ip}`) : '') +
-    (userAgent ? row(`<strong>Device:</strong> ${String(userAgent).slice(0, 120)}`) : '') +
-    row(`If this was you, no action is needed. If not, please change your password.`),
+    row(`Your ${BRAND} account is ready. You can sign in from the web app or the EAFC mobile app.`) +
+    row('Manage email, in-app, and push alerts any time in Settings.'),
     { label: 'Open STAGE', url: SITE_URL },
   );
-  sendMailSafe({ to, subject: `New sign-in to ${BRAND}`, html });
+  sendMailSafe({ to, subject: `Welcome to ${BRAND}`, html });
+}
+
+function sendEventEmail({ to, title, body, url } = {}) {
+  if (!to) return;
+  const html = layout(
+    title || BRAND,
+    row(body || 'You have a new notification.'),
+    { label: 'Open STAGE', url: absoluteUrl(url) },
+  );
+  sendMailSafe({ to, subject: `${title || 'New notification'} — ${BRAND}`, html });
 }
 
 function notifyAnnouncement({ to, name, title, message, url } = {}) {
@@ -65,7 +85,9 @@ function notifyAnnouncement({ to, name, title, message, url } = {}) {
     row(message || 'A new update has just been released.') ,
     { label: 'See what\'s new', url: url || SITE_URL },
   );
-  sendMailSafe({ to, subject: title || `New ${BRAND} update`, html });
+  sendIfEmailEnabled(to, 'announcements', () => {
+    sendMailSafe({ to, subject: title || `New ${BRAND} update`, html });
+  });
 }
 
 function notifyMatchDay({ to, name, opponent, competition, kickoff, url } = {}) {
@@ -79,7 +101,9 @@ function notifyMatchDay({ to, name, opponent, competition, kickoff, url } = {}) 
     row('Good luck!'),
     { label: 'Go to Match Day', url: url || `${SITE_URL}/game-day` },
   );
-  sendMailSafe({ to, subject: `Match day${opponent ? ` vs ${opponent}` : ''} — ${BRAND}`, html });
+  sendIfEmailEnabled(to, 'match_reminders', () => {
+    sendMailSafe({ to, subject: `Match day${opponent ? ` vs ${opponent}` : ''} — ${BRAND}`, html });
+  });
 }
 
 function notifyTournamentAssigned({ to, name, tournament, url } = {}) {
@@ -92,7 +116,9 @@ function notifyTournamentAssigned({ to, name, tournament, url } = {}) {
     row('Check your fixtures and get ready to compete.'),
     { label: 'View competition', url: url || `${SITE_URL}/competitions` },
   );
-  sendMailSafe({ to, subject: `Added to ${comp} — ${BRAND}`, html });
+  sendIfEmailEnabled(to, 'tournament_updates', () => {
+    sendMailSafe({ to, subject: `Added to ${comp} — ${BRAND}`, html });
+  });
 }
 
 function notifyTournamentUnassigned({ to, name, tournament, url } = {}) {
@@ -105,7 +131,9 @@ function notifyTournamentUnassigned({ to, name, tournament, url } = {}) {
     row('If you think this is a mistake, contact an admin.'),
     { label: 'Browse competitions', url: url || `${SITE_URL}/competitions` },
   );
-  sendMailSafe({ to, subject: `Removed from ${comp} — ${BRAND}`, html });
+  sendIfEmailEnabled(to, 'tournament_updates', () => {
+    sendMailSafe({ to, subject: `Removed from ${comp} — ${BRAND}`, html });
+  });
 }
 
 // Sent to each player when a match is finalised.
@@ -120,7 +148,9 @@ function notifyMatchResultPlayer({ to, name, isWinner, isDraw, yourScore, oppSco
     (points != null ? row(`<strong>Points earned:</strong> ${points}`) : ''),
     { label: 'View standings', url: url || `${SITE_URL}/rankings` },
   );
-  sendMailSafe({ to, subject: `Match result: ${outcome} — ${BRAND}`, html });
+  sendIfEmailEnabled(to, 'match_results', () => {
+    sendMailSafe({ to, subject: `Match result: ${outcome} — ${BRAND}`, html });
+  });
 }
 
 // Sent to admin(s) announcing the result of a completed match, as a table.
@@ -154,7 +184,8 @@ function notifyMatchResultAdmin({
 
 module.exports = {
   isConfigured,
-  notifyLogin,
+  notifySignup,
+  sendEventEmail,
   notifyAnnouncement,
   notifyMatchDay,
   notifyTournamentAssigned,

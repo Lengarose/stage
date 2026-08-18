@@ -67,7 +67,7 @@ const ENV = {
   STRIPE_WEBHOOK_SECRET: '',
 
   // ── Email (SMTP) ──────────────────────────────────────────────
-  // Transactional emails (sign-in, updates, match day, tournament, results).
+  // Transactional emails (sign-up, updates, match day, tournament, results).
   // Uses Gandi mail by default. SMTP_USER/SMTP_PASS are secrets → env.local.js.
   // Without SMTP_USER + SMTP_PASS the app runs fine but sends no email.
   SMTP_HOST: 'mail.gandi.net',

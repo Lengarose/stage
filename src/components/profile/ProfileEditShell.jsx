@@ -5,6 +5,7 @@ import BannerSelector from "@/components/BannerSelector";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { stageClient } from "@/api/stageClient";
 import { prepareImageForUpload } from "@/lib/imageUpload";
+import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ export default function ProfileEditShell({
     try {
       const uploadFile = await prepareImageForUpload(file, { fallbackName: "profile-photo.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
-      if (!file_url) throw new Error(t("commonPages.obErrUpload"));
+      if (!isPersistableMediaUrl(file_url)) throw new Error(t("commonPages.obErrUpload"));
       setPendingPhoto(file_url);
     } catch (err) {
       console.error("Profile photo upload failed:", err);

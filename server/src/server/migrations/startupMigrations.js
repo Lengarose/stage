@@ -2487,6 +2487,22 @@ async function runStartupMigrations() {
     INDEX idx_mercato_events_transfer (transfer_id, created_at)
   )`).catch((err) => console.error('[migration] mercato_transfer_events:', err.message));
 
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS follows (
+    id                   VARCHAR(36)  PRIMARY KEY,
+    follower_id          VARCHAR(36)  NOT NULL,
+    follower_email       VARCHAR(255) NULL,
+    follower_player_id   VARCHAR(36)  NULL,
+    target_id            VARCHAR(36)  NOT NULL,
+    target_type          VARCHAR(20)  NOT NULL,
+    target_name          VARCHAR(150) NULL,
+    created_date         DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_date         DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_follows_follower_target (follower_id, target_type, target_id),
+    INDEX idx_follows_target (target_type, target_id),
+    INDEX idx_follows_follower_email (follower_email),
+    INDEX idx_follows_follower_player (follower_player_id)
+  )`).catch((err) => console.error('[migration] follows:', err.message));
+
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_loans (
     id                       VARCHAR(36) PRIMARY KEY,
     player_id                VARCHAR(36) NOT NULL,

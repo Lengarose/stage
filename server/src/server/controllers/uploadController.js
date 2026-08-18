@@ -16,6 +16,8 @@ const {
 
 const ALLOWED_UPLOAD_TYPES = new Map([
   ['image/jpeg', ['.jpg', '.jpeg']],
+  ['image/jpg', ['.jpg']],
+  ['image/pjpeg', ['.jpg']],
   ['image/png', ['.png']],
   ['image/webp', ['.webp']],
   ['image/gif', ['.gif']],

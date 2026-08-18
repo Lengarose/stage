@@ -1,7 +1,9 @@
+import { isPersistableMediaUrl, trimUrl } from "./mediaUrls.js";
+
 export function resolvePlayerAvatarUrl(player) {
   if (!player || typeof player !== "object") return "";
-  const raw = player.avatar_url || player.avatar || player.photo_url || "";
-  return String(raw).trim();
+  const raw = trimUrl(player.avatar_url || player.avatar || player.photo_url || "");
+  return isPersistableMediaUrl(raw) ? raw : "";
 }
 
 export function playerAvatarInitials(player) {

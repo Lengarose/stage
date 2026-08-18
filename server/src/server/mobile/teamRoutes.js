@@ -7,6 +7,7 @@ const Player = require('../models/playerModel');
 const JoinRequest = require('../models/joinRequestModel');
 const DressingRoom = require('../models/dressingRoomModel');
 const ChatRead = require('../models/chatReadModel');
+const ChatMessage = require('../models/chatMessageModel');
 const { EXECUTESQL } = require('../db/database');
 const { ensureUploadsDir } = require('../../constants/paths');
 const { get } = require('../../constants/env');
@@ -16,9 +17,12 @@ const {
   mapClub,
   mapPlayer,
   mapJoinRequest,
+  mapChatMessage,
   resolveCallerContext,
 } = require('./helpers');
 const { leaveClubLifecycle } = require('../services/leaveClubLifecycleService');
+const { broadcastChatMessage } = require('../utils/socketBroadcast');
+const { notifyLiveChatIfEnabled } = require('../services/messageDeliveryService');
 
 const router = express.Router();
 const upload = multer({
@@ -367,6 +371,40 @@ router.post('/:id/chat/read', async (req, res) => {
       }).catch(() => {});
     }
     return ok(res, { success: true, channel });
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+});
+
+router.get('/:id/chat', async (req, res) => {
+  try {
+    const channel = `club:${req.params.id}`;
+    const rows = await new ChatMessage().selectByMatch(channel);
+    return ok(res, (rows || []).map(mapChatMessage));
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+});
+
+router.post('/:id/chat', async (req, res) => {
+  try {
+    const ctx = await resolveCallerContext(req.user);
+    const senderEmail = ctx?.player?.email || ctx?.user?.email || req.body?.sender_email || null;
+    const channel = `club:${req.params.id}`;
+    const cm = new ChatMessage({
+      match_id: channel,
+      club_id: req.params.id,
+      sender_email: senderEmail,
+      sender_name: ctx?.player?.gamertag || req.body?.gamer_tag || req.body?.sender_name || null,
+      sender_avatar: ctx?.player?.avatar_url || req.body?.sender_avatar || null,
+      content: req.body?.content || req.body?.message || '',
+      channel: 'club',
+    });
+    await cm.create();
+    const created = (await cm.selectOne(cm.id))[0];
+    broadcastChatMessage(created);
+    notifyLiveChatIfEnabled(created).catch(() => {});
+    return ok(res, mapChatMessage(created), 201);
   } catch (err) {
     return fail(res, 500, err.message);
   }

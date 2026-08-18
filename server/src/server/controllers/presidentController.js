@@ -4,6 +4,7 @@ const President = require('../models/presidentModel');
 const { EXECUTESQL } = require('../db/database');
 const { transferPresidentToClub } = require('../services/presidentTransferService');
 const { listHistoryForPresident, openTenure } = require('../services/presidentClubHistoryService');
+const { assertPersistableMediaFields } = require('../lib/mediaUrls');
 
 const PROFILE_FIELDS = [
   'display_name',
@@ -228,6 +229,7 @@ router.patch('/:id', async (req, res) => {
       if (!PROFILE_FIELDS.includes(field) && field !== 'email') continue;
       safeBody[field] = value;
     }
+    assertPersistableMediaFields(safeBody, ['avatar_url', 'banner_url']);
 
     const merged = { ...existing, ...safeBody };
     const president = new President(merged);

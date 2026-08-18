@@ -17,6 +17,7 @@ const {
 const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { assertLineupEligibleForClub } = require('../services/playerLoanService');
 const { extractPresidentProfileFromClubBody } = require('./presidentController');
+const { assertPersistableMediaFields } = require('../lib/mediaUrls');
 const {
   STARTER_CLUB_FINANCE,
   assertClubFinanceWithinTier,
@@ -439,6 +440,7 @@ router.patch('/:id', async (req, res) => {
       if (!CLUB_MODEL_UPDATE_FIELDS.has(field)) continue;
       safeBody[field] = value;
     }
+    assertPersistableMediaFields(safeBody, ['logo_url', 'banner_url']);
     const submittedFields = Object.keys(safeBody);
     assertClubPatchAllowed(access, submittedFields);
     const financeFields = submittedFields.filter((field) => (

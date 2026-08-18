@@ -20,6 +20,8 @@ import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch } from "@/lib/gameDayResultFlow";
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
+import { sameRecordId } from "@/lib/gameDayRealtime";
+import { useGameDayMatchRealtime } from "@/lib/useGameDayMatchRealtime";
 
 function parseDate(d) {
   if (!d) return null;
@@ -187,21 +189,32 @@ export default function GameDayDetail({
     }
 
     loadDressing();
+    return () => { cancelled = true; };
+  }, [game?.id, game?.home_club_id, game?.away_club_id, isClubMatchEarly]);
 
-    const unsub = stageClient.entities.DressingRoom.subscribe((event) => {
-      if (event?.type === "delete") return;
-      const d = event?.data;
-      if (!d || d.match_id !== game.id) return;
-      const c = countSeated(d.seated_players);
-      setDressingCounts(prev => {
-        if (String(d.club_id) === String(homeId)) return { ...prev, home: c };
-        if (String(d.club_id) === String(awayId)) return { ...prev, away: c };
+  useGameDayMatchRealtime({
+    matchId: game?.id,
+    reloadMatch: async (id) => stageClient.entities.Match.get(id).catch(() => null),
+    onMatch: (fresh) => {
+      if (fresh?.deleted) return;
+      setGame((prev) => (prev?.id && sameRecordId(prev.id, fresh.id) ? { ...prev, ...fresh } : fresh));
+      onGameUpdate?.(fresh);
+    },
+    onDressing: (room) => {
+      if (!room || !isClubMatchEarly) return;
+      const raw = room.seated_players;
+      let val = raw;
+      if (typeof val === "string") {
+        try { val = JSON.parse(val); } catch { val = []; }
+      }
+      const count = Array.isArray(val) ? val.length : 0;
+      setDressingCounts((prev) => {
+        if (sameRecordId(room.club_id, game.home_club_id)) return { ...prev, home: count };
+        if (sameRecordId(room.club_id, game.away_club_id)) return { ...prev, away: count };
         return prev;
       });
-    }, { match_id: game.id });
-
-    return () => { cancelled = true; unsub?.(); };
-  }, [game?.id, game?.home_club_id, game?.away_club_id, isClubMatchEarly]);
+    },
+  });
 
   if (!game?.id) {
     return (

@@ -16,6 +16,19 @@ function readText(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
+test("oauth stub players stay in onboarding until a real profile exists", () => {
+  const onboarding = readText("src/pages/Onboarding.jsx");
+  const app = readText("src/App.jsx");
+  const gate = readText("src/lib/onboardingGate.js");
+
+  assert.match(gate, /export function isFinishedOnboardingProfile/);
+  assert.match(gate, /player\?\.country/);
+  assert.match(onboarding, /isFinishedOnboardingProfile\(pl\)/);
+  assert.doesNotMatch(onboarding, /\(u\.player_id \|\| pl\?\.id\) && !forceOnboarding/);
+  assert.match(app, /OAuth stubs have player_id immediately/);
+  assert.doesNotMatch(app, /if \(user\.player_id\) return true;/);
+});
+
 test("player-only onboarding completes after player identity instead of showing club setup", () => {
   const source = readText("src/pages/Onboarding.jsx");
 

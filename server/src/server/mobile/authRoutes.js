@@ -7,6 +7,7 @@ const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { get } = require('../../constants/env');
 const { ok, fail, buildMePayload } = require('./helpers');
+const { notifySignup } = require('../services/notifications');
 
 const router = express.Router();
 const SERVER_URL = () => get('SERVER_URL') || 'http://localhost:8080';
@@ -60,6 +61,11 @@ router.post('/register', async (req, res) => {
       'INSERT INTO auth_tokens (id, email, refresh_token, created_date) VALUES (?, ?, ?, NOW())',
       [uuidv4(), email, refreshToken]
     );
+
+    notifySignup({
+      to: email,
+      name: gamerTag || email.split('@')[0],
+    });
 
     const user = await buildMePayload(userId);
     return ok(res, { accessToken, refreshToken, user, userId, playerId }, 201);

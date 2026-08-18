@@ -61,6 +61,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/shirt-sales', verifyToken, require('../controllers/shirtSaleController'));
   app.use('/api/stage/dressing-rooms', verifyToken, require('../controllers/dressingRoomController'));
   app.use('/api/stage/join-requests', verifyToken, require('../controllers/joinRequestController'));
+  app.use('/api/stage/follows', verifyToken, require('../controllers/followController'));
   app.use('/api/stage/lifestyle-items', verifyToken, require('../controllers/lifestyleItemController'));
   app.use('/api/stage/lifestyle-purchases', verifyToken, require('../controllers/lifestylePurchaseController'));
   app.use('/api/stage/user-purchases', verifyToken, require('../controllers/userPurchaseController'));

@@ -6,14 +6,20 @@ function loadMessageDeliveryServiceWithDbMock(executesql) {
   const servicePath = path.resolve(__dirname, '../messageDeliveryService.js');
   const clubContactPath = path.resolve(__dirname, '../clubContactService.js');
   const oneSignalPath = path.resolve(__dirname, '../oneSignalService.js');
+  const notificationsPath = path.resolve(__dirname, '../notifications.js');
+  const preferencePath = path.resolve(__dirname, '../notificationPreferenceService.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
   const broadcasts = [];
   const inboxBroadcasts = [];
+  const pushes = [];
+  const emails = [];
 
   delete require.cache[servicePath];
   delete require.cache[clubContactPath];
   delete require.cache[oneSignalPath];
+  delete require.cache[notificationsPath];
+  delete require.cache[preferencePath];
   delete require.cache[dbPath];
   delete require.cache[socketPath];
 
@@ -27,7 +33,23 @@ function loadMessageDeliveryServiceWithDbMock(executesql) {
     id: oneSignalPath,
     filename: oneSignalPath,
     loaded: true,
-    exports: { queueOneSignalPush() {} },
+    exports: {
+      queueOneSignalPush(payload) {
+        pushes.push(payload);
+      },
+    },
+  };
+  require.cache[notificationsPath] = {
+    id: notificationsPath,
+    filename: notificationsPath,
+    loaded: true,
+    exports: {
+      sendEventEmail(payload) {
+        emails.push(payload);
+      },
+      notifySignup() {},
+      notifyAnnouncement() {},
+    },
   };
   require.cache[socketPath] = {
     id: socketPath,
@@ -43,7 +65,7 @@ function loadMessageDeliveryServiceWithDbMock(executesql) {
     },
   };
 
-  return { service: require(servicePath), broadcasts, inboxBroadcasts };
+  return { service: require(servicePath), broadcasts, inboxBroadcasts, pushes, emails };
 }
 
 test('messageTypeToNotificationType maps inbox messages to notification categories', () => {
@@ -396,6 +418,106 @@ test('createNotificationIfEnabled reuses an existing related notification', asyn
   assert.deepEqual(result, { success: true, id: 'notification-1', reused: true });
   assert.equal(broadcasts.length, 0);
   assert.equal(queries.length, 2);
+});
+
+test('createNotificationIfEnabled emails when the Email switch is on', async () => {
+  const { service, emails, broadcasts, pushes } = loadMessageDeliveryServiceWithDbMock(async (sql) => {
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{ notification_settings: JSON.stringify({ email: { contract_offers: true } }) }];
+    }
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.createNotificationIfEnabled({
+    recipientEmail: 'player@example.test',
+    type: 'contract_offer',
+    title: 'New contract offer',
+    body: 'Longue Vie FC sent you an offer.',
+    link: '/inbox',
+    relatedId: 'contract-1',
+  });
+
+  assert.equal(result.email, true);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(pushes.length, 1);
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].to, 'player@example.test');
+  assert.equal(emails[0].title, 'New contract offer');
+  assert.equal(emails[0].url, '/inbox');
+});
+
+test('createNotificationIfEnabled skips email when the Email switch is off', async () => {
+  const { service, emails, broadcasts } = loadMessageDeliveryServiceWithDbMock(async (sql) => {
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{ notification_settings: JSON.stringify({ email: { contract_offers: false } }) }];
+    }
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.createNotificationIfEnabled({
+    recipientEmail: 'player@example.test',
+    type: 'contract_offer',
+    title: 'New contract offer',
+    relatedId: 'contract-1',
+  });
+
+  assert.equal(result.email, false);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(emails.length, 0);
+});
+
+test('createNotificationIfEnabled can email without in-app or push', async () => {
+  const { service, emails, broadcasts, pushes } = loadMessageDeliveryServiceWithDbMock(async (sql) => {
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      return [{
+        notification_settings: JSON.stringify({
+          web: { club_updates: false },
+          mobile: { club_updates: false },
+          push: { club_updates: false },
+          email: { club_updates: true },
+        }),
+      }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.createNotificationIfEnabled({
+    recipientEmail: 'player@example.test',
+    type: 'club_update',
+    title: 'Club news',
+    body: 'Training at 8.',
+    link: '/clubs/club-1',
+  });
+
+  assert.equal(result.email, true);
+  assert.equal(result.inApp, false);
+  assert.equal(result.push, false);
+  assert.equal(broadcasts.length, 0);
+  assert.equal(pushes.length, 0);
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].to, 'player@example.test');
+});
+
+test('createNotificationIfEnabled does not email unmapped types', async () => {
+  const { service, emails, broadcasts } = loadMessageDeliveryServiceWithDbMock(async (sql) => {
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.createNotificationIfEnabled({
+    recipientEmail: 'player@example.test',
+    type: 'post_like',
+    title: 'Someone liked your post',
+  });
+
+  assert.equal(result.email, false);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(emails.length, 0);
 });
 
 test('deliverContractOfferMessage reuses existing inbox message and notification', async () => {
@@ -831,4 +953,231 @@ test('sendActionMessage repairs a missing notification when reusing an existing 
   assert.equal(inboxBroadcasts.length, 1);
   assert.equal(inboxBroadcasts[0].id, 'inbox-1');
   assert.equal(broadcasts.length, 1);
+});
+
+function liveChatSqlMock({
+  settingsByEmail = {},
+  unreadByEmail = {},
+  match = null,
+  squadByClub = {},
+  ownerByClub = {},
+  playersById = {},
+} = {}) {
+  return async (sql, params = []) => {
+    if (/SELECT email FROM players WHERE club_id = \?/.test(sql)) {
+      return squadByClub[params[0]] || [];
+    }
+    if (/SELECT owner_email FROM clubs WHERE id = \?/.test(sql)) {
+      return ownerByClub[params[0]] || [];
+    }
+    if (/FROM matches WHERE id = \?/.test(sql)) {
+      return match ? [match] : [];
+    }
+    if (/SELECT email FROM players WHERE id IN/.test(sql)) {
+      return params.flatMap((id) => playersById[id] || []);
+    }
+    if (/SELECT email FROM players WHERE club_id IN/.test(sql)) {
+      return params.flatMap((id) => squadByClub[id] || []);
+    }
+    if (/SELECT notification_settings FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) {
+      const email = String(params[0] || '').toLowerCase();
+      const settings = settingsByEmail[email];
+      if (settings === undefined) return [{ notification_settings: '{}' }];
+      return [{ notification_settings: typeof settings === 'string' ? settings : JSON.stringify(settings) }];
+    }
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \? AND `read` = 0/.test(sql)) {
+      const id = unreadByEmail[params[0]];
+      return id ? [{ id }] : [];
+    }
+    if (/UPDATE notifications SET title = \?/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+}
+
+test('liveChatChannelMeta distinguishes club chat from match chat', () => {
+  const { service } = loadMessageDeliveryServiceWithDbMock(async () => []);
+
+  assert.deepEqual(service.liveChatChannelMeta({ match_id: 'club:club-1' }), {
+    channelId: 'club:club-1',
+    kind: 'club',
+    clubId: 'club-1',
+    link: '/clubs/club-1',
+    titleSuffix: 'club chat',
+  });
+  assert.deepEqual(service.liveChatChannelMeta({ match_id: 'match-1' }), {
+    channelId: 'match-1',
+    kind: 'match',
+    matchId: 'match-1',
+    link: '/game-day?match=match-1',
+    titleSuffix: 'match chat',
+  });
+});
+
+test('resolveLiveChatRecipientEmails skips the sender for club and match channels', async () => {
+  const clubMock = liveChatSqlMock({
+    squadByClub: {
+      'club-1': [{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
+    },
+    ownerByClub: {
+      'club-1': [{ owner_email: 'owner@example.test' }],
+    },
+  });
+  const { service: clubService } = loadMessageDeliveryServiceWithDbMock(clubMock);
+  const clubRecipients = await clubService.resolveLiveChatRecipientEmails({
+    match_id: 'club:club-1',
+    sender_email: 'ALICE@example.test',
+  });
+  assert.deepEqual(clubRecipients.sort(), ['bob@example.test', 'owner@example.test']);
+
+  const matchMock = liveChatSqlMock({
+    match: {
+      home_player_email: 'home@example.test',
+      away_player_email: 'away@example.test',
+      home_owner_email: 'home-owner@example.test',
+      away_owner_email: null,
+      home_player_id: 'p-home',
+      away_player_id: null,
+      home_club_id: 'club-home',
+      away_club_id: null,
+    },
+    playersById: {
+      'p-home': [{ email: 'home@example.test' }],
+    },
+    squadByClub: {
+      'club-home': [{ email: 'squad@example.test' }, { email: 'home@example.test' }],
+    },
+  });
+  const { service: matchService } = loadMessageDeliveryServiceWithDbMock(matchMock);
+  const matchRecipients = await matchService.resolveLiveChatRecipientEmails({
+    match_id: 'match-1',
+    sender_email: 'home@example.test',
+  });
+  assert.deepEqual(matchRecipients.sort(), [
+    'away@example.test',
+    'home-owner@example.test',
+    'squad@example.test',
+  ]);
+});
+
+test('notifyLiveChatIfEnabled skips recipients who turned Messages off', async () => {
+  const queries = [];
+  const { service, broadcasts, pushes } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    return liveChatSqlMock({
+      squadByClub: {
+        'club-1': [{ email: 'bob@example.test' }],
+      },
+      settingsByEmail: {
+        'bob@example.test': { messages: false },
+      },
+    })(sql, params);
+  });
+
+  const result = await service.notifyLiveChatIfEnabled({
+    match_id: 'club:club-1',
+    sender_email: 'alice@example.test',
+    sender_name: 'Alice',
+    content: 'Hello club',
+  });
+
+  assert.equal(result.notified, 0);
+  assert.equal(result.results[0].skipped, true);
+  assert.equal(result.results[0].reason, 'disabled in settings');
+  assert.equal(queries.some(({ sql }) => /INSERT INTO notifications/.test(sql)), false);
+  assert.equal(broadcasts.length, 0);
+  assert.equal(pushes.length, 0);
+});
+
+test('notifyLiveChatIfEnabled notifies when Messages is unset and collapses unread rows', async () => {
+  const queries = [];
+  const { service, broadcasts, pushes, emails } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    return liveChatSqlMock({
+      squadByClub: {
+        'club-1': [{ email: 'bob@example.test' }],
+      },
+      settingsByEmail: {
+        'bob@example.test': {},
+      },
+    })(sql, params);
+  });
+
+  const created = await service.notifyLiveChatIfEnabled({
+    match_id: 'club:club-1',
+    sender_email: 'alice@example.test',
+    sender_name: 'Alice',
+    content: 'First club line',
+  });
+
+  const insert = queries.find(({ sql }) => /INSERT INTO notifications/.test(sql));
+  assert.equal(created.notified, 1);
+  assert.equal(insert.params[1], 'bob@example.test');
+  assert.equal(insert.params[2], 'message');
+  assert.match(String(insert.params[3]), /club chat/);
+  assert.equal(insert.params[7], 'live_chat:club:club-1');
+  assert.equal(broadcasts.length, 1);
+  assert.equal(pushes.length, 1);
+  assert.equal(pushes[0].recipientEmail, 'bob@example.test');
+  assert.equal(pushes[0].type, 'message');
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].to, 'bob@example.test');
+
+  const unreadQueries = [];
+  const unread = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    unreadQueries.push({ sql, params });
+    return liveChatSqlMock({
+      squadByClub: {
+        'club-1': [{ email: 'bob@example.test' }],
+      },
+      unreadByEmail: {
+        'bob@example.test': 'notif-1',
+      },
+    })(sql, params);
+  });
+
+  const reused = await unread.service.notifyLiveChatIfEnabled({
+    match_id: 'club:club-1',
+    sender_email: 'alice@example.test',
+    sender_name: 'Alice',
+    content: 'Second club line',
+  });
+
+  assert.equal(reused.notified, 1);
+  assert.equal(reused.results[0].reused, true);
+  assert.equal(unreadQueries.some(({ sql }) => /INSERT INTO notifications/.test(sql)), false);
+  assert.equal(unreadQueries.some(({ sql }) => /UPDATE notifications SET title = \?/.test(sql)), true);
+  assert.equal(unread.broadcasts.length, 1);
+  assert.equal(unread.pushes.length, 1);
+  assert.equal(unread.broadcasts[0].id, 'notif-1');
+  assert.match(String(unread.broadcasts[0].body), /Second club line/);
+  assert.equal(unread.emails.length, 0);
+});
+
+test('notifyLiveChatIfEnabled can keep in-app on while skipping push', async () => {
+  const { service, broadcasts, pushes } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => liveChatSqlMock({
+    squadByClub: {
+      'club-1': [{ email: 'bob@example.test' }],
+    },
+    settingsByEmail: {
+      'bob@example.test': {
+        web: { messages: true },
+        mobile: { messages: false },
+        push: { messages: false },
+        email: { messages: false },
+      },
+    },
+  })(sql, params));
+
+  const result = await service.notifyLiveChatIfEnabled({
+    match_id: 'club:club-1',
+    sender_email: 'alice@example.test',
+    sender_name: 'Alice',
+    content: 'In-app only',
+  });
+
+  assert.equal(result.notified, 1);
+  assert.equal(result.results[0].push, false);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(pushes.length, 0);
 });

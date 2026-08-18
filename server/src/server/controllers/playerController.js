@@ -3,6 +3,7 @@ const router  = express.Router();
 const Player  = require('../models/playerModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastPlayer, broadcastPlayerDeleted } = require('../utils/socketBroadcast');
+const { assertPersistableMediaFields } = require('../lib/mediaUrls');
 
 let secondaryPositionColumnReady = null;
 
@@ -128,6 +129,7 @@ router.post('/', async (req, res) => {
   try {
     await ensureSecondaryPositionColumn();
     const body = normalizePlayerPayload(req.body);
+    assertPersistableMediaFields(body, ['avatar_url', 'banner_url']);
     const { gamertag } = body || {};
     if (gamertag) {
       const existingByGamertag = await EXECUTESQL(
@@ -179,7 +181,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -194,6 +196,7 @@ router.patch('/:id', async (req, res) => {
       : normalizePlayerPayload(stripAdminOnlyFields(req.body || {}));
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    assertPersistableMediaFields(body, ['avatar_url', 'banner_url']);
     if (body?.gamertag) {
       const existingByGamertag = await EXECUTESQL(
         'SELECT id FROM players WHERE LOWER(gamertag) = LOWER(?) AND id <> ? LIMIT 1',
@@ -217,7 +220,7 @@ router.patch('/:id', async (req, res) => {
     res.json(record);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

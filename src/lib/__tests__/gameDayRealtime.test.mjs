@@ -20,7 +20,7 @@ test("GameDay keeps the selected match fresh through targeted realtime and fallb
   );
   assert.match(
     source,
-    /setGames\(prev\s*=>\s*\{[\s\S]*prev\.map\(g\s*=>\s*g\.id\s*===\s*fresh\.id\s*\?\s*fresh\s*:\s*g\)/,
+    /setGames\(prev\s*=>\s*\{[\s\S]*prev\.map\(g\s*=>\s*sameRecordId\(g\.id,\s*fresh\.id\)\s*\?\s*\{\s*\.\.\.g,\s*\.\.\.fresh\s*\}\s*:\s*g\)/,
     "selected-match fallback refresh should update the game list used by the detail panel"
   );
   assert.match(
@@ -38,4 +38,20 @@ test("GameDay keeps the selected match fresh through targeted realtime and fallb
     /setChatOpen\(true\)/,
     "GameDay should open match chat from a header button"
   );
+  assert.match(
+    source,
+    /isGameDayMatchSocketPayload/,
+    "GameDay should ignore non-match payloads on the match socket"
+  );
+  assert.match(
+    source,
+    /sameRecordId/,
+    "GameDay should match socket ids as strings so every phone sees kickoff and full time"
+  );
+});
+
+test("GameDay detail subscribes to match and dressing-room sockets", () => {
+  const source = readFileSync(resolve(root, "src/components/gameday/GameDayDetail.jsx"), "utf8");
+  assert.match(source, /useGameDayMatchRealtime/);
+  assert.match(source, /onDressing/);
 });

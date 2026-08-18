@@ -12,6 +12,7 @@ import { isDiscordConfigured } from "@/lib/discordConfig";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { writeAccountIntent } from "@/lib/accountIntent";
+import { isFinishedOnboardingProfile } from "@/lib/onboardingGate";
 import BannerImg from "@/assets/Banner.jpg";
 import LogoImg from "@/assets/Stadium Logo.png";
 
@@ -120,8 +121,9 @@ export default function Onboarding({ onComplete }) {
         if (pl) setPlayer(pl);
 
         const forceOnboarding = Boolean(u?.id && userNeedsOnboarding(u.id));
-        // OAuth creates a stub player — still run onboarding until profile is finished.
-        if ((u.player_id || pl?.id) && !forceOnboarding) {
+        // OAuth creates a stub player with a gamertag — still run onboarding
+        // until the user picks a role and finishes a real profile (country).
+        if (!forceOnboarding && isFinishedOnboardingProfile(pl)) {
           onComplete?.();
           return;
         }
