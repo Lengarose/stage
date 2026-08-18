@@ -175,17 +175,33 @@ export default function Search() {
         </div>
       ) : (
         <Tabs defaultValue="players" className="w-full">
-          <TabsList className="bg-secondary border border-border mb-6">
-            <TabsTrigger value="players" className="leading-relaxed">
+          <TabsList className="mb-6 h-auto flex-wrap gap-2 rounded-none border border-cyan-300/15 bg-[#06111d]/75 p-2">
+            <TabsTrigger
+              value="players"
+              className="rounded-none border border-cyan-300/15 bg-black/20 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100/55 transition-all data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
+            >
               <User className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.playersTab")} ({players.length})
             </TabsTrigger>
-            <TabsTrigger value="presidents" className="leading-relaxed">
+            <TabsTrigger
+              value="presidents"
+              className="rounded-none border border-cyan-300/15 bg-black/20 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100/55 transition-all data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
+            >
               <Crown className="w-3.5 h-3.5 mr-1.5" /> {t("nav.presidents")} ({presidents.length})
             </TabsTrigger>
-            <TabsTrigger value="clubs" className="leading-relaxed">
+            <TabsTrigger
+              value="clubs"
+              className="rounded-none border border-cyan-300/15 bg-black/20 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100/55 transition-all data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
+            >
               <Shield className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.myClubsTab")} ({clubs.length})
             </TabsTrigger>
-            <TabsTrigger value="eafc" className="leading-relaxed">
+            <TabsTrigger
+              value="eafc"
+              className="rounded-none border border-cyan-300/15 bg-black/20 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100/55 transition-all data-[state=active]:border-cyan-200/55 data-[state=active]:bg-cyan-400/15 data-[state=active]:text-cyan-50"
+              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
+            >
               <Trophy className="w-3.5 h-3.5 mr-1.5" /> {t("commonPages.eafcTab")} ({eafcClubs.length})
             </TabsTrigger>
           </TabsList>

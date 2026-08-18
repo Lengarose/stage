@@ -529,6 +529,12 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     if (myPlayer?.id === updated.id) setMyPlayer((prev) => ({ ...prev, ...updated }));
   }
 
+  function handleClubStatsTileBackgroundChanged(updatedClub) {
+    const updated = asObject(updatedClub);
+    if (!updated?.id) return;
+    setClub((prev) => ({ ...prev, ...updated }));
+  }
+
   async function removePlayerRole(targetPlayer) {
     const target = asObject(targetPlayer);
     if (!target?.id) return;
@@ -1142,7 +1148,15 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
           {/* Stats */}
           <TabsContent value="stats" className="px-4 pt-4 pb-6">
-            <ClubStatsTables players={safePlayers} clubPlayerStatsById={clubPlayerStatsById} />
+            <ClubStatsTables
+              club={club}
+              players={safePlayers}
+              clubPlayerStatsById={clubPlayerStatsById}
+              myPlayer={myPlayer}
+              canCustomize={canOpenClubOffice}
+              canUseStatsTileBackgrounds={isAdminTakeover || hasStagePlus(myPlayer?.subscription)}
+              onClubChanged={handleClubStatsTileBackgroundChanged}
+            />
           </TabsContent>
 
           {/* Fixtures */}
@@ -1594,6 +1608,48 @@ function getPlayerCardBackgroundUrl(player) {
   return String(player?.player_card_background_url || "").trim();
 }
 
+function getClubStatsTileBackgroundUrl(club) {
+  const type = String(club?.stats_tile_background_type || "default").toLowerCase();
+  if (type === "default") return "";
+  return String(club?.stats_tile_background_url || "").trim();
+}
+
+function parseStatsTileBackgrounds(value) {
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getClubStatsTileBackgroundConfig(club, statKey) {
+  const backgrounds = parseStatsTileBackgrounds(club?.stats_tile_backgrounds);
+  const config = asObject(backgrounds[statKey]);
+  const type = String(config?.type || "default").toLowerCase();
+  if (type !== "default" && config?.url) {
+    return {
+      type,
+      background_id: config.background_id || null,
+      url: String(config.url || "").trim(),
+      position: config.position || "50% 50%",
+      zoom: Number(config.zoom) || 120,
+    };
+  }
+  const fallbackUrl = getClubStatsTileBackgroundUrl(club);
+  return fallbackUrl
+    ? {
+        type: club?.stats_tile_background_type || "custom",
+        background_id: club?.stats_tile_background_id || null,
+        url: fallbackUrl,
+        position: club?.stats_tile_background_position || "50% 50%",
+        zoom: Number(club?.stats_tile_background_zoom) || 120,
+      }
+    : { type: "default", background_id: null, url: "", position: "50% 50%", zoom: 120 };
+}
+
 function formatClubStatValue(value, stat) {
   if (stat === "rating") return formatRating(value);
   return Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -1610,57 +1666,151 @@ function buildClubLeaderboard(players, stat, clubPlayerStatsById) {
     .slice(0, 10);
 }
 
-function ClubStatsTables({ players = [], clubPlayerStatsById }) {
+function ClubStatsTables({
+  club,
+  players = [],
+  clubPlayerStatsById,
+  myPlayer,
+  canCustomize = false,
+  canUseStatsTileBackgrounds = false,
+  onClubChanged,
+}) {
+  const [activeBackgroundTable, setActiveBackgroundTable] = useState(null);
   const tables = [
     { title: "Top Scorers", stat: "goals", label: "G" },
     { title: "Top Assists", stat: "assists", label: "A" },
     { title: "Best Average Rating", stat: "rating", label: "AVG" },
     { title: "Most Appearances", stat: "matches", label: "MP" },
   ];
+  const activeTable = tables.find((table) => table.stat === activeBackgroundTable) || null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {tables.map((table) => (
-        <ClubLeaderboardTable
-          key={table.stat}
-          title={table.title}
-          stat={table.stat}
-          label={table.label}
-          rows={buildClubLeaderboard(players, table.stat, clubPlayerStatsById)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="mb-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/70">Club Stats</p>
+          <h2 className="font-heading text-xl font-black uppercase text-white">Leaderboards</h2>
+        </div>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {tables.map((table) => {
+          const backgroundConfig = getClubStatsTileBackgroundConfig(club, table.stat);
+          return (
+            <ClubLeaderboardTable
+              key={table.stat}
+              title={table.title}
+              stat={table.stat}
+              label={table.label}
+              rows={buildClubLeaderboard(players, table.stat, clubPlayerStatsById)}
+              backgroundConfig={backgroundConfig}
+              canCustomize={canCustomize}
+              canUseStatsTileBackgrounds={canUseStatsTileBackgrounds}
+              onChangeBackground={() => setActiveBackgroundTable(table.stat)}
+            />
+          );
+        })}
+      </div>
+      <ClubStatsTileBackgroundDialog
+        club={club}
+        statKey={activeTable?.stat}
+        statTitle={activeTable?.title}
+        statConfig={activeTable ? getClubStatsTileBackgroundConfig(club, activeTable.stat) : null}
+        open={Boolean(activeTable)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setActiveBackgroundTable(null);
+        }}
+        canUseStatsTileBackgrounds={canUseStatsTileBackgrounds}
+        myPlayer={myPlayer}
+        onClubChanged={onClubChanged}
+      />
+    </>
   );
 }
 
-function ClubLeaderboardTable({ title, stat, label, rows }) {
+function ClubLeaderboardTable({
+  title,
+  stat,
+  label,
+  rows,
+  backgroundConfig,
+  canCustomize,
+  canUseStatsTileBackgrounds,
+  onChangeBackground,
+}) {
+  const backgroundUrl = backgroundConfig?.url || "";
+  const backgroundPosition = backgroundConfig?.position || "50% 50%";
+  const backgroundZoom = Number(backgroundConfig?.zoom) || 120;
   return (
-    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{title}</h3>
-        <span className="rounded-sm border border-[#f5c542]/30 bg-[#f5c542]/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5c542]">
-          {label}
-        </span>
+    <section
+      className="relative overflow-hidden border border-cyan-300/20 bg-[#06111d] shadow-[0_18px_50px_rgba(0,0,0,0.24)]"
+      style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
+    >
+      {backgroundUrl ? (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-no-repeat opacity-45"
+          style={{
+            backgroundImage: `url(${backgroundUrl})`,
+            backgroundPosition,
+            backgroundSize: `${backgroundZoom}%`,
+          }}
+        />
+      ) : null}
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-cyan-400/14 via-black/72 to-blue-950/75" />
+      <div aria-hidden className="absolute inset-x-8 top-0 h-px bg-cyan-200/45" />
+      <div className="relative z-[1] flex items-center justify-between gap-2 border-b border-cyan-300/15 px-6 py-3">
+        <h3 className="min-w-0 flex-1 truncate font-heading text-xs font-black uppercase tracking-[0.16em] text-white sm:text-sm sm:tracking-[0.2em]">{title}</h3>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span
+            className="border border-[#f5c542]/35 bg-[#f5c542]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5c542]"
+            style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+          >
+            {label}
+          </span>
+          {canCustomize ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 items-center justify-center border border-cyan-300/20 bg-black/35 text-cyan-100/65 transition hover:border-cyan-200/50 hover:text-cyan-50"
+                  style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
+                  aria-label={`${title} actions`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-white/10 bg-[#071018] text-white">
+                <DropdownMenuItem className="cursor-pointer text-xs font-semibold" onSelect={onChangeBackground}>
+                  {canUseStatsTileBackgrounds ? <ImageIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  Change background
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
+      </div>
       {rows.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-white/40">No player stats yet.</p>
+        <p className="relative z-[1] px-6 py-8 text-center text-sm text-white/45">No player stats yet.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[320px] text-sm">
+        <div className="relative z-[1] overflow-x-auto">
+          <table className="w-full min-w-[360px] text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
-                <th className="w-12 px-4 py-2 text-left font-black">#</th>
+              <tr className="border-b border-cyan-300/10 text-[10px] uppercase tracking-[0.16em] text-cyan-100/45">
+                <th className="w-12 px-6 py-2 text-left font-black">#</th>
                 <th className="px-2 py-2 text-left font-black">Player</th>
-                <th className="w-20 px-4 py-2 text-right font-black">{label}</th>
+                <th className="w-20 px-6 py-2 text-right font-black">{label}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-cyan-300/10">
               {rows.map(({ player, value }, index) => (
-                <tr key={player.id} className="text-white/75">
-                  <td className="px-4 py-3 font-heading text-xs font-black text-white/40">{index + 1}</td>
+                <tr key={player.id} className="text-white/80 transition-colors hover:bg-cyan-300/5">
+                  <td className="px-6 py-2.5 font-heading text-xs font-black text-cyan-100/45">{index + 1}</td>
                   <td className="min-w-0 px-2 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/10 bg-black/30">
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/20 bg-black/35"
+                        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
+                      >
                         {player.avatar_url ? (
                           <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
                         ) : (
@@ -1675,7 +1825,7 @@ function ClubLeaderboardTable({ title, stat, label, rows }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-heading text-base font-black text-[#f5c542]">
+                  <td className="px-6 py-2.5 text-right font-heading text-base font-black text-[#f5c542]">
                     {formatClubStatValue(value, stat)}
                   </td>
                 </tr>
@@ -1685,6 +1835,266 @@ function ClubLeaderboardTable({ title, stat, label, rows }) {
         </div>
       )}
     </section>
+  );
+}
+
+function ClubStatsTileBackgroundDialog({
+  club,
+  statKey,
+  statTitle,
+  statConfig,
+  open,
+  onOpenChange,
+  canUseStatsTileBackgrounds,
+  myPlayer,
+  onClubChanged,
+}) {
+  const [backgrounds, setBackgrounds] = useState([]);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [backgroundSaving, setBackgroundSaving] = useState(null);
+  const [customBackgroundFile, setCustomBackgroundFile] = useState(null);
+  const [customBackgroundPreview, setCustomBackgroundPreview] = useState("");
+  const [customBackgroundX, setCustomBackgroundX] = useState(50);
+  const [customBackgroundY, setCustomBackgroundY] = useState(50);
+  const [customBackgroundZoom, setCustomBackgroundZoom] = useState(120);
+  const [backgroundError, setBackgroundError] = useState("");
+
+  useEffect(() => {
+    if (!open || !canUseStatsTileBackgrounds) return;
+    let cancelled = false;
+    setBackgroundLoading(true);
+    stageClient.entities.PlayerCardBackground
+      .filter({}, "sort_order", 100)
+      .then((rows) => {
+        if (!cancelled) setBackgrounds(asObjectArray(rows));
+      })
+      .catch(() => {
+        if (!cancelled) setBackgrounds([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBackgroundLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, canUseStatsTileBackgrounds]);
+
+  useEffect(() => {
+    if (!customBackgroundFile) {
+      setCustomBackgroundPreview("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(customBackgroundFile);
+    setCustomBackgroundPreview(url);
+    setCustomBackgroundX(50);
+    setCustomBackgroundY(50);
+    setCustomBackgroundZoom(120);
+    return () => URL.revokeObjectURL(url);
+  }, [customBackgroundFile]);
+
+  async function saveStatsTileBackground(payload, busyKey) {
+    if (!club?.id || !statKey) return;
+    setBackgroundSaving(busyKey);
+    setBackgroundError("");
+    try {
+      const updated = await stageClient.http.patch(`/clubs/${encodeURIComponent(club.id)}/stats-tile-background`, {
+        ...payload,
+        stat_key: statKey,
+      });
+      onClubChanged?.({
+        ...updated,
+      });
+      setCustomBackgroundFile(null);
+      setCustomBackgroundPreview("");
+      onOpenChange(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not update stats tile background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  async function uploadCustomBackground() {
+    if (!statKey) return;
+    if (!customBackgroundFile) {
+      setBackgroundError("Choose an image first.");
+      return;
+    }
+    setBackgroundSaving("custom");
+    setBackgroundError("");
+    try {
+      const uploaded = await stageClient.integrations.Core.UploadFile({ file: customBackgroundFile });
+      const payload = {
+        type: "custom",
+        image_url: uploaded.file_url,
+        position: `${customBackgroundX}% ${customBackgroundY}%`,
+        zoom: customBackgroundZoom,
+      };
+      const updated = await stageClient.http.patch(`/clubs/${encodeURIComponent(club.id)}/stats-tile-background`, {
+        ...payload,
+        stat_key: statKey,
+      });
+      onClubChanged?.({
+        ...updated,
+      });
+      setCustomBackgroundFile(null);
+      setCustomBackgroundPreview("");
+      onOpenChange(false);
+    } catch (err) {
+      setBackgroundError(err?.message || "Could not upload stats tile background.");
+    } finally {
+      setBackgroundSaving(null);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[82vh] max-w-lg overflow-y-auto border-white/10 bg-[#071018] p-4 text-white sm:p-5">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#f5c542]">
+            <ImageIcon className="h-3.5 w-3.5" /> {statTitle || "Stats"} background
+          </DialogTitle>
+        </DialogHeader>
+        {!canUseStatsTileBackgrounds ? (
+          <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+            <div className="mb-3 flex items-start gap-3">
+              <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
+              <div>
+                <p className="font-heading text-base font-black uppercase text-white">STAGE Plus feature</p>
+                <p className="mt-1 text-sm text-white/60">
+                  Custom club stats tile backgrounds, personal uploads, and exclusive official designs are included with STAGE Plus.
+                </p>
+              </div>
+            </div>
+            <Link to="/store">
+              <Button type="button" className="gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]">
+                <Sparkles className="h-4 w-4" /> View STAGE Plus
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {backgroundError ? (
+              <div className="rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {backgroundError}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] p-2.5">
+              <div>
+                <p className="font-heading text-xs font-black uppercase text-white">{statTitle || "Stats tile"}</p>
+                <p className="text-xs text-white/45">This background applies only to this leaderboard tile.</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={Boolean(backgroundSaving)}
+                onClick={() => saveStatsTileBackground({ type: "default" }, "default")}
+                className="h-8 gap-1.5 border-white/15 bg-black/20 text-xs text-white hover:bg-white/10"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </Button>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
+              {backgroundLoading ? (
+                <div className="flex items-center justify-center rounded-lg border border-white/10 py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
+                </div>
+              ) : backgrounds.length ? (
+                <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                  {backgrounds.map((bg) => {
+                    const selected = statConfig?.type === "official" && statConfig?.background_id === bg.id;
+                    return (
+                      <button
+                        key={bg.id}
+                        type="button"
+                        disabled={Boolean(backgroundSaving)}
+                        onClick={() => saveStatsTileBackground({ type: "official", background_id: bg.id }, bg.id)}
+                        className={cn(
+                          "overflow-hidden rounded-md border bg-black/30 text-left transition hover:border-[#f5c542]/50",
+                          selected ? "border-[#f5c542]/70" : "border-white/10",
+                        )}
+                      >
+                        <div className="aspect-[16/9] bg-black">
+                          <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                          <span className="truncate text-[11px] font-bold text-white">{bg.name}</span>
+                          {backgroundSaving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c542]" /> : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
+                  No official backgrounds are available yet.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
+              <div className="flex flex-col gap-3">
+                {customBackgroundPreview ? (
+                  <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                    <div
+                      className="relative h-[116px] overflow-hidden border border-cyan-300/35 bg-black"
+                      style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
+                    >
+                      <div
+                        aria-hidden
+                        className="absolute inset-0 bg-no-repeat"
+                        style={{
+                          backgroundImage: `url(${customBackgroundPreview})`,
+                          backgroundPosition: `${customBackgroundX}% ${customBackgroundY}%`,
+                          backgroundSize: `${customBackgroundZoom}%`,
+                        }}
+                      />
+                      <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-cyan-400/12 via-black/58 to-blue-950/80" />
+                      <div className="relative z-[1] flex h-full flex-col justify-between p-3">
+                        <p className="font-heading text-sm font-black uppercase text-white">{club?.name || "Club"}</p>
+                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.16em] text-white/50">
+                          <span>{statTitle || "Leaderboard tile"}</span>
+                          <span>{myPlayer?.gamertag || "Stage+"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <BackgroundSlider label="Zoom" value={customBackgroundZoom} min={100} max={260} onChange={setCustomBackgroundZoom} />
+                      <BackgroundSlider label="Horizontal" value={customBackgroundX} min={0} max={100} onChange={setCustomBackgroundX} />
+                      <BackgroundSlider label="Vertical" value={customBackgroundY} min={0} max={100} onChange={setCustomBackgroundY} />
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#f5c542]/35 bg-[#f5c542]/10 px-3 py-2 text-xs font-bold text-[#f5c542]">
+                    <Upload className="h-4 w-4" />
+                    <span className="truncate">{customBackgroundFile ? customBackgroundFile.name : "Choose image"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(event) => setCustomBackgroundFile(event.target.files?.[0] || null)}
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!customBackgroundFile || Boolean(backgroundSaving)}
+                    onClick={uploadCustomBackground}
+                    className="h-10 gap-2 bg-[#f5c542] font-black text-black hover:bg-[#f7d46a]"
+                  >
+                    {backgroundSaving === "custom" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

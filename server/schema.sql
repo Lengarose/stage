@@ -222,6 +222,12 @@ CREATE TABLE IF NOT EXISTS clubs (
   formation           VARCHAR(20),
   lineup              JSON,
   trophies            JSON,
+  stats_tile_background_type VARCHAR(20) DEFAULT 'default',
+  stats_tile_background_id   VARCHAR(36) NULL,
+  stats_tile_background_url  TEXT NULL,
+  stats_tile_background_position VARCHAR(50) DEFAULT '50% 50%',
+  stats_tile_background_zoom INT DEFAULT 120,
+  stats_tile_backgrounds JSON,
   created_date        DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date        DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -1934,6 +1940,12 @@ SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE tab
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'banner_position'),'SELECT 1','ALTER TABLE clubs ADD COLUMN banner_position VARCHAR(50) NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'banner_zoom'),'SELECT 1','ALTER TABLE clubs ADD COLUMN banner_zoom INT NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'logo_zoom'),'SELECT 1','ALTER TABLE clubs ADD COLUMN logo_zoom INT NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_background_type'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_background_type VARCHAR(20) NULL DEFAULT ''default''')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_background_id'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_background_id VARCHAR(36) NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_background_url'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_background_url TEXT NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_background_position'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_background_position VARCHAR(50) NULL DEFAULT ''50% 50%''')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_background_zoom'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_background_zoom INT NULL DEFAULT 120')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = (SELECT IF(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'clubs' AND column_name = 'stats_tile_backgrounds'),'SELECT 1','ALTER TABLE clubs ADD COLUMN stats_tile_backgrounds JSON NULL')); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- END inlined: banner_migration.sql
 
 -- BEGIN inlined: landing_page_content_migration.sql
