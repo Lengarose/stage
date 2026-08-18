@@ -257,7 +257,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     async function load() {
       try {
         const user = asObject(await stageClient.auth.me().catch(() => null));
-        setCurrentUser(user);
+      setCurrentUser(user);
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
@@ -274,7 +274,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         const presidentRecord = await resolvePresidentRecord(c);
         setPresident(presidentRecord);
         const staffRows = asObjectArray(staffRoleRows);
-        const myPl = myPlResolved ? [myPlResolved] : [];
+      const myPl = myPlResolved ? [myPlResolved] : [];
         let playerData = asObjectArray(initialPlayerRows).filter((player) => player.id);
         const playerIds = new Set(playerData.map((player) => player.id).filter(Boolean));
 
@@ -282,10 +282,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         const safeActiveContracts = safeContractRows.filter((contract) => contract.status === "active");
         const liveOwnershipContracts = safeActiveContracts.filter((contract) =>
           getContractType(contract) === "ownership"
-        );
-        if (liveOwnershipContracts.length > 0) {
-          const ownershipPlayers = await Promise.all(
-            liveOwnershipContracts
+      );
+      if (liveOwnershipContracts.length > 0) {
+        const ownershipPlayers = await Promise.all(
+          liveOwnershipContracts
               .filter((contract) => {
                 const playerId = getContractTargetPlayerId(contract);
                 return playerId && !playerIds.has(playerId);
@@ -302,8 +302,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               ? "president"
               : ownerPlayer.role,
           }));
-          playerData = [...playerData, ...normalizedOwners];
-        }
+        playerData = [...playerData, ...normalizedOwners];
+      }
 
         const activeContractPlayerIds = [
           ...new Set(safeActiveContracts.map(getContractTargetPlayerId).filter(Boolean)),
@@ -351,10 +351,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         const matchesAway = asObjectArray(matchesAwayRaw);
         const tmHome = asObjectArray(tmHomeRaw);
         const tmAway = asObjectArray(tmAwayRaw);
-        const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
+      const allMatchesRaw = [...matchesHome, ...matchesAway, ...tmHome, ...tmAway];
         const tIds = [...new Set(allMatchesRaw.map((match) => match.tournament_id).filter((tid) => tid && tid !== "ranked"))];
         const tMap = {};
-        if (tIds.length > 0) {
+      if (tIds.length > 0) {
           const tournamentResults = await Promise.all(
             tIds.map((tid) => stageClient.entities.Tournament.filter({ id: tid }, null, 1).catch(() => []))
           );
@@ -362,35 +362,35 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             const [tournament] = asObjectArray(rows);
             if (tournament?.id) tMap[tournament.id] = tournament;
           });
-        }
-        setTournamentMap(tMap);
+      }
+      setTournamentMap(tMap);
 
-        setClub(c);
+      setClub(c);
         setPlayers(mergeStaffRolesIntoPlayers(playerData, staffRows));
         setClubContracts(safeContractRows);
         setFixtureAvailabilityRows(asObjectArray(availabilityRows));
         setClubPlayerStatRows(asObjectArray(playerStatRows));
 
-        const allMatches = [...matchesHome, ...matchesAway].sort(
-          (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
-        );
-        setMatches(allMatches);
-        setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
+      const allMatches = [...matchesHome, ...matchesAway].sort(
+        (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
+      );
+      setMatches(allMatches);
+      setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
 
-        if (myPl.length > 0) {
-          const mine = myPl[0];
-          setMyPlayer(mine);
+      if (myPl.length > 0) {
+        const mine = myPl[0];
+        setMyPlayer(mine);
           setOperationStaffRoles(staffRows.filter((role) =>
             role.user_id === user?.id || role.player_id === mine.id
           ));
           if (mine.club_id && mine.club_id !== id) {
             const myClubRecord = asObject(await stageClient.entities.Club.get(mine.club_id).catch(() => null));
-            if (myClubRecord) setMyClubData(myClubRecord);
-          }
-        } else {
-          setMyPlayer(null);
-          setOperationStaffRoles([]);
+          if (myClubRecord) setMyClubData(myClubRecord);
         }
+      } else {
+          setMyPlayer(null);
+        setOperationStaffRoles([]);
+      }
 
         const isCanonicalPresidentForThisClub = isClubPresidentForUser({
           user,
@@ -398,19 +398,19 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           presidentClub,
         });
         if ((myPl.length > 0 && (
-          myPl[0].role === "captain" ||
-          myPl[0].role === "vice-captain" ||
+        myPl[0].role === "captain" ||
+        myPl[0].role === "vice-captain" ||
           myPl[0].club_roles?.includes("president")
         )) || isCanonicalPresidentForThisClub) {
           const reqs = await stageClient.entities.JoinRequest.filter({ club_id: id, status: "pending" }).catch(() => []);
           setJoinRequests(asObjectArray(reqs));
         } else {
           setJoinRequests([]);
-        }
+      }
 
-        const clubChatRows = await stageClient.entities.ChatMessage
-          .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
-          .catch(() => []);
+      const clubChatRows = await stageClient.entities.ChatMessage
+        .filter({ match_id: CLUB_CHAT_CHANNEL }, "created_date", 300)
+        .catch(() => []);
         setClubChatMessages(asObjectArray(clubChatRows));
       } catch (err) {
         console.error("ClubDetail load failed:", err);
@@ -831,7 +831,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }
 
   if (editClubOpen && club) {
-    return (
+  return (
       <GamerProfileShell>
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent className="bg-[#0d1225] border-white/10">
@@ -900,34 +900,34 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         topLeftActions={(
           <>
             <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-            </button>
+          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
+        </button>
             {isAdminTakeover ? (
               <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-2">
-                <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
+            <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
                 <span className="hidden sm:inline text-xs text-warning font-medium">{t("commonPages.cdAdminTakeover")}</span>
                 <button type="button" onClick={() => { localStorage.removeItem('admin_takeover_club_id'); localStorage.setItem('stage_admin_effective_role_id', '0'); navigate('/admin'); }} className="text-xs text-warning/70 hover:text-warning flex items-center gap-1">
-                  <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
-                </button>
-              </div>
+              <LogOut className="w-3 h-3" /> {t("commonPages.cdExit")}
+            </button>
+          </div>
             ) : null}
           </>
         )}
         topActions={canEdit ? (
-          <button
+            <button
             type="button"
-            onClick={() => setEditClubOpen(true)}
+              onClick={() => setEditClubOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider"
-          >
-            <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
-          </button>
+            >
+              <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
+            </button>
         ) : null}
         infoAside={<ClubPresidentChip club={club} president={president} />}
         sideActions={null}
       >
-        <div className="mt-1">
+          <div className="mt-1">
           <ClubForm matches={safeMatches} clubId={id} />
-        </div>
+          </div>
       </GamerClubProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
@@ -1034,12 +1034,12 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {selectablePlayers.map(p => (
-                    <PlayerCard
-                      key={p.id}
-                      player={p}
-                      currentUser={currentUser}
-                      myPlayer={myPlayer}
-                      isPresident={isPresident}
+                  <PlayerCard
+                    key={p.id}
+                    player={p}
+                    currentUser={currentUser}
+                    myPlayer={myPlayer}
+                    isPresident={isPresident}
                       isOwner={isOwner}
                       isClubMember={isMember}
                       isCaptain={isCaptain || isViceCaptain}
@@ -1048,7 +1048,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       availability={availabilityByPlayerId.get(String(p.id))}
                       contracts={getPlayerContracts(safeClubContracts, p.id)}
                       clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
-                      onAssignRole={assignRole}
+                    onAssignRole={assignRole}
                       onRemoveRole={removePlayerRole}
                       onRelease={releaseSquadPlayer}
                       canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
@@ -1078,8 +1078,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                       })}
                       onExerciseOption={() => handleExerciseOption(p)}
                       onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
-                    />
-                  ))}
+                  />
+                ))}
                 </div>
                 {onLoanPlayers.length ? (
                   <div className="space-y-3">
@@ -1150,7 +1150,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             <ClubFixturesPanel
               clubId={id}
               clubPlayers={safePlayers}
-              myPlayer={myPlayer}
+                myPlayer={myPlayer}
               canSetAvailability={isMember}
               canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
               availabilityRows={safeFixtureAvailabilityRows}
@@ -1158,8 +1158,8 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               matches={safeMatches}
               tournamentMatches={safeTournamentMatches}
               t={t}
-            />
-          </TabsContent>
+              />
+            </TabsContent>
 
           {/* Club Office — president/captain only */}
           {canOpenClubOffice ? (
@@ -1287,7 +1287,7 @@ function ClubOfficePanel({ club, players, myPlayer, isOwner, onPlayerReleased, o
             {label}
           </button>
         ))}
-      </div>
+              </div>
 
       {activeSection === "contracts" ? (
         isOwner ? (
@@ -1332,7 +1332,7 @@ function ClubOfficePanel({ club, players, myPlayer, isOwner, onPlayerReleased, o
           t={t}
         />
       ) : null}
-    </div>
+              </div>
   );
 }
 
@@ -1352,18 +1352,18 @@ function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.02]">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <div>
+              <div>
           <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">Audit Log</h3>
           <p className="mt-1 text-xs text-white/40">Recent office and club operation changes.</p>
-        </div>
+              </div>
         <Button type="button" size="sm" variant="outline" onClick={onRefresh} className="text-xs">
           {t("commonPages.coopRefreshAudit") || "Refresh"}
         </Button>
-      </div>
+              </div>
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-        </div>
+              </div>
       ) : error ? (
         <p className="px-4 py-8 text-center text-sm text-destructive">{error}</p>
       ) : logs.length === 0 ? (
@@ -1379,7 +1379,7 @@ function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
               {log.reason ? <p className="mt-1 text-xs text-white/45">{log.reason}</p> : null}
             </div>
           ))}
-        </div>
+            </div>
       )}
     </section>
   );
@@ -1535,7 +1535,7 @@ function NationalityRow({ player }) {
       <span className="flex min-w-0 items-center border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.13em] text-white">
         <span className="truncate">{nationality.label}</span>
       </span>
-    </div>
+          </div>
   );
 }
 
@@ -1622,7 +1622,7 @@ function ClubLeaderboardTable({ title, stat, label, rows }) {
         <span className="rounded-sm border border-[#f5c542]/30 bg-[#f5c542]/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5c542]">
           {label}
         </span>
-      </div>
+        </div>
       {rows.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-white/40">No player stats yet.</p>
       ) : (
@@ -1979,7 +1979,7 @@ function FixtureRow({
           <span className="min-w-14 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center font-heading text-sm font-black text-white">
             {hasScore ? `${mine}-${theirs}` : "TBD"}
           </span>
-        </div>
+      </div>
       </div>
 
       {(showMemberControls || showTeamSummary) ? (
@@ -2038,9 +2038,9 @@ function FixtureRow({
                   className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#00e5ff] hover:text-[#7defff]"
                 >
                   {responsesOpen ? "Hide responses" : "View responses"}
-                </button>
+          </button>
               ) : null}
-            </div>
+        </div>
           ) : null}
         </div>
       ) : null}
@@ -2534,7 +2534,7 @@ function PlayerCard({
                   <div className="grid gap-3 sm:grid-cols-2">
                     {backgrounds.map((bg) => {
                       const selected = player.player_card_background_type === "official" && player.player_card_background_id === bg.id;
-                      return (
+          return (
                         <button
                           key={bg.id}
                           type="button"
@@ -2547,15 +2547,15 @@ function PlayerCard({
                         >
                           <div className="aspect-[16/9] bg-black">
                             <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
-                          </div>
+              </div>
                           <div className="flex items-center justify-between gap-2 p-2">
                             <span className="truncate text-xs font-bold text-white">{bg.name}</span>
                             {backgroundSaving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c542]" /> : null}
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+            </button>
+          );
+        })}
+      </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
                     No official backgrounds are available yet.
