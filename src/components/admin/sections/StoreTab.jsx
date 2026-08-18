@@ -13,6 +13,7 @@ import {
 } from "@/lib/subscriptionUtils";
 import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/useTranslation";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_FORM = {
   id: null,
