@@ -45,7 +45,7 @@ export default function Presidents() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 px-5 py-2.5 text-sm focus:outline-none focus:border-amber-400/50 focus:bg-white/8 transition-all";
+  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400/50 focus:bg-white/8 transition-all";
 
   return (
     <div className="min-h-screen p-6 lg:p-10 max-w-7xl mx-auto">
@@ -63,7 +63,7 @@ export default function Presidents() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
-        <div className="relative flex-1" style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}>
+        <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
           <input
             type="text"

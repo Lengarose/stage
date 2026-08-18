@@ -66,8 +66,8 @@ export default function Players({ tournamentId } = {}) {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 px-5 py-2.5 text-sm focus:outline-none focus:border-[hsl(189,100%,52%)]/50 focus:bg-white/8 transition-all";
-  const selectCls = "bg-white/5 border border-white/10 text-white px-5 py-2.5 text-sm outline-none cursor-pointer appearance-none min-w-[150px]";
+  const inputCls = "bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[hsl(189,100%,52%)]/50 focus:bg-white/8 transition-all";
+  const selectCls = "bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm outline-none cursor-pointer appearance-none min-w-[150px]";
 
   return (
     <div className="min-h-screen p-6 lg:p-10 max-w-7xl mx-auto">
@@ -88,7 +88,7 @@ export default function Players({ tournamentId } = {}) {
 
       {/* ── Filters ── */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
-        <div className="relative flex-1" style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}>
+        <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
           <input
             type="text"
@@ -98,10 +98,10 @@ export default function Players({ tournamentId } = {}) {
             className={cn(inputCls, "pl-10 w-full")}
           />
         </div>
-        <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls} style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
+        <select value={platform} onChange={e => { setPlatform(e.target.value); setPage(1); }} className={selectCls}>
           {PLATFORMS.map(p => <option key={p} value={p}>{p === "All Platforms" ? t("competitionFlow.allPlatforms") : p}</option>)}
         </select>
-        <select value={position} onChange={e => { setPosition(e.target.value); setPage(1); }} className={selectCls} style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
+        <select value={position} onChange={e => { setPosition(e.target.value); setPage(1); }} className={selectCls}>
           {POSITIONS.map(p => <option key={p} value={p}>{p === "All Positions" ? t("competitionFlow.allPositions") : p}</option>)}
         </select>
       </div>
