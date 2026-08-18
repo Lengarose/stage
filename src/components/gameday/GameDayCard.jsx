@@ -44,10 +44,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-w-[240px] max-w-[320px] shrink-0 items-center gap-3 rounded-sm border px-3 py-2.5 text-left transition-all",
+        "flex min-w-[246px] max-w-[330px] shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
         selected
-          ? "border-[#f5c542] bg-[#f5c542]/10 shadow-[0_0_22px_rgba(245,197,66,0.22)]"
-          : "border-white/10 bg-black/35 hover:border-[#00e5ff]/40",
+          ? "border-[#f5c542] bg-gradient-to-r from-[#f5c542]/20 via-[#0a1628] to-black shadow-[0_0_22px_rgba(245,197,66,0.22)]"
+          : "border-[#00e5ff]/20 bg-gradient-to-r from-[#071827]/70 via-black/50 to-[#06111d]/80 hover:border-[#00e5ff]/60 hover:bg-[#00e5ff]/10",
       )}
     >
       <div className="flex items-center -space-x-2">

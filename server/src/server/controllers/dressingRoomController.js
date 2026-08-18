@@ -8,6 +8,7 @@ const {
   broadcastMatchById,
 } = require('../utils/socketBroadcast');
 const { applySeatedPlayerStreamToMatch } = require('../utils/matchStream');
+const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 
 function parsePlayerIds(value) {
   if (value == null || value === '') return [];
@@ -55,6 +56,45 @@ async function maybeApplyStream(record) {
   if (applied) await broadcastMatchById(record.match_id).catch(() => {});
 }
 
+async function notifyDressingRoomAction(req, record, previousSeatedPlayers = []) {
+  const recipientEmail = String(req.user?.email || '').trim().toLowerCase();
+  if (!recipientEmail || !record?.match_id) return;
+  const before = new Set(parsePlayerIds(previousSeatedPlayers));
+  const after = new Set(parsePlayerIds(record.seated_players));
+  const playerRows = req.user?.id
+    ? await EXECUTESQL(
+      `SELECT id, gamertag
+       FROM players
+       WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?))
+       ORDER BY user_id = ? DESC, updated_date DESC
+       LIMIT 1`,
+      [req.user.id, recipientEmail, req.user.id]
+    ).catch(() => [])
+    : [];
+  const player = playerRows[0] || null;
+  const playerId = String(player?.id || '');
+  const tookSeat = playerId && !before.has(playerId) && after.has(playerId);
+  const leftSeat = playerId && before.has(playerId) && !after.has(playerId);
+  const title = tookSeat
+    ? 'Dressing room seat taken'
+    : leftSeat
+      ? 'Dressing room seat released'
+      : 'Dressing room updated';
+  const body = tookSeat
+    ? 'You are seated for this match. If kickoff starts, you can be featured in the game.'
+    : leftSeat
+      ? 'You left your dressing-room seat for this match.'
+      : 'Your dressing room was updated for this match.';
+
+  await createNotificationIfEnabled({
+    recipientEmail,
+    type: 'match_reminder',
+    title,
+    body,
+    link: `/game-day?match=${record.match_id}`,
+  }).catch(() => {});
+}
+
 // GET /
 router.get('/', async (req, res) => {
   try {
@@ -99,6 +139,7 @@ router.post('/', async (req, res) => {
     const record  = created[0];
     broadcastDressingRoom(record);
     await maybeApplyStream(record);
+    await notifyDressingRoomAction(req, record, []);
     if (record?.match_id) await broadcastMatchById(record.match_id).catch(() => {});
     res.status(201).json(record);
   } catch (err) {
@@ -125,6 +166,7 @@ router.patch('/:id', async (req, res) => {
     const record  = updated[0];
     broadcastDressingRoom(record);
     await maybeApplyStream(record);
+    await notifyDressingRoomAction(req, record, existing[0].seated_players);
     if (record?.match_id) await broadcastMatchById(record.match_id).catch(() => {});
     res.json(record);
   } catch (err) {

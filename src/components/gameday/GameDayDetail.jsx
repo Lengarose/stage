@@ -342,6 +342,15 @@ export default function GameDayDetail({
     || resultControls.showAwaySubmittedWaitingForHome
     || showResultForm
   );
+  const showDressingRoomPanel = isClubMatch && isMyMatch && myClub && !isDisputed;
+  const updateDressingCountForClub = ({ clubId, seatedPlayers }) => {
+    const count = Array.isArray(seatedPlayers) ? seatedPlayers.length : 0;
+    setDressingCounts((prev) => {
+      if (sameRecordId(clubId, game.home_club_id)) return { ...prev, home: count };
+      if (sameRecordId(clubId, game.away_club_id)) return { ...prev, away: count };
+      return prev;
+    });
+  };
 
   return (
     <div className="overflow-hidden border border-[#f5c542]/20 bg-[#05080f] shadow-[0_0_80px_-24px_rgba(245,197,66,0.35)]">
@@ -435,6 +444,89 @@ export default function GameDayDetail({
         ) : null}
       </GameDayKickoffArena>
 
+      {showDressingRoomPanel && (
+        <section className="border-t border-[#00e5ff]/15 bg-gradient-to-r from-[#06131e] via-black/35 to-[#071827] px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-4xl border border-[#00e5ff]/25 bg-black/35 p-4 shadow-[0_0_32px_-18px_rgba(0,229,255,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-heading text-[11px] font-black uppercase tracking-[0.2em] text-[#00e5ff]">
+                  {t("matchFlow.dressingRoom")}
+                </p>
+                <p className="mt-1 text-xs text-white/55">
+                  Available players take a seat here before kickoff so they can be featured in the game.
+                </p>
+              </div>
+              <div className="flex gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
+                <span className="border border-[#f5c542]/35 bg-[#f5c542]/10 px-2.5 py-1 text-[#f5c542] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
+                  Home {dressingCounts.home}
+                </span>
+                <span className="border border-[#00e5ff]/35 bg-[#00e5ff]/10 px-2.5 py-1 text-[#00e5ff] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
+                  Away {dressingCounts.away}
+                </span>
+              </div>
+            </div>
+            <GameDayDressingRoom
+              game={game}
+              myClub={myClub}
+              myPlayer={myPlayer}
+              user={user}
+              onSeatChange={updateDressingCountForClub}
+            />
+          </div>
+        </section>
+      )}
+
+      {showResultDock && (
+        <section className="border-t border-[#f5c542]/15 bg-black/45 px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-3xl space-y-3 border border-[#f5c542]/25 bg-[#090b08]/80 p-4 [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+            {resultControls.showHomeSubmit && (
+              <Button
+                onClick={() => setShowResultForm(true)}
+                className="h-12 w-full gap-2 rounded-sm bg-destructive font-heading text-sm font-black uppercase tracking-[0.18em] text-white"
+              >
+                <Flag className="h-4 w-4" /> {t("matchFlow.submitFullTime")}
+              </Button>
+            )}
+            {resultControls.showAwayWaitingForHome && (
+              <div className="flex items-center gap-2 rounded-sm border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                {t("matchFlow.waitingHomeFullTime")}
+              </div>
+            )}
+            {resultControls.showAwaySubmit && (
+              <Button
+                onClick={() => setShowResultForm(true)}
+                variant="outline"
+                className="h-12 w-full gap-2 rounded-sm border-warning font-heading text-sm font-black uppercase tracking-[0.18em] text-warning hover:text-warning"
+              >
+                <Flag className="h-4 w-4" /> {t("matchFlow.submitMyResult")}
+              </Button>
+            )}
+            {resultControls.showHomeWaitingForAway && (
+              <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                {t("matchFlow.resultWaitingAway")}
+              </div>
+            )}
+            {resultControls.showAwaySubmittedWaitingForHome && (
+              <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                {t("matchFlow.resultWaitingHome")}
+              </div>
+            )}
+            {showResultForm && (
+              <GameDayMatchResult
+                game={game}
+                myClub={myClub}
+                myPlayer={myPlayer}
+                isHomeTeam={amIHomeTeam}
+                onSubmitted={handleResultSubmitted}
+              />
+            )}
+          </div>
+        </section>
+      )}
+
       {isDisputed && isMyMatch && (
         <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-3">
           <p className="text-xs font-semibold text-destructive">{t("matchFlow.resultDisputed")}</p>
@@ -514,63 +606,6 @@ export default function GameDayDetail({
             }}
           />
 
-          {isClubMatch && myClub && (
-            <div className="border-t border-white/10 p-4">
-              <p className="mb-3 font-heading text-[11px] font-black uppercase tracking-[0.16em] text-[#f5c542]">
-                {t("matchFlow.dressingRoom")}
-              </p>
-              <GameDayDressingRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-            </div>
-          )}
-
-          {showResultDock && (
-            <div className="space-y-3 border-t border-white/10 px-5 py-4">
-              {resultControls.showHomeSubmit && (
-                <Button
-                  onClick={() => setShowResultForm(true)}
-                  className="w-full gap-2 bg-destructive font-heading text-sm font-black uppercase tracking-[0.18em] text-white"
-                >
-                  <Flag className="h-4 w-4" /> {t("matchFlow.submitFullTime")}
-                </Button>
-              )}
-              {resultControls.showAwayWaitingForHome && (
-                <div className="flex items-center gap-2 rounded-sm border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 shrink-0" />
-                  {t("matchFlow.waitingHomeFullTime")}
-                </div>
-              )}
-              {resultControls.showAwaySubmit && (
-                <Button
-                  onClick={() => setShowResultForm(true)}
-                  variant="outline"
-                  className="w-full gap-2 border-warning font-heading text-sm font-black uppercase tracking-[0.18em] text-warning hover:text-warning"
-                >
-                  <Flag className="h-4 w-4" /> {t("matchFlow.submitMyResult")}
-                </Button>
-              )}
-              {resultControls.showHomeWaitingForAway && (
-                <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  {t("matchFlow.resultWaitingAway")}
-                </div>
-              )}
-              {resultControls.showAwaySubmittedWaitingForHome && (
-                <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  {t("matchFlow.resultWaitingHome")}
-                </div>
-              )}
-              {showResultForm && (
-                <GameDayMatchResult
-                  game={game}
-                  myClub={myClub}
-                  myPlayer={myPlayer}
-                  isHomeTeam={amIHomeTeam}
-                  onSubmitted={handleResultSubmitted}
-                />
-              )}
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 
