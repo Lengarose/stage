@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import TransferCardThreeFx from "./TransferCardThreeFx";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import TransferBadge from "./TransferBadge";
 import { stepCarouselIndex, visibleCarouselSlots } from "@/lib/transferCarousel";
@@ -136,7 +135,6 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
               }}
             >
               <div className="relative">
-                {Math.abs(offset) <= 1 ? <TransferCardThreeFx active={focused} /> : null}
                 <GamerPlayerPhotoFrame
                   player={player}
                   className={cn(
