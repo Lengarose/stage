@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TransferCardThreeFx from "./TransferCardThreeFx";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import TransferBadge from "./TransferBadge";
 import { stepCarouselIndex, visibleCarouselSlots } from "@/lib/transferCarousel";
@@ -125,28 +126,31 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
               type="button"
               onClick={() => onSelect?.(entry, { openDetails: true })}
               className={cn(
-                "absolute origin-center cursor-pointer motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out",
+                "absolute origin-center cursor-pointer motion-safe:transition-[transform,opacity] motion-safe:duration-700 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
               )}
               style={{
                 transform: `translateX(${x}px) translateZ(${z}px) rotateY(${rot}deg) scale(${scale})`,
-                transformStyle: "flat",
+                transformStyle: "preserve-3d",
                 zIndex: 20 - Math.abs(offset),
                 opacity: 1 - Math.abs(offset) * 0.18,
               }}
             >
-              <GamerPlayerPhotoFrame
-                player={player}
-                className={cn(
-                  "w-[150px] sm:w-[180px] md:w-[200px]",
-                  focused
-                    ? "border-[#f5c542]/70 shadow-[0_0_48px_-6px_rgba(245,197,66,0.55)]"
-                    : "border-cyan-400/20 shadow-none",
-                )}
-              >
-                <div className="absolute left-2 top-2 z-[2]">
-                  <TransferBadge type={entry.badgeType} daysLeft={entry.days_left} />
-                </div>
-              </GamerPlayerPhotoFrame>
+              <div className="relative">
+                {Math.abs(offset) <= 1 ? <TransferCardThreeFx active={focused} /> : null}
+                <GamerPlayerPhotoFrame
+                  player={player}
+                  className={cn(
+                    "relative z-[2] w-[150px] sm:w-[180px] md:w-[200px]",
+                    focused
+                      ? "border-[#f5c542]/70 shadow-[0_0_48px_-6px_rgba(245,197,66,0.55)]"
+                      : "border-cyan-400/20 shadow-none",
+                  )}
+                >
+                  <div className="absolute left-2 top-2 z-[3]">
+                    <TransferBadge type={entry.badgeType} daysLeft={entry.days_left} />
+                  </div>
+                </GamerPlayerPhotoFrame>
+              </div>
               <p className={cn(
                 "mt-3 max-w-[200px] truncate text-center font-heading uppercase tracking-wide",
                 focused ? "text-base text-white sm:text-xl" : "text-xs text-white/50",
