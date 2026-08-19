@@ -34,6 +34,7 @@ import { normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getFootballRoleBadges, getPlayerManagementBadges } from "@/lib/playerProfileStatus";
 import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -81,6 +82,7 @@ export default function Profile({
   const [, setPvpMatches] = useState([]);
   const [career, setCareer] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
+  const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [profileTab, setProfileTab] = useState("posts");
   const [playerContracts, setPlayerContracts] = useState([]);
   const [clubMemberships, setClubMemberships] = useState([]);
@@ -146,8 +148,26 @@ export default function Profile({
               const signedClubId = getSignedClubIdForPlayer(p, normalizedContracts);
               return signedClubId ? stageClient.entities.Club.get(signedClubId).catch(() => null) : null;
             })
-            .then((clubRecord) => { if (alive) setSignedClub(asObject(clubRecord)); })
-            .catch(() => { if (alive) setSignedClub(null); });
+            .then(async (clubRecord) => {
+              const signed = asObject(clubRecord);
+              if (!alive) return;
+              setSignedClub(signed);
+              if (signed?.id) {
+                const [homeRows, awayRows] = await Promise.all([
+                  stageClient.profileMatches.list({ home_club_id: signed.id, status: "scheduled" }, "round", 20).catch(() => []),
+                  stageClient.profileMatches.list({ away_club_id: signed.id, status: "scheduled" }, "round", 20).catch(() => []),
+                ]);
+                if (alive) setUpcomingMatches(asObjectArray([...asObjectArray(homeRows), ...asObjectArray(awayRows)]));
+              } else if (alive) {
+                setUpcomingMatches([]);
+              }
+            })
+            .catch(() => {
+              if (alive) {
+                setSignedClub(null);
+                setUpcomingMatches([]);
+              }
+            });
           stageClient.entities.ClubMembership
             .filter({ player_id: p.id, status: "active" }, "-created_date", 20)
             .then((rows) => { if (alive) setClubMemberships(asObjectArray(rows)); })
@@ -464,8 +484,23 @@ export default function Profile({
 
               {profileTab === "career" ? (
                 <div className="pt-2 space-y-4">
-                  <PlayerCareerSummary career={career} loading={careerLoading} />
-                  <PlayerTransferHistory playerId={player?.id} />
+                  <PlayerCareerSummary
+                    career={career}
+                    loading={careerLoading}
+                    player={player}
+                    club={signedClub || myClub}
+                    upcomingMatches={upcomingMatches}
+                    canCustomize={true}
+                    canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
+                    onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+                  />
+                  <PlayerTransferHistory
+                    playerId={player?.id}
+                    player={player}
+                    canCustomize={true}
+                    canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
+                    onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+                  />
                 </div>
               ) : null}
 

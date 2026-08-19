@@ -40,6 +40,8 @@ const DEFAULT_FORM = {
     "Choose exclusive STAGE Plus card background designs",
     "Custom Club Profile stats tile backgrounds",
     "Upload your own club stats tile background",
+    "Custom Career tab tile backgrounds",
+    "Upload your own career tile background",
   ],
   is_active: 1,
 };

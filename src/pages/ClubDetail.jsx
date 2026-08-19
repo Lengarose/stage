@@ -1758,7 +1758,7 @@ function ClubLeaderboardTable({
       {rows.length === 0 ? (
         <p className="relative z-[1] px-6 py-8 text-center text-sm text-white/45">No player stats yet.</p>
       ) : (
-        <div className="relative z-[1] overflow-x-auto">
+        <div className="relative z-[1] max-h-[354px] overflow-auto">
           <table className="w-full min-w-[360px] text-sm">
             <thead>
               <tr className="border-b border-cyan-300/10 text-[10px] uppercase tracking-[0.16em] text-cyan-100/45">

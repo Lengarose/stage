@@ -3,7 +3,7 @@ import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
-  ArrowLeft, Swords,
+  ArrowLeft,
   Gamepad2, Settings,
   Coins, FileText, Clock,
 } from "lucide-react";
@@ -37,6 +37,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { getPlayerManagementBadges, getVisibleFootballRole } from "@/lib/playerProfileStatus";
 import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
@@ -413,31 +414,23 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
         {activeTab === "career" ? (
           <div className="pt-2 space-y-4">
-            {upcomingMatches.length > 0 ? (
-              <GamerSectionCard title={t("commonPages.homeUpcoming")}>
-                <div className="space-y-2">
-                  {upcomingMatches.map(m => {
-                    const isHome = m.home_club_id === club?.id;
-                    const oppName = isHome ? m.away_club_name : m.home_club_name;
-                    const dateStr = m.scheduled_date ? new Date(m.scheduled_date).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "TBD";
-                    return (
-                      <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
-                          <Swords className="w-4 h-4 text-cyan-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">vs {oppName}</p>
-                          <p className="text-xs text-white/40">{t("commonPages.ppRound", { round: m.round })}</p>
-                        </div>
-                        <p className="text-xs text-white/40 shrink-0">{dateStr}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </GamerSectionCard>
-            ) : null}
-            <PlayerCareerSummary career={career} loading={careerLoading} />
-            <PlayerTransferHistory playerId={player?.id} />
+            <PlayerCareerSummary
+              career={career}
+              loading={careerLoading}
+              player={player}
+              club={club}
+              upcomingMatches={upcomingMatches}
+              canCustomize={isOwner}
+              canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
+              onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+            />
+            <PlayerTransferHistory
+              playerId={player?.id}
+              player={player}
+              canCustomize={isOwner}
+              canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
+              onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+            />
           </div>
         ) : null}
 

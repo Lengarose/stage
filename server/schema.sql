@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS players (
   player_card_background_url  TEXT NULL,
   player_card_background_position VARCHAR(50) DEFAULT '50% 50%',
   player_card_background_zoom INT DEFAULT 120,
+  career_tile_backgrounds JSON,
   shirt_number          INT,
   overall_rating        DECIMAL(4,1) DEFAULT 0,
   goals                 INT          DEFAULT 0,
@@ -1597,6 +1598,7 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_url'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_position'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_position VARCHAR(50) NULL DEFAULT ''50% 50%''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_card_background_zoom'),'SELECT 1','ALTER TABLE players ADD COLUMN player_card_background_zoom INT NULL DEFAULT 120')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='career_tile_backgrounds'),'SELECT 1','ALTER TABLE players ADD COLUMN career_tile_backgrounds JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='clubs';
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='logo_frame_id'),'SELECT 1','ALTER TABLE clubs ADD COLUMN logo_frame_id VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='ranking_points'),'SELECT 1','ALTER TABLE clubs ADD COLUMN ranking_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;

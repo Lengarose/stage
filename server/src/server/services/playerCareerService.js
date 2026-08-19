@@ -46,6 +46,10 @@ function trophyCount(trophies) {
   }, 0);
 }
 
+function present(value) {
+  return value !== undefined && value !== null && value !== '';
+}
+
 function summarizeClubCareer({ player, stats, matches, trophies }) {
   const matchById = new Map(matches.map((match) => [String(match.id || match.match_id), match]));
   const summary = {
@@ -93,6 +97,14 @@ function summarizeClubCareer({ player, stats, matches, trophies }) {
       match_id: match.id || stat.match_id,
       source_label: classifyMatchSource(match),
       result,
+      ...(present(clubId) ? { club_id: clubId } : {}),
+      ...(present(isHome ? match.home_club_name : match.away_club_name) ? { club_name: isHome ? match.home_club_name : match.away_club_name } : {}),
+      ...(present(isHome ? match.home_club_tag : match.away_club_tag) ? { club_tag: isHome ? match.home_club_tag : match.away_club_tag } : {}),
+      ...(present(isHome ? match.home_club_logo_url : match.away_club_logo_url) ? { club_logo_url: isHome ? match.home_club_logo_url : match.away_club_logo_url } : {}),
+      ...(present(isHome ? match.away_club_id : match.home_club_id) ? { opponent_club_id: isHome ? match.away_club_id : match.home_club_id } : {}),
+      ...(present(isHome ? match.away_club_name : match.home_club_name) ? { opponent_club_name: isHome ? match.away_club_name : match.home_club_name } : {}),
+      ...(present(isHome ? match.away_club_tag : match.home_club_tag) ? { opponent_club_tag: isHome ? match.away_club_tag : match.home_club_tag } : {}),
+      ...(present(isHome ? match.away_club_logo_url : match.home_club_logo_url) ? { opponent_club_logo_url: isHome ? match.away_club_logo_url : match.home_club_logo_url } : {}),
       goals,
       assists,
       rating,
@@ -140,6 +152,11 @@ function summarizePlayerCareer({ player, matches, trophies }) {
       result,
       opponent_id: isHome ? match.away_player_id : match.home_player_id,
       opponent_name: isHome ? match.away_player_name : match.home_player_name,
+      ...(present(isHome ? match.away_player_position : match.home_player_position) ? { opponent_position: isHome ? match.away_player_position : match.home_player_position } : {}),
+      ...(present(isHome ? match.away_player_secondary_position : match.home_player_secondary_position) ? { opponent_secondary_position: isHome ? match.away_player_secondary_position : match.home_player_secondary_position } : {}),
+      ...(present(isHome ? match.away_player_avatar_url : match.home_player_avatar_url) ? { opponent_avatar_url: isHome ? match.away_player_avatar_url : match.home_player_avatar_url } : {}),
+      ...(present(isHome ? match.away_player_avatar_position : match.home_player_avatar_position) ? { opponent_avatar_position: isHome ? match.away_player_avatar_position : match.home_player_avatar_position } : {}),
+      ...(present(isHome ? match.away_player_avatar_zoom : match.home_player_avatar_zoom) ? { opponent_avatar_zoom: isHome ? match.away_player_avatar_zoom : match.home_player_avatar_zoom } : {}),
       goals_for: goalsFor,
       goals_against: goalsAgainst,
       score: `${goalsFor}-${goalsAgainst}`,
@@ -160,6 +177,12 @@ async function getPlayerCareerSummary(playerId) {
   const [stats, soloMatches, trophies] = await Promise.all([
     EXECUTESQL(
       `SELECT mps.*, m.id AS match_id, m.home_club_id, m.away_club_id,
+              COALESCE(home_club.name, m.home_club_name) AS home_club_name,
+              home_club.tag AS home_club_tag,
+              home_club.logo_url AS home_club_logo_url,
+              COALESCE(away_club.name, m.away_club_name) AS away_club_name,
+              away_club.tag AS away_club_tag,
+              away_club.logo_url AS away_club_logo_url,
               m.home_score, m.away_score, m.status, m.type, m.mode,
               m.tournament_id, m.source_fixture_type, m.competition_context,
               m.scheduled_date, m.updated_date, m.created_date,
@@ -168,6 +191,8 @@ async function getPlayerCareerSummary(playerId) {
                 THEN 1 ELSE 0 END AS tournament_is_official
          FROM match_player_stats mps
          JOIN matches m ON m.id = mps.match_id
+         LEFT JOIN clubs home_club ON home_club.id = m.home_club_id
+         LEFT JOIN clubs away_club ON away_club.id = m.away_club_id
          LEFT JOIN tournaments t ON t.id = m.tournament_id
          LEFT JOIN competition_instances ci ON ci.id = m.competition_context
          LEFT JOIN users creator_user ON LOWER(creator_user.email) = LOWER(t.creator_email)
@@ -176,10 +201,25 @@ async function getPlayerCareerSummary(playerId) {
       [playerId, player.email || '']
     ),
     EXECUTESQL(
-      `SELECT m.*, ci.product_type AS competition_product_type,
+      `SELECT m.*,
+              COALESCE(m.home_player_name, home_player.gamertag) AS home_player_name,
+              COALESCE(m.away_player_name, away_player.gamertag) AS away_player_name,
+              home_player.position AS home_player_position,
+              home_player.secondary_position AS home_player_secondary_position,
+              home_player.avatar_url AS home_player_avatar_url,
+              home_player.avatar_position AS home_player_avatar_position,
+              home_player.avatar_zoom AS home_player_avatar_zoom,
+              away_player.position AS away_player_position,
+              away_player.secondary_position AS away_player_secondary_position,
+              away_player.avatar_url AS away_player_avatar_url,
+              away_player.avatar_position AS away_player_avatar_position,
+              away_player.avatar_zoom AS away_player_avatar_zoom,
+              ci.product_type AS competition_product_type,
               CASE WHEN creator_user.role_id IN (0, 2) OR organizer_user.role_id IN (0, 2)
                 THEN 1 ELSE 0 END AS tournament_is_official
          FROM matches m
+         LEFT JOIN players home_player ON home_player.id = m.home_player_id
+         LEFT JOIN players away_player ON away_player.id = m.away_player_id
          LEFT JOIN tournaments t ON t.id = m.tournament_id
          LEFT JOIN competition_instances ci ON ci.id = m.competition_context
          LEFT JOIN users creator_user ON LOWER(creator_user.email) = LOWER(t.creator_email)
