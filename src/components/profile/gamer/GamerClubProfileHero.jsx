@@ -54,7 +54,7 @@ export default function GamerClubProfileHero({
                 winRate={winRate}
                 className="pointer-events-none"
               />
-              <span className="absolute inset-0 z-10 rounded-2xl bg-black/45 flex items-center justify-center opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity">
+              <span className="absolute inset-0 z-10 bg-black/45 flex items-center justify-center opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]">
                 <span className="text-[10px] font-black uppercase tracking-wider text-white bg-black/50 px-2 py-1 rounded-lg">
                   {logoUploading ? "…" : "Change logo"}
                 </span>

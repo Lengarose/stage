@@ -209,7 +209,12 @@ export default function TournamentsTab({
     try {
       const result = await stageClient.functions.invoke("seedTournamentTestClubs", {});
       const data = result?.data || result || {};
-      window.alert(t("admin.tournaments.testPackReady", { clubs: data.clubs || 8, players: data.players || 0 }));
+      const createdClubs = Number(data.clubs || 0);
+      const expectedClubs = Number(data.expected_clubs || 20);
+      if (createdClubs !== expectedClubs) {
+        throw new Error(`Test pack backend returned ${createdClubs} clubs, but the current app expects ${expectedClubs}. Restart/deploy the backend so the 20-team seed pack is loaded.`);
+      }
+      window.alert(t("admin.tournaments.testPackReady", { clubs: createdClubs, players: data.players || 0 }));
       await onRefresh?.();
     } catch (err) {
       window.alert(err?.error || err?.message || t("admin.tournaments.createTestClubsFailed"));

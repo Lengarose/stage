@@ -68,9 +68,10 @@ export function GamerPlayerPhotoFrame({
   return (
     <Component
       className={cn(
-        "relative w-[132px] sm:w-[156px] aspect-[3/4] rounded-2xl overflow-hidden shrink-0 text-left",
-        "border border-cyan-400/30 shadow-[0_0_40px_-8px_rgba(0,229,255,0.55)]",
+        "relative w-[168px] sm:w-[208px] aspect-[4/5] rounded-none overflow-hidden shrink-0 text-left",
+        "border border-cyan-300/40 shadow-[0_0_50px_-8px_rgba(0,229,255,0.7),0_0_90px_-42px_rgba(245,197,66,0.85)]",
         "bg-gradient-to-br from-cyan-500/10 via-[#0d1528] to-amber-500/10",
+        "[clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
         className
       )}
       {...props}
@@ -92,16 +93,26 @@ export function GamerPlayerPhotoFrame({
           {emptyLabel === "?" ? playerAvatarInitials(player) : emptyLabel}
         </div>
       )}
-      <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-      <div className="absolute top-2 right-2 z-[2] min-w-[42px] rounded-lg bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1 text-center shadow-lg">
-        <p className="text-[8px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
-        <p className="font-heading text-xl font-black text-black leading-none">{resolvedOverall}</p>
+      <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/82 via-black/20 to-transparent pointer-events-none" />
+      <div className="absolute top-3 right-3 z-[2] min-w-[40px] bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1.5 text-center shadow-lg [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
+        <p className="text-[7px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
+        <p className="font-heading text-[19px] font-black text-black leading-none">{resolvedOverall}</p>
       </div>
-      <div className="absolute bottom-0 inset-x-0 z-[2] p-3">
-        <p className="font-heading text-lg font-black uppercase leading-none tracking-tight">{position}</p>
-        {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (
-          <p className="text-[10px] font-bold text-white/50 mt-0.5">#{resolvedShirtNumber}</p>
-        ) : null}
+      <div className="absolute bottom-0 inset-x-0 z-[2] px-4 pb-3 pt-10">
+        <div className="relative inline-flex min-w-[84px] items-center overflow-hidden border border-cyan-200/45 bg-gradient-to-r from-cyan-300/22 via-black/48 to-amber-300/18 px-3 py-1.5 pr-5 shadow-[0_0_22px_-9px_rgba(0,229,255,0.9)] [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
+          <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_42%,transparent_62%)] opacity-70" />
+          {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (
+            <p className="pointer-events-none absolute right-2 top-1/2 z-0 -translate-y-1/2 font-heading text-[30px] font-black italic leading-none text-amber-200/30 drop-shadow-[0_0_14px_rgba(245,197,66,0.9)] sm:text-[34px]">
+              {resolvedShirtNumber}
+            </p>
+          ) : null}
+          <div className="relative z-[1] flex min-w-0 flex-col">
+            <span className="text-[7px] font-black uppercase leading-none tracking-[0.28em] text-cyan-200/70">POS</span>
+            <span className="font-heading text-lg font-black uppercase leading-none tracking-[0.03em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
+              {position}
+            </span>
+          </div>
+        </div>
       </div>
       {children}
     </Component>
@@ -135,6 +146,25 @@ export function GamerMetaPill({ children, className }) {
     <span className={cn("inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60", className)}>
       {children}
     </span>
+  );
+}
+
+export function GamerHeroAction({ children, className, style, as: Component = "button", ...props }) {
+  const buttonProps = Component === "button" ? { type: "button" } : {};
+  return (
+    <Component
+      className={cn(
+        "inline-flex max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 backdrop-blur-md transition-all",
+        "hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50",
+        className
+      )}
+      style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)", ...style }}
+      {...buttonProps}
+      {...props}
+    >
+      {children}
+    </Component>
   );
 }
 

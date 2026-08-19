@@ -8,7 +8,7 @@ import {
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
   UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
-  Image as ImageIcon, Upload, Sparkles, RotateCcw,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw, Zap,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,7 +50,7 @@ import { swalConfirm, swalError, swalPrompt } from "@/lib/swal";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
-import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
@@ -200,6 +200,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
   const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
+  const [fixtureMatchStatRows, setFixtureMatchStatRows] = useState([]);
   const [clubContracts, setClubContracts] = useState([]);
   const [clubPlayerStatRows, setClubPlayerStatRows] = useState([]);
   const [, setTournamentMap] = useState({});
@@ -376,6 +377,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
       const allMatches = [...matchesHome, ...matchesAway].sort(
         (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
       );
+      const completedMatchIds = [...new Set(allMatches
+        .filter((match) => match?.id && match.status === "completed")
+        .map((match) => match.id)
+      )];
+      const fixtureStatResults = completedMatchIds.length
+        ? await Promise.all(
+            completedMatchIds.map((matchId) =>
+              stageClient.entities.MatchPlayerStat.filter({ match_id: matchId }, "-created_date", 50).catch(() => [])
+            )
+          )
+        : [];
+      setFixtureMatchStatRows(fixtureStatResults.flatMap((rows) => asObjectArray(rows)));
       setMatches(allMatches);
       setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
 
@@ -797,6 +810,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeClubChatMessages = asObjectArray(clubChatMessages);
   const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
+  const safeFixtureMatchStatRows = asObjectArray(fixtureMatchStatRows);
   const safeClubContracts = normalizePlayerContracts(clubContracts);
   const safeClubPlayerStatRows = asObjectArray(clubPlayerStatRows);
   const clubPlayerStatsById = buildClubPlayerStatMap(safePlayers, safeClubPlayerStatRows, id);
@@ -907,9 +921,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         logoUploading={uploadingLogo}
         topLeftActions={(
           <>
-            <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-        </button>
+            <GamerHeroAction onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-4 h-4 text-cyan-200/90" /> {t("commonPages.profBack")}
+            </GamerHeroAction>
             {isAdminTakeover ? (
               <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-2">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
@@ -922,13 +936,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           </>
         )}
         topActions={canEdit ? (
-            <button
-            type="button"
-              onClick={() => setEditClubOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider"
-            >
-              <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
-            </button>
+          <GamerHeroAction onClick={() => setEditClubOpen(true)}>
+            <Edit2 className="h-4 w-4 text-cyan-200/90" />
+            {t("commonPages.profEditClub")}
+          </GamerHeroAction>
         ) : null}
         infoAside={<ClubPresidentChip club={club} president={president} />}
         sideActions={null}
@@ -1170,6 +1181,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               canSetAvailability={isMember}
               canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
               availabilityRows={safeFixtureAvailabilityRows}
+              matchPlayerStats={safeFixtureMatchStatRows}
               onAvailabilityRowsChange={setFixtureAvailabilityRows}
               matches={safeMatches}
               tournamentMatches={safeTournamentMatches}
@@ -1761,7 +1773,7 @@ function ClubLeaderboardTable({
       {rows.length === 0 ? (
         <p className="relative z-[1] px-6 py-8 text-center text-sm text-white/45">No player stats yet.</p>
       ) : (
-        <div className="relative z-[1] overflow-x-auto">
+        <div className="relative z-[1] max-h-[354px] overflow-auto">
           <table className="w-full min-w-[360px] text-sm">
             <thead>
               <tr className="border-b border-cyan-300/10 text-[10px] uppercase tracking-[0.16em] text-cyan-100/45">
@@ -2081,6 +2093,7 @@ function ClubFixturesPanel({
   canSetAvailability = false,
   canViewTeamAvailability = false,
   availabilityRows = [],
+  matchPlayerStats = [],
   onAvailabilityRowsChange,
   matches = [],
   tournamentMatches = [],
@@ -2098,6 +2111,7 @@ function ClubFixturesPanel({
   }
   const grouped = groupClubFixtures([...fixturesById.values()]);
   const availabilityByFixture = buildAvailabilityByFixture(availabilityRows);
+  const statsByFixture = buildMatchStatsByFixture(matchPlayerStats);
   const playerById = new Map(asObjectArray(clubPlayers).filter((player) => player?.id).map((player) => [String(player.id), player]));
 
   async function setMyFixtureAvailability(fixture, status) {
@@ -2152,6 +2166,7 @@ function ClubFixturesPanel({
           canSetAvailability={canSetAvailability}
           canViewTeamAvailability={canViewTeamAvailability}
           availabilityByFixture={availabilityByFixture}
+          statsByFixture={statsByFixture}
           playerById={playerById}
           expandedResponses={expandedResponses}
           onToggleResponses={(fixtureId) => setExpandedResponses((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
@@ -2169,6 +2184,18 @@ function buildAvailabilityByFixture(rows) {
   for (const row of asObjectArray(rows)) {
     if (!row?.fixture_id) continue;
     const key = String(row.fixture_id);
+    const current = map.get(key) || [];
+    current.push(row);
+    map.set(key, current);
+  }
+  return map;
+}
+
+function buildMatchStatsByFixture(rows) {
+  const map = new Map();
+  for (const row of asObjectArray(rows)) {
+    if (!row?.match_id) continue;
+    const key = String(row.match_id);
     const current = map.get(key) || [];
     current.push(row);
     map.set(key, current);
@@ -2267,6 +2294,69 @@ function fixtureDateLabel(fixture) {
   return parsed.toLocaleString();
 }
 
+function parseFixtureGoalEvents(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function playerLookupKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function findFixtureEventPlayer(event, kind, playerById) {
+  const id = event?.[`${kind}_player_id`] || event?.[`${kind}_id`];
+  if (id && playerById.has(String(id))) return playerById.get(String(id));
+  if (id) return { id, gamertag: event?.[`${kind}_gamertag`] };
+  const email = playerLookupKey(event?.[`${kind}_email`]);
+  const gamertag = playerLookupKey(event?.[`${kind}_gamertag`]);
+  for (const player of playerById.values()) {
+    if (email && playerLookupKey(player.email) === email) return player;
+    if (gamertag && playerLookupKey(player.gamertag) === gamertag) return player;
+  }
+  return null;
+}
+
+function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
+  const eventTimeline = [
+    ...parseFixtureGoalEvents(fixture.home_goal_events),
+    ...parseFixtureGoalEvents(fixture.away_goal_events),
+  ]
+    .map((event) => {
+      const scorer = findFixtureEventPlayer(event, "scorer", playerById);
+      const assist = findFixtureEventPlayer(event, "assist", playerById);
+      return {
+        ...event,
+        scorer,
+        assist,
+        minute: event?.minute,
+        scorerName: scorer?.gamertag || event?.scorer_gamertag || event?.scorer_name || "?",
+        assistName: assist?.gamertag || event?.assist_gamertag || event?.assist_name || "",
+      };
+    })
+    .sort((a, b) => (Number(a.minute) || 999) - (Number(b.minute) || 999));
+  if (eventTimeline.length > 0) return eventTimeline;
+
+  return asObjectArray(matchStats)
+    .filter((stat) => Number(stat.goals || 0) > 0 || Number(stat.assists || 0) > 0)
+    .map((stat) => {
+      const player = stat.player_id ? playerById.get(String(stat.player_id)) : null;
+      return {
+        statFallback: true,
+        scorer: player || (stat.player_id ? { id: stat.player_id, gamertag: stat.player_gamertag || stat.player_email } : null),
+        scorerName: player?.gamertag || stat.player_gamertag || stat.player_email || "Player",
+        goals: Number(stat.goals || 0),
+        assists: Number(stat.assists || 0),
+      };
+    })
+    .sort((a, b) => (b.goals - a.goals) || String(a.scorerName).localeCompare(String(b.scorerName)));
+}
+
 function FixtureGroup({
   group,
   clubId,
@@ -2275,6 +2365,7 @@ function FixtureGroup({
   canSetAvailability,
   canViewTeamAvailability,
   availabilityByFixture,
+  statsByFixture,
   playerById,
   expandedResponses,
   onToggleResponses,
@@ -2283,14 +2374,24 @@ function FixtureGroup({
   t,
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
-      <div className="border-b border-white/10 px-4 py-3">
-        {group.parent ? (
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#00e5ff]/65">{group.parent}</p>
-        ) : null}
-        <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{group.title}</h3>
+    <section
+      className="relative overflow-hidden border border-cyan-300/18 bg-[#06111d] shadow-[0_22px_70px_rgba(0,0,0,0.28)]"
+      style={{ clipPath: "polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%)" }}
+    >
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(0,229,255,0.16),transparent_28%),linear-gradient(135deg,rgba(0,229,255,0.08),transparent_36%,rgba(245,197,66,0.06))]" />
+      <div aria-hidden className="absolute inset-x-10 top-0 h-px bg-cyan-200/45" />
+      <div className="relative z-[1] flex flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 py-4 pl-8 pr-5 sm:pl-10 lg:pl-14 lg:pr-8">
+        <div className="min-w-0">
+          {group.parent ? (
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#00e5ff]/65">{group.parent}</p>
+          ) : null}
+          <h3 className="break-words font-heading text-base font-black uppercase tracking-[0.18em] text-white">{group.title}</h3>
+        </div>
+        <span className="shrink-0 border border-[#f5c542]/30 bg-[#f5c542]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#f5c542]">
+          {group.fixtures.length} {group.fixtures.length === 1 ? "fixture" : "fixtures"}
+        </span>
       </div>
-      <div className="divide-y divide-white/5">
+      <div className="relative z-[1] space-y-3 py-4 pl-6 pr-4 sm:pl-8 lg:pl-10 lg:pr-8">
         {group.fixtures.map((fixture) => (
           <FixtureRow
             key={fixture.id}
@@ -2302,6 +2403,7 @@ function FixtureGroup({
             canSetAvailability={canSetAvailability}
             canViewTeamAvailability={canViewTeamAvailability}
             availabilityRows={availabilityByFixture.get(String(fixture.id)) || []}
+            matchStats={statsByFixture.get(String(fixture.id)) || []}
             playerById={playerById}
             responsesOpen={Boolean(expandedResponses[fixture.id])}
             onToggleResponses={() => onToggleResponses(fixture.id)}
@@ -2324,6 +2426,7 @@ function FixtureRow({
   canSetAvailability,
   canViewTeamAvailability,
   availabilityRows,
+  matchStats = [],
   playerById,
   responsesOpen,
   onToggleResponses,
@@ -2332,7 +2435,10 @@ function FixtureRow({
   t,
 }) {
   const isHome = fixture.home_club_id === clubId;
+  const clubName = isHome ? fixture.home_club_name : fixture.away_club_name;
+  const clubTag = isHome ? fixture.home_club_tag : fixture.away_club_tag;
   const opponent = isHome ? fixture.away_club_name : fixture.home_club_name;
+  const opponentTag = isHome ? fixture.away_club_tag : fixture.home_club_tag;
   const mine = isHome ? fixture.home_score : fixture.away_score;
   const theirs = isHome ? fixture.away_score : fixture.home_score;
   const hasScore = mine != null && theirs != null;
@@ -2344,49 +2450,89 @@ function FixtureRow({
   const responseRows = buildFixtureResponseRows(availabilityRows, clubPlayers, playerById);
   const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability;
   const showTeamSummary = canViewTeamAvailability && canManageAvailability;
+  const eventName = fixtureEventName(fixture, group);
+  const statusLabel = fixture.status || "scheduled";
+  const goalTimeline = completed ? buildFixtureGoalTimeline(fixture, playerById, matchStats) : [];
 
   return (
-    <div className="px-4 py-3">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-sm border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
+    <article className="relative overflow-hidden border border-white/10 bg-black/24 p-3 sm:p-4">
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-cyan-400/[0.06] via-transparent to-[#f5c542]/[0.05]" />
+      <div className="relative z-[1] space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="border border-cyan-300/22 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/70">
               {isHome ? "Home" : "Away"}
             </span>
-            <p className="truncate font-semibold text-white">
-              {isHome ? "vs" : "at"} {opponent || t("commonPages.cdCompetition")}
-            </p>
+            <span className="min-w-0 break-words text-[11px] font-black uppercase tracking-[0.14em] text-white/42">{eventName}</span>
           </div>
-          <p className="mt-1 truncate text-[11px] text-white/40">{fixtureEventName(fixture, group)}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn(
+              "border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em]",
+              completed
+                ? "border-white/18 bg-white/[0.04] text-white/70"
+                : "border-cyan-300/25 bg-cyan-300/8 text-cyan-100/75"
+            )}>
+              {completed ? "Completed" : statusLabel}
+            </span>
+            <span className="max-w-full break-words border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/50">
+              {fixtureDateLabel(fixture)}
+            </span>
+            {!hasScore ? (
+              <span className="border border-white/10 bg-black/35 px-3 py-1.5 font-heading text-xs font-black uppercase text-white/75">TBD</span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="min-w-0 text-xs text-white/50">
-          <p>{fixtureDateLabel(fixture)}</p>
-          <p className="mt-1 capitalize text-white/35">{fixture.status || "scheduled"}</p>
-        </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+          <div className="min-w-0">
+            <p className="break-words font-heading text-xl font-black uppercase leading-tight text-white">
+              {clubName || "Your club"}
+              {clubTag ? <span className="ml-2 text-sm text-white/45">[{clubTag}]</span> : null}
+            </p>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">{isHome ? "Hosting" : "Travelling"}</p>
+          </div>
 
-        <div className="flex items-center justify-between gap-2 sm:justify-end">
-          <span className={cn(
-            "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
-            completed
-              ? "border-[#f5c542]/35 bg-[#f5c542]/10 text-[#f5c542]"
-              : "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
-          )}>
-            {completed ? "Completed" : fixture.status || "Scheduled"}
-          </span>
-          <span className="min-w-14 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-center font-heading text-sm font-black text-white">
-            {hasScore ? `${mine}-${theirs}` : "TBD"}
-          </span>
+          <div className="flex justify-start md:justify-center">
+            <div className="min-w-[112px] text-center">
+              <p className={cn(
+                "font-heading font-black uppercase leading-none text-white",
+                hasScore ? "text-4xl opacity-70 sm:text-5xl" : "text-3xl opacity-55 sm:text-4xl"
+              )}>
+                {hasScore ? (
+                  <span className="inline-flex items-center justify-center gap-3 sm:gap-4">
+                    <span>{mine}</span>
+                    <span className="opacity-80">-</span>
+                    <span>{theirs}</span>
+                  </span>
+                ) : "VS"}
+              </p>
+              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
+              {hasScore ? "Score" : "Fixture"}
+            </p>
+            </div>
+          </div>
+
+          <div className="min-w-0 md:text-right">
+            <p className="break-words font-heading text-xl font-black uppercase leading-tight text-white">
+              {opponent || t("commonPages.cdCompetition")}
+              {opponentTag ? <span className="ml-2 text-sm text-white/45">[{opponentTag}]</span> : null}
+            </p>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">Opponent</p>
+          </div>
+        </div>
       </div>
-      </div>
+
+      {goalTimeline.length > 0 ? (
+        <GoalTimeline events={goalTimeline} />
+      ) : null}
 
       {(showMemberControls || showTeamSummary) ? (
-        <div className="mt-3 grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="relative z-[1] mt-4 grid gap-3 border border-white/10 bg-black/22 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           {showMemberControls ? (
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">My availability</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/45">My availability</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className={cn("rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em]", fixtureAvailabilityClass(myStatus))}>
+                <span className="border border-cyan-300/20 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/75">
                   {FIXTURE_AVAILABILITY_LABELS[myStatus] || myStatus}
                 </span>
                 <Button
@@ -2394,10 +2540,10 @@ function FixtureRow({
                   disabled={busyAvailability === `${fixture.id}:available`}
                   onClick={() => onSetAvailability(fixture, "available")}
                   className={cn(
-                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    "h-8 gap-1.5 rounded-none px-3 text-[10px] font-black uppercase tracking-[0.12em]",
                     myStatus === "available"
-                      ? "bg-emerald-400 text-black hover:bg-emerald-300"
-                      : "border border-emerald-300/35 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/20"
+                      ? "bg-white text-black hover:bg-white/90"
+                      : "border border-white/14 bg-white/[0.04] text-white/70 hover:bg-white/10"
                   )}
                 >
                   {busyAvailability === `${fixture.id}:available` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -2408,10 +2554,10 @@ function FixtureRow({
                   disabled={busyAvailability === `${fixture.id}:unavailable`}
                   onClick={() => onSetAvailability(fixture, "unavailable")}
                   className={cn(
-                    "h-8 gap-1.5 rounded-sm px-2.5 text-[10px] font-black uppercase tracking-[0.12em]",
+                    "h-8 gap-1.5 rounded-none px-3 text-[10px] font-black uppercase tracking-[0.12em]",
                     myStatus === "unavailable"
-                      ? "bg-red-400 text-black hover:bg-red-300"
-                      : "border border-red-300/35 bg-red-400/10 text-red-200 hover:bg-red-400/20"
+                      ? "bg-white text-black hover:bg-white/90"
+                      : "border border-white/14 bg-white/[0.04] text-white/70 hover:bg-white/10"
                   )}
                 >
                   {busyAvailability === `${fixture.id}:unavailable` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
@@ -2424,10 +2570,10 @@ function FixtureRow({
           {showTeamSummary ? (
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <AvailabilityCount label="Available" value={counts.available} className="text-emerald-200" />
-                <AvailabilityCount label="Unavailable" value={counts.unavailable} className="text-red-200" />
+                <AvailabilityCount label="Available" value={counts.available} className="text-cyan-100/80" />
+                <AvailabilityCount label="Unavailable" value={counts.unavailable} className="text-cyan-100/65" />
                 <AvailabilityCount label="No Response" value={counts.no_response} className="text-white/55" />
-                {counts.maybe > 0 ? <AvailabilityCount label="Maybe" value={counts.maybe} className="text-amber-200" /> : null}
+                {counts.maybe > 0 ? <AvailabilityCount label="Maybe" value={counts.maybe} className="text-cyan-100/60" /> : null}
               </div>
               {responseRows.length > 0 ? (
                 <button
@@ -2444,7 +2590,7 @@ function FixtureRow({
       ) : null}
 
       {showTeamSummary && responsesOpen ? (
-        <div className="mt-2 grid gap-1.5 rounded-lg border border-white/10 bg-black/20 p-3 sm:grid-cols-2">
+        <div className="relative z-[1] mt-2 grid gap-1.5 border border-white/10 bg-black/20 p-3 sm:grid-cols-2">
           {responseRows.map((row) => (
             <div key={row.player.id} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs">
               <span className="truncate text-white/75">{row.player.gamertag || row.player.email || "Player"}</span>
@@ -2455,7 +2601,57 @@ function FixtureRow({
           ))}
         </div>
       ) : null}
+    </article>
+  );
+}
+
+function GoalTimeline({ events }) {
+  return (
+    <div className="relative z-[1] mt-4 border border-white/10 bg-white/[0.025] p-3">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/38">Goal details</p>
+      <div className="grid gap-2 lg:grid-cols-2">
+        {events.map((event, index) => (
+          <div key={`${event.minute || "goal"}-${event.scorerName}-${index}`} className="flex min-w-0 items-center gap-2 border border-white/8 bg-black/18 px-2.5 py-2 text-xs">
+            <span className="w-9 shrink-0 text-right font-heading text-sm font-black text-white/55">
+              {event.minute ? `${event.minute}'` : "--"}
+            </span>
+            <Target className="h-3.5 w-3.5 shrink-0 text-white/45" />
+            <PlayerEventName player={event.scorer} fallback={event.scorerName} />
+            {event.statFallback ? (
+              <span className="min-w-0 text-white/42">
+                <span className="mx-1 text-white/20">/</span>
+                {[event.goals ? `${event.goals} ${event.goals === 1 ? "goal" : "goals"}` : null, event.assists ? `${event.assists} ${event.assists === 1 ? "assist" : "assists"}` : null].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+            {event.assistName ? (
+              <span className="min-w-0 text-white/42">
+                <span className="mx-1 text-white/20">/</span>
+                <Zap className="mr-1 inline h-3 w-3 text-white/35" />
+                <PlayerEventName player={event.assist} fallback={event.assistName} subtle />
+              </span>
+            ) : null}
+            {event.is_penalty ? (
+              <span className="ml-auto shrink-0 border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/55">Pen</span>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function PlayerEventName({ player, fallback, subtle = false }) {
+  const label = player?.gamertag || fallback || "?";
+  const className = cn(
+    "min-w-0 truncate font-black uppercase",
+    subtle ? "text-white/55 hover:text-cyan-100" : "text-white/82 hover:text-cyan-100"
+  );
+  return player?.id ? (
+    <Link to={`/players/${player.id}`} className={className}>
+      {label}
+    </Link>
+  ) : (
+    <span className={className}>{label}</span>
   );
 }
 

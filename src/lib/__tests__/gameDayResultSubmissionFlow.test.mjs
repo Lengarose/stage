@@ -126,6 +126,16 @@ test("Game Day and admin pages are wired to the result-flow helpers", () => {
     "GameDayDetail should use the tested kickoff control helper"
   );
   assert.match(
+    gameDaySource,
+    /showDressingRoomPanel/,
+    "GameDayDetail should render the dressing room in the main match flow"
+  );
+  assert.match(
+    gameDaySource,
+    /onSeatChange=\{updateDressingCountForClub\}/,
+    "Inline dressing room should update kickoff seat counts after a seat action"
+  );
+  assert.match(
     source,
     /canResolveDisputeWithScore/,
     "Admin dispute dialog should use the tested score validation helper"
@@ -149,5 +159,25 @@ test("Game Day and admin pages are wired to the result-flow helpers", () => {
     source,
     /value=\{resolutionScore\.away_score\}[\s\S]{0,220}onChange=\{e => setResolutionScore/,
     "Admin dialog should render an editable away score input"
+  );
+});
+
+test("server match flow derives the submitted side from the authenticated match actor", () => {
+  const source = readRepoFile("server/src/server/functions/legacyFunctions.js");
+
+  assert.match(
+    source,
+    /requireMatchActorSide\([\s\S]{0,160}'home'[\s\S]{0,120}Only the home team can kick off this match\./,
+    "Kickoff should be protected by a server-side home-team check"
+  );
+  assert.match(
+    source,
+    /const actor = await resolveMatchActorSide\(m, _auth_user_id\);[\s\S]{0,120}const isHomeSubmission = actor\.side === 'home';/,
+    "Result submission should derive home/away from the authenticated actor"
+  );
+  assert.match(
+    source,
+    /MATCH_SIDE_MISMATCH/,
+    "The server should reject client-submitted sides that do not match the actor"
   );
 });

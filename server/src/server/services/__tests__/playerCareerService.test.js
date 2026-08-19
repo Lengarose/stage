@@ -18,15 +18,19 @@ function loadPlayerCareerServiceWithDbMock(executesql) {
 }
 
 test('club career includes match_player_stats and affects ranking fields', async () => {
+  let clubStatsQuery = '';
   const executesql = async (sql, params = []) => {
     if (/SELECT p\.id, p\.email, p\.club_id, p\.ranking_points/.test(sql)) {
       assert.deepEqual(params, ['player-1']);
       return [{ id: 'player-1', email: 'player@example.test', ranking_points: 425 }];
     }
     if (/FROM match_player_stats mps/.test(sql)) {
+      clubStatsQuery = sql;
       return [{
         match_id: 'club-match-1', club_id: 'club-1', goals: 2, assists: 1, rating: 8.4, is_motm: 1,
         home_club_id: 'club-1', away_club_id: 'club-2', home_score: 3, away_score: 1,
+        home_club_name: 'Home Club', home_club_tag: 'HOM', home_club_logo_url: '/uploads/home.png',
+        away_club_name: 'Away Club', away_club_tag: 'AWY', away_club_logo_url: '/uploads/away.png',
         status: 'completed', type: 'ranked', mode: 'club', scheduled_date: '2026-08-01 18:00:00',
       }];
     }
@@ -38,11 +42,15 @@ test('club career includes match_player_stats and affects ranking fields', async
 
   const summary = await getPlayerCareerSummary('player-1');
 
+  assert.match(clubStatsQuery, /COALESCE\(home_club\.name, m\.home_club_name\) AS home_club_name/);
+  assert.match(clubStatsQuery, /COALESCE\(away_club\.name, m\.away_club_name\) AS away_club_name/);
   assert.deepEqual(summary.club_career, {
     games: 1, goals: 2, assists: 1, avg_rating: 8.4, wins: 1, draws: 0, losses: 0,
     motm: 1, trophies_won: 2, ranking_points: 425,
     history: [{
       match_id: 'club-match-1', source_label: 'Arranged Game', result: 'W', goals: 2,
+      club_id: 'club-1', club_name: 'Home Club', club_tag: 'HOM', club_logo_url: '/uploads/home.png',
+      opponent_club_id: 'club-2', opponent_club_name: 'Away Club', opponent_club_tag: 'AWY', opponent_club_logo_url: '/uploads/away.png',
       assists: 1, rating: 8.4, is_motm: true, score: '3-1', played_at: '2026-08-01 18:00:00',
     }],
   });

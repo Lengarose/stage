@@ -34,6 +34,8 @@ const ADMIN_ONLY_PLAYER_FIELDS = [
   'email',
 ];
 
+const CAREER_TILE_KEYS = new Set(['upcoming', 'club', 'player', 'transfers']);
+
 function isAdmin(user) {
   return [0, 2].includes(Number(user?.role_id));
 }
@@ -96,6 +98,17 @@ function normalizeCardBackgroundZoom(value) {
   const zoom = Number(value);
   if (!Number.isFinite(zoom)) return 120;
   return Math.max(100, Math.min(260, Math.round(zoom)));
+}
+
+function parseCareerTileBackgrounds(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value && !Array.isArray(value) ? value : {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 async function ensureSecondaryPositionColumn() {
@@ -307,6 +320,82 @@ router.patch('/:id/card-background', async (req, res) => {
            updated_date = NOW()
        WHERE id = ?`,
       [type, backgroundId, backgroundUrl, backgroundPosition, backgroundZoom, id],
+    );
+    const updated = (await new Player().selectOne(id))[0];
+    broadcastPlayer(updated);
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /:id/career-tile-background — STAGE Plus career tile personalization.
+router.patch('/:id/career-tile-background', async (req, res) => {
+  try {
+    await ensureSecondaryPositionColumn();
+    const { id } = req.params;
+    const existing = (await new Player().selectOne(id))[0];
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const ownsPlayer = String(existing.user_id || '') === String(req.user?.id || '')
+      || String(existing.email || '').toLowerCase() === String(req.user?.email || '').toLowerCase();
+    if (!ownsPlayer && !isAdmin(req.user)) {
+      return res.status(403).json({ error: 'You can only change your own career tile backgrounds' });
+    }
+    if (!isAdmin(req.user) && !hasStagePlus(existing.subscription)) {
+      return res.status(403).json({ error: 'STAGE Plus is required to customize career tile backgrounds' });
+    }
+
+    const tileKey = String(req.body?.tile_key || '').toLowerCase();
+    if (!CAREER_TILE_KEYS.has(tileKey)) {
+      return res.status(400).json({ error: 'Valid tile_key is required' });
+    }
+
+    const type = String(req.body?.type || 'default').toLowerCase();
+    let backgroundId = null;
+    let backgroundUrl = null;
+    let backgroundPosition = '50% 50%';
+    let backgroundZoom = 120;
+    if (type === 'default') {
+      // Reset to standard career tile style.
+    } else if (type === 'official') {
+      backgroundId = String(req.body?.background_id || '').trim();
+      if (!backgroundId) return res.status(400).json({ error: 'background_id is required' });
+      const preset = (await EXECUTESQL(
+        'SELECT id, image_url FROM player_card_backgrounds WHERE id = ? AND is_active = 1 LIMIT 1',
+        [backgroundId],
+      ))[0];
+      if (!preset) return res.status(404).json({ error: 'Background not found' });
+      backgroundUrl = preset.image_url;
+    } else if (type === 'custom') {
+      backgroundUrl = normalizeCardBackgroundUrl(req.body?.image_url);
+      if (!backgroundUrl) return res.status(400).json({ error: 'A valid uploaded image URL is required' });
+      backgroundPosition = normalizeCardBackgroundPosition(req.body?.position);
+      backgroundZoom = normalizeCardBackgroundZoom(req.body?.zoom);
+      assertPersistableMediaFields({ career_tile_background_url: backgroundUrl }, ['career_tile_background_url']);
+    } else {
+      return res.status(400).json({ error: 'Invalid background type' });
+    }
+
+    const backgrounds = parseCareerTileBackgrounds(existing.career_tile_backgrounds);
+    if (type === 'default') {
+      delete backgrounds[tileKey];
+    } else {
+      backgrounds[tileKey] = {
+        type,
+        background_id: backgroundId,
+        url: backgroundUrl,
+        position: backgroundPosition,
+        zoom: backgroundZoom,
+      };
+    }
+
+    await EXECUTESQL(
+      `UPDATE players
+       SET career_tile_backgrounds = ?,
+           updated_date = NOW()
+       WHERE id = ?`,
+      [JSON.stringify(backgrounds), id],
     );
     const updated = (await new Player().selectOne(id))[0];
     broadcastPlayer(updated);

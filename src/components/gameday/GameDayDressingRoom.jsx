@@ -4,7 +4,7 @@ import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
+export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSeatChange }) {
   const [clubPlayers, setClubPlayers] = useState([]);
   const [availablePlayerIds, setAvailablePlayerIds] = useState(new Set());
   const [seatedPlayerIds, setSeatedPlayerIds] = useState([]);
@@ -68,7 +68,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
   async function takeMySeat() {
     if (!myPlayerId || saving || matchStarted) return;
     if (!iAmAvailable) {
-      setError("Mark yourself available in Club Operations before taking a dressing-room seat.");
+      setError("Mark yourself available for this fixture before taking a dressing-room seat.");
       return;
     }
     setSaving(true);
@@ -92,6 +92,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
         });
         setDressingRoomId(created.id);
       }
+      onSeatChange?.({ clubId: myClub.id, seatedPlayers: newSeated });
     } catch (err) {
       setSeatedPlayerIds(previousSeated);
       setError(err?.message || "Could not update your dressing-room seat.");
@@ -134,7 +135,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user }) {
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
           <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
           <p className="text-[11px] text-warning">
-            Mark yourself available in Club Operations first. Only available seated players receive ratings & stats.
+            Mark yourself available for this fixture first. Only available seated players receive ratings and stats.
           </p>
         </div>
       )}

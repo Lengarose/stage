@@ -81,6 +81,18 @@ const TEST_CLUBS = [
   { name: 'Vortex Rovers', tag: 'VXR', country_code: 'PT' },
   { name: 'Cobalt City FC', tag: 'CBL', country_code: 'ES' },
   { name: 'Summit Forge FC', tag: 'SFF', country_code: 'IT' },
+  { name: 'Crimson Dock FC', tag: 'CDF', country_code: 'CA' },
+  { name: 'Blue Atlas SC', tag: 'BAS', country_code: 'MA' },
+  { name: 'Royal Kinshasa', tag: 'RKS', country_code: 'CD' },
+  { name: 'Polar Zenith FC', tag: 'PZF', country_code: 'NO' },
+  { name: 'Golden Pulse United', tag: 'GPU', country_code: 'BR' },
+  { name: 'Blackline Athletic', tag: 'BLA', country_code: 'US' },
+  { name: 'Dragon Gate FC', tag: 'DGF', country_code: 'JP' },
+  { name: 'Sahara Kings', tag: 'SHK', country_code: 'DZ' },
+  { name: 'Arctic Lions', tag: 'ARL', country_code: 'SE' },
+  { name: 'Volta Storm SC', tag: 'VSC', country_code: 'GH' },
+  { name: 'Silver Coast FC', tag: 'SCF', country_code: 'HR' },
+  { name: 'Emerald North', tag: 'EMN', country_code: 'IE' },
 ];
 
 const TEST_PLAYER_NAMES = [
@@ -92,6 +104,18 @@ const TEST_PLAYER_NAMES = [
   ['Rayan Cruz', 'Milo Saint', 'Kobe Ray', 'Yanis Lock', 'Samir Bloom', 'Ty Ellis', 'Jonah Pierce', 'Ali Rhodes'],
   ['Lenn Ward', 'Dion Ellis', 'Mateo Lux', 'Ciro Bell', 'Evan Hayes', 'Zion Reid'],
   ['Nolan King', 'Amir Wells', 'Jude Knox', 'Rio Chase', 'Felix Ray', 'Otis Ford', 'Maxen Brooks'],
+  ['Caleb Frost', 'Tyler North', 'Mason Wells', 'Aiden Brooks', 'Eli Grant', 'Logan Reed'],
+  ['Nadir Atlas', 'Youssef Rahal', 'Amine Bassi', 'Ilyas Fares', 'Samy Idris', 'Rayan Idrissi', 'Omar Naji'],
+  ['Blaise Kito', 'Cedric Mavuba', 'Noel Banza', 'Junior Lemba', 'Chris Makoso', 'Elie Mbala', 'Tony Lukaku', 'Davy Moke'],
+  ['Soren Vik', 'Mats Berg', 'Erik Nord', 'Jonas Falk', 'Leif Storm'],
+  ['Rafa Silva', 'Caio Monte', 'Bruno Luz', 'Thiago Vale', 'Nico Rocha', 'Leo Nunes', 'Davi Cruz', 'Andre Sol'],
+  ['Carter Knox', 'Miles Parker', 'Jalen Brooks', 'Devin Cole', 'Austin Hayes', 'Noah Banks'],
+  ['Ren Sato', 'Kaito Mori', 'Haru Tanaka', 'Yuma Ito', 'Daichi Kuro', 'Riku Nami', 'Sora Arai'],
+  ['Anis Belkacem', 'Karim Saadi', 'Nabil Hadj', 'Mehdi Rami', 'Walid Dali'],
+  ['Axel Lind', 'Oscar Holm', 'Viktor Dahl', 'Noel Strand', 'Emil Falk', 'Lukas Berg'],
+  ['Kwame Mensah', 'Kojo Boateng', 'Yaw Addo', 'Kofi Owusu', 'Nana Asare', 'Sefa Osei', 'Ato Bediako'],
+  ['Luka Kovac', 'Mateo Baric', 'Ivan Roko', 'Dario Vuk', 'Niko Maric', 'Ante Sol'],
+  ['Sean Byrne', 'Cian Walsh', 'Rory Keane', 'Dylan Moore', 'Finn Doyle', 'Liam Quinn', 'Oscar Flynn'],
 ];
 
 const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
@@ -877,6 +901,82 @@ async function notifyMatchAdmins(match, title, body) {
       relatedId: match.id,
     }).catch(() => {});
   }
+}
+
+function sameIdValue(left, right) {
+  return String(left || '') === String(right || '');
+}
+
+function sameEmailValue(left, right) {
+  const a = String(left || '').trim().toLowerCase();
+  const b = String(right || '').trim().toLowerCase();
+  return Boolean(a && b && a === b);
+}
+
+async function resolveMatchActorSide(match, authUserId) {
+  const { user, player, membership, ownedClub, presidentClub, club } = await getMe(authUserId);
+  const actorEmail = user?.email || player?.email || '';
+
+  if (match.mode === 'club' || match.home_club_id || match.away_club_id) {
+    const clubIds = new Set([
+      user?.owner_id,
+      player?.club_id,
+      membership?.club_id,
+      ownedClub?.id,
+      presidentClub?.id,
+      club?.id,
+    ].map((value) => String(value || '')).filter(Boolean));
+
+    if (sameEmailValue(actorEmail, match.home_owner_email)) clubIds.add(String(match.home_club_id || ''));
+    if (sameEmailValue(actorEmail, match.away_owner_email)) clubIds.add(String(match.away_club_id || ''));
+
+    if (clubIds.has(String(match.home_club_id || ''))) return { side: 'home', user, player };
+    if (clubIds.has(String(match.away_club_id || ''))) return { side: 'away', user, player };
+  }
+
+  const playerId = String(player?.id || user?.player_id || '');
+  if (
+    (playerId && sameIdValue(playerId, match.home_player_id))
+    || sameEmailValue(actorEmail, match.home_player_email)
+    || sameEmailValue(actorEmail, match.home_owner_email)
+  ) {
+    return { side: 'home', user, player };
+  }
+  if (
+    (playerId && sameIdValue(playerId, match.away_player_id))
+    || sameEmailValue(actorEmail, match.away_player_email)
+    || sameEmailValue(actorEmail, match.away_owner_email)
+  ) {
+    return { side: 'away', user, player };
+  }
+
+  const err = new Error('Only match participants can perform this action.');
+  err.status = 403;
+  err.code = 'MATCH_PARTICIPANT_REQUIRED';
+  throw err;
+}
+
+async function requireMatchActorSide(match, authUserId, requiredSide, message) {
+  const actor = await resolveMatchActorSide(match, authUserId);
+  if (requiredSide && actor.side !== requiredSide) {
+    const err = new Error(message || `Only the ${requiredSide} side can perform this action.`);
+    err.status = 403;
+    err.code = 'MATCH_SIDE_REQUIRED';
+    throw err;
+  }
+  return actor;
+}
+
+async function notifyMatchActor(actor, match, type, title, body) {
+  const recipientEmail = actor?.user?.email || actor?.player?.email || null;
+  if (!recipientEmail) return { skipped: true };
+  return createNotificationIfEnabled({
+    recipientEmail,
+    type,
+    title,
+    body,
+    link: `/game-day?match=${match.id}`,
+  }).catch(() => ({ skipped: true }));
 }
 
 async function applyClubMatchRecord(club, result, scored, conceded) {
@@ -3618,6 +3718,12 @@ const HANDLERS = {
 
   async seedTournamentTestClubs({ _auth_user_id }) {
     const admin = await requireAdminUser(_auth_user_id);
+    if (TEST_CLUBS.length !== 20 || TEST_PLAYER_NAMES.length !== 20) {
+      const err = new Error(`Tournament test pack is misconfigured: expected 20 clubs, got ${TEST_CLUBS.length} club definitions and ${TEST_PLAYER_NAMES.length} player groups.`);
+      err.status = 500;
+      err.code = 'TEST_PACK_MISCONFIGURED';
+      throw err;
+    }
     await cleanupStageTestPack();
 
     const createdClubs = [];
@@ -3655,7 +3761,13 @@ const HANDLERS = {
         [clubId, ownerUserId]
       );
 
-      const names = TEST_PLAYER_NAMES[clubIndex];
+      const names = TEST_PLAYER_NAMES[clubIndex] || [];
+      if (names.length < 4 || names.length > 8) {
+        const err = new Error(`Tournament test pack is misconfigured: ${clubDef.name} has ${names.length} players, expected 4-8.`);
+        err.status = 500;
+        err.code = 'TEST_PACK_MISCONFIGURED';
+        throw err;
+      }
       for (let playerIndex = 0; playerIndex < names.length; playerIndex++) {
         const isOwner = playerIndex === 0;
         const isCaptain = playerIndex === 1;
@@ -3726,7 +3838,15 @@ const HANDLERS = {
       reason: 'Admin generated disposable tournament test clubs',
     });
 
-    return { data: { success: true, clubs: createdClubs.length, players: createdPlayers.length, created_clubs: createdClubs } };
+    return {
+      data: {
+        success: true,
+        expected_clubs: TEST_CLUBS.length,
+        clubs: createdClubs.length,
+        players: createdPlayers.length,
+        created_clubs: createdClubs,
+      },
+    };
   },
 
   async deleteTournamentTestClubs({ _auth_user_id }) {
@@ -6604,6 +6724,12 @@ const HANDLERS = {
       const matchRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!matchRows.length) throw new Error('Match not found');
       const match = matchRows[0];
+      const actor = await requireMatchActorSide(
+        match,
+        _auth_user_id,
+        'home',
+        'Only the home team can kick off this match.'
+      );
 
       if (match.mode === 'club' && match.home_club_id && match.away_club_id) {
         const dressingRows = await EXECUTESQL(
@@ -6643,6 +6769,20 @@ const HANDLERS = {
       });
 
       await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
+      await notifyMatchActor(
+        actor,
+        match,
+        'match_reminder',
+        'Kickoff started',
+        'You started kickoff. The match is now live.'
+      ).catch(() => {});
+      await notifyMatchSide(
+        match,
+        'away',
+        'match_reminder',
+        'Kickoff started',
+        `${match.home_club_name || match.home_player_name || 'Home'} started kickoff. The match is now live.`
+      ).catch(() => {});
       await broadcastMatchById(match_id);
       await notifyMatchKickoff({ ...match, status: 'in_progress' }).catch(() => {});
       return { data: { success: true } };
@@ -6652,12 +6792,22 @@ const HANDLERS = {
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!rows.length) throw new Error('Match not found');
       const m = rows[0];
+      const actor = await resolveMatchActorSide(m, _auth_user_id);
+      const isHomeSubmission = actor.side === 'home';
+
+      const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
+      if (typeof is_home_team !== 'undefined' && requestedHomeSide !== isHomeSubmission) {
+        const err = new Error('Submitted match side does not match your team.');
+        err.status = 403;
+        err.code = 'MATCH_SIDE_MISMATCH';
+        throw err;
+      }
 
       // Enforce submission order: the AWAY side cannot submit until the HOME
       // side has submitted. This stops away-first races where the away score
       // gets locked in before the home reporter has had a chance to enter it.
       // (Home is, by convention, the trusted "first reporter" of the match.)
-      if (!is_home_team && !Number(m.result_home_submitted)) {
+      if (!isHomeSubmission && !Number(m.result_home_submitted)) {
         const err = new Error('Home team must submit their result first.');
         err.status = 409;
         err.code   = 'AWAITING_HOME_SUBMISSION';
@@ -6680,7 +6830,7 @@ const HANDLERS = {
           }))
         : null;
 
-      const side = is_home_team ? 'home' : 'away';
+      const side = isHomeSubmission ? 'home' : 'away';
       const declared = fixtureScoreFromSubmission({
         home_score,
         away_score,
@@ -6689,10 +6839,10 @@ const HANDLERS = {
       }, side);
       const ownScore = own_score != null && own_score !== ''
         ? Number(own_score)
-        : (is_home_team ? declared.home : declared.away);
+        : (isHomeSubmission ? declared.home : declared.away);
       const opponentScore = opponent_score != null && opponent_score !== ''
         ? Number(opponent_score)
-        : (is_home_team ? declared.away : declared.home);
+        : (isHomeSubmission ? declared.away : declared.home);
 
       const submission = JSON.stringify({
         home_score:   declared.home,
@@ -6706,7 +6856,7 @@ const HANDLERS = {
         submitted_at: new Date().toISOString(),
       });
 
-      if (is_home_team) {
+      if (isHomeSubmission) {
         await EXECUTESQL(
           'UPDATE matches SET home_submission = ?, result_home_submitted = 1, updated_date = NOW() WHERE id = ?',
           [submission, match_id]
@@ -6723,14 +6873,29 @@ const HANDLERS = {
       const awaySub = parseSubmission(updated.away_submission);
 
       if (!homeSub || !awaySub) {
-        if (is_home_team) {
+        if (isHomeSubmission) {
+          await notifyMatchActor(
+            actor,
+            updated,
+            'result_submitted',
+            'Result submitted',
+            'Your result and screenshot were saved. Waiting for the away team to confirm.'
+          ).catch(() => {});
           await notifyMatchSide(
             updated,
             'away',
-            'match_result_requested',
+            'result_submitted',
             'Result submitted - your turn',
             `${updated.home_club_name || updated.home_player_name || 'Home'} submitted the result. Upload your screenshot proof and confirm your score.`,
             'result_requested'
+          ).catch(() => {});
+        } else {
+          await notifyMatchActor(
+            actor,
+            updated,
+            'result_submitted',
+            'Result submitted',
+            'Your result and screenshot were saved. Waiting for the home team to confirm.'
           ).catch(() => {});
         }
         await broadcastMatchById(match_id);
