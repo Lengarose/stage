@@ -246,14 +246,14 @@ export function CareerTile({ tileKey, title, eyebrow, player, canCustomize, canU
       {bg ? <div aria-hidden className="absolute inset-0 bg-no-repeat opacity-40" style={bg} /> : null}
       <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-cyan-400/12 via-black/78 to-blue-950/78" />
       <div aria-hidden className="absolute inset-x-8 top-0 h-px bg-cyan-200/45" />
-      <div className="relative z-[1] flex items-center justify-between gap-3 border-b border-cyan-300/15 px-5 py-3">
+      <div className="relative z-[1] flex items-center justify-between gap-3 border-b border-cyan-300/15 py-3 pl-8 pr-5 sm:pl-10 lg:pl-14 lg:pr-8">
         <div className="min-w-0">
           {eyebrow ? <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-200/50">{eyebrow}</p> : null}
           <h3 className="truncate font-heading text-sm font-black uppercase tracking-[0.16em] text-white">{title}</h3>
         </div>
         <TileMenu tileKey={tileKey} title={title} canCustomize={canCustomize} canUseBackgrounds={canUseBackgrounds} onChangeBackground={onChangeBackground} />
       </div>
-      <div className="relative z-[1] p-4">{children}</div>
+      <div className="relative z-[1] py-4 pl-6 pr-4 sm:pl-8 lg:pl-10 lg:pr-8">{children}</div>
     </section>
   );
 }
