@@ -76,6 +76,18 @@ const TEST_CLUBS = [
   { name: 'Vortex Rovers', tag: 'VXR', country_code: 'PT' },
   { name: 'Cobalt City FC', tag: 'CBL', country_code: 'ES' },
   { name: 'Summit Forge FC', tag: 'SFF', country_code: 'IT' },
+  { name: 'Crimson Dock FC', tag: 'CDF', country_code: 'CA' },
+  { name: 'Blue Atlas SC', tag: 'BAS', country_code: 'MA' },
+  { name: 'Royal Kinshasa', tag: 'RKS', country_code: 'CD' },
+  { name: 'Polar Zenith FC', tag: 'PZF', country_code: 'NO' },
+  { name: 'Golden Pulse United', tag: 'GPU', country_code: 'BR' },
+  { name: 'Blackline Athletic', tag: 'BLA', country_code: 'US' },
+  { name: 'Dragon Gate FC', tag: 'DGF', country_code: 'JP' },
+  { name: 'Sahara Kings', tag: 'SHK', country_code: 'DZ' },
+  { name: 'Arctic Lions', tag: 'ARL', country_code: 'SE' },
+  { name: 'Volta Storm SC', tag: 'VSC', country_code: 'GH' },
+  { name: 'Silver Coast FC', tag: 'SCF', country_code: 'HR' },
+  { name: 'Emerald North', tag: 'EMN', country_code: 'IE' },
 ];
 
 const TEST_PLAYER_NAMES = [
@@ -87,6 +99,18 @@ const TEST_PLAYER_NAMES = [
   ['Rayan Cruz', 'Milo Saint', 'Kobe Ray', 'Yanis Lock', 'Samir Bloom', 'Ty Ellis', 'Jonah Pierce', 'Ali Rhodes'],
   ['Lenn Ward', 'Dion Ellis', 'Mateo Lux', 'Ciro Bell', 'Evan Hayes', 'Zion Reid'],
   ['Nolan King', 'Amir Wells', 'Jude Knox', 'Rio Chase', 'Felix Ray', 'Otis Ford', 'Maxen Brooks'],
+  ['Caleb Frost', 'Tyler North', 'Mason Wells', 'Aiden Brooks', 'Eli Grant', 'Logan Reed'],
+  ['Nadir Atlas', 'Youssef Rahal', 'Amine Bassi', 'Ilyas Fares', 'Samy Idris', 'Rayan Idrissi', 'Omar Naji'],
+  ['Blaise Kito', 'Cedric Mavuba', 'Noel Banza', 'Junior Lemba', 'Chris Makoso', 'Elie Mbala', 'Tony Lukaku', 'Davy Moke'],
+  ['Soren Vik', 'Mats Berg', 'Erik Nord', 'Jonas Falk', 'Leif Storm'],
+  ['Rafa Silva', 'Caio Monte', 'Bruno Luz', 'Thiago Vale', 'Nico Rocha', 'Leo Nunes', 'Davi Cruz', 'Andre Sol'],
+  ['Carter Knox', 'Miles Parker', 'Jalen Brooks', 'Devin Cole', 'Austin Hayes', 'Noah Banks'],
+  ['Ren Sato', 'Kaito Mori', 'Haru Tanaka', 'Yuma Ito', 'Daichi Kuro', 'Riku Nami', 'Sora Arai'],
+  ['Anis Belkacem', 'Karim Saadi', 'Nabil Hadj', 'Mehdi Rami', 'Walid Dali'],
+  ['Axel Lind', 'Oscar Holm', 'Viktor Dahl', 'Noel Strand', 'Emil Falk', 'Lukas Berg'],
+  ['Kwame Mensah', 'Kojo Boateng', 'Yaw Addo', 'Kofi Owusu', 'Nana Asare', 'Sefa Osei', 'Ato Bediako'],
+  ['Luka Kovac', 'Mateo Baric', 'Ivan Roko', 'Dario Vuk', 'Niko Maric', 'Ante Sol'],
+  ['Sean Byrne', 'Cian Walsh', 'Rory Keane', 'Dylan Moore', 'Finn Doyle', 'Liam Quinn', 'Oscar Flynn'],
 ];
 
 const TEST_POSITIONS = ['GK', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'LW', 'ST'];
@@ -3706,6 +3730,12 @@ const HANDLERS = {
 
   async seedTournamentTestClubs({ _auth_user_id }) {
     const admin = await requireAdminUser(_auth_user_id);
+    if (TEST_CLUBS.length !== 20 || TEST_PLAYER_NAMES.length !== 20) {
+      const err = new Error(`Tournament test pack is misconfigured: expected 20 clubs, got ${TEST_CLUBS.length} club definitions and ${TEST_PLAYER_NAMES.length} player groups.`);
+      err.status = 500;
+      err.code = 'TEST_PACK_MISCONFIGURED';
+      throw err;
+    }
     await cleanupStageTestPack();
 
     const createdClubs = [];
@@ -3743,7 +3773,13 @@ const HANDLERS = {
         [clubId, ownerUserId]
       );
 
-      const names = TEST_PLAYER_NAMES[clubIndex];
+      const names = TEST_PLAYER_NAMES[clubIndex] || [];
+      if (names.length < 4 || names.length > 8) {
+        const err = new Error(`Tournament test pack is misconfigured: ${clubDef.name} has ${names.length} players, expected 4-8.`);
+        err.status = 500;
+        err.code = 'TEST_PACK_MISCONFIGURED';
+        throw err;
+      }
       for (let playerIndex = 0; playerIndex < names.length; playerIndex++) {
         const isOwner = playerIndex === 0;
         const isCaptain = playerIndex === 1;
@@ -3814,7 +3850,15 @@ const HANDLERS = {
       reason: 'Admin generated disposable tournament test clubs',
     });
 
-    return { data: { success: true, clubs: createdClubs.length, players: createdPlayers.length, created_clubs: createdClubs } };
+    return {
+      data: {
+        success: true,
+        expected_clubs: TEST_CLUBS.length,
+        clubs: createdClubs.length,
+        players: createdPlayers.length,
+        created_clubs: createdClubs,
+      },
+    };
   },
 
   async deleteTournamentTestClubs({ _auth_user_id }) {
