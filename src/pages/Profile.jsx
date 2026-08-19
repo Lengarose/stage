@@ -723,6 +723,7 @@ export default function Profile({
         bannerUrl={player.banner_url}
         bannerPosition={player.banner_position}
         bannerZoom={player.banner_zoom}
+        photoPreviewPlayer={player}
         bannerPreview={{ name: player.gamertag || user?.full_name, subtitle: player.position, avatarUrl: player.avatar_url, type: "player" }}
         onPhotoChange={async ({ url, position, zoom }) => {
           await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });

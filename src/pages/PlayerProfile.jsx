@@ -18,7 +18,7 @@ import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSe
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
@@ -503,7 +503,10 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm p-4">
             <DialogHeader><DialogTitle>{player.gamertag}</DialogTitle></DialogHeader>
             <div className="flex items-center justify-center">
-              <img src={player.avatar_url} alt={player.gamertag} className="w-64 h-64 rounded-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+              <GamerPlayerPhotoFrame
+                player={player}
+                className="w-64 shadow-[0_0_48px_-12px_rgba(0,229,255,0.7)]"
+              />
             </div>
           </DialogContent>
         </Dialog>

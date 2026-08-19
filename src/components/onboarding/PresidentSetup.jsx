@@ -200,12 +200,12 @@ export default function PresidentSetup({
             imageUrl={profile.avatar_url || null}
             imagePosition={profile.avatar_position || "50% 50%"}
             imageZoom={Number(profile.avatar_zoom) || 150}
-            className="w-24 sm:w-28 rounded-xl shadow-[0_0_24px_-10px_rgba(0,229,255,0.65)] pointer-events-none"
+            className="w-24 sm:w-28 shadow-[0_0_24px_-10px_rgba(0,229,255,0.65)] pointer-events-none"
           />
           <label
             htmlFor={avatarInputId}
             className={cn(
-              "absolute inset-0 z-10 rounded-xl bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
+              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
               uploading && "pointer-events-none opacity-60",
               profile.avatar_url
                 ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"

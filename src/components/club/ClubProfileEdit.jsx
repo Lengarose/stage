@@ -102,6 +102,7 @@ export default function ClubProfileEdit({
       photoPosition={form.logo_position}
       photoZoom={form.logo_zoom}
       photoShape="circle"
+      photoPreviewClub={form}
       bannerUrl={form.banner_url}
       bannerPosition={form.banner_position}
       bannerZoom={form.banner_zoom}

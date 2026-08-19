@@ -8,6 +8,8 @@ import { prepareImageForUpload } from "@/lib/imageUpload";
 import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 
 /**
  * Shared edit-profile layout for Player / Club / President.
@@ -27,6 +29,8 @@ export default function ProfileEditShell({
   bannerZoom = 150,
   bannerPreview = {},
   photoAspect = "avatar",
+  photoPreviewPlayer = null,
+  photoPreviewClub = null,
   onPhotoChange,
   onBannerChange,
   children,
@@ -69,8 +73,10 @@ export default function ProfileEditShell({
   }
 
   const photoFrameCls = photoShape === "rounded"
-    ? "w-20 h-24 rounded-2xl"
-    : "w-20 h-20 rounded-full";
+    ? "w-20 h-24 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+    : "w-20 h-20 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]";
+  const usesPlayerFrame = Boolean(photoPreviewPlayer);
+  const usesClubFrame = !usesPlayerFrame && Boolean(photoPreviewClub);
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
@@ -95,33 +101,51 @@ export default function ProfileEditShell({
         </h2>
         <div className="flex items-start gap-4">
           <div className="relative group shrink-0">
-            <div
-              className={cn(
-                "bg-secondary border-4 border-card flex items-center justify-center overflow-hidden pointer-events-none",
-                photoFrameCls
-              )}
-            >
-              {photoUrl ? (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${photoUrl})`,
-                    backgroundSize: photoZoom ? `${photoZoom}%` : "cover",
-                    backgroundPosition: photoPosition || "50% 50%",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                />
-              ) : photoShape === "rounded" ? (
-                <Shield className="w-9 h-9 text-muted-foreground" />
-              ) : (
-                <User className="w-9 h-9 text-muted-foreground" />
-              )}
-            </div>
+            {usesPlayerFrame ? (
+              <GamerPlayerPhotoFrame
+                player={photoPreviewPlayer}
+                imageUrl={photoUrl}
+                imagePosition={photoPosition}
+                imageZoom={photoZoom}
+                className="w-20 pointer-events-none border-4 border-card shadow-none"
+              />
+            ) : usesClubFrame ? (
+              <GamerClubPhotoFrame
+                club={photoPreviewClub}
+                imageUrl={photoUrl}
+                imagePosition={photoPosition}
+                imageZoom={photoZoom}
+                winRate={photoPreviewClub?.win_rate || 50}
+                className="w-20 pointer-events-none border-4 border-card shadow-none"
+              />
+            ) : (
+              <div
+                className={cn(
+                  "bg-secondary border-4 border-card flex items-center justify-center overflow-hidden pointer-events-none",
+                  photoFrameCls
+                )}
+              >
+                {photoUrl ? (
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      backgroundImage: `url(${photoUrl})`,
+                      backgroundSize: photoZoom ? `${photoZoom}%` : "cover",
+                      backgroundPosition: photoPosition || "50% 50%",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  />
+                ) : photoShape === "rounded" ? (
+                  <Shield className="w-9 h-9 text-muted-foreground" />
+                ) : (
+                  <User className="w-9 h-9 text-muted-foreground" />
+                )}
+              </div>
+            )}
             <label
               htmlFor={uploading ? undefined : fileInputId}
               className={cn(
-                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity",
-                photoShape === "rounded" ? "rounded-2xl" : "rounded-full",
+                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
                 uploading && "pointer-events-none opacity-60",
                 photoUrl
                   ? "opacity-100 md:opacity-0 md:group-hover:opacity-100"
@@ -191,6 +215,8 @@ export default function ProfileEditShell({
         aspect={photoAspect}
         initialPosition={photoPosition}
         initialZoom={photoZoom}
+        previewPlayer={photoPreviewPlayer}
+        previewClub={photoPreviewClub}
         onConfirm={async (url, position, zoom) => {
           setPendingPhoto(null);
           await onPhotoChange?.({
@@ -208,6 +234,8 @@ export default function ProfileEditShell({
         aspect={photoAspect}
         initialPosition={photoPosition}
         initialZoom={photoZoom}
+        previewPlayer={photoPreviewPlayer}
+        previewClub={photoPreviewClub}
         onConfirm={async (url, position, zoom) => {
           setRepositionOpen(false);
           await onPhotoChange?.({

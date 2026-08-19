@@ -145,9 +145,9 @@ export default function ImagePositionEditor({
                   positionLabel={previewFramePlayer.position || "CDM"}
                   overallRating={previewFramePlayer.overall_rating || 70}
                   shirtNumber={previewFramePlayer.shirt_number ?? 6}
-                  className="w-12 rounded-lg shadow-none"
+                  className="w-12 shadow-none"
                 />
-                <div className="w-20 h-12 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
+                <div className="w-20 h-12 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Profile frame · wide crop</p>
               </div>
             </div>
@@ -177,9 +177,9 @@ export default function ImagePositionEditor({
                   imagePosition={position}
                   imageZoom={zoom}
                   winRate={previewFrameClub.win_rate || 50}
-                  className="w-12 rounded-lg shadow-none"
+                  className="w-12 shadow-none"
                 />
-                <div className="w-20 h-12 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
+                <div className="w-20 h-12 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Club frame · wide crop</p>
               </div>
             </div>
@@ -195,15 +195,15 @@ export default function ImagePositionEditor({
           ) : isAvatar ? (
             <div className="flex flex-col items-center gap-4">
               <div
-                className="w-36 h-36 rounded-full cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
+                className="w-36 aspect-[3/4] cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
                 style={previewStyle}
                 {...dragHandlers}
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
               <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
-                <div className="w-9 h-9 rounded-full shrink-0 border border-white/20" style={previewStyle} />
-                <div className="w-16 h-9 rounded-lg shrink-0 border border-white/20" style={previewStyle} />
+                <div className="w-9 aspect-[3/4] shrink-0 border border-white/20 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]" style={previewStyle} />
+                <div className="w-16 h-9 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Avatar · Card</p>
               </div>
             </div>
