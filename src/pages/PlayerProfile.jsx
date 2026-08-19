@@ -18,7 +18,7 @@ import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSe
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
@@ -307,67 +307,63 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         formatPositions={formatPositions}
         onAvatarClick={player.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
         topLeftActions={(
-          <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
-            <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-          </button>
+          <GamerHeroAction onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-4 h-4 text-cyan-200/90" /> {t("commonPages.profBack")}
+          </GamerHeroAction>
         )}
         verifiedHandle={
           Number(player.is_verified) === 1 && player.verified_platform_handle
             ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
             : null
         }
-        topActions={null}
-        sideActions={(
+        topActions={isOwner ? (
+          <Link to={ownProfilePath}>
+            <GamerHeroAction as="span" className="h-9">
+              <Settings className="w-3.5 h-3.5 text-cyan-200/90" /> {t("commonPages.profEditProfile")}
+            </GamerHeroAction>
+          </Link>
+        ) : null}
+        sideActions={!isOwner ? (
           <>
-            {isOwner ? (
-              <Link to={ownProfilePath}>
-                <Button type="button" size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
-                  <Settings className="w-3.5 h-3.5" /> {t("commonPages.profEditProfile")}
-                </Button>
-              </Link>
-            ) : (
+            {viewerClub && !limitedTournamentId ? (
               <>
-                {viewerClub && !limitedTournamentId ? (
-                  <>
-                    {canOfferProfileContract ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setOfferDialogOpen(true)}
-                        className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
-                      >
-                        <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
-                      </Button>
-                    ) : null}
-                    {canRequestProfileLoan ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setLoanDialogOpen(true)}
-                        className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
-                      >
-                        <FileText className="w-3.5 h-3.5" /> {t("commonPages.requestLoan") || "Request Loan"}
-                      </Button>
-                    ) : null}
-                    {windowOpen === true && signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setTransferPayOpen(true)}
-                        className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
-                      >
-                        <Coins className="w-3.5 h-3.5" /> {t("commonPages.ppTransferFee")}
-                      </Button>
-                    ) : null}
-                  </>
+                {canOfferProfileContract ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setOfferDialogOpen(true)}
+                    className="gap-1.5 h-9 px-3 text-xs border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 bg-transparent font-heading uppercase"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
+                  </Button>
+                ) : null}
+                {canRequestProfileLoan ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLoanDialogOpen(true)}
+                    className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> {t("commonPages.requestLoan") || "Request Loan"}
+                  </Button>
+                ) : null}
+                {windowOpen === true && signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTransferPayOpen(true)}
+                    className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
+                  >
+                    <Coins className="w-3.5 h-3.5" /> {t("commonPages.ppTransferFee")}
+                  </Button>
                 ) : null}
               </>
-            )}
+            ) : null}
           </>
-        )}
+        ) : null}
       >
         {activeLoan ? (
           <p className="text-xs text-amber-200/80">

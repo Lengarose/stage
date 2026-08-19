@@ -50,7 +50,7 @@ import { swalConfirm, swalError, swalPrompt } from "@/lib/swal";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
-import { GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
@@ -907,9 +907,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         logoUploading={uploadingLogo}
         topLeftActions={(
           <>
-            <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/75 backdrop-blur-md hover:bg-black/60 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> {t("commonPages.profBack")}
-        </button>
+            <GamerHeroAction onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-4 h-4 text-cyan-200/90" /> {t("commonPages.profBack")}
+            </GamerHeroAction>
             {isAdminTakeover ? (
               <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-2">
             <Shield className="w-3.5 h-3.5 text-warning shrink-0" />
@@ -922,13 +922,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           </>
         )}
         topActions={canEdit ? (
-            <button
-            type="button"
-              onClick={() => setEditClubOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider"
-            >
-              <Edit2 className="w-4 h-4" /> {t("commonPages.profEditClub")}
-            </button>
+          <GamerHeroAction onClick={() => setEditClubOpen(true)}>
+            <Edit2 className="h-4 w-4 text-cyan-200/90" />
+            {t("commonPages.profEditClub")}
+          </GamerHeroAction>
         ) : null}
         infoAside={<ClubPresidentChip club={club} president={president} />}
         sideActions={null}

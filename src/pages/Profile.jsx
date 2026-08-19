@@ -22,7 +22,7 @@ import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { COUNTRIES } from "../lib/countries";
@@ -66,8 +66,6 @@ export default function Profile({
   const [myClub, setMyClub] = useState(null);
   const [signedClub, setSignedClub] = useState(null);
   const [accountIntent, setAccountIntent] = useState("player");
-  const homePath = tournamentMode && tournamentId ? `/tournaments/${tournamentId}` : "/dashboard";
-  const homeLabel = tournamentMode ? t("nav.tournament") : t("nav.dashboard");
   const myClubHref = myClub?.id
     ? (tournamentMode ? "/tournaments/profile-club" : `/clubs/${myClub.id}`)
     : null;
@@ -390,37 +388,16 @@ export default function Profile({
                 </button>
               ) : null}
               {canUsePlayerProfile ? (
-                <button type="button" onClick={() => setView("edit_player")} className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white/80 text-xs font-bold uppercase tracking-wider">
-                  <Settings className="w-4 h-4" /> {t("commonPages.profEditProfile")}
-                </button>
+                <GamerHeroAction onClick={() => setView("edit_player")}>
+                  <Settings className="w-4 h-4 text-cyan-200/90" /> {t("commonPages.profEditProfile")}
+                </GamerHeroAction>
               ) : null}
               <button type="button" onClick={() => stageClient.auth.logout()} className="p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
                 <LogOut className="w-4 h-4 text-white/70" />
               </button>
             </>
           )}
-          sideActions={(
-            <>
-              <Link to={homePath}>
-                <Button type="button" size="sm" className="font-heading uppercase text-xs bg-gradient-to-r from-cyan-500/80 to-teal-500/80 hover:from-cyan-400 hover:to-teal-400 text-black font-black">
-                  {homeLabel}
-                </Button>
-              </Link>
-              {myClub ? (
-                tournamentMode && myClubHref ? (
-                  <Link to={myClubHref}>
-                    <Button type="button" size="sm" variant="outline" className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
-                      <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
-                    </Button>
-                  </Link>
-                ) : (
-                  <Button type="button" size="sm" variant="outline" onClick={() => setView("club")} className="gap-1.5 h-9 px-3 text-xs border-white/15 text-white hover:bg-white/10 bg-white/[0.03] font-heading uppercase">
-                    <Shield className="w-3.5 h-3.5" /> {t("nav.myClub")}
-                  </Button>
-                )
-              ) : null}
-            </>
-          )}
+          sideActions={null}
         />
 
         <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">

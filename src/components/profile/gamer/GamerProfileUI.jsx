@@ -149,6 +149,25 @@ export function GamerMetaPill({ children, className }) {
   );
 }
 
+export function GamerHeroAction({ children, className, style, as: Component = "button", ...props }) {
+  const buttonProps = Component === "button" ? { type: "button" } : {};
+  return (
+    <Component
+      className={cn(
+        "inline-flex max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 backdrop-blur-md transition-all",
+        "hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50",
+        className
+      )}
+      style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)", ...style }}
+      {...buttonProps}
+      {...props}
+    >
+      {children}
+    </Component>
+  );
+}
+
 export function GamerTabNav({ tabs, active, onChange, className }) {
   return (
     <div className={cn("flex gap-2 overflow-x-auto pb-1 scrollbar-none", className)}>
