@@ -490,13 +490,15 @@ export default function Profile({
                     player={player}
                     club={signedClub || myClub}
                     upcomingMatches={upcomingMatches}
-                    canCustomize={true}
-                    canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
-                    onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
-                  />
-                  <PlayerTransferHistory
-                    playerId={player?.id}
-                    player={player}
+                    transferTile={(
+                      <PlayerTransferHistory
+                        playerId={player?.id}
+                        player={player}
+                        canCustomize={true}
+                        canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
+                        onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+                      />
+                    )}
                     canCustomize={true}
                     canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
                     onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}

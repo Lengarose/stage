@@ -420,13 +420,15 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
               player={player}
               club={club}
               upcomingMatches={upcomingMatches}
-              canCustomize={isOwner}
-              canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
-              onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
-            />
-            <PlayerTransferHistory
-              playerId={player?.id}
-              player={player}
+              transferTile={(
+                <PlayerTransferHistory
+                  playerId={player?.id}
+                  player={player}
+                  canCustomize={isOwner}
+                  canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
+                  onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
+                />
+              )}
               canCustomize={isOwner}
               canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
               onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}

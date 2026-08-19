@@ -589,6 +589,7 @@ export default function PlayerCareerSummary({
   player,
   club,
   upcomingMatches = [],
+  transferTile = null,
   canCustomize = false,
   canUseCareerTileBackgrounds = false,
   onPlayerChanged,
@@ -672,6 +673,7 @@ export default function PlayerCareerSummary({
             { label: text(t, "ppCareerTrophiesWon"), value: number(playerCareer.trophies_won) },
           ]}
         />
+        {transferTile}
       </div>
 
       <CareerTileBackgroundDialog

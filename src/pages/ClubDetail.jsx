@@ -2322,7 +2322,33 @@ function findFixtureEventPlayer(event, kind, playerById) {
   return null;
 }
 
+function fixtureSideForClub(fixture, clubId) {
+  if (String(clubId || "") === String(fixture.home_club_id || "")) return "home";
+  if (String(clubId || "") === String(fixture.away_club_id || "")) return "away";
+  return "";
+}
+
 function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
+  const statSideByPlayer = new Map();
+  for (const stat of asObjectArray(matchStats)) {
+    const side = fixtureSideForClub(fixture, stat.club_id);
+    if (stat.player_id && side) statSideByPlayer.set(String(stat.player_id), side);
+    if (stat.player_email && side) statSideByPlayer.set(`email:${playerLookupKey(stat.player_email)}`, side);
+    if (stat.player_gamertag && side) statSideByPlayer.set(`tag:${playerLookupKey(stat.player_gamertag)}`, side);
+  }
+
+  function eventSide(event) {
+    const directSide = fixtureSideForClub(fixture, event?.club_id);
+    if (directSide) return directSide;
+    const scorerId = event?.scorer_player_id || event?.scorer_id;
+    if (scorerId && statSideByPlayer.has(String(scorerId))) return statSideByPlayer.get(String(scorerId));
+    const scorerEmail = playerLookupKey(event?.scorer_email);
+    if (scorerEmail && statSideByPlayer.has(`email:${scorerEmail}`)) return statSideByPlayer.get(`email:${scorerEmail}`);
+    const scorerTag = playerLookupKey(event?.scorer_gamertag);
+    if (scorerTag && statSideByPlayer.has(`tag:${scorerTag}`)) return statSideByPlayer.get(`tag:${scorerTag}`);
+    return "";
+  }
+
   const eventTimeline = [
     ...parseFixtureGoalEvents(fixture.home_goal_events),
     ...parseFixtureGoalEvents(fixture.away_goal_events),
@@ -2337,6 +2363,7 @@ function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
         minute: event?.minute,
         scorerName: scorer?.gamertag || event?.scorer_gamertag || event?.scorer_name || "?",
         assistName: assist?.gamertag || event?.assist_gamertag || event?.assist_name || "",
+        side: eventSide(event),
       };
     })
     .sort((a, b) => (Number(a.minute) || 999) - (Number(b.minute) || 999));
@@ -2348,6 +2375,7 @@ function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
       const player = stat.player_id ? playerById.get(String(stat.player_id)) : null;
       return {
         statFallback: true,
+        side: fixtureSideForClub(fixture, stat.club_id),
         scorer: player || (stat.player_id ? { id: stat.player_id, gamertag: stat.player_gamertag || stat.player_email } : null),
         scorerName: player?.gamertag || stat.player_gamertag || stat.player_email || "Player",
         goals: Number(stat.goals || 0),
@@ -2453,6 +2481,7 @@ function FixtureRow({
   const eventName = fixtureEventName(fixture, group);
   const statusLabel = fixture.status || "scheduled";
   const goalTimeline = completed ? buildFixtureGoalTimeline(fixture, playerById, matchStats) : [];
+  const currentSide = isHome ? "home" : "away";
 
   return (
     <article className="relative overflow-hidden border border-white/10 bg-black/24 p-3 sm:p-4">
@@ -2509,6 +2538,9 @@ function FixtureRow({
               <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
               {hasScore ? "Score" : "Fixture"}
             </p>
+              {goalTimeline.length > 0 ? (
+                <GoalTimeline events={goalTimeline} currentSide={currentSide} />
+              ) : null}
             </div>
           </div>
 
@@ -2521,10 +2553,6 @@ function FixtureRow({
           </div>
         </div>
       </div>
-
-      {goalTimeline.length > 0 ? (
-        <GoalTimeline events={goalTimeline} />
-      ) : null}
 
       {(showMemberControls || showTeamSummary) ? (
         <div className="relative z-[1] mt-4 grid gap-3 border border-white/10 bg-black/22 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -2605,38 +2633,73 @@ function FixtureRow({
   );
 }
 
-function GoalTimeline({ events }) {
+function groupGoalEventsByScorer(events) {
+  const grouped = new Map();
+  for (const event of asObjectArray(events)) {
+    const key = event.scorer?.id || event.scorerName || "unknown";
+    const current = grouped.get(key) || {
+      scorer: event.scorer,
+      scorerName: event.scorerName,
+      minutes: [],
+      assists: [],
+      goals: 0,
+      statFallback: Boolean(event.statFallback),
+    };
+    if (event.minute) current.minutes.push(Number(event.minute));
+    if (event.assistName) {
+      current.assists.push({ player: event.assist, name: event.assistName });
+    }
+    current.goals += Number(event.goals || 1);
+    current.statFallback = current.statFallback || Boolean(event.statFallback);
+    grouped.set(key, current);
+  }
+  return [...grouped.values()].map((group) => ({
+    ...group,
+    minutes: [...new Set(group.minutes)].sort((a, b) => a - b),
+    assists: group.assists.filter((assist, index, arr) =>
+      arr.findIndex((item) => (item.player?.id || item.name) === (assist.player?.id || assist.name)) === index
+    ),
+  }));
+}
+
+function GoalTimeline({ events, currentSide }) {
+  const ownEvents = events.filter((event) => event.side === currentSide || (!event.side && currentSide === "home"));
+  const opponentEvents = events.filter((event) => event.side && event.side !== currentSide);
+  const ownScorers = groupGoalEventsByScorer(ownEvents);
+  const opponentScorers = groupGoalEventsByScorer(opponentEvents);
+  if (!ownScorers.length && !opponentScorers.length) return null;
+
   return (
-    <div className="relative z-[1] mt-4 border border-white/10 bg-white/[0.025] p-3">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/38">Goal details</p>
-      <div className="grid gap-2 lg:grid-cols-2">
-        {events.map((event, index) => (
-          <div key={`${event.minute || "goal"}-${event.scorerName}-${index}`} className="flex min-w-0 items-center gap-2 border border-white/8 bg-black/18 px-2.5 py-2 text-xs">
-            <span className="w-9 shrink-0 text-right font-heading text-sm font-black text-white/55">
-              {event.minute ? `${event.minute}'` : "--"}
-            </span>
-            <Target className="h-3.5 w-3.5 shrink-0 text-white/45" />
-            <PlayerEventName player={event.scorer} fallback={event.scorerName} />
-            {event.statFallback ? (
-              <span className="min-w-0 text-white/42">
-                <span className="mx-1 text-white/20">/</span>
-                {[event.goals ? `${event.goals} ${event.goals === 1 ? "goal" : "goals"}` : null, event.assists ? `${event.assists} ${event.assists === 1 ? "assist" : "assists"}` : null].filter(Boolean).join(" · ")}
-              </span>
-            ) : null}
-            {event.assistName ? (
-              <span className="min-w-0 text-white/42">
-                <span className="mx-1 text-white/20">/</span>
-                <Zap className="mr-1 inline h-3 w-3 text-white/35" />
-                <PlayerEventName player={event.assist} fallback={event.assistName} subtle />
-              </span>
-            ) : null}
-            {event.is_penalty ? (
-              <span className="ml-auto shrink-0 border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/55">Pen</span>
-            ) : null}
-          </div>
-        ))}
-      </div>
+    <div className="mt-3 grid min-w-[260px] gap-3 text-left md:grid-cols-2 md:text-center">
+      <GoalScorerList scorers={ownScorers} align="left" />
+      <GoalScorerList scorers={opponentScorers} align="right" />
     </div>
+  );
+}
+
+function GoalScorerList({ scorers, align }) {
+  if (!scorers.length) return <div className="hidden md:block" />;
+  return (
+    <div className={cn("min-w-0 space-y-1", align === "right" && "md:text-right")}>
+      {scorers.map((scorer) => (
+        <div key={scorer.scorer?.id || scorer.scorerName} className="min-w-0 text-[11px] leading-snug text-white/52">
+          <PlayerEventName player={scorer.scorer} fallback={scorer.scorerName} />
+          <span className="ml-1 text-white/45">
+            {scorer.minutes.length
+              ? scorer.minutes.map((minute) => `${minute}'`).join(", ")
+              : `${scorer.goals} ${scorer.goals === 1 ? "goal" : "goals"}`}
+          </span>
+          {scorer.assists.length ? (
+            <span className="block text-[10px] text-white/35">
+              <Zap className="mr-1 inline h-3 w-3" />
+              {scorer.assists.map((assist) => (
+                <PlayerEventName key={assist.player?.id || assist.name} player={assist.player} fallback={assist.name} subtle />
+              )).reduce((acc, item, index) => index === 0 ? [item] : [...acc, <span key={`sep-${index}`}> / </span>, item], [])}
+            </span>
+          ) : null}
+        </div>
+      ))}
+      </div>
   );
 }
 
