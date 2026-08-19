@@ -22,17 +22,21 @@ export default function GamerProfileHero({
   children,
 }) {
   const bannerStyle = getBannerStyle(player?.banner_url, player?.banner_position);
+  const heroBannerStyle = bannerStyle.backgroundImage
+    ? { ...bannerStyle, backgroundPosition: player?.banner_position || "50% 64%" }
+    : bannerStyle;
   return (
     <div className="relative">
-      <div className="relative h-44 sm:h-56 md:h-64 w-full overflow-hidden">
-        <div className="absolute inset-0" style={bannerStyle} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
+      <div className="relative h-52 sm:h-64 md:h-72 w-full overflow-hidden">
+        <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/18 via-[#060912]/18 via-55% to-[#060912]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#060912] via-[#060912]/72 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-amber-500/10" />
         {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
         {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 -mt-28 sm:-mt-32 relative z-10">
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
           <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
 

@@ -23,6 +23,9 @@ export default function GamerClubProfileHero({
   children,
 }) {
   const bannerStyle = getBannerStyle(club?.banner_url, club?.banner_position);
+  const heroBannerStyle = bannerStyle.backgroundImage
+    ? { ...bannerStyle, backgroundPosition: club?.banner_position || "50% 64%" }
+    : bannerStyle;
   const countryFlag = club?.country_code ? getCountryFlag(club.country_code) : "";
 
   return (
@@ -30,16 +33,17 @@ export default function GamerClubProfileHero({
       <button
         type="button"
         onClick={onBannerClick}
-        className="relative block w-full h-44 sm:h-56 md:h-64 overflow-hidden text-left"
+        className="relative block w-full h-52 sm:h-64 md:h-72 overflow-hidden text-left"
       >
-        <div className="absolute inset-0" style={bannerStyle} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
+        <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/18 via-[#060912]/18 via-55% to-[#060912]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#060912] via-[#060912]/72 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-cyan-500/10" />
       </button>
       {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
       {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
 
-      <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 -mt-28 sm:-mt-32 relative z-10">
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
           {logoUploadHtmlFor ? (
             <label

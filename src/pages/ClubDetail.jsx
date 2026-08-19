@@ -1298,24 +1298,29 @@ function ClubOfficePanel({ club, players, myPlayer, isOwner, onPlayerReleased, o
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="overflow-x-auto">
+        <div className="flex min-w-max items-center gap-5 border-b border-white/10">
         {CLUB_OFFICE_SECTIONS.map(({ id: sectionId, label, icon: Icon }) => (
           <button
             key={sectionId}
             type="button"
             onClick={() => setActiveSection(sectionId)}
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors",
+              "relative flex shrink-0 items-center gap-2 pb-3 pt-1 text-xs font-black uppercase tracking-[0.16em] transition-colors",
               activeSection === sectionId
-                ? "border-[#f5c542]/45 bg-[#f5c542]/10 text-[#f5c542]"
-                : "border-white/10 bg-white/[0.03] text-white/45 hover:border-white/20 hover:text-white/70"
+                ? "text-[#f5c542]"
+                : "text-white/45 hover:text-white/75"
             )}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className={cn("h-4 w-4", activeSection === sectionId ? "text-[#f5c542]" : "text-white/30")} />
             {label}
+            {activeSection === sectionId ? (
+              <span className="absolute inset-x-0 -bottom-px h-[2px] bg-gradient-to-r from-[#f5c542] via-[#55d9ff] to-transparent" />
+            ) : null}
           </button>
         ))}
-              </div>
+        </div>
+      </div>
 
       {activeSection === "contracts" ? (
         isOwner ? (
