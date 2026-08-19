@@ -78,6 +78,10 @@ function getNotificationSettingKey(type) {
     match_scheduled: 'match_reminders',
     match_result: 'match_results',
     match_reminder: 'match_reminders',
+    match_result_requested: 'match_results',
+    match_disputed: 'match_results',
+    match_completed: 'match_results',
+    match_dispute_admin: 'match_results',
     result_submitted: 'match_results',
     result_confirmed: 'match_results',
     join_request: 'club_updates',
@@ -96,6 +100,7 @@ function getNotificationSettingKey(type) {
 function messageTypeToNotificationType(messageType) {
   const key = String(messageType || 'general');
   if (key === 'match_invite') return 'match_reminder';
+  if (key === 'league_schedule') return 'match_reminder';
   if (key === 'contract_offer') return 'contract_offer';
   if (key === 'loan_proposal') return 'loan_offer';
   if (key === 'loan_recalled') return 'loan_offer';
@@ -1099,4 +1104,5 @@ module.exports = {
   liveChatChannelMeta,
   resolveLiveChatRecipientEmails,
   notifyLiveChatIfEnabled,
+  getNotificationSettingKey,
 };

@@ -36,6 +36,11 @@ const {
   buildCancelRequestMessage,
   buildRescheduleRequestMessage,
 } = require('../services/matchFixtureLifecycle');
+const {
+  notifyMatchKickoff,
+  notifyMatchScheduled,
+  notifyMatchSide,
+} = require('../services/matchNotificationService');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
 const {
@@ -442,6 +447,10 @@ function getNotificationSettingKey(type) {
     match_scheduled: 'match_reminders',
     match_result: 'match_results',
     match_reminder: 'match_reminders',
+    match_result_requested: 'match_results',
+    match_disputed: 'match_results',
+    match_completed: 'match_results',
+    match_dispute_admin: 'match_results',
     result_submitted: 'match_results',
     result_confirmed: 'match_results',
     join_request: 'club_updates',
@@ -855,27 +864,6 @@ async function settleCompletedMatchWager(match) {
   return settleActiveSoloWager(match);
 }
 
-function matchParticipantEmails(match) {
-  return {
-    home: match.home_owner_email || match.home_player_email || null,
-    away: match.away_owner_email || match.away_player_email || null,
-  };
-}
-
-async function notifyMatchSide(match, side, type, title, body) {
-  const emails = matchParticipantEmails(match);
-  const recipientEmail = emails[side];
-  if (!recipientEmail) return { skipped: true };
-  return createNotificationIfEnabled({
-    recipientEmail,
-    type,
-    title,
-    body,
-    link: `/game-day?match=${match.id}`,
-    relatedId: match.id,
-  }).catch(() => ({ skipped: true }));
-}
-
 async function notifyMatchAdmins(match, title, body) {
   const admins = await EXECUTESQL('SELECT email FROM users WHERE role_id = 0 AND email IS NOT NULL', [])
     .catch(() => []);
@@ -1212,8 +1200,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     console.error('[matchKickoff progression]', err.message);
   });
 
-  await notifyMatchSide(completedForSourceSync, 'home', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
-  await notifyMatchSide(completedForSourceSync, 'away', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`).catch(() => {});
+  await notifyMatchSide(completedForSourceSync, 'home', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`, 'completed').catch(() => {});
+  await notifyMatchSide(completedForSourceSync, 'away', 'match_completed', 'Match result official', `${completedForSourceSync.home_club_name || completedForSourceSync.home_player_name || 'Home'} ${homeScore}-${awayScore} ${completedForSourceSync.away_club_name || completedForSourceSync.away_player_name || 'Away'}`, 'completed').catch(() => {});
 
   await broadcastMatchById(matchId);
   return {
@@ -4360,6 +4348,7 @@ const HANDLERS = {
       { ...fixture, match_id: payload.id, status: fixture.status || 'scheduled' },
     );
     await Promise.resolve(broadcastMatch(createdMatch || payload)).catch(() => {});
+    await notifyMatchScheduled(createdMatch || payload).catch(() => {});
 
     return { data: { success: true, match: createdMatch || payload, reused: false } };
   },
@@ -6655,6 +6644,7 @@ const HANDLERS = {
 
       await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
       await broadcastMatchById(match_id);
+      await notifyMatchKickoff({ ...match, status: 'in_progress' }).catch(() => {});
       return { data: { success: true } };
     }
 
@@ -6739,7 +6729,8 @@ const HANDLERS = {
             'away',
             'match_result_requested',
             'Result submitted - your turn',
-            `${updated.home_club_name || updated.home_player_name || 'Home'} submitted the result. Upload your screenshot proof and confirm your score.`
+            `${updated.home_club_name || updated.home_player_name || 'Home'} submitted the result. Upload your screenshot proof and confirm your score.`,
+            'result_requested'
           ).catch(() => {});
         }
         await broadcastMatchById(match_id);
@@ -6773,8 +6764,8 @@ const HANDLERS = {
           'Match result disputed',
           `${updated.home_club_name || updated.home_player_name || 'Home'} vs ${updated.away_club_name || updated.away_player_name || 'Away'} needs review.`
         );
-        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.').catch(() => {});
-        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.').catch(() => {});
+        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.', 'disputed').catch(() => {});
+        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.', 'disputed').catch(() => {});
         await broadcastMatchById(match_id);
         return {
           data: {

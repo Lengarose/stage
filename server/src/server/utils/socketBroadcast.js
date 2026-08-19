@@ -86,17 +86,22 @@ function broadcastClubDeleted(id) {
   socketEmit(MAKE_SOCKET_CHANNEL(id, SOCKET_CHANNELS.CLUB), { deleted: true, id });
 }
 
+function emitEmailRooms(email, channel, payload) {
+  const raw = String(email || '').trim();
+  if (!raw) return;
+  socketEmit(MAKE_SOCKET_CHANNEL(raw, channel), payload);
+  const lower = raw.toLowerCase();
+  if (lower !== raw) socketEmit(MAKE_SOCKET_CHANNEL(lower, channel), payload);
+}
+
 function broadcastNotification(record) {
   if (!record?.recipient_email) return;
-  socketEmit(
-    MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.NOTIFICATION),
-    record
-  );
+  emitEmailRooms(record.recipient_email, SOCKET_CHANNELS.NOTIFICATION, record);
 }
 
 function broadcastInbox(record) {
   if (!record?.recipient_email) return;
-  socketEmit(MAKE_SOCKET_CHANNEL(record.recipient_email, SOCKET_CHANNELS.INBOX), record);
+  emitEmailRooms(record.recipient_email, SOCKET_CHANNELS.INBOX, record);
 }
 
 function broadcastInboxDeleted(id, recipientEmail) {

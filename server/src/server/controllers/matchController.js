@@ -8,6 +8,7 @@ const { normalizeMatchForApi } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
 const { notifyMatchResultAdmin } = require('../services/notifications');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
+const { resolveMatchSideEmails } = require('../services/matchNotificationService');
 
 function formatKickoff(kickoff) {
   if (!kickoff) return 'today';
@@ -46,15 +47,11 @@ async function sendMatchDayEmails(record) {
     const homeName = record.home_player_name || record.home_club_name || 'Home';
     const awayName = record.away_player_name || record.away_club_name || 'Away';
 
-    const [homeP, awayP, homeC, awayC] = await Promise.all([
-      record.home_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.home_player_id]) : [],
-      record.away_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.away_player_id]) : [],
-      record.home_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.home_club_id]) : [],
-      record.away_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.away_club_id]) : [],
+    const [homeEmails, awayEmails] = await Promise.all([
+      resolveMatchSideEmails(record, 'home'),
+      resolveMatchSideEmails(record, 'away'),
     ]);
-    const homeEmail = homeP[0]?.email || homeC[0]?.owner_email || record.home_owner_email || null;
-    const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
-    if (homeEmail) {
+    for (const homeEmail of homeEmails) {
       const notice = matchSideNotice(record, { opponent: awayName, competition, kickoff });
       await createNotificationIfEnabled({
         recipientEmail: homeEmail,
@@ -62,10 +59,10 @@ async function sendMatchDayEmails(record) {
         title: notice.title,
         body: notice.body,
         link: notice.link,
-        relatedId: record.id,
+        relatedId: `${record.id}:scheduled`,
       });
     }
-    if (awayEmail) {
+    for (const awayEmail of awayEmails) {
       const notice = matchSideNotice(record, { opponent: homeName, competition, kickoff });
       await createNotificationIfEnabled({
         recipientEmail: awayEmail,
@@ -73,7 +70,7 @@ async function sendMatchDayEmails(record) {
         title: notice.title,
         body: notice.body,
         link: notice.link,
-        relatedId: record.id,
+        relatedId: `${record.id}:scheduled`,
       });
     }
   } catch (err) {
@@ -89,16 +86,12 @@ async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore 
     const awayName = record.away_player_name || record.away_club_name || 'Away';
     const competition = record.competition_name || record.competition_type || null;
 
-    const [homeP, awayP, homeC, awayC] = await Promise.all([
-      record.home_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.home_player_id]) : [],
-      record.away_player_id ? EXECUTESQL('SELECT gamertag, email FROM players WHERE id = ? LIMIT 1', [record.away_player_id]) : [],
-      record.home_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.home_club_id]) : [],
-      record.away_club_id ? EXECUTESQL('SELECT name, owner_email FROM clubs WHERE id = ? LIMIT 1', [record.away_club_id]) : [],
+    const [homeEmails, awayEmails] = await Promise.all([
+      resolveMatchSideEmails(record, 'home'),
+      resolveMatchSideEmails(record, 'away'),
     ]);
-    const homeEmail = homeP[0]?.email || homeC[0]?.owner_email || record.home_owner_email || null;
-    const awayEmail = awayP[0]?.email || awayC[0]?.owner_email || record.away_owner_email || null;
 
-    if (homeEmail) {
+    for (const homeEmail of homeEmails) {
       const notice = matchResultNotice({
         isWinner: homeResult === 'win',
         isDraw: homeResult === 'draw',
@@ -113,10 +106,10 @@ async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore 
         title: notice.title,
         body: notice.body,
         link: notice.link,
-        relatedId: record.id,
+        relatedId: `${record.id}:result`,
       });
     }
-    if (awayEmail) {
+    for (const awayEmail of awayEmails) {
       const awayResult = homeResult === 'win' ? 'loss' : (homeResult === 'loss' ? 'win' : 'draw');
       const notice = matchResultNotice({
         isWinner: awayResult === 'win',
@@ -132,7 +125,7 @@ async function sendMatchResultEmails(record, { homeResult, homeScore, awayScore 
         title: notice.title,
         body: notice.body,
         link: notice.link,
-        relatedId: record.id,
+        relatedId: `${record.id}:result`,
       });
     }
 
