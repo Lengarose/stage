@@ -8,10 +8,14 @@ function loadMatchRouterWithDbMock(executesql, serviceMock = {}) {
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
+  const matchNotificationServicePath = path.resolve(__dirname, '../../services/matchNotificationService.js');
+  const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
 
   delete require.cache[controllerPath];
   delete require.cache[servicePath];
   delete require.cache[modelPath];
+  delete require.cache[matchNotificationServicePath];
+  delete require.cache[messageDeliveryServicePath];
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,

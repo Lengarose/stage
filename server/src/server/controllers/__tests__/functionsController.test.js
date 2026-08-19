@@ -10,6 +10,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const clubOperationsServicePath = path.resolve(__dirname, '../../services/clubOperationsService.js');
   const clubContactServicePath = path.resolve(__dirname, '../../services/clubContactService.js');
   const messageDeliveryServicePath = path.resolve(__dirname, '../../services/messageDeliveryService.js');
+  const matchNotificationServicePath = path.resolve(__dirname, '../../services/matchNotificationService.js');
   const contractRulesServicePath = path.resolve(__dirname, '../../services/contractRulesService.js');
   const transferWindowServicePath = path.resolve(__dirname, '../../services/transferWindowService.js');
   const playerLoanServicePath = path.resolve(__dirname, '../../services/playerLoanService.js');
@@ -27,6 +28,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[clubOperationsServicePath];
   delete require.cache[clubContactServicePath];
   delete require.cache[messageDeliveryServicePath];
+  delete require.cache[matchNotificationServicePath];
   delete require.cache[contractRulesServicePath];
   delete require.cache[transferWindowServicePath];
   delete require.cache[playerLoanServicePath];

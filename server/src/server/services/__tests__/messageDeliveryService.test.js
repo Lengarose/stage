@@ -72,6 +72,7 @@ test('messageTypeToNotificationType maps inbox messages to notification categori
   const { service } = loadMessageDeliveryServiceWithDbMock(async () => []);
 
   assert.equal(service.messageTypeToNotificationType('match_invite'), 'match_reminder');
+  assert.equal(service.messageTypeToNotificationType('league_schedule'), 'match_reminder');
   assert.equal(service.messageTypeToNotificationType('contract_offer'), 'contract_offer');
   assert.equal(service.messageTypeToNotificationType('loan_proposal'), 'loan_offer');
   assert.equal(service.messageTypeToNotificationType('loan_recalled'), 'loan_offer');
@@ -80,6 +81,9 @@ test('messageTypeToNotificationType maps inbox messages to notification categori
   assert.equal(service.messageTypeToNotificationType('club_invite'), 'club_update');
   assert.equal(service.messageTypeToNotificationType('announcement'), 'announcement');
   assert.equal(service.messageTypeToNotificationType('unknown'), 'message');
+  assert.equal(service.getNotificationSettingKey('match_result_requested'), 'match_results');
+  assert.equal(service.getNotificationSettingKey('match_disputed'), 'match_results');
+  assert.equal(service.getNotificationSettingKey('match_completed'), 'match_results');
 });
 
 test('deliverPlayerLoanOffer names both clubs, dates, fee, and wage split for the player', async () => {
