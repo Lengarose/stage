@@ -1048,18 +1048,16 @@ function resetUI() {
 
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
-            className="mt-4 inline-flex items-center gap-2 bg-black/35 px-4 py-2 text-xs font-heading uppercase tracking-[0.16em] text-white/55 ring-1 ring-white/10 transition-colors hover:text-white hover:ring-cyan-300/40"
-            style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
-            <ArrowLeft className="w-3.5 h-3.5" /> {t("tournamentDetail.backToTournaments")}
+            className="mt-4 inline-flex h-10 items-center gap-2 bg-black/25 px-4 font-heading text-xs font-black uppercase tracking-[0.16em] text-white/70 ring-1 ring-white/15 backdrop-blur-md transition-colors hover:bg-cyan-300/10 hover:text-white hover:ring-cyan-300/40"
+            style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
           </button>
 
-          <div className="grid gap-6 pb-10 pt-7 lg:grid-cols-[132px_minmax(0,1fr)_auto] lg:items-end">
+          <div className="grid gap-6 pb-10 pt-7 lg:grid-cols-[160px_minmax(0,1fr)_auto] lg:items-end">
             {tournament.trophy_url && (
-              <div className="relative hidden h-36 w-28 shrink-0 place-items-center bg-black/30 ring-1 ring-warning/25 sm:grid"
-                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-warning/20 via-transparent to-cyan-400/10" />
+              <div className="relative hidden h-40 w-36 shrink-0 place-items-center sm:grid">
                 <img src={tournament.trophy_url} alt="Trophy"
-                  className="relative h-24 w-24 object-contain drop-shadow-[0_0_24px_rgba(251,191,36,0.8)]" />
+                  className="relative h-36 w-36 object-contain drop-shadow-[0_0_26px_rgba(255,255,255,0.35)]" />
               </div>
             )}
 
@@ -1125,11 +1123,11 @@ function resetUI() {
                 const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
                     <Button onClick={() => setClubRegistrationOpen(true)} disabled={!takeoverClub && !canAfford}
-                      className="h-14 min-w-[min(100%,360px)] rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-6 font-heading text-base font-black uppercase tracking-wide text-white shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:from-cyan-400 hover:to-blue-400 disabled:opacity-45"
-                      style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+                      className="h-11 min-w-[min(100%,280px)] rounded-none border-0 bg-black/28 px-5 font-heading text-xs font-black uppercase tracking-[0.14em] text-white/85 ring-1 ring-cyan-300/25 backdrop-blur-md transition-colors hover:bg-cyan-300/10 hover:text-white hover:ring-cyan-300/45 disabled:opacity-45"
+                      style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                       <Shield className="w-4 h-4 mr-2" />
                       {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
-                      <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
+                      <span className="ml-1 text-[10px] text-cyan-100/55">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
                     </Button>
                 );
               })()}
@@ -1320,23 +1318,27 @@ function resetUI() {
       )}
 
       {/* ── TAB NAVIGATION ────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-cyan-300/10 bg-[#050b14]/95 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#050b14]/95 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className="flex gap-2 overflow-x-auto py-3">
+          <div className="flex min-w-max items-center gap-6 overflow-x-auto pt-4">
             {tabs.map(tab => (
               <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)}
                 className={cn(
-                  "relative shrink-0 px-4 py-2 font-heading text-[11px] font-black uppercase tracking-[0.18em] transition-all whitespace-nowrap",
+                  "relative shrink-0 pb-3 pt-1 font-heading text-[11px] font-black uppercase tracking-[0.16em] transition-colors whitespace-nowrap",
                   activeTab === tab.value
-                    ? tab.danger ? "bg-red-400/10 text-red-200 ring-1 ring-red-300/30" : "bg-cyan-300/12 text-white ring-1 ring-cyan-300/25"
+                    ? tab.danger ? "text-red-200" : "text-cyan-100"
                     : tab.danger
-                      ? "text-red-200/60 hover:text-red-100"
-                      : "text-white/38 hover:bg-cyan-300/5 hover:text-white/80"
-                )}
-                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                      ? "text-red-200/45 hover:text-red-100"
+                      : "text-white/45 hover:text-white/75"
+                )}>
                 {tab.label}
-                {activeTab === tab.value && !tab.danger && (
-                  <span className="absolute inset-x-3 bottom-0 h-px bg-cyan-200/90" />
+                {activeTab === tab.value && (
+                  <span className={cn(
+                    "absolute inset-x-0 -bottom-px h-[2px]",
+                    tab.danger
+                      ? "bg-gradient-to-r from-red-300 via-red-200 to-transparent"
+                      : "bg-gradient-to-r from-cyan-300 via-blue-400 to-transparent"
+                  )} />
                 )}
               </button>
             ))}
