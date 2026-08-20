@@ -11,8 +11,6 @@ export const ADMIN_SECTION_ALIASES = {
   clubs: "clubs",
   lifestyles: "lifestyles",
   transfers: "transfers",
-  "press-conferences": "press-conferences",
-  pressconferences: "press-conferences",
   matches: "disputes",
   notifications: "news",
   inbox: "forfeits",

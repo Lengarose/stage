@@ -11,7 +11,6 @@ import {
   fetchTournamentMatches,
   generateTournamentDraw,
   initializeTournamentDraw,
-  notifyTournamentRegistration,
   officializeTournament,
   registerTournamentClub,
   registerTournamentPlayer,
@@ -33,7 +32,6 @@ import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
 import EditTournamentDialog from "../components/EditTournamentDialog";
 import PlayerRegistrantList from "../components/PlayerRegistrantList";
-import TournamentWinnerPressRoomDialog from "../components/TournamentWinnerPressRoomDialog";
 import { toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
@@ -73,6 +71,9 @@ export default function TournamentDetail() {
   const [forfeitProof, setForfeitProof] = useState("");
   const [registrationProofUrl, setRegistrationProofUrl] = useState("");
   const [uploadingRegistrationProof, setUploadingRegistrationProof] = useState(false);
+  const [clubRegistrationOpen, setClubRegistrationOpen] = useState(false);
+  const [eaClubName, setEaClubName] = useState("");
+  const [registeringClub, setRegisteringClub] = useState(false);
   const registrationProofInputRef = useRef(null);
   const registrationProofInputId = useId();
 
@@ -193,8 +194,6 @@ export default function TournamentDetail() {
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [visibleRound, setVisibleRound] = useState(null);
-  const [winnerPressRoomOpen, setWinnerPressRoomOpen] = useState(false);
-  const [winnerConferenceDone, setWinnerConferenceDone] = useState(false);
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
   const [autoAdvancingRound, setAutoAdvancingRound] = useState(false);
@@ -243,12 +242,6 @@ export default function TournamentDetail() {
         setTournamentEntryCost(u?.role === "admin" ? 0 : getTournamentEntryCost());
         setIsAdmin(u?.role === "admin");
         setIsCreator(Boolean(u?.email && t?.creator_email === u.email));
-        if (t?.status === 'completed' && t?.winner_club_id) {
-          const existingConfs = await stageClient.entities.PressConference
-            .filter({ match_id: t.id })
-            .catch(() => []);
-          setWinnerConferenceDone(existingConfs.some(c => c.context === 'tournament_winner'));
-        }
         if (u?.role === "admin") {
           const tcId = localStorage.getItem('admin_takeover_club_id');
           if (tcId) {
@@ -366,6 +359,11 @@ export default function TournamentDetail() {
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
     if (!effectiveId || !tournament) return;
+    const cleanEaClubName = eaClubName.trim();
+    if (!cleanEaClubName) {
+      await swalAlert("Enter your EA FC Pro Clubs name so admins can verify your club.");
+      return;
+    }
     if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
       await swalAlert(t("tournamentDetail.registrationClosedPast"));
       return;
@@ -373,10 +371,6 @@ export default function TournamentDetail() {
     const current = tournament.registered_clubs || [];
     if (current.includes(effectiveId)) return;
     if (current.length >= tournament.max_teams) return;
-    if (!registrationProofUrl) {
-      await swalAlert(t("tournamentDetail.uploadProClubPhoto"));
-      return;
-    }
     
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
@@ -404,8 +398,9 @@ export default function TournamentDetail() {
     }
 
     // Lock both credits and STC
+    setRegisteringClub(true);
     try {
-      const res = await registerTournamentClub(tournament.id, effectiveId, registrationProofUrl);
+      const res = await registerTournamentClub(tournament.id, effectiveId, { eaClubName: cleanEaClubName });
       
       if (!res.data.success) {
         await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
@@ -422,19 +417,26 @@ export default function TournamentDetail() {
         setUser((prev) => (prev ? { ...prev, credits: new_user_credits } : prev));
       }
 
-      const updated = [...current, effectiveId];
-      setTournament(prev => ({ ...prev, registered_clubs: updated }));
+      const refreshedTournament = await fetchTournamentPublic(tournament.id).catch(() => null);
+      const updated = refreshedTournament?.registered_clubs || res.data.registered_clubs || current;
+      if (refreshedTournament) {
+        setTournament(refreshedTournament);
+      } else {
+        setTournament(prev => ({ ...prev, registered_clubs: updated }));
+      }
       setClubs(allClubs.filter(c => updated.includes(c.id)));
 
-      // Notify all club players about registration
-      notifyTournamentRegistration(tournament.id, effectiveId).catch(() => {});
-
-      if (updated.length >= tournament.max_teams) {
+      if (res.data.pending_review) {
+        await swalAlert("Registration submitted. Admin will review the EA FC club name before your club appears in the tournament.");
+      } else if (updated.length >= tournament.max_teams) {
         await swalAlert(t("tournamentDetail.tournamentFull"));
       }
-      setRegistrationProofUrl("");
+      setEaClubName("");
+      setClubRegistrationOpen(false);
     } catch (err) {
       await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
+    } finally {
+      setRegisteringClub(false);
     }
   }
 
@@ -926,6 +928,10 @@ function resetUI() {
   const effectiveClub = takeoverClub || myClub || allClubs.find(c => c.id === myPlayer?.club_id) || null;
   const effectiveClubId = effectiveClub?.id || null;
   const myClubRegistered = tournament.registered_clubs?.includes(effectiveClubId);
+  const clubRegistrationProofs = tournament.registration_proofs?.club || {};
+  const myClubRegistrationProof = effectiveClubId ? clubRegistrationProofs[String(effectiveClubId)] : null;
+  const myClubRegistrationStatus = String(myClubRegistrationProof?.status || "").toLowerCase();
+  const myClubRegistrationPending = myClubRegistrationStatus === "pending";
   const myPlayerRegistered = tournament.registered_players?.includes(myPlayer?.id);
   const registeredCount = isPlayerTournament
     ? (tournament.registered_players?.length || 0)
@@ -1101,23 +1107,27 @@ function resetUI() {
             </div>
 
             <div className="shrink-0 flex flex-col gap-2 items-stretch sm:items-end">
-              {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !isFull && (() => {
+              {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !myClubRegistrationPending && !isFull && (() => {
                 const clubData = effectiveClub;
                 const entryCost = tournament.entry_credits ?? 50;
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
-                  <>
-                    {renderRegistrationProofUpload("club")}
-                    <Button onClick={registerClub} disabled={uploadingRegistrationProof || !registrationProofUrl || (!takeoverClub && !canAfford)}
+                    <Button onClick={() => setClubRegistrationOpen(true)} disabled={!takeoverClub && !canAfford}
                       className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
                       <Shield className="w-4 h-4 mr-2" />
                       {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
                       <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
                     </Button>
-                  </>
                 );
               })()}
+
+              {!isPlayerTournament && myClubRegistrationPending && tournament.status === "registration" && (
+                <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning shadow-lg">
+                  <span className="font-black uppercase tracking-wider">Pending admin approval</span>
+                  <p className="mt-1 text-warning/75">Your EA FC club name is waiting for verification.</p>
+                </div>
+              )}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <>
@@ -1274,12 +1284,6 @@ function resetUI() {
               </h2>
               {winnerPoints !== null && <p className="text-xs text-warning/55">{t("tournamentDetail.pointsPlatform", { points: winnerPoints, platform: winnerClub.platform })}</p>}
             </div>
-            {(winnerClub.owner_email === user?.email || (takeoverClub && takeoverClub.id === tournament.winner_club_id)) && !winnerConferenceDone && (
-              <Button type="button" onClick={() => setWinnerPressRoomOpen(true)} size="sm"
-                className="shrink-0 bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 text-xs">
-                🎙️ {t("tournamentDetail.pressConference")}
-              </Button>
-            )}
           </div>
         </div>
       )}
@@ -1708,16 +1712,6 @@ function resetUI() {
       {/* ── DIALOGS (all unchanged) ────────────────────── */}
       <MatchStatsModal match={statsMatch} open={statsModalOpen} onClose={() => { setStatsModalOpen(false); setStatsMatch(null); }} />
 
-      {winnerPressRoomOpen && winnerClub && (
-        <TournamentWinnerPressRoomDialog
-          open={winnerPressRoomOpen}
-          onClose={() => { setWinnerPressRoomOpen(false); setWinnerConferenceDone(true); }}
-          tournament={tournament}
-          winnerClub={winnerClub}
-          user={user}
-        />
-      )}
-
       <Dialog open={rulesModalOpen} onOpenChange={setRulesModalOpen}>
         <DialogContent className="bg-card border-border max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -1737,6 +1731,59 @@ function resetUI() {
                 <Download className="w-4 h-4" /> Download Rules Document
               </a>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clubRegistrationOpen} onOpenChange={(open) => {
+        setClubRegistrationOpen(open);
+        if (!open) setEaClubName("");
+      }}>
+        <DialogContent className="border-white/10 bg-[#070c14] text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl font-black uppercase tracking-wide text-white">
+              Register Your Club
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Admin verification</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                Enter the exact EA FC Pro Clubs name your team uses in-game. Admin will use it to verify that your club exists before approving this entry.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.16em] text-white/45">
+                EA FC Pro Clubs name
+              </label>
+              <Input
+                value={eaClubName}
+                onChange={(event) => setEaClubName(event.target.value)}
+                placeholder="e.g. The Hooded F.C."
+                className="border-white/15 bg-white/10 text-white placeholder:text-white/30"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-warning/20 bg-warning/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Credits</p>
+                <p className="font-heading text-2xl font-black text-warning">{tournament.entry_credits ?? 50}</p>
+              </div>
+              <div className="rounded-xl border border-success/20 bg-success/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Club STC</p>
+                <p className="font-heading text-2xl font-black text-success">{(tournament.entry_fee_stc ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
+            <p className="text-xs leading-relaxed text-white/45">
+              Your registration will be reviewed by admin. If it is approved, your club can continue into tournament preparation and fixtures.
+            </p>
+            <Button
+              type="button"
+              onClick={registerClub}
+              disabled={registeringClub || !eaClubName.trim()}
+              className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              {registeringClub ? "Registering..." : "Submit Registration"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

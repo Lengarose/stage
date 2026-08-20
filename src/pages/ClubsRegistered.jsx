@@ -1,13 +1,38 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
-import { ArrowLeft, Shield, Search, Users, Check, Save } from "lucide-react";
+import { reviewTournamentClubRegistration, setAdminTournamentClubs } from "@/api/tournamentActions";
+import { ArrowLeft, Shield, Search, Users, Check, Save, X, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { swalAlert } from "@/lib/swal";
+import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
+
+function parseJsonList(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (!value) return [];
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseRegistrationProofs(value) {
+  if (!value) return { club: {}, player: {} };
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return {
+      club: parsed?.club && typeof parsed.club === "object" ? parsed.club : {},
+      player: parsed?.player && typeof parsed.player === "object" ? parsed.player : {},
+    };
+  } catch {
+    return { club: {}, player: {} };
+  }
+}
 
 export default function ClubsRegistered({ overrideTournamentId } = {}) {
   const { t } = useTranslation();
@@ -22,24 +47,31 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
   const [search, setSearch] = useState("");
   const [filterRegion, setFilterRegion] = useState("all");
   const [page, setPage] = useState(1);
+  const [reviewing, setReviewing] = useState("");
   const PAGE_SIZE = 50;
 
-  useEffect(() => {
-    async function load() {
-      const [tData, clubs] = await Promise.all([
-        stageClient.entities.Tournament.filter({ id }, null, 1),
-        stageClient.entities.Club.list("-wins", 200),
-      ]);
-      const t = tData[0];
-      setTournament(t);
-      setAllClubs(clubs);
-      if (t?.registered_clubs?.length > 0) {
-        setSelected(new Set(t.registered_clubs));
-      }
-      setLoading(false);
-    }
-    load();
+  const load = useCallback(async () => {
+    const [tData, clubs] = await Promise.all([
+      stageClient.entities.Tournament.filter({ id }, null, 1),
+      stageClient.entities.Club.list("-wins", 200),
+    ]);
+    const rawTournament = tData[0];
+    const t = rawTournament
+      ? {
+          ...rawTournament,
+          registered_clubs: parseJsonList(rawTournament.registered_clubs),
+          registration_proofs: parseRegistrationProofs(rawTournament.registration_proofs),
+        }
+      : null;
+    setTournament(t);
+    setAllClubs(clubs);
+    setSelected(new Set(t?.registered_clubs || []));
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const maxTeams = tournament?.max_teams || 0;
   const isFull = selected.size >= maxTeams;
@@ -59,10 +91,57 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
 
   async function save() {
     setSaving(true);
-    await stageClient.entities.Tournament.update(id, { registered_clubs: [...selected] });
-    setTournament(prev => ({ ...prev, registered_clubs: [...selected] }));
-    setSaving(false);
-    await swalAlert(t("commonPages.crSaved"));
+    try {
+      const result = await setAdminTournamentClubs(id, [...selected]);
+      if (!result?.data?.success) {
+        throw new Error(result?.data?.error || "Could not save tournament clubs");
+      }
+      await load();
+      await swalAlert([
+        t("commonPages.crSaved"),
+        result.data.added ? `${result.data.added} admin-selected club(s) processed.` : null,
+        result.data.seeded_tournament_availability ? `${result.data.seeded_tournament_availability} tournament availability row(s) prepared.` : null,
+        result.data.seeded_dressing_rooms ? `${result.data.seeded_dressing_rooms} dressing room(s) prepared.` : null,
+      ].filter(Boolean).join("\n"));
+    } catch (err) {
+      await swalAlert(err?.message || "Could not save tournament clubs");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reviewPendingRegistration(clubId, action) {
+    const club = allClubs.find((item) => String(item.id) === String(clubId));
+    let reason = "";
+    if (action === "decline") {
+      reason = await swalPrompt(`Why are you declining ${club?.name || "this club"}?`, {
+        title: "Decline registration",
+        placeholder: "Optional admin note",
+        confirmText: "Decline",
+      });
+      if (reason === null) return;
+    } else {
+      const ok = await swalConfirm(`Approve ${club?.name || "this club"} for ${tournament?.name}?`, {
+        title: "Approve registration",
+        confirmText: "Approve",
+        icon: "question",
+      });
+      if (!ok) return;
+    }
+
+    setReviewing(`${action}:${clubId}`);
+    try {
+      const result = await reviewTournamentClubRegistration(id, clubId, action, reason);
+      if (!result?.data?.success) {
+        throw new Error(result?.data?.error || "Registration review failed");
+      }
+      await load();
+      await swalAlert(action === "approve" ? "Club registration approved." : "Club registration declined.");
+    } catch (err) {
+      await swalAlert(err?.message || "Registration review failed");
+    } finally {
+      setReviewing("");
+    }
   }
 
   const regions = [...new Set(allClubs.map(c => c.region).filter(Boolean))];
@@ -76,6 +155,8 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
 
   const paginated = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginated.length < filtered.length;
+  const pendingClubProofs = Object.values(tournament?.registration_proofs?.club || {})
+    .filter((proof) => String(proof?.status || "").toLowerCase() === "pending");
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -107,6 +188,68 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
         <div className="mb-4 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium">
           {t("commonPages.crTournamentFull", { max: maxTeams })}
         </div>
+      )}
+
+      {pendingClubProofs.length > 0 && (
+        <section className="mb-6 rounded-2xl border border-warning/25 bg-warning/5 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-lg font-black uppercase tracking-wide text-foreground">Pending club registrations</h2>
+              <p className="text-xs text-muted-foreground">Review EA FC club names before clubs enter the tournament field.</p>
+            </div>
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-warning">
+              {pendingClubProofs.length} pending
+            </span>
+          </div>
+          <div className="space-y-3">
+            {pendingClubProofs.map((proof) => {
+              const club = allClubs.find((item) => String(item.id) === String(proof.participant_id));
+              const clubId = proof.participant_id;
+              return (
+                <div key={clubId} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/25 bg-primary/10">
+                      {club?.logo_url
+                        ? <img src={club.logo_url} alt={club.name} className="h-full w-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                        : <Shield className="h-4 w-4 text-primary" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-foreground">{club?.name || "Unknown club"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        EA FC: <span className="font-semibold text-warning">{proof.ea_club_name || "Not provided"}</span>
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Submitted {proof.submitted_at ? new Date(proof.submitted_at).toLocaleString() : "recently"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => reviewPendingRegistration(clubId, "approve")}
+                      disabled={Boolean(reviewing)}
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                    >
+                      <Check className="mr-1.5 h-4 w-4" /> Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => reviewPendingRegistration(clubId, "decline")}
+                      disabled={Boolean(reviewing)}
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="mr-1.5 h-4 w-4" /> Decline
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Filters */}

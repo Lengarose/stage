@@ -199,6 +199,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [tournamentMatches, setTournamentMatches] = useState([]);
+  const [clubTournamentRegistrations, setClubTournamentRegistrations] = useState([]);
   const [fixtureAvailabilityRows, setFixtureAvailabilityRows] = useState([]);
   const [fixtureMatchStatRows, setFixtureMatchStatRows] = useState([]);
   const [clubContracts, setClubContracts] = useState([]);
@@ -264,13 +265,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
         const { player: resolvedPlayer = null, presidentClub = null } = await resolveMyPlayerAndClub().catch(() => ({}));
         const myPlResolved = asObject(resolvedPlayer);
-        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, playerStatRows] = await Promise.all([
+        const [clubRecordRaw, initialPlayerRows, staffRoleRows, contractRows, availabilityRows, playerStatRows, tournamentRows] = await Promise.all([
           stageClient.entities.Club.get(id).catch(() => null),
           stageClient.entities.Player.filter({ club_id: id }).catch(() => []),
           stageClient.entities.ClubStaffRole.filter({ club_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.PlayerContract.filter({ team_id: id }, "-created_date", 200).catch(() => []),
           stageClient.entities.ClubFixtureAvailability.filter({ club_id: id }, "-updated_date", 300).catch(() => []),
           stageClient.entities.MatchPlayerStat.filter({ club_id: id }, "-created_date", 1000).catch(() => []),
+          stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
         ]);
 
         const c = asObject(clubRecordRaw);
@@ -390,7 +392,9 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         : [];
       setFixtureMatchStatRows(fixtureStatResults.flatMap((rows) => asObjectArray(rows)));
       setMatches(allMatches);
-      setTournamentMatches([...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0)));
+      const scheduledTournamentMatches = [...tmHome, ...tmAway].sort((a, b) => new Date(a.scheduled_date || 0) - new Date(b.scheduled_date || 0));
+      setTournamentMatches(scheduledTournamentMatches);
+      setClubTournamentRegistrations(buildClubTournamentRegistrationFixtures(tournamentRows, id, scheduledTournamentMatches));
 
       if (myPl.length > 0) {
         const mine = myPl[0];
@@ -807,6 +811,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const { selectable: selectablePlayers, onLoan: onLoanPlayers } = splitSquadByLoan(safePlayers);
   const safeMatches = asObjectArray(matches);
   const safeTournamentMatches = asObjectArray(tournamentMatches);
+  const safeClubTournamentRegistrations = asObjectArray(clubTournamentRegistrations);
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeClubChatMessages = asObjectArray(clubChatMessages);
   const safeFixtureAvailabilityRows = asObjectArray(fixtureAvailabilityRows);
@@ -1177,14 +1182,17 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
             <ClubFixturesPanel
               clubId={id}
               clubPlayers={safePlayers}
-                myPlayer={myPlayer}
+              myPlayer={myPlayer}
+              currentUser={currentUser}
               canSetAvailability={isMember}
               canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
               availabilityRows={safeFixtureAvailabilityRows}
               matchPlayerStats={safeFixtureMatchStatRows}
               onAvailabilityRowsChange={setFixtureAvailabilityRows}
+              onUserCreditsChange={(credits) => setCurrentUser((prev) => prev ? { ...prev, credits } : prev)}
               matches={safeMatches}
               tournamentMatches={safeTournamentMatches}
+              tournamentRegistrationFixtures={safeClubTournamentRegistrations}
               t={t}
               />
             </TabsContent>
@@ -2091,24 +2099,97 @@ const FIXTURE_AVAILABILITY_LABELS = {
   no_response: "No Response",
 };
 
+function parseFixtureJsonList(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (!value) return [];
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseFixtureJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function tournamentAvailabilityFixtureId(tournamentId, clubId) {
+  const tournamentPart = String(tournamentId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+  const clubPart = String(clubId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+  return `t:${tournamentPart}:${clubPart}`.slice(0, 36);
+}
+
+function buildClubTournamentRegistrationFixtures(tournaments, clubId, tournamentMatches = []) {
+  const realTournamentIds = new Set(
+    asObjectArray(tournamentMatches)
+      .filter((match) => String(match.home_club_id || "") === String(clubId) || String(match.away_club_id || "") === String(clubId))
+      .map((match) => String(match.tournament_id || ""))
+      .filter(Boolean)
+  );
+
+  return asObjectArray(tournaments)
+    .filter((tournament) => {
+      if (!tournament?.id || realTournamentIds.has(String(tournament.id))) return false;
+      const registered = parseFixtureJsonList(tournament.registered_clubs);
+      return registered.includes(String(clubId));
+    })
+    .map((tournament) => {
+      const proofs = parseFixtureJsonObject(tournament.registration_proofs);
+      const proof = proofs?.club?.[String(clubId)] || {};
+      if (proof.status && String(proof.status).toLowerCase() !== "approved") return null;
+      return {
+        id: tournamentAvailabilityFixtureId(tournament.id, clubId),
+        _fixtureType: "tournament_registration",
+        fixture_type: "tournament_registration",
+        event_type: "Tournament",
+        status: tournament.status === "registration" ? "registered" : (tournament.status || "registered"),
+        tournament_id: tournament.id,
+        tournament_name: tournament.name,
+        competition_name: tournament.name,
+        scheduled_date: tournament.start_date,
+        match_date: tournament.start_date,
+        home_club_id: clubId,
+        home_club_name: "Your club",
+        away_club_name: "Tournament field",
+        registration_submitted_by_user_id: proof.submitted_by_user_id || null,
+        tournament_entry_credits: Number(tournament.entry_credits ?? 50),
+        tournament_banner_url: tournament.banner_url || null,
+        tournament_prize_pool_stc: tournament.prize_pool_stc || 0,
+        tournament_trophy_url: tournament.trophy_url || null,
+      };
+    })
+    .filter(Boolean);
+}
+
 function ClubFixturesPanel({
   clubId,
   clubPlayers = [],
   myPlayer,
+  currentUser,
   canSetAvailability = false,
   canViewTeamAvailability = false,
   availabilityRows = [],
   matchPlayerStats = [],
   onAvailabilityRowsChange,
+  onUserCreditsChange,
   matches = [],
   tournamentMatches = [],
+  tournamentRegistrationFixtures = [],
   t,
 }) {
   const [busyAvailability, setBusyAvailability] = useState(null);
   const [expandedResponses, setExpandedResponses] = useState({});
   const [availabilityError, setAvailabilityError] = useState(null);
   const fixturesById = new Map();
-  for (const fixture of [...asObjectArray(matches), ...asObjectArray(tournamentMatches)]) {
+  for (const fixture of [...asObjectArray(matches), ...asObjectArray(tournamentMatches), ...asObjectArray(tournamentRegistrationFixtures)]) {
     if (!fixture?.id) continue;
     if (fixture.home_club_id !== clubId && fixture.away_club_id !== clubId) continue;
     const existing = fixturesById.get(fixture.id) || {};
@@ -2126,17 +2207,31 @@ function ClubFixturesPanel({
     setAvailabilityError(null);
     const existing = (availabilityByFixture.get(String(fixture.id)) || [])
       .find((row) => String(row.player_id) === String(myPlayer.id));
-    const body = {
-      club_id: clubId,
-      fixture_id: fixture.id,
-      fixture_type: fixture._fixtureType || fixture.fixture_type || "match",
-      player_id: myPlayer.id,
-      status,
-    };
     try {
-      const saved = existing
-        ? await stageClient.http.patch(`/club-fixture-availabilities/${existing.id}`, body)
-        : await stageClient.http.post("/club-fixture-availabilities", body);
+      let saved = null;
+      if (fixture._fixtureType === "tournament_registration") {
+        const result = await stageClient.functions.invoke("tournamentClubAvailability", {
+          tournament_id: fixture.tournament_id,
+          club_id: clubId,
+          status,
+        });
+        if (!result?.data?.success) {
+          throw new Error(result?.data?.error || "Could not update tournament availability.");
+        }
+        saved = result.data.row;
+        if (result.data.credits_after != null) onUserCreditsChange?.(result.data.credits_after);
+      } else {
+        const body = {
+          club_id: clubId,
+          fixture_id: fixture.id,
+          fixture_type: fixture._fixtureType || fixture.fixture_type || "match",
+          player_id: myPlayer.id,
+          status,
+        };
+        saved = existing
+          ? await stageClient.http.patch(`/club-fixture-availabilities/${existing.id}`, body)
+          : await stageClient.http.post("/club-fixture-availabilities", body);
+      }
       if (saved?.id) {
         onAvailabilityRowsChange?.((prev) => {
           const rows = asObjectArray(prev).filter((row) => row.id !== saved.id);
@@ -2162,12 +2257,13 @@ function ClubFixturesPanel({
           <p className="text-sm text-white/45">No fixtures found.</p>
         </section>
       ) : grouped.map((group) => (
-        <FixtureGroup
+          <FixtureGroup
           key={group.key}
           group={group}
           clubId={clubId}
           clubPlayers={clubPlayers}
           myPlayer={myPlayer}
+          currentUser={currentUser}
           canSetAvailability={canSetAvailability}
           canViewTeamAvailability={canViewTeamAvailability}
           availabilityByFixture={availabilityByFixture}
@@ -2395,6 +2491,7 @@ function FixtureGroup({
   clubId,
   clubPlayers,
   myPlayer,
+  currentUser,
   canSetAvailability,
   canViewTeamAvailability,
   availabilityByFixture,
@@ -2433,6 +2530,7 @@ function FixtureGroup({
             clubId={clubId}
             clubPlayers={clubPlayers}
             myPlayer={myPlayer}
+            currentUser={currentUser}
             canSetAvailability={canSetAvailability}
             canViewTeamAvailability={canViewTeamAvailability}
             availabilityRows={availabilityByFixture.get(String(fixture.id)) || []}
@@ -2456,6 +2554,7 @@ function FixtureRow({
   clubId,
   clubPlayers,
   myPlayer,
+  currentUser,
   canSetAvailability,
   canViewTeamAvailability,
   availabilityRows,
@@ -2487,6 +2586,9 @@ function FixtureRow({
   const statusLabel = fixture.status || "scheduled";
   const goalTimeline = completed ? buildFixtureGoalTimeline(fixture, playerById, matchStats) : [];
   const currentSide = isHome ? "home" : "away";
+  const isTournamentRegistrationFixture = fixture._fixtureType === "tournament_registration";
+  const tournamentAvailabilityCost = Number(fixture.tournament_entry_credits ?? 50);
+  const registrationSubmitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "");
 
   return (
     <article className="relative overflow-hidden border border-white/10 bg-black/24 p-3 sm:p-4">
@@ -2519,11 +2621,16 @@ function FixtureRow({
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
           <div className="min-w-0">
+            {isTournamentRegistrationFixture ? (
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#f5c542]">Tournament approved</p>
+            ) : null}
             <p className="break-words font-heading text-xl font-black uppercase leading-tight text-white">
-              {clubName || "Your club"}
+              {isTournamentRegistrationFixture ? eventName : (clubName || "Your club")}
               {clubTag ? <span className="ml-2 text-sm text-white/45">[{clubTag}]</span> : null}
             </p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">{isHome ? "Hosting" : "Travelling"}</p>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">
+              {isTournamentRegistrationFixture ? "Tournament preparation" : (isHome ? "Hosting" : "Travelling")}
+            </p>
           </div>
 
           <div className="flex justify-start md:justify-center">
@@ -2538,10 +2645,10 @@ function FixtureRow({
                     <span className="opacity-80">-</span>
                     <span>{theirs}</span>
                   </span>
-                ) : "VS"}
+                ) : isTournamentRegistrationFixture ? "READY" : "VS"}
               </p>
               <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
-              {hasScore ? "Score" : "Fixture"}
+              {hasScore ? "Score" : isTournamentRegistrationFixture ? "Awaiting fixtures" : "Fixture"}
             </p>
               {goalTimeline.length > 0 ? (
                 <GoalTimeline events={goalTimeline} currentSide={currentSide} />
@@ -2551,10 +2658,12 @@ function FixtureRow({
 
           <div className="min-w-0 md:text-right">
             <p className="break-words font-heading text-xl font-black uppercase leading-tight text-white">
-              {opponent || t("commonPages.cdCompetition")}
+              {isTournamentRegistrationFixture ? "Fixtures not generated yet" : (opponent || t("commonPages.cdCompetition"))}
               {opponentTag ? <span className="ml-2 text-sm text-white/45">[{opponentTag}]</span> : null}
             </p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">Opponent</p>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/38">
+              {isTournamentRegistrationFixture ? "Waiting for admin draw" : "Opponent"}
+            </p>
           </div>
         </div>
       </div>
@@ -2564,6 +2673,13 @@ function FixtureRow({
           {showMemberControls ? (
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/45">My availability</p>
+              {isTournamentRegistrationFixture ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-white/42">
+                  {registrationSubmitterExempt
+                    ? "Your club entry is already paid by you. No extra credits are taken here."
+                    : `Available for this tournament costs ${tournamentAvailabilityCost} credits once.`}
+                </p>
+              ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="border border-cyan-300/20 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/75">
                   {FIXTURE_AVAILABILITY_LABELS[myStatus] || myStatus}

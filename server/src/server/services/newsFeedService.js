@@ -264,7 +264,6 @@ function playerStoryKind(item = {}) {
 
 function dailyStoryKind(item = {}) {
   const cat = String(item.category || item.type || '').toLowerCase();
-  if (cat === 'press_conference' || String(item.id || '').startsWith('press_')) return 'press';
   if (cat === 'announcement' || cat === 'app_update') return 'announcement';
   return 'commentary';
 }
@@ -284,7 +283,7 @@ function storyBeat(item = {}) {
   if (['player_news', 'lifestyle', 'ranking', 'motm', 'achievement'].includes(cat)) return 'player_news';
   if (cat === 'tournament') return 'tournament';
   if (cat === 'competitions' || cat === 'league') return 'competitions';
-  if (['press_conference', 'announcement', 'general', 'app_update'].includes(cat)) return 'daily_news';
+  if (['announcement', 'general', 'app_update'].includes(cat)) return 'daily_news';
   if (['contracts', 'transfers'].includes(cat)) {
     const text = storyText(item);
     if (PLAYER_SIGNED_RE.test(text)) return 'player_news';

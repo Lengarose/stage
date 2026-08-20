@@ -10,7 +10,6 @@ import LeaguesTab from "@/components/admin/sections/LeaguesTab";
 import TournamentsTab from "@/components/admin/sections/TournamentsTab";
 import InternationalTournamentsTab from "@/components/admin/sections/InternationalTournamentsTab";
 import NewsTab from "@/components/admin/sections/NewsTab";
-import PressConferencesTab from "@/components/admin/sections/PressConferencesTab";
 import LifestylesTab from "@/components/admin/sections/LifestylesTab";
 import TransfersTab from "@/components/admin/sections/TransfersTab";
 import TrophiesTab from "@/components/admin/sections/TrophiesTab";
@@ -188,7 +187,6 @@ export default function Admin(props) {
   const [processingReg,     setProcessingReg]     = useState(false);
 
   const [adminProfile, setAdminProfile] = useState(null);
-  const [pressConferences, setPressConferences] = useState([]);
   const [lifestyleItems, setLifestyleItems] = useState([]);
 
   // Rewards tab
@@ -225,7 +223,7 @@ export default function Admin(props) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allPressConferences, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
+      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
         stageClient.entities.Player.list("-created_date", 100).catch(() => []),
         stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
@@ -238,7 +236,6 @@ export default function Admin(props) {
         (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
-        stageClient.entities.PressConference.list("-created_date", 200).catch(() => []),
         stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
       ]);
@@ -255,7 +252,6 @@ export default function Admin(props) {
       setQualEntries(allQual);
       setRegionalLeagues(allRegLeagues);
       setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
-      setPressConferences(allPressConferences);
       setLifestyleItems(allLifestyleItems);
       seedDefaultRewardConfigsForSources([
         ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
@@ -1187,23 +1183,6 @@ export default function Admin(props) {
     await swalAlert(t("admin.alerts.newsPosted"));
   }
 
-  async function seedPressQuestions() {
-    setSaving(true);
-    const existing = await stageClient.entities.PressQuestion.list(null, 1);
-    if (existing.length > 0) { await swalAlert(t("admin.alerts.pressQuestionsSeeded")); setSaving(false); return; }
-    const questions = [
-      { question: "How do you rate your team's performance today?", answer_a: "Outstanding — we gave 100%", answer_b: "Decent, but we can improve", answer_c: "Disappointing overall", answer_d: "The result doesn't reflect the game", category: "performance" },
-      { question: "What was the key moment of the match?", answer_a: "Our first goal changed everything", answer_b: "A great defensive block in the second half", answer_c: "The red card shifted the momentum", answer_d: "The penalty decision was crucial", category: "match" },
-      { question: "How do you assess your opponent?", answer_a: "Very tough and well-organized", answer_b: "We expected more from them", answer_c: "They surprised us with their tactics", answer_d: "Respect to them — fair game", category: "opponent" },
-      { question: "What's the message to your fans?", answer_a: "We play for you — thank you!", answer_b: "We'll work harder next time", answer_c: "Keep believing in us", answer_d: "Your support makes the difference", category: "fans" },
-      { question: "How are you preparing for the next match?", answer_a: "Full focus on recovery and analysis", answer_b: "We'll fix the tactical issues we saw today", answer_c: "Confidence is high after this result", answer_d: "One game at a time — that's our motto", category: "preparation" },
-      { question: "How would you describe the atmosphere in the dressing room?", answer_a: "Buzzing — everyone is pumped!", answer_b: "Calm and focused", answer_c: "Disappointed but determined", answer_d: "United — we face it together", category: "team" },
-    ];
-    await stageClient.entities.PressQuestion.bulkCreate(questions);
-    await swalAlert(t("admin.alerts.pressQuestionsSeedSuccess"));
-    setSaving(false);
-  }
-
   async function grantCredits() {
     if (!creditsDialog) return;
     setSaving(true);
@@ -1627,7 +1606,6 @@ export default function Admin(props) {
           {adminTab === "tournaments" && (
             <TournamentsTab
               setCreateTournamentOpen={setCreateTournamentOpen}
-              seedPressQuestions={seedPressQuestions}
               reseedLifestyle={reseedLifestyle}
               saving={saving}
               tournamentSearch={tournamentSearch}
@@ -1661,14 +1639,6 @@ export default function Admin(props) {
               setNewsImageFile={setNewsImageFile}
               uploadingNews={uploadingNews}
               postNews={postNews}
-            />
-          )}
-
-          {adminTab === "press-conferences" && (
-            <PressConferencesTab
-              pressConferences={pressConferences}
-              seedPressQuestions={seedPressQuestions}
-              saving={saving}
             />
           )}
 

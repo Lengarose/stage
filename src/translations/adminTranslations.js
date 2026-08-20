@@ -66,7 +66,6 @@ const adminTranslationsEn = {
     tournaments: "Tournaments",
     internationalTournaments: "International",
     news: "News",
-    pressConferences: "Press Conferences",
     lifestyles: "Lifestyles",
     transfers: "Transfers",
     trophies: "Trophies",
@@ -96,7 +95,6 @@ const adminTranslationsEn = {
     trophies: "Trophies",
     rewards: "Rewards",
     news: "News",
-    pressConferences: "Press Conferences",
     lifestyles: "LifeStyles",
     transfers: "Transfers",
     homePage: "Home Page",
@@ -762,10 +760,6 @@ const adminTranslationsEn = {
     stcAmount: "STC amount",
     stcWeek: "STC/week",
   },
-  pressConferences: {
-    noConferences: "No press conferences found.",
-    seedQuestions: "Seed Press Questions",
-  },
   transfers: {
     title: "Transfer Window",
     panelTitle: "Transfer Window Control",
@@ -1023,7 +1017,6 @@ const adminTranslationsFr = {
     tournaments: "Tournois",
     internationalTournaments: "International",
     news: "Actualités",
-    pressConferences: "Conférences de presse",
     lifestyles: "Lifestyles",
     transfers: "Transferts",
     trophies: "Trophées",
@@ -1053,7 +1046,6 @@ const adminTranslationsFr = {
     trophies: "Trophées",
     rewards: "Récompenses",
     news: "Actualités",
-    pressConferences: "Conférences de presse",
     lifestyles: "Lifestyles",
     transfers: "Transferts",
     homePage: "Page d'accueil",
@@ -1727,10 +1719,6 @@ const adminTranslationsFr = {
     ratePercent: "Taux %",
     stcAmount: "Montant STC",
     stcWeek: "STC/semaine",
-  },
-  pressConferences: {
-    noConferences: "Aucune conférence de presse.",
-    seedQuestions: "Initialiser les questions presse",
   },
   transfers: {
     title: "Mercato",

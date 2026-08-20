@@ -3,12 +3,11 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Target, Zap, MessageSquare, Mic, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
+import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayDressingRoom from "./GameDayDressingRoom";
-import GameDayPressRoom from "./GameDayPressRoom";
 import GameDayMatchChat from "./GameDayMatchChat";
 import GameDayMatchResult from "./GameDayMatchResult";
 import GameDayKickoffArena from "./GameDayKickoffArena";
@@ -227,11 +226,6 @@ export default function GameDayDetail({
   const date = parseDate(game.scheduled_date);
   const now = new Date();
   const minutesUntilMatch = date ? differenceInMinutes(date, now) : null;
-
-  // Press room: open 2h before kickoff AND during the match (not after completed)
-  const canAccessPressRoom =
-    (game.status === "scheduled" && minutesUntilMatch !== null && minutesUntilMatch <= 120) ||
-    game.status === "in_progress";
 
   const isLive = game.status === "in_progress";
   const isCompleted = game.status === "completed";
@@ -624,11 +618,6 @@ export default function GameDayDetail({
                 className="border-0"
               >
                 <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-white/10 bg-black/30 p-0">
-                  {isClubMatch && myClub && canAccessPressRoom && (
-                    <TabsTrigger value="press_room" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
-                      <Mic className="w-3.5 h-3.5" /> {t("matchFlow.pressRoom")}
-                    </TabsTrigger>
-                  )}
                   <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
                     <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
                     {chatUnread > 0 && (
@@ -646,12 +635,6 @@ export default function GameDayDetail({
                     </TabsTrigger>
                   )}
                 </TabsList>
-
-                {isClubMatch && myClub && canAccessPressRoom && (
-                  <TabsContent value="press_room" className="p-4">
-                    <GameDayPressRoom game={game} myClub={myClub} myPlayer={myPlayer} user={user} />
-                  </TabsContent>
-                )}
 
                 <TabsContent value="chat" className="p-4">
                   <GameDayMatchChat game={game} myClub={myClub} myPlayer={myPlayer} user={user} />

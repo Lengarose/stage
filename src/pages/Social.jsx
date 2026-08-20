@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useId} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { AlertCircle, Heart, MessageCircle, Plus, Image, Move, Send, X, Loader2, Mic, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
+import { AlertCircle, Heart, MessageCircle, Plus, Image, Move, Send, X, Loader2, Zap, Trophy, Megaphone, Star, BarChart3, Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -42,10 +42,9 @@ export default function Social() {
       const { user: u, player: myPl } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
       setUser(u);
-      const [postData, newsData, pressData, targetPost] = await Promise.all([
+      const [postData, newsData, targetPost] = await Promise.all([
         stageClient.entities.Post.list("-created_date", 30),
         stageClient.entities.NewsItem.list("-published_at", 10),
-        stageClient.entities.PressArticle.list("-published_at", 10),
         targetPostId ? stageClient.entities.Post.get(targetPostId).catch(() => null) : Promise.resolve(null),
       ]);
       const socialPosts = targetPost && !postData.some((post) => post.id === targetPost.id)
@@ -54,7 +53,6 @@ export default function Social() {
       const allPosts = [
         ...socialPosts.map(p => ({ ...p, _type: "post", _sortDate: p.created_date })),
         ...newsData.map(n => ({ ...n, _type: "news", _sortDate: n.published_at || n.created_date })),
-        ...pressData.map(a => ({ ...a, _type: "press", _sortDate: a.published_at })),
       ].sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0));
       setPosts(allPosts);
       if (myPl) setMyPlayer(myPl);
@@ -70,10 +68,7 @@ export default function Social() {
     const unsubNews = stageClient.entities.NewsItem.subscribe((event) => {
       if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "news", _sortDate: event.data.published_at || event.data.created_date }, ...prev]);
     });
-    const unsubPress = stageClient.entities.PressArticle.subscribe((event) => {
-      if (event.type === "create") setPosts(prev => [{ ...event.data, _type: "press", _sortDate: event.data.published_at || event.data.created_date }, ...prev]);
-    });
-    return () => { unsub(); unsubNews(); unsubPress(); };
+    return () => { unsub(); unsubNews(); };
   }, [targetPostId]);
 
   useEffect(() => {
@@ -251,7 +246,6 @@ export default function Social() {
           <div className="space-y-4">
             {posts.map(post => {
               if (post._type === "news") return <NewsPostCard key={"news_" + post.id} item={post} />;
-              if (post._type === "press") return <PressPostCard key={"press_" + post.id} item={post} />;
               return (
                 <div key={post.id} ref={(node) => {
                   if (node) postRefs.current.set(post.id, node);
@@ -325,7 +319,7 @@ function NewsPostCard({ item }) {
           </div>
           <span className="text-xs font-bold text-primary">STAGE</span>
           <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ml-auto", cfg.bg, cfg.color)}>
-            <Icon className="w-2.5 h-2.5" /> {t(`commonPages.${cfg.labelKey || "pressRoom"}`)}
+            <Icon className="w-2.5 h-2.5" /> {t(`commonPages.${cfg.labelKey || "announcement"}`)}
           </div>
         </div>
         <h3 className="font-bold text-foreground text-sm leading-snug">{item.title}</h3>
@@ -336,39 +330,6 @@ function NewsPostCard({ item }) {
   );
 }
 
-function PressPostCard({ item }) {
-  const { t } = useTranslation();
-  return (
-    <div className="bg-card border border-purple-500/20 rounded-2xl overflow-hidden">
-      {(item.photo_url || item.player_avatar_url) && (
-        <div className="h-36 w-full overflow-hidden relative">
-          <img src={item.photo_url || item.player_avatar_url} alt={item.headline} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-3 left-4">
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-500/40 text-purple-300 text-[10px] font-bold uppercase tracking-wider">
-              <Mic className="w-2.5 h-2.5" /> {t("commonPages.pressConference")}
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="p-4">
-        {!(item.photo_url || item.player_avatar_url) && (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-bold uppercase tracking-wider mb-2">
-            <Mic className="w-2.5 h-2.5" /> {t("commonPages.pressConference")}
-          </div>
-        )}
-        <div className="flex items-center gap-2 mb-2">
-          {item.player_avatar_url && <img src={item.player_avatar_url} alt={item.player_name} className="w-6 h-6 rounded-full object-cover border border-purple-500/30 shrink-0" />}
-          <span className="text-xs font-bold text-foreground">{item.player_name}</span>
-          {item.club_name && <span className="text-xs text-muted-foreground">· {item.club_name}</span>}
-          <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">{item.published_at ? new Date(item.published_at).toLocaleDateString() : ""}</span>
-        </div>
-        <h3 className="font-bold text-foreground text-sm leading-snug">{item.headline}</h3>
-        {item.quotes?.[0] && <p className="text-xs text-muted-foreground mt-1.5 italic line-clamp-2">"{item.quotes[0].answer}"</p>}
-      </div>
-    </div>
-  );
-}
 
 function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPostUpdated, onOpenPost, focusCommentId }) {
   const { t } = useTranslation();

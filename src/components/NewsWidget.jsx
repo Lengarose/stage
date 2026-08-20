@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
-import { Newspaper, Trophy, Star, Zap, BarChart3, Mic, Megaphone, ArrowRight, ChevronRight } from "lucide-react";
+import { Newspaper, Trophy, Star, Zap, BarChart3, Megaphone, ArrowRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TYPE_CONFIG = {
@@ -9,7 +9,6 @@ const TYPE_CONFIG = {
   achievement:      { label: "Achievement",     icon: Star,       color: "text-warning",   bg: "bg-warning/10 border-warning/20",   dot: "bg-warning" },
   app_update:       { label: "Update",          icon: Zap,        color: "text-primary",   bg: "bg-primary/10 border-primary/20",   dot: "bg-primary" },
   ranking:          { label: "Rankings",        icon: BarChart3,  color: "text-success",   bg: "bg-success/10 border-success/20",   dot: "bg-success" },
-  press_conference: { label: "Press Room",      icon: Mic,        color: "text-purple-400",bg: "bg-purple-500/10 border-purple-500/20", dot: "bg-purple-400" },
   announcement:     { label: "Announcement",   icon: Megaphone,  color: "text-primary",   bg: "bg-primary/10 border-primary/20",   dot: "bg-primary" },
 };
 
@@ -22,21 +21,8 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function mergeAndSort(newsItems, pressArticles) {
-  const fromPress = pressArticles.map(a => ({
-    id: "press_" + a.id,
-    type: "press_conference",
-    title: a.headline,
-    body: a.quotes?.[0] ? `"${a.quotes[0].answer}" — ${a.quotes[0].reporter_name}, ${a.quotes[0].outlet}` : "",
-    club_name: a.club_name,
-    club_logo_url: a.club_logo_url,
-    player_name: a.player_name,
-    player_avatar_url: a.player_avatar_url,
-    published_at: a.published_at,
-    link: "/news",
-    is_featured: false,
-  }));
-  return [...newsItems, ...fromPress]
+function mergeAndSort(newsItems) {
+  return [...newsItems]
     .sort((a, b) => new Date(b.published_at || b.created_date) - new Date(a.published_at || a.created_date));
 }
 
@@ -46,11 +32,8 @@ export default function NewsWidget() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      Promise.all([
-        stageClient.entities.NewsItem.list("-published_at", 20),
-        stageClient.entities.PressArticle.list("-published_at", 10),
-      ]).then(([news, press]) => {
-        setItems(mergeAndSort(news, press));
+      stageClient.entities.NewsItem.list("-published_at", 20).then((news) => {
+        setItems(mergeAndSort(news));
         setLoading(false);
       });
     }, 500);

@@ -67,7 +67,6 @@ const TYPE_TO_CATEGORY = {
   achievement: "achievement",
   app_update: "announcement",
   ranking: "ranking",
-  press_conference: "press_conference",
   announcement: "announcement",
   club_news: "club_news",
   player_news: "player_news",
@@ -96,7 +95,6 @@ const SECTIONS_BY_CATEGORY = {
   motm: ["player_news"],
   tournament: ["tournament"],
   competitions: ["competitions"],
-  press_conference: ["daily_news"],
   announcement: ["daily_news"],
   general: ["daily_news"],
 };
@@ -155,29 +153,12 @@ export function matchesNewsSection(item, filterId = "all", now = new Date()) {
   return newsStorySections(item).includes(filterId);
 }
 
-export function mergeNewspaperFeed(newsItems, pressArticles) {
+export function mergeNewspaperFeed(newsItems) {
   const news = (Array.isArray(newsItems) ? newsItems : []).map((item) => ({
     ...item,
     _category: resolveNewsCategory(item),
   }));
-  const fromPress = (Array.isArray(pressArticles) ? pressArticles : []).map((article) => ({
-    id: `press_${article.id}`,
-    type: "press_conference",
-    category: "press_conference",
-    _category: "press_conference",
-    title: article.headline || article.title,
-    body: article.quotes?.[0]?.answer ? `"${article.quotes[0].answer}"` : (article.summary || article.body || ""),
-    club_name: article.club_name,
-    club_logo_url: article.club_logo_url,
-    player_name: article.player_name,
-    player_avatar_url: article.player_avatar_url,
-    photo_url: article.photo_url || null,
-    photo_position: article.photo_position || "50% 50%",
-    published_at: article.published_at,
-    quotes: article.quotes,
-    is_global: true,
-  }));
-  return [...news, ...fromPress].sort((a, b) => (
+  return news.sort((a, b) => (
     new Date(b.published_at || b.created_date || 0) - new Date(a.published_at || a.created_date || 0)
   ));
 }
@@ -189,7 +170,6 @@ export function isNewspaperVisible(item, myPlayer, myClub) {
     (item?.visible_to_player_ids?.length > 0)
   );
   if (!hasVisibilityData) return true;
-  if (item._category === "press_conference") return true;
   if (myClub && item.visible_to_club_ids?.includes(myClub.id)) return true;
   if (myPlayer && item.visible_to_player_ids?.includes(myPlayer.id)) return true;
   return false;

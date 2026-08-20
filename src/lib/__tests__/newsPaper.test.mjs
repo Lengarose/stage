@@ -20,7 +20,7 @@ test("newspaper headlines drop emoji so copy reads like print", () => {
   assert.equal(toNewspaperHeadline("  Simple story  "), "Simple story");
 });
 
-test("lead photo prefers press photo, then story image, then avatars", () => {
+test("lead photo prefers story photos, then story image, then avatars", () => {
   assert.equal(newsStoryImage({ photo_url: "/p.jpg", player_avatar_url: "/a.jpg" }), "/p.jpg");
   assert.equal(newsStoryImage({ image_url: "/i.jpg", club_logo_url: "/c.jpg" }), "/i.jpg");
   assert.equal(newsStoryImage({ player_avatar_url: "/a.jpg" }), "/a.jpg");
@@ -63,13 +63,11 @@ test("newspaper sections keep All first, then mercato, without Press Room", () =
   assert.equal(matchesNewsSection({ _category: "tournament" }, "competitions"), false);
   assert.equal(matchesNewsSection({ _category: "ranking" }, "player_news"), true);
   assert.equal(matchesNewsSection({ _category: "ranking" }, "competitions"), false);
-  assert.equal(matchesNewsSection({ _category: "press_conference" }, "competitions"), false);
-  assert.equal(matchesNewsSection({ _category: "press_conference" }, "all"), true);
   const page = readFileSync(resolve(import.meta.dirname, "../../pages/News.jsx"), "utf8");
   assert.match(page, /NEWS_SECTION_FILTERS/);
   assert.match(page, /NewsBeatDesk/);
   assert.match(page, /WorldNewsDesk/);
-  assert.doesNotMatch(page, /id: "press_conference"/);
+  assert.doesNotMatch(page, /press_conference/);
 });
 
 test("mercato is the transfer and contract newspaper, not club or player desks", () => {
@@ -110,7 +108,6 @@ test("mercato is the transfer and contract newspaper, not club or player desks",
   assert.equal(matchesNewsSection({ _category: "transfers" }, "mercato"), true);
   assert.equal(matchesNewsSection({ _category: "market" }, "mercato"), true);
   const today = new Date("2026-08-15T18:00:00.000Z");
-  assert.equal(matchesNewsSection({ type: "press_conference", category: "press_conference", published_at: "2026-08-15T12:00:00.000Z" }, "daily_news", today), true);
   assert.equal(matchesNewsSection({ tags: ["daily_news"] }, "daily_news", today), false);
 });
 

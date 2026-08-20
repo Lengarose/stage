@@ -1929,6 +1929,357 @@ async function requireAdminUser(userId) {
   return user;
 }
 
+function parseTournamentRegistrationProofs(raw) {
+  const parsed = parseMaybeJson(raw, { club: {}, player: {} });
+  return {
+    club: parsed?.club && typeof parsed.club === 'object' ? parsed.club : {},
+    player: parsed?.player && typeof parsed.player === 'object' ? parsed.player : {},
+  };
+}
+
+function tournamentAvailabilityFixtureId(tournamentId, clubId) {
+  const t = String(tournamentId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+  const c = String(clubId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+  return `t:${t}:${c}`.slice(0, 36);
+}
+
+function tournamentRegistrationMessageBody({ tournament, club, status, reason }) {
+  const tournamentName = tournament?.name || 'the tournament';
+  const clubName = club?.name || 'your club';
+  const startLabel = tournament?.start_date
+    ? new Date(tournament.start_date).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    : 'TBD';
+  const bannerLine = tournament?.banner_url ? `Banner: ${tournament.banner_url}\n` : '';
+
+  if (status === 'approved') {
+    return [
+      `${clubName} has been approved for ${tournamentName}.`,
+      '',
+      `${bannerLine}Tournament: ${tournamentName}`,
+      `Start: ${startLabel}`,
+      `Platform: ${tournament?.platform || 'TBD'}`,
+      Number(tournament?.prize_pool_stc || 0) > 0 ? `Prize pool: ${Number(tournament.prize_pool_stc).toLocaleString()} STC` : null,
+      '',
+      'Your club is now officially registered. Club members should visit the Fixtures tab on the club profile to prepare their availability for the tournament.',
+    ].filter(Boolean).join('\n');
+  }
+
+  return [
+    `${clubName} was not approved for ${tournamentName}.`,
+    '',
+    `${bannerLine}Tournament: ${tournamentName}`,
+    reason ? `Admin note: ${reason}` : 'Admin note: The entry could not be verified at this time.',
+    '',
+    'No fixture preparation is needed for this tournament entry.',
+  ].filter(Boolean).join('\n');
+}
+
+async function notifyTournamentRegistrationAdmins({ tournament, club, proof }) {
+  const admins = await EXECUTESQL('SELECT email FROM users WHERE role_id IN (0, 2) AND email IS NOT NULL AND TRIM(email) != ""');
+  const tournamentName = tournament?.name || 'Tournament';
+  const clubName = club?.name || 'Club';
+  let notified = 0;
+  for (const row of admins) {
+    const result = await createNotificationIfEnabled({
+      recipientEmail: row.email,
+      type: 'tournament_start',
+      title: `Tournament registration pending: ${clubName}`,
+      body: `${clubName} submitted ${proof?.ea_club_name || 'an EA FC club name'} for ${tournamentName}. Review it in registered clubs.`,
+      link: `/tournaments/${tournament.id}/clubs`,
+      relatedId: `tournament_registration_pending:${tournament.id}:${club.id}`,
+      idempotencyKey: `tournament_registration_pending:${tournament.id}:${club.id}:${row.email}`,
+    });
+    if (!result?.skipped) notified++;
+  }
+  return notified;
+}
+
+async function deliverTournamentRegistrationReviewMessage({ tournament, club, proof, status, reason }) {
+  const submitterUserId = proof?.submitted_by_user_id;
+  if (!submitterUserId) return { skipped: true, reason: 'submitter missing' };
+  const users = await EXECUTESQL('SELECT email FROM users WHERE id = ? LIMIT 1', [submitterUserId]);
+  const recipientEmail = users[0]?.email || null;
+  if (!recipientEmail) return { skipped: true, reason: 'recipient missing' };
+  const tournamentName = tournament?.name || 'Tournament';
+  const clubName = club?.name || 'Your club';
+  const approved = status === 'approved';
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: 'system@stage.com',
+    subject: approved
+      ? `${clubName} approved for ${tournamentName}`
+      : `${clubName} registration declined`,
+    body: tournamentRegistrationMessageBody({ tournament, club, status, reason }),
+    messageType: 'tournament_registration',
+    actionType: 'none',
+    relatedEntityId: `${tournament.id}:${club.id}:${status}`,
+    relatedEntityType: 'tournament',
+    metadata: {
+      tournament_id: tournament.id,
+      tournament_name: tournamentName,
+      tournament_banner_url: tournament.banner_url || null,
+      club_id: club.id,
+      club_name: clubName,
+      status,
+      reason: reason || null,
+    },
+    idempotencyKey: `tournament_registration_review:${tournament.id}:${club.id}:${status}`,
+    isSystem: true,
+    notify: true,
+    notification: {
+      type: 'tournament_start',
+      title: approved ? `Approved: ${tournamentName}` : `Registration declined: ${tournamentName}`,
+      body: approved
+        ? `${clubName} is now officially registered.`
+        : `${clubName} was not approved for this tournament.`,
+      link: `/inbox`,
+    },
+  });
+}
+
+async function deliverTournamentApprovedClubMessages({ tournament, club }) {
+  const emails = await listActiveClubPlayerEmails(club.id);
+  const uniqueEmails = [...new Set(emails.map((email) => String(email || '').trim().toLowerCase()).filter(Boolean))];
+  const tournamentName = tournament?.name || 'Tournament';
+  const clubName = club?.name || 'Your club';
+  const prizeLine = Number(tournament?.prize_pool_stc || 0) > 0
+    ? `Prize money: ${Number(tournament.prize_pool_stc).toLocaleString()} STC\n`
+    : '';
+  const trophyLine = tournament?.trophy_url ? `Trophy: ${tournament.trophy_url}\n` : '';
+  let delivered = 0;
+
+  for (const recipientEmail of uniqueEmails) {
+    const result = await sendActionMessage({
+      recipientEmail,
+      senderEmail: 'system@stage.com',
+      subject: `${clubName} is in ${tournamentName}`,
+      body: [
+        `${clubName} has been approved and officially registered for ${tournamentName}.`,
+        '',
+        tournament?.banner_url ? `Banner: ${tournament.banner_url}` : null,
+        `Tournament: ${tournamentName}`,
+        prizeLine.trim() || null,
+        trophyLine.trim() || null,
+        '',
+        'Open your club profile and go to Fixtures. You can now set Available or Unavailable for the tournament preparation card.',
+        'Selecting Available confirms you want to be part of this tournament squad. Tournament match availability opens again once fixtures are generated.',
+      ].filter(Boolean).join('\n'),
+      messageType: 'tournament_registration',
+      actionType: 'none',
+      relatedEntityId: `${tournament.id}:${club.id}:club_members_approved`,
+      relatedEntityType: 'tournament',
+      metadata: {
+        tournament_id: tournament.id,
+        tournament_name: tournamentName,
+        tournament_banner_url: tournament.banner_url || null,
+        tournament_trophy_url: tournament.trophy_url || null,
+        club_id: club.id,
+        club_name: clubName,
+        target_tab: 'fixtures',
+      },
+      idempotencyKey: `tournament_registration_club_member:${tournament.id}:${club.id}:${recipientEmail}`,
+      isSystem: true,
+      notify: true,
+      notification: {
+        type: 'tournament_start',
+        title: `${clubName} approved for ${tournamentName}`,
+        body: 'Set your tournament availability from the Fixtures tab.',
+        link: `/clubs/${club.id}`,
+      },
+    }).catch(() => null);
+    if (result?.success) delivered++;
+  }
+
+  return delivered;
+}
+
+async function deliverAdminSelectedTournamentPresidentMessage({ tournament, club, presidentUser, chargedUsers, entryCost }) {
+  const recipientEmail = String(presidentUser?.email || '').trim().toLowerCase();
+  if (!recipientEmail) return { skipped: true, reason: 'president email missing' };
+  const tournamentName = tournament?.name || 'Tournament';
+  const clubName = club?.name || 'Your club';
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: 'system@stage.com',
+    subject: `${clubName} selected for ${tournamentName}`,
+    body: [
+      `${clubName} has been selected and registered by STAGE admin for ${tournamentName}.`,
+      '',
+      tournament?.banner_url ? `Banner: ${tournament.banner_url}` : null,
+      `Tournament: ${tournamentName}`,
+      Number(tournament?.prize_pool_stc || 0) > 0 ? `Prize money: ${Number(tournament.prize_pool_stc).toLocaleString()} STC` : null,
+      tournament?.trophy_url ? `Trophy: ${tournament.trophy_url}` : null,
+      '',
+      `Tournament credits charged: ${entryCost} credits per linked user account.`,
+      `Charged accounts: ${chargedUsers.length}`,
+      '',
+      'Your club members have been marked Available for tournament preparation. When fixtures are generated, registered club members will be seated automatically in Game Day so simulated matches can produce player stats.',
+    ].filter(Boolean).join('\n'),
+    messageType: 'tournament_registration',
+    actionType: 'none',
+    relatedEntityId: `${tournament.id}:${club.id}:admin_selected`,
+    relatedEntityType: 'tournament',
+    metadata: {
+      tournament_id: tournament.id,
+      tournament_name: tournamentName,
+      tournament_banner_url: tournament.banner_url || null,
+      tournament_trophy_url: tournament.trophy_url || null,
+      club_id: club.id,
+      club_name: clubName,
+      entry_credits: entryCost,
+      charged_user_count: chargedUsers.length,
+      admin_selected: true,
+    },
+    idempotencyKey: `tournament_admin_selected:${tournament.id}:${club.id}:${recipientEmail}`,
+    isSystem: true,
+    notify: true,
+    notification: {
+      type: 'tournament_start',
+      title: `${clubName} selected for ${tournamentName}`,
+      body: 'STAGE admin registered your club. Tournament preparation is ready.',
+      link: `/inbox`,
+    },
+  });
+}
+
+async function listTournamentClubPlayers(query, clubId) {
+  return query(
+    `SELECT DISTINCT p.id, p.gamertag, p.email, p.user_id, u.id AS resolved_user_id, u.email AS user_email, u.credits
+       FROM players p
+       LEFT JOIN club_memberships cm
+         ON cm.player_id = p.id
+        AND cm.status = 'active'
+       LEFT JOIN users u
+         ON u.id = p.user_id
+         OR LOWER(TRIM(u.email)) = LOWER(TRIM(p.email))
+      WHERE p.club_id = ?
+         OR cm.club_id = ?
+      ORDER BY p.updated_date DESC`,
+    [clubId, clubId],
+  );
+}
+
+async function getClubPresidentUser(query, club) {
+  const presidentIds = [club?.president_user_id, club?.user_id].map(String).filter(Boolean);
+  if (presidentIds.length) {
+    const rows = await query(`SELECT id, email, credits FROM users WHERE id IN (${placeholders(presidentIds)}) LIMIT 1`, presidentIds);
+    if (rows[0]) return rows[0];
+  }
+  const email = String(club?.owner_email || '').trim().toLowerCase();
+  if (!email) return null;
+  const rows = await query('SELECT id, email, credits FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1', [email]);
+  return rows[0] || null;
+}
+
+async function upsertClubFixtureAvailability(query, { clubId, fixtureId, fixtureType, playerId, userId, status, note }) {
+  const rows = await query(
+    `SELECT id, note FROM club_fixture_availability
+      WHERE club_id = ? AND fixture_id = ? AND player_id = ?
+      LIMIT 1`,
+    [clubId, fixtureId, playerId],
+  );
+  const existing = rows[0] || null;
+  const mergedNote = JSON.stringify({
+    ...parseMaybeJson(existing?.note, {}),
+    ...note,
+  });
+  if (existing) {
+    await query(
+      `UPDATE club_fixture_availability
+          SET status = ?, user_id = COALESCE(?, user_id), fixture_type = ?, note = ?, updated_date = NOW()
+        WHERE id = ?`,
+      [status, userId || null, fixtureType, mergedNote, existing.id],
+    );
+    return existing.id;
+  }
+  const id = uuidv4();
+  await query(
+    `INSERT INTO club_fixture_availability
+       (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, clubId, fixtureId, fixtureType, playerId, userId || null, status, mergedNote],
+  );
+  return id;
+}
+
+async function upsertDressingRoom(query, { matchId, clubId, seatedPlayerIds }) {
+  const ids = [...new Set((seatedPlayerIds || []).map(String).filter(Boolean))];
+  const existing = await query('SELECT id FROM dressing_rooms WHERE match_id = ? AND club_id = ? LIMIT 1', [matchId, clubId]);
+  if (existing[0]) {
+    await query('UPDATE dressing_rooms SET seated_players = ? WHERE id = ?', [JSON.stringify(ids), existing[0].id]);
+    return existing[0].id;
+  }
+  const id = uuidv4();
+  await query(
+    'INSERT INTO dressing_rooms (id, match_id, club_id, seated_players) VALUES (?, ?, ?, ?)',
+    [id, matchId, clubId, JSON.stringify(ids)],
+  );
+  return id;
+}
+
+async function seedAdminSelectedClubMatchPreparation(query, tournament, clubId) {
+  const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
+  const proof = proofs.club?.[String(clubId)] || null;
+  if (!proof?.admin_selected) return { availability: 0, dressing_rooms: 0 };
+
+  const players = await listTournamentClubPlayers(query, clubId);
+  const playerIds = players.map((player) => player.id).filter(Boolean);
+  if (!playerIds.length) return { availability: 0, dressing_rooms: 0 };
+
+  const matches = await query(
+    `SELECT id, home_club_id, away_club_id
+       FROM matches
+      WHERE tournament_id = ?
+        AND (home_club_id = ? OR away_club_id = ?)`,
+    [tournament.id, clubId, clubId],
+  );
+  let availability = 0;
+  let dressingRooms = 0;
+  for (const match of matches) {
+    for (const player of players) {
+      await upsertClubFixtureAvailability(query, {
+        clubId,
+        fixtureId: match.id,
+        fixtureType: 'tournament_match',
+        playerId: player.id,
+        userId: player.resolved_user_id || player.user_id || null,
+        status: 'available',
+        note: {
+          tournament_id: tournament.id,
+          tournament_name: tournament.name,
+          admin_selected_auto_available: true,
+        },
+      });
+      availability += 1;
+    }
+    await upsertDressingRoom(query, { matchId: match.id, clubId, seatedPlayerIds: playerIds });
+    dressingRooms += 1;
+  }
+  return { availability, dressing_rooms: dressingRooms };
+}
+
+async function seedAdminSelectedTournamentMatchPreparation(tournament) {
+  const clubIds = parseMaybeJson(tournament.registered_clubs, []).map(String).filter(Boolean);
+  const result = await withTransaction(async (query) => {
+    const freshRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament.id]);
+    const fresh = freshRows[0] || tournament;
+    const totals = { availability: 0, dressing_rooms: 0 };
+    for (const clubId of clubIds) {
+      const seeded = await seedAdminSelectedClubMatchPreparation(query, fresh, clubId);
+      totals.availability += seeded.availability;
+      totals.dressing_rooms += seeded.dressing_rooms;
+    }
+    return totals;
+  });
+  return result;
+}
+
 async function deleteTournamentRecords(query, tournamentId) {
   const matches = await query('SELECT id FROM matches WHERE tournament_id = ?', [tournamentId]);
   const matchIds = matches.map((row) => row.id).filter(Boolean);
@@ -2438,7 +2789,12 @@ async function notifyTournamentStarted(tournament) {
 async function createTournamentDraw(tournament) {
   const existing = await EXECUTESQL('SELECT id FROM matches WHERE tournament_id = ? LIMIT 1', [tournament.id]);
   if (existing.length) {
-    return { created: 0, matches: await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC', [tournament.id]) };
+    const seeded = await seedAdminSelectedTournamentMatchPreparation(tournament).catch(() => ({ availability: 0, dressing_rooms: 0 }));
+    return {
+      created: 0,
+      seeded,
+      matches: await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC', [tournament.id]),
+    };
   }
 
   const entries = await getTournamentEntries(tournament);
@@ -2452,9 +2808,11 @@ async function createTournamentDraw(tournament) {
   if (numGroups) {
     await EXECUTESQL('UPDATE tournaments SET num_groups = ?, updated_date = NOW() WHERE id = ?', [numGroups, tournament.id]);
   }
+  const seeded = await seedAdminSelectedTournamentMatchPreparation(tournament).catch(() => ({ availability: 0, dressing_rooms: 0 }));
   return {
     created: matches.length,
     numGroups,
+    seeded,
     matches: await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC', [tournament.id]),
   };
 }
@@ -2601,6 +2959,18 @@ function buildSimulatedPlayerStats(homePlayers, awayPlayers, match, homeScore, a
     ...row,
     rating: Math.min(10, Number(row.rating.toFixed(1))),
   }));
+}
+
+async function listSimulatedMatchPlayers(match, clubId) {
+  if (!clubId) return [];
+  const roomRows = await EXECUTESQL('SELECT seated_players FROM dressing_rooms WHERE match_id = ? AND club_id = ? LIMIT 1', [match.id, clubId]).catch(() => []);
+  const seatedIds = parseMaybeJson(roomRows[0]?.seated_players, []).map(String).filter(Boolean);
+  if (seatedIds.length) {
+    const rows = await EXECUTESQL(`SELECT * FROM players WHERE id IN (${placeholders(seatedIds)})`, seatedIds).catch(() => []);
+    const byId = new Map(rows.map((row) => [String(row.id), row]));
+    return seatedIds.map((playerId) => byId.get(String(playerId))).filter(Boolean);
+  }
+  return listActiveClubPlayers(clubId);
 }
 
 function isReachableInviteEmail(email) {
@@ -3625,10 +3995,10 @@ const HANDLERS = {
       .slice(0, 11);
     const [homeSquad, awaySquad] = await Promise.all([
       match.home_club_id
-        ? listActiveClubPlayers(match.home_club_id)
+        ? listSimulatedMatchPlayers(match, match.home_club_id)
         : Promise.resolve([]),
       match.away_club_id
-        ? listActiveClubPlayers(match.away_club_id)
+        ? listSimulatedMatchPlayers(match, match.away_club_id)
         : Promise.resolve([]),
     ]);
     const homePlayers = selectableXI(homeSquad);
@@ -3660,6 +4030,8 @@ const HANDLERS = {
       data: {
         success: true,
         created: result.created,
+        seeded_match_availability: result.seeded?.availability || 0,
+        seeded_dressing_rooms: result.seeded?.dressing_rooms || 0,
         matches: result.matches,
         tournament: updatedRows[0] || tournament,
       },
@@ -3716,6 +4088,8 @@ const HANDLERS = {
         success: true,
         notified,
         created_matches: draw.created,
+        seeded_match_availability: draw.seeded?.availability || 0,
+        seeded_dressing_rooms: draw.seeded?.dressing_rooms || 0,
         matches: draw.matches,
         tournament: updated,
       },
@@ -9653,7 +10027,7 @@ const HANDLERS = {
   // Mirrors base44/functions/tournamentRegistration — frontend expects:
   //   { data: { success, error?, ... } }
   async tournamentRegistration({
-    tournament_id, club_id, player_id, registration_proof_url, _auth_user_id,
+    tournament_id, club_id, player_id, registration_proof_url, ea_club_name, _auth_user_id,
   }) {
     const MIN_STC = 100;
     const MAX_STC = 1_000_000;
@@ -9694,8 +10068,9 @@ const HANDLERS = {
       }
     };
     const cleanProofUrl = registration_proof_url ? String(registration_proof_url).trim() : '';
+    const cleanEaClubName = ea_club_name ? String(ea_club_name).trim() : '';
 
-    return withTransaction(async (query) => {
+    const result = await withTransaction(async (query) => {
       const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
       if (!tRows.length) return fail('Tournament not found');
       const tournament = tRows[0];
@@ -9776,7 +10151,7 @@ const HANDLERS = {
 
       if (isClubTourney) {
         if (!club_id) return fail('club_id required for club tournament');
-        if (!cleanProofUrl) return fail('Pro Club photo is required for club registration');
+        if (!cleanEaClubName) return fail('EA FC Pro Clubs name is required for club registration');
 
         const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
         if (!clubs.length) return fail('Club not found');
@@ -9794,12 +10169,21 @@ const HANDLERS = {
         }
 
         let registered = parseIds(tournament.registered_clubs);
+        const proofs = parseProofs(tournament.registration_proofs);
+        const existingProof = proofs.club[String(club_id)] || null;
         if (registered.includes(String(club_id))) {
           return fail('Club already registered for this tournament');
         }
+        if (existingProof && ['pending', 'approved'].includes(String(existingProof.status || '').toLowerCase())) {
+          return fail(existingProof.status === 'pending'
+            ? 'Club registration is already pending admin approval'
+            : 'Club already registered for this tournament');
+        }
 
         const maxTeams = Number(tournament.max_teams || 0);
-        if (maxTeams > 0 && registered.length >= maxTeams) {
+        const pendingClubCount = Object.values(proofs.club)
+          .filter((proof) => String(proof?.status || '').toLowerCase() === 'pending').length;
+        if (maxTeams > 0 && registered.length + pendingClubCount >= maxTeams) {
           return fail('Tournament is full');
         }
 
@@ -9845,14 +10229,22 @@ const HANDLERS = {
           }
         }
 
-        registered = [...registered, String(club_id)];
-        const proofs = parseProofs(tournament.registration_proofs);
+        const now = new Date().toISOString();
+        if (isAdmin) {
+          registered = [...registered, String(club_id)];
+        }
         proofs.club[String(club_id)] = {
           participant_id: String(club_id),
-          proof_type: 'pro_club',
-          proof_url: cleanProofUrl,
+          proof_type: cleanProofUrl ? 'pro_club' : 'ea_club_name',
+          proof_url: cleanProofUrl || null,
+          ea_club_name: cleanEaClubName,
           submitted_by_user_id: _auth_user_id,
-          submitted_at: new Date().toISOString(),
+          submitted_at: now,
+          status: isAdmin ? 'approved' : 'pending',
+          reviewed_by_user_id: isAdmin ? _auth_user_id : null,
+          reviewed_at: isAdmin ? now : null,
+          credits_spent: creditsSpent,
+          stc_locked: entryFee,
         };
         await query(
           'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
@@ -9867,6 +10259,12 @@ const HANDLERS = {
             new_club_stc: newClubStc,
             credits_spent: creditsSpent,
             new_user_credits: newUserCredits,
+            ea_club_name: cleanEaClubName,
+            pending_review: !isAdmin,
+            registered_clubs: registered,
+            club_id,
+            tournament_name: tournament.name,
+            club_name: club.name,
           },
         };
       }
@@ -9966,6 +10364,450 @@ const HANDLERS = {
         },
       };
     });
+    if (result?.data?.success && result.data.pending_review) {
+      await notifyTournamentRegistrationAdmins({
+        tournament: { id: tournament_id, name: result.data.tournament_name },
+        club: { id: result.data.club_id, name: result.data.club_name },
+        proof: { ea_club_name: cleanEaClubName },
+      }).catch((err) => console.error('[tournamentRegistration admin notify]', err.message));
+    }
+    return result;
+  },
+
+  async tournamentRegistrationReview({
+    tournament_id, club_id, action, reason = '', _auth_user_id,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!tournament_id || !club_id) throw new Error('tournament_id and club_id required');
+    const reviewAction = String(action || '').toLowerCase();
+    if (!['approve', 'decline'].includes(reviewAction)) throw new Error('action must be approve or decline');
+
+    const parseIds = (raw) => {
+      if (raw == null) return [];
+      if (Array.isArray(raw)) return raw.map(String);
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const txResult = await withTransaction(async (query) => {
+      const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      if (!tRows.length) throw new Error('Tournament not found');
+      const tournament = tRows[0];
+
+      const clubRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
+      if (!clubRows.length) throw new Error('Club not found');
+      const club = clubRows[0];
+
+      const registered = parseIds(tournament.registered_clubs);
+      const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
+      const proof = proofs.club[String(club_id)] || null;
+      if (!proof || String(proof.status || '').toLowerCase() !== 'pending') {
+        throw new Error('No pending club registration found for this tournament');
+      }
+
+      const now = new Date().toISOString();
+      let nextRegistered = registered;
+      let refundedCredits = 0;
+      let refundedStc = 0;
+
+      if (reviewAction === 'approve') {
+        const maxTeams = Number(tournament.max_teams || 0);
+        if (maxTeams > 0 && !registered.includes(String(club_id)) && registered.length >= maxTeams) {
+          throw new Error('Tournament is full');
+        }
+        nextRegistered = registered.includes(String(club_id))
+          ? registered
+          : [...registered, String(club_id)];
+        proofs.club[String(club_id)] = {
+          ...proof,
+          status: 'approved',
+          reviewed_by_user_id: admin.id,
+          reviewed_by_email: admin.email,
+          reviewed_at: now,
+          review_reason: reason || null,
+        };
+      } else {
+        nextRegistered = registered.filter((id) => String(id) !== String(club_id));
+        proofs.club[String(club_id)] = {
+          ...proof,
+          status: 'declined',
+          reviewed_by_user_id: admin.id,
+          reviewed_by_email: admin.email,
+          reviewed_at: now,
+          review_reason: reason || null,
+        };
+
+        refundedStc = Number(proof.stc_locked || 0);
+        if (refundedStc > 0) {
+          const newClubStc = Number(club.stc || 0) + refundedStc;
+          await query('UPDATE clubs SET stc = ? WHERE id = ?', [newClubStc, club_id]);
+          await query(
+            `INSERT INTO stc_transactions
+               (id, club_id, amount, type, category, description, reference_id, balance_after)
+             VALUES (?,?,?,?,?,?,?,?)`,
+            [
+              uuidv4(),
+              club_id,
+              refundedStc,
+              'tournament_refund',
+              'tournament_refund',
+              `Tournament registration declined: ${tournament.name}`,
+              tournament_id,
+              newClubStc,
+            ],
+          );
+        }
+
+        refundedCredits = Number(proof.credits_spent || 0);
+        if (refundedCredits > 0 && proof.submitted_by_user_id) {
+          await addUserCredits(proof.submitted_by_user_id, refundedCredits, query);
+        }
+      }
+
+      await query(
+        'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(nextRegistered), JSON.stringify(proofs), tournament_id],
+      );
+
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: reviewAction === 'approve' ? 'approve_tournament_club_registration' : 'decline_tournament_club_registration',
+        entityType: 'tournament',
+        entityId: tournament_id,
+        entityName: tournament.name,
+        oldValue: { proof, registered_clubs: registered },
+        newValue: { proof: proofs.club[String(club_id)], registered_clubs: nextRegistered, refundedCredits, refundedStc },
+        reason: reason || null,
+      });
+
+      return {
+        tournament: { ...tournament, registered_clubs: JSON.stringify(nextRegistered), registration_proofs: JSON.stringify(proofs) },
+        club,
+        proof,
+        status: reviewAction === 'approve' ? 'approved' : 'declined',
+        refundedCredits,
+        refundedStc,
+        registered_clubs: nextRegistered,
+      };
+    });
+
+    await deliverTournamentRegistrationReviewMessage({
+      tournament: txResult.tournament,
+      club: txResult.club,
+      proof: txResult.proof,
+      status: txResult.status,
+      reason,
+    }).catch((err) => console.error('[tournamentRegistrationReview inbox]', err.message));
+    if (txResult.status === 'approved') {
+      await deliverTournamentApprovedClubMessages({
+        tournament: txResult.tournament,
+        club: txResult.club,
+      }).catch((err) => console.error('[tournamentRegistrationReview club inbox]', err.message));
+    }
+
+    return {
+      data: {
+        success: true,
+        status: txResult.status,
+        registered_clubs: txResult.registered_clubs,
+        refunded_credits: txResult.refundedCredits,
+        refunded_stc: txResult.refundedStc,
+      },
+    };
+  },
+
+  async tournamentClubAvailability({
+    tournament_id, club_id, status, _auth_user_id,
+  }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (!tournament_id || !club_id) throw new Error('tournament_id and club_id required');
+    const requestedStatus = String(status || '').toLowerCase();
+    if (!['available', 'unavailable'].includes(requestedStatus)) {
+      throw new Error('status must be available or unavailable');
+    }
+
+    const result = await withTransaction(async (query) => {
+      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
+      const user = users[0];
+      if (!user) throw new Error('User not found');
+
+      const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      const tournament = tournamentRows[0];
+      if (!tournament) throw new Error('Tournament not found');
+
+      const registered = parseMaybeJson(tournament.registered_clubs, []).map(String);
+      if (!registered.includes(String(club_id))) {
+        throw new Error('Club is not approved for this tournament');
+      }
+
+      const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
+      const proof = proofs.club[String(club_id)] || null;
+      if (proof && String(proof.status || '').toLowerCase() !== 'approved') {
+        throw new Error('Club registration is not approved yet');
+      }
+
+      const players = await query(
+        `SELECT p.*
+           FROM players p
+           LEFT JOIN club_memberships cm
+             ON cm.player_id = p.id
+            AND cm.status = 'active'
+          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
+            AND (p.club_id = ? OR cm.club_id = ?)
+          ORDER BY p.user_id = ? DESC, p.updated_date DESC
+          LIMIT 1`,
+        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
+      );
+      const player = players[0];
+      if (!player) throw new Error('Only club members can set tournament availability');
+
+      const fixtureId = tournamentAvailabilityFixtureId(tournament_id, club_id);
+      const existingRows = await query(
+        `SELECT * FROM club_fixture_availability
+          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
+          LIMIT 1 FOR UPDATE`,
+        [club_id, fixtureId, player.id],
+      );
+      const existing = existingRows[0] || null;
+      const note = parseMaybeJson(existing?.note, {});
+      const registrationSubmitterId = proof?.submitted_by_user_id ? String(proof.submitted_by_user_id) : '';
+      const submitterExempt = registrationSubmitterId && registrationSubmitterId === String(_auth_user_id);
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      let creditsSpent = Number(note.tournament_availability_credits_spent || 0);
+      let creditsAfter = await getUserCredits(_auth_user_id, query);
+
+      if (requestedStatus === 'available' && !submitterExempt && creditsSpent <= 0 && entryCost > 0) {
+        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
+        creditsSpent = spent.credits_spent;
+        creditsAfter = spent.credits_after;
+      }
+
+      const nextNote = {
+        ...note,
+        tournament_id,
+        tournament_name: tournament.name,
+        tournament_availability: true,
+        registration_submitter_exempt: Boolean(submitterExempt),
+        tournament_availability_credits_spent: creditsSpent,
+        updated_by_user_id: _auth_user_id,
+      };
+
+      if (existing) {
+        await query(
+          `UPDATE club_fixture_availability
+              SET status = ?, note = ?, updated_date = NOW()
+            WHERE id = ?`,
+          [requestedStatus, JSON.stringify(nextNote), existing.id],
+        );
+      } else {
+        await query(
+          `INSERT INTO club_fixture_availability
+             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
+           VALUES (?, ?, ?, 'tournament_registration', ?, ?, ?, ?)`,
+          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
+        );
+      }
+
+      const savedRows = await query(
+        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
+           FROM club_fixture_availability cfa
+           LEFT JOIN players p ON p.id = cfa.player_id
+          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
+          LIMIT 1`,
+        [club_id, fixtureId, player.id],
+      );
+
+      return {
+        row: savedRows[0],
+        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
+        credits_after: creditsAfter,
+        registration_submitter_exempt: Boolean(submitterExempt),
+      };
+    });
+
+    return { data: { success: true, ...result } };
+  },
+
+  async adminSetTournamentClubs({ tournament_id, club_ids = [], _auth_user_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!tournament_id) throw new Error('tournament_id required');
+    const selectedClubIds = [...new Set((Array.isArray(club_ids) ? club_ids : [])
+      .map(String)
+      .filter(Boolean))];
+    const storeSettings = await getActiveStoreSettings();
+    const presidentMessages = [];
+
+    const txResult = await withTransaction(async (query) => {
+      const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      const tournament = tournamentRows[0];
+      if (!tournament) throw new Error('Tournament not found');
+      if (String(tournament.participant_type || 'club').toLowerCase() === 'player') {
+        throw new Error('adminSetTournamentClubs can only manage club tournaments');
+      }
+      const maxTeams = Number(tournament.max_teams || 0);
+      if (maxTeams > 0 && selectedClubIds.length > maxTeams) {
+        throw new Error(`Tournament only has ${maxTeams} club slots`);
+      }
+
+      const registered = parseMaybeJson(tournament.registered_clubs, []).map(String);
+      const registeredSet = new Set(registered);
+      const selectedSet = new Set(selectedClubIds);
+      const additions = selectedClubIds.filter((clubId) => !registeredSet.has(String(clubId)));
+      const removals = registered.filter((clubId) => !selectedSet.has(String(clubId)));
+      const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
+      const entryCost = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      const seededTotals = { tournament_availability: 0 };
+
+      for (const removedClubId of removals) {
+        if (proofs.club[String(removedClubId)]) {
+          proofs.club[String(removedClubId)] = {
+            ...proofs.club[String(removedClubId)],
+            status: 'removed',
+            removed_by_user_id: admin.id,
+            removed_by_email: admin.email,
+            removed_at: new Date().toISOString(),
+          };
+        }
+      }
+
+      for (const clubId of additions) {
+        const clubRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [clubId]);
+        const club = clubRows[0];
+        if (!club) throw new Error(`Club not found: ${clubId}`);
+        const existingProof = proofs.club[String(clubId)] || null;
+        if (existingProof && String(existingProof.status || '').toLowerCase() === 'pending' && !existingProof.admin_selected) {
+          throw new Error(`${club.name || 'Club'} has a pending request. Use the Approve button for user-submitted registrations.`);
+        }
+
+        const players = await listTournamentClubPlayers(query, clubId);
+        const presidentUser = await getClubPresidentUser(query, club);
+        if (!presidentUser?.id) throw new Error(`${club.name || 'Club'} has no linked president user account`);
+
+        const userCharges = new Map();
+        userCharges.set(String(presidentUser.id), {
+          user_id: presidentUser.id,
+          email: presidentUser.email,
+          role: 'president',
+        });
+        for (const player of players) {
+          const userId = player.resolved_user_id || player.user_id;
+          if (!userId) continue;
+          userCharges.set(String(userId), {
+            user_id: userId,
+            email: player.user_email || player.email,
+            role: String(userId) === String(presidentUser.id) ? 'president_player' : 'member',
+            player_id: player.id,
+            gamertag: player.gamertag,
+          });
+        }
+
+        const chargedUsers = [];
+        if (entryCost > 0) {
+          for (const charge of userCharges.values()) {
+            const spent = await spendUserCredits(charge.user_id, entryCost, query);
+            chargedUsers.push({
+              ...charge,
+              credits_spent: spent.credits_spent,
+              credits_after: spent.credits_after,
+            });
+          }
+        }
+
+        const prepFixtureId = tournamentAvailabilityFixtureId(tournament.id, clubId);
+        for (const player of players) {
+          await upsertClubFixtureAvailability(query, {
+            clubId,
+            fixtureId: prepFixtureId,
+            fixtureType: 'tournament_registration',
+            playerId: player.id,
+            userId: player.resolved_user_id || player.user_id || null,
+            status: 'available',
+            note: {
+              tournament_id: tournament.id,
+              tournament_name: tournament.name,
+              tournament_availability: true,
+              admin_selected_auto_available: true,
+              tournament_availability_credits_spent: entryCost,
+              selected_by_admin_user_id: admin.id,
+            },
+          });
+          seededTotals.tournament_availability += 1;
+        }
+
+        proofs.club[String(clubId)] = {
+          ...(proofs.club[String(clubId)] || {}),
+          participant_id: String(clubId),
+          status: 'approved',
+          admin_selected: true,
+          selected_by_user_id: admin.id,
+          selected_by_email: admin.email,
+          selected_at: new Date().toISOString(),
+          submitted_by_user_id: presidentUser.id,
+          credits_spent_per_user: entryCost,
+          charged_users: chargedUsers,
+        };
+
+        presidentMessages.push({ tournament, club, presidentUser, chargedUsers, entryCost });
+      }
+
+      await query(
+        'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(selectedClubIds), JSON.stringify(proofs), tournament_id],
+      );
+
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'admin_set_tournament_clubs',
+        entityType: 'tournament',
+        entityId: tournament_id,
+        entityName: tournament.name,
+        oldValue: { registered_clubs: registered },
+        newValue: { registered_clubs: selectedClubIds, additions, removals, seeded: seededTotals },
+        reason: 'Admin selected tournament clubs',
+      });
+
+      return {
+        tournament: { ...tournament, registered_clubs: JSON.stringify(selectedClubIds), registration_proofs: JSON.stringify(proofs) },
+        registered_clubs: selectedClubIds,
+        additions,
+        removals,
+        seeded: seededTotals,
+      };
+    });
+
+    let messages = 0;
+    for (const message of presidentMessages) {
+      const result = await deliverAdminSelectedTournamentPresidentMessage(message)
+        .catch((err) => {
+          console.error('[adminSetTournamentClubs inbox]', err.message);
+          return null;
+        });
+      if (result?.success) messages += 1;
+    }
+    const matchPreparation = await seedAdminSelectedTournamentMatchPreparation(txResult.tournament).catch((err) => {
+      console.error('[adminSetTournamentClubs match prep]', err.message);
+      return { availability: 0, dressing_rooms: 0 };
+    });
+
+    return {
+      data: {
+        success: true,
+        registered_clubs: txResult.registered_clubs,
+        added: txResult.additions.length,
+        removed: txResult.removals.length,
+        messages,
+        seeded_tournament_availability: txResult.seeded.tournament_availability,
+        seeded_match_availability: matchPreparation.availability,
+        seeded_dressing_rooms: matchPreparation.dressing_rooms,
+      },
+    };
   },
 
   /** Notify all players in a club when their club registers for a tournament. */

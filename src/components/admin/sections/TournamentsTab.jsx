@@ -155,7 +155,6 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
 
 export default function TournamentsTab({
   setCreateTournamentOpen,
-  seedPressQuestions,
   reseedLifestyle,
   saving,
   tournamentSearch,
@@ -262,9 +261,6 @@ export default function TournamentsTab({
       <div className="mb-4 flex gap-2 flex-wrap">
         <Button onClick={() => setCreateTournamentOpen(true)} className="bg-primary text-primary-foreground gap-2 text-xs h-8 rounded">
           <Plus className="w-3.5 h-3.5" /> {t("admin.tournaments.create")}
-        </Button>
-        <Button variant="outline" size="sm" onClick={seedPressQuestions} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
-          {t("admin.pressConferences.seedQuestions")}
         </Button>
         <Button variant="outline" size="sm" onClick={reseedLifestyle} disabled={saving} className="border-border text-muted-foreground hover:text-foreground text-xs h-8 rounded gap-1.5">
           {t("admin.lifestyles.reseedPrices")}

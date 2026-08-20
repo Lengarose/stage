@@ -3129,7 +3129,7 @@ test('adminMatchActions approve forfeit triggers central final-result progressio
   assert.equal(auditRows.length, 1);
 });
 
-test('tournamentRegistration stores club registration proof photo', async () => {
+test('tournamentRegistration stores club EA FC name for admin verification without proof photo', async () => {
   const updates = [];
   const tournament = {
     id: 'tournament-1',
@@ -3184,6 +3184,7 @@ test('tournamentRegistration stores club registration proof photo', async () => 
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'owner@example.test', role_id: 1 }];
     }
+    if (/SELECT email FROM users WHERE role_id IN/.test(sql)) return [];
     if (/SELECT \* FROM store_settings/.test(sql) || /FROM store_configs/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
@@ -3202,7 +3203,7 @@ test('tournamentRegistration stores club registration proof photo', async () => 
       body: {
         tournament_id: 'tournament-1',
         club_id: 'club-1',
-        registration_proof_url: '/uploads/pro-club.png',
+        ea_club_name: 'The Hooded FC',
       },
       user: { id: 'user-1' },
     },
@@ -3211,13 +3212,17 @@ test('tournamentRegistration stores club registration proof photo', async () => 
 
   assert.equal(response.statusCode, 200, response.body?.error || JSON.stringify(response.body));
   assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.pending_review, true);
   assert.equal(updates.length, 1);
+  assert.deepEqual(JSON.parse(updates[0].params[0]), []);
   const proofs = JSON.parse(updates[0].params[1]);
-  assert.equal(proofs.club['club-1'].proof_url, '/uploads/pro-club.png');
-  assert.equal(proofs.club['club-1'].proof_type, 'pro_club');
+  assert.equal(proofs.club['club-1'].ea_club_name, 'The Hooded FC');
+  assert.equal(proofs.club['club-1'].proof_url, null);
+  assert.equal(proofs.club['club-1'].proof_type, 'ea_club_name');
+  assert.equal(proofs.club['club-1'].status, 'pending');
 });
 
-test('tournamentRegistration allows canonical president user to register their club', async () => {
+test('tournamentRegistration allows canonical president user to submit their club for admin review', async () => {
   const updates = [];
   const tournament = {
     id: 'tournament-1',
@@ -3273,6 +3278,7 @@ test('tournamentRegistration allows canonical president user to register their c
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
     }
+    if (/SELECT email FROM users WHERE role_id IN/.test(sql)) return [];
     if (/SELECT \* FROM store_settings/.test(sql) || /FROM store_configs/.test(sql)) return [];
     throw new Error(`Unexpected SQL: ${sql}`);
   };
@@ -3291,7 +3297,7 @@ test('tournamentRegistration allows canonical president user to register their c
       body: {
         tournament_id: 'tournament-1',
         club_id: 'club-1',
-        registration_proof_url: '/uploads/pro-club.png',
+        ea_club_name: 'President FC',
       },
       user: { id: 'president-user' },
     },
@@ -3300,7 +3306,10 @@ test('tournamentRegistration allows canonical president user to register their c
 
   assert.equal(response.statusCode, 200, response.body?.error || JSON.stringify(response.body));
   assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.pending_review, true);
   assert.equal(updates.length, 1);
+  const proofs = JSON.parse(updates[0].params[1]);
+  assert.equal(proofs.club['club-1'].status, 'pending');
 });
 
 test('tournamentRegistration stores player Ultimate Team registration proof photo', async () => {

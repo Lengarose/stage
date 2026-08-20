@@ -405,7 +405,7 @@ function makeEntity(name) {
 const ENTITY_NAMES = [
   'Player', 'President', 'Club', 'Match', 'Tournament', 'Post', 'Comment',
   'MatchPlayerStat', 'Notification', 'PlayerContract', 'PlayerLoan', 'InboxMessage',
-  'Prediction', 'PressConference', 'PressQuestion', 'PressArticle',
+  'Prediction',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'JoinRequest', 'Follow', 'LifestyleItem', 'LifestylePurchase',
   'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage', 'ChatRead',

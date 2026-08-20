@@ -53,9 +53,6 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/player-loans', verifyToken, require('../controllers/playerLoanController'));
   app.use('/api/stage/inbox-messages', verifyToken, require('../controllers/inboxMessageController'));
   app.use('/api/stage/predictions', verifyToken, require('../controllers/predictionController'));
-  app.use('/api/stage/press-conferences', verifyToken, require('../controllers/pressConferenceController'));
-  app.use('/api/stage/press-questions', verifyToken, require('../controllers/pressQuestionController'));
-  app.use('/api/stage/press-articles', verifyToken, require('../controllers/pressArticleController'));
   app.use('/api/stage/direct-messages', verifyToken, require('../controllers/directMessageController'));
   app.use('/api/stage/stc-transactions', verifyToken, require('../controllers/stcTransactionController'));
   app.use('/api/stage/shirt-sales', verifyToken, require('../controllers/shirtSaleController'));

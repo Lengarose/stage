@@ -40,12 +40,24 @@ function parseJsonList(value) {
   }
 }
 
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function normalizeTournament(row) {
   if (!row) return row;
   return {
     ...row,
     registered_clubs: parseJsonList(row.registered_clubs),
     registered_players: parseJsonList(row.registered_players),
+    registration_proofs: parseJsonObject(row.registration_proofs),
   };
 }
 
@@ -75,11 +87,33 @@ export async function fetchTournamentPublic(tournamentId) {
   }
 }
 
-export async function registerTournamentClub(tournamentId, clubId, registrationProofUrl = null) {
+export async function registerTournamentClub(tournamentId, clubId, options = {}) {
+  const payload = typeof options === "string"
+    ? { registration_proof_url: options }
+    : {
+        registration_proof_url: options.registrationProofUrl || options.registration_proof_url || null,
+        ea_club_name: options.eaClubName || options.ea_club_name || null,
+      };
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,
     club_id: clubId,
-    registration_proof_url: registrationProofUrl,
+    ...payload,
+  });
+}
+
+export async function reviewTournamentClubRegistration(tournamentId, clubId, action, reason = "") {
+  return stageClient.functions.invoke("tournamentRegistrationReview", {
+    tournament_id: tournamentId,
+    club_id: clubId,
+    action,
+    reason,
+  });
+}
+
+export async function setAdminTournamentClubs(tournamentId, clubIds) {
+  return stageClient.functions.invoke("adminSetTournamentClubs", {
+    tournament_id: tournamentId,
+    club_ids: clubIds,
   });
 }
 

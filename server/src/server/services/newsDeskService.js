@@ -64,32 +64,6 @@ function asStory(item, beat) {
   };
 }
 
-function pressToStory(article) {
-  const quotes = parseJson(article.quotes, []);
-  const firstQuote = Array.isArray(quotes) && quotes[0]
-    ? `"${quotes[0].answer || quotes[0].quote || quotes[0]}"`
-    : '';
-  return asStory({
-    id: `press_${article.id}`,
-    type: 'press_conference',
-    category: 'press_conference',
-    title: article.headline || article.title || 'Press conference',
-    body: firstQuote || article.body || '',
-    club_id: article.club_id || null,
-    club_name: article.club_name || null,
-    club_logo_url: article.club_logo_url || null,
-    player_id: article.player_id || null,
-    player_name: article.player_name || null,
-    player_avatar_url: article.player_avatar_url || null,
-    tournament_id: article.tournament_id || null,
-    tournament_name: article.tournament_name || null,
-    quotes,
-    photo_url: article.photo_url || null,
-    link: article.link || '',
-    published_at: article.published_at,
-  }, 'press');
-}
-
 function countByKind(feed) {
   return feed.reduce((acc, row) => {
     acc[row.kind] = (acc[row.kind] || 0) + 1;
@@ -103,12 +77,6 @@ async function loadNewsItems() {
       WHERE is_global = 1 OR is_global IS NULL
       ORDER BY published_at DESC
       LIMIT 200`,
-  ).catch(() => []);
-}
-
-async function loadPressArticles() {
-  return EXECUTESQL(
-    'SELECT * FROM press_articles ORDER BY published_at DESC LIMIT 40',
   ).catch(() => []);
 }
 
@@ -155,10 +123,9 @@ function storyDeskMeta(section, feed) {
 }
 
 async function buildStoryDesk(section) {
-  const [news, press] = await Promise.all([loadNewsItems(), loadPressArticles()]);
+  const news = await loadNewsItems();
   const feed = [
     ...news.map((item) => ({ item, beat: storyBeat(item) })),
-    ...(section === 'daily_news' ? press.map((article) => ({ item: pressToStory(article), beat: storyBeat(article) || 'daily_news' })) : []),
   ]
     .filter((row) => row.beat === section)
     .map((row) => (row.item.stamp ? row.item : asStory(row.item, section)));
@@ -254,24 +221,21 @@ async function loadMercatoRows() {
   ).catch(() => []);
 }
 
-function mixedStories(news, press, transfers) {
+function mixedStories(news, transfers) {
   const fromNews = news.map((item) => asStory(item, storyBeat(item)));
-  const fromPress = press.map((article) => pressToStory(article));
   const fromMercato = transfers.map(transferToStory);
-  return [...fromNews, ...fromPress, ...fromMercato]
+  return [...fromNews, ...fromMercato]
     .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
 }
 
 async function buildDailyDesk() {
-  const [news, press, transfers] = await Promise.all([
+  const [news, transfers] = await Promise.all([
     loadNewsItems(),
-    loadPressArticles(),
     loadMercatoRows(),
   ]);
   const todayNews = news.filter((item) => isPublishedToday(item.published_at || item.created_date));
-  const todayPress = press.filter((item) => isPublishedToday(item.published_at || item.created_date));
   const todayTransfers = transfers.filter((item) => isPublishedToday(item.last_updated_at || item.published_at || item.created_date));
-  const { feed } = await decorateWithContinent(mixedStories(todayNews, todayPress, todayTransfers));
+  const { feed } = await decorateWithContinent(mixedStories(todayNews, todayTransfers));
   return {
     section: 'daily_news',
     feed,
@@ -281,12 +245,11 @@ async function buildDailyDesk() {
 }
 
 async function buildWorldDesk() {
-  const [news, press, transfers] = await Promise.all([
+  const [news, transfers] = await Promise.all([
     loadNewsItems(),
-    loadPressArticles(),
     loadMercatoRows(),
   ]);
-  const { feed, clubs } = await decorateWithContinent(mixedStories(news, press, transfers));
+  const { feed, clubs } = await decorateWithContinent(mixedStories(news, transfers));
   const continents = CONTINENTS.map((continent) => ({
     ...continent,
     count: feed.filter((row) => row.continent === continent.id).length,

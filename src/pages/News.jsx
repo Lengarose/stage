@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowRightLeft, FileSignature, Shield,
-  User, TrendingUp, Trophy, Mic, Megaphone, Star, Zap
+  User, TrendingUp, Trophy, Megaphone, Star, Zap
 } from "lucide-react";
 import AllNewsPaper from "@/components/news/AllNewsPaper";
 import MercatoPaper from "@/components/news/MercatoPaper";
@@ -31,7 +31,6 @@ export const CATEGORY_CONFIG = {
   motm:             { label: "MOTM",            labelKey: "playerNews", icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
   competitions:     { label: "Competitions",    labelKey: "competitions", icon: Trophy,          color: "text-accent",      bg: "bg-accent/10 border-accent/30" },
   ranking:          { label: "Rankings",        labelKey: "rankings", icon: TrendingUp,      color: "text-success",     bg: "bg-success/10 border-success/30" },
-  press_conference: { label: "Press",           labelKey: "pressRoom", icon: Mic,             color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/30" },
   general:          { label: "General",         labelKey: "general", icon: Megaphone,       color: "text-primary",     bg: "bg-primary/10 border-primary/30" },
   achievement:      { label: "Achievement",     labelKey: "achievement", icon: Star,            color: "text-warning",     bg: "bg-warning/10 border-warning/30" },
   app_update:       { label: "App Update",      labelKey: "appUpdate", icon: Zap,             color: "text-primary",     bg: "bg-primary/10 border-primary/30" },

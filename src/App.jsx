@@ -91,7 +91,6 @@ const AdminInternationalTournamentsPage = React.lazy(() => import('./pages/admin
 const AdminTrophiesPage = React.lazy(() => import('./pages/admin/AdminTrophiesPage'));
 const AdminRewardsPage = React.lazy(() => import('./pages/admin/AdminRewardsPage'));
 const AdminNewsPage = React.lazy(() => import('./pages/admin/AdminNewsPage'));
-const AdminPressConferencesPage = React.lazy(() => import('./pages/admin/AdminPressConferencesPage'));
 const AdminLifestylesPage = React.lazy(() => import('./pages/admin/AdminLifestylesPage'));
 const AdminTransfersPage = React.lazy(() => import('./pages/admin/AdminTransfersPage'));
 const AdminLandingPage = React.lazy(() => import('./pages/admin/AdminLandingPage'));
@@ -401,7 +400,6 @@ const AuthenticatedApp = () => {
             <Route path="/admin/trophies" element={<AdminTrophiesPage />} />
             <Route path="/admin/rewards" element={<AdminRewardsPage />} />
             <Route path="/admin/news" element={<AdminNewsPage />} />
-            <Route path="/admin/press-conferences" element={<AdminPressConferencesPage />} />
             <Route path="/admin/lifestyles" element={<AdminLifestylesPage />} />
             <Route path="/admin/transfers" element={<AdminTransfersPage />} />
             <Route path="/admin/landing" element={<AdminLandingPage />} />

@@ -23,12 +23,9 @@ export default function NewspaperSection({
       } catch {
         /* public paper still loads */
       }
-      const [news, press] = await Promise.all([
-        stageClient.entities.NewsItem.list("-published_at", 100).catch(() => []),
-        stageClient.entities.PressArticle.list("-published_at", 30).catch(() => []),
-      ]);
+      const news = await stageClient.entities.NewsItem.list("-published_at", 100).catch(() => []);
       if (!alive) return;
-      setItems(mergeNewspaperFeed(news, press).filter((item) => isNewspaperVisible(item, player, club)));
+      setItems(mergeNewspaperFeed(news).filter((item) => isNewspaperVisible(item, player, club)));
       setLoading(false);
     }
     load();

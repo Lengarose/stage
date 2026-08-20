@@ -3,6 +3,15 @@ const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
 async function runStartupMigrations() {
+  const dropTable = async (table) => {
+    try {
+      await EXECUTESQL(`DROP TABLE IF EXISTS \`${table}\``);
+      console.log(`[migration] Dropped obsolete table ${table}`);
+    } catch (err) {
+      console.error(`[migration] Failed to drop obsolete table ${table}:`, err.message);
+    }
+  };
+
   const addCol = async (table, column, definition) => {
     try {
       const rows = await EXECUTESQL(
@@ -47,6 +56,10 @@ async function runStartupMigrations() {
       console.error(`[migration] Failed to add index ${table}.${indexName}:`, err.message);
     }
   };
+
+  await dropTable('press_articles');
+  await dropTable('press_questions');
+  await dropTable('press_conferences');
 
   await addCol('notifications', 'related_id', 'VARCHAR(36) NULL');
   await addCol('notifications', 'idempotency_key', 'VARCHAR(190) NULL');

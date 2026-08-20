@@ -256,7 +256,6 @@ async function purgeReferencesForClubIds(exec, clubIdsRaw) {
   await exec(`UPDATE recruitment_interests SET sender_club_id = NULL WHERE sender_club_id IN ${IN_IDS}`, p);
   await exec(`UPDATE recruitment_interests SET recipient_club_id = NULL WHERE recipient_club_id IN ${IN_IDS}`, p);
   await exec(`UPDATE shirt_sales SET club_id = NULL WHERE club_id IN ${IN_IDS}`, p);
-  await exec(`UPDATE press_conferences SET club_id = NULL WHERE club_id IN ${IN_IDS}`, p);
 
   await exec(`UPDATE live_matches SET home_club_id = NULL WHERE home_club_id IN ${IN_IDS}`, p);
   await exec(`UPDATE live_matches SET away_club_id = NULL WHERE away_club_id IN ${IN_IDS}`, p);

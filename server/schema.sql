@@ -666,40 +666,6 @@ CREATE TABLE IF NOT EXISTS predictions (
   created_date     DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── press_conferences ─────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS press_conferences (
-  id                   VARCHAR(36) PRIMARY KEY,
-  match_id             VARCHAR(36),
-  club_id              VARCHAR(36),
-  status               VARCHAR(50) DEFAULT 'pending',
-  selected_question_ids JSON,
-  answers               JSON,
-  created_date          DATETIME   DEFAULT CURRENT_TIMESTAMP,
-  updated_date          DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- ── press_questions ───────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS press_questions (
-  id         VARCHAR(36)  PRIMARY KEY,
-  category   VARCHAR(100),
-  text       TEXT         NOT NULL,
-  sort_order INT          DEFAULT 0
-);
-
--- ── press_articles ────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS press_articles (
-  id                   VARCHAR(36)  PRIMARY KEY,
-  title                VARCHAR(500),
-  body                 TEXT,
-  club_name            VARCHAR(150),
-  club_logo_url        TEXT,
-  player_name          VARCHAR(150),
-  player_avatar_url    TEXT,
-  link                 VARCHAR(500),
-  press_conference_id  VARCHAR(36),
-  published_at         DATETIME     DEFAULT CURRENT_TIMESTAMP
-);
-
 -- ── direct_messages ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS direct_messages (
   id              VARCHAR(36)  PRIMARY KEY,
@@ -1838,31 +1804,6 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='assist_motm_points'),'SELECT 1','ALTER TABLE predictions ADD COLUMN assist_motm_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='total_points'),'SELECT 1','ALTER TABLE predictions ADD COLUMN total_points INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='match_status'),'SELECT 1','ALTER TABLE predictions ADD COLUMN match_status VARCHAR(20) NULL DEFAULT ''pending''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @t='press_articles'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='headline'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN headline VARCHAR(500) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='match_name'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN match_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_name'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN tournament_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_id'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN tournament_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='photo_url'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN photo_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='photo_position'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN photo_position VARCHAR(30) NULL DEFAULT ''50%% 50%%''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='photo_zoom'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN photo_zoom INT NULL DEFAULT 120')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='visibility'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN visibility VARCHAR(20) NULL DEFAULT ''public''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='quotes'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN quotes JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='registered_clubs'),'SELECT 1','ALTER TABLE press_articles ADD COLUMN registered_clubs JSON NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @t='press_conferences'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='context'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN context VARCHAR(30) NULL DEFAULT ''match''')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_id'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN tournament_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='club_name'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN club_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='club_logo_url'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN club_logo_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_id'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN player_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_name'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN player_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_avatar_url'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN player_avatar_url TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='opponent_name'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN opponent_name VARCHAR(100) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='match_name'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN match_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='tournament_name'),'SELECT 1','ALTER TABLE press_conferences ADD COLUMN tournament_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @t='press_questions'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='question'),'SELECT 1','ALTER TABLE press_questions ADD COLUMN question TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='answer_a'),'SELECT 1','ALTER TABLE press_questions ADD COLUMN answer_a TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='answer_b'),'SELECT 1','ALTER TABLE press_questions ADD COLUMN answer_b TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='answer_c'),'SELECT 1','ALTER TABLE press_questions ADD COLUMN answer_c TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='answer_d'),'SELECT 1','ALTER TABLE press_questions ADD COLUMN answer_d TEXT NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='stc_transactions'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_id'),'SELECT 1','ALTER TABLE stc_transactions ADD COLUMN player_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='player_email'),'SELECT 1','ALTER TABLE stc_transactions ADD COLUMN player_email VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='trophy_items'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='competition_name'),'SELECT 1','ALTER TABLE trophy_items ADD COLUMN competition_name VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;

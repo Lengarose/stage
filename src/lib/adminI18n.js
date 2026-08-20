@@ -9,7 +9,6 @@ const SECTION_SLUG_TO_KEY = {
   tournaments: "tournaments",
   "international-tournaments": "internationalTournaments",
   news: "news",
-  "press-conferences": "pressConferences",
   lifestyles: "lifestyles",
   transfers: "transfers",
   "match-archive": "matchArchive",
