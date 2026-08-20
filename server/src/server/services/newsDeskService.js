@@ -380,5 +380,4 @@ module.exports = {
   DESK_SECTIONS,
   asStory,
   buildDesk,
-  pressToStory,
 };
