@@ -32,7 +32,7 @@ import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
 import EditTournamentDialog from "../components/EditTournamentDialog";
 import PlayerRegistrantList from "../components/PlayerRegistrantList";
-import { toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
+import { isWallClockPast, toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -155,7 +155,7 @@ export default function TournamentDetail() {
     }
   }
 
-  const renderRegistrationProofUpload = (kind) => (
+  const renderPlayerRegistrationProofUpload = () => (
     <div className="w-full sm:w-72 rounded-lg border border-white/15 bg-black/25 p-2.5 text-left">
       <input
         id={registrationProofInputId}
@@ -172,7 +172,7 @@ export default function TournamentDetail() {
       >
         <span className="inline-flex items-center gap-2">
           <Upload className="w-3.5 h-3.5" />
-          {kind === "player" ? t("tournamentDetail.utPhoto") : t("tournamentDetail.proClubPhoto")}
+          {t("tournamentDetail.utPhoto")}
         </span>
         <span className="text-[10px] text-white/60">
           {uploadingRegistrationProof ? t("tournamentDetail.uploading") : registrationProofUrl ? t("tournamentDetail.ready") : t("tournamentDetail.required")}
@@ -364,7 +364,7 @@ export default function TournamentDetail() {
       await swalAlert("Enter your EA FC Pro Clubs name so admins can verify your club.");
       return;
     }
-    if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
+    if (isWallClockPast(tournament.start_date)) {
       await swalAlert(t("tournamentDetail.registrationClosedPast"));
       return;
     }
@@ -454,7 +454,7 @@ export default function TournamentDetail() {
       await swalAlert(t("tournamentDetail.notEnoughStc", { amount: entryFeeSTC.toLocaleString() }));
       return;
     }
-    if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
+    if (isWallClockPast(tournament.start_date)) {
       await swalAlert(t("tournamentDetail.registrationClosed"));
       return;
     }
@@ -516,16 +516,17 @@ export default function TournamentDetail() {
       await swalAlert(t("tournamentDetail.allMatchesScheduled"));
       return;
     }
-    const baseDate = new Date(tournament.start_date || new Date());
+    const baseDate = tournament.start_date ? toDatetimeLocalValue(tournament.start_date) : new Date();
+    const parsedBaseDate = baseDate instanceof Date ? baseDate : new Date(baseDate);
     const shuffled = [...unscheduledMatches].sort(() => Math.random() - 0.5);
     const timeStep = 2 * 60 * 60 * 1000;
     for (let i = 0; i < shuffled.length; i++) {
-      const schedDate = new Date(baseDate.getTime() + i * timeStep);
+      const schedDate = new Date(parsedBaseDate.getTime() + i * timeStep);
       await stageClient.entities.Match.update(shuffled[i].id, { scheduled_date: toMysqlDateTime(schedDate) });
     }
     const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
-    await swalAlert(`Scheduled ${shuffled.length} matches starting from ${baseDate.toLocaleString()}!`);
+    await swalAlert(`Scheduled ${shuffled.length} matches starting from ${parsedBaseDate.toLocaleString()}!`);
   }
 
   async function _proposeSchedule() {
@@ -1143,7 +1144,7 @@ function resetUI() {
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <>
-                  {renderRegistrationProofUpload("player")}
+                  {renderPlayerRegistrationProofUpload()}
                   <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
                   style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
@@ -1232,7 +1233,7 @@ function resetUI() {
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                {renderRegistrationProofUpload("player")}
+                {renderPlayerRegistrationProofUpload()}
                 <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>

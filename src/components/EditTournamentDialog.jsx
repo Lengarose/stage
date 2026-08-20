@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, X, Trophy } from "lucide-react";
 import ImagePositionEditor from "./ImagePositionEditor";
+import { toDatetimeLocalValue, toMysqlDateTime } from "@/lib/momentDate";
 
 const NEUTRAL_COLORS = [
   "#1a2a4a", "#0d2d1a", "#2d1a0d", "#2d0d1a", "#1a0d2d",
@@ -16,7 +17,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
   const [form, setForm] = useState({
     name: tournament.name || "",
     description: tournament.description || "",
-    start_date: tournament.start_date ? new Date(tournament.start_date).toISOString().slice(0, 16) : "",
+    start_date: toDatetimeLocalValue(tournament.start_date),
     banner_url: tournament.banner_url || "",
     banner_color: tournament.banner_color || "#1a2a4a",
     banner_position: tournament.banner_position || "50% 50%",
@@ -62,7 +63,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
     const updates = {
       name: form.name,
       description: form.description,
-      start_date: form.start_date ? new Date(form.start_date).toISOString() : "",
+      start_date: toMysqlDateTime(form.start_date) || "",
       banner_url: form.banner_url,
       banner_color: form.banner_color,
       banner_position: form.banner_position,

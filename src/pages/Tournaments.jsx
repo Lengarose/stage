@@ -12,6 +12,7 @@ import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
+import { isWallClockFuture, toMysqlDateTime } from "@/lib/momentDate";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 import {
   TOURNAMENT_CREDIT_COST,
@@ -143,6 +144,7 @@ export default function Tournaments() {
         creator_email: user.email,
         creator_id: myPlayer?.id || null,
         creator_gamertag: user.role === "admin" ? null : (myPlayer?.gamertag || null),
+        start_date: toMysqlDateTime(form.start_date),
         registered_clubs: [],
         status: "registration",
         trophy_item_id: form.trophy_item_id || null,
@@ -170,8 +172,8 @@ export default function Tournaments() {
   const now = new Date();
   const stageTournaments = tournaments.filter(t => !t.creator_gamertag);
   const communityTournaments = tournaments.filter(t => !!t.creator_gamertag);
-  const open = communityTournaments.filter(t => t.status === "registration" || (t.status === "in_progress" && t.start_date && new Date(t.start_date) > now));
-  const live = communityTournaments.filter(t => t.status === "in_progress" && (!t.start_date || new Date(t.start_date) <= now));
+  const open = communityTournaments.filter(t => t.status === "registration" || (t.status === "in_progress" && isWallClockFuture(t.start_date, now)));
+  const live = communityTournaments.filter(t => t.status === "in_progress" && (!t.start_date || !isWallClockFuture(t.start_date, now)));
   const done = communityTournaments.filter(t => t.status === "completed");
 
   // Showcase: all tournaments that have a trophy image
@@ -803,7 +805,7 @@ function TournamentCard({ tournament: t, trophyItems }) {
             )}
           </div>
 
-          {t.start_date && new Date(t.start_date) > new Date() && t.status === "registration" && (
+          {t.start_date && isWallClockFuture(t.start_date) && t.status === "registration" && (
             <TournamentCountdown startDate={t.start_date} />
           )}
         </div>

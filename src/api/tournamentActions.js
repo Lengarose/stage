@@ -1,4 +1,5 @@
 import { stageClient } from "@/api/stageClient";
+import { asWallClockDateTimeString } from "@/lib/momentDate";
 import {
   generateKnockoutRound1,
   generateLeagueMatches,
@@ -55,6 +56,8 @@ function normalizeTournament(row) {
   if (!row) return row;
   return {
     ...row,
+    start_date: asWallClockDateTimeString(row.start_date),
+    end_date: asWallClockDateTimeString(row.end_date),
     registered_clubs: parseJsonList(row.registered_clubs),
     registered_players: parseJsonList(row.registered_players),
     registration_proofs: parseJsonObject(row.registration_proofs),

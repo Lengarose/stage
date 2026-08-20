@@ -58,7 +58,7 @@ function asWallClockDateTimeString(value) {
   if (value === null || value === undefined || value === '') return null;
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null;
-    return formatUtcWallClock(value);
+    return formatLocalWallClock(value);
   }
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
@@ -79,6 +79,19 @@ function asWallClockDateTimeString(value) {
   return trimmed;
 }
 
+function parseWallClockDateTime(value) {
+  const wallClock = asWallClockDateTimeString(value);
+  if (!wallClock) return null;
+  const normalized = String(wallClock).trim().replace(' ', 'T');
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isWallClockPast(value, now = new Date()) {
+  const parsed = parseWallClockDateTime(value);
+  return Boolean(parsed && parsed.getTime() < now.getTime());
+}
+
 const MATCH_SCHEDULE_FIELDS = ['scheduled_date', 'first_submission_at'];
 
 function normalizeMatchForApi(row) {
@@ -96,5 +109,7 @@ module.exports = {
   ISO_DATETIME_RE,
   MYSQL_DATETIME_RE,
   asWallClockDateTimeString,
+  parseWallClockDateTime,
+  isWallClockPast,
   normalizeMatchForApi,
 };

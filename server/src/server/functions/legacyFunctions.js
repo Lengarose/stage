@@ -43,6 +43,7 @@ const {
 } = require('../services/matchNotificationService');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
+const { isWallClockPast } = require('../utils/datetime');
 const {
   addUserCredits,
   getUserCredits,
@@ -10078,7 +10079,7 @@ const HANDLERS = {
       if (String(tournament.status || '') !== 'registration') {
         return fail('Tournament registration is closed');
       }
-      if (tournament.start_date && new Date(tournament.start_date) < new Date()) {
+      if (isWallClockPast(tournament.start_date)) {
         return fail('Tournament registration is closed');
       }
 

@@ -1,5 +1,6 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { toMysqlDateTime } = require('../utils/datetime');
 
 class Tournament {
   constructor(body = {}) {
@@ -22,8 +23,8 @@ class Tournament {
     this.custom_rules            = body.custom_rules;
     this.rules_file_url          = body.rules_file_url;
     this.country_code            = body.country_code;
-    this.start_date              = body.start_date;
-    this.end_date                = body.end_date;
+    this.start_date              = toMysqlDateTime(body.start_date);
+    this.end_date                = toMysqlDateTime(body.end_date);
     this.organizer_email         = body.organizer_email;
     this.creator_email           = body.creator_email;
     this.creator_id              = body.creator_id;

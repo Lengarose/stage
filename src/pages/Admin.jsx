@@ -42,6 +42,7 @@ import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
+import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
   TOURNAMENT_CREDIT_COST,
@@ -733,7 +734,7 @@ export default function Admin(props) {
         prize_semi_final_stc: prizes.thirdPlace,
         prize_participation_stc: 0,
         prize_description: "",
-        start_date: new Date(tournamentForm.start_date).toISOString(),
+        start_date: toMysqlDateTime(tournamentForm.start_date),
         organizer_email: user.email,
         creator_email: user.email,
         status: "registration",

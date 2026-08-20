@@ -223,6 +223,13 @@ function normalizeEntityFromApi(entityName, row) {
       first_submission_at: asWallClockDateTimeString(row.first_submission_at),
     };
   }
+  if (entityName === "Tournament") {
+    return {
+      ...row,
+      start_date: asWallClockDateTimeString(row.start_date),
+      end_date: asWallClockDateTimeString(row.end_date),
+    };
+  }
   return row;
 }
 
@@ -239,6 +246,10 @@ function makeEntity(name) {
     // Defensive frontend normalization for MySQL DATETIME columns.
     if (name === 'Match' && next.scheduled_date) {
       next.scheduled_date = toMysqlDateTime(next.scheduled_date);
+    }
+    if (name === 'Tournament') {
+      if (next.start_date) next.start_date = toMysqlDateTime(next.start_date);
+      if (next.end_date) next.end_date = toMysqlDateTime(next.end_date);
     }
     return next;
   };

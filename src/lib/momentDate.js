@@ -106,6 +106,18 @@ export function isPast(value) {
   return m.isValid() ? m.isBefore(moment()) : false;
 }
 
+export function isWallClockPast(value, now = new Date()) {
+  const parsed = parseISO(value);
+  if (!isValid(parsed)) return false;
+  return parsed.getTime() < now.getTime();
+}
+
+export function isWallClockFuture(value, now = new Date()) {
+  const parsed = parseISO(value);
+  if (!isValid(parsed)) return false;
+  return parsed.getTime() > now.getTime();
+}
+
 export function differenceInHours(left, right) {
   const l = toMoment(left);
   const r = toMoment(right);
