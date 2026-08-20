@@ -65,16 +65,31 @@ test('listActiveClubPlayers annotates loanees from the player-loan module', asyn
   assert.equal(loanee.selectable, true);
 });
 
-test('listActiveClubPlayerEmails returns distinct emails for membership and legacy links', async () => {
+test('listActiveClubPlayerEmails returns distinct user, player, and president emails', async () => {
+  const calls = [];
   const executesql = async (sql, params = []) => {
-    assert.match(sql, /SELECT DISTINCT p\.email/);
-    assert.match(sql, /cm\.club_id IN/);
-    assert.deepEqual(params, ['club-1', 'club-2', 'club-1', 'club-2']);
-    return [{ email: 'one@example.test' }, { email: 'two@example.test' }];
+    calls.push({ sql, params });
+    if (/FROM players p/.test(sql)) {
+      assert.match(sql, /COALESCE\(NULLIF\(TRIM\(p\.email\), ''\), NULLIF\(TRIM\(u\.email\), ''\)\) AS email/);
+      assert.match(sql, /LEFT JOIN users u/);
+      assert.match(sql, /cm\.club_id IN/);
+      assert.deepEqual(params, ['club-1', 'club-2', 'club-1', 'club-2']);
+      return [
+        { email: 'one@example.test' },
+        { email: 'linked-user@example.test' },
+        { email: 'ONE@example.test' },
+      ];
+    }
+    if (/FROM clubs c/.test(sql)) {
+      assert.deepEqual(params, ['club-1', 'club-2']);
+      return [{ email: 'president@example.test' }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
   };
   const { listActiveClubPlayerEmails } = loadServiceWithDbMock(executesql);
 
   const emails = await listActiveClubPlayerEmails(['club-1', 'club-2']);
 
-  assert.deepEqual(emails, ['one@example.test', 'two@example.test']);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(emails, ['one@example.test', 'linked-user@example.test', 'president@example.test']);
 });

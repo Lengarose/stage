@@ -48,15 +48,18 @@ async function listActiveClubPlayerEmails(clubIds) {
   const ids = [...new Set((Array.isArray(clubIds) ? clubIds : [clubIds]).map(String).filter(Boolean))];
   if (!ids.length) return [];
   const placeholders = ids.map(() => '?').join(',');
-  const rows = await EXECUTESQL(
-    `SELECT DISTINCT p.email
+  const playerRows = await EXECUTESQL(
+    `SELECT DISTINCT COALESCE(NULLIF(TRIM(p.email), ''), NULLIF(TRIM(u.email), '')) AS email
        FROM players p
        LEFT JOIN club_memberships cm
          ON cm.player_id = p.id
         AND cm.status = 'active'
+       LEFT JOIN users u
+         ON u.id = p.user_id
+         OR u.player_id = p.id
+         OR LOWER(TRIM(u.email)) = LOWER(TRIM(p.email))
       WHERE (cm.club_id IN (${placeholders}) OR p.club_id IN (${placeholders}))
-        AND p.email IS NOT NULL
-        AND p.email <> ''`,
+        AND COALESCE(NULLIF(TRIM(p.email), ''), NULLIF(TRIM(u.email), '')) IS NOT NULL`,
     [...ids, ...ids]
   ).catch(async () => (
     EXECUTESQL(
@@ -68,7 +71,25 @@ async function listActiveClubPlayerEmails(clubIds) {
       ids
     ).catch(() => [])
   ));
-  return rows.map((row) => row.email).filter(Boolean);
+  const clubRows = await EXECUTESQL(
+    `SELECT DISTINCT COALESCE(
+              NULLIF(TRIM(president_user.email), ''),
+              NULLIF(TRIM(owner_user.email), ''),
+              NULLIF(TRIM(owner_player.email), ''),
+              NULLIF(TRIM(c.owner_email), '')
+            ) AS email
+       FROM clubs c
+       LEFT JOIN users president_user ON president_user.id = c.president_user_id
+       LEFT JOIN users owner_user ON owner_user.id = c.user_id
+       LEFT JOIN players owner_player
+         ON owner_player.user_id = c.president_user_id
+         OR LOWER(TRIM(owner_player.email)) = LOWER(TRIM(c.owner_email))
+      WHERE c.id IN (${placeholders})`,
+    ids
+  ).catch(() => []);
+  return [...new Set([...playerRows, ...clubRows]
+    .map((row) => String(row.email || '').trim().toLowerCase())
+    .filter((email) => email && email.includes('@') && !email.endsWith('@stage.invalid')))];
 }
 
 module.exports = {

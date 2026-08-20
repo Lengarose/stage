@@ -20,6 +20,8 @@ test("club tournament registrations stay pending until admin review", () => {
   assert.match(functions, /notifyTournamentRegistrationAdmins/);
   assert.match(functions, /async tournamentRegistrationReview/);
   assert.match(functions, /deliverTournamentRegistrationReviewMessage/);
+  assert.match(functions, /deliverTournamentApprovedClubMessages/);
+  assert.match(functions, /listActiveClubPlayerEmails\(club\.id\)/);
   assert.match(functions, /approve_tournament_club_registration/);
   assert.match(functions, /decline_tournament_club_registration/);
   assert.match(functions, /addUserCredits\(proof\.submitted_by_user_id,\s*refundedCredits,\s*query\)/);

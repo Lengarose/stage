@@ -2151,7 +2151,7 @@ async function deliverAdminSelectedTournamentPresidentMessage({ tournament, club
 
 async function listTournamentClubPlayers(query, clubId) {
   return query(
-    `SELECT DISTINCT p.id, p.gamertag, p.email, p.user_id, u.id AS resolved_user_id, u.email AS user_email, u.credits
+    `SELECT DISTINCT p.id, p.gamertag, p.email, p.user_id, p.updated_date, u.id AS resolved_user_id, u.email AS user_email, u.credits
        FROM players p
        LEFT JOIN club_memberships cm
          ON cm.player_id = p.id

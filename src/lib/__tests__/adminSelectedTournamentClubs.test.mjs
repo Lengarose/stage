@@ -27,3 +27,16 @@ test("admin-selected tournament clubs charge users, seed availability, and auto-
   assert.match(functions, /seedAdminSelectedTournamentMatchPreparation\(tournament\)/);
   assert.match(functions, /listSimulatedMatchPlayers/);
 });
+
+test("admin-selected club player lookup keeps DISTINCT ORDER BY MySQL-compatible", () => {
+  const functions = read("server/src/server/functions/legacyFunctions.js");
+
+  assert.doesNotMatch(
+    functions,
+    /SELECT DISTINCT p\.id, p\.gamertag, p\.email, p\.user_id, u\.id AS resolved_user_id, u\.email AS user_email, u\.credits\s+FROM players p[\s\S]*ORDER BY p\.updated_date DESC/,
+  );
+  assert.match(
+    functions,
+    /SELECT DISTINCT p\.id, p\.gamertag, p\.email, p\.user_id, p\.updated_date, u\.id AS resolved_user_id, u\.email AS user_email, u\.credits/,
+  );
+});
