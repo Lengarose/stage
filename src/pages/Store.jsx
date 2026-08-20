@@ -11,11 +11,10 @@ import {
   hasStagePlus,
   normalizeSubscriptionTier,
 } from "@/lib/subscriptionUtils";
-import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles, User } from "lucide-react";
+import { ShoppingBag, Coins, Check, Crown, Shield, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { getOwnedClubId } from "@/lib/userIdentityFields";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -75,31 +74,34 @@ export default function Store() {
   const { t } = useTranslation();
   const [user, setUser] = useState(null);
   const [player, setPlayer] = useState(null);
-  const [myClub, setMyClub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(null);
   const [notification, setNotification] = useState(null);
   const [creditConfirm, setCreditConfirm] = useState(null);
   const [activeTab, setActiveTab] = useState("credits");
-  const [creditTarget, setCreditTarget] = useState("player");
   const [subBilling, setSubBilling] = useState("monthly");
   const [subError, setSubError] = useState(null);
   const [storeConfig, setStoreConfig] = useState(DEFAULT_STORE_CONFIG);
+
+  async function refreshStoreIdentity() {
+    const refreshedUser = await stageClient.auth.me().catch(() => null);
+    if (refreshedUser) setUser(refreshedUser);
+    const refreshedPlayer = refreshedUser?.player_id
+      ? await stageClient.entities.Player.get(refreshedUser.player_id).catch(() => null)
+      : null;
+    if (refreshedPlayer) setPlayer(refreshedPlayer);
+    return { user: refreshedUser, player: refreshedPlayer };
+  }
 
   useEffect(() => {
     async function load() {
       const cfgRows = await stageClient.entities.StoreConfig.filter({ is_active: 1, with_defaults: 1 }, "-updated_date", 1).catch(() => []);
       const cfg = normalizeStoreConfig(cfgRows?.[0]);
       setStoreConfig(cfg);
-      const { user: u, player: pl, club } = await resolveMyPlayerAndClub();
+      const { user: u, player: pl } = await resolveMyPlayerAndClub();
       if (!u) { setLoading(false); return; }
       setUser(u);
-      if (pl) {
-        setPlayer(pl);
-        if (club) setMyClub(club);
-      }
-      const mode = localStorage.getItem("stage-account-mode") || "player";
-      if (mode === "club") setCreditTarget("club");
+      if (pl) setPlayer(pl);
 
       const params = new URLSearchParams(window.location.search);
       if (params.get('sub') === 'success') {
@@ -110,10 +112,7 @@ export default function Store() {
             session_id: params.get('session_id'),
           });
           if (fixRes.data?.success) {
-            const refreshedPl = u.player_id
-              ? await stageClient.entities.Player.get(u.player_id).catch(() => null)
-              : null;
-            if (refreshedPl) setPlayer(refreshedPl);
+            await refreshStoreIdentity();
             showNotif(`STAGE Plus activated. Monthly credits refresh to ${Number(cfg.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS)}.`, 'success');
           } else {
             showNotif('Subscription activated! It may take a moment to reflect.', 'success');
@@ -127,28 +126,19 @@ export default function Store() {
       }
       if (params.get('payment') === 'success') {
         const credits = parseInt(params.get('credits') || '0');
-        const target = params.get('target') || 'player';
         const pack = params.get('pack');
         const sessionId = params.get('session_id');
         window.history.replaceState({}, '', '/store');
         // Actually grant the credits server-side (idempotent — the webhook may
-        // have already done it). Only show the confirmation once fulfilled.
+        // have already done it). Credits are user-scoped and shared by player
+        // and club tournament flows.
         try {
           const res = await stageClient.functions.invoke('fixCredits', { session_id: sessionId });
           if (res.data?.success) {
             const added = res.data.credits_added ?? credits;
-            const finalTarget = res.data.target || target;
-            // Refresh the wallet balance shown in the UI.
-            if (finalTarget === 'club') {
-              const ownedClubId = getOwnedClubId(u);
-              const c = ownedClubId ? await stageClient.entities.Club.get(ownedClubId).catch(() => null) : null;
-              if (c) setMyClub(c);
-            } else if (u.player_id) {
-              const pl2 = await stageClient.entities.Player.get(u.player_id).catch(() => null);
-              if (pl2) setPlayer(pl2);
-            }
+            await refreshStoreIdentity();
             if (added > 0 || credits > 0) {
-              setCreditConfirm({ credits: added || credits, target: finalTarget, id: pack });
+              setCreditConfirm({ credits: added || credits, id: pack });
               showNotif(`+${added || credits} credits added!`, 'success');
             }
           } else {
@@ -174,8 +164,7 @@ export default function Store() {
     try {
       const res = await stageClient.functions.invoke('stripeCheckout', {
         packId: pack.id,
-        creditTarget,
-        successUrl: `${window.location.origin}/store?payment=success&pack=${pack.id}&credits=${pack.credits}&target=${creditTarget}&session_id={CHECKOUT_SESSION_ID}`,
+        successUrl: `${window.location.origin}/store?payment=success&pack=${pack.id}&credits=${pack.credits}&session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${window.location.origin}/store?payment=cancelled`,
       });
       if (res.data?.url) window.location.href = res.data.url;
@@ -258,7 +247,7 @@ export default function Store() {
     return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   }
 
-  const credits = creditTarget === "club" ? (myClub?.credits ?? 0) : (player?.credits ?? 0);
+  const credits = Math.max(0, Number(user?.credits ?? player?.credits ?? 0));
   const categories = ["credits", "subscription"];
   const currentTier = normalizeSubscriptionTier(player?.subscription);
   const badgeImg = currentTier === "stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[`sub_${currentTier}`];
@@ -286,20 +275,10 @@ export default function Store() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {myClub && (
-              <div className="flex items-center gap-1 rounded-xl bg-secondary border border-border p-1">
-                <button onClick={() => setCreditTarget("player")} className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5", creditTarget === "player" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  <User className="w-3 h-3" /> {t("commonPages.storePlayer")}
-                </button>
-                <button onClick={() => setCreditTarget("club")} className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5", creditTarget === "club" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  <Shield className="w-3 h-3" /> {t("nav.club")}
-                </button>
-              </div>
-            )}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
               <Coins className="w-4 h-4 text-warning shrink-0" />
               <span className="font-bold text-warning">{credits.toLocaleString()}</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">{creditTarget === "club" ? t("commonPages.storeClubCredits") : t("commonPages.storeCreditsWord")}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{t("commonPages.storeCreditsWord")}</span>
             </div>
           </div>
         </div>

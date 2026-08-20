@@ -3150,13 +3150,12 @@ const HANDLERS = {
     const outcome = await fulfilCheckoutSession(session);
     if (!outcome.fulfilled && outcome.reason === 'already_processed') {
       // Webhook (or an earlier return) already activated it — report success.
-      const player = await resolvePlayerForUserId(_auth_user_id);
       return {
         data: {
           success: true,
           tier: 'stage_plus',
           billing: String(session.metadata?.billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly',
-          credits_after: Number(player?.credits || 0),
+          credits_after: await getUserCredits(_auth_user_id),
           already_active: true,
           credit_policy: 'refresh_not_stack',
         },
@@ -3332,7 +3331,14 @@ const HANDLERS = {
     const storeSettings = await getActiveStoreSettings();
     const grantMonths = Math.min(Math.max(Number(months) || 1, 1), 24);
     const normalizedBilling = String(billing || 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
-    const ownerUserId = before.user_id || null;
+    let ownerUserId = before.user_id || null;
+    if (!ownerUserId && before.email) {
+      const ownerRows = await EXECUTESQL(
+        'SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+        [before.email]
+      );
+      ownerUserId = ownerRows?.[0]?.id || null;
+    }
     if (ownerUserId) {
       await refreshUserCreditsTo(ownerUserId, Number(storeSettings.monthly_credits || STAGE_PLUS_MONTHLY_CREDITS));
     }
@@ -3359,7 +3365,7 @@ const HANDLERS = {
       newValue: after,
       reason,
     });
-    return { data: { success: true, player: after } };
+    return { data: { success: true, player: after, user_id: ownerUserId, credits_after: ownerUserId ? await getUserCredits(ownerUserId) : null } };
   },
 
   async transferPayment({

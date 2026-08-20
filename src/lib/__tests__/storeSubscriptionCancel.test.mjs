@@ -18,6 +18,15 @@ test("Store STAGE Plus card can subscribe and cancel at period end", () => {
   assert.doesNotMatch(store, /billingPortal/);
 });
 
+test("Store shows the shared user credit wallet without player or club switching", () => {
+  const store = read("src/pages/Store.jsx");
+  assert.match(store, /Number\(user\?\.credits \?\? player\?\.credits \?\? 0\)/);
+  assert.match(store, /Credits are user-scoped and shared by player/);
+  assert.doesNotMatch(store, /creditTarget/);
+  assert.doesNotMatch(store, /setCreditTarget/);
+  assert.doesNotMatch(store, /storeClubCredits/);
+});
+
 test("cancelStagePlus stops Stripe renewals without dropping access immediately", () => {
   const functions = read("server/src/server/functions/legacyFunctions.js");
   const webhook = read("server/src/server/controllers/stripeWebhookController.js");
