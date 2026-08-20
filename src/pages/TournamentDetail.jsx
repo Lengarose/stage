@@ -1040,41 +1040,48 @@ function resetUI() {
   return (
     <div className="min-h-screen">
       {/* ── HERO ─────────────────────────────────────── */}
-      <div className="relative w-full overflow-hidden" style={heroStyle}>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-black/85 pointer-events-none" />
+      <div className="relative w-full overflow-hidden border-b border-cyan-400/10" style={heroStyle}>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
 
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/90 transition-colors pt-4 pb-2">
+            className="mt-4 inline-flex items-center gap-2 bg-black/35 px-4 py-2 text-xs font-heading uppercase tracking-[0.16em] text-white/55 ring-1 ring-white/10 transition-colors hover:text-white hover:ring-cyan-300/40"
+            style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
             <ArrowLeft className="w-3.5 h-3.5" /> {t("tournamentDetail.backToTournaments")}
           </button>
 
-          <div className="flex flex-col sm:flex-row items-end gap-5 pb-8 pt-2">
+          <div className="grid gap-6 pb-10 pt-7 lg:grid-cols-[132px_minmax(0,1fr)_auto] lg:items-end">
             {tournament.trophy_url && (
-              <div className="shrink-0 hidden sm:block">
+              <div className="relative hidden h-36 w-28 shrink-0 place-items-center bg-black/30 ring-1 ring-warning/25 sm:grid"
+                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
+                <div className="absolute inset-0 bg-gradient-to-br from-warning/20 via-transparent to-cyan-400/10" />
                 <img src={tournament.trophy_url} alt="Trophy"
-                  className="w-24 h-24 object-contain drop-shadow-[0_0_24px_rgba(251,191,36,0.8)] animate-pulse-glow" />
+                  className="relative h-24 w-24 object-contain drop-shadow-[0_0_24px_rgba(251,191,36,0.8)]" />
               </div>
             )}
 
             <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
-                  style={{ borderColor: `${accentColor}60`, color: accentColor, backgroundColor: `${accentColor}18` }}>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ring-1"
+                  style={{ borderColor: `${accentColor}60`, color: accentColor, backgroundColor: `${accentColor}18`, clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                   {tournament.type?.replace(/_/g, " ")}
                 </span>
-                <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
-                  tournament.status === "registration" ? "border-success/50 text-success bg-success/10" :
-                  tournament.status === "in_progress" ? "border-primary/50 text-primary bg-primary/10" :
-                  tournament.status === "completed" ? "border-warning/50 text-warning bg-warning/10" :
-                  "border-white/20 text-white/50 bg-white/5"
-                )}>
+                <span className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ring-1",
+                  tournament.status === "registration" ? "text-cyan-200 ring-cyan-300/35 bg-cyan-300/10" :
+                  tournament.status === "in_progress" ? "text-cyan-200 ring-cyan-300/35 bg-cyan-300/10" :
+                  tournament.status === "completed" ? "text-amber-200 ring-amber-300/35 bg-amber-300/10" :
+                  "text-white/50 ring-white/15 bg-white/5"
+                )}
+                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                   {tournament.status?.replace(/_/g, " ")}
                 </span>
-                {tournament.platform && <span className="text-[10px] text-white/40 uppercase tracking-widest">{tournament.platform}</span>}
-                {tournament.region && <span className="text-[10px] text-white/40 uppercase tracking-widest">{tournament.region}</span>}
+                {tournament.platform && <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">{tournament.platform}</span>}
+                {tournament.region && <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">{tournament.region}</span>}
                 {tournament.country_code && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-warning/40 text-warning bg-warning/10">
+                  <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 ring-1 ring-white/15 bg-white/[0.06]"
+                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                     🌍 {COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code}
                   </span>
                 )}
@@ -1088,25 +1095,28 @@ function resetUI() {
                 <p className="font-subtitle text-sm text-white/55 mt-2 max-w-xl line-clamp-2">{tournament.description}</p>
               )}
 
-              <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-white/55">
-                <span className="flex items-center gap-1.5">
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/55">
+                <span className="inline-flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10"
+                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                   <Users className="w-3.5 h-3.5" />
                   {registeredCount}/{tournament.max_teams} {isPlayerTournament ? t("tournamentDetail.players") : t("tournamentDetail.teams")}
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10"
+                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                   <Calendar className="w-3.5 h-3.5" />
                   {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : t("tournamentDetail.tbd")}
                 </span>
                 {isAdmin && (
                   <Link to={isPlayerTournament ? `/tournaments/${id}/players` : `/tournaments/${id}/clubs`}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/25 border border-primary/40 text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-primary/35 transition-colors">
+                    className="inline-flex items-center gap-2 bg-primary/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary ring-1 ring-primary/35 transition-colors hover:bg-primary/30"
+                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                     <Users className="w-3 h-3" /> {isPlayerTournament ? t("tournamentDetail.registeredPlayers") : t("tournamentDetail.registeredClubs")}
                   </Link>
                 )}
               </div>
             </div>
 
-            <div className="shrink-0 flex flex-col gap-2 items-stretch sm:items-end">
+            <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
               {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !myClubRegistrationPending && !isFull && (() => {
                 const clubData = effectiveClub;
                 const entryCost = tournament.entry_credits ?? 50;
@@ -1114,7 +1124,8 @@ function resetUI() {
                 const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
                     <Button onClick={() => setClubRegistrationOpen(true)} disabled={!takeoverClub && !canAfford}
-                      className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                      className="h-14 min-w-[min(100%,360px)] rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-6 font-heading text-base font-black uppercase tracking-wide text-white shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:from-cyan-400 hover:to-blue-400 disabled:opacity-45"
+                      style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
                       <Shield className="w-4 h-4 mr-2" />
                       {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
                       <span className="ml-1 opacity-70 text-xs">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
@@ -1123,7 +1134,8 @@ function resetUI() {
               })()}
 
               {!isPlayerTournament && myClubRegistrationPending && tournament.status === "registration" && (
-                <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning shadow-lg">
+                <div className="bg-warning/10 px-4 py-3 text-xs text-warning shadow-lg ring-1 ring-warning/30"
+                  style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
                   <span className="font-black uppercase tracking-wider">Pending admin approval</span>
                   <p className="mt-1 text-warning/75">Your EA FC club name is waiting for verification.</p>
                 </div>
@@ -1133,7 +1145,8 @@ function resetUI() {
                 <>
                   {renderRegistrationProofUpload("player")}
                   <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
-                  className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg">
+                  className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
+                  style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
                     <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
                   </Button>
@@ -1146,7 +1159,8 @@ function resetUI() {
                     <Check className="w-3.5 h-3.5" /> {takeoverClub ? t("tournamentDetail.registeredNamed", { name: takeoverClub.name }) : t("tournamentDetail.registered")}
                   </span>
                   <Button size="sm" variant="outline" onClick={withdrawFromTournament}
-                    className="border-destructive/40 text-destructive hover:bg-destructive/10 bg-transparent text-xs h-7">
+                    className="h-8 rounded-none border-red-300/35 bg-transparent text-xs text-red-200 hover:bg-red-400/10"
+                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                     {t("tournamentDetail.withdraw")}
                   </Button>
                 </div>
@@ -1159,7 +1173,8 @@ function resetUI() {
                 <Button type="button" variant="outline" size="sm" onClick={() => {
                   if (tournament.rules_file_url && !tournament.custom_rules) window.open(tournament.rules_file_url, '_blank');
                   else setRulesModalOpen(true);
-                }} className="border-white/20 text-white/60 hover:bg-white/10 bg-transparent text-xs">
+                }} className="rounded-none border-white/15 bg-black/25 text-xs text-white/60 hover:bg-white/10"
+                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
                   <BookOpen className="w-3.5 h-3.5 mr-1.5" />
                   {tournament.rules_file_url && !tournament.custom_rules ? t("tournamentDetail.downloadRules") : t("tournamentDetail.viewRules")}
                 </Button>
@@ -1171,16 +1186,18 @@ function resetUI() {
 
       {/* ── INFO STRIP ────────────────────────────────── */}
       {(tournament.entry_fee_stc > 0 || (!isPlayerTournament && effectiveClubId)) && (
-        <div className="border-b border-border bg-card/60">
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex flex-wrap items-center gap-5">
+        <div className="border-y border-cyan-300/10 bg-[#06111f]/95">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-3">
             {tournament.entry_fee_stc > 0 && (
-              <span className="flex items-center gap-1.5 text-xs text-success">
-                <Coins className="w-3.5 h-3.5" />
-                {t("tournamentDetail.prize")}: {tournament.prize_pool_stc
+              <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
+                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                <Coins className="w-3.5 h-3.5 text-amber-300" />
+                <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.prize")}</span>
+                <strong className="text-amber-200">{tournament.prize_pool_stc
                   ? `${tournament.prize_pool_stc.toLocaleString()} STC`
-                  : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}
+                  : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}</strong>
                 {tournament.prize_winner_stc && (
-                  <span className="text-success/55 ml-1">
+                  <span className="ml-1 text-white/35">
                     ({t("tournamentDetail.prizeBreakdown", {
                       first: tournament.prize_winner_stc.toLocaleString(),
                       second: (tournament.prize_runner_up_stc || 0).toLocaleString(),
@@ -1195,12 +1212,18 @@ function resetUI() {
               if (!myClubData) return null;
               return (
                 <>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Shield className="w-3 h-3 text-warning" /> {t("tournamentDetail.credits")}: <strong className="text-warning">{(user?.credits ?? 0).toLocaleString()}</strong>
+                  <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
+                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                    <Shield className="w-3 h-3 text-amber-300" />
+                    <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.credits")}</span>
+                    <strong className="text-amber-200">{(user?.credits ?? 0).toLocaleString()}</strong>
                   </span>
                   {(tournament.entry_fee_stc ?? 0) > 0 && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Coins className="w-3 h-3 text-success" /> STC: <strong className="text-success">{(myClubData.stc ?? 0).toLocaleString()}</strong>
+                    <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
+                      style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                      <Coins className="w-3 h-3 text-amber-300" />
+                      <span className="font-heading uppercase tracking-[0.16em] text-white/40">STC</span>
+                      <strong className="text-amber-200">{(myClubData.stc ?? 0).toLocaleString()}</strong>
                     </span>
                   )}
                 </>
@@ -1210,7 +1233,7 @@ function resetUI() {
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {renderRegistrationProofUpload("player")}
-                <Button onClick={registerPlayer} className="bg-accent text-accent-foreground leading-relaxed hover:bg-accent/90" disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
@@ -1218,44 +1241,51 @@ function resetUI() {
 
             {canOfficializeTournament && (
               <Button type="button" onClick={officializeCurrentTournament} size="sm"
-                className="bg-warning/15 text-warning border border-warning/40 text-xs animate-pulse">
+                className="h-9 rounded-none border border-amber-300/30 bg-amber-300/10 text-xs text-amber-200 hover:bg-amber-300/15"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 <Trophy className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.officializeTournament")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
-              <Button type="button" onClick={generateDraw} size="sm" className="bg-primary/10 text-primary border border-primary/30 text-xs hover:bg-primary/20">
+              <Button type="button" onClick={generateDraw} size="sm" className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 🎲 {t("tournamentDetail.generateDraw")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && !groupStageComplete && (
-              <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
+              <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="h-9 rounded-none border-cyan-300/25 bg-transparent text-xs text-cyan-100 hover:bg-cyan-300/10"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 🔄 {t("tournamentDetail.regenerateDraw")}
               </Button>
             )}
 
             {canManageTournament && tournament.status === "registration" && registeredCount >= 2 && (
               <Button type="button" onClick={() => initializeTournament(tournament, registeredClubs)} size="sm"
-                className="bg-primary text-primary-foreground text-xs">
+                className="h-9 rounded-none bg-cyan-400 text-xs text-black hover:bg-cyan-300"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 <Play className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.startTournament")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
-              <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="border-warning/40 text-warning hover:bg-warning/10 text-xs">
+              <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="h-9 rounded-none border-white/15 bg-transparent text-xs text-white/55 hover:bg-white/10"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 {t("competitionFlow.cancel")}
               </Button>
             )}
 
             {canManageTournament && !allMatchesPlayed && (
-              <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 text-xs">
+              <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="h-9 rounded-none border-cyan-300/25 bg-transparent text-xs text-cyan-100 hover:bg-cyan-300/10"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 {t("tournamentDetail.edit")}
               </Button>
             )}
 
             {isAdmin && ["cancelled", "registration", "completed"].includes(tournament.status) && (
-              <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 text-xs">
+              <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="h-9 rounded-none border-red-300/35 bg-transparent text-xs text-red-200 hover:bg-red-400/10"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 {tournament.status === "completed" ? t("tournamentDetail.endAndDelete") : t("tournamentDetail.delete")}
               </Button>
             )}
@@ -1289,20 +1319,24 @@ function resetUI() {
       )}
 
       {/* ── TAB NAVIGATION ────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-20 border-b border-cyan-300/10 bg-[#050b14]/95 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className="flex gap-0 overflow-x-auto">
+          <div className="flex gap-2 overflow-x-auto py-3">
             {tabs.map(tab => (
               <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)}
                 className={cn(
-                  "shrink-0 px-4 pb-3 pt-2.5 text-[11px] uppercase tracking-widest font-bold border-b-2 transition-all whitespace-nowrap",
+                  "relative shrink-0 px-4 py-2 font-heading text-[11px] font-black uppercase tracking-[0.18em] transition-all whitespace-nowrap",
                   activeTab === tab.value
-                    ? tab.danger ? "border-destructive text-destructive" : "border-primary text-primary"
+                    ? tab.danger ? "bg-red-400/10 text-red-200 ring-1 ring-red-300/30" : "bg-cyan-300/12 text-white ring-1 ring-cyan-300/25"
                     : tab.danger
-                      ? "border-transparent text-destructive/70 hover:text-destructive"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                )}>
+                      ? "text-red-200/60 hover:text-red-100"
+                      : "text-white/38 hover:bg-cyan-300/5 hover:text-white/80"
+                )}
+                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
                 {tab.label}
+                {activeTab === tab.value && !tab.danger && (
+                  <span className="absolute inset-x-3 bottom-0 h-px bg-cyan-200/90" />
+                )}
               </button>
             ))}
           </div>
@@ -1739,38 +1773,53 @@ function resetUI() {
         setClubRegistrationOpen(open);
         if (!open) setEaClubName("");
       }}>
-        <DialogContent className="border-white/10 bg-[#070c14] text-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl font-black uppercase tracking-wide text-white">
-              Register Your Club
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Admin verification</p>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">
+        <DialogContent className="max-h-[88vh] overflow-y-auto border-cyan-300/15 bg-[#050b14] p-0 text-white shadow-[0_0_60px_rgba(34,211,238,0.12)] sm:max-w-lg">
+          <div className="relative overflow-hidden border-b border-cyan-300/10 px-6 pb-5 pt-6">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.18),transparent_42%)]" />
+            <div className="relative flex items-start gap-4">
+              <div className="grid h-14 w-12 shrink-0 place-items-center bg-cyan-300/10 ring-1 ring-cyan-300/25"
+                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
+                <Shield className="h-6 w-6 text-cyan-200" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-heading text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/55">Tournament entry</p>
+                <DialogHeader>
+                  <DialogTitle className="mt-1 font-heading text-2xl font-black uppercase leading-none tracking-wide text-white">
+                    Register Your Club
+                  </DialogTitle>
+                </DialogHeader>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-5 px-6 pb-6 pt-5">
+            <div className="bg-cyan-300/[0.06] p-4 ring-1 ring-cyan-300/15"
+              style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Admin verification</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/62">
                 Enter the exact EA FC Pro Clubs name your team uses in-game. Admin will use it to verify that your club exists before approving this entry.
               </p>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.16em] text-white/45">
+              <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/45">
                 EA FC Pro Clubs name
               </label>
               <Input
                 value={eaClubName}
                 onChange={(event) => setEaClubName(event.target.value)}
                 placeholder="e.g. The Hooded F.C."
-                className="border-white/15 bg-white/10 text-white placeholder:text-white/30"
+                className="h-12 rounded-none border-cyan-300/15 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:ring-cyan-300/30"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-warning/20 bg-warning/10 p-3">
+              <div className="bg-black/25 p-3 ring-1 ring-cyan-300/12"
+                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Credits</p>
-                <p className="font-heading text-2xl font-black text-warning">{tournament.entry_credits ?? 50}</p>
+                <p className="font-heading text-2xl font-black text-amber-200">{tournament.entry_credits ?? 50}</p>
               </div>
-              <div className="rounded-xl border border-success/20 bg-success/10 p-3">
+              <div className="bg-black/25 p-3 ring-1 ring-cyan-300/12"
+                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Club STC</p>
-                <p className="font-heading text-2xl font-black text-success">{(tournament.entry_fee_stc ?? 0).toLocaleString()}</p>
+                <p className="font-heading text-2xl font-black text-amber-200">{(tournament.entry_fee_stc ?? 0).toLocaleString()}</p>
               </div>
             </div>
             <p className="text-xs leading-relaxed text-white/45">
@@ -1780,7 +1829,8 @@ function resetUI() {
               type="button"
               onClick={registerClub}
               disabled={registeringClub || !eaClubName.trim()}
-              className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+              className="h-12 w-full rounded-none bg-cyan-400 font-heading text-sm font-black uppercase tracking-[0.16em] text-black hover:bg-cyan-300 disabled:opacity-45"
+              style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
             >
               {registeringClub ? "Registering..." : "Submit Registration"}
             </Button>
