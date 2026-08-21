@@ -1048,9 +1048,9 @@ function resetUI() {
 
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
-            className="mt-4 inline-flex h-10 items-center gap-2 bg-black/25 px-4 font-heading text-xs font-black uppercase tracking-[0.16em] text-white/70 ring-1 ring-white/15 backdrop-blur-md transition-colors hover:bg-cyan-300/10 hover:text-white hover:ring-cyan-300/40"
-            style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            className="mt-4 inline-flex h-10 max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+            style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}>
+            <ArrowLeft className="w-4 h-4 text-cyan-200/90" /> Back
           </button>
 
           <div className="grid gap-6 pb-10 pt-7 lg:grid-cols-[160px_minmax(0,1fr)_auto] lg:items-end">
@@ -1123,11 +1123,9 @@ function resetUI() {
                 const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
                     <Button onClick={() => setClubRegistrationOpen(true)} disabled={!takeoverClub && !canAfford}
-                      className="h-11 min-w-[min(100%,280px)] rounded-none border-0 bg-black/28 px-5 font-heading text-xs font-black uppercase tracking-[0.14em] text-white/85 ring-1 ring-cyan-300/25 backdrop-blur-md transition-colors hover:bg-cyan-300/10 hover:text-white hover:ring-cyan-300/45 disabled:opacity-45"
-                      style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                      <Shield className="w-4 h-4 mr-2" />
+                      className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:border-white/10 disabled:text-white/45 disabled:opacity-55"
+                      style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
                       {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
-                      <span className="ml-1 text-[10px] text-cyan-100/55">({entryCost}✧{entryFeeSTC > 0 ? ` + ${entryFeeSTC.toLocaleString()}STC` : ""})</span>
                     </Button>
                 );
               })()}

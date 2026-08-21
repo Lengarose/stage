@@ -14,6 +14,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
 import { isWallClockFuture, toMysqlDateTime } from "@/lib/momentDate";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
+import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import {
   TOURNAMENT_CREDIT_COST,
   applyTournamentFormat,
@@ -36,6 +37,15 @@ const TYPE_COLOR = {
   swiss: "text-green-400 border-green-400/30",
   swiss_ucl: "text-yellow-300 border-yellow-300/30",
 };
+
+const tournamentDialogFieldClass = "h-12 rounded-none border-cyan-300/18 bg-white/[0.08] text-white placeholder:text-white/35 focus-visible:ring-cyan-300/30";
+const tournamentDialogSelectClass = "h-12 rounded-none border-cyan-300/18 bg-white/[0.08] text-white focus:ring-cyan-300/30";
+const tournamentDialogClip = { clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" };
+const TOURNAMENT_REGION_OPTIONS = ["Global", "Europe", "North America", "South America", "Asia", "Oceania", "Africa", "Middle East"];
+
+function cleanCountryName(name) {
+  return String(name || "").replace(/^\p{Regional_Indicator}{2}\s*/u, "").trim();
+}
 
 export default function Tournaments() {
   const { t } = useTranslation();
@@ -185,6 +195,9 @@ export default function Tournaments() {
   const formatRule = getTournamentFormatRule(form.type);
   const maxTeamOptions = getTournamentMaxTeamOptions(form.type);
   const prizeBreakdown = calculateTournamentPrizeBreakdown(form.entry_fee_stc, form.max_teams);
+  const countryOptions = form.region === "Global"
+    ? []
+    : COUNTRIES.filter(country => (COUNTRY_REGIONS[form.region] || []).includes(country.code));
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -210,13 +223,22 @@ export default function Tournaments() {
               <p className="text-xs text-muted-foreground mt-1">{t("competitionFlow.tournamentsSubtitle")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" className="border-border h-9 gap-2 rounded text-xs" onClick={() => setRulesOpen(true)}>
-              <BookOpen className="w-3.5 h-3.5" /> {t("competitionFlow.rules")}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline"
+              className="h-10 rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+              style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+              onClick={() => setRulesOpen(true)}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.rules")}
             </Button>
             {canCreate ? (
-              <Button onClick={() => setDialogOpen(true)} className="bg-primary text-primary-foreground h-9 gap-2 rounded text-xs">
-                <Plus className="w-3.5 h-3.5" /> {t("competitionFlow.createTournament")}
+              <Button
+                onClick={() => setDialogOpen(true)}
+                className="h-10 rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+                style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+              >
+                <Plus className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.createTournament")}
               </Button>
             ) : (
               <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
@@ -279,43 +301,56 @@ export default function Tournaments() {
 
       {/* ── Create Tournament Dialog ─────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) resetForm(); setDialogOpen(open); }}>
-        <DialogContent className="bg-card border-border max-w-2xl p-0 gap-0 flex flex-col max-h-[90vh]">
+        <DialogContent hideCloseButton className="flex max-h-[82vh] max-w-2xl flex-col overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
-            <DialogTitle className="font-heading text-lg uppercase tracking-tight flex items-center gap-2 m-0">
-              <Trophy className="w-4 h-4 text-primary" /> {t("competitionFlow.createTournament")}
-            </DialogTitle>
+          <div className="relative flex shrink-0 items-center justify-between overflow-hidden border-b border-cyan-300/14 px-5 pb-4 pt-5">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_42%),linear-gradient(90deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035),transparent)]" />
+            <div className="relative flex items-center gap-4">
+              <div className="grid h-12 w-11 shrink-0 place-items-center bg-cyan-300/12 ring-1 ring-cyan-300/25"
+                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
+                <Trophy className="w-5 h-5 text-cyan-200" />
+              </div>
+              <div>
+                <p className="font-heading text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/55">Tournament builder</p>
+                <DialogTitle className="mt-1 font-heading text-xl font-black uppercase leading-none tracking-wide text-white">
+                  {t("competitionFlow.createTournament")}
+                </DialogTitle>
+              </div>
+            </div>
             <button type="button" onClick={() => { resetForm(); setDialogOpen(false); }}
-              className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <X className="w-4 h-4" />
+              className="relative grid h-10 w-10 place-items-center text-cyan-100/60 transition-colors hover:text-white">
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Step tabs */}
-          <div className="flex border-b border-border shrink-0 px-6">
+          <div className="flex shrink-0 gap-7 overflow-x-auto border-b border-cyan-300/12 bg-white/[0.035] px-5 pt-3">
             {[
               { n: 1, label: t("competitionFlow.setup") },
-              { n: 2, label: t("competitionFlow.rulesEntry") },
-              { n: 3, label: t("competitionFlow.lookFeel") },
+              { n: 2, label: "Entry Fee" },
+              { n: 3, label: "Display" },
             ].map(({ n, label }) => (
               <button key={n} type="button" onClick={() => setModalStep(n)}
                 className={cn(
-                  "pb-3 pt-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors -mb-px",
+                  "relative inline-flex shrink-0 items-center gap-2 pb-3 font-heading text-[11px] font-black uppercase tracking-[0.16em] transition-colors",
                   modalStep === n
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "text-cyan-100"
+                    : "text-white/42 hover:text-white/75"
                 )}>
                 <span className={cn(
-                  "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] mr-1.5 font-black",
-                  modalStep === n ? "bg-primary text-black" : "bg-secondary text-muted-foreground"
+                  "inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black",
+                  modalStep === n ? "bg-cyan-300 text-black" : "bg-white/10 text-white/45"
                 )}>{n}</span>
                 {label}
+                {modalStep === n && (
+                  <span className="absolute bottom-0 left-0 h-[2px] w-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+                )}
               </button>
             ))}
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_0%_20%,rgba(34,211,238,0.07),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-5 py-5">
 
             {/* ── Step 1: Setup ── */}
             {modalStep === 1 && (
@@ -324,16 +359,19 @@ export default function Tournaments() {
                   <label className="label-xs">{t("commonPages.trnTournamentFor")}</label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { v: "club", label: `🏟️ ${t("nav.club")}`, sub: t("commonPages.trnClubsCompete") },
-                      { v: "player", label: `👤 ${t("commonPages.storePlayer")}`, sub: t("commonPages.trnPlayersRegister") },
+                      { v: "club", label: t("nav.club"), sub: t("commonPages.trnClubsCompete") },
+                      { v: "player", label: t("commonPages.storePlayer"), sub: t("commonPages.trnPlayersRegister") },
                     ].map(opt => (
                       <button key={opt.v} type="button"
                         onClick={() => setForm(f => ({ ...f, participant_type: opt.v }))}
-                        className={cn("text-left px-3 py-2.5 rounded border transition-all",
-                          form.participant_type === opt.v ? "border-primary bg-primary/10" : "border-border bg-secondary hover:border-primary/40"
-                        )}>
-                        <p className={cn("text-sm font-bold", form.participant_type === opt.v ? "text-primary" : "text-foreground")}>{opt.label}</p>
-                        <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.sub}</p>
+                        className={cn("min-h-[84px] px-5 py-4 text-left transition-all",
+                          form.participant_type === opt.v
+                            ? "bg-cyan-300/[0.11] text-white ring-1 ring-cyan-300/45"
+                            : "bg-white/[0.045] text-white/70 ring-1 ring-white/12 hover:bg-cyan-300/[0.06] hover:ring-cyan-300/25"
+                        )}
+                        style={tournamentDialogClip}>
+                        <p className={cn("font-heading text-lg font-black uppercase tracking-wide", form.participant_type === opt.v ? "text-cyan-100" : "text-white/85")}>{opt.label}</p>
+                        <p className="mt-1 text-xs text-white/45">{opt.sub}</p>
                       </button>
                     ))}
                   </div>
@@ -342,20 +380,20 @@ export default function Tournaments() {
                 <div>
                   <label className="label-xs">{t("commonPages.title")} <span className="text-destructive">*</span></label>
                   <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="bg-secondary border-border" placeholder={t("commonPages.trnNamePlaceholder")} />
+                    className={tournamentDialogFieldClass} placeholder={t("commonPages.trnNamePlaceholder")} />
                 </div>
 
                 <div>
                   <label className="label-xs">{t("commonPages.trnDescription")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnOptional")})</span></label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    className="bg-secondary border-border" rows={2} placeholder={t("commonPages.trnDescPlaceholder")} />
+                    className={cn(tournamentDialogFieldClass, "min-h-[96px] py-3")} rows={2} placeholder={t("commonPages.trnDescPlaceholder")} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label-xs">{t("commonPages.trnFormat")}</label>
                     <Select value={form.type} onValueChange={v => setForm(f => applyTournamentFormat(f, v))}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="knockout">{t("commonPages.cdKnockout")}</SelectItem>
                         <SelectItem value="league">{t("commonPages.homeLeagues")}</SelectItem>
@@ -368,7 +406,7 @@ export default function Tournaments() {
                   <div>
                     <label className="label-xs">{t("commonPages.trnMaxTeams")}</label>
                     <Select value={form.max_teams} onValueChange={v => setForm(f => ({ ...f, max_teams: v }))}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {maxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{t("commonPages.trnNTeams", { count: n })}</SelectItem>)}
                       </SelectContent>
@@ -381,7 +419,7 @@ export default function Tournaments() {
                   <div>
                     <label className="label-xs">{t("commonPages.platform")}</label>
                     <Select value={form.platform} onValueChange={v => setForm(f => ({ ...f, platform: v }))}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PlayStation">PlayStation</SelectItem>
                         <SelectItem value="Xbox">Xbox</SelectItem>
@@ -394,21 +432,37 @@ export default function Tournaments() {
                     <label className="label-xs">{t("commonPages.trnStartDate")} <span className="text-destructive">*</span></label>
                     <Input type="datetime-local" value={form.start_date}
                       onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                      className="bg-secondary border-border" />
+                      className={tournamentDialogFieldClass} />
                   </div>
                 </div>
 
                 <div>
                   <label className="label-xs">{t("commonPages.profRegion")}</label>
-                  <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v }))}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                  <Select value={form.region} onValueChange={v => setForm(f => ({ ...f, region: v, country_code: "" }))}>
+                    <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v,e]) => (
-                        <SelectItem key={v} value={v}>{e} {v}</SelectItem>
+                      {TOURNAMENT_REGION_OPTIONS.map(v => (
+                        <SelectItem key={v} value={v}>{v}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {form.region !== "Global" && (
+                  <div>
+                    <label className="label-xs">{t("competitionFlow.country")}</label>
+                    <Select value={form.country_code || "all"} onValueChange={v => setForm(f => ({ ...f, country_code: v === "all" ? "" : v }))}>
+                      <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("competitionFlow.allCountries")}</SelectItem>
+                        {countryOptions.map(country => (
+                          <SelectItem key={country.code} value={country.code}>{cleanCountryName(country.name)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1 text-[10px] text-white/42">Leave empty to allow every club in this region.</p>
+                  </div>
+                )}
               </>
             )}
 
@@ -422,21 +476,21 @@ export default function Tournaments() {
                       <Input type="number" min="0" max="1000000"
                         value={form.entry_fee_stc}
                         onChange={e => setForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                        className="bg-secondary border-border" placeholder={t("commonPages.trnStcPerEntry")} />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{t("commonPages.trnStcEntry")}</span>
+                        className={tournamentDialogFieldClass} placeholder={t("commonPages.trnStcPerEntry")} />
+                      <span className="whitespace-nowrap text-xs text-white/45">{t("commonPages.trnStcEntry")}</span>
                     </div>
-                    <div className="border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnCreateCost")}</span><span className="font-bold text-xs">{t("commonPages.storeCreditsAmount", { amount: TOURNAMENT_CREDIT_COST })}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnEntryCost")}</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} {t("commonPages.storeCreditsWord")} + {prizeBreakdown.entryFee.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("commonPages.trnMaxTeams")}</span><span className="font-bold text-xs">{form.max_teams}</span></div>
-                      <div className="h-px bg-primary/20" />
-                      <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">{t("commonPages.trnWinner")}</span><span className="font-black text-warning">{prizeBreakdown.winner.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("commonPages.trnRunnerUp")}</span><span className="font-bold text-foreground">{prizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
-                      <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("commonPages.trnThirdPlace")}</span><span className="font-bold text-foreground">{prizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
-                      <div className="h-px bg-primary/20" />
+                    <div className="space-y-2 bg-cyan-300/[0.075] p-4 text-sm ring-1 ring-cyan-300/18" style={tournamentDialogClip}>
+                      <div className="flex justify-between"><span className="text-xs text-white/45">{t("commonPages.trnCreateCost")}</span><span className="text-xs font-bold text-white/85">{t("commonPages.storeCreditsAmount", { amount: TOURNAMENT_CREDIT_COST })}</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-white/45">{t("commonPages.trnEntryCost")}</span><span className="text-xs font-bold text-white/85">{TOURNAMENT_CREDIT_COST} {t("commonPages.storeCreditsWord")} + {prizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-white/45">{t("commonPages.trnMaxTeams")}</span><span className="text-xs font-bold text-white/85">{form.max_teams}</span></div>
+                      <div className="h-px bg-cyan-300/15" />
+                      <div className="flex justify-between"><span className="text-xs font-bold text-cyan-100/70">{t("commonPages.trnWinner")}</span><span className="font-black text-cyan-100">{prizeBreakdown.winner.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs font-bold text-white/45">{t("commonPages.trnRunnerUp")}</span><span className="font-bold text-white/85">{prizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                      <div className="flex justify-between"><span className="text-xs font-bold text-white/45">{t("commonPages.trnThirdPlace")}</span><span className="font-bold text-white/85">{prizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                      <div className="h-px bg-cyan-300/15" />
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-yellow-400" /><span className="text-xs text-yellow-400 font-bold">{t("commonPages.trnPrizePool")}</span></div>
-                        <span className="font-black text-warning">{prizeBreakdown.pool.toLocaleString()} STC</span>
+                        <div className="flex items-center gap-1"><Crown className="w-3 h-3 text-cyan-200" /><span className="text-xs font-bold text-cyan-100/80">{t("commonPages.trnPrizePool")}</span></div>
+                        <span className="font-black text-cyan-100">{prizeBreakdown.pool.toLocaleString()} STC</span>
                       </div>
                     </div>
                   </div>
@@ -445,10 +499,10 @@ export default function Tournaments() {
                 <div>
                   <label className="label-xs">{t("commonPages.trnCustomRules")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnOptional")})</span></label>
                   <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))}
-                    className="bg-secondary border-border" rows={3} placeholder={t("commonPages.trnRulesPlaceholder")} />
+                    className={cn(tournamentDialogFieldClass, "min-h-[120px] py-3")} rows={3} placeholder={t("commonPages.trnRulesPlaceholder")} />
                   <div className="mt-2">
                     {form.rules_file_url ? (
-                      <div className="flex items-center gap-2 bg-secondary/60 border border-border rounded px-3 py-2">
+                      <div className="flex items-center gap-2 bg-white/[0.045] px-3 py-2 ring-1 ring-cyan-300/15" style={tournamentDialogClip}>
                         <span className="text-xs text-success flex-1">{t("commonPages.trnRulesAttached")}</span>
                         <a href={form.rules_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">{t("commonPages.view")}</a>
                         <button type="button" onClick={() => setForm(f => ({ ...f, rules_file_url: "" }))} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
@@ -456,7 +510,8 @@ export default function Tournaments() {
                     ) : (
                       <>
                         <label htmlFor={uploadingRules ? undefined : rulesFileId}
-                          className="w-full h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer touch-manipulation">
+                          className="flex h-10 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 border border-dashed border-cyan-300/20 bg-black/20 text-xs text-white/45 transition-colors hover:border-cyan-300/40 hover:text-white/80"
+                          style={tournamentDialogClip}>
                           {uploadingRules ? <><div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><Upload className="w-3.5 h-3.5" /> Attach rules file (PDF/image)</>}
                         </label>
                         <input id={rulesFileId} ref={rulesFileRef} type="file" accept="image/*,.pdf" className="sr-only" disabled={uploadingRules}
@@ -489,43 +544,44 @@ export default function Tournaments() {
                       <div className="space-y-2">
                         <button type="button" onClick={() => setTrophyPickerOpen(o => !o)}
                           className={cn(
-                            "w-full flex items-center gap-3 rounded border px-3 py-2.5 text-sm transition-colors",
-                            trophyPickerOpen ? "border-primary bg-primary/5" : "border-border bg-secondary hover:border-primary/40"
-                          )}>
+                            "flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors",
+                          trophyPickerOpen ? "bg-cyan-300/[0.11] ring-1 ring-cyan-300/35" : "bg-white/[0.045] ring-1 ring-white/12 hover:bg-cyan-300/[0.06] hover:ring-cyan-300/25"
+                          )}
+                          style={tournamentDialogClip}>
                           {selected ? (
                             <>
                               {selected.image_url
                                 ? <img src={selected.image_url} alt={selected.name} className="w-8 h-8 object-contain shrink-0" />
                                 : <Trophy className="w-6 h-6 text-warning/40 shrink-0" />}
-                              <span className="flex-1 text-left font-medium text-foreground text-sm">{selected.name}</span>
+                              <span className="flex-1 text-left text-sm font-medium text-white">{selected.name}</span>
                               <button type="button" onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, trophy_item_id: "" })); }}
                                 className="text-muted-foreground hover:text-destructive shrink-0"><X className="w-3.5 h-3.5" /></button>
                             </>
                           ) : (
                             <>
                               <Trophy className="w-5 h-5 text-muted-foreground/30 shrink-0" />
-                              <span className="flex-1 text-left text-muted-foreground">Select a trophy…</span>
+                              <span className="flex-1 text-left text-white/45">Select a trophy…</span>
                               <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", trophyPickerOpen && "rotate-180")} />
                             </>
                           )}
                         </button>
                         {trophyPickerOpen && (
                           available.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded">No trophies available — admin adds them via Admin → Trophies</p>
+                            <p className="border border-dashed border-cyan-300/20 py-4 text-center text-xs text-white/45" style={tournamentDialogClip}>No trophies available — admin adds them via Admin → Trophies</p>
                           ) : (
-                            <div className="border border-border rounded overflow-hidden">
-                              <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-border max-h-52 overflow-y-auto">
+                            <div className="overflow-hidden border border-cyan-300/15 bg-black/20">
+                              <div className="grid max-h-52 grid-cols-4 gap-0 divide-x divide-y divide-cyan-300/10 overflow-y-auto">
                                 {available.map(t => (
                                   <button key={t.id} type="button"
                                     onClick={() => { setForm(f => ({ ...f, trophy_item_id: t.id })); setTrophyPickerOpen(false); }}
                                     className={cn(
-                                      "flex flex-col items-center gap-1 p-3 text-center transition-colors hover:bg-primary/5",
-                                      form.trophy_item_id === t.id && "bg-warning/10"
+                                      "flex flex-col items-center gap-1 p-3 text-center transition-colors hover:bg-cyan-300/[0.06]",
+                                      form.trophy_item_id === t.id && "bg-cyan-300/[0.08]"
                                     )}>
                                     {t.image_url
                                       ? <img src={t.image_url} alt={t.name} className="w-10 h-10 object-contain drop-shadow" />
                                       : <Trophy className="w-8 h-8 text-warning/20" />}
-                                    <span className="text-[9px] text-muted-foreground leading-tight line-clamp-2 w-full">{t.name}</span>
+                                    <span className="line-clamp-2 w-full text-[9px] leading-tight text-white/45">{t.name}</span>
                                   </button>
                                 ))}
                               </div>
@@ -541,13 +597,14 @@ export default function Tournaments() {
                 <div>
                   <label className="label-xs">{t("commonPages.trnBanner")}</label>
                   {(bannerPreview || form.banner_url) ? (
-                    <div className="relative rounded overflow-hidden" style={{ height: 90 }}>
+                    <div className="relative overflow-hidden border border-cyan-300/15" style={{ height: 90, ...tournamentDialogClip }}>
                       <div className="w-full h-full"
                         style={{ backgroundImage: `url(${bannerPreview || form.banner_url})`, backgroundSize: "cover", backgroundPosition: form.banner_position }} />
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
                       <button type="button"
                         onClick={() => { setBannerPreview(null); setBannerFile(null); setForm(f => ({ ...f, banner_url: "", banner_position: "50% 50%" })); }}
-                        className="absolute top-2 right-2 w-6 h-6 rounded bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center bg-black/60 text-white hover:bg-black/80"
+                        style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)" }}>
                         <X className="w-3.5 h-3.5" />
                       </button>
                       {uploadingBanner && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
@@ -555,7 +612,8 @@ export default function Tournaments() {
                   ) : (
                     <div className="space-y-2">
                       <label htmlFor={bannerInputId}
-                        className="w-full h-14 rounded border border-dashed border-border hover:border-primary/40 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground text-xs transition-colors cursor-pointer touch-manipulation">
+                        className="flex h-14 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 border border-dashed border-cyan-300/20 bg-black/20 text-xs text-white/45 transition-colors hover:border-cyan-300/40 hover:text-white/80"
+                        style={tournamentDialogClip}>
                         <Upload className="w-3.5 h-3.5" /> Upload banner image
                       </label>
                       <input id={bannerInputId} ref={bannerInputRef} type="file" accept="image/*" className="sr-only"
@@ -577,28 +635,29 @@ export default function Tournaments() {
           </div>
 
           {/* Sticky footer */}
-          <div className="shrink-0 border-t border-border px-6 py-4 flex items-center justify-between gap-3">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-cyan-300/12 bg-white/[0.04] px-5 py-3">
             <button type="button"
               onClick={() => setModalStep(s => Math.max(1, s - 1))}
               disabled={modalStep === 1}
-              className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-1 transition-colors">
+              className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45 transition-colors hover:text-white disabled:opacity-30">
               <ChevronLeft className="w-3.5 h-3.5" /> {t("competitionFlow.back")}
             </button>
             <div className="flex items-center gap-1.5">
               {[1,2,3].map(n => (
-                <div key={n} className={cn("h-1.5 rounded-full transition-all", modalStep === n ? "w-5 bg-primary" : "w-1.5 bg-border")} />
+                <div key={n} className={cn("h-1.5 transition-all", modalStep === n ? "w-6 bg-cyan-300" : "w-2 bg-white/15")} style={{ clipPath: "polygon(20% 0, 100% 0, 80% 100%, 0 100%)" }} />
               ))}
             </div>
             {modalStep < 3 ? (
               <button type="button"
                 onClick={() => setModalStep(s => Math.min(3, s + 1))}
                 disabled={modalStep === 1 && !form.name}
-                className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-30 flex items-center gap-1 transition-colors">
+                className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30">
                 {t("competitionFlow.next")} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <Button onClick={createTournament} disabled={creating || !form.name || !form.start_date}
-                className="bg-primary text-primary-foreground gap-2 h-9 text-xs font-bold rounded">
+                className="h-10 rounded-none border border-cyan-200/25 bg-cyan-300/90 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_0_24px_-14px_rgba(0,229,255,0.9)] hover:bg-cyan-200 disabled:opacity-45"
+                style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
                 <Trophy className="w-3.5 h-3.5" />
                 {creating ? t("competitionFlow.creating") : t("competitionFlow.createTournament")}
               </Button>
