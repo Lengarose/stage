@@ -44,6 +44,7 @@ import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDe
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
+import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
 import {
   TOURNAMENT_CREDIT_COST,
   applyTournamentFormat,
@@ -226,7 +227,7 @@ export default function Admin(props) {
     try {
       const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
-        stageClient.entities.Player.list("-created_date", 100).catch(() => []),
+        loadPlayerDirectoryPages().catch(() => []),
         stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
         stageClient.entities.Club.list("-created_date", 100).catch(() => []),
         stageClient.entities.TrophyItem.list("sort_order", 100).catch(() => []),

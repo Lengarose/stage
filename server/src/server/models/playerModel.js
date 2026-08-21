@@ -70,10 +70,13 @@ class Player {
     this.eafc_club_name          = body.eafc_club_name ?? null;
   }
 
-  selectAll(page = 1) {
-    const pageSize = 25;
-    const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM players LIMIT ? OFFSET ?', [pageSize, offset]);
+  selectAll({ page = 1, limit = 25, offset } = {}) {
+    const pageSize = Math.max(1, Math.min(Number(limit) || 25, 1000));
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeOffset = offset !== undefined
+      ? Math.max(0, Number(offset) || 0)
+      : (safePage - 1) * pageSize;
+    return EXECUTESQL('SELECT * FROM players ORDER BY gamertag ASC LIMIT ? OFFSET ?', [pageSize, safeOffset]);
   }
 
   selectOne(id) {
@@ -90,6 +93,16 @@ class Player {
 
   selectByUserId(user_id) {
     return EXECUTESQL('SELECT * FROM players WHERE user_id = ?', [user_id]);
+  }
+
+  searchByGamertag(search, limit = 50, offset = 0) {
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 1000));
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const term = `${String(search || '').trim().toLowerCase()}%`;
+    return EXECUTESQL(
+      'SELECT * FROM players WHERE LOWER(gamertag) LIKE ? ORDER BY gamertag ASC LIMIT ? OFFSET ?',
+      [term, safeLimit, safeOffset]
+    );
   }
 
   create() {

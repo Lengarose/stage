@@ -1,5 +1,5 @@
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BackfillStcButton from "@/components/admin/economy/BackfillStcButton";
 import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfigPanel";
 import AdminContractsPanel from "@/components/admin/economy/AdminContractsPanel";
@@ -14,6 +14,8 @@ import { stageClient } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Search, Coins, Ban, BadgeCheck, Check, X, ExternalLink, Trash2, AlertTriangle, Crown } from "lucide-react";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
+
+const ADMIN_PLAYERS_PAGE_SIZE = 12;
 
 export default function PlayersTab({
   players = [],
@@ -45,6 +47,21 @@ export default function PlayersTab({
         || String(p.email || "").toLowerCase().includes(q)
         || String(p.platform || "").toLowerCase().includes(q)
       );
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / ADMIN_PLAYERS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visiblePlayers = filteredPlayers.slice(
+    (safePage - 1) * ADMIN_PLAYERS_PAGE_SIZE,
+    safePage * ADMIN_PLAYERS_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   async function handleConfirmDeleteAccount() {
     if (!deleteTarget || deleteConfirm !== "DELETE" || deleting) return;
@@ -144,8 +161,59 @@ export default function PlayersTab({
           </Button>
         </div>
       </div>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+          {filteredPlayers.length} players · Page {safePage} of {totalPages}
+        </p>
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage === 1}
+              className="h-8 min-w-8 border border-white/10 bg-black/30 px-2 text-xs font-black uppercase tracking-wider text-white/55 transition-colors hover:border-cyan-300/40 hover:text-cyan-100 disabled:opacity-30"
+              style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
+            >
+              ‹
+            </button>
+            {Array.from({ length: Math.min(totalPages, 9) }, (_, i) => {
+              const n = totalPages <= 9
+                ? i + 1
+                : safePage <= 5
+                  ? i + 1
+                  : safePage >= totalPages - 4
+                    ? totalPages - 8 + i
+                    : safePage - 4 + i;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPage(n)}
+                  className={`h-8 min-w-8 border px-2 text-xs font-black transition-colors ${
+                    n === safePage
+                      ? "border-cyan-300 bg-cyan-300 text-black"
+                      : "border-white/10 bg-black/30 text-white/55 hover:border-cyan-300/40 hover:text-cyan-100"
+                  }`}
+                  style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={safePage === totalPages}
+              className="h-8 min-w-8 border border-white/10 bg-black/30 px-2 text-xs font-black uppercase tracking-wider text-white/55 transition-colors hover:border-cyan-300/40 hover:text-cyan-100 disabled:opacity-30"
+              style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
+            >
+              ›
+            </button>
+          </div>
+        )}
+      </div>
       <div className="space-y-2">
-        {filteredPlayers.map(p => (
+        {visiblePlayers.map(p => (
           <div key={p.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
             <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
               {p.avatar_url ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray, parseJsonArray } from "@/lib/safeData";
 import { filterPublicPlayerProfiles } from "@/lib/playerDirectory";
+import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
 import { getCountryDisplayName } from "@/lib/countryDisplay";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
@@ -25,6 +26,7 @@ export default function Players({ tournamentId } = {}) {
   useEffect(() => {
     async function load() {
       try {
+        setLoading(true);
         // Kick off the (tournament-independent) club fetch in parallel with player resolution.
         const clubsPromise = stageClient.entities.Club.list().catch(() => []);
         let data;
@@ -33,13 +35,13 @@ export default function Players({ tournamentId } = {}) {
           const registeredIds = tournament?.registered_players || [];
           const parsed = parseJsonArray(registeredIds);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const all = asObjectArray(await stageClient.entities.Player.list(null, 500).catch(() => []));
+            const all = asObjectArray(await loadPlayerDirectoryPages());
             data = all.filter(p => p?.id && parsed.includes(p.id));
           } else {
             data = [];
           }
         } else {
-          data = await stageClient.entities.Player.list(null, 500).catch(() => []);
+          data = await loadPlayerDirectoryPages();
         }
         const clubData = asObjectArray(await clubsPromise);
         // Hide president-only OAuth stubs; only show users who finished PlayerSetup.
@@ -57,7 +59,9 @@ export default function Players({ tournamentId } = {}) {
   }, [tournamentId]);
 
   const filtered = asObjectArray(players).filter(p => {
-    const matchSearch   = !search   || (p.gamertag || "").toLowerCase().includes(search.toLowerCase());
+    const query = search.trim().toLowerCase();
+    const gamertag = String(p.gamertag || "").toLowerCase();
+    const matchSearch = !query || gamertag.startsWith(query) || gamertag.includes(query);
     const matchPlatform = platform === "All Platforms" || p.platform === platform;
     const matchPosition = position === "All Positions" || p.position === position || p.secondary_position === position;
     return matchSearch && matchPlatform && matchPosition;

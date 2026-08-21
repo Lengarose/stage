@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -25,6 +26,8 @@ function loadPlayerRouterWithMocks(executesql) {
       this.body = body;
       this.id = body.id || 'player-1';
     }
+    selectAll(query) { return executesql('TEST_SELECT_ALL_PLAYERS', [query]); }
+    searchByGamertag(search, limit, offset) { return executesql('TEST_SEARCH_PLAYERS', [search, limit, offset]); }
     update(id) { return executesql('TEST_UPDATE_PLAYER', [id, this.body]); }
     selectOne(id) { return executesql('TEST_SELECT_PLAYER', [id]); }
   }
@@ -38,7 +41,35 @@ function loadPlayerRouterWithMocks(executesql) {
     exports: { broadcastPlayer() {}, broadcastPlayerDeleted() {} },
   };
 
-  return require(controllerPath);
+  const originalLoad = Module._load;
+  Module._load = function mockExpress(request, parent, isMain) {
+    if (request === 'express') {
+      return {
+        Router() {
+          const router = { stack: [] };
+          for (const method of ['get', 'post', 'patch', 'delete']) {
+            router[method] = (routePath, handle) => {
+              router.stack.push({
+                route: {
+                  path: routePath,
+                  methods: { [method]: true },
+                  stack: [{ handle }],
+                },
+              });
+            };
+          }
+          return router;
+        },
+      };
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    return require(controllerPath);
+  } finally {
+    Module._load = originalLoad;
+  }
 }
 
 function routeHandler(router, method, pathName) {
@@ -150,6 +181,50 @@ test('ordinary profile fields still save normally', async () => {
   assert.equal(written.bio, 'hello');
   assert.equal(written.dressing_room_seat, 3);
   assert.deepEqual(written.club_roles, ['captain']);
+});
+
+test('GET / respects directory limit instead of hardcoding the first 25 players', async () => {
+  let query = null;
+  const router = loadPlayerRouterWithMocks(async (sql, params = []) => {
+    if (/information_schema/.test(sql)) return [{ ok: 1 }];
+    if (sql === 'TEST_SELECT_ALL_PLAYERS') {
+      query = params[0];
+      return [{ id: 'player-500', gamertag: 'Lengarose', country: 'DR Congo' }];
+    }
+    return [];
+  });
+  const response = makeResponse();
+
+  await routeHandler(router, 'get', '/')(
+    { query: { limit: '500' }, user: { id: 'caller-user' } },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(query, { page: 1, limit: 500, offset: undefined });
+  assert.equal(response.body[0].gamertag, 'Lengarose');
+});
+
+test('GET / supports server-side player directory search', async () => {
+  let searchArgs = null;
+  const router = loadPlayerRouterWithMocks(async (sql, params = []) => {
+    if (/information_schema/.test(sql)) return [{ ok: 1 }];
+    if (sql === 'TEST_SEARCH_PLAYERS') {
+      searchArgs = params;
+      return [{ id: 'player-lenga', gamertag: 'Lengarose', country: 'DR Congo' }];
+    }
+    return [];
+  });
+  const response = makeResponse();
+
+  await routeHandler(router, 'get', '/')(
+    { query: { search: 'Lenga', limit: '500' }, user: { id: 'caller-user' } },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(searchArgs, ['Lenga', 500, 0]);
+  assert.equal(response.body[0].gamertag, 'Lengarose');
 });
 
 test('an admin can still adjust a wallet — that is what the admin panel is for', async () => {
