@@ -75,7 +75,7 @@ export const PAGE_GUIDE_STEPS_EN = {
   ],
   club: [
     'Your club page is the public shop window: crest, squad, record, and office.',
-    'Open it from Profile (Club tab), Find Clubs, or a news / ranking link.',
+    'Open it from Profile (Club tab) or a news / ranking link.',
     'Squad: tap a player for profile, contract, release, role, or loan actions.',
     'Feed: club posts. Operations: applicants, staff, lineups (if you can run ops).',
     'Office is president-only: Contracts, Stadium, Finance, Shirts, Trophies, History, Chat.',
@@ -252,7 +252,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Type a gamertag, club name, or tag, then open the result.',
     'Player result → profile (contract, loan, follow).',
     'Club result → club page (squad, office, competitions).',
-    'Use Find Players / Find Clubs when you are browsing, not searching a name.',
+    'Use Find Players when you are browsing, not searching a name.',
     'Rankings and THE STAGE TIMES are better when you do not know the name yet.',
     'A search hit is not an offer. Finish deals in Inbox.',
     'From any result you can always go back and search the opponent next.',

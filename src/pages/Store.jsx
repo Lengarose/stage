@@ -95,6 +95,15 @@ export default function Store() {
 
   useEffect(() => {
     async function load() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("client") === "mobile") {
+        const next = new URLSearchParams(params);
+        next.delete("client");
+        const qs = next.toString();
+        window.location.replace(qs ? `stage://apps/store?${qs}` : "stage://apps/store");
+        return;
+      }
+
       const cfgRows = await stageClient.entities.StoreConfig.filter({ is_active: 1, with_defaults: 1 }, "-updated_date", 1).catch(() => []);
       const cfg = normalizeStoreConfig(cfgRows?.[0]);
       setStoreConfig(cfg);
@@ -103,7 +112,6 @@ export default function Store() {
       setUser(u);
       if (pl) setPlayer(pl);
 
-      const params = new URLSearchParams(window.location.search);
       if (params.get('sub') === 'success') {
         setActiveTab('subscription');
         window.history.replaceState({}, '', '/store');

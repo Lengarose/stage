@@ -134,3 +134,17 @@ test('auth sends a welcome email on sign-up and never on sign-in', () => {
   assert.match(notifyParticipant, /createNotificationIfEnabled/);
   assert.doesNotMatch(notifyParticipant, /notifyTournamentAssigned/);
 });
+
+test('Stripe mobile checkout returns through an HTTPS handoff into the native app', () => {
+  const server = readRepoFile('server/src/server.js');
+  const app = readRepoFile('src/App.jsx');
+  const store = readRepoFile('src/pages/Store.jsx');
+
+  assert.match(server, /app\.get\('\/store\/mobile-return'/);
+  assert.match(server, /stage:\/\/apps\/store/);
+  assert.match(app, /path="\/store\/mobile-return"/);
+  assert.match(app, /MobileStoreHandoff/);
+  assert.match(store, /client"\) === "mobile"/);
+  assert.match(store, /stage:\/\/apps\/store/);
+  assert.match(store, /successUrl: `\$\{window\.location\.origin\}\/store\?sub=success/);
+});

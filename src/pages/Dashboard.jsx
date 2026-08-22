@@ -335,14 +335,7 @@ export default function Dashboard() {
                         ) : null}
                       </>
                     ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground">{t("commonPages.dashboardNoClub")}</p>
-                        <Link to="/clubs">
-                          <Button type="button" variant="outline" size="sm" className="font-heading uppercase w-full">
-                            {t("commonPages.dashboardFindClub")}
-                          </Button>
-                        </Link>
-                      </div>
+                      <p className="text-sm text-muted-foreground">{t("commonPages.dashboardNoClub")}</p>
                     )}
                   </section>
                 </div>
