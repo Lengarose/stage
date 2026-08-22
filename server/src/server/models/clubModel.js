@@ -65,10 +65,13 @@ class Club {
     }
   }
 
-  selectAll(page = 1) {
-    const pageSize = 25;
-    const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM clubs LIMIT ? OFFSET ?', [pageSize, offset]);
+  selectAll({ page = 1, limit = 25, offset } = {}) {
+    const pageSize = Math.max(1, Math.min(Number(limit) || 25, 1000));
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeOffset = offset !== undefined
+      ? Math.max(0, Number(offset) || 0)
+      : (safePage - 1) * pageSize;
+    return EXECUTESQL('SELECT * FROM clubs ORDER BY name ASC LIMIT ? OFFSET ?', [pageSize, safeOffset]);
   }
 
   selectOne(id) {

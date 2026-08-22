@@ -90,3 +90,17 @@ test('Club can select by canonical president player id', async () => {
   assert.match(calls[0].sql, /WHERE president_player_id = \?/);
   assert.deepEqual(calls[0].params, ['player-president-1']);
 });
+
+test('Club selectAll respects directory page size and offset', async () => {
+  const calls = [];
+  const executesql = async (sql, params = []) => {
+    calls.push({ sql, params });
+    return [];
+  };
+  const Club = loadModelWithDbMock(executesql);
+
+  await new Club().selectAll({ page: 3, limit: 25 });
+
+  assert.match(calls[0].sql, /ORDER BY name ASC LIMIT \? OFFSET \?/);
+  assert.deepEqual(calls[0].params, [25, 50]);
+});

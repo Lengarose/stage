@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
 import { Crown, Search, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray } from "@/lib/safeData";
+import { loadClubDirectoryPages } from "@/lib/clubDirectoryLoader";
+import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
 import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
 import { getCountryDisplayName } from "@/lib/countryDisplay";
 
@@ -21,9 +22,10 @@ export default function Presidents() {
   useEffect(() => {
     async function load() {
       try {
+        setLoading(true);
         const [clubData, playerData] = await Promise.all([
-          stageClient.entities.Club.list(null, 500).catch(() => []),
-          stageClient.entities.Player.list("-overall_rating", 500).catch(() => []),
+          loadClubDirectoryPages().catch(() => []),
+          loadPlayerDirectoryPages().catch(() => []),
         ]);
         const map = {};
         asObjectArray(clubData).forEach((c) => { if (c?.id) map[c.id] = c; });

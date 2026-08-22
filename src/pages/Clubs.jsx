@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import ClubCard from "../components/ClubCard";
 import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray, parseJsonArray } from "@/lib/safeData";
+import { loadClubDirectoryPages } from "@/lib/clubDirectoryLoader";
 
 const PAGE_SIZE = 15;
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
@@ -22,19 +23,20 @@ export default function Clubs({ tournamentId } = {}) {
   useEffect(() => {
     async function load() {
       try {
+        setLoading(true);
         let data;
         if (tournamentId) {
           const tournament = await stageClient.entities.Tournament.get(tournamentId).catch(() => null);
           const registeredIds = tournament?.registered_clubs || [];
           const parsed = parseJsonArray(registeredIds);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const all = asObjectArray(await stageClient.entities.Club.list(null, 500).catch(() => []));
+            const all = asObjectArray(await loadClubDirectoryPages());
             data = all.filter(c => c?.id && parsed.includes(c.id));
           } else {
             data = [];
           }
         } else {
-          data = await stageClient.entities.Club.list(null, 500).catch(() => []);
+          data = await loadClubDirectoryPages();
         }
         setClubs(asObjectArray(data).filter((c) => c.id));
       } catch {

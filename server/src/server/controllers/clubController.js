@@ -222,7 +222,7 @@ async function resolvePresidentPlayerForClub(req, body = {}) {
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { owner_email, user_id, president_player_id, page, id, name } = req.query;
+    const { owner_email, user_id, president_player_id, page, limit, offset, id, name } = req.query;
     const club = new Club();
     let result;
     if (owner_email) result = await club.selectByOwner(owner_email);
@@ -235,7 +235,11 @@ router.get('/', async (req, res) => {
         [String(name)]
       );
     }
-    else result = await club.selectAll(Number(page) || 1);
+    else result = await club.selectAll({
+      page: Number(page) || 1,
+      limit: Number(limit) || 25,
+      offset: offset !== undefined ? Number(offset) : undefined,
+    });
     res.json(result);
   } catch (err) {
     console.error(err);
