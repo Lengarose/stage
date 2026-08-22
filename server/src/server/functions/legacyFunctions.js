@@ -1942,6 +1942,40 @@ function buildReplacementStanding(existing, club) {
   };
 }
 
+function buildRegionalLeagueStanding(league, club, position) {
+  return {
+    id: uuidv4(),
+    league_id: league.id,
+    league_name: league.name,
+    region_slug: league.region_slug || '',
+    division: league.division || 1,
+    season_number: league.season_number || 1,
+    club_id: club.id,
+    club_name: club.name,
+    club_logo_url: club.logo_url || '',
+    club_tag: club.tag || '',
+    platform: league.platform || club.platform || '',
+    region: league.region || league.region_slug || club.region || '',
+    position,
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goals_for: 0,
+    goals_against: 0,
+    goal_difference: 0,
+    points: 0,
+    form: [],
+    status: 'active',
+  };
+}
+
+function simulateFootballScore() {
+  const homeScore = Math.floor(Math.random() * 6);
+  const awayScore = Math.floor(Math.random() * 6);
+  return { homeScore, awayScore };
+}
+
 async function updateActiveLeagueStandingPositions(query, cfg, targetId) {
   const rows = await query(
     `SELECT * FROM league_entities WHERE entity_type = ? AND \`${cfg.parentFilter}\` = ?`,
@@ -1959,6 +1993,108 @@ async function updateActiveLeagueStandingPositions(query, cfg, targetId) {
   for (let index = 0; index < active.length; index += 1) {
     await updateLeagueEntityData(query, cfg.standingType, active[index].id, { ...active[index], position: index + 1 });
   }
+}
+
+const LEAGUE_RESET_CONFIRMATION = 'RESET LEAGUES';
+
+const LEAGUE_RESET_ENTITY_TYPES = {
+  gost: [
+    'competition_season',
+    'competition_fixture',
+    'competition_standing',
+    'qualification_entry',
+  ],
+  regional: [
+    'regional_league_fixture',
+    'regional_league_standing',
+    'season_registration',
+    'qualification_entry',
+  ],
+};
+
+const LEAGUE_RESET_FIELD_PREFIXES = [
+  'winner_',
+  'champion_',
+  'promoted_',
+  'relegated_',
+  'qualified_',
+  'last_winner_',
+  'last_champion_',
+];
+
+const LEAGUE_RESET_FIELD_NAMES = new Set([
+  'winner',
+  'champion',
+  'champions',
+  'promoted',
+  'relegated',
+  'qualification_entries',
+  'qualified_clubs',
+  'qualified_club_ids',
+  'standings',
+  'fixtures',
+  'fixture_ids',
+  'archive',
+  'archives',
+  'archived',
+  'archived_history',
+  'history',
+  'season_history',
+  'previous_season_id',
+  'next_season_id',
+  'completed_at',
+  'completed_by',
+  'closed_at',
+  'closed_by',
+]);
+
+function resetLeagueHistoryFields(row) {
+  const next = { ...(row || {}) };
+  for (const key of Object.keys(next)) {
+    if (LEAGUE_RESET_FIELD_NAMES.has(key) || LEAGUE_RESET_FIELD_PREFIXES.some(prefix => key.startsWith(prefix))) {
+      delete next[key];
+    }
+  }
+  return next;
+}
+
+function getLeagueResetScope(scope) {
+  const normalized = String(scope || 'all').toLowerCase();
+  if (normalized === 'gost' || normalized === 'regional') return normalized;
+  return 'all';
+}
+
+function uniqueLeagueResetEntityTypes(scope) {
+  if (scope === 'gost') return LEAGUE_RESET_ENTITY_TYPES.gost;
+  if (scope === 'regional') return LEAGUE_RESET_ENTITY_TYPES.regional;
+  return [...new Set([...LEAGUE_RESET_ENTITY_TYPES.gost, ...LEAGUE_RESET_ENTITY_TYPES.regional])];
+}
+
+async function deleteRowsIfTableExists(query, tableName, sql, values = []) {
+  const exists = await query(
+    `SELECT 1
+       FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+      LIMIT 1`,
+    [tableName]
+  );
+  if (!exists.length) return 0;
+  const result = await query(sql, values);
+  return Number(result?.affectedRows || 0);
+}
+
+async function deleteRowsIfTablesExist(query, tableNames, sql, values = []) {
+  const exists = await query(
+    `SELECT TABLE_NAME
+       FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME IN (${tableNames.map(() => '?').join(',')})`,
+    tableNames
+  );
+  if (exists.length !== tableNames.length) return 0;
+  const result = await query(sql, values);
+  return Number(result?.affectedRows || 0);
 }
 
 /** Best-effort admin audit row (adminEconomyControl and similar). */
@@ -5507,6 +5643,531 @@ const HANDLERS = {
 
   async adminRemoveClubFromCompetition(args) {
     return HANDLERS.adminManageLeagueClub({ ...args, action: 'remove' });
+  },
+
+  async adminRegisterClubToRegionalLeague({
+    _auth_user_id,
+    league_id,
+    club_id,
+    club_ids,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!league_id) throw new Error('league_id required');
+    const requestedClubIds = Array.isArray(club_ids) && club_ids.length
+      ? club_ids
+      : [club_id];
+    const normalizedClubIds = [...new Set(requestedClubIds.map(id => String(id || '').trim()).filter(Boolean))];
+    if (!normalizedClubIds.length) throw new Error('club_id required');
+
+    const result = await withTransaction(async (query) => {
+      const leagueRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'regional_league'
+          LIMIT 1 FOR UPDATE`,
+        [league_id]
+      );
+      if (!leagueRows.length) throw new Error('Regional League not found');
+      const league = parseLeagueEntityRow(leagueRows[0]);
+      if (String(league.status || '').toLowerCase() === 'archived') {
+        throw new Error('Archived leagues cannot receive clubs');
+      }
+
+      const maxClubs = Number(league.max_clubs || 20);
+      const existingFixtureRows = await query(
+        `SELECT id FROM league_entities
+          WHERE entity_type = 'regional_league_fixture'
+            AND league_id = ?
+          LIMIT 1`,
+        [league_id]
+      );
+      if (existingFixtureRows.length) {
+        throw new Error('Remove/regenerate fixtures before adding clubs to this league');
+      }
+      const existingStandingRows = await query(
+        `SELECT * FROM league_entities
+          WHERE entity_type = 'regional_league_standing'
+            AND league_id = ?
+          FOR UPDATE`,
+        [league_id]
+      );
+      const existingStandings = existingStandingRows.map(parseLeagueEntityRow).filter(row => !row.is_excluded);
+      const existingClubIds = new Set(existingStandings.map(row => String(row.club_id)));
+      const slotsLeft = Math.max(0, maxClubs - existingStandings.length);
+      if (slotsLeft <= 0) throw new Error(`${league.name || 'Regional League'} is full (${existingStandings.length}/${maxClubs})`);
+
+      const targetClubIds = normalizedClubIds
+        .filter(id => !existingClubIds.has(String(id)))
+        .slice(0, slotsLeft);
+      if (!targetClubIds.length) {
+        return {
+          success: true,
+          added: 0,
+          skipped: normalizedClubIds.length,
+          num_clubs: existingStandings.length,
+          message: 'Selected club is already registered or no slots are open',
+        };
+      }
+
+      const clubRows = await query(
+        `SELECT id, name, tag, logo_url, region, platform
+           FROM clubs
+          WHERE id IN (${targetClubIds.map(() => '?').join(',')})
+          FOR UPDATE`,
+        targetClubIds
+      );
+      const clubsById = new Map(clubRows.map(row => [String(row.id), row]));
+      const missing = targetClubIds.filter(id => !clubsById.has(String(id)));
+      if (missing.length) throw new Error('One or more clubs were not found');
+
+      const registeredIds = normalizeIdList(league.registered_club_ids);
+      const addedStandings = [];
+      for (const id of targetClubIds) {
+        const club = clubsById.get(String(id));
+        const position = existingStandings.length + addedStandings.length + 1;
+        const standing = buildRegionalLeagueStanding(league, club, position);
+        addedStandings.push(standing);
+        await query(
+          `INSERT INTO league_entities
+            (id, entity_type, data_json, status, league_id, club_id, division, region, platform, season_number, created_date, updated_date)
+           VALUES (?, 'regional_league_standing', ?, 'active', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            standing.id,
+            JSON.stringify(standing),
+            league_id,
+            standing.club_id,
+            standing.division || null,
+            standing.region || null,
+            standing.platform || null,
+            standing.season_number || null,
+          ]
+        );
+      }
+
+      const nextIds = [...new Set([...registeredIds, ...targetClubIds.map(String)])];
+      const nextLeague = {
+        ...league,
+        registered_club_ids: nextIds,
+        num_clubs: existingStandings.length + addedStandings.length,
+        status: league.status || 'registration',
+      };
+      await updateLeagueEntityData(query, 'regional_league', league_id, nextLeague, {
+        status: nextLeague.status,
+        slug: nextLeague.slug || null,
+        league_id: nextLeague.league_id || null,
+        tier: nextLeague.tier || null,
+        division: nextLeague.division || null,
+        region: nextLeague.region || nextLeague.region_slug || null,
+        platform: nextLeague.platform || null,
+        is_active: nextLeague.is_active ?? 1,
+        season_number: nextLeague.season_number || 1,
+      });
+
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'admin_register_club_to_regional_league',
+        entityType: 'regional_league',
+        entityId: league_id,
+        entityName: league.name || null,
+        oldValue: {
+          registered_club_ids: registeredIds,
+          num_clubs: existingStandings.length,
+        },
+        newValue: {
+          registered_club_ids: nextIds,
+          num_clubs: nextLeague.num_clubs,
+          added_clubs: addedStandings.map(row => ({ club_id: row.club_id, club_name: row.club_name })),
+        },
+        reason: reason || 'Admin direct Regional League registration',
+      });
+
+      return {
+        success: true,
+        added: addedStandings.length,
+        skipped: normalizedClubIds.length - targetClubIds.length,
+        num_clubs: nextLeague.num_clubs,
+        added_clubs: addedStandings.map(row => ({ club_id: row.club_id, club_name: row.club_name })),
+      };
+    });
+
+    return { data: result };
+  },
+
+  async simulateRegionalLeagueFixtures({
+    _auth_user_id,
+    league_id,
+    fixture_limit,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!league_id) throw new Error('league_id required');
+    const limit = Number(fixture_limit || 0);
+    const fixtureRows = await EXECUTESQL(
+      `SELECT *
+         FROM league_entities
+        WHERE entity_type = 'regional_league_fixture'
+          AND league_id = ?
+        ORDER BY COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.matchday')) AS UNSIGNED), 999), created_date ASC`,
+      [league_id]
+    );
+    const fixtures = fixtureRows
+      .map(parseLeagueEntityRow)
+      .filter(fixture => !isLeagueFixturePlayed(fixture));
+    if (!fixtures.length) {
+      return { data: { success: true, simulated: 0, skipped: fixtureRows.length, message: 'No unplayed fixtures to simulate' } };
+    }
+
+    const selectedFixtures = limit > 0 ? fixtures.slice(0, limit) : fixtures;
+    const results = [];
+    for (const fixture of selectedFixtures) {
+      const { homeScore, awayScore } = simulateFootballScore();
+      const winnerId = homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
+      const winnerName = winnerId && String(winnerId) === String(fixture.home_club_id)
+        ? fixture.home_club_name
+        : winnerId && String(winnerId) === String(fixture.away_club_id)
+          ? fixture.away_club_name
+          : null;
+      const result = await HANDLERS.regionalLeagueFixtureResult({
+        _auth_user_id,
+        fixture_id: fixture.id,
+        home_score: homeScore,
+        away_score: awayScore,
+        winner_club_id: winnerId,
+        winner_club_name: winnerName,
+        reason: reason || 'Admin simulated Regional League fixture',
+      });
+      results.push({
+        fixture_id: fixture.id,
+        home_club_name: fixture.home_club_name,
+        away_club_name: fixture.away_club_name,
+        home_score: homeScore,
+        away_score: awayScore,
+        processed: Boolean(result?.data?.success),
+      });
+    }
+
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'simulate_regional_league_fixtures',
+      entityType: 'regional_league',
+      entityId: league_id,
+      entityName: fixtureRows[0] ? parseLeagueEntityRow(fixtureRows[0])?.league_name : null,
+      oldValue: {
+        unplayed_before: fixtures.length,
+      },
+      newValue: {
+        simulated: results.length,
+        results,
+      },
+      reason: reason || 'Admin simulated Regional League fixtures',
+    });
+
+    return {
+      data: {
+        success: true,
+        simulated: results.length,
+        remaining: Math.max(0, fixtures.length - results.length),
+        results,
+      },
+    };
+  },
+
+  async adminResetLeagueCompetitionData({
+    _auth_user_id,
+    scope = 'all',
+    confirmation,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (Number(admin.role_id) !== 0) throw new Error('Super admin only');
+    if (String(confirmation || '').trim() !== LEAGUE_RESET_CONFIRMATION) {
+      throw new Error(`Type "${LEAGUE_RESET_CONFIRMATION}" to reset league data`);
+    }
+
+    const resetScope = getLeagueResetScope(scope);
+    const entityTypes = uniqueLeagueResetEntityTypes(resetScope);
+    const placeholders = entityTypes.map(() => '?').join(',');
+
+    const result = await withTransaction(async (query) => {
+      const beforeRows = await query(
+        `SELECT entity_type, COUNT(*) AS count
+           FROM league_entities
+          WHERE entity_type IN (${placeholders})
+          GROUP BY entity_type`,
+        entityTypes
+      );
+      const beforeCounts = beforeRows.reduce((acc, row) => {
+        acc[row.entity_type] = Number(row.count || 0);
+        return acc;
+      }, {});
+
+      const legacyFixtureRows = await query(
+        `SELECT id, entity_type
+           FROM league_entities
+          WHERE entity_type IN ('competition_fixture', 'regional_league_fixture')
+            AND entity_type IN (${placeholders})`,
+        entityTypes
+      );
+      const legacyFixtureIds = legacyFixtureRows.map(row => row.id).filter(Boolean);
+      const legacyFixtureTypes = [...new Set(legacyFixtureRows.map(row => row.entity_type).filter(Boolean))];
+
+      const instanceRows = await query(
+        `SELECT id
+           FROM competition_instances
+          WHERE product_type IN ('regional_league', 'official_competition')
+            AND (
+              (? IN ('all', 'regional') AND product_type = 'regional_league')
+              OR (? IN ('all', 'gost') AND product_type = 'official_competition')
+            )
+          FOR UPDATE`,
+        [resetScope, resetScope]
+      ).catch(() => []);
+      const instanceIds = instanceRows.map(row => row.id).filter(Boolean);
+
+      let deletedMatches = 0;
+      if (legacyFixtureIds.length) {
+        const matchParams = [
+          ...legacyFixtureTypes,
+          ...legacyFixtureIds,
+        ];
+        deletedMatches += await deleteRowsIfTableExists(
+          query,
+          'matches',
+          `DELETE FROM matches
+            WHERE source_fixture_type IN (${legacyFixtureTypes.map(() => '?').join(',')})
+              AND source_fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
+          matchParams
+        );
+
+        deletedMatches += await deleteRowsIfTableExists(
+          query,
+          'matches',
+          `DELETE FROM matches
+            WHERE source_fixture_type IN ('competition', 'regional_league')
+              AND source_fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
+          legacyFixtureIds
+        );
+      }
+
+      if (instanceIds.length) {
+        deletedMatches += await deleteRowsIfTableExists(
+          query,
+          'matches',
+          `DELETE FROM matches
+            WHERE source_fixture_type = 'competition_engine'
+              AND competition_context IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+      }
+
+      const deletedAvailability = legacyFixtureIds.length
+        ? await deleteRowsIfTableExists(
+            query,
+            'club_fixture_availability',
+            `DELETE FROM club_fixture_availability
+              WHERE fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
+            legacyFixtureIds
+          )
+        : 0;
+
+      const deletedLineups = legacyFixtureIds.length
+        ? await deleteRowsIfTableExists(
+            query,
+            'club_fixture_lineups',
+            `DELETE FROM club_fixture_lineups
+              WHERE fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
+            legacyFixtureIds
+          )
+        : 0;
+
+      let deletedEngineRows = {
+        result_submissions: 0,
+        schedule_proposals: 0,
+        phase_states: 0,
+        standings: 0,
+        fixtures: 0,
+        participants: 0,
+        instances: 0,
+      };
+      if (instanceIds.length) {
+        deletedEngineRows.result_submissions = await deleteRowsIfTablesExist(
+          query,
+          ['competition_result_submissions', 'competition_fixtures'],
+          `DELETE crs FROM competition_result_submissions crs
+             JOIN competition_fixtures cf ON cf.id = crs.fixture_id
+            WHERE cf.competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.schedule_proposals = await deleteRowsIfTablesExist(
+          query,
+          ['competition_schedule_proposals', 'competition_fixtures'],
+          `DELETE csp FROM competition_schedule_proposals csp
+             JOIN competition_fixtures cf ON cf.id = csp.fixture_id
+            WHERE cf.competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.phase_states = await deleteRowsIfTableExists(
+          query,
+          'competition_phase_states',
+          `DELETE FROM competition_phase_states
+            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.standings = await deleteRowsIfTableExists(
+          query,
+          'competition_standings',
+          `DELETE FROM competition_standings
+            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.fixtures = await deleteRowsIfTableExists(
+          query,
+          'competition_fixtures',
+          `DELETE FROM competition_fixtures
+            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.participants = await deleteRowsIfTableExists(
+          query,
+          'competition_participants',
+          `DELETE FROM competition_participants
+            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+        deletedEngineRows.instances = await deleteRowsIfTableExists(
+          query,
+          'competition_instances',
+          `DELETE FROM competition_instances
+            WHERE id IN (${instanceIds.map(() => '?').join(',')})`,
+          instanceIds
+        );
+      }
+
+      const deleteEntitiesResult = await query(
+        `DELETE FROM league_entities
+          WHERE entity_type IN (${placeholders})`,
+        entityTypes
+      );
+
+      const achievementTypes = resetScope === 'gost'
+        ? ['competition', 'competition_season', 'competition_fixture', 'official_competition']
+        : resetScope === 'regional'
+          ? ['regional_league', 'regional_league_fixture']
+          : ['competition', 'competition_season', 'competition_fixture', 'official_competition', 'regional_league', 'regional_league_fixture'];
+      const achievementPlaceholders = achievementTypes.map(() => '?').join(',');
+      const deletedClubAchievements = await deleteRowsIfTableExists(
+        query,
+        'club_achievements',
+        `DELETE FROM club_achievements WHERE source_type IN (${achievementPlaceholders})`,
+        achievementTypes
+      );
+      const deletedPlayerAchievements = await deleteRowsIfTableExists(
+        query,
+        'player_achievements',
+        `DELETE FROM player_achievements WHERE source_type IN (${achievementPlaceholders})`,
+        achievementTypes
+      );
+
+      let resetCompetitions = 0;
+      if (resetScope === 'all' || resetScope === 'gost') {
+        const competitionRows = await query(
+          `SELECT * FROM league_entities WHERE entity_type = 'competition' FOR UPDATE`
+        );
+        for (const row of competitionRows) {
+          const competition = parseLeagueEntityRow(row);
+          const nextCompetition = {
+            ...resetLeagueHistoryFields(competition),
+            current_season: 1,
+            season_number: 1,
+            registered_club_ids: [],
+            registered_clubs: [],
+            num_clubs: 0,
+            status: competition.status === 'archived' ? 'draft' : (competition.status || 'draft'),
+            updated_date: new Date().toISOString(),
+          };
+          await updateLeagueEntityData(query, 'competition', competition.id, nextCompetition, {
+            status: nextCompetition.status || null,
+            slug: nextCompetition.slug || null,
+            tier: nextCompetition.tier || null,
+            region: nextCompetition.region || null,
+            platform: nextCompetition.platform || null,
+            is_active: nextCompetition.is_active ?? 1,
+            season_number: nextCompetition.season_number || 1,
+          });
+          resetCompetitions += 1;
+        }
+      }
+
+      let resetRegionalLeagues = 0;
+      if (resetScope === 'all' || resetScope === 'regional') {
+        const regionalRows = await query(
+          `SELECT * FROM league_entities WHERE entity_type = 'regional_league' FOR UPDATE`
+        );
+        for (const row of regionalRows) {
+          const league = parseLeagueEntityRow(row);
+          const nextLeague = {
+            ...resetLeagueHistoryFields(league),
+            season_number: 1,
+            registered_club_ids: [],
+            registered_clubs: [],
+            num_clubs: 0,
+            status: 'registration',
+            updated_date: new Date().toISOString(),
+          };
+          await updateLeagueEntityData(query, 'regional_league', league.id, nextLeague, {
+            status: nextLeague.status,
+            slug: nextLeague.slug || null,
+            league_id: nextLeague.league_id || null,
+            tier: nextLeague.tier || null,
+            division: nextLeague.division || null,
+            region: nextLeague.region || nextLeague.region_slug || null,
+            platform: nextLeague.platform || null,
+            is_active: nextLeague.is_active ?? 1,
+            season_number: 1,
+          });
+          resetRegionalLeagues += 1;
+        }
+      }
+
+      const summary = {
+        success: true,
+        scope: resetScope,
+        cleared_entity_types: entityTypes,
+        before_counts: beforeCounts,
+        deleted_league_entities: Number(deleteEntitiesResult?.affectedRows || 0),
+        deleted_matches: deletedMatches,
+        deleted_availability: deletedAvailability,
+        deleted_lineups: deletedLineups,
+        deleted_engine_rows: deletedEngineRows,
+        deleted_club_achievements: deletedClubAchievements,
+        deleted_player_achievements: deletedPlayerAchievements,
+        reset_competitions: resetCompetitions,
+        reset_regional_leagues: resetRegionalLeagues,
+      };
+
+      await createAuditLog({
+        adminUserId: admin.id,
+        adminEmail: admin.email,
+        action: 'reset_league_competition_data',
+        entityType: 'league_system',
+        entityId: resetScope,
+        entityName: resetScope === 'all' ? 'Regional Leagues and GOST' : resetScope.toUpperCase(),
+        oldValue: {
+          scope: resetScope,
+          before_counts: beforeCounts,
+          instance_ids: instanceIds,
+          legacy_fixture_ids: legacyFixtureIds,
+        },
+        newValue: summary,
+        reason: reason || 'Fresh league/GOST reset from admin panel',
+      });
+
+      return summary;
+    });
+
+    return { data: result };
   },
 
   async awardClubSeasonPrize({

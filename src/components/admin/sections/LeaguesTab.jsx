@@ -17,7 +17,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { getSeasonStatusLabel } from "@/lib/adminI18n";
 import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2, ImagePlus } from "lucide-react";
 import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
-import { swalAlert, swalConfirm } from "@/lib/swal";
+import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 
 function getQualificationRuleForCompetition(slug) {
   return STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug);
@@ -104,10 +104,28 @@ export default function LeaguesTab({
   const showRegional = mode !== "gost";
   const [replaceClubByStanding, setReplaceClubByStanding] = useState({});
   const [replacingCompetitionClub, setReplacingCompetitionClub] = useState(null);
+  const [resettingLeagueScope, setResettingLeagueScope] = useState(null);
+  const [adminClubByLeague, setAdminClubByLeague] = useState({});
+  const [registeringLeagueClub, setRegisteringLeagueClub] = useState(null);
+  const [simulatingLeagueFixtures, setSimulatingLeagueFixtures] = useState(null);
   const activeStandingClubIds = useMemo(
     () => new Set((standingsList || []).filter(row => !row.is_excluded).map(row => String(row.club_id))),
     [standingsList]
   );
+
+  function getLeagueRegisteredIds(league) {
+    const ids = Array.isArray(league?.registered_club_ids)
+      ? league.registered_club_ids
+      : [];
+    return new Set(ids.map(id => String(id)));
+  }
+
+  function getAvailableClubsForLeague(league) {
+    const registeredIds = getLeagueRegisteredIds(league);
+    return (clubs || [])
+      .filter(club => club?.id && !registeredIds.has(String(club.id)))
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }
 
   async function uploadPublicMedia(entityName, row, fieldName, file) {
     if (!file || !row?.id) return;
@@ -173,8 +191,164 @@ export default function LeaguesTab({
     }
   }
 
+  async function resetLeagueCompetitionData(scope) {
+    const label = scope === "gost"
+      ? "GOST"
+      : scope === "regional"
+        ? "Regional League"
+        : "Regional League and GOST";
+    const ok = await swalConfirm(
+      `This will permanently clear generated ${label} fixtures, standings, season rows, qualification/registration entries, old league achievements, availability rows, and linked engine rows.\n\nReward configs, trophy items, clubs, and players will stay available.\n\nDo you want to continue?`,
+      {
+        title: `Reset ${label} data?`,
+        confirmText: "Continue",
+        cancelText: "Cancel",
+        icon: "warning",
+      }
+    );
+    if (!ok) return;
+
+    const confirmation = await swalPrompt(
+      `Type RESET LEAGUES to confirm this fresh-start reset for ${label}.`,
+      {
+        title: "Final confirmation",
+        placeholder: "RESET LEAGUES",
+        confirmText: "Reset data",
+        cancelText: "Cancel",
+      }
+    );
+    if (confirmation !== "RESET LEAGUES") {
+      await swalAlert("Reset cancelled. Confirmation phrase did not match.");
+      return;
+    }
+
+    setResettingLeagueScope(scope);
+    try {
+      const response = await stageClient.functions.invoke("adminResetLeagueCompetitionData", {
+        scope,
+        confirmation,
+        reason: `Fresh-start reset for ${label}`,
+      });
+      const summary = response?.data || response || {};
+      await loadAll?.();
+      await swalAlert(
+        `${label} reset complete.\n\nDeleted league rows: ${summary.deleted_league_entities || 0}\nDeleted matches: ${summary.deleted_matches || 0}\nDeleted availability rows: ${summary.deleted_availability || 0}\nDeleted lineups: ${summary.deleted_lineups || 0}\nReset competitions: ${summary.reset_competitions || 0}\nReset regional leagues: ${summary.reset_regional_leagues || 0}`
+      );
+    } catch (err) {
+      await swalAlert(`Could not reset ${label}: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setResettingLeagueScope(null);
+    }
+  }
+
+  async function adminRegisterClubToRegionalLeague(league) {
+    const clubId = adminClubByLeague[league.id];
+    const club = clubs.find(item => String(item.id) === String(clubId));
+    if (!club) {
+      await swalAlert("Choose a club first.");
+      return;
+    }
+    const ok = await swalConfirm(`Add ${club.name} to ${league.name}? This is an admin testing action and bypasses president registration.`);
+    if (!ok) return;
+
+    setRegisteringLeagueClub(league.id);
+    try {
+      const response = await stageClient.functions.invoke("adminRegisterClubToRegionalLeague", {
+        league_id: league.id,
+        club_id: club.id,
+        reason: `Admin test registration for ${club.name}`,
+      });
+      const data = response?.data || response || {};
+      setAdminClubByLeague(prev => ({ ...prev, [league.id]: "" }));
+      await loadAll?.();
+      await swalAlert(`${data.added || 0} club added to ${league.name}.`);
+    } catch (err) {
+      await swalAlert(`Could not add club: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setRegisteringLeagueClub(null);
+    }
+  }
+
+  async function simulateRegionalLeagueFixtures(league) {
+    const ok = await swalConfirm(`Simulate all unplayed fixtures for ${league.name}? This will enter scores and update the table.`);
+    if (!ok) return;
+
+    setSimulatingLeagueFixtures(league.id);
+    try {
+      const response = await stageClient.functions.invoke("simulateRegionalLeagueFixtures", {
+        league_id: league.id,
+        reason: `Admin simulated fixtures for ${league.name}`,
+      });
+      const data = response?.data || response || {};
+      await loadAll?.();
+      if (fixturesPanel?.type === "league" && fixturesPanel.id === league.id) {
+        await loadFixturesForPanel?.(fixturesPanel);
+      }
+      if (standingsPanel?.type === "league" && standingsPanel.id === league.id) {
+        await loadStandingsForPanel?.(standingsPanel);
+      }
+      await swalAlert(`Simulated ${data.simulated || 0} fixture${Number(data.simulated || 0) === 1 ? "" : "s"} for ${league.name}.`);
+    } catch (err) {
+      await swalAlert(`Could not simulate fixtures: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setSimulatingLeagueFixtures(null);
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
+
+      <div className="border border-destructive/30 bg-destructive/5 rounded p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <h3 className="font-heading text-sm uppercase tracking-widest">Fresh-start reset</h3>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Clears generated league/GOST history only. Reward configs, trophy items, clubs, and players are kept.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {showGost && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={Boolean(resettingLeagueScope)}
+                onClick={() => resetLeagueCompetitionData("gost")}
+                className="h-8 rounded border-destructive/40 px-3 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {resettingLeagueScope === "gost" ? "Resetting..." : "Reset GOST"}
+              </Button>
+            )}
+            {showRegional && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={Boolean(resettingLeagueScope)}
+                onClick={() => resetLeagueCompetitionData("regional")}
+                className="h-8 rounded border-destructive/40 px-3 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {resettingLeagueScope === "regional" ? "Resetting..." : "Reset Regional"}
+              </Button>
+            )}
+            {showGost && showRegional && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={Boolean(resettingLeagueScope)}
+                onClick={() => resetLeagueCompetitionData("all")}
+                className="h-8 rounded border-destructive/50 px-3 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {resettingLeagueScope === "all" ? "Resetting..." : "Reset All"}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Official STAGE Tournaments — qualification-only rules */}
       <div className={cn("bg-card border border-border rounded p-5 space-y-3", !showGost && "hidden")}>
@@ -776,6 +950,9 @@ export default function LeaguesTab({
               <div className="space-y-1.5">
                 {[div1, div2].filter(Boolean).map(league => {
                   const isEditingL = editingLeague === league.id;
+                  const availableClubs = getAvailableClubsForLeague(league);
+                  const canAdminAddClub = !["in_progress", "completed", "archived"].includes(String(league.status || "").toLowerCase());
+                  const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
                   return (
                     <div key={league.id} className="border border-border rounded p-3 space-y-2">
                       <div className="flex items-center gap-2">
@@ -843,6 +1020,40 @@ export default function LeaguesTab({
                             {t("admin.leagues.newSeason")}
                           </Button>
                         )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 border-t border-border/40 pt-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+                          <select
+                            value={adminClubByLeague[league.id] || ""}
+                            onChange={event => setAdminClubByLeague(prev => ({ ...prev, [league.id]: event.target.value }))}
+                            disabled={!canAdminAddClub || registeringLeagueClub === league.id}
+                            className="h-8 min-w-0 flex-1 rounded border border-border bg-secondary px-2 text-[11px] text-foreground outline-none focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50">
+                            <option value="">{canAdminAddClub ? "Add club for testing..." : "Fixtures already generated"}</option>
+                            {availableClubs.map(club => (
+                              <option key={club.id} value={club.id}>
+                                {club.name}{club.tag ? ` [${club.tag}]` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={!canAdminAddClub || !adminClubByLeague[league.id] || registeringLeagueClub === league.id}
+                            onClick={() => adminRegisterClubToRegionalLeague(league)}
+                            className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
+                            {registeringLeagueClub === league.id ? "Adding..." : "Add club"}
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!canSimulateFixtures || simulatingLeagueFixtures === league.id}
+                          onClick={() => simulateRegionalLeagueFixtures(league)}
+                          className="h-8 rounded border-warning/40 px-3 text-[11px] font-bold uppercase tracking-wider text-warning hover:bg-warning/10 disabled:opacity-45">
+                          {simulatingLeagueFixtures === league.id ? "Simulating..." : "Simulate fixtures"}
+                        </Button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {[
