@@ -10,6 +10,8 @@
   "inbox": "Inbox",
   "notifications": "Notifications",
   "tournaments": "Tournaments",
+  "gost": "GOST",
+  "regionalLeagues": "Regional Leagues",
   "international": "International",
   "register": "Register",
   "rankings": "Rankings",
@@ -34,7 +36,7 @@
   "community": "Community",
   "market": "Market",
   "discover": "Discover",
-  "competitions": "Competitions",
+  "competitions": "GOST",
   "clubs": "Clubs",
   "squad": "Squad"
 }

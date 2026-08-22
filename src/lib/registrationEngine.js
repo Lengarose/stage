@@ -1,5 +1,9 @@
 import { stageClient } from "@/api/stageClient";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
+import {
+  getEligibleRegionalLeaguesForRegistration,
+  getRegionalLeagueMaxClubs,
+} from "@/lib/regionalLeagueRules";
 
 // ─── Club → League registration flow ─────────────────────────────────────────
 //
@@ -15,10 +19,9 @@ import { hasStagePlus } from "@/lib/subscriptionUtils";
  * @param {string} regionSlug — e.g. "uk-ireland"
  * @param {string} regionName — display name e.g. "UK & Ireland"
  * @param {string} platform
- * @param {object} options — { preferredDivision, note, seasonLabel }
+ * @param {object} options — { note, seasonLabel }
  */
 export async function applyForLeague(club, regionSlug, regionName, platform, {
-  preferredDivision = 1,
   note = "",
   seasonLabel = "",
 } = {}) {
@@ -58,7 +61,6 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
     region_slug:        regionSlug,
     region_name:        regionName,
     platform,
-    preferred_division: preferredDivision || 1,
     note_from_club:     note || "",
     season_label:       seasonLabel || "",
     status:             "pending",
@@ -75,12 +77,19 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
  * @param {object} league    — RegionalLeague record to assign to
  * @param {string} adminEmail
  */
-export async function approveRegistration(reg, league, adminEmail) {
+export async function approveRegistration(reg, league, adminEmail, allRegionalLeagues = []) {
   if (league.status !== "registration") {
     throw new Error(`${league.name} is not in Registration status (current: ${league.status}).`);
   }
 
-  const max = league.max_clubs || 16;
+  if (allRegionalLeagues.length) {
+    const { eligibleLeagues, reason } = await getEligibleRegionalLeaguesForRegistration(reg, allRegionalLeagues);
+    if (!eligibleLeagues.some(candidate => candidate.id === league.id)) {
+      throw new Error(reason || `${reg.club_name} is not eligible for ${league.name}.`);
+    }
+  }
+
+  const max = getRegionalLeagueMaxClubs(league);
   const current = league.num_clubs || 0;
   if (current >= max) {
     throw new Error(`${league.name} is full (${current}/${max} clubs).`);

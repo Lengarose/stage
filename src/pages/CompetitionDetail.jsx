@@ -4,7 +4,6 @@ import { stageClient } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
 
@@ -416,6 +415,7 @@ export default function CompetitionDetail() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => { loadComp(); }, [slug]);
   useEffect(() => { if (selectedSeason) loadSeasonData(selectedSeason); }, [selectedSeason?.id]);
@@ -464,27 +464,59 @@ export default function CompetitionDetail() {
 
   const completedFixtures = fixtures.filter(f => f.status === "completed" || f.status === "forfeit");
   const upcomingFixtures = fixtures.filter(f => f.status === "scheduled" || f.status === "awaiting_result" || f.status === "postponed");
+  const sortedRows = sortStandings(standings);
+  const historySeasons = allSeasons.filter(s => s.status === "completed" || s.status === "archived");
+  const publicTabs = [
+    { value: "overview", label: "Overview" },
+    { value: "clubs", label: `Clubs (${standings.length})` },
+    { value: "fixtures", label: `Fixtures (${fixtures.length})` },
+    { value: "table", label: "Table" },
+    { value: "stats", label: "Stats" },
+    { value: "rewards", label: "Rewards" },
+    ...(historySeasons.length ? [{ value: "history", label: "History" }] : []),
+  ];
 
   return (
     <div className="min-h-screen bg-background">
 
       {/* ── Hero header ─────────────────────────────────────── */}
-      <div
-        className="relative w-full border-b border-border"
-        style={{ background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${meta.color}18 100%)` }}
-      >
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-          <Link to="/competitions" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 uppercase tracking-wider">
-            <ChevronLeft className="w-3.5 h-3.5" /> Competitions
+      <div className="relative w-full overflow-hidden border-b border-primary/25">
+        {competition?.banner_url && (
+          <img src={competition.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+        )}
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(90deg, hsl(var(--background)) 0%, rgba(2,6,23,0.74) 45%, ${meta.color}24 100%)` }}
+        />
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-10 lg:py-14">
+          <Link
+            to="/competitions"
+            className="mb-8 inline-flex h-11 items-center gap-2 px-5 text-xs font-black uppercase tracking-[0.18em] text-primary transition hover:text-primary/80"
+            style={{
+              clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
+              background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(15,23,42,0.76))",
+              border: "1px solid rgba(34,211,238,0.34)",
+            }}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
           </Link>
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div>
+          <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="flex items-center gap-5 min-w-0">
+              <div
+                className="grid h-28 w-28 shrink-0 place-items-center border border-white/15 bg-black/45 p-4"
+                style={{ clipPath: "polygon(13% 0, 100% 0, 87% 100%, 0 100%)" }}
+              >
+                {competition?.logo_url || competition?.trophy_image_url
+                  ? <img src={competition.logo_url || competition.trophy_image_url} alt={competition?.name || meta.name} className="h-full w-full object-contain" />
+                  : <Trophy className={cn("h-12 w-12", meta.textColor)} />}
+              </div>
+              <div className="min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border", meta.badgeClass)}>
+                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 border", meta.badgeClass)}>
                   {["TIER I", "TIER II", "TIER III"][meta.tier - 1]}
                 </span>
                 {selectedSeason && (
-                  <span className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded border",
+                  <span className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-1 border",
                     selectedSeason.status === "league_phase" ? "text-success border-success/30 bg-success/5" :
                     selectedSeason.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
                     selectedSeason.status === "completed" ? "text-muted-foreground border-border" :
@@ -495,12 +527,13 @@ export default function CompetitionDetail() {
                 )}
               </div>
               <h1
-                className="font-heading font-black text-5xl md:text-7xl uppercase"
-                style={{ color: meta.color, transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
+                className="font-heading font-black text-5xl md:text-7xl uppercase text-foreground"
+                style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
                 {meta.name.replace("STAGE ", "")}
               </h1>
-              <p className="text-sm text-muted-foreground mt-2">{meta.description}</p>
+              <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{competition?.description || meta.description}</p>
+              </div>
             </div>
 
             {/* Season picker */}
@@ -508,13 +541,13 @@ export default function CompetitionDetail() {
               <div className="relative">
                 <button
                   onClick={() => setSeasonPickerOpen(v => !v)}
-                  className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded text-sm font-bold text-foreground hover:border-primary/40"
+                  className="flex items-center gap-2 px-4 py-2 bg-black/45 border border-white/15 text-sm font-bold text-foreground hover:border-primary/40"
                 >
                   {selectedSeason ? (selectedSeason.season_label || `Season ${selectedSeason.season_number}`) : "Select Season"}
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
                 {seasonPickerOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded shadow-lg z-20 min-w-[160px]">
+                  <div className="absolute right-0 top-full mt-1 bg-card border border-border shadow-lg z-20 min-w-[160px]">
                     {allSeasons.map(s => (
                       <button
                         key={s.id}
@@ -581,126 +614,116 @@ export default function CompetitionDetail() {
             {isAdmin && <p className="text-xs text-muted-foreground mt-2">Create the first season from Admin → Leagues.</p>}
           </div>
         ) : (
-          <>
-          {competition && (
-            <TrophyHistorySection
-              sourceId={competition.id}
-              trophyImageUrl={competition.trophy_image_url}
-              className="mb-6 bg-card border border-border rounded-lg p-4"
-            />
-          )}
-          <Tabs defaultValue="standings">
-            <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-6">
-              {[
-                { value: "standings", label: "Standings" },
-                { value: "fixtures", label: `Fixtures (${completedFixtures.length}/${fixtures.length})` },
-                { value: "upcoming", label: `Upcoming (${upcomingFixtures.length})` },
-                { value: "qualification", label: `Qualification (${qualEntries.length})` },
-                { value: "format", label: "Format" },
-              ].map(tab => (
-                <TabsTrigger key={tab.value} value={tab.value}
-                  className="rounded-none border-b-2 border-transparent px-5 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent">
+          <div className="space-y-6">
+            <div className="flex gap-7 overflow-x-auto border-b border-border/70">
+              {publicTabs.map(tab => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setActiveTab(tab.value)}
+                  className={cn(
+                    "shrink-0 border-b-2 px-1 pb-3 text-xs font-black uppercase tracking-[0.18em] transition",
+                    activeTab === tab.value ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
                   {tab.label}
-                </TabsTrigger>
+                </button>
               ))}
-            </TabsList>
+            </div>
 
-            <TabsContent value="standings">
+            {activeTab === "overview" && (
+              <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                <div className="border border-primary/20 bg-card/80 p-5" style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}>
+                  <h2 className="font-heading text-2xl uppercase text-foreground">Tournament Format</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Official STAGE tournaments are qualification-only events. Clubs qualify through Regional League Division 1 positions and then play the STAGE tournament format.
+                  </p>
+                  <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {[
+                      ["Clubs", selectedSeason?.num_clubs || standings.length || 0],
+                      ["Fixtures", fixtures.length],
+                      ["Completed", completedFixtures.length],
+                      ["Qualifiers", qualEntries.length],
+                    ].map(([label, value]) => (
+                      <div key={label} className="border border-white/10 bg-black/25 p-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                        <p className="font-heading text-3xl text-foreground">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <QualificationPanel entries={qualEntries} />
+              </div>
+            )}
+
+            {activeTab === "clubs" && (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {sortedRows.length ? sortedRows.map((row, index) => (
+                  <Link key={row.id} to={`/clubs/${row.club_id}`} className="flex items-center gap-3 border border-border bg-card/80 p-4 transition hover:border-primary/40">
+                    {row.club_logo_url
+                      ? <img src={row.club_logo_url} alt="" className="h-11 w-11 object-contain" />
+                      : <Shield className="h-9 w-9 text-muted-foreground/40" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-foreground">{index + 1}. {row.club_name}</p>
+                      <p className="text-xs text-muted-foreground">{row.points || 0} pts · {row.played || 0} played</p>
+                    </div>
+                  </Link>
+                )) : <p className="text-sm text-muted-foreground">No clubs qualified yet.</p>}
+              </div>
+            )}
+
+            {activeTab === "table" && (
               <StandingsTable
                 standings={standings}
                 directSpots={8}
                 playoffSpots={16}
                 totalClubs={selectedSeason?.num_clubs || standings.length}
               />
-            </TabsContent>
+            )}
 
-            <TabsContent value="fixtures">
+            {activeTab === "fixtures" && (
               <FixturesPanel
-                fixtures={completedFixtures}
+                fixtures={fixtures}
                 isAdmin={isAdmin}
                 onRefresh={() => loadSeasonData(selectedSeason)}
               />
-            </TabsContent>
+            )}
 
-            <TabsContent value="upcoming">
-              <FixturesPanel
-                fixtures={upcomingFixtures}
-                isAdmin={isAdmin}
-                onRefresh={() => loadSeasonData(selectedSeason)}
-              />
-            </TabsContent>
-
-            <TabsContent value="qualification">
-              <QualificationPanel entries={qualEntries} />
-            </TabsContent>
-
-            <TabsContent value="format">
-              <div className="space-y-4 max-w-xl">
+            {activeTab === "stats" && (
+              <div className="grid gap-3 md:grid-cols-3">
                 {[
-                  {
-                    label: "League Phase",
-                    color: "border-primary/40 bg-primary/5",
-                    badge: `${selectedSeason?.num_clubs || 36} teams`,
-                    lines: [
-                      `Each team plays ${selectedSeason?.num_league_matchdays || 8} matches (${Math.floor((selectedSeason?.num_league_matchdays || 8) / 2)} home, ${Math.ceil((selectedSeason?.num_league_matchdays || 8) / 2)} away).`,
-                      "All teams share one league table.",
-                      "Top 8 advance directly to the Round of 16.",
-                      "Teams ranked 9th–24th enter the Playoff Round.",
-                      "Teams ranked 25th and below are eliminated.",
-                    ],
-                  },
-                  {
-                    label: "Playoff Round",
-                    color: "border-yellow-400/40 bg-yellow-400/5",
-                    badge: "8 ties · 2 legs",
-                    lines: [
-                      "16 teams (positions 9–24) compete in two-legged ties.",
-                      "Seeding: 9 vs 24, 10 vs 23, … 16 vs 17.",
-                      "8 winners complete the Round of 16.",
-                    ],
-                  },
-                  {
-                    label: "Knockout Rounds",
-                    color: "border-violet-400/40 bg-violet-400/5",
-                    badge: "R16 → QF → SF → Final",
-                    lines: [
-                      "Round of 16: 8 direct qualifiers vs 8 playoff winners.",
-                      "Quarter-Finals: 8 winners, two-legged ties.",
-                      "Semi-Finals: 4 winners, two-legged ties.",
-                      "Final: single match, neutral venue.",
-                    ],
-                  },
-                  {
-                    label: "Qualification",
-                    color: "border-muted-foreground/20 bg-secondary",
-                    badge: "No relegation",
-                    lines: [
-                      "Regional league Div 1 top finishers earn entry via Qualification Entries.",
-                      "Elite League winner qualifies for the next Supreme League season.",
-                      "Challenger League winner qualifies for the next Elite League season.",
-                      "There is no promotion or relegation between Supreme, Elite, and Challenger.",
-                    ],
-                  },
-                ].map(({ label, color, badge, lines }) => (
-                  <div key={label} className={`border rounded-lg p-4 ${color}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-bold text-foreground">{label}</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-current text-muted-foreground uppercase tracking-wider">{badge}</span>
-                    </div>
-                    <ul className="space-y-1">
-                      {lines.map((line, i) => (
-                        <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                          <span className="text-primary shrink-0">·</span>
-                          {line}
-                        </li>
-                      ))}
-                    </ul>
+                  ["Best Attack", sortedRows[0]?.club_name || "—", sortedRows[0]?.goals_for || 0],
+                  ["Best Defence", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.club_name || "—", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.goals_against || 0],
+                  ["Upcoming", "Fixtures", upcomingFixtures.length],
+                ].map(([label, name, value]) => (
+                  <div key={label} className="border border-border bg-card/80 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+                    <p className="mt-2 truncate text-sm font-bold text-foreground">{name}</p>
+                    <p className="font-heading text-4xl text-primary">{value}</p>
                   </div>
                 ))}
               </div>
-            </TabsContent>
-          </Tabs>
-          </>
+            )}
+
+            {activeTab === "rewards" && (
+              <TrophyHistorySection
+                sourceId={competition.id}
+                trophyImageUrl={competition.trophy_image_url}
+                className="bg-card border border-border p-4"
+              />
+            )}
+
+            {activeTab === "history" && (
+              <div className="space-y-2">
+                {historySeasons.map(season => (
+                  <button key={season.id} type="button" onClick={() => setSelectedSeason(season)} className="flex w-full items-center justify-between border border-border bg-card/70 p-4 text-left hover:border-primary/40">
+                    <span className="font-bold text-foreground">{season.season_label || `Season ${season.season_number}`}</span>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">{STATUS_LABEL[season.status] || season.status}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

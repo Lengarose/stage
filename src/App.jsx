@@ -63,6 +63,7 @@ const Lifestyle = React.lazy(() => import('./pages/Lifestyle'));
 const Wallet = React.lazy(() => import('./pages/Wallet'));
 const Competitions = React.lazy(() => import('./pages/Competitions'));
 const CompetitionDetail = React.lazy(() => import('./pages/CompetitionDetail'));
+const RegionalLeagues = React.lazy(() => import('./pages/RegionalLeagues'));
 const LeagueDetail = React.lazy(() => import('./pages/LeagueDetail'));
 const SeasonRegistrations = React.lazy(() => import('./pages/SeasonRegistrations'));
 const Community = React.lazy(() => import('./pages/Community'));
@@ -86,6 +87,7 @@ const AdminPlayersPage = React.lazy(() => import('./pages/admin/AdminPlayersPage
 const AdminClubsPage = React.lazy(() => import('./pages/admin/AdminClubsPage'));
 const AdminRankingsPage = React.lazy(() => import('./pages/admin/AdminRankingsPage'));
 const AdminLeaguesPage = React.lazy(() => import('./pages/admin/AdminLeaguesPage'));
+const AdminGostPage = React.lazy(() => import('./pages/admin/AdminGostPage'));
 const AdminTournamentsPage = React.lazy(() => import('./pages/admin/AdminTournamentsPage'));
 const AdminInternationalTournamentsPage = React.lazy(() => import('./pages/admin/AdminInternationalTournamentsPage'));
 const AdminTrophiesPage = React.lazy(() => import('./pages/admin/AdminTrophiesPage'));
@@ -424,6 +426,7 @@ const AuthenticatedApp = () => {
             <Route path="/admin/clubs" element={<AdminClubsPage />} />
             <Route path="/admin/rankings" element={<AdminRankingsPage />} />
             <Route path="/admin/leagues" element={<AdminLeaguesPage />} />
+            <Route path="/admin/gost" element={<AdminGostPage />} />
             <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />
             <Route path="/admin/international-tournaments" element={<AdminInternationalTournamentsPage />} />
             <Route path="/admin/trophies" element={<AdminTrophiesPage />} />
@@ -466,6 +469,7 @@ const AuthenticatedApp = () => {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/competitions" element={<Competitions />} />
             <Route path="/competitions/:slug" element={<CompetitionDetail />} />
+            <Route path="/leagues" element={<RegionalLeagues />} />
             <Route path="/leagues/:slug" element={<LeagueDetail />} />
             <Route path="/register-league" element={<SeasonRegistrations />} />
             <Route path="*" element={<PageNotFound />} />

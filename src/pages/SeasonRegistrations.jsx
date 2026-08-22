@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 import { Trophy, Shield, ArrowLeft, CheckCircle, Clock, X, AlertTriangle, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { REGIONS } from "@/lib/qualificationConfig";
+import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { applyForLeague } from "@/lib/registrationEngine";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -38,7 +38,6 @@ export default function SeasonRegistrations() {
 
   // Dialog state
   const [applyDialog,  setApplyDialog]  = useState(null); // { region }
-  const [prefDiv,      setPrefDiv]      = useState("1");
   const [appNote,      setAppNote]      = useState("");
 
   // Which region cards are expanded
@@ -110,7 +109,6 @@ export default function SeasonRegistrations() {
   }
 
   function openApplyDialog(region) {
-    setPrefDiv("1");
     setAppNote("");
     setApplyDialog(region);
   }
@@ -130,7 +128,7 @@ export default function SeasonRegistrations() {
         applyDialog.slug,
         applyDialog.name,
         myClub.platform || "Cross-Platform",
-        { preferredDivision: Number(prefDiv), note: appNote.trim(), seasonLabel }
+        { note: appNote.trim(), seasonLabel }
       );
       setApplyDialog(null);
       await load();
@@ -212,7 +210,6 @@ export default function SeasonRegistrations() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
                       {app.region_name || app.region_slug}
-                      {app.preferred_division ? ` - ${t("competitionFlow.divisionPreferred", { division: app.preferred_division })}` : ""}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {app.season_label || ""} · {t("competitionFlow.applied")} {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : "—"}
@@ -247,7 +244,7 @@ export default function SeasonRegistrations() {
           const regionLeagues = (leaguesByRegion[region.slug] || []).sort((a, b) => (a.division || 1) - (b.division || 1));
           const myApp = appByRegion[region.slug];
           const isOpen = expanded[region.slug];
-          const totalSpots = regionLeagues.reduce((sum, l) => sum + (l.max_clubs || 16), 0);
+          const totalSpots = regionLeagues.reduce((sum, l) => sum + getRegionalLeagueMaxClubs(l), 0);
           const takenSpots = regionLeagues.reduce((sum, l) => sum + (l.num_clubs || 0), 0);
           const spotsLeft = totalSpots - takenSpots;
 
@@ -292,7 +289,7 @@ export default function SeasonRegistrations() {
                   {/* Division rows */}
                   <div className="divide-y divide-border">
                     {regionLeagues.map(league => {
-                      const max = league.max_clubs || 16;
+                      const max = getRegionalLeagueMaxClubs(league);
                       const taken = league.num_clubs || 0;
                       const full = taken >= max;
                       const pct = Math.round((taken / max) * 100);
@@ -337,9 +334,6 @@ export default function SeasonRegistrations() {
                         <span className={cn("text-[9px] font-bold px-2 py-1 rounded border uppercase tracking-wider", STATUS_CONFIG[myApp.status]?.cls)}>
                           {t(`competitionFlow.${STATUS_CONFIG[myApp.status]?.key || "pending"}`)}
                         </span>
-                        {myApp.preferred_division && (
-                          <p className="text-[10px] text-muted-foreground mt-1">{t("competitionFlow.preferredDiv", { division: myApp.preferred_division })}</p>
-                        )}
                       </div>
                     ) : !myClub ? (
                       <Link to="/clubs">
@@ -404,20 +398,11 @@ export default function SeasonRegistrations() {
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  {t("competitionFlow.preferredDivision")}
-                </label>
-                <Select value={prefDiv} onValueChange={setPrefDiv}>
-                  <SelectTrigger className="bg-secondary border-border text-foreground h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border text-foreground">
-                    <SelectItem value="1">{t("competitionFlow.divisionOne")}</SelectItem>
-                    <SelectItem value="2">{t("competitionFlow.divisionTwo")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">
+                  {t("competitionFlow.divisionPlacement")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   {t("competitionFlow.placementPreference")}
                 </p>
               </div>

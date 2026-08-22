@@ -10,7 +10,7 @@ export const COMPETITIONS = [
     borderColor: "border-yellow-400/40",
     bgColor: "bg-yellow-400/10",
     badgeClass: "text-yellow-400 border-yellow-400/30 bg-yellow-400/5",
-    description: "The pinnacle of STAGE competition. Only the elite qualify.",
+    description: "Division 1 positions 1-6 qualify for the top official STAGE event.",
   },
   {
     slug: "elite",
@@ -21,7 +21,7 @@ export const COMPETITIONS = [
     borderColor: "border-primary/40",
     bgColor: "bg-primary/10",
     badgeClass: "text-primary border-primary/30 bg-primary/5",
-    description: "The proving ground. Earn your place in the Supreme League.",
+    description: "Division 1 positions 7-12 qualify for the second official STAGE event.",
   },
   {
     slug: "challenger",
@@ -32,7 +32,7 @@ export const COMPETITIONS = [
     borderColor: "border-violet-400/40",
     bgColor: "bg-violet-400/10",
     badgeClass: "text-violet-400 border-violet-400/30 bg-violet-400/5",
-    description: "Where every STAGE career begins. Rise through the ranks.",
+    description: "Division 1 positions 13-18 qualify for the third official STAGE event.",
   },
 ];
 
@@ -41,7 +41,7 @@ export function getCompetitionMeta(slug) {
 }
 
 export function sortStandings(standings) {
-  return [...standings].sort((a, b) => {
+  return [...standings].filter(s => !s.is_excluded).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
     if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;

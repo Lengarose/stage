@@ -56,7 +56,7 @@ export async function distributeSeasonRewards({
   const nowIso = new Date().toISOString();
 
   // Normalise: ensure every standing has a numeric final_position
-  const ranked = standings.map((s, i) => ({
+  const ranked = standings.filter(s => !s.is_excluded).map((s, i) => ({
     ...s,
     final_position: s.final_position || s.position || (i + 1),
   }));

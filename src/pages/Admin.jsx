@@ -38,13 +38,24 @@ import {
   Gavel, Flag, Coins, Upload, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { COUNTRIES } from "../lib/countries";
-import { LEAGUE_DEFINITIONS } from "../lib/qualificationConfig";
+import {
+  LEAGUE_DEFINITIONS,
+  OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
+  REGIONAL_LEAGUE_MAX_CLUBS,
+  STAGE_QUALIFICATION_RULES,
+} from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
+import {
+  getEligibleRegionalLeaguesForRegistration,
+  getOpenRegionalLeagueCandidates,
+  getRegionalLeagueMaxClubs,
+  isRegionalLeagueFull,
+} from "@/lib/regionalLeagueRules";
 import {
   TOURNAMENT_CREDIT_COST,
   applyTournamentFormat,
@@ -53,6 +64,10 @@ import {
   getTournamentMaxTeamOptions,
   normalizeTournamentMaxTeams,
 } from "@/lib/tournamentRules";
+
+function getOfficialStageSpotsForCompetition(slug) {
+  return STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug)?.positions.length || 6;
+}
 
 /** @param {{ forcedSection?: string }} [props] */
 export default function Admin(props) {
@@ -151,7 +166,7 @@ export default function Admin(props) {
   // Competition & league inline editing
   const [editingComp, setEditingComp]       = useState(null);
   const [compEditForm, setCompEditForm]     = useState(() =>
-    ({ max_clubs_per_season: "", qualification_spots_per_region: "", playoff_spots: "" }));
+    ({ max_clubs_per_season: "", playoff_spots: "" }));
   const [savingComp, setSavingComp]         = useState(false);
   const [editingLeague, setEditingLeague]   = useState(null);
   const [leagueEditForm, setLeagueEditForm] = useState(() => ({ max_clubs: "", promoted_slots: "" }));
@@ -184,6 +199,7 @@ export default function Admin(props) {
   const [regAppFilter,    setRegAppFilter]         = useState("actionable"); // "actionable" | "all"
   const [approveRegDialog, setApproveRegDialog]   = useState(null); // { reg }
   const [approveTargetId,  setApproveTargetId]    = useState("");
+  const [approveEligibility, setApproveEligibility] = useState({ ids: new Set(), reason: "", loading: false });
   const [rejectNotesDialog, setRejectNotesDialog] = useState(null); // { reg, action: "reject"|"waitlist" }
   const [rejectNotes,       setRejectNotes]       = useState("");
   const [processingReg,     setProcessingReg]     = useState(false);
@@ -193,6 +209,32 @@ export default function Admin(props) {
 
   // Rewards tab
   const [rewardSource, setRewardSource] = useState(null); // { id, type, name, trophy_image_url }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadApproveEligibility() {
+      if (!approveRegDialog) {
+        setApproveEligibility({ ids: new Set(), reason: "", loading: false });
+        return;
+      }
+
+      setApproveEligibility({ ids: new Set(), reason: "", loading: true });
+      const result = await getEligibleRegionalLeaguesForRegistration(approveRegDialog, regionalLeagues);
+      if (cancelled) return;
+
+      const ids = new Set(result.eligibleLeagues.map(league => league.id));
+      setApproveEligibility({ ids, reason: result.reason || "", loading: false });
+      if (ids.size && !ids.has(approveTargetId)) {
+        setApproveTargetId(result.eligibleLeagues[0].id);
+      }
+      if (!ids.size && approveTargetId) {
+        setApproveTargetId("");
+      }
+    }
+
+    loadApproveEligibility();
+    return () => { cancelled = true; };
+  }, [approveRegDialog, regionalLeagues, approveTargetId]);
 
   useEffect(() => {
     (async () => {
@@ -259,7 +301,7 @@ export default function Admin(props) {
         ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
         ...allRegLeagues
           .filter(l => l.status !== "archived")
-          .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: l.max_clubs || 16 })),
+          .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: getRegionalLeagueMaxClubs(l) })),
       ]).catch(() => {});
       await loadInternationalTournaments({ withSquads: false });
       setExpiredFixtures([
@@ -494,7 +536,7 @@ export default function Admin(props) {
       source.type,
       source.name,
       source,
-      source.type === "regional_league" ? (source.max_clubs || 16) : 36
+      source.type === "regional_league" ? getRegionalLeagueMaxClubs(source) : 36
     )));
   }
 
@@ -771,9 +813,9 @@ export default function Admin(props) {
     setSeedingComps(true);
     try {
       const defs = [
-        { name: "STAGE Supreme League",    slug: "supreme",    tier: 1, primary_color: "#FFD700", description: "The pinnacle of STAGE competition. Only the elite qualify.",          max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-        { name: "STAGE Elite League",      slug: "elite",      tier: 2, primary_color: "#00E5BD", description: "The proving ground. Earn your place in the Supreme League.",           max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 2, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
-        { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Where every STAGE career begins. Rise through the ranks.",             max_clubs_per_season: 36, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: 3, current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Supreme League",    slug: "supreme",    tier: 1, primary_color: "#FFD700", description: "Division 1 positions 1-6 qualify for the top official STAGE event.",     max_clubs_per_season: OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: getOfficialStageSpotsForCompetition("supreme"), current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Elite League",      slug: "elite",      tier: 2, primary_color: "#00E5BD", description: "Division 1 positions 7-12 qualify for the second official STAGE event.", max_clubs_per_season: OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: getOfficialStageSpotsForCompetition("elite"), current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
+        { name: "STAGE Challenger League", slug: "challenger", tier: 3, primary_color: "#A78BFA", description: "Division 1 positions 13-18 qualify for the third official STAGE event.", max_clubs_per_season: OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, promotion_spots: 0, relegation_spots: 0, playoff_spots: 16, qualification_spots_per_region: getOfficialStageSpotsForCompetition("challenger"), current_season: 1, is_active: true, platform: "Cross-Platform", region: "Global" },
       ];
       const existing = new Set(competitions.map(c => c.slug));
       const toCreate = defs.filter(d => !existing.has(d.slug));
@@ -807,7 +849,7 @@ export default function Admin(props) {
     const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
     const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
     const numMatchdays = Number(newSeasonForm.num_league_matchdays) || 8;
-    const targetClubs = Number(newSeasonForm.num_clubs) || Number(comp.max_clubs_per_season) || 36;
+    const targetClubs = OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS;
     const defaultPrizePool = calculatePrizePool("competition", comp, targetClubs);
     await stageClient.entities.CompetitionSeason.create({
       competition_id: comp.id,
@@ -873,9 +915,9 @@ export default function Admin(props) {
           platform: "Cross-Platform",
           season_number: 1,
           status: "registration",
-          max_clubs: 16,
-          promoted_slots: d.division === 1 ? 6 : 2,
-          prize_pool_stc: calculatePrizePool("regional_league", d, 16),
+          max_clubs: REGIONAL_LEAGUE_MAX_CLUBS,
+          promoted_slots: d.division === 1 ? 0 : 2,
+          prize_pool_stc: calculatePrizePool("regional_league", d, REGIONAL_LEAGUE_MAX_CLUBS),
         }));
       const created = await Promise.all(toCreate.map(d => stageClient.entities.RegionalLeague.create(d)));
       await seedDefaultRewardConfigsForSources(created.map(l => ({
@@ -883,7 +925,7 @@ export default function Admin(props) {
         type: "regional_league",
         name: l.name,
         division: l.division || 1,
-        max_clubs: l.max_clubs || 16,
+        max_clubs: l.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS,
       })));
       await loadAll();
       await swalAlert(t("admin.alerts.regionalLeaguesSeeded", { count: toCreate.length }));
@@ -930,7 +972,7 @@ export default function Admin(props) {
         await swalAlert(t("admin.alerts.needTwoClubs"));
         return;
       }
-      const maxClubs = Number(league.max_clubs) || 16;
+      const maxClubs = getRegionalLeagueMaxClubs(league);
       if (standings.length < maxClubs) {
         const ok = await swalConfirm(t("admin.alerts.leagueNotFullConfirm", { name: league.name, current: standings.length, max: maxClubs }));
         if (!ok) return;
@@ -982,7 +1024,7 @@ export default function Admin(props) {
       const league = regionalLeagues.find(l => l.id === approveTargetId);
       if (!league) throw new Error("Selected league not found.");
       const { approveRegistration } = await import("@/lib/registrationEngine");
-      await approveRegistration(approveRegDialog, league, adminProfile?.email || "admin");
+      await approveRegistration(approveRegDialog, league, adminProfile?.email || "admin", regionalLeagues);
       setApproveRegDialog(null);
       setApproveTargetId("");
       await loadAll();
@@ -1017,9 +1059,10 @@ export default function Admin(props) {
     if (!editingComp) return;
     setSavingComp(true);
     try {
+      const comp = competitions.find(c => c.id === editingComp);
       await stageClient.entities.Competition.update(editingComp, {
-        max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || 36,
-        qualification_spots_per_region: Number(compEditForm.qualification_spots_per_region) || 2,
+        max_clubs_per_season:           Number(compEditForm.max_clubs_per_season) || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
+        qualification_spots_per_region: getOfficialStageSpotsForCompetition(comp?.slug),
         promotion_spots:                0,
         relegation_spots:               0,
         playoff_spots:                  Number(compEditForm.playoff_spots) || 16,
@@ -1078,7 +1121,7 @@ export default function Admin(props) {
       } else {
         list = await (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
       }
-      setStandingsList(list.sort((a, b) => (a.position || 99) - (b.position || 99)));
+      setStandingsList(list.filter(row => !row.is_excluded).sort((a, b) => (a.position || 99) - (b.position || 99)));
     } finally {
       setLoadingStandings(false);
     }
@@ -1105,6 +1148,7 @@ export default function Admin(props) {
         target_id: panel.id,
         club_id: standing.club_id,
         standing_id: standing.id,
+        force: played > 0,
         reason,
       });
       setStandingsList(prev => prev.filter(row => row.id !== standing.id));
@@ -1112,7 +1156,26 @@ export default function Admin(props) {
       await loadStandingsForPanel(panel);
       await swalAlert(t("admin.alerts.clubRemoved", { club: standing.club_name || t("admin.actions.club"), target: panel.name || targetLabel }));
     } catch (err) {
-      await swalAlert(t("admin.alerts.removeClubFailed", { message: err?.message || err?.error || t("admin.alerts.unknownError") }));
+      const message = err?.message || err?.error || "";
+      if (message.startsWith("PLAYED_FIXTURES_REQUIRE_CONFIRMATION:")) {
+        const count = Number(message.split(":")[1] || 0);
+        const forceOk = await swalConfirm(`This club has ${count} played fixture${count === 1 ? "" : "s"}. Continue and keep played fixtures as history while excluding the club from rewards?`);
+        if (forceOk) {
+          await stageClient.functions.invoke("adminRemoveClubFromCompetition", {
+            target_type: panel.type,
+            target_id: panel.id,
+            club_id: standing.club_id,
+            standing_id: standing.id,
+            force: true,
+            reason,
+          });
+          await loadAll();
+          await loadStandingsForPanel(panel);
+          await swalAlert(t("admin.alerts.clubRemoved", { club: standing.club_name || t("admin.actions.club"), target: panel.name || targetLabel }));
+        }
+      } else {
+        await swalAlert(t("admin.alerts.removeClubFailed", { message: message || t("admin.alerts.unknownError") }));
+      }
     } finally {
       setRemovingCompetitionClub(null);
     }
@@ -1533,12 +1596,14 @@ export default function Admin(props) {
             />
           )}
 
-          {adminTab === "leagues" && (
+          {(adminTab === "leagues" || adminTab === "gost") && (
             <LeaguesTab
+              mode={adminTab === "gost" ? "gost" : "regional"}
               seedCompetitions={seedCompetitions}
               seedingComps={seedingComps}
               competitions={competitions}
               compSeasons={compSeasons}
+              clubs={clubs}
               trophyItems={trophyItems}
               editingComp={editingComp}
               setEditingComp={setEditingComp}
@@ -2290,7 +2355,6 @@ export default function Admin(props) {
                   <p className="text-sm font-bold text-foreground">{approveRegDialog.club_name}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {approveRegDialog.region_name || approveRegDialog.region_slug}
-                    {approveRegDialog.preferred_division ? ` · ${t("admin.dialogs.prefersDiv", { n: approveRegDialog.preferred_division })}` : ""}
                   </p>
                 </div>
               </div>
@@ -2299,11 +2363,7 @@ export default function Admin(props) {
                   {t("admin.dialogs.assignToLeague")}
                 </label>
                 {(() => {
-                  const candidates = regionalLeagues.filter(
-                    l => l.region_slug === approveRegDialog.region_slug
-                      && l.status === "registration"
-                      && (l.platform === approveRegDialog.platform || l.platform === "Cross-Platform" || approveRegDialog.platform === "Cross-Platform")
-                  ).sort((a, b) => (a.division || 1) - (b.division || 1));
+                  const candidates = getOpenRegionalLeagueCandidates(approveRegDialog, regionalLeagues);
                   if (candidates.length === 0) {
                     return (
                       <div className="bg-warning/10 border border-warning/30 rounded p-3 text-xs text-warning">
@@ -2312,20 +2372,31 @@ export default function Admin(props) {
                     );
                   }
                   return (
-                    <select value={approveTargetId} onChange={e => setApproveTargetId(e.target.value)}
-                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
-                      <option value="">{t("admin.dialogs.selectLeague")}</option>
-                      {candidates.map(l => {
-                        const max = l.max_clubs || 16;
-                        const taken = l.num_clubs || 0;
-                        const full = taken >= max;
-                        return (
-                          <option key={l.id} value={l.id} disabled={full}>
-                            {l.name} (Div {l.division || 1}) — {taken}/{max}{full ? " FULL" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <div className="space-y-2">
+                      <select value={approveTargetId} onChange={e => setApproveTargetId(e.target.value)}
+                        className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+                        <option value="">{t("admin.dialogs.selectLeague")}</option>
+                        {candidates.map(l => {
+                          const max = getRegionalLeagueMaxClubs(l);
+                          const taken = l.num_clubs || 0;
+                          const full = isRegionalLeagueFull(l);
+                          const eligible = approveEligibility.ids.has(l.id);
+                          const disabled = full || approveEligibility.loading || !eligible;
+                          return (
+                            <option key={l.id} value={l.id} disabled={disabled}>
+                              {l.name} (Div {l.division || 1}) — {taken}/{max}{full ? " FULL" : !eligible ? " NOT ELIGIBLE" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {approveEligibility.loading ? (
+                        <p className="text-[10px] text-muted-foreground">{t("admin.dialogs.checkingLeagueEligibility")}</p>
+                      ) : approveEligibility.reason ? (
+                        <p className="text-[10px] text-warning">{approveEligibility.reason}</p>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground">{t("admin.dialogs.regionalLeagueEligibilityHint")}</p>
+                      )}
+                    </div>
                   );
                 })()}
               </div>
@@ -2334,7 +2405,7 @@ export default function Admin(props) {
                   onClick={() => { setApproveRegDialog(null); setApproveTargetId(""); }}>
                   {t("admin.actions.cancel")}
                 </Button>
-                <Button disabled={!approveTargetId || processingReg} onClick={handleApproveReg}
+                <Button disabled={!approveTargetId || approveEligibility.loading || !approveEligibility.ids.has(approveTargetId) || processingReg} onClick={handleApproveReg}
                   className="flex-1 bg-success/20 text-success hover:bg-success/30 border border-success/30 h-9 text-sm font-bold">
                   {processingReg ? t("admin.dialogs.approving") : t("admin.dialogs.confirmAssign")}
                 </Button>
