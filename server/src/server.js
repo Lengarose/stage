@@ -66,20 +66,7 @@ app.get('/auth/error', (_req, res) => {
   );
 });
 
-// Mobile OAuth handoff: HTTPS page → deep link into the app.
-// Kept at /auth/* because production already serves this path from Express.
-// Also mirrored at /api/stage/auth/mobile-handoff for SPA-safe fallbacks.
-app.get('/auth/mobile-handoff', (req, res) => {
-  const params = new URLSearchParams(req.query || {});
-  const redirectUri = String(params.get('redirect_uri') || 'stage://auth/callback').trim();
-  params.delete('redirect_uri');
-  const allowed =
-    redirectUri === 'stage://auth/callback' ||
-    redirectUri.startsWith('stage://auth/callback') ||
-    /^exp:\/\//i.test(redirectUri);
-  const deepBase = allowed ? redirectUri.split('?')[0] : 'stage://auth/callback';
-  const q = params.toString();
-  const deepLink = q ? `${deepBase}?${q}` : deepBase;
+function sendMobileDeepLinkPage(res, deepLink) {
   const j = JSON.stringify(deepLink);
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).send(`<!doctype html>
@@ -105,6 +92,32 @@ app.get('/auth/mobile-handoff', (req, res) => {
     </script>
   </body>
 </html>`);
+}
+
+// Mobile OAuth handoff: HTTPS page → deep link into the app.
+// Kept at /auth/* because production already serves this path from Express.
+// Also mirrored at /api/stage/auth/mobile-handoff for SPA-safe fallbacks.
+app.get('/auth/mobile-handoff', (req, res) => {
+  const params = new URLSearchParams(req.query || {});
+  const redirectUri = String(params.get('redirect_uri') || 'stage://auth/callback').trim();
+  params.delete('redirect_uri');
+  const allowed =
+    redirectUri === 'stage://auth/callback' ||
+    redirectUri.startsWith('stage://auth/callback') ||
+    /^exp:\/\//i.test(redirectUri);
+  const deepBase = allowed ? redirectUri.split('?')[0] : 'stage://auth/callback';
+  const q = params.toString();
+  sendMobileDeepLinkPage(res, q ? `${deepBase}?${q}` : deepBase);
+});
+
+// Stripe Checkout return for the mobile app. Stripe only accepts https success/cancel
+// URLs, so this HTTPS page immediately opens stage://apps/store. Web checkout keeps
+// using /store and never hits this route.
+app.get('/store/mobile-return', (req, res) => {
+  const params = new URLSearchParams(req.query || {});
+  params.delete('client');
+  const q = params.toString();
+  sendMobileDeepLinkPage(res, q ? `stage://apps/store?${q}` : 'stage://apps/store');
 });
 
 // OAuth callback fallback for hosts where frontend route /auth/callback is not directly served.

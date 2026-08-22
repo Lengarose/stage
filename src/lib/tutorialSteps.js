@@ -35,11 +35,11 @@ const PLAYER_STEPS = [
     ],
   },
   {
-    title: "Find Clubs And The Market",
+    title: "Clubs And The Market",
     icon: "🔍",
-    where: "Search · Find Clubs · THE STAGE TIMES",
+    where: "Search · Rankings · THE STAGE TIMES",
     description:
-      "Learn a club before you sign. The newspaper and directories show who is buying, who is winning, and who needs your position.",
+      "Learn a club before you sign. The newspaper and rankings show who is buying, who is winning, and who needs your position.",
     detail:
       "A club page is a shop window. Rankings and Mercato tell you who is active. You still only join through a contract in Inbox.",
     tips: [
@@ -48,7 +48,7 @@ const PLAYER_STEPS = [
       "Watch Mercato for clubs that are recruiting",
     ],
     points: [
-      "Search if you know the name. Find Clubs / Rankings if you are browsing.",
+      "Search if you know the name. Rankings if you are browsing.",
       "Open a club: Squad, Feed, and (if you are president) Office.",
       "Tap a player on a squad to see if they are first choice in your position.",
       "THE STAGE TIMES → Club News and Mercato show shirts, stadium, and deals.",
@@ -243,7 +243,7 @@ const PRESIDENT_STEPS = [
       "Operations is staff work",
     ],
     points: [
-      "Open your club from Profile → Club or from Find Clubs.",
+      "Open your club from Profile → Club.",
       "Squad: tap a gamecard — View profile, View contract, Release, Remove role.",
       "LOAN / OUT badges show who is borrowed or sent out.",
       "Feed is club posts. Operations is applicants, staff, and lineups.",

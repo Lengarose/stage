@@ -215,6 +215,31 @@ const MobileOAuthHandoff = () => {
   );
 };
 
+// Stripe only allows https success/cancel URLs. Mobile checkout returns here, then
+// this page opens the native Store. Web checkout keeps using /store without client=mobile.
+const MobileStoreHandoff = () => {
+  React.useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('client');
+      const qs = params.toString();
+      window.location.replace(qs ? `stage://apps/store?${qs}` : 'stage://apps/store');
+    } catch {
+      window.location.replace('stage://apps/store');
+    }
+  }, []);
+
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">Opening the Stage app…</p>
+      <p className="text-xs text-muted-foreground">
+        If nothing happens, <a className="underline" href="stage://apps/store">tap here</a>.
+      </p>
+    </div>
+  );
+};
+
 const SplashScreen = () => (
   <motion.div
     className="fixed inset-0 z-50"
@@ -464,6 +489,7 @@ function App() {
                 {/* OAuth callback must be outside AuthenticatedApp so tokens are stored before auth check */}
                 <Route path="/auth/callback" element={<OAuthCallback />} />
                 <Route path="/auth/mobile-handoff" element={<MobileOAuthHandoff />} />
+                <Route path="/store/mobile-return" element={<MobileStoreHandoff />} />
                 <Route path="*" element={
                   <ChatNotificationsProvider>
                     <AuthenticatedApp />

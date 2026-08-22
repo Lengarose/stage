@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { stageClient } from "@/api/stageClient";
-import { Shield, Search, Plus, ArrowRight, Loader2, Check, Crown, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Shield, Plus, Loader2, Crown, Sparkles } from "lucide-react";
 import { swalAlert } from "@/lib/swal";
 import { COUNTRIES, getRegionForCountryCode } from "@/lib/countries";
 import { STAGE_PLUS_MONTHLY_CREDITS, TOURNAMENT_ENTRY_CREDITS } from "@/lib/subscriptionUtils";
@@ -16,61 +15,13 @@ const REGIONS = ["Europe", "North America", "South America", "Asia", "Oceania", 
 
 export default function ClubOnboardingModal({ open, player, onComplete }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState("choose"); // choose | club_profile | join
+  const [step, setStep] = useState("choose"); // choose | club_profile
   const [creating, setCreating] = useState(false);
-  const [requestingIds, setRequestingIds] = useState(new Set());
-  const [requested, setRequested] = useState(new Set());
-  const [clubs, setClubs] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loadingClubs, setLoadingClubs] = useState(false);
 
   const [form, setForm] = useState({
     name: "", tag: "", platform: player?.platform || "PlayStation",
     region: "Europe", country_code: "", description: "",
   });
-
-  useEffect(() => {
-    if (step === "join") loadClubs();
-  }, [step]);
-
-  async function loadClubs(q = "") {
-    setLoadingClubs(true);
-    const [all, existingRequests] = await Promise.all([
-      stageClient.entities.Club.list("-rating", 200),
-      player?.id
-        ? stageClient.entities.JoinRequest.filter({ player_id: player.id }, "-created_date", 200).catch(() => [])
-        : Promise.resolve([]),
-    ]);
-
-    const existingRequestedIds = new Set(
-      (existingRequests || [])
-        .filter((r) => !["rejected", "cancelled", "withdrawn"].includes(String(r.status || "").toLowerCase()))
-        .map((r) => r.club_id)
-        .filter(Boolean)
-    );
-    setRequested(existingRequestedIds);
-
-    const filtered = q
-      ? all.filter(c => c.name?.toLowerCase().includes(q.toLowerCase()) || c.tag?.toLowerCase().includes(q.toLowerCase()))
-      : all;
-
-    const dedupedBySignature = new Map();
-    for (const club of filtered.filter(c => c.status !== "disbanded")) {
-      const signature = [
-        String(club.name || "").trim().toLowerCase(),
-        String(club.tag || "").trim().toLowerCase(),
-        String(club.platform || "").trim().toLowerCase(),
-        String(club.region || "").trim().toLowerCase(),
-      ].join("::");
-      const existing = dedupedBySignature.get(signature);
-      if (!existing || Number(club.rating || 0) > Number(existing.rating || 0)) {
-        dedupedBySignature.set(signature, club);
-      }
-    }
-
-    setClubs(Array.from(dedupedBySignature.values()));
-    setLoadingClubs(false);
-  }
 
   async function handleCreate() {
     if (!form.name || !form.tag || !form.country_code) return;
@@ -104,48 +55,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
     }
   }
 
-  async function handleJoinRequest(club) {
-    if (!player) return;
-    if (requested.has(club.id)) return;
-    if (requestingIds.has(club.id)) return;
-
-    setRequestingIds((prev) => new Set(prev).add(club.id));
-    try {
-      await stageClient.entities.JoinRequest.create({
-        player_id: player.id,
-        player_email: player.email,
-        player_gamertag: player.gamertag,
-        club_id: club.id,
-        club_name: club.name,
-        message: t("commonPages.comJoinMessage"),
-        status: "pending",
-      });
-      if (club.owner_email) {
-        await stageClient.entities.Notification.create({
-          recipient_email: club.owner_email,
-          type: "join_request",
-          title: `${player.gamertag} wants to join ${club.name}`,
-          body: "Check your Profile → Join Requests to respond.",
-          link: "/profile",
-          read: false,
-        });
-      }
-      setRequested(prev => new Set([...prev, club.id]));
-    } finally {
-      setRequestingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(club.id);
-        return next;
-      });
-    }
-  }
-
-  const filteredClubs = search
-    ? clubs.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()) || c.tag?.toLowerCase().includes(search.toLowerCase()))
-    : clubs;
-
   return (
-    <>
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
@@ -158,7 +68,6 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             <Shield className="w-5 h-5 text-primary" />
             {step === "choose" && t("commonPages.comJoinOrCreate")}
             {step === "club_profile" && "Create Club Profile"}
-            {step === "join" && t("commonPages.comFindClub")}
           </DialogTitle>
         </DialogHeader>
 
@@ -177,12 +86,12 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
               </button>
               <button
                 type="button"
-                onClick={() => setStep("join")}
+                onClick={() => onComplete?.(null)}
                 className="bg-secondary border border-border hover:border-primary/40 rounded-2xl p-5 text-left transition-all group"
               >
-                <Search className="w-8 h-8 text-muted-foreground group-hover:text-primary mb-3 transition-colors" />
-                <p className="font-bold text-foreground text-base">{t("commonPages.comJoinClub")}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t("commonPages.comJoinClubDesc")}</p>
+                <Shield className="w-8 h-8 text-muted-foreground group-hover:text-primary mb-3 transition-colors" />
+                <p className="font-bold text-foreground text-base">Free agent</p>
+                <p className="text-xs text-muted-foreground mt-1">Wait for a club to offer you a contract.</p>
               </button>
             </div>
             <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
@@ -271,61 +180,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
             </Button>
           </div>
         )}
-
-        {step === "join" && (
-          <div className="space-y-4 mt-2">
-            <button type="button" onClick={() => setStep("choose")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              {t("commonPages.comBack")}
-            </button>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={t("commonPages.comSearchPlaceholder")}
-                className="pl-9 bg-secondary border-border"
-              />
-            </div>
-            {loadingClubs && <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>}
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {filteredClubs.length === 0 && !loadingClubs && (
-                <p className="text-sm text-muted-foreground text-center py-6">{t("commonPages.comNoClubsFound")}</p>
-              )}
-              {filteredClubs.map(c => {
-                const isRequested = requested.has(c.id);
-                return (
-                  <div key={c.id} className="bg-secondary border border-border rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-                      {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-5 h-5 text-primary" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-foreground text-sm truncate">{c.name} <span className="text-primary font-mono text-xs">[{c.tag}]</span></p>
-                      <p className="text-xs text-muted-foreground">{c.platform} · {c.region} · {t("commonPages.comRating", { rating: c.rating || 1000 })}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={isRequested || requestingIds.has(c.id)}
-                      onClick={() => handleJoinRequest(c)}
-                      className={cn("shrink-0 text-xs", isRequested ? "bg-success/20 text-success border border-success/30" : "bg-primary/10 text-primary hover:bg-primary/20 border-0")}
-                    >
-                      {requestingIds.has(c.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : isRequested ? <><Check className="w-3 h-3 mr-1" /> {t("commonPages.comSent")}</> : <>{t("commonPages.comRequest")} <ArrowRight className="w-3 h-3 ml-1" /></>}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-            {requested.size > 0 && (
-              <Button onClick={() => onComplete?.(null)} className="w-full bg-primary text-primary-foreground">
-                {t("commonPages.comDone", { count: requested.size, plural: requested.size > 1 ? "s" : "" })}
-              </Button>
-            )}
-            <Button variant="ghost" onClick={() => onComplete?.(null)} className="w-full text-muted-foreground text-sm">
-              {t("commonPages.comSkipForNow")}
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
-    </>
   );
 }
