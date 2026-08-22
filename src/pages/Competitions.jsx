@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { Trophy, Globe, ChevronRight, Star, TrendingUp, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COMPETITIONS, getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
+import { COMPETITIONS, sortStandings } from "@/lib/competitionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const TIER_LABEL = { 1: "TIER I", 2: "TIER II", 3: "TIER III" };
+const SHARP_PANEL_CLIP = "polygon(3% 0, 100% 0, 97% 100%, 0 100%)";
 
 function FormBadge({ result }) {
   return (
@@ -66,20 +67,27 @@ function CompetitionCard({ meta, season, standings }) {
   return (
     <Link to={`/competitions/${meta.slug}`} className="block group">
       <div className={cn(
-        "bg-card border rounded overflow-hidden transition-all duration-200 hover:border-opacity-60",
+        "relative min-h-[19rem] overflow-hidden border bg-black/55 shadow-[0_18px_50px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-1 hover:border-primary/50",
         meta.borderColor
-      )} style={{ borderLeftWidth: 3, borderLeftColor: meta.color }}>
+      )} style={{ clipPath: SHARP_PANEL_CLIP, borderLeftWidth: 3, borderLeftColor: meta.color }}>
+        <div
+          className="pointer-events-none absolute inset-0 opacity-80"
+          style={{
+            background: `radial-gradient(circle at 18% 8%, ${meta.color}22, transparent 32%), linear-gradient(115deg, rgba(8,18,36,0.92), rgba(2,8,20,0.74) 54%, rgba(8,18,36,0.92))`,
+          }}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-primary/50" />
 
         {/* Header */}
-        <div className="relative px-5 pt-5 pb-4">
+        <div className="relative px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className={cn("text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border", meta.badgeClass)}>
+                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 border", meta.badgeClass)}>
                   {TIER_LABEL[meta.tier]}
                 </span>
                 {activeSeason && (
-                  <span className={cn("text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border font-bold",
+                  <span className={cn("text-[9px] uppercase tracking-widest px-2 py-1 border font-bold",
                     activeSeason.status === "league_phase" ? "text-success border-success/30 bg-success/5" :
                     activeSeason.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
                     activeSeason.status === "playoffs" || activeSeason.status === "knockout" ? "text-warning border-warning/30 bg-warning/5" :
@@ -94,12 +102,12 @@ function CompetitionCard({ meta, season, standings }) {
                 )}
               </div>
               <h2
-                className="font-heading font-black text-2xl text-foreground uppercase leading-none"
+                className="font-heading font-black text-3xl text-foreground uppercase leading-none"
                 style={{ transform: "skewX(-6deg)", transformOrigin: "left center", letterSpacing: "-0.02em" }}
               >
                 {meta.name.replace("STAGE ", "")}
               </h2>
-              <p className="text-xs text-muted-foreground mt-1">{meta.description}</p>
+              <p className="max-w-sm text-sm text-muted-foreground mt-2 leading-snug">{meta.description}</p>
             </div>
             <ChevronRight className={cn("w-4 h-4 mt-1 shrink-0 transition-transform group-hover:translate-x-0.5", meta.textColor)} />
           </div>
@@ -118,11 +126,11 @@ function CompetitionCard({ meta, season, standings }) {
         </div>
 
         {/* Mini standings */}
-        <div className="pb-3">
+        <div className="relative pb-3">
           <MiniStandingsTable standings={standings} />
         </div>
 
-        <div className={cn("mx-5 mb-4 pt-3 border-t border-border/40 flex items-center justify-between")}>
+        <div className={cn("relative mx-6 mb-5 pt-3 border-t border-border/40 flex items-center justify-between")}>
           <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{t("competitionFlow.viewFullStandings")} →</span>
           {activeSeason?.prize_pool_stc > 0 && (
             <span className="text-[10px] font-bold text-warning">{t("competitionFlow.stcPrize", { amount: (activeSeason.prize_pool_stc / 1_000_000).toFixed(1) })}</span>
@@ -138,7 +146,6 @@ export default function Competitions() {
   const [competitions, setCompetitions] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [standingsMap, setStandingsMap] = useState({});
-  const [regionalLeagues, setRegionalLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, []);
@@ -146,14 +153,12 @@ export default function Competitions() {
   async function load() {
     setLoading(true);
     try {
-      const [comps, allSeasons, leagues] = await Promise.all([
+      const [comps, allSeasons] = await Promise.all([
         stageClient.entities.Competition.list("tier", 10).catch(() => []),
         stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
-        stageClient.entities.RegionalLeague.list("-season_number", 20).catch(() => []),
       ]);
       setCompetitions(comps);
       setSeasons(allSeasons);
-      setRegionalLeagues(leagues);
 
       // For each competition, find the latest non-completed season and load its standings
       const latestSeasons = {};
@@ -185,8 +190,6 @@ export default function Competitions() {
   }
 
   const seasonsBySlug = seasons.bySlug || {};
-  const activeLeagues = regionalLeagues.filter(l => l.status === "in_progress");
-  const openLeagues = regionalLeagues.filter(l => l.status === "registration");
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -204,7 +207,7 @@ export default function Competitions() {
             <Trophy className="w-6 h-6 text-warning shrink-0" />
             <div>
               <h1
-                className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
+                className="font-heading font-black text-4xl md:text-6xl text-foreground uppercase max-w-5xl leading-none"
                 style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
               >
                 {t("competitionFlow.competitionsTitle")}
@@ -216,9 +219,9 @@ export default function Competitions() {
           </div>
         </div>
 
-        {/* ── Competition pyramid ─────────────────────────────── */}
+        {/* ── Official STAGE tournament pyramid ───────────────── */}
         {competitions.length === 0 ? (
-          <div className="border border-dashed border-border rounded p-16 text-center">
+          <div className="border border-dashed border-border bg-black/30 p-16 text-center" style={{ clipPath: SHARP_PANEL_CLIP }}>
             <Trophy className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
             <p className="text-sm text-muted-foreground uppercase tracking-widest mb-2">{t("competitionFlow.noCompetitions")}</p>
             <p className="text-xs text-muted-foreground">{t("competitionFlow.seedCompetitions")}</p>
@@ -242,13 +245,18 @@ export default function Competitions() {
             <TrendingUp className="w-4 h-4 text-primary" />
             <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("competitionFlow.howQualificationWorks")}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {[
               { icon: Globe, label: t("competitionFlow.regionalLeagues"), desc: t("competitionFlow.regionalLeaguesDesc"), color: "text-violet-400" },
-              { icon: Trophy, label: t("competitionFlow.stageChallenger"), desc: t("competitionFlow.stageChallengerDesc"), color: "text-violet-400" },
               { icon: Star, label: t("competitionFlow.supremeLeague"), desc: t("competitionFlow.supremeLeagueDesc"), color: "text-yellow-400" },
+              { icon: Trophy, label: t("competitionFlow.eliteLeague"), desc: t("competitionFlow.eliteLeagueDesc"), color: "text-primary" },
+              { icon: Trophy, label: t("competitionFlow.stageChallenger"), desc: t("competitionFlow.stageChallengerDesc"), color: "text-violet-400" },
             ].map(step => (
-              <div key={step.label} className="bg-card border border-border rounded p-4 flex gap-3">
+              <div
+                key={step.label}
+                className="border border-border/70 bg-black/45 p-5 flex gap-3"
+                style={{ clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
+              >
                 <step.icon className={cn("w-4 h-4 mt-0.5 shrink-0", step.color)} />
                 <div>
                   <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">{step.label}</p>
@@ -259,44 +267,30 @@ export default function Competitions() {
           </div>
         </section>
 
-        {/* ── Regional Leagues ────────────────────────────────── */}
-        {(activeLeagues.length > 0 || openLeagues.length > 0) && (
-          <section>
-            <div className="flex items-center gap-3 mb-4">
-              <Globe className="w-4 h-4 text-primary" />
-              <h2 className="text-xs font-black uppercase tracking-widest text-foreground">{t("competitionFlow.regionalLeagues")}</h2>
+        <section className="border border-primary/25 bg-primary/5 p-5" style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Globe className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <h2 className="font-heading text-lg text-foreground uppercase tracking-tight">Regional Leagues</h2>
+                <p className="text-sm text-muted-foreground">
+                  Regional divisions now live on their own league page. Division 1 standings decide qualification for these official STAGE tournaments.
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[...activeLeagues, ...openLeagues].map(league => {
-                const targetMeta = getCompetitionMeta(
-                  COMPETITIONS.find(c => c.name === league.target_competition_name)?.slug || "challenger"
-                );
-                return (
-                  <Link key={league.id} to={`/leagues/${league.slug}`} className="bg-card border border-border rounded p-4 block transition-colors hover:border-primary/50 hover:bg-secondary/20">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <p className="text-sm font-bold text-foreground leading-tight">{league.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{league.region} · {t("competitionFlow.seasonNumber", { number: league.season_number })}</p>
-                      </div>
-                      <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0",
-                        league.status === "in_progress" ? "text-success border-success/30 bg-success/5" :
-                        "text-primary border-primary/30 bg-primary/5"
-                      )}>
-                        {league.status === "in_progress" ? t("competitionFlow.live") : t("competitionFlow.open")}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{t("competitionFlow.clubsCount", { count: `${league.num_clubs || 0}/${league.max_clubs}` })}</span>
-                      <span>·</span>
-                      <span className={targetMeta.textColor}>→ {league.target_competition_name || "STAGE"}</span>
-                      {league.promoted_slots > 0 && <span className="text-muted-foreground">({t("competitionFlow.spots", { count: league.promoted_slots })})</span>}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
+            <Link
+              to="/leagues"
+              className="inline-flex h-11 items-center justify-center px-5 text-xs font-black uppercase tracking-[0.16em] text-primary transition hover:text-primary/80"
+              style={{
+                clipPath: "polygon(9% 0, 100% 0, 91% 100%, 0 100%)",
+                background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(15,23,42,0.72))",
+                border: "1px solid rgba(34,211,238,0.34)",
+              }}
+            >
+              Open Regional Leagues
+            </Link>
+          </div>
+        </section>
 
       </div>
     </div>

@@ -1894,6 +1894,73 @@ function leagueEntityTypeConfig(targetType) {
   throw new Error('target_type must be competition or league');
 }
 
+function isLeagueFixturePlayed(fixture) {
+  const status = String(fixture?.status || '').toLowerCase();
+  return ['played', 'completed', 'forfeit', 'cancelled'].includes(status)
+    || fixture?.stats_processed === true
+    || Number(fixture?.stats_processed || 0) === 1
+    || String(fixture?.stats_processed || '').toLowerCase() === 'true';
+}
+
+function buildClubSnapshot(row) {
+  if (!row) return null;
+  return {
+    club_id: row.id,
+    club_name: row.name,
+    club_logo_url: row.logo_url || '',
+    club_tag: row.tag || '',
+    region: row.region || '',
+    platform: row.platform || '',
+  };
+}
+
+function buildReplacementStanding(existing, club) {
+  return {
+    ...existing,
+    id: uuidv4(),
+    club_id: club.club_id,
+    club_name: club.club_name,
+    club_logo_url: club.club_logo_url || '',
+    club_tag: club.club_tag || '',
+    region: club.region || existing.region || '',
+    platform: club.platform || existing.platform || '',
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goals_for: 0,
+    goals_against: 0,
+    goal_difference: 0,
+    points: 0,
+    form: [],
+    final_position: null,
+    position: existing.position || null,
+    is_excluded: false,
+    excluded_reason: null,
+    replaced_club_id: existing.club_id,
+    replaced_club_name: existing.club_name,
+  };
+}
+
+async function updateActiveLeagueStandingPositions(query, cfg, targetId) {
+  const rows = await query(
+    `SELECT * FROM league_entities WHERE entity_type = ? AND \`${cfg.parentFilter}\` = ?`,
+    [cfg.standingType, targetId]
+  );
+  const active = rows
+    .map(parseLeagueEntityRow)
+    .filter(row => !row.is_excluded)
+    .sort((a, b) => {
+      if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
+      if (Number(b.goal_difference || 0) !== Number(a.goal_difference || 0)) return Number(b.goal_difference || 0) - Number(a.goal_difference || 0);
+      if (Number(b.goals_for || 0) !== Number(a.goals_for || 0)) return Number(b.goals_for || 0) - Number(a.goals_for || 0);
+      return String(a.club_name || '').localeCompare(String(b.club_name || ''));
+    });
+  for (let index = 0; index < active.length; index += 1) {
+    await updateLeagueEntityData(query, cfg.standingType, active[index].id, { ...active[index], position: index + 1 });
+  }
+}
+
 /** Best-effort admin audit row (adminEconomyControl and similar). */
 async function createAuditLog({
   adminUserId, adminEmail, action, entityType, entityId, entityName,
@@ -5164,17 +5231,25 @@ const HANDLERS = {
     return resolveClubContactForInvite(club_id);
   },
 
-  async adminRemoveClubFromCompetition({
+  async adminManageLeagueClub({
     _auth_user_id,
     target_type,
     target_id,
     club_id,
     standing_id,
+    action = 'remove',
+    replacement_club_id,
+    force = false,
     reason,
   }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     if (!target_id) throw new Error('target_id required');
     if (!club_id) throw new Error('club_id required');
+    const mode = String(action || 'remove').toLowerCase() === 'replace' ? 'replace' : 'remove';
+    if (mode === 'replace' && !replacement_club_id) throw new Error('replacement_club_id required');
+    if (mode === 'replace' && String(replacement_club_id) === String(club_id)) {
+      throw new Error('Replacement club must be different from the removed club');
+    }
 
     const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
     const admin = adminRows[0];
@@ -5207,48 +5282,151 @@ const HANDLERS = {
       if (String(standing.club_id || '') !== String(club_id)) {
         throw new Error('Standing row does not belong to this club');
       }
-      if ((Number(standing.played) || 0) > 0) {
-        throw new Error('This club has already played in this league/competition. Remove or correct played results first.');
+
+      const replacementRows = mode === 'replace'
+        ? await query('SELECT id, name, tag, logo_url, region, platform FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [replacement_club_id])
+        : [];
+      const replacementClub = mode === 'replace' ? buildClubSnapshot(replacementRows[0]) : null;
+      if (mode === 'replace' && !replacementClub) throw new Error('Replacement club not found');
+
+      const existingReplacementStanding = mode === 'replace'
+        ? await query(
+            `SELECT * FROM league_entities
+              WHERE entity_type = ?
+                AND \`${cfg.parentFilter}\` = ?
+                AND club_id = ?
+                AND (
+                  JSON_EXTRACT(data_json, '$.is_excluded') IS NULL
+                  OR JSON_EXTRACT(data_json, '$.is_excluded') = false
+                  OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.is_excluded')) = 'false'
+                )
+              LIMIT 1 FOR UPDATE`,
+            [cfg.standingType, target_id, replacement_club_id]
+          )
+        : [];
+      if (existingReplacementStanding.length) {
+        throw new Error('Replacement club is already in this league/competition');
       }
 
-      const completedFixtures = await query(
-        `SELECT id FROM league_entities
+      const fixtureRows = await query(
+        `SELECT * FROM league_entities
           WHERE entity_type = ?
             AND \`${cfg.parentFilter}\` = ?
             AND (
               JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.home_club_id')) = ?
               OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.away_club_id')) = ?
-            )
-            AND (
-              status = 'completed'
-              OR JSON_EXTRACT(data_json, '$.stats_processed') = true
-              OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.stats_processed')) = 'true'
-            )
-          LIMIT 1`,
+            ) FOR UPDATE`,
         [cfg.fixtureType, target_id, club_id, club_id]
       );
-      if (completedFixtures.length) {
-        throw new Error('This club has completed fixtures in this league/competition. Reverse those results before removing it.');
+      const fixtures = fixtureRows.map(parseLeagueEntityRow);
+      const playedFixtures = fixtures.filter(isLeagueFixturePlayed);
+      const futureFixtures = fixtures.filter(fixture => !isLeagueFixturePlayed(fixture));
+      const playedCount = Math.max(Number(standing.played || 0), playedFixtures.length);
+      if (playedCount > 0 && !force) {
+        throw new Error(`PLAYED_FIXTURES_REQUIRE_CONFIRMATION:${playedCount}`);
       }
 
-      const fixtureDeleteResult = await query(
-        `DELETE FROM league_entities
-          WHERE entity_type = ?
-            AND \`${cfg.parentFilter}\` = ?
-            AND (
-              JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.home_club_id')) = ?
-              OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.away_club_id')) = ?
-            )`,
-        [cfg.fixtureType, target_id, club_id, club_id]
-      );
+      let deletedFixtures = 0;
+      let replacedFixtures = 0;
+      if (mode === 'replace') {
+        for (const fixture of futureFixtures) {
+          const nextFixture = { ...fixture };
+          if (String(nextFixture.home_club_id || '') === String(club_id)) {
+            nextFixture.home_club_id = replacementClub.club_id;
+            nextFixture.home_club_name = replacementClub.club_name;
+            nextFixture.home_club_logo_url = replacementClub.club_logo_url || '';
+            nextFixture.home_club_tag = replacementClub.club_tag || '';
+          }
+          if (String(nextFixture.away_club_id || '') === String(club_id)) {
+            nextFixture.away_club_id = replacementClub.club_id;
+            nextFixture.away_club_name = replacementClub.club_name;
+            nextFixture.away_club_logo_url = replacementClub.club_logo_url || '';
+            nextFixture.away_club_tag = replacementClub.club_tag || '';
+          }
+          await updateLeagueEntityData(query, cfg.fixtureType, fixture.id, nextFixture, { status: nextFixture.status || null });
+          replacedFixtures += 1;
+        }
+      } else if (futureFixtures.length) {
+        const ids = futureFixtures.map(fixture => fixture.id);
+        const result = await query(
+          `DELETE FROM league_entities
+            WHERE entity_type = ?
+              AND id IN (${ids.map(() => '?').join(',')})`,
+          [cfg.fixtureType, ...ids]
+        );
+        deletedFixtures = result?.affectedRows || futureFixtures.length;
+      }
 
-      await query(
-        `DELETE FROM league_entities WHERE id = ? AND entity_type = ?`,
-        [standing.id, cfg.standingType]
-      );
+      let nextStanding = null;
+      let insertedReplacementStanding = null;
+      if (mode === 'replace' && playedCount === 0) {
+        nextStanding = {
+          ...standing,
+          club_id: replacementClub.club_id,
+          club_name: replacementClub.club_name,
+          club_logo_url: replacementClub.club_logo_url || '',
+          club_tag: replacementClub.club_tag || '',
+          region: replacementClub.region || standing.region || '',
+          platform: replacementClub.platform || standing.platform || '',
+          replaced_club_id: standing.club_id,
+          replaced_club_name: standing.club_name,
+        };
+        await updateLeagueEntityData(query, cfg.standingType, standing.id, nextStanding, {
+          [cfg.parentFilter]: target_id,
+          club_id: replacementClub.club_id,
+          status: nextStanding.status || null,
+        });
+      } else if (mode === 'replace') {
+        nextStanding = {
+          ...standing,
+          status: 'excluded',
+          is_excluded: true,
+          excluded_reason: reason || `Replaced by ${replacementClub.club_name} after played fixtures`,
+          replacement_club_id: replacementClub.club_id,
+          replacement_club_name: replacementClub.club_name,
+        };
+        await updateLeagueEntityData(query, cfg.standingType, standing.id, nextStanding, {
+          [cfg.parentFilter]: target_id,
+          club_id: standing.club_id,
+          status: 'excluded',
+        });
+        insertedReplacementStanding = buildReplacementStanding(standing, replacementClub);
+        await query(
+          `INSERT INTO league_entities
+            (id, entity_type, data_json, status, \`${cfg.parentFilter}\`, club_id, created_date, updated_date)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            insertedReplacementStanding.id,
+            cfg.standingType,
+            JSON.stringify(insertedReplacementStanding),
+            insertedReplacementStanding.status || null,
+            target_id,
+            replacementClub.club_id,
+          ]
+        );
+      } else if (playedCount > 0) {
+        nextStanding = {
+          ...standing,
+          status: 'excluded',
+          is_excluded: true,
+          excluded_reason: reason || `Removed after ${playedCount} played fixture${playedCount === 1 ? '' : 's'}`,
+        };
+        await updateLeagueEntityData(query, cfg.standingType, standing.id, nextStanding, {
+          [cfg.parentFilter]: target_id,
+          club_id: standing.club_id,
+          status: 'excluded',
+        });
+      } else {
+        await query(
+          `DELETE FROM league_entities WHERE id = ? AND entity_type = ?`,
+          [standing.id, cfg.standingType]
+        );
+      }
 
       const registeredIds = normalizeIdList(parent.registered_club_ids);
-      const nextIds = registeredIds.filter(id => String(id) !== String(club_id));
+      const nextIds = mode === 'replace'
+        ? [...new Set(registeredIds.map(id => String(id) === String(club_id) ? String(replacement_club_id) : String(id)))]
+        : registeredIds.filter(id => String(id) !== String(club_id));
       const nextParent = {
         ...parent,
         registered_club_ids: nextIds,
@@ -5266,20 +5444,22 @@ const HANDLERS = {
           `UPDATE league_entities
             SET data_json = JSON_SET(
               data_json,
-              '$.status', 'removed',
+              '$.status', ?,
               '$.admin_notes', ?,
               '$.reviewed_by', ?,
               '$.reviewed_at', ?
             ),
-            status = 'removed',
+            status = ?,
             updated_date = NOW()
             WHERE entity_type = 'season_registration'
               AND club_id = ?
               AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.assigned_league_id')) = ?`,
           [
-            reason || `Removed from ${parent.name || 'league'} by admin`,
+            mode === 'replace' ? 'replaced' : 'removed',
+            reason || `${mode === 'replace' ? 'Replaced' : 'Removed'} from ${parent.name || 'league'} by admin`,
             admin.email || 'admin',
             new Date().toISOString(),
+            mode === 'replace' ? 'replaced' : 'removed',
             club_id,
             target_id,
           ]
@@ -5289,29 +5469,44 @@ const HANDLERS = {
       await createAuditLog({
         adminUserId: admin.id,
         adminEmail: admin.email,
-        action: 'remove_club_from_league_competition',
+        action: mode === 'replace' ? 'replace_club_in_league_competition' : 'remove_club_from_league_competition',
         entityType: cfg.parentType,
         entityId: target_id,
         entityName: parent.name || parent.season_label || null,
-        oldValue: { parent, standing },
+        oldValue: { parent, standing, played_fixtures: playedFixtures },
         newValue: {
           parent: nextParent,
           removed_club_id: club_id,
-          deleted_fixtures: fixtureDeleteResult?.affectedRows || 0,
+          replacement_club_id: replacement_club_id || null,
+          standing: nextStanding,
+          replacement_standing: insertedReplacementStanding,
+          deleted_fixtures: deletedFixtures,
+          replaced_fixtures: replacedFixtures,
+          played_fixtures_kept: playedFixtures.length,
         },
         reason: reason || null,
       });
 
+      await updateActiveLeagueStandingPositions(query, cfg, target_id);
+
       return {
         success: true,
+        action: mode,
         removed_club_id: club_id,
+        replacement_club_id: replacement_club_id || null,
         target_type: cfg.parentType,
         target_id,
-        deleted_fixtures: fixtureDeleteResult?.affectedRows || 0,
+        deleted_fixtures: deletedFixtures,
+        replaced_fixtures: replacedFixtures,
+        played_fixtures_kept: playedFixtures.length,
         num_clubs: nextParent.num_clubs,
       };
     });
     return { data: result };
+  },
+
+  async adminRemoveClubFromCompetition(args) {
+    return HANDLERS.adminManageLeagueClub({ ...args, action: 'remove' });
   },
 
   async awardClubSeasonPrize({

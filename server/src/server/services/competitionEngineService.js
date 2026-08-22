@@ -17,9 +17,9 @@ const {
 const model = new CompetitionEngineModel();
 
 const STAGE_QUALIFICATION_RULES = [
-  { positions: [1, 2], competitionSlug: 'supreme' },
-  { positions: [3, 4], competitionSlug: 'elite' },
-  { positions: [5, 6], competitionSlug: 'challenger' },
+  { positions: [1, 2, 3, 4, 5, 6], competitionSlug: 'supreme' },
+  { positions: [7, 8, 9, 10, 11, 12], competitionSlug: 'elite' },
+  { positions: [13, 14, 15, 16, 17, 18], competitionSlug: 'challenger' },
 ];
 
 const CROSS_COMPETITION_QUALIFICATION_RULES = [
@@ -27,6 +27,7 @@ const CROSS_COMPETITION_QUALIFICATION_RULES = [
   { fromSlug: 'challenger', toSlug: 'elite', positions: [1] },
 ];
 
+const REGIONAL_LEAGUE_MAX_CLUBS = 20;
 const RELEGATION_SPOTS = 2;
 const PROMOTION_SPOTS = 2;
 
@@ -213,7 +214,7 @@ function parseFormList(value) {
 }
 
 function sortStandingRows(rows) {
-  return [...rows].sort((a, b) => {
+  return [...rows].filter(row => !row.is_excluded).sort((a, b) => {
     if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
     if (Number(b.goal_difference || 0) !== Number(a.goal_difference || 0)) return Number(b.goal_difference || 0) - Number(a.goal_difference || 0);
     if (Number(b.goals_for || 0) !== Number(a.goals_for || 0)) return Number(b.goals_for || 0) - Number(a.goals_for || 0);
@@ -895,6 +896,19 @@ async function selectLinkedRegionalLeague(league) {
   return rows.length ? parseLeagueEntityRow(rows[0]) : null;
 }
 
+async function selectRegionalLeagueByDivision(league, division) {
+  const rows = await EXECUTESQL(
+    `SELECT * FROM league_entities
+      WHERE entity_type = 'regional_league'
+        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.region_slug')) = ?
+        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.platform')) = ?
+        AND CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.division')) AS UNSIGNED) = ?
+      LIMIT 1`,
+    [league.region_slug, league.platform, division],
+  ).catch(() => []);
+  return rows.length ? parseLeagueEntityRow(rows[0]) : null;
+}
+
 async function legacyCompetitionPhaseExists(seasonId, phase) {
   const rows = await EXECUTESQL(
     `SELECT * FROM league_entities
@@ -1289,6 +1303,7 @@ async function processRegionalDivisionOneEnd(league, standings) {
   const sorted = sortStandingRows(standings);
   const total = sorted.length;
   const linkedLeague = await selectLinkedRegionalLeague(league);
+  const lowerLeague = linkedLeague || (await selectRegionalLeagueByDivision(league, Number(league.division || 1) + 1));
   let qualified = 0;
   let relegated = 0;
 
@@ -1334,14 +1349,17 @@ async function processRegionalDivisionOneEnd(league, standings) {
     }
   }
 
-  const relegatedRows = sorted.slice(Math.max(0, total - RELEGATION_SPOTS));
+  const relegationStartPosition = REGIONAL_LEAGUE_MAX_CLUBS - RELEGATION_SPOTS + 1;
+  const relegatedRows = lowerLeague
+    ? sorted.filter((_, index) => index + 1 >= relegationStartPosition)
+    : [];
   for (const standing of relegatedRows) {
     const position = sorted.indexOf(standing) + 1;
     await updateLeagueEntityData('regional_league_standing', standing.id, {
       ...standing,
       is_relegated: true,
       final_position: position,
-      ...(linkedLeague ? { relegation_target_league_id: linkedLeague.id } : {}),
+      relegation_target_league_id: lowerLeague.id,
     });
     relegated += 1;
   }
@@ -1350,7 +1368,7 @@ async function processRegionalDivisionOneEnd(league, standings) {
     const position = index + 1;
     const standing = sorted[index];
     const alreadyHandled = STAGE_QUALIFICATION_RULES.some(rule => rule.positions.includes(position))
-      || index >= total - RELEGATION_SPOTS;
+      || (lowerLeague && position >= relegationStartPosition);
     if (alreadyHandled) continue;
     await updateLeagueEntityData('regional_league_standing', standing.id, {
       ...standing,
@@ -1364,8 +1382,9 @@ async function processRegionalDivisionOneEnd(league, standings) {
 async function processRegionalDivisionTwoEnd(league, standings) {
   const sorted = sortStandingRows(standings);
   const total = sorted.length;
-  const linkedLeague = await selectLinkedRegionalLeague(league);
-  const promotedRows = sorted.slice(0, Math.min(PROMOTION_SPOTS, total));
+  const upperLeague = await selectLinkedRegionalLeague(league);
+  const lowerLeague = await selectRegionalLeagueByDivision(league, Number(league.division || 1) + 1);
+  const promotedRows = upperLeague ? sorted.slice(0, Math.min(PROMOTION_SPOTS, total)) : [];
   let promoted = 0;
   let relegated = 0;
 
@@ -1375,30 +1394,36 @@ async function processRegionalDivisionTwoEnd(league, standings) {
       ...standing,
       is_promoted: true,
       final_position: position,
-      ...(linkedLeague ? { promotion_target_league_id: linkedLeague.id } : {}),
+      promotion_target_league_id: upperLeague.id,
     });
     promoted += 1;
   }
 
-  const shouldRelegate = total > RELEGATION_SPOTS + PROMOTION_SPOTS;
-  const relegatedRows = shouldRelegate ? sorted.slice(total - RELEGATION_SPOTS) : [];
+  const relegationStartPosition = REGIONAL_LEAGUE_MAX_CLUBS - RELEGATION_SPOTS + 1;
+  const relegatedRows = lowerLeague
+    ? sorted.filter((_, index) => index + 1 >= relegationStartPosition)
+    : [];
   for (const standing of relegatedRows) {
     const position = sorted.indexOf(standing) + 1;
     await updateLeagueEntityData('regional_league_standing', standing.id, {
       ...standing,
       is_relegated: true,
       final_position: position,
+      relegation_target_league_id: lowerLeague.id,
     });
     relegated += 1;
   }
 
-  const lastMidIndex = shouldRelegate ? total - RELEGATION_SPOTS : total;
-  for (let index = PROMOTION_SPOTS; index < lastMidIndex; index += 1) {
+  for (let index = 0; index < total; index += 1) {
+    const position = index + 1;
+    const isPromoted = upperLeague && position <= PROMOTION_SPOTS;
+    const isRelegated = lowerLeague && position >= relegationStartPosition;
+    if (isPromoted || isRelegated) continue;
     const standing = sorted[index];
     if (!standing) continue;
     await updateLeagueEntityData('regional_league_standing', standing.id, {
       ...standing,
-      final_position: index + 1,
+      final_position: position,
     });
   }
 

@@ -38,6 +38,50 @@ function hasStagePlus(subscription) {
   return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
 }
 
+const AUDITED_ENTITY_TYPES = new Set([
+  'competition',
+  'competition_season',
+  'regional_league',
+  'regional_league_fixture',
+  'regional_league_standing',
+  'qualification_entry',
+]);
+
+function auditValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
+
+async function getAdminUser(req) {
+  const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
+  const user = rows[0];
+  return user && [0, 2].includes(Number(user.role_id)) ? user : null;
+}
+
+async function auditLeagueEntity(req, action, entityType, id, before, after, reason) {
+  if (!AUDITED_ENTITY_TYPES.has(entityType)) return;
+  const admin = await getAdminUser(req).catch(() => null);
+  if (!admin) return;
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+       (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [
+      uuidv4(),
+      admin.id,
+      admin.email,
+      action,
+      entityType,
+      id || null,
+      after?.name || before?.name || after?.competition_name || before?.competition_name || after?.league_name || before?.league_name || entityType,
+      auditValue(before),
+      auditValue(after),
+      reason || null,
+    ],
+  ).catch((err) => console.error('[leagueEntity audit]', err.message));
+}
+
 // Parse a stored row back into a plain object the frontend expects.
 function parseRow(row) {
   if (!row) return null;
@@ -161,7 +205,9 @@ function makeRouter(entityType) {
         allVals
       );
       const [created] = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? LIMIT 1`, [id]);
-      res.status(201).json(parseRow(created));
+      const createdRow = parseRow(created);
+      await auditLeagueEntity(req, `create_${entityType}`, entityType, id, null, createdRow, body.reason);
+      res.status(201).json(createdRow);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -190,7 +236,9 @@ function makeRouter(entityType) {
         setVals
       );
       const [updated] = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? LIMIT 1`, [id]);
-      res.json(parseRow(updated));
+      const updatedRow = parseRow(updated);
+      await auditLeagueEntity(req, `update_${entityType}`, entityType, id, current, updatedRow, body.reason);
+      res.json(updatedRow);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -199,7 +247,10 @@ function makeRouter(entityType) {
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
+      const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [req.params.id, entityType]);
+      const before = existing.length ? parseRow(existing[0]) : null;
       await EXECUTESQL(`DELETE FROM \`${TABLE}\` WHERE id = ? AND entity_type = ?`, [req.params.id, entityType]);
+      await auditLeagueEntity(req, `delete_${entityType}`, entityType, req.params.id, before, null, req.body?.reason);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

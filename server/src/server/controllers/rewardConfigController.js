@@ -16,8 +16,45 @@ const express = require('express');
 const router = express.Router();
 const { EXECUTESQL } = require('../db/database');
 const RewardConfigModel = require('../models/rewardConfigModel');
+const { v4: uuidv4 } = require('uuid');
 
 const FILTER_FIELDS = ['source_id', 'source_type', 'source_name'];
+
+async function requireAdmin(req) {
+  const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
+  const user = rows[0];
+  if (!user || ![0, 2].includes(Number(user.role_id))) {
+    const err = new Error('Admin access required');
+    err.status = 403;
+    throw err;
+  }
+  return user;
+}
+
+function auditValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
+
+async function audit(admin, action, entityId, before, after, reason) {
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+       (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)
+     VALUES (?, ?, ?, ?, 'reward_config', ?, ?, ?, ?, ?, NOW())`,
+    [
+      uuidv4(),
+      admin.id,
+      admin.email,
+      action,
+      entityId || null,
+      after?.source_name || before?.source_name || 'Reward Config',
+      auditValue(before),
+      auditValue(after),
+      reason || null,
+    ],
+  ).catch((err) => console.error('[rewardConfig audit]', err.message));
+}
 
 function buildWhere(query) {
   const where = [];
@@ -59,41 +96,47 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const admin = await requireAdmin(req);
     const rc = new RewardConfigModel(req.body);
     await rc.create();
     const created = await rc.selectOne(rc.id);
+    await audit(admin, 'create_reward_config', rc.id, null, created[0], req.body?.reason);
     res.status(201).json(created[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
 router.patch('/:id', async (req, res) => {
   try {
+    const admin = await requireAdmin(req);
     const { id } = req.params;
     const existing = await new RewardConfigModel().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const rc = new RewardConfigModel({ ...existing[0], ...req.body });
     await rc.update(id);
     const updated = await rc.selectOne(id);
+    await audit(admin, 'update_reward_config', id, existing[0], updated[0], req.body?.reason);
     res.json(updated[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
+    const admin = await requireAdmin(req);
     const { id } = req.params;
     const existing = await new RewardConfigModel().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     await new RewardConfigModel().delete(id);
+    await audit(admin, 'delete_reward_config', id, existing[0], null, req.body?.reason);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

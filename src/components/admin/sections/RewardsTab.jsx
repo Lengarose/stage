@@ -1,6 +1,8 @@
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import { cn } from "@/lib/utils";
 import { stageClient } from "@/api/stageClient";
+import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS } from "@/lib/qualificationConfig";
+import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Coins } from "lucide-react";
 
@@ -23,35 +25,41 @@ export default function RewardsTab({
 
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
-        <div className="space-y-1.5">
-          {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map((tier) => {
-            const comp = competitions.find(c => c.slug === tier.slug);
-            if (!comp) return null;
-            const active = rewardSource?.id === comp.id;
-            return (
-              <button key={tier.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
-                className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
-                  active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )} style={{ borderLeftColor: active ? undefined : tier.color, borderLeftWidth: 2 }}>
-                {comp.name}
-                <span className="block text-[10px] font-normal mt-0.5 opacity-60">{t("admin.rewards.competitionMeta", { platform: comp.platform })}</span>
-              </button>
-            );
-          })}
-          {regionalLeagues.filter(l => l.status !== "archived").slice(0, 12).map(league => {
-            const active = rewardSource?.id === league.id;
-            return (
-              <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: league.max_clubs || 16, trophy_image_url: league.trophy_image_url || "" })}
-                className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
-                  active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}>
-                {league.name}
-                <span className="block text-[10px] font-normal mt-0.5 opacity-60">
-                  {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
-                </span>
-              </button>
-            );
-          })}
+        <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-1">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">GOST</p>
+            {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map((tier) => {
+              const comp = competitions.find(c => c.slug === tier.slug);
+              if (!comp) return null;
+              const active = rewardSource?.id === comp.id;
+              return (
+                <button key={tier.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
+                  className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
+                    active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )} style={{ borderLeftColor: active ? undefined : tier.color, borderLeftWidth: 2 }}>
+                  {comp.name}
+                  <span className="block text-[10px] font-normal mt-0.5 opacity-60">{t("admin.rewards.competitionMeta", { platform: comp.platform })}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Regional Leagues</p>
+            {regionalLeagues.filter(l => l.status !== "archived").map(league => {
+              const active = rewardSource?.id === league.id;
+              return (
+                <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
+                  className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
+                    active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}>
+                  {league.name}
+                  <span className="block text-[10px] font-normal mt-0.5 opacity-60">
+                    {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -65,7 +73,7 @@ export default function RewardsTab({
             sourceType={rewardSource.type}
             sourceName={rewardSource.name}
             source={rewardSource}
-            maxPositions={rewardSource.type === "regional_league" ? (rewardSource.max_clubs || 16) : 36}
+            maxPositions={rewardSource.type === "regional_league" ? getRegionalLeagueMaxClubs(rewardSource) : OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS}
             trophyImageUrl={rewardSource.trophy_image_url}
             onTrophyUrlChange={async (url) => {
               setRewardSource(s => s ? { ...s, trophy_image_url: url } : s);

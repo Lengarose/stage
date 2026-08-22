@@ -1,6 +1,7 @@
 import { stageClient } from "@/api/stageClient";
 import { sortStandings } from "./competitionUtils";
 import { calculatePrizePool } from "./prizeDefaults";
+import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, REGIONAL_LEAGUE_MAX_CLUBS } from "./qualificationConfig";
 
 // ─── Competition season lifecycle ────────────────────────────────────────────
 
@@ -94,15 +95,15 @@ export async function createNextCompetitionSeason(season, competition) {
     fixtures_generated:    false,
     registered_club_ids:   [],
     num_clubs:             0,
-    max_clubs:             season.max_clubs || season.target_clubs || competition?.max_clubs_per_season || 36,
-    target_clubs:          season.max_clubs || season.target_clubs || competition?.max_clubs_per_season || 36,
+    max_clubs:             OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
+    target_clubs:          OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
     current_matchday:      1,
     status:                "draft",
-    prize_pool_stc:        season.prize_pool_stc || calculatePrizePool("competition", competition || season, season.max_clubs || season.target_clubs || 36),
+    prize_pool_stc:        season.prize_pool_stc || calculatePrizePool("competition", competition || season, OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS),
   });
   if (competition) {
     const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
-    await ensureDefaultRewardConfigs(competition.id, "competition", competition.name, competition, season.max_clubs || season.target_clubs || 36);
+    await ensureDefaultRewardConfigs(competition.id, "competition", competition.name, competition, OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS);
   }
   await stageClient.entities.CompetitionSeason.update(season.id, { next_season_id: created.id });
   if (competition) {
@@ -186,15 +187,15 @@ export async function createNextLeagueSeason(league) {
     platform:        league.platform,
     season_number:   nextNumber,
     status:          "draft",
-    max_clubs:       league.max_clubs || 16,
+    max_clubs:       league.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS,
     num_clubs:       0,
     promoted_slots:  league.promoted_slots || 2,
-    prize_pool_stc:  calculatePrizePool("regional_league", league, league.max_clubs || 16),
+    prize_pool_stc:  calculatePrizePool("regional_league", league, league.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS),
     registered_club_ids: [],
     linked_league_slug:  league.linked_league_slug || null,
   });
   const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
-  await ensureDefaultRewardConfigs(created.id, "regional_league", created.name, created, created.max_clubs || 16);
+  await ensureDefaultRewardConfigs(created.id, "regional_league", created.name, created, created.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS);
 
   await stageClient.entities.RegionalLeague.update(league.id, { next_season_id: created.id });
   return created;

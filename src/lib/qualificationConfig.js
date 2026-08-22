@@ -82,18 +82,25 @@ export const LEAGUE_DEFINITIONS = [
   },
 ];
 
-// Division 1 final standings → STAGE competition qualification.
-// positions are 1-indexed. Add/remove entries here to change the spot count.
+// Division 1 final standings → official STAGE tournament qualification.
+// With six top-flight regional leagues, each range creates 36 total entries:
+// 1-6 Supreme, 7-12 Elite, 13-18 Challenger. Positions 19-20 get no ticket.
 export const STAGE_QUALIFICATION_RULES = [
-  { positions: [1, 2],    competitionSlug: "supreme",    competitionName: "STAGE Supreme League"    },
-  { positions: [3, 4],    competitionSlug: "elite",      competitionName: "STAGE Elite League"      },
-  { positions: [5, 6],    competitionSlug: "challenger", competitionName: "STAGE Challenger League" },
+  { positions: [1, 2, 3, 4, 5, 6],          competitionSlug: "supreme",    competitionName: "STAGE Supreme League"    },
+  { positions: [7, 8, 9, 10, 11, 12],       competitionSlug: "elite",      competitionName: "STAGE Elite League"      },
+  { positions: [13, 14, 15, 16, 17, 18],    competitionSlug: "challenger", competitionName: "STAGE Challenger League" },
 ];
 
-// How many clubs at the bottom of Div 1 get relegated to Div 2
+// Regional League season structure.
+export const REGIONAL_LEAGUE_MAX_CLUBS = 20;
+
+// Official STAGE tournaments are fixed 36-club events fed by six Division 1 leagues.
+export const OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS = 36;
+
+// How many clubs at the bottom of a division get relegated when a lower division exists.
 export const RELEGATION_SPOTS = 2;
 
-// How many clubs at the top of Div 2 get promoted to Div 1
+// How many clubs at the top of a lower division get promoted.
 export const PROMOTION_SPOTS = 2;
 
 // Cross-competition qualification: winner of tier N season qualifies for tier N-1 next season.

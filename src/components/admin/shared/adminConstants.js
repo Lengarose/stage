@@ -20,6 +20,7 @@ export const ADMIN_SECTION_ALIASES = {
   "international-tournaments": "international-tournaments",
   international: "international-tournaments",
   leagues: "leagues",
+  gost: "gost",
   news: "news",
   trophies: "trophies",
   rewards: "rewards",
