@@ -189,6 +189,38 @@ function sendMobileHandoffPage(req, res) {
 </html>`);
 }
 
+function sendStoreReturnPage(req, res) {
+  const params = new URLSearchParams(req.query || {});
+  params.delete('client');
+  const q = params.toString();
+  const deepLink = q ? `stage://apps/store?${q}` : 'stage://apps/store';
+  const j = JSON.stringify(deepLink);
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).type('html').send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Opening Stage…</title>
+  </head>
+  <body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;text-align:center">
+    <p>Opening the Stage app…</p>
+    <p style="font-size:14px;opacity:.75;margin-top:12px">
+      If nothing happens, <a id="open" href=${j}>tap here</a>.
+    </p>
+    <script>
+      (function () {
+        var deep = ${j};
+        try { window.location.replace(deep); } catch (e) {}
+        setTimeout(function () {
+          try { window.location.href = deep; } catch (e) {}
+        }, 200);
+      })();
+    </script>
+  </body>
+</html>`);
+}
+
 async function issueAndRedirect(res, player, req = null) {
   const userRows = await EXECUTESQL('SELECT id FROM users WHERE email = ? LIMIT 1', [player.email]);
   if (!userRows.length) return oauthFail(res, req);
@@ -479,5 +511,6 @@ router.get('/kick/callback', async (req, res) => {
 // Mobile deep-link handoff (mounted at /api/stage/auth/mobile-handoff).
 // Must live under /api so nginx/SPA never serves a website 404.
 router.get('/mobile-handoff', sendMobileHandoffPage);
+router.get('/store-return', sendStoreReturnPage);
 
 module.exports = router;

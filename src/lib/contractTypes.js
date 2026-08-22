@@ -68,7 +68,7 @@ export const CONTRACT_TYPES = {
     description: "Founder player contract for the club (10 years)",
   },
   founder: {
-    label: "Founder",
+    label: getContractTypeLabel("founder"),
     max_games: 999,
     max_days: 3650,
     color: "text-amber-400",

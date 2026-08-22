@@ -111,8 +111,17 @@ app.get('/auth/mobile-handoff', (req, res) => {
 });
 
 // Stripe Checkout return for the mobile app. Stripe only accepts https success/cancel
-// URLs, so this HTTPS page immediately opens stage://apps/store. Web checkout keeps
-// using /store and never hits this route.
+// URLs, so this HTTPS page immediately opens stage://apps/store. Use /auth/* like
+// OAuth handoff — production Express already serves that path. /store/* can load the
+// website SPA instead, which is why mobile checkout was landing on the web Store.
+app.get('/auth/store-return', (req, res) => {
+  const params = new URLSearchParams(req.query || {});
+  params.delete('client');
+  const q = params.toString();
+  sendMobileDeepLinkPage(res, q ? `stage://apps/store?${q}` : 'stage://apps/store');
+});
+
+// Kept for older app builds that still return to /store/mobile-return.
 app.get('/store/mobile-return', (req, res) => {
   const params = new URLSearchParams(req.query || {});
   params.delete('client');

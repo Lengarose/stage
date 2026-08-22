@@ -139,11 +139,15 @@ test('Stripe mobile checkout returns through an HTTPS handoff into the native ap
   const server = readRepoFile('server/src/server.js');
   const app = readRepoFile('src/App.jsx');
   const store = readRepoFile('src/pages/Store.jsx');
+  const oauthController = readRepoFile('server/src/server/controllers/oauthController.js');
 
+  assert.match(server, /app\.get\('\/auth\/store-return'/);
   assert.match(server, /app\.get\('\/store\/mobile-return'/);
   assert.match(server, /stage:\/\/apps\/store/);
+  assert.match(app, /path="\/auth\/store-return"/);
   assert.match(app, /path="\/store\/mobile-return"/);
   assert.match(app, /MobileStoreHandoff/);
+  assert.match(oauthController, /router\.get\('\/store-return'/);
   assert.match(store, /client"\) === "mobile"/);
   assert.match(store, /stage:\/\/apps\/store/);
   assert.match(store, /successUrl: `\$\{window\.location\.origin\}\/store\?sub=success/);
