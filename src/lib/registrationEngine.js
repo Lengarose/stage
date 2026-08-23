@@ -101,48 +101,17 @@ export async function approveRegistration(reg, league, adminEmail, allRegionalLe
     throw new Error(`${reg.club_name} is already in ${league.name}.`);
   }
 
-  const now = new Date().toISOString();
-  const ops = [];
-
-  // Add club to league
-  ops.push(
-    stageClient.entities.RegionalLeague.update(league.id, {
-      registered_club_ids: [...ids, reg.club_id],
-      num_clubs: current + 1,
-    })
-  );
-
-  // Create standing row
-  ops.push(
-    stageClient.entities.RegionalLeagueStanding.create({
-      league_id:     league.id,
-      league_name:   league.name,
-      region_slug:   league.region_slug || reg.region_slug,
-      division:      league.division || 1,
-      season_number: league.season_number || 1,
-      club_id:       reg.club_id,
-      club_name:     reg.club_name,
-      club_logo_url: reg.club_logo_url || "",
-      club_tag:      reg.club_tag || "",
-      platform:      league.platform || reg.platform,
-      region:        league.region || "",
-      position:      current + 1,
-      played: 0, wins: 0, draws: 0, losses: 0,
-      goals_for: 0, goals_against: 0, goal_difference: 0, points: 0,
-    })
-  );
-
-  await Promise.all(ops);
-
-  // Mark application approved
-  await stageClient.entities.SeasonRegistration.update(reg.id, {
-    status:               "approved",
-    assigned_league_id:   league.id,
-    assigned_league_name: league.name,
-    assigned_division:    league.division || 1,
-    reviewed_by:          adminEmail,
-    reviewed_at:          now,
+  const response = await stageClient.functions.invoke("adminRegisterClubToRegionalLeague", {
+    league_id: league.id,
+    club_id: reg.club_id,
+    season_registration_id: reg.id,
+    reason: `Approved by ${adminEmail || "admin"}`,
   });
+  const data = response?.data || response || {};
+  if (!data.success) {
+    throw new Error(data.error || `Could not approve ${reg.club_name} for ${league.name}.`);
+  }
+  return data;
 }
 
 /**

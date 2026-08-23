@@ -491,14 +491,15 @@ export default function CompetitionDetail() {
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-10 lg:py-14">
           <Link
             to="/competitions"
-            className="mb-8 inline-flex h-11 items-center gap-2 px-5 text-xs font-black uppercase tracking-[0.18em] text-primary transition hover:text-primary/80"
+            className="mb-8 inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
             style={{
               clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
-              background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(15,23,42,0.76))",
-              border: "1px solid rgba(34,211,238,0.34)",
+              background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
+              borderTop: "1px solid rgba(186,230,253,0.42)",
+              borderBottom: "1px solid rgba(186,230,253,0.42)",
             }}
           >
-            <ChevronLeft className="w-3.5 h-3.5" /> Back
+            <ChevronLeft className="w-4 h-4 text-cyan-200/95" /> Back
           </Link>
           <div className="flex items-end justify-between gap-6 flex-wrap">
             <div className="flex items-center gap-5 min-w-0">
@@ -615,18 +616,42 @@ export default function CompetitionDetail() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex gap-7 overflow-x-auto border-b border-border/70">
+            <section className="grid gap-3 md:grid-cols-3">
+              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">GOST event</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Global Official Stage Tournaments are the top official events. Clubs reach them through Regional League performance.
+                </p>
+              </div>
+              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Tournament route</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Qualified clubs move through the league phase, playoff route and knockout rounds until the final champion is decided.
+                </p>
+              </div>
+              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">What to follow</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Use the tabs to check qualified clubs, fixtures, the table, stats, rewards and previous seasons.
+                </p>
+              </div>
+            </section>
+
+            <div className="flex gap-7 overflow-x-auto">
               {publicTabs.map(tab => (
                 <button
                   key={tab.value}
                   type="button"
                   onClick={() => setActiveTab(tab.value)}
                   className={cn(
-                    "shrink-0 border-b-2 px-1 pb-3 text-xs font-black uppercase tracking-[0.18em] transition",
-                    activeTab === tab.value ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    "relative shrink-0 px-1 py-3 text-xs font-black uppercase tracking-[0.18em] transition",
+                    activeTab === tab.value ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {tab.label}
+                  {activeTab === tab.value && (
+                    <span className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_16px_rgba(34,211,238,0.85)]" />
+                  )}
                 </button>
               ))}
             </div>

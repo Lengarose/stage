@@ -10,7 +10,6 @@ import {
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
-import { LEAGUE_DEFINITIONS } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { openMatchdayWindows } from "@/lib/scheduleEngine";
@@ -166,7 +165,6 @@ export default function LeagueDetail() {
   }
 
   const isAdmin = user?.role === "admin";
-  const ldef    = LEAGUE_DEFINITIONS.find(d => d.slug === slug);
 
   // Group fixtures by matchday
   const matchdays = [...new Set(fixtures.map(f => f.matchday))].sort((a, b) => a - b);
@@ -209,91 +207,82 @@ export default function LeagueDetail() {
     );
   }
 
+  const leagueStatusText = String(league.status || "draft").replace(/_/g, " ");
+
   return (
     <div className="min-h-screen bg-background">
-      <section className="relative overflow-hidden border-b border-primary/25">
+      <section className="relative min-h-[240px] overflow-hidden sm:min-h-[280px] lg:min-h-[320px]">
         {league.banner_url && (
-          <img src={league.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+          <img src={league.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--background))_0%,rgba(2,6,23,0.78)_45%,rgba(34,211,238,0.16)_100%)]" />
-        <div className="relative mx-auto max-w-7xl px-4 py-10 lg:px-8 lg:py-14">
+        {!league.banner_url && (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(34,211,238,0.22),transparent_35%),linear-gradient(135deg,rgba(7,16,28,0.98),rgba(2,6,23,0.86))]" />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-cyan-200/35 shadow-[0_0_28px_4px_rgba(34,211,238,0.42)]" />
+        <div
+          className="pointer-events-none absolute bottom-0 left-[8%] h-[3px] w-[52%] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
+          style={{ transform: "skewX(-18deg)", filter: "drop-shadow(0 0 16px rgba(34,211,238,0.85))" }}
+        />
+        <div className="relative mx-auto flex max-w-7xl px-4 py-8 lg:px-8 lg:py-10">
           <Link
             to="/leagues"
-            className="mb-8 inline-flex h-11 items-center gap-2 px-5 text-xs font-black uppercase tracking-[0.18em] text-primary transition hover:text-primary/80"
+            className="inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
             style={{
               clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
-              background: "linear-gradient(135deg, rgba(34,211,238,0.14), rgba(15,23,42,0.76))",
-              border: "1px solid rgba(34,211,238,0.34)",
+              background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
+              borderTop: "1px solid rgba(186,230,253,0.42)",
+              borderBottom: "1px solid rgba(186,230,253,0.42)",
             }}
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <ArrowLeft className="w-4 h-4 text-cyan-200/95" /> Back
           </Link>
-
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div className="flex items-center gap-5 min-w-0">
-              <div
-                className="grid h-28 w-28 shrink-0 place-items-center border border-white/15 bg-black/45 p-4"
-                style={{ clipPath: "polygon(13% 0, 100% 0, 87% 100%, 0 100%)" }}
-              >
-                {league.logo_url || league.trophy_image_url
-                  ? <img src={league.logo_url || league.trophy_image_url} alt={league.name} className="h-full w-full object-contain" />
-                  : <Trophy className="h-12 w-12 text-primary" />}
-              </div>
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    {ldef?.region || league.region} · Division {league.division || 1}
-                  </span>
-                </div>
-                <h1
-                  className="font-heading font-black text-4xl md:text-6xl text-foreground uppercase"
-                  style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-                >
-                  {league.name}
-                </h1>
-                <p className="font-subtitle text-xs text-muted-foreground">
-                  Season {league.season_number} · {standings.length}/{getRegionalLeagueMaxClubs(league)} clubs
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <span className={cn("text-[10px] font-bold px-2 py-1 border uppercase tracking-wider",
-                league.status === "in_progress" ? "text-success border-success/30 bg-success/5"
-                : league.status === "registration" ? "text-primary border-primary/30 bg-primary/5"
-                : league.status === "completed"   ? "text-muted-foreground border-border bg-secondary"
-                : "text-warning border-warning/30 bg-warning/5"
-              )}>{String(league.status || "draft").replace("_", " ")}</span>
-              {isAdmin && fixtures.length === 0 && standings.length >= 2 && (
-                <Button size="sm" onClick={handleGenerateFixtures} disabled={generating}
-                  className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
-                  <Plus className="w-3.5 h-3.5" />
-                  {generating ? "Generating…" : "Generate Fixtures"}
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       </section>
 
+      <div className="mx-auto flex max-w-7xl justify-end px-4 pt-4 lg:px-8">
+        <span
+          className={cn(
+            "inline-flex min-h-10 items-center px-6 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md",
+            league.status === "in_progress" ? "border border-emerald-300/35 bg-emerald-300/10 text-emerald-100"
+            : league.status === "registration" ? "border border-cyan-200/35 bg-cyan-300/10 text-cyan-100"
+            : league.status === "completed" ? "border border-white/15 bg-white/5 text-white/65"
+            : "border border-amber-300/35 bg-amber-300/10 text-amber-100"
+          )}
+          style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}
+        >
+          {leagueStatusText}
+        </span>
+      </div>
+
       <div className="max-w-7xl mx-auto space-y-6 px-4 py-6 lg:px-8">
 
-        {/* Qualification info */}
-        {(league.division || 1) === 1 && (
-          <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground space-y-0.5">
-            <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider mb-1">Division 1 Qualification Paths</p>
-            <p>Top-flight results feed official STAGE tournament qualification.</p>
-            <p className="mt-1">Positions 19–20 relegated when Division 2 exists.</p>
+        <section className="grid gap-3 md:grid-cols-3">
+          <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+            <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">How it works</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Clubs play this regional division through scheduled matchdays. Results update the table and decide the season story.
+            </p>
           </div>
-        )}
-        {(league.division || 1) === 2 && (
-          <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground">
-            <p>Top 2 clubs promoted next season. Positions 19–20 relegated only when a lower division exists.</p>
+          <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+            <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">
+              {(league.division || 1) === 1 ? "GOST qualification" : "Promotion path"}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {(league.division || 1) === 1
+                ? "Division 1 positions feed the Supreme, Elite and Challenger qualification paths for Global Official Stage Tournaments."
+                : "Top clubs can move up to the next division when the season is completed and admin runs the league flow."}
+            </p>
           </div>
-        )}
+          <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+            <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Club preparation</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Check fixtures, confirm availability with your squad and use Game Day when a match window opens.
+            </p>
+          </div>
+        </section>
 
         {/* Tabs */}
-        <div className="flex gap-7 overflow-x-auto border-b border-border/70">
+        <div className="flex gap-7 overflow-x-auto">
           {[
             ["overview", "Overview"],
             ["clubs", `Clubs (${standings.length})`],
@@ -304,10 +293,13 @@ export default function LeagueDetail() {
             ...(prevSeasons.length ? [["history", "History"]] : []),
           ].map(([value, label]) => (
             <button key={value} onClick={() => setTab(value)}
-              className={cn("shrink-0 px-1 py-3 text-xs font-black uppercase tracking-[0.18em] border-b-2 transition-colors",
-                tab === value ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              className={cn("relative shrink-0 px-1 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors",
+                tab === value ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}>
               {label}
+              {tab === value && (
+                <span className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_16px_rgba(34,211,238,0.85)]" />
+              )}
             </button>
           ))}
         </div>

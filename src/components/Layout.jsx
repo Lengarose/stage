@@ -787,6 +787,7 @@ function HeaderIdentityMenu({
   myPlayer,
   myClub,
   myClubId,
+  playerClubId,
   accountIntent,
   accountMode,
   switchMode,
@@ -798,6 +799,7 @@ function HeaderIdentityMenu({
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
   const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
+  const clubMenuId = showAsPresident ? myClubId : (playerClubId || myClubId);
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
@@ -910,10 +912,10 @@ function HeaderIdentityMenu({
             </Link>
           </DropdownMenuItem>
         ) : null}
-        {myClubId ? (
+        {clubMenuId ? (
           <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
             <Link
-              to={`/clubs/${myClubId}`}
+              to={`/clubs/${clubMenuId}`}
               className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
               style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
             >
@@ -2042,9 +2044,7 @@ export default function Layout() {
   const [authUser,         setAuthUser]         = useState(null);
   const [currentUserId,    setCurrentUserId]    = useState(null);
   const [takeoverClubName, setTakeoverClubName] = useState(null);
-  const [myClubId,         setMyClubId]         = useState(() => {
-    try { return localStorage.getItem("stage_club_id"); } catch { return null; }
-  });
+  const [, setMyClubId] = useState(null);
   const [tournamentParticipantType, setTournamentParticipantType] = useState(null);
   const [myClub,           setMyClub]           = useState(null);
   const [myPlayerClub,     setMyPlayerClub]     = useState(null);
@@ -2057,7 +2057,7 @@ export default function Layout() {
   const [showClubModal,    setShowClubModal]    = useState(false);
   const fullBleedProfileRoute = isFullBleedRoute(location.pathname);
   const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
-  const myPresidentClubId = myClubId;
+  const myPresidentClubId = myClub?.id || null;
 
   const switchMode = useCallback((mode) => {
     localStorage.setItem("stage-account-mode", mode);
@@ -2167,11 +2167,13 @@ export default function Layout() {
     })();
   }, []);
 
+  const canUsePresidentMode = Boolean(myPresidentClubId) && isPresidentAccountIntent(accountIntent);
+  const effectiveAccountMode = canUsePresidentMode && accountMode === "club" ? "club" : "player";
+
   useEffect(() => {
-    if (myPlayer && myPresidentClubId) return;
-    if (myPresidentClubId && !myPlayer && accountMode !== "club") switchMode("club");
-    if (myPlayer && !myPresidentClubId && accountMode !== "player") switchMode("player");
-  }, [myPlayer, myPresidentClubId, accountMode, switchMode]);
+    if (accountMode === "club" && !canUsePresidentMode) switchMode("player");
+    if (!myPlayer && canUsePresidentMode && accountMode !== "club") switchMode("club");
+  }, [accountMode, canUsePresidentMode, myPlayer, switchMode]);
 
   const isVideoTheme = theme === "theme-video" || theme === "theme-white";
   const isWhiteTheme = theme === "theme-white";
@@ -2201,10 +2203,10 @@ export default function Layout() {
   const presidentClubPath = myPresidentClubId ? `/clubs/${myPresidentClubId}` : null;
   const playerClubPath = myPlayerClub?.id ? `/clubs/${myPlayerClub.id}` : null;
   const clubPath =
-    (accountMode === "club" ? presidentClubPath : playerClubPath)
+    (effectiveAccountMode === "club" ? presidentClubPath : playerClubPath)
     || presidentClubPath
     || playerClubPath;
-  const mobileClubIdentity = accountMode === "club" ? myClub : (myPlayerClub || myClub);
+  const mobileClubIdentity = effectiveAccountMode === "club" ? myClub : (myPlayerClub || myClub);
   const effectiveUser = authContextUser || authUser;
   const isTournamentLimited = effectiveUser?.access_mode === "tournament_limited";
   const limitedTournamentId = effectiveUser?.limited_tournament_id;
@@ -2228,7 +2230,7 @@ export default function Layout() {
     ? adminGroups
     : isTournamentLimited
       ? tournamentLimitedGroups
-      : (accountMode === "club" ? presidentGroups : playerGroups);
+      : (effectiveAccountMode === "club" ? presidentGroups : playerGroups);
   const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
@@ -2357,7 +2359,7 @@ export default function Layout() {
           myClub={mobileClubIdentity}
           presidentClub={myClub}
           accountIntent={accountIntent}
-          accountMode={accountMode}
+          accountMode={effectiveAccountMode}
           switchMode={switchMode}
           theme={theme}
           setTheme={setTheme}
@@ -2387,14 +2389,15 @@ export default function Layout() {
 
           <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-            {!showAdminHeader && (myPlayer || myClubId) && (
+            {!showAdminHeader && (myPlayer || myPresidentClubId) && (
               <div className="flex shrink-0 items-center px-3 sm:px-4">
                 <HeaderIdentityMenu
                   myPlayer={myPlayer}
                   myClub={myClub}
-                  myClubId={myClubId}
+                  myClubId={myPresidentClubId}
+                  playerClubId={myPlayerClub?.id || null}
                   accountIntent={accountIntent}
-                  accountMode={accountMode}
+                  accountMode={effectiveAccountMode}
                   switchMode={switchMode}
                   subscriptionTier={subscriptionTier}
                   userCredits={authUser?.credits ?? authContextUser?.credits ?? null}
@@ -2577,7 +2580,7 @@ export default function Layout() {
           pathname={location.pathname}
           myPlayer={myPlayer}
           myClub={mobileClubIdentity}
-          accountMode={accountMode}
+          accountMode={effectiveAccountMode}
           notifCount={notifCount}
           isTournamentLimited={isTournamentLimited}
           tournamentId={effectiveUser?.limited_tournament_id}

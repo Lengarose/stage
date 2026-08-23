@@ -2147,6 +2147,12 @@ function tournamentAvailabilityFixtureId(tournamentId, clubId) {
   return `t:${t}:${c}`.slice(0, 36);
 }
 
+function regionalLeagueAvailabilityFixtureId(leagueId, clubId) {
+  const l = String(leagueId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 15);
+  const c = String(clubId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 15);
+  return `rl:${l}:${c}`.slice(0, 36);
+}
+
 function tournamentRegistrationMessageBody({ tournament, club, status, reason }) {
   const tournamentName = tournament?.name || 'the tournament';
   const clubName = club?.name || 'your club';
@@ -2294,6 +2300,122 @@ async function deliverTournamentApprovedClubMessages({ tournament, club }) {
         type: 'tournament_start',
         title: `${clubName} approved for ${tournamentName}`,
         body: 'Set your tournament availability from the Fixtures tab.',
+        link: `/clubs/${club.id}`,
+      },
+    }).catch(() => null);
+    if (result?.success) delivered++;
+  }
+
+  return delivered;
+}
+
+function regionalLeagueRegistrationMessageBody({ league, club, status, reason, entryCost }) {
+  const leagueName = league?.name || 'Regional League';
+  const clubName = club?.name || 'Your club';
+  const approved = status === 'approved';
+  return [
+    approved
+      ? `${clubName} has been approved for ${leagueName}.`
+      : `${clubName} was not approved for ${leagueName}.`,
+    '',
+    league?.banner_url ? `Banner: ${league.banner_url}` : null,
+    `League: ${leagueName}`,
+    league?.region_name || league?.region ? `Region: ${league.region_name || league.region}` : null,
+    league?.division ? `Division: ${league.division}` : null,
+    approved ? `Availability entry: ${entryCost} credits when a club member selects Available.` : null,
+    reason ? `Admin note: ${reason}` : null,
+    '',
+    approved
+      ? 'Open your club profile and go to Fixtures. Your club members can now set Available or Unavailable for the league preparation card.'
+      : 'You can review the admin note and try again when registrations are open.',
+  ].filter(Boolean).join('\n');
+}
+
+async function deliverRegionalLeagueRegistrationReviewMessage({ league, club, registration, status, reason, entryCost }) {
+  const recipientEmail = String(registration?.owner_email || club?.owner_email || '').trim().toLowerCase();
+  if (!recipientEmail) return { skipped: true, reason: 'recipient missing' };
+  const leagueName = league?.name || 'Regional League';
+  const clubName = club?.name || 'Your club';
+  const approved = status === 'approved';
+  return sendActionMessage({
+    recipientEmail,
+    senderEmail: 'system@stage.com',
+    subject: approved
+      ? `${clubName} approved for ${leagueName}`
+      : `${clubName} regional league registration declined`,
+    body: regionalLeagueRegistrationMessageBody({ league, club, status, reason, entryCost }),
+    messageType: 'regional_league_registration',
+    actionType: 'none',
+    relatedEntityId: `${league.id}:${club.id}:${status}`,
+    relatedEntityType: 'regional_league',
+    metadata: {
+      regional_league_id: league.id,
+      regional_league_name: leagueName,
+      regional_league_banner_url: league.banner_url || null,
+      club_id: club.id,
+      club_name: clubName,
+      status,
+      target_tab: 'fixtures',
+      entry_credits: entryCost,
+      reason: reason || null,
+    },
+    idempotencyKey: `regional_league_registration_review:${league.id}:${club.id}:${status}`,
+    isSystem: true,
+    notify: true,
+    notification: {
+      type: 'tournament_start',
+      title: approved ? `Approved: ${leagueName}` : `Registration declined: ${leagueName}`,
+      body: approved
+        ? `${clubName} is now registered for this regional league.`
+        : `${clubName} was not approved for this regional league.`,
+      link: `/inbox`,
+    },
+  });
+}
+
+async function deliverRegionalLeagueApprovedClubMessages({ league, club, entryCost }) {
+  const emails = await listActiveClubPlayerEmails(club.id);
+  const uniqueEmails = [...new Set(emails.map((email) => String(email || '').trim().toLowerCase()).filter(Boolean))];
+  const leagueName = league?.name || 'Regional League';
+  const clubName = club?.name || 'Your club';
+  let delivered = 0;
+
+  for (const recipientEmail of uniqueEmails) {
+    const result = await sendActionMessage({
+      recipientEmail,
+      senderEmail: 'system@stage.com',
+      subject: `${clubName} is in ${leagueName}`,
+      body: [
+        `${clubName} has been approved and officially registered for ${leagueName}.`,
+        '',
+        league?.banner_url ? `Banner: ${league.banner_url}` : null,
+        `League: ${leagueName}`,
+        league?.region_name || league?.region ? `Region: ${league.region_name || league.region}` : null,
+        league?.division ? `Division: ${league.division}` : null,
+        '',
+        `Go to your club profile and open Fixtures. You can now set Available or Unavailable for the regional league preparation card.`,
+        `Selecting Available costs ${entryCost} credits once for this league. Once STAGE starts the league and fixtures are generated, match-by-match availability will appear there too without another league entry charge.`,
+      ].filter(Boolean).join('\n'),
+      messageType: 'regional_league_registration',
+      actionType: 'none',
+      relatedEntityId: `${league.id}:${club.id}:club_members_approved`,
+      relatedEntityType: 'regional_league',
+      metadata: {
+        regional_league_id: league.id,
+        regional_league_name: leagueName,
+        regional_league_banner_url: league.banner_url || null,
+        club_id: club.id,
+        club_name: clubName,
+        target_tab: 'fixtures',
+        entry_credits: entryCost,
+      },
+      idempotencyKey: `regional_league_registration_club_member:${league.id}:${club.id}:${recipientEmail}`,
+      isSystem: true,
+      notify: true,
+      notification: {
+        type: 'tournament_start',
+        title: `${clubName} approved for ${leagueName}`,
+        body: 'Set your regional league availability from the Fixtures tab.',
         link: `/clubs/${club.id}`,
       },
     }).catch(() => null);
@@ -5650,6 +5772,7 @@ const HANDLERS = {
     league_id,
     club_id,
     club_ids,
+    season_registration_id,
     reason,
   }) {
     const admin = await requireAdminUser(_auth_user_id);
@@ -5672,6 +5795,8 @@ const HANDLERS = {
       if (String(league.status || '').toLowerCase() === 'archived') {
         throw new Error('Archived leagues cannot receive clubs');
       }
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
 
       const maxClubs = Number(league.max_clubs || 20);
       const existingFixtureRows = await query(
@@ -5700,17 +5825,33 @@ const HANDLERS = {
         .filter(id => !existingClubIds.has(String(id)))
         .slice(0, slotsLeft);
       if (!targetClubIds.length) {
+        const existingClubsForDelivery = await query(
+          `SELECT id, name, tag, logo_url, region, platform, owner_email, user_id, president_user_id
+             FROM clubs
+            WHERE id IN (${normalizedClubIds.map(() => '?').join(',')})`,
+          normalizedClubIds
+        );
         return {
           success: true,
           added: 0,
           skipped: normalizedClubIds.length,
           num_clubs: existingStandings.length,
           message: 'Selected club is already registered or no slots are open',
+          message_deliveries: existingClubsForDelivery.map(club => ({
+            league: { ...league, entry_credits: entryCost },
+            club,
+            registration: {
+              owner_email: club.owner_email || '',
+              club_id: club.id,
+              club_name: club.name,
+            },
+            entryCost,
+          })),
         };
       }
 
       const clubRows = await query(
-        `SELECT id, name, tag, logo_url, region, platform
+        `SELECT id, name, tag, logo_url, region, platform, owner_email, user_id, president_user_id
            FROM clubs
           WHERE id IN (${targetClubIds.map(() => '?').join(',')})
           FOR UPDATE`,
@@ -5722,6 +5863,7 @@ const HANDLERS = {
 
       const registeredIds = normalizeIdList(league.registered_club_ids);
       const addedStandings = [];
+      const messageDeliveries = [];
       for (const id of targetClubIds) {
         const club = clubsById.get(String(id));
         const position = existingStandings.length + addedStandings.length + 1;
@@ -5742,6 +5884,70 @@ const HANDLERS = {
             standing.season_number || null,
           ]
         );
+
+        let registration = null;
+        const registrationRows = season_registration_id && targetClubIds.length === 1
+          ? await query(
+              `SELECT * FROM league_entities
+                WHERE id = ? AND entity_type = 'season_registration'
+                LIMIT 1 FOR UPDATE`,
+              [season_registration_id]
+            )
+          : await query(
+              `SELECT * FROM league_entities
+                WHERE entity_type = 'season_registration'
+                  AND club_id = ?
+                  AND status IN ('pending', 'waitlisted', 'approved')
+                  AND (
+                    JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.assigned_league_id')) = ?
+                    OR (
+                      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.region_slug')), region, '') = ?
+                      AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.platform')), platform, '') = ?
+                    )
+                  )
+                ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'waitlisted' THEN 1 ELSE 2 END, created_date DESC
+                LIMIT 1 FOR UPDATE`,
+              [
+                club.id,
+                league_id,
+                String(league.region_slug || league.region || ''),
+                String(league.platform || club.platform || ''),
+              ]
+            );
+        if (registrationRows[0]) {
+          registration = parseLeagueEntityRow(registrationRows[0]);
+          const nextRegistration = {
+            ...registration,
+            status: 'approved',
+            assigned_league_id: league_id,
+            assigned_league_name: league.name || '',
+            assigned_division: league.division || 1,
+            reviewed_by: admin.email,
+            reviewed_at: new Date().toISOString(),
+            admin_notes: reason || registration.admin_notes || '',
+          };
+          await updateLeagueEntityData(query, 'season_registration', registration.id, nextRegistration, {
+            status: 'approved',
+            league_id,
+            club_id: club.id,
+            division: league.division || 1,
+            region: registration.region_slug || league.region_slug || league.region || null,
+            platform: registration.platform || league.platform || club.platform || null,
+            season_number: league.season_number || 1,
+          });
+          registration = nextRegistration;
+        }
+
+        messageDeliveries.push({
+          league: { ...league, entry_credits: entryCost },
+          club,
+          registration: registration || {
+            owner_email: club.owner_email || '',
+            club_id: club.id,
+            club_name: club.name,
+          },
+          entryCost,
+        });
       }
 
       const nextIds = [...new Set([...registeredIds, ...targetClubIds.map(String)])];
@@ -5788,10 +5994,29 @@ const HANDLERS = {
         skipped: normalizedClubIds.length - targetClubIds.length,
         num_clubs: nextLeague.num_clubs,
         added_clubs: addedStandings.map(row => ({ club_id: row.club_id, club_name: row.club_name })),
+        message_deliveries: messageDeliveries,
       };
     });
 
-    return { data: result };
+    let messagesDelivered = 0;
+    for (const item of result.message_deliveries || []) {
+      await deliverRegionalLeagueRegistrationReviewMessage({
+        league: item.league,
+        club: item.club,
+        registration: item.registration,
+        status: 'approved',
+        reason,
+        entryCost: item.entryCost,
+      }).catch(() => null);
+      messagesDelivered += await deliverRegionalLeagueApprovedClubMessages({
+        league: item.league,
+        club: item.club,
+        entryCost: item.entryCost,
+      }).catch(() => 0);
+    }
+
+    const { message_deliveries: _messageDeliveries, ...safeResult } = result;
+    return { data: { ...safeResult, messages_delivered: messagesDelivered } };
   },
 
   async simulateRegionalLeagueFixtures({
@@ -11485,6 +11710,122 @@ const HANDLERS = {
         credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
         credits_after: creditsAfter,
         registration_submitter_exempt: Boolean(submitterExempt),
+      };
+    });
+
+    return { data: { success: true, ...result } };
+  },
+
+  async regionalLeagueClubAvailability({
+    league_id, club_id, status, _auth_user_id,
+  }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (!league_id || !club_id) throw new Error('league_id and club_id required');
+    const requestedStatus = String(status || '').toLowerCase();
+    if (!['available', 'unavailable'].includes(requestedStatus)) {
+      throw new Error('status must be available or unavailable');
+    }
+
+    const result = await withTransaction(async (query) => {
+      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
+      const user = users[0];
+      if (!user) throw new Error('User not found');
+
+      const leagueRows = await query(
+        `SELECT * FROM league_entities
+          WHERE id = ? AND entity_type = 'regional_league'
+          LIMIT 1 FOR UPDATE`,
+        [league_id]
+      );
+      const league = parseLeagueEntityRow(leagueRows[0]);
+      if (!league) throw new Error('Regional League not found');
+
+      const registered = normalizeIdList(league.registered_club_ids);
+      const standingRows = await query(
+        `SELECT id FROM league_entities
+          WHERE entity_type = 'regional_league_standing'
+            AND league_id = ?
+            AND club_id = ?
+          LIMIT 1`,
+        [league_id, club_id]
+      );
+      if (!registered.includes(String(club_id)) && !standingRows.length) {
+        throw new Error('Club is not approved for this regional league');
+      }
+
+      const players = await query(
+        `SELECT p.*
+           FROM players p
+           LEFT JOIN club_memberships cm
+             ON cm.player_id = p.id
+            AND cm.status = 'active'
+          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
+            AND (p.club_id = ? OR cm.club_id = ?)
+          ORDER BY p.user_id = ? DESC, p.updated_date DESC
+          LIMIT 1`,
+        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
+      );
+      const player = players[0];
+      if (!player) throw new Error('Only club members can set regional league availability');
+
+      const fixtureId = regionalLeagueAvailabilityFixtureId(league_id, club_id);
+      const existingRows = await query(
+        `SELECT * FROM club_fixture_availability
+          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
+          LIMIT 1 FOR UPDATE`,
+        [club_id, fixtureId, player.id],
+      );
+      const existing = existingRows[0] || null;
+      const note = parseMaybeJson(existing?.note, {});
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      let creditsSpent = Number(note.regional_league_availability_credits_spent || 0);
+      let creditsAfter = await getUserCredits(_auth_user_id, query);
+
+      if (requestedStatus === 'available' && creditsSpent <= 0 && entryCost > 0) {
+        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
+        creditsSpent = spent.credits_spent;
+        creditsAfter = spent.credits_after;
+      }
+
+      const nextNote = {
+        ...note,
+        regional_league_id: league_id,
+        regional_league_name: league.name,
+        regional_league_availability: true,
+        regional_league_availability_credits_spent: creditsSpent,
+        updated_by_user_id: _auth_user_id,
+      };
+
+      if (existing) {
+        await query(
+          `UPDATE club_fixture_availability
+              SET status = ?, note = ?, updated_date = NOW()
+            WHERE id = ?`,
+          [requestedStatus, JSON.stringify(nextNote), existing.id],
+        );
+      } else {
+        await query(
+          `INSERT INTO club_fixture_availability
+             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
+           VALUES (?, ?, ?, 'regional_league_registration', ?, ?, ?, ?)`,
+          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
+        );
+      }
+
+      const savedRows = await query(
+        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
+           FROM club_fixture_availability cfa
+           LEFT JOIN players p ON p.id = cfa.player_id
+          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
+          LIMIT 1`,
+        [club_id, fixtureId, player.id],
+      );
+
+      return {
+        row: savedRows[0],
+        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
+        credits_after: creditsAfter,
       };
     });
 
