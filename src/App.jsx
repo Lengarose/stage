@@ -218,12 +218,16 @@ const MobileOAuthHandoff = () => {
 // Stripe only allows https success/cancel URLs. Mobile checkout returns here, then
 // this page opens the native Store. Web checkout keeps using /store without client=mobile.
 const MobileStoreHandoff = () => {
+  const [deepLink, setDeepLink] = React.useState('stage://apps/store');
+
   React.useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       params.delete('client');
       const qs = params.toString();
-      window.location.replace(qs ? `stage://apps/store?${qs}` : 'stage://apps/store');
+      const next = qs ? `stage://apps/store?${qs}` : 'stage://apps/store';
+      setDeepLink(next);
+      window.location.replace(next);
     } catch {
       window.location.replace('stage://apps/store');
     }
@@ -234,7 +238,7 @@ const MobileStoreHandoff = () => {
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       <p className="text-sm text-muted-foreground">Opening the Stage app…</p>
       <p className="text-xs text-muted-foreground">
-        If nothing happens, <a className="underline" href="stage://apps/store">tap here</a>.
+        If nothing happens, <a className="underline" href={deepLink}>tap here</a>.
       </p>
     </div>
   );
@@ -489,6 +493,7 @@ function App() {
                 {/* OAuth callback must be outside AuthenticatedApp so tokens are stored before auth check */}
                 <Route path="/auth/callback" element={<OAuthCallback />} />
                 <Route path="/auth/mobile-handoff" element={<MobileOAuthHandoff />} />
+                <Route path="/auth/store-return" element={<MobileStoreHandoff />} />
                 <Route path="/store/mobile-return" element={<MobileStoreHandoff />} />
                 <Route path="*" element={
                   <ChatNotificationsProvider>

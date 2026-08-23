@@ -1,4 +1,6 @@
-const NON_FOOTBALL_ROLES = new Set(["president", "owner", "manager", "member"]);
+import { displayNamedFounder, isNamedFounder } from "./founderDisplay.js";
+
+const NON_FOOTBALL_ROLES = new Set(["president", "owner", "manager", "member", "founder"]);
 const FOUNDER_CONTRACT_TYPES = new Set(["founder", "founder_player"]);
 
 export function normalizeClubRoles(roles) {
@@ -17,14 +19,14 @@ export function normalizeClubRoles(roles) {
 export function getFootballRoleBadges(player) {
   const rawRoles = normalizeClubRoles(player?.club_roles);
   const roles = rawRoles.length > 0 ? rawRoles : [player?.role].filter(Boolean);
-  return Array.from(new Set(roles.filter((role) => role && !NON_FOOTBALL_ROLES.has(role))));
+  return Array.from(new Set(roles.filter((role) => role && !NON_FOOTBALL_ROLES.has(role) && !isNamedFounder(role))));
 }
 
 export function getVisibleFootballRole(player) {
   const roles = normalizeClubRoles(player?.club_roles);
   if (roles.includes("captain") || player?.role === "captain") return "captain";
   if (roles.includes("vice-captain") || player?.role === "vice-captain") return "vice-captain";
-  return player?.role && !NON_FOOTBALL_ROLES.has(player.role) ? player.role : "";
+  return player?.role && !NON_FOOTBALL_ROLES.has(player.role) && !isNamedFounder(player.role) ? player.role : "";
 }
 
 function getContractTargetPlayerId(contract) {
@@ -58,7 +60,13 @@ export function getPlayerManagementBadges({ player, club, memberships = [], cont
 
   const badges = [];
   if (founderMembership || founderContract) {
-    badges.push({ id: "founder", label: "Founder", tone: "amber", clubId: club.id, clubName: club.name || "" });
+    badges.push({
+      id: "founder",
+      label: displayNamedFounder(),
+      tone: "amber",
+      clubId: club.id,
+      clubName: club.name || "",
+    });
   }
   if (isCanonicalPresident || presidentMembership) {
     badges.push({ id: "president", label: "President", tone: "cyan", clubId: club.id, clubName: club.name || "" });

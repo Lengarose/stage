@@ -56,6 +56,7 @@ import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } fro
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 import { getPlayerNationality, normalizeCountryCode } from "@/lib/countryDisplay";
+import { displayNamedFounder, isNamedFounder } from "@/lib/founderDisplay";
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -75,6 +76,7 @@ const CONTRACT_EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;
 
 function clubRoleLabel(t, role) {
   const normalized = normalizeClubRole(role) || "member";
+  if (isNamedFounder(normalized)) return displayNamedFounder();
   const key = CLUB_ROLE_LABEL_KEYS[normalized] || CLUB_ROLE_LABEL_KEYS.member;
   const translated = t(key);
   return translated === key ? (CLUB_ROLE_FALLBACK_LABELS[normalized] || normalized.replace(/_/g, " ")) : translated;

@@ -6,7 +6,8 @@ test("getContractTypeLabel presents ownership contracts as president contracts",
   assert.equal(getContractTypeLabel("ownership"), "Club President");
 });
 
-test("getContractTypeLabel presents founder player contracts as player contracts", () => {
+test("getContractTypeLabel keeps Founder on contract documents", () => {
+  assert.equal(getContractTypeLabel("founder"), "Founder");
   assert.equal(getContractTypeLabel("founder_player"), "Founder Player");
 });
 

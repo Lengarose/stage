@@ -15,7 +15,7 @@ test("canonical president player gets management badges without football role po
   assert.deepEqual(getPlayerManagementBadges({ player, club }).map((badge) => badge.id), ["president"]);
 });
 
-test("founder membership adds Founder beside canonical President status", () => {
+test("founder membership adds Player beside canonical President status", () => {
   const player = { id: "player-1", user_id: "user-1", role: "member" };
   const club = { id: "club-1", name: "Founders FC", president_player_id: "player-1" };
   const memberships = [{
@@ -26,18 +26,22 @@ test("founder membership adds Founder beside canonical President status", () => 
     source: "founder_contract",
   }];
 
-  assert.deepEqual(getPlayerManagementBadges({ player, club, memberships }).map((badge) => badge.id), ["founder", "president"]);
+  const badges = getPlayerManagementBadges({ player, club, memberships });
+  assert.deepEqual(badges.map((badge) => badge.id), ["founder", "president"]);
+  assert.equal(badges.find((badge) => badge.id === "founder").label, "Player");
 });
 
-test("active founder contract adds Founder for public profile viewers", () => {
+test("active founder contract adds Player for public profile viewers", () => {
   const player = { id: "player-1", user_id: "user-1" };
   const club = { id: "club-1", name: "Founders FC", president_player_id: "player-1" };
   const contracts = [{ team_id: "club-1", user_id: "player-1", contract_type: "founder", status: "active" }];
 
-  assert.deepEqual(getPlayerManagementBadges({ player, club, contracts }).map((badge) => badge.id), ["founder", "president"]);
+  const badges = getPlayerManagementBadges({ player, club, contracts });
+  assert.deepEqual(badges.map((badge) => badge.id), ["founder", "president"]);
+  assert.equal(badges.find((badge) => badge.id === "founder").label, "Player");
 });
 
-test("active founder player contract adds Founder without replacing President ownership status", () => {
+test("active founder player contract adds Player without replacing President ownership status", () => {
   const player = { id: "player-1", user_id: "user-1" };
   const club = { id: "club-1", name: "Founders FC", president_player_id: "player-1" };
   const contracts = [

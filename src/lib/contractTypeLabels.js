@@ -1,10 +1,14 @@
+import { FOUNDER_CONTRACT_LABEL, FOUNDER_PLAYER_CONTRACT_LABEL } from './founderDisplay.js';
+
 const CONTRACT_TYPE_LABELS = {
-  founder_player: "Founder Player",
+  founder_player: FOUNDER_PLAYER_CONTRACT_LABEL,
+  founder: FOUNDER_CONTRACT_LABEL,
   ownership: "Club President",
 };
 
 const CONTRACT_TYPE_SENTENCE_LABELS = {
   founder_player: "founder player",
+  founder: "founder",
   ownership: "president",
 };
 

@@ -13,6 +13,7 @@ import {
   FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
   FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
 } from "./founderPlayerTerms.js";
+import { FOUNDER_PLAYER_CONTRACT_LABEL } from "./founderDisplay.js";
 
 const DEFAULT_WEIGHTS = {
   base_per_match:           60_000,
@@ -100,7 +101,7 @@ export function suggestSalaryRange(contractType, overallRating = 70, marketValue
     return {
       min: FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
       max: FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
-      label: "Founder Player",
+      label: FOUNDER_PLAYER_CONTRACT_LABEL,
       based_on_value: false,
     };
   }
