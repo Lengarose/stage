@@ -6,7 +6,7 @@ import { Trophy, Shield, ArrowLeft, CheckCircle, Clock, X, AlertTriangle, Chevro
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { REGIONS } from "@/lib/qualificationConfig";
+import { REGIONS, withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { applyForLeague } from "@/lib/registrationEngine";
 import { swalAlert } from "@/lib/swal";
@@ -59,7 +59,7 @@ export default function SeasonRegistrations() {
           : Promise.resolve([]),
       ]);
 
-      setLeagues(allLeagues);
+      setLeagues(allLeagues.map(withCanonicalRegionalLeagueName));
       // Defense-in-depth: only keep applications that actually belong to the
       // signed-in user. Backends prior to the leagueEntityController JSON-filter
       // fix silently ignored ?owner_email=… and returned other users' rows;

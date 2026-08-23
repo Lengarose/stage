@@ -4,6 +4,7 @@ import { stageClient } from "@/api/stageClient";
 import { Globe, Shield, Trophy, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COMPETITIONS, getCompetitionMeta } from "@/lib/competitionUtils";
+import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs, sortRegionalLeaguesByDivision } from "@/lib/regionalLeagueRules";
 
 const STATUS_STYLE = {
@@ -103,7 +104,7 @@ export default function RegionalLeagues() {
       setLoading(true);
       try {
         const rows = await stageClient.entities.RegionalLeague.list("-season_number", 100).catch(() => []);
-        if (!cancelled) setLeagues(sortRegionalLeaguesByDivision(rows));
+        if (!cancelled) setLeagues(sortRegionalLeaguesByDivision(rows.map(withCanonicalRegionalLeagueName)));
       } finally {
         if (!cancelled) setLoading(false);
       }

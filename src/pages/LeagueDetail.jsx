@@ -10,6 +10,7 @@ import {
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
+import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { openMatchdayWindows } from "@/lib/scheduleEngine";
@@ -56,7 +57,7 @@ export default function LeagueDetail() {
         stageClient.entities.RegionalLeague.list("-season_number", 100).catch(() => []),
       ]);
 
-      const found = allLeagues.find(l => l.slug === slug);
+      const found = withCanonicalRegionalLeagueName(allLeagues.find(l => l.slug === slug));
       if (!found) {
         setLeague(null);
         setStandings([]);

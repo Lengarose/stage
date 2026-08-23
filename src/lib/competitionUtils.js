@@ -827,5 +827,8 @@ export async function generateRegionalLeagueFixtures(league, clubs, windowDays =
   await stageClient.entities.RegionalLeague.update(league.id, {
     status: "in_progress",
     num_clubs: clubs.length,
+    seeding_mode: false,
+    placement_locked: true,
+    launch_seeding_closed_at: new Date().toISOString(),
   });
 }

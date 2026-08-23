@@ -9,6 +9,16 @@ export function isRegionalLeagueFull(league) {
   return Number(league?.num_clubs || 0) >= getRegionalLeagueMaxClubs(league);
 }
 
+export function isRegionalLeagueSetupSeedingOpen(league) {
+  const status = String(league?.status || "").toLowerCase();
+  if (!["draft", "setup", "registration"].includes(status)) return false;
+  if (league?.fixtures_generated) return false;
+  if (league?.placement_locked) return false;
+  if (league?.seeding_mode === false) return false;
+  if (league?.launch_seeding_closed_at) return false;
+  return true;
+}
+
 export function sortRegionalLeaguesByDivision(leagues) {
   return [...(leagues || [])].sort((a, b) => (Number(a.division) || 1) - (Number(b.division) || 1));
 }

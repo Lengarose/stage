@@ -27,12 +27,12 @@ export const LEAGUE_DEFINITIONS = [
   },
   // France
   {
-    name: "STAGE Division 1",              slug: "france-div-1",         region_slug: "france",
+    name: "STAGE La Première Division",   slug: "france-div-1",         region_slug: "france",
     division: 1, region: "Europe",        country_code: "FR",
     linked_league_slug: "france-div-2",
   },
   {
-    name: "STAGE Division 2",              slug: "france-div-2",         region_slug: "france",
+    name: "STAGE La Deuxième Division",   slug: "france-div-2",         region_slug: "france",
     division: 2, region: "Europe",        country_code: "FR",
     linked_league_slug: "france-div-1",
   },
@@ -81,6 +81,20 @@ export const LEAGUE_DEFINITIONS = [
     linked_league_slug: "north-america-div-1",
   },
 ];
+
+const LEAGUE_DEFINITION_BY_SLUG = Object.fromEntries(
+  LEAGUE_DEFINITIONS.map(definition => [definition.slug, definition])
+);
+
+export function getRegionalLeagueDefinitionBySlug(slug) {
+  return LEAGUE_DEFINITION_BY_SLUG[String(slug || "")] || null;
+}
+
+export function withCanonicalRegionalLeagueName(league) {
+  if (!league || typeof league !== "object") return league;
+  const definition = getRegionalLeagueDefinitionBySlug(league.slug);
+  return definition ? { ...league, name: definition.name } : league;
+}
 
 // Division 1 final standings → official STAGE tournament qualification.
 // With six top-flight regional leagues, each range creates 36 total entries:

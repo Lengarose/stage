@@ -1970,6 +1970,92 @@ function buildRegionalLeagueStanding(league, club, position) {
   };
 }
 
+function isRegionalLeagueSetupSeedingOpen(league) {
+  const status = String(league?.status || '').toLowerCase();
+  if (!['draft', 'setup', 'registration'].includes(status)) return false;
+  if (league?.fixtures_generated) return false;
+  if (league?.placement_locked) return false;
+  if (league?.seeding_mode === false) return false;
+  if (league?.launch_seeding_closed_at) return false;
+  return true;
+}
+
+function regionalLeaguePlatformMatches(leaguePlatform, registrationPlatform) {
+  const leagueValue = String(leaguePlatform || '').trim();
+  const registrationValue = String(registrationPlatform || '').trim();
+  return leagueValue === registrationValue || leagueValue === 'Cross-Platform' || registrationValue === 'Cross-Platform';
+}
+
+function placementDivisionFromStanding(standing, leagues) {
+  const currentDivision = Number(standing?.division) || 1;
+  if (standing?.is_promoted) {
+    const target = leagues.find(league => String(league.id) === String(standing.promotion_target_league_id));
+    return Number(target?.division) || Math.max(1, currentDivision - 1);
+  }
+  if (standing?.is_relegated) {
+    const target = leagues.find(league => String(league.id) === String(standing.relegation_target_league_id));
+    return Number(target?.division) || currentDivision + 1;
+  }
+  return currentDivision;
+}
+
+async function getClubRegionalLeaguePlacementForAdmin(query, clubId, regionalLeagues) {
+  if (!clubId) return null;
+  const rows = await query(
+    `SELECT * FROM league_entities
+      WHERE entity_type = 'regional_league_standing'
+        AND club_id = ?
+      ORDER BY season_number DESC, updated_date DESC
+      LIMIT 200`,
+    [clubId]
+  );
+  const completed = rows
+    .map(parseLeagueEntityRow)
+    .filter(row => row?.final_position || row?.is_promoted || row?.is_relegated)
+    .sort((a, b) => {
+      const seasonDelta = (Number(b.season_number) || 0) - (Number(a.season_number) || 0);
+      if (seasonDelta) return seasonDelta;
+      return (Number(b.final_position) || 999) - (Number(a.final_position) || 999);
+    });
+  const latest = completed[0];
+  if (!latest) return null;
+  return {
+    sourceStanding: latest,
+    division: placementDivisionFromStanding(latest, regionalLeagues),
+  };
+}
+
+async function assertRegionalLeagueRegistrationPlacement(query, registration, targetLeague) {
+  if (!registration?.club_id) return;
+  const candidatesRows = await query(
+    `SELECT * FROM league_entities
+      WHERE entity_type = 'regional_league'
+        AND status = 'registration'
+        AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.region_slug')), region, '') = ?`,
+    [String(registration.region_slug || targetLeague.region_slug || targetLeague.region || '')]
+  );
+  const candidates = candidatesRows
+    .map(parseLeagueEntityRow)
+    .filter(league => regionalLeaguePlatformMatches(league.platform, registration.platform));
+  if (!candidates.length) {
+    throw new Error('No open league spots in this region.');
+  }
+
+  const placement = await getClubRegionalLeaguePlacementForAdmin(query, registration.club_id, candidates);
+  const targetDivision = Number(targetLeague.division) || 1;
+  if (placement?.division) {
+    if (targetDivision !== Number(placement.division)) {
+      throw new Error(`This club's next-season placement is Division ${placement.division}.`);
+    }
+    return;
+  }
+
+  const lowestOpenDivision = Math.max(...candidates.map(league => Number(league.division) || 1));
+  if (targetDivision !== lowestOpenDivision) {
+    throw new Error(`New clubs must enter Division ${lowestOpenDivision} unless STAGE is seeding the launch pyramid.`);
+  }
+}
+
 function simulateFootballScore() {
   const homeScore = Math.floor(Math.random() * 6);
   const awayScore = Math.floor(Math.random() * 6);
@@ -5773,6 +5859,7 @@ const HANDLERS = {
     club_id,
     club_ids,
     season_registration_id,
+    admin_seeding = false,
     reason,
   }) {
     const admin = await requireAdminUser(_auth_user_id);
@@ -5794,6 +5881,13 @@ const HANDLERS = {
       const league = parseLeagueEntityRow(leagueRows[0]);
       if (String(league.status || '').toLowerCase() === 'archived') {
         throw new Error('Archived leagues cannot receive clubs');
+      }
+      const setupSeeding = Boolean(admin_seeding);
+      if (setupSeeding && !isRegionalLeagueSetupSeedingOpen(league)) {
+        throw new Error('Season setup seeding is closed for this league.');
+      }
+      if (!setupSeeding && !season_registration_id) {
+        throw new Error('Direct admin placement is only allowed during season setup seeding. Use a club registration approval after setup.');
       }
       const storeSettings = await getActiveStoreSettings();
       const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
@@ -5916,6 +6010,9 @@ const HANDLERS = {
             );
         if (registrationRows[0]) {
           registration = parseLeagueEntityRow(registrationRows[0]);
+          if (!setupSeeding) {
+            await assertRegionalLeagueRegistrationPlacement(query, registration, league);
+          }
           const nextRegistration = {
             ...registration,
             status: 'approved',
@@ -5984,8 +6081,9 @@ const HANDLERS = {
           registered_club_ids: nextIds,
           num_clubs: nextLeague.num_clubs,
           added_clubs: addedStandings.map(row => ({ club_id: row.club_id, club_name: row.club_name })),
+          admin_seeding: setupSeeding,
         },
-        reason: reason || 'Admin direct Regional League registration',
+        reason: reason || (setupSeeding ? 'Admin season setup seeding' : 'Admin direct Regional League registration'),
       });
 
       return {

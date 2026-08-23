@@ -115,7 +115,11 @@ export async function createNextCompetitionSeason(season, competition) {
 // ─── Regional league lifecycle ────────────────────────────────────────────────
 
 export async function openLeagueRegistration(league) {
-  await stageClient.entities.RegionalLeague.update(league.id, { status: "registration" });
+  await stageClient.entities.RegionalLeague.update(league.id, {
+    status: "registration",
+    seeding_mode: Boolean(league.seeding_mode),
+    placement_locked: false,
+  });
 }
 
 export async function archiveLeague(league) {
@@ -193,6 +197,8 @@ export async function createNextLeagueSeason(league) {
     prize_pool_stc:  calculatePrizePool("regional_league", league, league.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS),
     registered_club_ids: [],
     linked_league_slug:  league.linked_league_slug || null,
+    seeding_mode: false,
+    placement_locked: false,
   });
   const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
   await ensureDefaultRewardConfigs(created.id, "regional_league", created.name, created, created.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS);

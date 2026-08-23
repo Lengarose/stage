@@ -57,6 +57,7 @@ import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 import { getPlayerNationality, normalizeCountryCode } from "@/lib/countryDisplay";
 import { displayNamedFounder, isNamedFounder } from "@/lib/founderDisplay";
+import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 
 const CLUB_ROLE_LABEL_KEYS = {
   president: "commonPages.cdPresident",
@@ -2224,6 +2225,7 @@ function buildClubRegionalLeagueRegistrationFixtures(leagues, clubId, fixtures =
       const registered = parseFixtureJsonList(league.registered_club_ids);
       return registered.includes(String(clubId));
     })
+    .map((league) => withCanonicalRegionalLeagueName(league))
     .map((league) => ({
       id: regionalLeagueAvailabilityFixtureId(league.id, clubId),
       _fixtureType: "regional_league_registration",

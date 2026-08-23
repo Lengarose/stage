@@ -8,7 +8,7 @@ import {
   LEAGUE_DEFINITIONS,
   STAGE_QUALIFICATION_RULES,
 } from "@/lib/qualificationConfig";
-import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
+import { getRegionalLeagueMaxClubs, isRegionalLeagueSetupSeedingOpen } from "@/lib/regionalLeagueRules";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -248,7 +248,12 @@ export default function LeaguesTab({
       await swalAlert("Choose a club first.");
       return;
     }
-    const ok = await swalConfirm(`Add ${club.name} to ${league.name}? This is an admin testing action and bypasses president registration.`);
+    const seedingOpen = isRegionalLeagueSetupSeedingOpen(league);
+    const ok = await swalConfirm(
+      seedingOpen
+        ? `Seed ${club.name} into ${league.name}? This is allowed during season setup. Once fixtures are generated, placement locks and promotion/relegation rules take over.`
+        : `Add ${club.name} to ${league.name}? This league is outside setup seeding, so normal placement rules should apply.`
+    );
     if (!ok) return;
 
     setRegisteringLeagueClub(league.id);
@@ -256,7 +261,10 @@ export default function LeaguesTab({
       const response = await stageClient.functions.invoke("adminRegisterClubToRegionalLeague", {
         league_id: league.id,
         club_id: club.id,
-        reason: `Admin test registration for ${club.name}`,
+        admin_seeding: seedingOpen,
+        reason: seedingOpen
+          ? `Admin season setup seeding for ${club.name}`
+          : `Admin direct Regional League registration for ${club.name}`,
       });
       const data = response?.data || response || {};
       setAdminClubByLeague(prev => ({ ...prev, [league.id]: "" }));
@@ -952,6 +960,7 @@ export default function LeaguesTab({
                   const isEditingL = editingLeague === league.id;
                   const availableClubs = getAvailableClubsForLeague(league);
                   const canAdminAddClub = !["in_progress", "completed", "archived"].includes(String(league.status || "").toLowerCase());
+                  const seedingOpen = isRegionalLeagueSetupSeedingOpen(league);
                   const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
                   return (
                     <div key={league.id} className="border border-border rounded p-3 space-y-2">
@@ -963,6 +972,7 @@ export default function LeaguesTab({
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             Season {league.season_number} · {league.num_clubs || 0}/{getRegionalLeagueMaxClubs(league)} clubs · {(league.division || 1) === 1 ? "bottom 2 relegated" : "top 2 promoted"}
+                            {seedingOpen ? " · setup seeding open" : ""}
                           </p>
                         </div>
                         <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0",
@@ -1028,7 +1038,7 @@ export default function LeaguesTab({
                             onChange={event => setAdminClubByLeague(prev => ({ ...prev, [league.id]: event.target.value }))}
                             disabled={!canAdminAddClub || registeringLeagueClub === league.id}
                             className="h-8 min-w-0 flex-1 rounded border border-border bg-secondary px-2 text-[11px] text-foreground outline-none focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50">
-                            <option value="">{canAdminAddClub ? "Add club for testing..." : "Fixtures already generated"}</option>
+                            <option value="">{canAdminAddClub ? (seedingOpen ? "Seed club into this division..." : "Add eligible club...") : "Fixtures already generated"}</option>
                             {availableClubs.map(club => (
                               <option key={club.id} value={club.id}>
                                 {club.name}{club.tag ? ` [${club.tag}]` : ""}
@@ -1042,7 +1052,7 @@ export default function LeaguesTab({
                             disabled={!canAdminAddClub || !adminClubByLeague[league.id] || registeringLeagueClub === league.id}
                             onClick={() => adminRegisterClubToRegionalLeague(league)}
                             className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
-                            {registeringLeagueClub === league.id ? "Adding..." : "Add club"}
+                            {registeringLeagueClub === league.id ? "Adding..." : seedingOpen ? "Seed club" : "Add club"}
                           </Button>
                         </div>
                         <Button

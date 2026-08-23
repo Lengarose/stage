@@ -43,6 +43,7 @@ import {
   OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
   REGIONAL_LEAGUE_MAX_CLUBS,
   STAGE_QUALIFICATION_RULES,
+  withCanonicalRegionalLeagueName,
 } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
@@ -294,12 +295,13 @@ export default function Admin(props) {
       setCompetitions(allComps);
       setCompSeasons(allCompSeasons);
       setQualEntries(allQual);
-      setRegionalLeagues(allRegLeagues);
+      const canonicalRegionalLeagues = allRegLeagues.map(withCanonicalRegionalLeagueName);
+      setRegionalLeagues(canonicalRegionalLeagues);
       setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
       setLifestyleItems(allLifestyleItems);
       seedDefaultRewardConfigsForSources([
         ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
-        ...allRegLeagues
+        ...canonicalRegionalLeagues
           .filter(l => l.status !== "archived")
           .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: getRegionalLeagueMaxClubs(l) })),
       ]).catch(() => {});
@@ -915,6 +917,8 @@ export default function Admin(props) {
           platform: "Cross-Platform",
           season_number: 1,
           status: "registration",
+          seeding_mode: true,
+          placement_locked: false,
           max_clubs: REGIONAL_LEAGUE_MAX_CLUBS,
           promoted_slots: d.division === 1 ? 0 : 2,
           prize_pool_stc: calculatePrizePool("regional_league", d, REGIONAL_LEAGUE_MAX_CLUBS),
