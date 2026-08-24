@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
-import { format, combineDateTimeToMysql } from "@/lib/momentDate";
-import { Check, RefreshCw, CalendarDays, Clock, AlertTriangle } from "lucide-react";
+import { format } from "@/lib/momentDate";
+import { Check, X, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { proposeTime, acceptProposal } from "@/lib/scheduleEngine";
+import { acceptProposal, declineProposal } from "@/lib/scheduleEngine";
 
 // Handles message_type="league_schedule" / action_type="schedule_accept_propose"
 // Props:
@@ -29,29 +28,23 @@ function parseMessageMetadata(value) {
 }
 
 export default function InboxScheduleProposal({ message, myClub, myEmail, myGamertag, onActioned }) {
+  void myGamertag;
   const safeMessage = message && typeof message === "object" ? message : {};
   const meta     = parseMessageMetadata(safeMessage.metadata);
   const [fixture, setFixture] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy,    setBusy]    = useState(null);
   const [error,   setError]   = useState("");
-  const [counter, setCounter] = useState(false);
-  const [cDate,   setCDate]   = useState("");
-  const [cTime,   setCTime]   = useState("");
 
   // Reload the linked fixture whenever the user opens a different message.
   // Without this, the parent (InboxMessageDetail) reuses the same
   // InboxScheduleProposal component instance across selections and the
   // fixture card stays stale from the first opened message — leading to
   // "the body says Team A vs B, but the fixture card shows Team C vs D".
-  // Also reset the per-message UI state so counter-proposal inputs and
-  // error banners don't bleed between messages.
+  // Also reset per-message UI state so errors do not bleed between messages.
   useEffect(() => {
     loadFixture();
     setError("");
-    setCounter(false);
-    setCDate("");
-    setCTime("");
     setBusy(null);
   // meta is derived from message.metadata; keying on message.id is the
   // most reliable signal that the user switched messages.
@@ -85,20 +78,17 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     } finally { setBusy(null); }
   }
 
-  async function handleCounter() {
-    if (!fixture || !cDate || !cTime) return;
-    setBusy("counter");
+  async function handleDecline() {
+    if (!fixture) return;
+    setBusy("decline");
     setError("");
     try {
-      const proposedDate = combineDateTimeToMysql(cDate, cTime);
       const role = myClub?.id === fixture.home_club_id ? "home" : "away";
-      await proposeTime({ fixture, fixtureType: meta.fixture_type, role, proposedDate, myClub, myEmail, myGamertag });
-      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "date_change_requested", is_read: true });
-      setCounter(false);
-      setCDate(""); setCTime("");
-      onActioned("date_change_requested");
+      await declineProposal({ fixture, fixtureType: meta.fixture_type, role, myClub, myEmail });
+      if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "declined", is_read: true });
+      onActioned("declined");
     } catch (err) {
-      setError(err?.message || "Failed to send counter-proposal. Please try again.");
+      setError(err?.message || "Failed to decline proposal. Please try again.");
     } finally { setBusy(null); }
   }
 
@@ -114,8 +104,6 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
 
   const proposedDate = meta.proposed_date ? new Date(meta.proposed_date) : null;
   const deadline     = fixture.window_end  ? new Date(fixture.window_end)  : null;
-  const minDate      = new Date().toISOString().split("T")[0];
-  const maxDate      = deadline ? deadline.toISOString().split("T")[0] : undefined;
 
   return (
     <div className="mt-4 space-y-3">
@@ -150,56 +138,26 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
 
       {/* Actions */}
       {!isAlreadyActioned ? (
-        counter ? (
-          <div className="space-y-2">
-            <p className="text-[11px] text-warning font-semibold uppercase tracking-wider flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" /> Propose a different time
-            </p>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input type="date" value={cDate} onChange={e => setCDate(e.target.value)}
-                  min={minDate} max={maxDate}
-                  className="pl-8 bg-secondary border-border text-xs h-8" />
-              </div>
-              <div className="relative w-28">
-                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input type="time" value={cTime} onChange={e => setCTime(e.target.value)}
-                  className="pl-8 bg-secondary border-border text-xs h-8" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleCounter} disabled={!!busy || !cDate || !cTime}
-                className="bg-warning text-black hover:bg-warning/90 h-7 text-xs gap-1">
-                {busy === "counter" ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                {busy === "counter" ? "Sending…" : "Send Counter-Proposal"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setCounter(false)} disabled={!!busy}
-                className="h-7 text-xs text-muted-foreground">Cancel</Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2 flex-wrap">
-            <Button size="sm" onClick={handleAccept} disabled={!!busy}
-              className="bg-success text-white hover:bg-success/90 gap-1.5 h-8 text-xs">
-              <Check className="w-3.5 h-3.5" />
-              {busy === "accept" ? "Confirming…" : "Accept This Time"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setCounter(true)} disabled={!!busy}
-              className={cn("gap-1.5 h-8 text-xs", "border-warning/40 text-warning hover:bg-warning/10")}>
-              <RefreshCw className="w-3.5 h-3.5" />
-              Propose Different Time
-            </Button>
-          </div>
-        )
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" onClick={handleAccept} disabled={!!busy}
+            className="bg-success text-white hover:bg-success/90 gap-1.5 h-8 text-xs">
+            <Check className="w-3.5 h-3.5" />
+            {busy === "accept" ? "Confirming…" : "Accept This Time"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDecline} disabled={!!busy}
+            className={cn("gap-1.5 h-8 text-xs", "border-warning/40 text-warning hover:bg-warning/10")}>
+            <X className="w-3.5 h-3.5" />
+            {busy === "decline" ? "Declining…" : "Decline"}
+          </Button>
+        </div>
       ) : (
         <div className={cn("text-xs px-3 py-2 rounded border font-medium",
           safeMessage.status === "confirmed" ? "text-success bg-success/10 border-success/20"
-          : safeMessage.status === "date_change_requested" ? "text-warning bg-warning/10 border-warning/20"
+          : safeMessage.status === "declined" ? "text-warning bg-warning/10 border-warning/20"
           : "text-muted-foreground bg-secondary border-border"
         )}>
           {safeMessage.status === "confirmed" ? "✅ You accepted this time — match confirmed."
-          : safeMessage.status === "date_change_requested" ? "📅 Counter-proposal sent. Waiting for opponent's response."
+          : safeMessage.status === "declined" ? "Proposal declined. The home club can send a new time."
           : `Responded: ${String(safeMessage.status || "pending").replace(/_/g, " ")}`}
         </div>
       )}

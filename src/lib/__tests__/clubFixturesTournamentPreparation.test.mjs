@@ -16,8 +16,8 @@ test("club fixtures show approved tournament preparation availability before dra
   assert.match(clubDetail, /buildClubTournamentRegistrationFixtures/);
   assert.match(clubDetail, /tournamentRegistrationFixtures/);
   assert.match(clubDetail, /_fixtureType:\s*"tournament_registration"/);
-  assert.match(clubDetail, /Tournament approved/);
-  assert.match(clubDetail, /Available for this tournament costs/);
+  assert.match(clubDetail, /registrationKindLabel\} approved/);
+  assert.match(clubDetail, /Available for this \$\{registrationKindLabel\.toLowerCase\(\)\} costs/);
   assert.match(clubDetail, /stageClient\.functions\.invoke\("tournamentClubAvailability"/);
 
   assert.match(functions, /async tournamentClubAvailability/);

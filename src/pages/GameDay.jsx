@@ -30,6 +30,21 @@ function groupKeyForGame(game, tournamentMap, t) {
   return tournament?.name || t("matchFlow.tournament");
 }
 
+function confirmedFixtureSourceKey(fixture, type) {
+  if (!fixture?.id) return null;
+  const sourceType = type === "regional_league" || type === "regional_league_fixture"
+    ? "regional_league"
+    : "competition";
+  return `${sourceType}:${fixture.id}`;
+}
+
+function matchSourceKey(match) {
+  if (!match?.source_fixture_id || !match?.source_fixture_type) return null;
+  const sourceType = String(match.source_fixture_type);
+  if (!["regional_league", "competition"].includes(sourceType)) return null;
+  return `${sourceType}:${match.source_fixture_id}`;
+}
+
 export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -244,6 +259,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         (fixture.scheduling_status === "confirmed" || fixture.status === "scheduled") &&
         (fixture.home_club_id === clubId || fixture.away_club_id === clubId)
       );
+    const confirmedSourceKeys = new Set(
+      confirmedFixtures
+        .map(({ fixture, type }) => confirmedFixtureSourceKey(fixture, type))
+        .filter(Boolean)
+    );
     for (const { fixture, type } of confirmedFixtures) {
       const match = await createMatchFromFixture(fixture, type).catch(() => null);
       if (match?.id) matchMap.set(match.id, match);
@@ -260,7 +280,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     }
 
     // Keep active matches + completed ones updated within last 24h; drop forfeit/cancelled
-    let relevantGames = Array.from(matchMap.values()).filter(m => isActiveGameDayMatch(m));
+    let relevantGames = Array.from(matchMap.values()).filter((m) => {
+      if (!isActiveGameDayMatch(m)) return false;
+      const sourceKey = matchSourceKey(m);
+      return !sourceKey || confirmedSourceKeys.has(sourceKey);
+    });
 
     // When scoped to a specific tournament, only show matches for that tournament
     if (scopedTournamentId) {
@@ -268,6 +292,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     }
 
     setGames(relevantGames);
+    if (requestedMatchId) {
+      setSelectedGame(prev => (prev && relevantGames.some(g => sameRecordId(g.id, prev.id)) ? prev : null));
+    }
 
     // Open the next playable match so Kickoff is visible without an extra click.
     if (!requestedMatchId) {

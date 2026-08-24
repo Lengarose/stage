@@ -149,6 +149,33 @@ test('player career excludes club-mode matches even when they carry player IDs',
   assert.deepEqual(summary.history.map((entry) => entry.match_id), ['solo-match']);
 });
 
+test('club career only counts submitted Game Day player stats, not availability alone', () => {
+  const { summarizeClubCareer } = loadPlayerCareerServiceWithDbMock(async () => []);
+
+  const summary = summarizeClubCareer({
+    player: { id: 'player-1', club_id: 'club-1', ranking_points: 0 },
+    stats: [],
+    matches: [
+      {
+        id: 'regional-match-without-stats',
+        mode: 'club',
+        source_fixture_type: 'regional_league',
+        home_club_id: 'club-1',
+        away_club_id: 'club-2',
+        home_score: 3,
+        away_score: 1,
+        status: 'completed',
+      },
+    ],
+    trophies: [],
+  });
+
+  assert.equal(summary.games, 0);
+  assert.equal(summary.goals, 0);
+  assert.equal(summary.assists, 0);
+  assert.deepEqual(summary.history, []);
+});
+
 test('explicit zero trophy win counts remain zero', () => {
   const { summarizeClubCareer, summarizePlayerCareer } = loadPlayerCareerServiceWithDbMock(async () => []);
   const input = { player: { id: 'player-1' }, matches: [], trophies: [{ id: 'trophy-1', win_count: 0 }] };

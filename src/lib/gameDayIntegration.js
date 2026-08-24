@@ -25,6 +25,11 @@ export function buildMatchContext(fixture, fixtureType) {
 
 export async function createMatchFromFixture(fixture, fixtureType) {
   if (!fixture?.id) return null;
+  const schedulingStatus = String(fixture.scheduling_status || "").toLowerCase();
+  const fixtureStatus = String(fixture.status || "").toLowerCase();
+  const isConfirmedFixture = schedulingStatus === "confirmed" || fixtureStatus === "scheduled";
+  if (!isConfirmedFixture) return null;
+
   const sourceType = fixtureType === "regional_league" || fixtureType === "regional_league_fixture"
     ? "regional_league"
     : "competition";

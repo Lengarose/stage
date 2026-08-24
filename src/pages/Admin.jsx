@@ -56,6 +56,7 @@ import {
   getOpenRegionalLeagueCandidates,
   getRegionalLeagueMaxClubs,
   isRegionalLeagueFull,
+  isRegionalLeagueSetupSeedingOpen,
 } from "@/lib/regionalLeagueRules";
 import {
   TOURNAMENT_CREDIT_COST,
@@ -220,7 +221,9 @@ export default function Admin(props) {
       }
 
       setApproveEligibility({ ids: new Set(), reason: "", loading: true });
-      const result = await getEligibleRegionalLeaguesForRegistration(approveRegDialog, regionalLeagues);
+      const result = await getEligibleRegionalLeaguesForRegistration(approveRegDialog, regionalLeagues, {
+        allowSetupSeeding: true,
+      });
       if (cancelled) return;
 
       const ids = new Set(result.eligibleLeagues.map(league => league.id));
@@ -1028,7 +1031,9 @@ export default function Admin(props) {
       const league = regionalLeagues.find(l => l.id === approveTargetId);
       if (!league) throw new Error("Selected league not found.");
       const { approveRegistration } = await import("@/lib/registrationEngine");
-      await approveRegistration(approveRegDialog, league, adminProfile?.email || "admin", regionalLeagues);
+      await approveRegistration(approveRegDialog, league, adminProfile?.email || "admin", regionalLeagues, {
+        adminSeeding: isRegionalLeagueSetupSeedingOpen(league),
+      });
       setApproveRegDialog(null);
       setApproveTargetId("");
       await loadAll();
@@ -2397,6 +2402,10 @@ export default function Admin(props) {
                         <p className="text-[10px] text-muted-foreground">{t("admin.dialogs.checkingLeagueEligibility")}</p>
                       ) : approveEligibility.reason ? (
                         <p className="text-[10px] text-warning">{approveEligibility.reason}</p>
+                      ) : candidates.some(isRegionalLeagueSetupSeedingOpen) ? (
+                        <p className="text-[10px] text-muted-foreground">
+                          First season setup: choose Division 1 or Division 2. After fixtures start, placement follows results.
+                        </p>
                       ) : (
                         <p className="text-[10px] text-muted-foreground">{t("admin.dialogs.regionalLeagueEligibilityHint")}</p>
                       )}

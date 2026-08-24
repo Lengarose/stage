@@ -4,6 +4,18 @@ import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+function getAvailabilityFixtureIds(game) {
+  return [
+    game?.id,
+    game?.source_fixture_id,
+    game?.fixture_id,
+    game?.related_fixture_id,
+  ]
+    .filter(Boolean)
+    .map(String)
+    .filter((id, index, ids) => ids.indexOf(id) === index);
+}
+
 export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSeatChange }) {
   const [clubPlayers, setClubPlayers] = useState([]);
   const [availablePlayerIds, setAvailablePlayerIds] = useState(new Set());
@@ -33,11 +45,17 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
     async function load() {
       if (!myClub) { setLoading(false); return; }
 
-      const [players, dressing, availabilityRows] = await Promise.all([
+      const availabilityFixtureIds = getAvailabilityFixtureIds(game);
+      const [players, dressing, availabilityChunks] = await Promise.all([
         stageClient.entities.Player.filter({ club_id: myClub.id }),
         stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        stageClient.entities.ClubFixtureAvailability.filter({ club_id: myClub.id, fixture_id: game.id }, "-updated_date", 200).catch(() => []),
+        Promise.all(availabilityFixtureIds.map((fixtureId) =>
+          stageClient.entities.ClubFixtureAvailability
+            .filter({ club_id: myClub.id, fixture_id: fixtureId }, "-updated_date", 200)
+            .catch(() => [])
+        )),
       ]);
+      const availabilityRows = availabilityChunks.flat();
 
       const availableIds = new Set((availabilityRows || [])
         .filter((row) => row.status === "available")
@@ -52,7 +70,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
       setLoading(false);
     }
     load();
-  }, [game.id, myClub]);
+  }, [game, myClub]);
 
   // Subscribe to real-time dressing room updates
   useEffect(() => {

@@ -223,6 +223,59 @@ test('syncMatchResultToSource updates official fixture and standings server-side
   assert.ok(updates.some(update => update.params.includes('standing-away') && update.data.losses === 1));
 });
 
+test('syncMatchResultToSource updates regional league fixture and standings server-side', async () => {
+  const updates = [];
+  const service = loadService(async (sql, params = []) => {
+    if (/SELECT \* FROM competition_fixtures WHERE match_id = \? LIMIT 1/.test(sql)) return [];
+    if (/WHERE id = \? AND entity_type = 'regional_league_fixture'/.test(sql)) {
+      return [{
+        id: 'regional-fixture-1',
+        entity_type: 'regional_league_fixture',
+        status: 'scheduled',
+        data_json: JSON.stringify({
+          league_id: 'regional-league-1',
+          home_club_id: 'club-home',
+          home_club_name: 'Home FC',
+          away_club_id: 'club-away',
+          away_club_name: 'Away FC',
+          stats_processed: false,
+        }),
+      }];
+    }
+    if (/entity_type = 'regional_league_standing'\s+AND league_id = \?\s+AND club_id IN/.test(sql)) {
+      return [
+        { id: 'regional-standing-home', entity_type: 'regional_league_standing', league_id: 'regional-league-1', club_id: 'club-home', data_json: JSON.stringify({ club_id: 'club-home', club_name: 'Home FC', points: 0, played: 0, wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0, goal_difference: 0, form: [] }) },
+        { id: 'regional-standing-away', entity_type: 'regional_league_standing', league_id: 'regional-league-1', club_id: 'club-away', data_json: JSON.stringify({ club_id: 'club-away', club_name: 'Away FC', points: 0, played: 0, wins: 0, draws: 0, losses: 0, goals_for: 0, goals_against: 0, goal_difference: 0, form: [] }) },
+      ];
+    }
+    if (/entity_type = 'regional_league_standing' AND league_id = \?/.test(sql)) {
+      return [
+        { id: 'regional-standing-home', entity_type: 'regional_league_standing', league_id: 'regional-league-1', club_id: 'club-home', data_json: JSON.stringify({ club_id: 'club-home', club_name: 'Home FC', points: 0, goals_for: 0, goals_against: 0, goal_difference: 0 }) },
+        { id: 'regional-standing-away', entity_type: 'regional_league_standing', league_id: 'regional-league-1', club_id: 'club-away', data_json: JSON.stringify({ club_id: 'club-away', club_name: 'Away FC', points: 0, goals_for: 0, goals_against: 0, goal_difference: 0 }) },
+      ];
+    }
+    if (/UPDATE league_entities SET/.test(sql)) {
+      updates.push({ sql, params, data: JSON.parse(params[0]) });
+      return { affectedRows: 1 };
+    }
+    return [];
+  });
+
+  const result = await service.syncMatchResultToSource({
+    id: 'match-regional-1',
+    status: 'completed',
+    source_fixture_id: 'regional-fixture-1',
+    source_fixture_type: 'regional_league',
+    home_score: 1,
+    away_score: 1,
+  });
+
+  assert.equal(result.legacy.synced, true);
+  assert.ok(updates.some(update => update.params.includes('regional-fixture-1') && update.data.status === 'played'));
+  assert.ok(updates.some(update => update.params.includes('regional-standing-home') && update.data.points === 1 && update.data.draws === 1));
+  assert.ok(updates.some(update => update.params.includes('regional-standing-away') && update.data.points === 1 && update.data.draws === 1));
+});
+
 test('syncMatchResultToSource marks legacy official phase ready when all fixtures are complete', async () => {
   const notificationWrites = [];
   const service = loadService(async (sql, params = []) => {
@@ -623,7 +676,7 @@ test('advanceLegacyOfficialCompetitionIfReady creates cross-competition qualific
 test('advanceRegionalLeagueIfReady processes completed division one qualification automatically', async () => {
   const inserts = [];
   const updates = [];
-  const standings = Array.from({ length: 8 }, (_, index) => ({
+  const standings = Array.from({ length: 20 }, (_, index) => ({
     id: `standing-${index + 1}`,
     entity_type: 'regional_league_standing',
     league_id: 'league-1',
@@ -646,6 +699,14 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
     }
     if (/WHERE id = \? AND entity_type = \? LIMIT 1/.test(sql) && params[1] === 'regional_league') {
       return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
+    }
+    if (params.includes('eu-div-2')) {
+      return [{
+        id: 'league-2',
+        entity_type: 'regional_league',
+        slug: 'eu-div-2',
+        data_json: JSON.stringify({ id: 'league-2', name: 'EU Division 2', division: 2, slug: 'eu-div-2' }),
+      }];
     }
     if (/entity_type = 'regional_league_standing' AND league_id = \?/.test(sql)) return standings;
     if (/entity_type = 'competition'\s+AND slug = \?/.test(sql)) {
@@ -672,11 +733,13 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
   const result = await service.advanceRegionalLeagueIfReady({ league_id: 'league-1' });
 
   assert.equal(result.advanced, true);
-  assert.equal(result.qualified, 6);
+  assert.equal(result.qualified, 18);
   assert.equal(result.relegated, 2);
-  assert.equal(inserts.length, 6);
+  assert.equal(inserts.length, 18);
   assert.deepEqual(inserts.map(insert => insert.data.target_competition_id), [
-    'comp-supreme', 'comp-supreme', 'comp-elite', 'comp-elite', 'comp-challenger', 'comp-challenger',
+    'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme',
+    'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite',
+    'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger',
   ]);
   assert.ok(updates.some(update => update.params.includes('regional_league') && update.data.status === 'completed'));
 });

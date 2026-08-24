@@ -13,10 +13,10 @@ export function isRegionalLeagueSetupSeedingOpen(league) {
   const status = String(league?.status || "").toLowerCase();
   if (!["draft", "setup", "registration"].includes(status)) return false;
   if (league?.fixtures_generated) return false;
-  if (league?.placement_locked) return false;
-  if (league?.seeding_mode === false) return false;
   if (league?.launch_seeding_closed_at) return false;
-  return true;
+  if ((Number(league?.season_number) || 1) === 1) return true;
+  if (league?.placement_locked) return false;
+  return league?.seeding_mode !== false;
 }
 
 export function sortRegionalLeaguesByDivision(leagues) {
@@ -74,11 +74,22 @@ export async function getClubRegionalLeaguePlacement(clubId, regionalLeagues) {
   };
 }
 
-export async function getEligibleRegionalLeaguesForRegistration(registration, regionalLeagues) {
+export async function getEligibleRegionalLeaguesForRegistration(registration, regionalLeagues, options = {}) {
   const candidates = getOpenRegionalLeagueCandidates(registration, regionalLeagues);
   const withCapacity = candidates.filter(league => !isRegionalLeagueFull(league));
   if (!withCapacity.length) {
     return { eligibleLeagues: [], placement: null, reason: "No open league spots in this region." };
+  }
+
+  if (options.allowSetupSeeding) {
+    const setupSeedLeagues = withCapacity.filter(isRegionalLeagueSetupSeedingOpen);
+    if (setupSeedLeagues.length) {
+      return {
+        eligibleLeagues: setupSeedLeagues,
+        placement: null,
+        reason: "",
+      };
+    }
   }
 
   const placement = await getClubRegionalLeaguePlacement(registration.club_id, regionalLeagues);

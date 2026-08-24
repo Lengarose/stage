@@ -1974,10 +1974,10 @@ function isRegionalLeagueSetupSeedingOpen(league) {
   const status = String(league?.status || '').toLowerCase();
   if (!['draft', 'setup', 'registration'].includes(status)) return false;
   if (league?.fixtures_generated) return false;
-  if (league?.placement_locked) return false;
-  if (league?.seeding_mode === false) return false;
   if (league?.launch_seeding_closed_at) return false;
-  return true;
+  if ((Number(league?.season_number) || 1) === 1) return true;
+  if (league?.placement_locked) return false;
+  return league?.seeding_mode !== false;
 }
 
 function regionalLeaguePlatformMatches(leaguePlatform, registrationPlatform) {
@@ -2239,6 +2239,12 @@ function regionalLeagueAvailabilityFixtureId(leagueId, clubId) {
   return `rl:${l}:${c}`.slice(0, 36);
 }
 
+function officialStageAvailabilityFixtureId(seasonOrCompetitionId, clubId) {
+  const e = String(seasonOrCompetitionId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 14);
+  const c = String(clubId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 14);
+  return `gost:${e}:${c}`.slice(0, 36);
+}
+
 function tournamentRegistrationMessageBody({ tournament, club, status, reason }) {
   const tournamentName = tournament?.name || 'the tournament';
   const clubName = club?.name || 'your club';
@@ -2363,7 +2369,7 @@ async function deliverTournamentApprovedClubMessages({ tournament, club }) {
         prizeLine.trim() || null,
         trophyLine.trim() || null,
         '',
-        'Open your club profile and go to Fixtures. You can now set Available or Unavailable for the tournament preparation card.',
+        'Open your club profile and go to Fixtures. You can now mark yourself Available for the tournament preparation card. You can cancel before the deadline if you made a mistake.',
         'Selecting Available confirms you want to be part of this tournament squad. Tournament match availability opens again once fixtures are generated.',
       ].filter(Boolean).join('\n'),
       messageType: 'tournament_registration',
@@ -2412,7 +2418,7 @@ function regionalLeagueRegistrationMessageBody({ league, club, status, reason, e
     reason ? `Admin note: ${reason}` : null,
     '',
     approved
-      ? 'Open your club profile and go to Fixtures. Your club members can now set Available or Unavailable for the league preparation card.'
+      ? 'Open your club profile and go to Fixtures. Your club members can now mark themselves Available for the league preparation card and cancel before the deadline if needed.'
       : 'You can review the admin note and try again when registrations are open.',
   ].filter(Boolean).join('\n');
 }
@@ -2479,7 +2485,7 @@ async function deliverRegionalLeagueApprovedClubMessages({ league, club, entryCo
         league?.region_name || league?.region ? `Region: ${league.region_name || league.region}` : null,
         league?.division ? `Division: ${league.division}` : null,
         '',
-        `Go to your club profile and open Fixtures. You can now set Available or Unavailable for the regional league preparation card.`,
+        `Go to your club profile and open Fixtures. You can now mark yourself Available for the regional league preparation card and cancel before the deadline if needed.`,
         `Selecting Available costs ${entryCost} credits once for this league. Once STAGE starts the league and fixtures are generated, match-by-match availability will appear there too without another league entry charge.`,
       ].filter(Boolean).join('\n'),
       messageType: 'regional_league_registration',
@@ -11707,8 +11713,8 @@ const HANDLERS = {
     if (!_auth_user_id) throw new Error('Not authenticated');
     if (!tournament_id || !club_id) throw new Error('tournament_id and club_id required');
     const requestedStatus = String(status || '').toLowerCase();
-    if (!['available', 'unavailable'].includes(requestedStatus)) {
-      throw new Error('status must be available or unavailable');
+    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
+      throw new Error('status must be available, unavailable, or no_response');
     }
 
     const result = await withTransaction(async (query) => {
@@ -11719,6 +11725,9 @@ const HANDLERS = {
       const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
       const tournament = tournamentRows[0];
       if (!tournament) throw new Error('Tournament not found');
+      if (isWallClockPast(tournament.start_date)) {
+        throw new Error('Availability is locked for this tournament.');
+      }
 
       const registered = parseMaybeJson(tournament.registered_clubs, []).map(String);
       if (!registered.includes(String(club_id))) {
@@ -11820,8 +11829,8 @@ const HANDLERS = {
     if (!_auth_user_id) throw new Error('Not authenticated');
     if (!league_id || !club_id) throw new Error('league_id and club_id required');
     const requestedStatus = String(status || '').toLowerCase();
-    if (!['available', 'unavailable'].includes(requestedStatus)) {
-      throw new Error('status must be available or unavailable');
+    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
+      throw new Error('status must be available, unavailable, or no_response');
     }
 
     const result = await withTransaction(async (query) => {
@@ -11837,6 +11846,9 @@ const HANDLERS = {
       );
       const league = parseLeagueEntityRow(leagueRows[0]);
       if (!league) throw new Error('Regional League not found');
+      if (isWallClockPast(league.start_date || league.scheduled_date)) {
+        throw new Error('Availability is locked for this regional league.');
+      }
 
       const registered = normalizeIdList(league.registered_club_ids);
       const standingRows = await query(
@@ -11907,6 +11919,172 @@ const HANDLERS = {
           `INSERT INTO club_fixture_availability
              (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
            VALUES (?, ?, ?, 'regional_league_registration', ?, ?, ?, ?)`,
+          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
+        );
+      }
+
+      const savedRows = await query(
+        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
+           FROM club_fixture_availability cfa
+           LEFT JOIN players p ON p.id = cfa.player_id
+          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
+          LIMIT 1`,
+        [club_id, fixtureId, player.id],
+      );
+
+      return {
+        row: savedRows[0],
+        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
+        credits_after: creditsAfter,
+      };
+    });
+
+    return { data: { success: true, ...result } };
+  },
+
+  async officialStageClubAvailability({
+    season_id, competition_id, competition_slug, club_id, status, _auth_user_id,
+  }) {
+    if (!_auth_user_id) throw new Error('Not authenticated');
+    if (!club_id) throw new Error('club_id required');
+    const requestedStatus = String(status || '').toLowerCase();
+    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
+      throw new Error('status must be available, unavailable, or no_response');
+    }
+
+    const result = await withTransaction(async (query) => {
+      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
+      const user = users[0];
+      if (!user) throw new Error('User not found');
+
+      let seasonRows = [];
+      if (season_id) {
+        seasonRows = await query(
+          `SELECT * FROM league_entities
+            WHERE id = ? AND entity_type = 'competition_season'
+            LIMIT 1 FOR UPDATE`,
+          [season_id],
+        );
+      } else if (competition_id) {
+        seasonRows = await query(
+          `SELECT * FROM league_entities
+            WHERE entity_type = 'competition_season'
+              AND competition_id = ?
+              AND status NOT IN ('completed', 'archived', 'cancelled', 'canceled')
+            ORDER BY updated_date DESC
+            LIMIT 1 FOR UPDATE`,
+          [competition_id],
+        );
+      } else if (competition_slug) {
+        seasonRows = await query(
+          `SELECT * FROM league_entities
+            WHERE entity_type = 'competition_season'
+              AND slug = ?
+              AND status NOT IN ('completed', 'archived', 'cancelled', 'canceled')
+            ORDER BY updated_date DESC
+            LIMIT 1 FOR UPDATE`,
+          [competition_slug],
+        );
+      }
+
+      const season = parseLeagueEntityRow(seasonRows[0]);
+      if (!season) throw new Error('GOST season not found');
+      if (isWallClockPast(season.start_date || season.scheduled_date)) {
+        throw new Error('Availability is locked for this GOST event.');
+      }
+
+      const registered = normalizeIdList(season.registered_club_ids);
+      const qualified = normalizeIdList(season.qualified_club_ids);
+      const standingRows = await query(
+        `SELECT id FROM league_entities
+          WHERE entity_type = 'competition_standing'
+            AND season_id = ?
+            AND club_id = ?
+          LIMIT 1`,
+        [season.id, club_id],
+      );
+      const qualificationRows = await query(
+        `SELECT * FROM league_entities
+          WHERE entity_type = 'qualification_entry'
+            AND club_id = ?`,
+        [club_id],
+      );
+      const hasConfirmedQualification = qualificationRows
+        .map(parseLeagueEntityRow)
+        .some((entry) => {
+          const entryStatus = String(entry?.status || '').toLowerCase();
+          return ['confirmed', 'approved', 'registered', 'active'].includes(entryStatus)
+            && (
+              String(entry.target_season_id || '') === String(season.id || '')
+              || String(entry.season_id || '') === String(season.id || '')
+              || String(entry.target_competition_id || '') === String(season.competition_id || '')
+              || String(entry.competition_id || '') === String(season.competition_id || '')
+            );
+        });
+      if (!registered.includes(String(club_id)) && !qualified.includes(String(club_id)) && !standingRows.length && !hasConfirmedQualification) {
+        throw new Error('Club is not qualified for this GOST event');
+      }
+
+      const players = await query(
+        `SELECT p.*
+           FROM players p
+           LEFT JOIN club_memberships cm
+             ON cm.player_id = p.id
+            AND cm.status = 'active'
+          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
+            AND (p.club_id = ? OR cm.club_id = ?)
+          ORDER BY p.user_id = ? DESC, p.updated_date DESC
+          LIMIT 1`,
+        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
+      );
+      const player = players[0];
+      if (!player) throw new Error('Only club members can set GOST availability');
+
+      const eventId = season.id || season.competition_id || season.competition_slug || season.slug;
+      const fixtureId = officialStageAvailabilityFixtureId(eventId, club_id);
+      const existingRows = await query(
+        `SELECT * FROM club_fixture_availability
+          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
+          LIMIT 1 FOR UPDATE`,
+        [club_id, fixtureId, player.id],
+      );
+      const existing = existingRows[0] || null;
+      const note = parseMaybeJson(existing?.note, {});
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost = Number(season.entry_credits ?? storeSettings.official_competition_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      let creditsSpent = Number(note.official_stage_availability_credits_spent || 0);
+      let creditsAfter = await getUserCredits(_auth_user_id, query);
+
+      if (requestedStatus === 'available' && creditsSpent <= 0 && entryCost > 0) {
+        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
+        creditsSpent = spent.credits_spent;
+        creditsAfter = spent.credits_after;
+      }
+
+      const nextNote = {
+        ...note,
+        competition_id: season.competition_id || competition_id || null,
+        competition_season_id: season.id,
+        season_id: season.id,
+        competition_slug: season.competition_slug || season.slug || competition_slug || null,
+        competition_name: season.competition_name || season.name || 'GOST',
+        official_stage_availability: true,
+        official_stage_availability_credits_spent: creditsSpent,
+        updated_by_user_id: _auth_user_id,
+      };
+
+      if (existing) {
+        await query(
+          `UPDATE club_fixture_availability
+              SET status = ?, note = ?, updated_date = NOW()
+            WHERE id = ?`,
+          [requestedStatus, JSON.stringify(nextNote), existing.id],
+        );
+      } else {
+        await query(
+          `INSERT INTO club_fixture_availability
+             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
+           VALUES (?, ?, ?, 'competition_registration', ?, ?, ?, ?)`,
           [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
         );
       }

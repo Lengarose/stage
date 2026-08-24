@@ -3,6 +3,7 @@ import { hasStagePlus } from "@/lib/subscriptionUtils";
 import {
   getEligibleRegionalLeaguesForRegistration,
   getRegionalLeagueMaxClubs,
+  isRegionalLeagueSetupSeedingOpen,
 } from "@/lib/regionalLeagueRules";
 
 // ─── Club → League registration flow ─────────────────────────────────────────
@@ -77,13 +78,16 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
  * @param {object} league    — RegionalLeague record to assign to
  * @param {string} adminEmail
  */
-export async function approveRegistration(reg, league, adminEmail, allRegionalLeagues = []) {
+export async function approveRegistration(reg, league, adminEmail, allRegionalLeagues = [], options = {}) {
   if (league.status !== "registration") {
     throw new Error(`${league.name} is not in Registration status (current: ${league.status}).`);
   }
 
+  const adminSeeding = options.adminSeeding ?? isRegionalLeagueSetupSeedingOpen(league);
   if (allRegionalLeagues.length) {
-    const { eligibleLeagues, reason } = await getEligibleRegionalLeaguesForRegistration(reg, allRegionalLeagues);
+    const { eligibleLeagues, reason } = await getEligibleRegionalLeaguesForRegistration(reg, allRegionalLeagues, {
+      allowSetupSeeding: adminSeeding,
+    });
     if (!eligibleLeagues.some(candidate => candidate.id === league.id)) {
       throw new Error(reason || `${reg.club_name} is not eligible for ${league.name}.`);
     }
@@ -105,6 +109,7 @@ export async function approveRegistration(reg, league, adminEmail, allRegionalLe
     league_id: league.id,
     club_id: reg.club_id,
     season_registration_id: reg.id,
+    admin_seeding: adminSeeding,
     reason: `Approved by ${adminEmail || "admin"}`,
   });
   const data = response?.data || response || {};

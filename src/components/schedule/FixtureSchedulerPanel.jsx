@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   proposeTime,
   acceptProposal,
+  declineProposal,
   checkAndExpire,
 } from "@/lib/scheduleEngine";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -63,6 +64,17 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       onUpdate();
     } catch (err) {
       setError(err?.message || t("commonPages.fspProposalFailed"));
+    } finally { setBusy(false); }
+  }
+
+  async function handleDecline() {
+    setBusy(true);
+    setError("");
+    try {
+      await declineProposal({ fixture, fixtureType, role, myClub, myEmail });
+      onUpdate();
+    } catch (err) {
+      setError(err?.message || "Failed to decline proposal. Please try again.");
     } finally { setBusy(false); }
   }
 
@@ -153,7 +165,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
         </p>
       )}
 
-      {/* ── Opponent's proposal waiting for MY response ── */}
+      {/* ── Home proposal waiting for AWAY response ── */}
       {pendingProposal && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded px-3 py-2">
@@ -172,15 +184,13 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
                 <Check className="w-3.5 h-3.5" />
                 {busy ? t("commonPages.fspConfirming") : t("matchFlow.accept")}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setProposing(true)} disabled={busy}
+              <Button size="sm" variant="outline" onClick={handleDecline} disabled={busy}
                 className="gap-1.5 h-7 text-xs border-warning/40 text-warning hover:bg-warning/10">
                 <RefreshCw className="w-3.5 h-3.5" />
-                {t("commonPages.fspProposeDifferent")}
+                Decline
               </Button>
             </div>
-          ) : <ProposalForm t={t} propDate={propDate} propTime={propTime} deadline={deadline}
-              onDateChange={setPropDate} onTimeChange={setPropTime}
-              onSubmit={handlePropose} onCancel={() => setProposing(false)} busy={busy} />}
+          ) : null}
         </div>
       )}
 
