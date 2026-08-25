@@ -79,11 +79,11 @@ export async function applyForLeague(club, regionSlug, regionName, platform, {
  * @param {string} adminEmail
  */
 export async function approveRegistration(reg, league, adminEmail, allRegionalLeagues = [], options = {}) {
-  if (league.status !== "registration") {
-    throw new Error(`${league.name} is not in Registration status (current: ${league.status}).`);
+  const adminSeeding = options.adminSeeding ?? isRegionalLeagueSetupSeedingOpen(league);
+  if (league.status !== "registration" && !adminSeeding) {
+    throw new Error(`${league.name} is not open for registration or first-season seeding (current: ${league.status}).`);
   }
 
-  const adminSeeding = options.adminSeeding ?? isRegionalLeagueSetupSeedingOpen(league);
   if (allRegionalLeagues.length) {
     const { eligibleLeagues, reason } = await getEligibleRegionalLeaguesForRegistration(reg, allRegionalLeagues, {
       allowSetupSeeding: adminSeeding,

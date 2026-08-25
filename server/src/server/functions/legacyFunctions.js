@@ -1970,13 +1970,20 @@ function buildRegionalLeagueStanding(league, club, position) {
   };
 }
 
+function hasTruthyFlag(value) {
+  if (value == null || value === false || value === 0) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return !['', '0', 'false', 'null', 'undefined', 'no'].includes(normalized);
+}
+
 function isRegionalLeagueSetupSeedingOpen(league) {
   const status = String(league?.status || '').toLowerCase();
-  if (!['draft', 'setup', 'registration'].includes(status)) return false;
-  if (league?.fixtures_generated) return false;
-  if (league?.launch_seeding_closed_at) return false;
+  if (['active', 'completed', 'archived'].includes(status)) return false;
+  if (hasTruthyFlag(league?.fixtures_generated)) return false;
   if ((Number(league?.season_number) || 1) === 1) return true;
-  if (league?.placement_locked) return false;
+  if (!['draft', 'setup', 'registration', 'seeded'].includes(status)) return false;
+  if (hasTruthyFlag(league?.launch_seeding_closed_at)) return false;
+  if (hasTruthyFlag(league?.placement_locked)) return false;
   return league?.seeding_mode !== false;
 }
 
@@ -2030,7 +2037,7 @@ async function assertRegionalLeagueRegistrationPlacement(query, registration, ta
   const candidatesRows = await query(
     `SELECT * FROM league_entities
       WHERE entity_type = 'regional_league'
-        AND status = 'registration'
+        AND status IN ('draft', 'setup', 'registration', 'seeded')
         AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.region_slug')), region, '') = ?`,
     [String(registration.region_slug || targetLeague.region_slug || targetLeague.region || '')]
   );
@@ -2043,6 +2050,10 @@ async function assertRegionalLeagueRegistrationPlacement(query, registration, ta
 
   const placement = await getClubRegionalLeaguePlacementForAdmin(query, registration.club_id, candidates);
   const targetDivision = Number(targetLeague.division) || 1;
+  const seedingCandidates = candidates.filter(isRegionalLeagueSetupSeedingOpen);
+  if (seedingCandidates.length && isRegionalLeagueSetupSeedingOpen(targetLeague)) {
+    return;
+  }
   if (placement?.division) {
     if (targetDivision !== Number(placement.division)) {
       throw new Error(`This club's next-season placement is Division ${placement.division}.`);
@@ -5888,17 +5899,6 @@ const HANDLERS = {
       if (String(league.status || '').toLowerCase() === 'archived') {
         throw new Error('Archived leagues cannot receive clubs');
       }
-      const setupSeeding = Boolean(admin_seeding);
-      if (setupSeeding && !isRegionalLeagueSetupSeedingOpen(league)) {
-        throw new Error('Season setup seeding is closed for this league.');
-      }
-      if (!setupSeeding && !season_registration_id) {
-        throw new Error('Direct admin placement is only allowed during season setup seeding. Use a club registration approval after setup.');
-      }
-      const storeSettings = await getActiveStoreSettings();
-      const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
-
-      const maxClubs = Number(league.max_clubs || 20);
       const existingFixtureRows = await query(
         `SELECT id FROM league_entities
           WHERE entity_type = 'regional_league_fixture'
@@ -5909,6 +5909,22 @@ const HANDLERS = {
       if (existingFixtureRows.length) {
         throw new Error('Remove/regenerate fixtures before adding clubs to this league');
       }
+      const setupSeeding = Boolean(admin_seeding);
+      const leagueForSeeding = { ...league, fixtures_generated: false };
+      const leagueStatus = String(league.status || '').toLowerCase();
+      const firstSeasonSetupSeeding = setupSeeding
+        && (Number(league.season_number) || 1) === 1
+        && !['active', 'completed', 'archived'].includes(leagueStatus);
+      if (setupSeeding && !firstSeasonSetupSeeding && !isRegionalLeagueSetupSeedingOpen(leagueForSeeding)) {
+        throw new Error('Season setup seeding is closed for this league.');
+      }
+      if (!setupSeeding && !season_registration_id) {
+        throw new Error('Direct admin placement is only allowed during season setup seeding. Use a club registration approval after setup.');
+      }
+      const storeSettings = await getActiveStoreSettings();
+      const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+
+      const maxClubs = Number(league.max_clubs || 20);
       const existingStandingRows = await query(
         `SELECT * FROM league_entities
           WHERE entity_type = 'regional_league_standing'

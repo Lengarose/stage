@@ -9,13 +9,20 @@ export function isRegionalLeagueFull(league) {
   return Number(league?.num_clubs || 0) >= getRegionalLeagueMaxClubs(league);
 }
 
+function hasTruthyFlag(value) {
+  if (value == null || value === false || value === 0) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return !["", "0", "false", "null", "undefined", "no"].includes(normalized);
+}
+
 export function isRegionalLeagueSetupSeedingOpen(league) {
   const status = String(league?.status || "").toLowerCase();
-  if (!["draft", "setup", "registration"].includes(status)) return false;
-  if (league?.fixtures_generated) return false;
-  if (league?.launch_seeding_closed_at) return false;
+  if (["active", "completed", "archived"].includes(status)) return false;
+  if (hasTruthyFlag(league?.fixtures_generated)) return false;
   if ((Number(league?.season_number) || 1) === 1) return true;
-  if (league?.placement_locked) return false;
+  if (!["draft", "setup", "registration", "seeded"].includes(status)) return false;
+  if (hasTruthyFlag(league?.launch_seeding_closed_at)) return false;
+  if (hasTruthyFlag(league?.placement_locked)) return false;
   return league?.seeding_mode !== false;
 }
 
@@ -32,7 +39,7 @@ export function getLowestOpenDivision(leagues) {
 export function getOpenRegionalLeagueCandidates(registration, regionalLeagues) {
   return sortRegionalLeaguesByDivision((regionalLeagues || []).filter(
     league => league.region_slug === registration.region_slug
-      && league.status === "registration"
+      && (league.status === "registration" || isRegionalLeagueSetupSeedingOpen(league))
       && (
         league.platform === registration.platform ||
         league.platform === "Cross-Platform" ||
