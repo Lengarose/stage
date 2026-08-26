@@ -25,7 +25,8 @@ test("first-season regional league admin approval can seed any open setup divisi
   assert.match(backendFunctions, /if \(hasTruthyFlag\(league\?\.fixtures_generated\)\) return false;\s*if \(\(Number\(league\?\.season_number\) \|\| 1\) === 1\) return true;/);
   assert.match(backendFunctions, /status IN \('draft', 'setup', 'registration', 'seeded'\)/);
   assert.match(backendFunctions, /const leagueForSeeding = \{ \.\.\.league, fixtures_generated: false \};/);
-  assert.match(backendFunctions, /const firstSeasonSetupSeeding = setupSeeding/);
+  assert.match(backendFunctions, /const firstSeasonSetupSeeding = \(Number\(league\.season_number\) \|\| 1\) === 1/);
+  assert.match(backendFunctions, /!setupSeeding && !firstSeasonSetupSeeding && !season_registration_id/);
   assert.match(backendFunctions, /setupSeeding && !firstSeasonSetupSeeding && !isRegionalLeagueSetupSeedingOpen\(leagueForSeeding\)/);
   assert.match(backendFunctions, /const seedingCandidates = candidates\.filter\(isRegionalLeagueSetupSeedingOpen\)/);
   assert.match(backendFunctions, /if \(seedingCandidates\.length && isRegionalLeagueSetupSeedingOpen\(targetLeague\)\) \{\s*return;\s*\}/);

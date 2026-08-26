@@ -5910,15 +5910,14 @@ const HANDLERS = {
         throw new Error('Remove/regenerate fixtures before adding clubs to this league');
       }
       const setupSeeding = Boolean(admin_seeding);
-      const leagueForSeeding = { ...league, fixtures_generated: false };
       const leagueStatus = String(league.status || '').toLowerCase();
-      const firstSeasonSetupSeeding = setupSeeding
-        && (Number(league.season_number) || 1) === 1
-        && !['active', 'completed', 'archived'].includes(leagueStatus);
+      const firstSeasonSetupSeeding = (Number(league.season_number) || 1) === 1
+        && !['in_progress', 'active', 'completed', 'archived'].includes(leagueStatus);
+      const leagueForSeeding = { ...league, fixtures_generated: false };
       if (setupSeeding && !firstSeasonSetupSeeding && !isRegionalLeagueSetupSeedingOpen(leagueForSeeding)) {
         throw new Error('Season setup seeding is closed for this league.');
       }
-      if (!setupSeeding && !season_registration_id) {
+      if (!setupSeeding && !firstSeasonSetupSeeding && !season_registration_id) {
         throw new Error('Direct admin placement is only allowed during season setup seeding. Use a club registration approval after setup.');
       }
       const storeSettings = await getActiveStoreSettings();

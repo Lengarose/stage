@@ -28,6 +28,12 @@ function formatPositionRange(positions = []) {
   return positions.length === 1 ? String(positions[0]) : `${positions[0]}-${positions[positions.length - 1]}`;
 }
 
+function isFirstSeasonAdminSeedingOpen(league) {
+  const status = String(league?.status || "").toLowerCase();
+  if (["in_progress", "active", "completed", "archived"].includes(status)) return false;
+  return (Number(league?.season_number) || 1) === 1;
+}
+
 export default function LeaguesTab({
   mode = "all",
   seedCompetitions,
@@ -248,7 +254,7 @@ export default function LeaguesTab({
       await swalAlert("Choose a club first.");
       return;
     }
-    const seedingOpen = isRegionalLeagueSetupSeedingOpen(league);
+    const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
     const ok = await swalConfirm(
       seedingOpen
         ? `Seed ${club.name} into ${league.name}? This is allowed during season setup. Once fixtures are generated, placement locks and promotion/relegation rules take over.`
@@ -959,8 +965,8 @@ export default function LeaguesTab({
                 {[div1, div2].filter(Boolean).map(league => {
                   const isEditingL = editingLeague === league.id;
                   const availableClubs = getAvailableClubsForLeague(league);
-                  const canAdminAddClub = !["in_progress", "completed", "archived"].includes(String(league.status || "").toLowerCase());
-                  const seedingOpen = isRegionalLeagueSetupSeedingOpen(league);
+                  const canAdminAddClub = !["in_progress", "active", "completed", "archived"].includes(String(league.status || "").toLowerCase());
+                  const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
                   const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
                   return (
                     <div key={league.id} className="border border-border rounded p-3 space-y-2">
