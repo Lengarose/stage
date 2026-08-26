@@ -2116,6 +2116,8 @@ CREATE TABLE IF NOT EXISTS admin_mail_messages (
   to_email            VARCHAR(255)  NULL,
   to_addresses        JSON          NULL,
   cc_addresses        JSON          NULL,
+  bcc_addresses       JSON          NULL,
+  draft_meta          JSON          NULL,
   subject             VARCHAR(500)  NULL,
   body_text           LONGTEXT      NULL,
   body_html           LONGTEXT      NULL,

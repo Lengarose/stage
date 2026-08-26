@@ -2624,6 +2624,8 @@ async function runStartupMigrations() {
     INDEX idx_amm_direction   (direction),
     INDEX idx_amm_read        (is_read)
   )`).catch((err) => console.error('[migration] admin_mail_messages:', err.message));
+  await addCol('admin_mail_messages', 'bcc_addresses', 'JSON NULL');
+  await addCol('admin_mail_messages', 'draft_meta', 'JSON NULL');
 }
 
 module.exports = { runStartupMigrations };

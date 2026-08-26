@@ -7,6 +7,8 @@ const {
   moveToTrash,
   deletePermanently,
   emptyTrash,
+  saveDraft,
+  deleteDraft,
   sendMessage,
   syncInbox,
 } = require('../services/adminMailService');
@@ -79,8 +81,8 @@ router.get('/status', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    await requireAdmin(req);
-    res.json(await listMessages(req.query || {}));
+    const admin = await requireAdmin(req);
+    res.json(await listMessages(req.query || {}, admin.id));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -106,6 +108,35 @@ router.post('/sync', async (req, res) => {
   }
 });
 
+router.post('/drafts', async (req, res) => {
+  try {
+    const admin = await requireAdmin(req);
+    const body = req.body || {};
+    const draft = await saveDraft(admin, {
+      id: body.id,
+      to: body.to,
+      cc: body.cc,
+      bcc: body.bcc,
+      subject: body.subject,
+      body: body.body,
+      audience: body.audience || null,
+      replyToId: body.reply_to_id,
+    });
+    res.status(body.id ? 200 : 201).json(draft);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.delete('/drafts/:id', async (req, res) => {
+  try {
+    const admin = await requireAdmin(req);
+    res.json(await deleteDraft(admin, req.params.id));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 router.post('/send', async (req, res) => {
   try {
     const admin = await requireAdmin(req);
@@ -119,6 +150,7 @@ router.post('/send', async (req, res) => {
       body: body.body,
       replyToId: body.reply_to_id,
       audience: body.audience || null,
+      draftId: body.draft_id,
     });
     res.status(201).json(message);
   } catch (err) {

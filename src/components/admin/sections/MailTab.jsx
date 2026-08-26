@@ -11,10 +11,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import MailMergeDialog from "@/components/admin/sections/MailMergeDialog";
+import MailComposeChoiceDialog from "@/components/admin/sections/MailComposeChoiceDialog";
 import MailRecipientInput from "@/components/admin/sections/MailRecipientInput";
+import {
+  hasDraftContent,
+  joinAddressList,
+  messageRecipients,
+  parseAddressList,
+  parseDraftMeta,
+} from "@/lib/adminMailUtils";
 import {
   ArrowLeft,
   ChevronDown,
+  FilePenLine,
   Inbox,
   Loader2,
   MailPlus,
@@ -30,6 +39,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 
 const FOLDERS = [
   { id: "inbox", icon: Inbox },
+  { id: "drafts", icon: FilePenLine },
   { id: "sent", icon: Send },
   { id: "trash", icon: Trash2 },
 ];
@@ -52,11 +62,66 @@ function formatWhen(value) {
 }
 
 function displayFrom(message) {
+  if (message.folder === "drafts") return message.to_email || "—";
   if (message.direction === "out") return message.to_email || "—";
   const name = String(message.from_name || "").trim();
   const email = String(message.from_email || "").trim();
   if (name && email) return name;
   return email || name || "—";
+}
+
+function recipientSummary(message, t) {
+  const { to, cc, bcc } = messageRecipients(message);
+  const all = [...to, ...cc, ...bcc];
+  if (all.length === 1) return all[0];
+  if (all.length > 1) return t("admin.mail.recipientCount", { count: all.length });
+  const summary = String(message.to_email || "").trim();
+  return summary || "—";
+}
+
+function listPrimaryLine(message, folder, t) {
+  if (folder === "sent" || folder === "drafts" || message.direction === "out") {
+    return message.subject || t("admin.mail.noSubject");
+  }
+  return displayFrom(message);
+}
+
+function listSecondaryLine(message, folder, t) {
+  if (folder === "sent" || (message.direction === "out" && message.folder !== "drafts")) {
+    return `${t("admin.mail.toLabel")} ${recipientSummary(message, t)}`;
+  }
+  if (folder === "drafts") {
+    return `${t("admin.mail.toLabel")} ${recipientSummary(message, t)}`;
+  }
+  return message.subject || t("admin.mail.noSubject");
+}
+
+function MessageRecipients({ message, t }) {
+  const { to, cc, bcc } = messageRecipients(message);
+  const rows = [
+    to.length ? { label: t("admin.mail.toPlaceholder"), emails: to } : null,
+    cc.length ? { label: t("admin.mail.cc"), emails: cc } : null,
+    bcc.length ? { label: t("admin.mail.bcc"), emails: bcc } : null,
+  ].filter(Boolean);
+
+  if (!rows.length) return null;
+
+  return (
+    <div className="space-y-2 border-b border-border px-4 py-3">
+      {rows.map((row) => (
+        <div key={row.label} className="text-xs">
+          <span className="font-medium text-muted-foreground">{row.label}</span>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {row.emails.map((email) => (
+              <span key={email} className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] text-foreground">
+                {email}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function OutlookFieldRow({ label, children, actions }) {
@@ -82,6 +147,8 @@ function MailComposePane({
   showBcc,
   setShowBcc,
   setAudience,
+  draftSavedAt,
+  draftSaving,
   t,
 }) {
   const bodyRef = useRef(null);
@@ -130,7 +197,7 @@ function MailComposePane({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={onDiscard} title={t("admin.mail.discard")}>
+        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => void onDiscard()} title={t("admin.mail.discard")}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -195,13 +262,18 @@ function MailComposePane({
       )}
 
       {/* Subject */}
-      <div className="border-b border-border px-4 py-2.5">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
         <input
           value={draft.subject}
           onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))}
           placeholder={t("admin.mail.addSubject")}
-          className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
+        {(draftSavedAt || draftSaving) ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {draftSaving ? t("admin.mail.draftSaving") : t("admin.mail.draftSavedAtShort", { when: formatWhen(draftSavedAt) })}
+          </span>
+        ) : null}
       </div>
 
       {/* Body */}
@@ -245,6 +317,13 @@ export default function MailTab() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [audience, setAudience] = useState(null);
   const [purging, setPurging] = useState(false);
+  const [draftId, setDraftId] = useState(null);
+  const [replyToId, setReplyToId] = useState(null);
+  const [composeChoiceOpen, setComposeChoiceOpen] = useState(false);
+  const [savedDrafts, setSavedDrafts] = useState([]);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
+  const persistTimerRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -277,6 +356,60 @@ export default function MailTab() {
     [folder, messages],
   );
 
+  const draftCount = useMemo(
+    () => (folder === "drafts" ? messages.length : savedDrafts.length),
+    [folder, messages.length, savedDrafts.length],
+  );
+
+  const persistDraft = useCallback(async ({ silent = true } = {}) => {
+    if (!hasDraftContent(draft)) return null;
+    if (!silent) setDraftSaving(true);
+    try {
+      const saved = await stageClient.http.post("/admin-mail/drafts", {
+        id: draftId || undefined,
+        to: draft.to.trim() || undefined,
+        cc: draft.cc.trim() || undefined,
+        bcc: draft.bcc.trim() || undefined,
+        subject: draft.subject.trim(),
+        body: draft.body,
+        audience: audience || undefined,
+        reply_to_id: replyToId || undefined,
+      });
+      if (saved?.id) setDraftId(saved.id);
+      setDraftSavedAt(saved?.updated_date || saved?.created_date || new Date().toISOString());
+      setSavedDrafts((prev) => {
+        const rest = prev.filter((row) => row.id !== saved.id);
+        return [saved, ...rest];
+      });
+      notifyAdminMailChanged();
+      return saved;
+    } catch {
+      return null;
+    } finally {
+      if (!silent) setDraftSaving(false);
+    }
+  }, [audience, draft, draftId, replyToId]);
+
+  useEffect(() => {
+    if (!compose || !hasDraftContent(draft)) return undefined;
+    if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = window.setTimeout(() => { void persistDraft(); }, 2000);
+    return () => {
+      if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
+    };
+  }, [compose, draft, persistDraft]);
+
+  useEffect(() => () => {
+    if (compose && hasDraftContent(draft)) void persistDraft();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void stageClient.http.get("/admin-mail", { folder: "drafts", limit: 10 })
+      .then((res) => setSavedDrafts(Array.isArray(res?.messages) ? res.messages : []))
+      .catch(() => setSavedDrafts([]));
+  }, [folder, compose]);
+
   async function syncInbox() {
     setSyncing(true);
     setError(null);
@@ -293,6 +426,10 @@ export default function MailTab() {
   }
 
   async function openMessage(message) {
+    if (message.folder === "drafts") {
+      openDraft(message);
+      return;
+    }
     setCompose(false);
     setSelected(message);
     if (!message.is_read && message.folder === "inbox") {
@@ -317,10 +454,11 @@ export default function MailTab() {
         bcc: draft.bcc.trim() || undefined,
         subject: draft.subject.trim(),
         body: draft.body,
-        reply_to_id: selected?.direction === "in" ? selected.id : undefined,
+        reply_to_id: replyToId || (selected?.direction === "in" ? selected.id : undefined),
         audience: audience || undefined,
+        draft_id: draftId || undefined,
       });
-      closeCompose();
+      await closeCompose({ discardDraft: true });
       setSelected(sent);
       if (folder !== "sent") setFolder("sent");
       else await load();
@@ -375,12 +513,31 @@ export default function MailTab() {
     }
   }
 
-  function closeCompose() {
+  async function closeCompose({ discardDraft = false } = {}) {
+    if (discardDraft && draftId) {
+      try {
+        await stageClient.http.delete(`/admin-mail/drafts/${draftId}`);
+        setSavedDrafts((prev) => prev.filter((row) => row.id !== draftId));
+      } catch {
+        // ignore
+      }
+    } else if (hasDraftContent(draft)) {
+      await persistDraft();
+    }
     setCompose(false);
+    setDraftId(null);
+    setReplyToId(null);
     setDraft(EMPTY_DRAFT);
     setShowCc(false);
     setShowBcc(false);
     setAudience(null);
+    setDraftSavedAt(null);
+  }
+
+  async function saveAndLeaveCompose() {
+    if (compose && hasDraftContent(draft)) await persistDraft();
+    setCompose(false);
+    setSelected(null);
   }
 
   function applyMailMerge({ bcc, audience: picked, label, count }) {
@@ -394,12 +551,36 @@ export default function MailTab() {
     });
   }
 
-  function startCompose(replyTarget) {
+  function openDraft(message) {
+    const meta = parseDraftMeta(message.draft_meta);
     setCompose(true);
     setSelected(null);
+    setDraftId(message.id);
+    setReplyToId(message.in_reply_to || null);
+    setDraft({
+      to: joinAddressList(parseAddressList(message.to_addresses)),
+      cc: joinAddressList(parseAddressList(message.cc_addresses)),
+      bcc: joinAddressList(parseAddressList(message.bcc_addresses)),
+      subject: message.subject || "",
+      body: message.body_text || "",
+    });
+    setAudience(meta.audience || null);
+    setShowCc(Boolean(parseAddressList(message.cc_addresses).length));
+    setShowBcc(Boolean(parseAddressList(message.bcc_addresses).length) || Boolean(meta.audience));
+    setDraftSavedAt(message.updated_date || message.created_date || null);
+    if (message.folder === "drafts") setFolder("drafts");
+  }
+
+  function startCompose(replyTarget, { forceNew = false } = {}) {
+    setCompose(true);
+    setSelected(null);
+    setDraftId(null);
+    setReplyToId(null);
     setShowCc(false);
     setShowBcc(false);
+    setDraftSavedAt(null);
     if (replyTarget) {
+      setReplyToId(replyTarget.id || null);
       setDraft({
         ...EMPTY_DRAFT,
         to: replyTarget.from_email || "",
@@ -409,6 +590,28 @@ export default function MailTab() {
     } else {
       setDraft(EMPTY_DRAFT);
     }
+    if (forceNew) setComposeChoiceOpen(false);
+  }
+
+  async function handleComposeClick() {
+    let drafts = savedDrafts;
+    if (!drafts.length) {
+      try {
+        const res = await stageClient.http.get("/admin-mail", { folder: "drafts", limit: 10 });
+        drafts = Array.isArray(res?.messages) ? res.messages : [];
+        setSavedDrafts(drafts);
+      } catch {
+        drafts = [];
+      }
+    }
+    if (compose && hasDraftContent(draft)) {
+      await persistDraft();
+    }
+    if (drafts.length > 0) {
+      setComposeChoiceOpen(true);
+      return;
+    }
+    startCompose(null, { forceNew: true });
   }
 
   const mailbox = status?.mailbox || "info@stageleagues.com";
@@ -430,7 +633,7 @@ export default function MailTab() {
           </div>
 
           <div className="p-3">
-            <Button type="button" size="sm" className="w-full justify-start gap-2" onClick={() => startCompose(null)}>
+            <Button type="button" size="sm" className="w-full justify-start gap-2" onClick={() => void handleComposeClick()}>
               <MailPlus className="h-4 w-4" />
               {t("admin.mail.compose")}
             </Button>
@@ -441,7 +644,7 @@ export default function MailTab() {
               <button
                 key={id}
                 type="button"
-                onClick={() => { setFolder(id); closeCompose(); setSelected(null); }}
+                onClick={() => { void saveAndLeaveCompose(); setFolder(id); setSelected(null); }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors",
                   folder === id && !compose ? "bg-primary/12 text-primary font-medium" : "text-foreground hover:bg-muted/50",
@@ -454,6 +657,11 @@ export default function MailTab() {
                 {id === "inbox" && unreadInbox > 0 && (
                   <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
                     {unreadInbox}
+                  </span>
+                )}
+                {id === "drafts" && draftCount > 0 && (
+                  <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold text-foreground">
+                    {draftCount}
                   </span>
                 )}
               </button>
@@ -472,7 +680,7 @@ export default function MailTab() {
             setDraft={setDraft}
             sending={sending}
             onSend={() => void sendMail()}
-            onDiscard={closeCompose}
+            onDiscard={() => void closeCompose({ discardDraft: true })}
             onOpenMerge={() => setMergeOpen(true)}
             audienceLabel={audience?.label ? `${audience.label} (${audience.count || 0})` : ""}
             showCc={showCc}
@@ -480,6 +688,8 @@ export default function MailTab() {
             showBcc={showBcc}
             setShowBcc={setShowBcc}
             setAudience={setAudience}
+            draftSavedAt={draftSavedAt}
+            draftSaving={draftSaving}
             t={t}
           />
         ) : (
@@ -536,10 +746,12 @@ export default function MailTab() {
                       )}
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <p className={cn("truncate text-sm", !message.is_read && "font-semibold")}>{displayFrom(message)}</p>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{formatWhen(message.received_at || message.created_date)}</span>
+                        <p className={cn("truncate text-sm", !message.is_read && message.folder === "inbox" && "font-semibold")}>
+                          {listPrimaryLine(message, folder, t)}
+                        </p>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{formatWhen(message.received_at || message.updated_date || message.created_date)}</span>
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">{message.subject || t("admin.mail.noSubject")}</p>
+                      <p className="truncate text-xs text-muted-foreground">{listSecondaryLine(message, folder, t)}</p>
                     </button>
                   ))
                 )}
@@ -554,14 +766,19 @@ export default function MailTab() {
                     <div className="min-w-0">
                       <h3 className="truncate text-base font-semibold">{selected.subject || t("admin.mail.noSubject")}</h3>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {selected.direction === "out" ? t("admin.mail.toLabel") : t("admin.mail.fromLabel")}
+                        {selected.direction === "in" ? t("admin.mail.fromLabel") : t("admin.mail.toLabel")}
                         {" "}
-                        {displayFrom(selected)}
+                        {selected.folder === "drafts" ? recipientSummary(selected, t) : displayFrom(selected)}
                         {" · "}
-                        {formatWhen(selected.received_at || selected.created_date)}
+                        {formatWhen(selected.received_at || selected.updated_date || selected.created_date)}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
+                      {selected.folder === "drafts" && (
+                        <Button type="button" size="sm" onClick={() => openDraft(selected)}>
+                          {t("admin.mail.continueDraft")}
+                        </Button>
+                      )}
                       {selected.direction === "in" && selected.folder !== "trash" && (
                         <Button type="button" size="sm" variant="ghost" onClick={() => startCompose(selected)}>
                           {t("admin.mail.reply")}
@@ -584,6 +801,7 @@ export default function MailTab() {
                       )}
                     </div>
                   </div>
+                  <MessageRecipients message={selected} t={t} />
                   <div className="flex-1 overflow-y-auto p-4">
                     {selected.body_html ? (
                       <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: selected.body_html }} />
@@ -607,6 +825,21 @@ export default function MailTab() {
         open={mergeOpen}
         onOpenChange={setMergeOpen}
         onApply={applyMailMerge}
+      />
+
+      <MailComposeChoiceDialog
+        open={composeChoiceOpen}
+        onOpenChange={setComposeChoiceOpen}
+        drafts={savedDrafts}
+        onContinueDraft={(row) => {
+          setComposeChoiceOpen(false);
+          openDraft(row);
+        }}
+        onNewMessage={() => {
+          setComposeChoiceOpen(false);
+          startCompose(null, { forceNew: true });
+        }}
+        t={t}
       />
     </div>
   );

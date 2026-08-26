@@ -16,6 +16,12 @@ class AdminMailMessage {
     this.cc_addresses = body.cc_addresses
       ? (typeof body.cc_addresses === 'string' ? body.cc_addresses : JSON.stringify(body.cc_addresses))
       : null;
+    this.bcc_addresses = body.bcc_addresses
+      ? (typeof body.bcc_addresses === 'string' ? body.bcc_addresses : JSON.stringify(body.bcc_addresses))
+      : null;
+    this.draft_meta = body.draft_meta
+      ? (typeof body.draft_meta === 'string' ? body.draft_meta : JSON.stringify(body.draft_meta))
+      : null;
     this.subject = body.subject || null;
     this.body_text = body.body_text || null;
     this.body_html = body.body_html || null;
@@ -28,9 +34,13 @@ class AdminMailMessage {
     this.received_at = body.received_at || null;
   }
 
-  static selectAll({ folder = 'inbox', search = '', limit = 50, offset = 0 } = {}) {
+  static selectAll({ folder = 'inbox', search = '', limit = 50, offset = 0, adminUserId = null } = {}) {
     const params = [folder];
     let sql = 'SELECT * FROM admin_mail_messages WHERE folder = ?';
+    if (adminUserId && folder === 'drafts') {
+      sql += ' AND admin_user_id = ?';
+      params.push(adminUserId);
+    }
     const q = String(search || '').trim();
     if (q) {
       sql += ' AND (subject LIKE ? OR from_email LIKE ? OR to_email LIKE ? OR body_text LIKE ?)';
@@ -42,9 +52,13 @@ class AdminMailMessage {
     return EXECUTESQL(sql, params);
   }
 
-  static count({ folder = 'inbox', search = '' } = {}) {
+  static count({ folder = 'inbox', search = '', adminUserId = null } = {}) {
     const params = [folder];
     let sql = 'SELECT COUNT(*) AS total FROM admin_mail_messages WHERE folder = ?';
+    if (adminUserId && folder === 'drafts') {
+      sql += ' AND admin_user_id = ?';
+      params.push(adminUserId);
+    }
     const q = String(search || '').trim();
     if (q) {
       sql += ' AND (subject LIKE ? OR from_email LIKE ? OR to_email LIKE ? OR body_text LIKE ?)';
@@ -75,13 +89,14 @@ class AdminMailMessage {
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO admin_mail_messages
-      (id, direction, folder, mailbox, from_email, from_name, to_email, to_addresses, cc_addresses,
-       subject, body_text, body_html, is_read, external_uid, external_message_id, in_reply_to,
+      (id, direction, folder, mailbox, from_email, from_name, to_email, to_addresses, cc_addresses, bcc_addresses,
+       draft_meta, subject, body_text, body_html, is_read, external_uid, external_message_id, in_reply_to,
        admin_user_id, admin_email, received_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.direction, this.folder, this.mailbox,
       this.from_email, this.from_name, this.to_email, this.to_addresses, this.cc_addresses,
+      this.bcc_addresses, this.draft_meta,
       this.subject, this.body_text, this.body_html, this.is_read,
       this.external_uid, this.external_message_id, this.in_reply_to,
       this.admin_user_id, this.admin_email, this.received_at,
@@ -94,7 +109,8 @@ class AdminMailMessage {
     const params = [];
     const allowed = [
       'folder', 'is_read', 'subject', 'body_text', 'body_html',
-      'from_email', 'from_name', 'to_email', 'to_addresses', 'cc_addresses',
+      'from_email', 'from_name', 'to_email', 'to_addresses', 'cc_addresses', 'bcc_addresses', 'draft_meta',
+      'in_reply_to',
     ];
     for (const key of allowed) {
       if (data[key] !== undefined) {

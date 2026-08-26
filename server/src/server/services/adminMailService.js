@@ -16,14 +16,15 @@ function parseJson(value, fallback = []) {
   return fallback;
 }
 
-async function listMessages(query = {}) {
+async function listMessages(query = {}, adminUserId = null) {
   const folder = String(query.folder || 'inbox');
   const limit = Math.min(200, Math.max(1, Number(query.limit) || 50));
   const offset = Math.max(0, Number(query.offset) || 0);
   const search = String(query.search || '').trim();
+  const listOpts = { folder, search, limit, offset, adminUserId: folder === 'drafts' ? adminUserId : null };
   const [rows, countRows, unreadRows] = await Promise.all([
-    AdminMailMessage.selectAll({ folder, search, limit, offset }),
-    AdminMailMessage.count({ folder, search }),
+    AdminMailMessage.selectAll(listOpts),
+    AdminMailMessage.count(listOpts),
     AdminMailMessage.unreadCount(folder),
   ]);
   return {
@@ -109,8 +110,98 @@ function parseEmailList(value) {
     .filter((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && !v.endsWith('@stage.local') && !v.endsWith('@stage.invalid'));
 }
 
+function draftHasContent({ to, cc, bcc, subject, body }) {
+  return Boolean(
+    String(to || '').trim()
+    || String(cc || '').trim()
+    || String(bcc || '').trim()
+    || String(subject || '').trim()
+    || String(body || '').trim(),
+  );
+}
+
+async function saveDraft(admin, payload = {}) {
+  const {
+    id, to, cc, bcc, subject, body, audience, replyToId,
+  } = payload;
+  if (!draftHasContent({ to, cc, bcc, subject, body })) {
+    const err = new Error('Draft is empty');
+    err.status = 400;
+    throw err;
+  }
+
+  const toList = parseEmailList(to);
+  const ccList = parseEmailList(cc);
+  const bccList = parseEmailList(bcc);
+  const draftMeta = audience ? JSON.stringify({ audience }) : null;
+  const displayTo = toList.join(', ') || (bccList.length ? `${bccList.length} recipients` : '');
+
+  if (id) {
+    const existing = await getMessage(id);
+    if (!existing || existing.folder !== 'drafts') {
+      const err = new Error('Draft not found');
+      err.status = 404;
+      throw err;
+    }
+    if (existing.admin_user_id && existing.admin_user_id !== admin.id) {
+      const err = new Error('Draft not found');
+      err.status = 404;
+      throw err;
+    }
+    await AdminMailMessage.update(id, {
+      to_email: displayTo || null,
+      to_addresses: toList.length ? JSON.stringify(toList) : null,
+      cc_addresses: ccList.length ? JSON.stringify(ccList) : null,
+      bcc_addresses: bccList.length ? JSON.stringify(bccList) : null,
+      draft_meta: draftMeta,
+      subject: String(subject || '').trim() || null,
+      body_text: String(body || ''),
+      in_reply_to: replyToId || existing.in_reply_to || null,
+    });
+    return getMessage(id);
+  }
+
+  const row = new AdminMailMessage({
+    direction: 'out',
+    folder: 'drafts',
+    mailbox: mailboxAddress() || null,
+    from_email: admin.email,
+    from_name: 'STAGE Admin',
+    to_email: displayTo || null,
+    to_addresses: toList.length ? JSON.stringify(toList) : null,
+    cc_addresses: ccList.length ? JSON.stringify(ccList) : null,
+    bcc_addresses: bccList.length ? JSON.stringify(bccList) : null,
+    draft_meta: draftMeta,
+    subject: String(subject || '').trim() || null,
+    body_text: String(body || ''),
+    is_read: 1,
+    in_reply_to: replyToId || null,
+    admin_user_id: admin.id,
+    admin_email: admin.email,
+    received_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  });
+  await row.create();
+  return getMessage(row.id);
+}
+
+async function deleteDraft(admin, id) {
+  const existing = await getMessage(id);
+  if (!existing || existing.folder !== 'drafts') {
+    const err = new Error('Draft not found');
+    err.status = 404;
+    throw err;
+  }
+  if (existing.admin_user_id && existing.admin_user_id !== admin.id) {
+    const err = new Error('Draft not found');
+    err.status = 404;
+    throw err;
+  }
+  await AdminMailMessage.delete(id);
+  return { ok: true, id };
+}
+
 async function sendMessage({
-  admin, to, cc, bcc, subject, body, replyToId, audience,
+  admin, to, cc, bcc, subject, body, replyToId, audience, draftId,
 }) {
   if (!smtpConfigured()) {
     const err = new Error('SMTP is not configured');
@@ -178,6 +269,7 @@ async function sendMessage({
     to_email: displayTo,
     to_addresses: JSON.stringify(bccList.length && !toList.length ? bccList : (toList.length ? toList : [primaryTo])),
     cc_addresses: ccList.length ? JSON.stringify(ccList) : null,
+    bcc_addresses: bccList.length ? JSON.stringify(bccList) : null,
     subject: String(subject || '').trim() || '(no subject)',
     body_text: bodyText,
     body_html: html,
@@ -191,9 +283,12 @@ async function sendMessage({
   await writeAudit(admin, bccList.length ? 'admin_mail_bulk_send' : 'admin_mail_send', row.id, {
     to: displayTo,
     subject: row.subject,
-    recipient_count: bccList.length || 1,
+    recipient_count: bccList.length || toList.length || 1,
     audience: audience || null,
   });
+  if (draftId) {
+    await deleteDraft(admin, draftId).catch(() => {});
+  }
   return getMessage(row.id);
 }
 
@@ -255,6 +350,9 @@ module.exports = {
   moveToTrash,
   deletePermanently,
   emptyTrash,
+  saveDraft,
+  deleteDraft,
+  draftHasContent,
   sendMessage,
   syncInbox,
   parseJson,
