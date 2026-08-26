@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import MailMergeDialog from "@/components/admin/sections/MailMergeDialog";
 import MailComposeChoiceDialog from "@/components/admin/sections/MailComposeChoiceDialog";
+import MailDetailPane from "@/components/admin/sections/MailDetailPane";
 import MailRecipientInput from "@/components/admin/sections/MailRecipientInput";
 import {
   hasDraftContent,
@@ -94,34 +95,6 @@ function listSecondaryLine(message, folder, t) {
     return `${t("admin.mail.toLabel")} ${recipientSummary(message, t)}`;
   }
   return message.subject || t("admin.mail.noSubject");
-}
-
-function MessageRecipients({ message, t }) {
-  const { to, cc, bcc } = messageRecipients(message);
-  const rows = [
-    to.length ? { label: t("admin.mail.toPlaceholder"), emails: to } : null,
-    cc.length ? { label: t("admin.mail.cc"), emails: cc } : null,
-    bcc.length ? { label: t("admin.mail.bcc"), emails: bcc } : null,
-  ].filter(Boolean);
-
-  if (!rows.length) return null;
-
-  return (
-    <div className="space-y-2 border-b border-border px-4 py-3">
-      {rows.map((row) => (
-        <div key={row.label} className="text-xs">
-          <span className="font-medium text-muted-foreground">{row.label}</span>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {row.emails.map((email) => (
-              <span key={email} className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] text-foreground">
-                {email}
-              </span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function OutlookFieldRow({ label, children, actions }) {
@@ -571,7 +544,34 @@ export default function MailTab() {
     if (message.folder === "drafts") setFolder("drafts");
   }
 
-  function startCompose(replyTarget, { forceNew = false } = {}) {
+  function startReply(target) {
+    startCompose(target, { mode: "reply" });
+  }
+
+  function startReplyAll(target) {
+    const { to, cc } = messageRecipients(target);
+    const self = String(mailbox || "").trim().toLowerCase();
+    const recipients = [...new Set(
+      [target.from_email, ...to, ...cc]
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter((email) => email && email !== self),
+    )];
+    setCompose(true);
+    setSelected(null);
+    setDraftId(null);
+    setReplyToId(target.id || null);
+    setShowCc(false);
+    setShowBcc(false);
+    setDraftSavedAt(null);
+    setDraft({
+      ...EMPTY_DRAFT,
+      to: recipients.join(", "),
+      subject: target.subject?.startsWith("Re:") ? target.subject : `Re: ${target.subject || ""}`,
+      body: `\n\n---\n${target.body_text || ""}`.trim(),
+    });
+  }
+
+  function startForward(target) {
     setCompose(true);
     setSelected(null);
     setDraftId(null);
@@ -579,7 +579,30 @@ export default function MailTab() {
     setShowCc(false);
     setShowBcc(false);
     setDraftSavedAt(null);
-    if (replyTarget) {
+    setDraft({
+      ...EMPTY_DRAFT,
+      subject: target.subject?.startsWith("Fwd:") ? target.subject : `Fwd: ${target.subject || ""}`,
+      body: [
+        "",
+        "---------- Forwarded message ----------",
+        `From: ${target.from_name || target.from_email || "—"}`,
+        `Date: ${formatWhen(target.received_at || target.created_date)}`,
+        `Subject: ${target.subject || ""}`,
+        "",
+        target.body_text || "",
+      ].join("\n").trim(),
+    });
+  }
+
+  function startCompose(replyTarget, { forceNew = false, mode = "new" } = {}) {
+    setCompose(true);
+    setSelected(null);
+    setDraftId(null);
+    setReplyToId(null);
+    setShowCc(false);
+    setShowBcc(false);
+    setDraftSavedAt(null);
+    if (mode === "reply" && replyTarget) {
       setReplyToId(replyTarget.id || null);
       setDraft({
         ...EMPTY_DRAFT,
@@ -761,55 +784,21 @@ export default function MailTab() {
             {/* Reading pane */}
             <section className="flex min-h-[280px] flex-col bg-background">
               {selected ? (
-                <div className="flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold">{selected.subject || t("admin.mail.noSubject")}</h3>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {selected.direction === "in" ? t("admin.mail.fromLabel") : t("admin.mail.toLabel")}
-                        {" "}
-                        {selected.folder === "drafts" ? recipientSummary(selected, t) : displayFrom(selected)}
-                        {" · "}
-                        {formatWhen(selected.received_at || selected.updated_date || selected.created_date)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      {selected.folder === "drafts" && (
-                        <Button type="button" size="sm" onClick={() => openDraft(selected)}>
-                          {t("admin.mail.continueDraft")}
-                        </Button>
-                      )}
-                      {selected.direction === "in" && selected.folder !== "trash" && (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => startCompose(selected)}>
-                          {t("admin.mail.reply")}
-                        </Button>
-                      )}
-                      {selected.folder !== "trash" ? (
-                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => void trashMessage(selected.id)} title={t("admin.mail.moveToTrash")}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={purging}
-                          onClick={() => void deletePermanent(selected.id)}
-                        >
-                          {purging ? <Loader2 className="h-4 w-4 animate-spin" /> : t("admin.mail.deletePermanent")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <MessageRecipients message={selected} t={t} />
-                  <div className="flex-1 overflow-y-auto p-4">
-                    {selected.body_html ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: selected.body_html }} />
-                    ) : (
-                      <pre className="whitespace-pre-wrap font-sans text-sm">{selected.body_text || t("admin.mail.emptyBody")}</pre>
-                    )}
-                  </div>
-                </div>
+                <MailDetailPane
+                  message={selected}
+                  mailbox={mailbox}
+                  messages={messages}
+                  purging={purging}
+                  t={t}
+                  onClose={() => setSelected(null)}
+                  onReply={startReply}
+                  onReplyAll={startReplyAll}
+                  onForward={startForward}
+                  onContinueDraft={openDraft}
+                  onTrash={(id) => void trashMessage(id)}
+                  onDeletePermanent={(id) => void deletePermanent(id)}
+                  onSelectMessage={(message) => void openMessage(message)}
+                />
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-muted-foreground">
                   <Inbox className="h-8 w-8 opacity-30" />

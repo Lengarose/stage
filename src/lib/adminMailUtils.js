@@ -47,3 +47,24 @@ export function hasDraftContent(draft) {
 export function joinAddressList(values) {
   return values.join(", ");
 }
+
+export function avatarColor(seed = "") {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  const hues = [210, 24, 140, 280, 45, 190, 330];
+  return hues[Math.abs(hash) % hues.length];
+}
+
+export function formatMailDetailWhen(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
