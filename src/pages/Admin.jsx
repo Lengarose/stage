@@ -20,6 +20,7 @@ import AnalyticsTab from "@/components/admin/sections/AnalyticsTab";
 import StoreTab from "@/components/admin/sections/StoreTab";
 import IdentityRepairTab from "@/components/admin/sections/IdentityRepairTab";
 import MatchArchiveTab from "@/components/admin/sections/MatchArchiveTab";
+import MailTab from "@/components/admin/sections/MailTab";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AdminGamerLayout from "@/components/admin/AdminGamerUI";
 import "@/styles/admin-gamer-theme.css";
@@ -1795,6 +1796,10 @@ export default function Admin(props) {
           {adminTab === "match-archive" && (
             <MatchArchiveTab />
           )}
+
+          {adminTab === "mail" && (
+            <MailTab />
+          )}
     </>
   );
 
@@ -2540,6 +2545,7 @@ export default function Admin(props) {
         identityClaims={identityClaims}
         loading={loading}
         onRefresh={loadAll}
+        minimalChrome={adminTab === "mail"}
       >
         {sectionContent}
       </AdminGamerLayout>

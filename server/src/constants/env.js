@@ -75,6 +75,9 @@ const ENV = {
   SMTP_USER: 'info@stageleagues.com',   // Gandi mailbox used to send
   SMTP_PASS: '',                        // that mailbox's password — set in env.local.js
   MAIL_FROM: 'STAGE  <info@stageleagues.com>',
+  // Inbound admin mail (IMAP) — defaults to the same Gandi host as SMTP.
+  IMAP_HOST: 'mail.gandi.net',
+  IMAP_PORT: '993',
 
   // ── OneSignal push ────────────────────────────────────────────
   // Same App ID as EXPO_PUBLIC_ONESIGNAL_APP_ID / VITE_ONESIGNAL_APP_ID.

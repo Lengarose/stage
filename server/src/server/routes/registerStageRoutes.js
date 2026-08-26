@@ -88,6 +88,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/rankings', verifyToken, require('../controllers/rankingController'));
   app.use('/api/stage/admin-analytics', verifyToken, require('../controllers/adminAnalyticsController'));
   app.use('/api/stage/match-archive', verifyToken, require('../controllers/matchArchiveController'));
+  app.use('/api/stage/admin-mail', verifyToken, require('../controllers/adminMailController'));
   app.use('/api/stage/club-applicants', verifyToken, require('../controllers/clubApplicantController'));
   app.use('/api/stage/club-memberships', verifyToken, require('../controllers/clubMembershipController'));
   app.use('/api/stage/club-staff-roles', verifyToken, require('../controllers/clubStaffRoleController'));
